@@ -7,7 +7,7 @@
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import type { View } from '../../client'
-import { prefillComposer } from '../../ViewChat'
+import { challengeIdea, prefillComposer } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import { challengeQuestionOf, developQuestionOf, ideaMethodOf, ideaSourceSaidOf, keptIdeasOf, type KeptIdea } from '../ideas'
 import { IDEA_PREFIX } from './bands'
@@ -33,6 +33,8 @@ export function IdeaPanel(): JSX.Element | null {
   const idea = view === null || nodeId === null ? undefined : keptIdeasOf(view).find((i) => IDEA_PREFIX + i.id === nodeId)
   if (view === null || nodeId === null || idea === undefined) return null
   const { source, method, keeper } = ideaDetailOf(view, idea)
+  // An idea kept on an approved model is a record of it (core's strategy item): Challenge runs core's typed challenge on it (UI-E). A `kept:` row is not.
+  const onModel = !idea.id.startsWith('kept:') && view.version !== null
   const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
@@ -47,7 +49,8 @@ export function IdeaPanel(): JSX.Element | null {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className={ask} data-testid="view-idea-develop" onClick={() => prefillComposer(developQuestionOf(idea))}>{DEVELOP_IDEA}</button>
-        <button type="button" className={ask} data-testid="view-idea-challenge" onClick={() => prefillComposer(challengeQuestionOf(idea))}>{CHALLENGE_IDEA}</button>
+        <button type="button" className={ask} data-testid="view-idea-challenge" data-typed={onModel ? 'true' : undefined}
+          onClick={() => (onModel ? challengeIdea(idea.id, challengeQuestionOf(idea)) : prefillComposer(challengeQuestionOf(idea)))}>{CHALLENGE_IDEA}</button>
         <button type="button" className={`${ask} ml-auto border-transparent text-text-light`} data-testid="view-idea-close"
           onClick={() => useCanvasStore.getState().onNodesChange([{ type: 'select', id: nodeId, selected: false }])}>{CLOSE_IDEA}</button>
       </div>

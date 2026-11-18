@@ -1326,6 +1326,16 @@ function challengeCard(kind: ChallengeKind, record: string): void {
   focusNodeById(record)
 }
 /**
+ * "Challenge this idea" on an idea kept ON the model (a record of its form: menu brief UI-E, 18 Nov): core's typed challenge on that record,
+ * the opposite case. Its words return to the box only if it is not sent. An idea kept before approval (a `kept:` row) has no record: the panel
+ * puts its question in the box instead.
+ */
+export function challengeIdea(record: string, words: string): void {
+  if (keptWhileBusy(words)) return
+  void challenge('opposite', record, words).then(keptIfNotSent(words))
+}
+
+/**
  * A press on one of the composer's four challenge icons (menu brief UI-A, 18 Nov). They used to paste a prefix into the box, which nothing
  * read. Now: words already typed are still the person's own subject (the prefix goes before them, as before, and they send it); with an
  * empty box the challenge is core's typed one on the selected card, or (no single card selected) it waits for the next card picked. A

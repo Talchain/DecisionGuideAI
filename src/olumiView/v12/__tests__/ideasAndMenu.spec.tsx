@@ -15,6 +15,10 @@ import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
 import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
 import { ActionsMenu, placeMenu } from '../actionsMenu'
+import { IdeaPanel } from '../bands/IdeaPanel'
+import { IDEA_PREFIX } from '../bands/bands'
+import { VIEW_IDEA } from '../bands/BandNodes'
+import { useCanvasStore } from '../../../canvas/store'
 import type { Menu } from '../actions'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
@@ -64,6 +68,26 @@ describe('keepIdea', () => {
     expect(ideas.at(-1)).toEqual({ id: 'kept:41', text: 'Phone booked visitors first.', olumis: true, sourceTurn: '14', keptBy: { id: '10', name: 'Sam' } })
     const twice = { ...v, kept, strategy: { items: [{ kind: 'idea', id: 'idea_1', text: 'Phone booked visitors first.', by_id: 'olumi', source_turn: 14 }] } } as unknown as View
     expect(keptIdeasOf(twice).filter((i) => i.text === 'Phone booked visitors first.')).toHaveLength(1)
+  })
+  it('UI-E (18 Nov): "Challenge this idea" on an idea kept on the model runs core\'s typed challenge on THAT record and types nothing. CONTRAST: an idea kept before approval (kept: row) puts its question in the box and sends nothing', async () => {
+    const v = fixture('after-find-first')
+    const kept = [{ id: 41, turn: 14, text: 'Ring the two biggest customers.', by: 'olumi', kept_by: null, at: '2026-11-16T12:00:00Z', concerns: [] }]
+    const view = { ...v, kept, strategy: { items: [{ kind: 'idea', id: 'idea_1', text: 'Phone booked visitors first.', by_id: 'olumi', source_turn: 14 }] } } as unknown as View
+    core(() => view, () => new Response(JSON.stringify({ job: 9, status_url: null }), { status: 202 }))
+    show(view)
+    const open = (id: string) => useCanvasStore.setState({ nodes: [{ id: IDEA_PREFIX + id, type: VIEW_IDEA, selected: true, position: { x: 0, y: 0 }, data: {} }] } as never)
+    open('idea_1')
+    const c = render(<IdeaPanel />).container
+    await press(c.querySelector('[data-testid="view-idea-challenge"]')!)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect([posts[0]!.url, posts[0]!.body['kind'], posts[0]!.body['record'], useViewChat.getState().text]).toEqual([`/api/scenarios/${SID}/challenge`, 'opposite', 'idea_1', ''])
+    await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
+    cleanup(); posts = []
+    open('kept:41')
+    const k = render(<IdeaPanel />).container
+    await press(k.querySelector('[data-testid="view-idea-challenge"]')!)
+    expect([posts.length, useViewChat.getState().text]).toEqual([0, 'What would challenge this idea? “Ring the two biggest customers.”'])
+    useCanvasStore.setState({ nodes: [] } as never)
   })
   it('a repeat of the same press after a failure reuses its op, so core keeps it once; a different idea has a different op', async () => {
     core(() => fixture('after-find-first'), () => new Response(JSON.stringify({ error: 'x' }), { status: 503 }))
@@ -169,7 +193,10 @@ describe('the ⋯ menu in the composer', () => {
     show({ ...v, model: { ...v.model!, run: { ...v.model!.run!, aim: null } } })
     const c = tab()
     await press(c.querySelector('[data-testid="view-actions-button"]')!)
-    expect(c.querySelector('[data-method="differ"] [data-testid="view-method-prerequisite"]')).not.toBeNull()
+    // 18 Nov (menu review): only what core calculates says it needs an analysis: "rests" does; "differ" (not grounded yet) and a qualitative
+    // question do not.
+    expect(c.querySelector('[data-method="rests"] [data-testid="view-method-prerequisite"]')).not.toBeNull()
+    expect(c.querySelector('[data-method="differ"] [data-testid="view-method-prerequisite"]')).toBeNull()
     expect(c.querySelector('[data-method="else_do"] [data-testid="view-method-prerequisite"]')).toBeNull()
   })
   it('"Review all inputs" opens the Model tab; "Your brief" opens the brief where it is held; neither writes', async () => {
