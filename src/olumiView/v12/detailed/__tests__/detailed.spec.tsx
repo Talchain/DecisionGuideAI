@@ -18,7 +18,7 @@ import { CoreCard } from '../../../previous/CoreCard'
 import { QUESTION } from '../../../layout'
 import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { optionLetters } from '../../cards/letters'
-import { noChanceLineOf } from '../../cards/words'
+import { noChanceLineOf, fixedParts } from '../../cards/words'
 import { ROW_WORDS_MAX } from '../marks'
 import { figureRange } from '../../contract'
 import { driverChances } from '../../scale'
@@ -128,6 +128,24 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(wideOf(saying({ [A]: '60% chance, if capacity is available' }))).toEqual([true, true])
     expect(wideOf(HIRING)).toEqual([false, false])
     expect(wideOf(saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if capacity is available', [C]: '10% chance, if capacity is available' }))).toEqual([false, false])
+  })
+  it('DT4c a fixed result leads and its condition is a quiet line of its own, whole, on the rail and on the option\'s card; long words go under the lane (26-card first model, 18 Nov). CONTRASTS: a fixed result with no condition is whole and not stacked; a short condition is not stacked', () => {
+    const C = 'reallocate_a_developer_day_each_week_to_technical_leadership'
+    const COND = "if Olumi's proposed links from 'Patients accepting a therapist' to 'Shorten the new-patient waiting list' and from 'Free surgery on the new hire's days' to 'Shorten the new-patient waiting list' have no effect"
+    const fixedSaying = (text: string): View => withCard(HIRING, { ...cardOf(HIRING, C), headline: { ...cardOf(HIRING, C).headline!, state: 'fixed', text } } as ViewCard)
+    const read = (v: View) => {
+      const row = draw(v, QUESTION).querySelector<HTMLElement>(`[data-detailed-rail] [data-rail-row="${C}"]`)!
+      const rail = [row.hasAttribute('data-rail-stack'), row.querySelector(`[data-view="${C}.headline.text"]`)?.textContent, row.querySelector('[data-rail-qualifier]')?.textContent ?? null]
+      cleanup()
+      const face = faceOf(draw(v, C), C)
+      const card = [face.querySelector('.ok-fixed')?.textContent, face.querySelector(`[data-view="${C}.headline.condition"]`)?.textContent ?? null]
+      cleanup()
+      return { rail, card }
+    }
+    expect(read(fixedSaying(`never met in this model ${COND}`))).toEqual({ rail: [true, `never met in this model ${COND}`, ` ${COND}`], card: ['never met in this model', COND] })
+    expect(read(fixedSaying('never met in this model'))).toEqual({ rail: [false, 'never met in this model', null], card: ['never met in this model', null] })
+    expect(read(fixedSaying('always met in this model if X holds'))).toEqual({ rail: [false, 'always met in this model if X holds', ' if X holds'], card: ['always met in this model', 'if X holds'] })
+    expect([fixedParts('about 9% chance'), fixedParts('never met in this modelling')]).toEqual([{ head: 'about 9% chance', condition: null }, { head: 'never met in this modelling', condition: null }])
   })
   it('DT5 saidOnceOf puts a shared line on the aim\'s card when the aim is on the board. CONTRAST: an aim id no card carries says it on the question', () => {
     const s = saidOnceOf(ASKED.model!)

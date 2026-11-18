@@ -16,12 +16,14 @@ import { useViewStore } from '../../store'
 import { chanceRailOf, type RailChallenge } from '../../railRows'
 import { toggleBadge } from '../../Badge'
 import { optionLetters } from '../cards/letters'
-import { chanceParts } from '../cards/words'
+import { chanceParts, fixedParts } from '../cards/words'
 import { bandAxisOf, bandRowsOf } from '../SimpleFace'
 import { withheldValues } from '../contract'
 
 /** The longest result words the rail's narrow words column holds on one line ('about 23% chance'); longer words widen the column. */
 const RAIL_WORDS_NARROW = 20
+/** Past this many characters a row's number-and-condition is drawn under its lane, across the rail, not in the words column. */
+const RAIL_WORDS_STACK = 60
 
 const letterOf = (letters: ReadonlyMap<string, string>, id: string) => letters.get(id) ?? '·'
 
@@ -42,17 +44,21 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
   const lanes = [...rail.rows.map((r) => ({ ...r, on: true as const })), ...rail.rest.map((r) => ({ ...r, on: false as const }))].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
   // Layout only (Codex 13:27Z, Detailed at 1232): where a result's words are longer than a number ("never met in this model if …", a row's own
   // condition), the words column widens for every row together, so the lanes stay aligned and the words wrap in three lines rather than nine.
-  const wide = rail.rows.some((r) => (qualifier === null ? r.text : chanceParts(r.text).head).length > RAIL_WORDS_NARROW)
+  const wide = rail.rows.some((r) => { const n = (qualifier === null ? r.text : chanceParts(r.text).head).length; return n > RAIL_WORDS_NARROW && n <= RAIL_WORDS_STACK })
   return (
     <div className={`ok-dt-rail nodrag${wide ? ' ok-dt-rail-wide' : ''}`} data-chance-rail="" data-detailed-rail="" data-rail-wide={wide ? '' : undefined}>
       <div className="ok-dt-rail-axis" aria-hidden="true">{[0, 25, 50, 75, 100].map((t) => <i key={t} style={{ left: `${t}%` }} />)}</div>
       {lanes.map((l) => {
         // Core's line is drawn whole: its number, then its own condition in the quiet ink (both are slices of core's string, nothing re-joined).
         // The number alone only where the one condition every row shares is said once under the rail (`qualifier`).
-        const parts = chanceParts(l.text), tail = parts.qualifier === null ? '' : l.text.slice(parts.head.length)
-        const words = !l.on ? l.text : qualifier !== null || tail === '' ? parts.head : <>{parts.head}<span className="ok-dt-quiet" data-rail-qualifier={l.id}>{tail}</span></>
+        // A fixed result's condition is the same kind of tail (words.ts fixedParts): "never met in this model", then " if …" in the quiet ink.
+        const parts = chanceParts(l.text), fx = fixedParts(l.text), head = parts.qualifier !== null ? parts.head : fx.head
+        const tail = l.text.slice(head.length)
+        const words = !l.on ? l.text : (qualifier !== null && parts.qualifier !== null) || tail === '' ? head : <>{head}<span className="ok-dt-quiet" data-rail-qualifier={l.id}>{tail}</span></>
+        // Layout only: words too long for the words column go under the lane across the rail's width (the lane keeps its place on the axis).
+        const stack = l.on && typeof words !== 'string' && l.text.length > RAIL_WORDS_STACK
         return (
-          <div key={l.id} className="ok-dt-rail-row" data-rail-row={l.id} title={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
+          <div key={l.id} className={`ok-dt-rail-row${stack ? ' ok-dt-rail-stack' : ''}`} data-rail-stack={stack ? '' : undefined} data-rail-row={l.id} title={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
             <span className="ok-letter" data-letter-chip={letterOf(letters, l.id)}>{letterOf(letters, l.id)}</span>
             {l.on ? (
               <span className="ok-dt-rail-lane" role="img" aria-label={`${l.name}: ${l.text}`} data-rail-lane={l.id}>

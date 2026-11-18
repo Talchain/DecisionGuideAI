@@ -49,6 +49,18 @@ export function chanceParts(text: string): { head: string; qualifier: string | n
   return cut > 0 && text.slice(0, cut).endsWith(' chance') ? { head: text.slice(0, cut), qualifier: text.slice(cut + 2) } : { head: text, qualifier: null }
 }
 
+/** A result the model's figures fix, in core's one vocabulary (olumi-core src/words/science.ts `fixedMet`, read at 66f33c7e). */
+export const FIXED_MET = ['never met in this model', 'always met in this model'] as const
+/**
+ * A fixed result's line is core's `fixedMet` words, then (where it holds only on a condition) the condition after a space ("never met in this
+ * model if 'X' and 'Y' do not happen"). The result is the head; the condition is the rest, whole, drawn as its own quiet line so a long condition
+ * never reads at headline size. Picked by core's own line shape, as `chanceParts` is; a line not in that shape is whole. No word is dropped.
+ */
+export function fixedParts(text: string): { head: string; condition: string | null } {
+  const head = FIXED_MET.find((f) => text.startsWith(`${f} `) && text.length > f.length + 1)
+  return head === undefined ? { head: text, condition: null } : { head, condition: text.slice(head.length + 1) }
+}
+
 /** The chance row for the headline's own aim, where the option has a chance. Bound by the aim's id. */
 export function headlineChanceRow(card: ViewCard): Extract<ViewCard['rows'][number], { kind: 'chance' }> | null {
   const h = card.headline

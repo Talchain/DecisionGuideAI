@@ -54,6 +54,7 @@ import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, KindTag, LimitTag, OlumiAsksMark, OlumiMark } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
 import { chanceParts, noChanceLineOf, onceWords, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
+import { fixedParts } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
 export { withheldField, withheldWords }
@@ -360,9 +361,16 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         </div>
       )
     }
-    if (h !== null && h.state === 'fixed') return (
-      <div data-core-lead={id} data-ok-face="fixed" title={hover}><p className="ok-fixed"><span data-core-lead-clamp={id}>{h.text}</span>{trail}</p></div>
-    )
+    if (h !== null && h.state === 'fixed') {
+      // The result leads at its own size; the condition it holds on (core's words after it, whole) is its own quiet line, as a chance's qualifier is.
+      const fx = fixedParts(h.text)
+      return (
+        <div data-core-lead={id} data-ok-face="fixed" title={hover}>
+          <p className="ok-fixed"><span data-core-lead-clamp={id}>{fx.head}</span>{trail}</p>
+          {fx.condition === null ? null : <p className="ok-qual" title={fx.condition} data-view={`${id}.headline.condition`}>{fx.condition}</p>}
+        </div>
+      )
+    }
     // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (AimRows draws it); no "No chance…" line too.
     if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {

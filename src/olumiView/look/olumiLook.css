@@ -445,6 +445,9 @@
 .olumi-look .ok-dt-rail.ok-dt-rail-wide { max-width: calc(720px * var(--o-s)); }
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-row { grid-template-columns: calc(12px * var(--o-s)) minmax(calc(120px * var(--o-s)), 1fr) calc(260px * var(--o-s)); }
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-axis { right: calc(268px * var(--o-s)); }
+/* A row whose words outrun the words column: the lane keeps its place on the axis and the words go under it, across the rail (never cut). */
+.olumi-look .ok-dt-rail-stack { row-gap: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-rail-stack .ok-dt-rail-val { grid-column: 2 / -1; grid-row: 2; }
 /* Core's words on a rail row are never cut: they wrap inside their column (no nowrap, no ellipsis, no clipping box; lookRecipes.spec). */
 .olumi-look .ok-dt-rail-val { min-width: 0; font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 /* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
