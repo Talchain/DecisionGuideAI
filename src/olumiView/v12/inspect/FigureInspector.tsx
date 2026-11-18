@@ -18,7 +18,8 @@ import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { ValueRow } from './ValueRow'
 import { isOlumis } from '../lenses/layers'
 import { openWhatIf } from './whatIfFocus'
-import { movesOf, pctWords } from './whatItMoves'
+import { movesOf } from './whatItMoves'
+import { sampledChanceWords } from '../scale/chanceWords'
 
 export const INSPECTOR_WORDS = {
   moves: 'What it moves', now: 'now', ifHigh: 'if high', ifLow: 'if low', yourFigure: 'Your figure', changeOlumi: "Change to your figure (was Olumi's estimate)",
@@ -31,7 +32,7 @@ function Bar({ label, p }: { label: string; p: number }): JSX.Element {
     <div className="flex items-center gap-2" data-moves-bar={label}>
       <span className="w-12 flex-none text-text-light">{label}</span>
       <span className="relative h-1.5 flex-1 rounded-full bg-panel-border" aria-hidden="true"><span className={`absolute left-0 top-0 ${bar}`} style={{ width: `${Math.max(0, Math.min(100, p * 100))}%` }} /></span>
-      <span className={`${typography.viewPanelTabular} w-16 flex-none text-right text-text-header`}>{pctWords(p)}</span>
+      <span className={`${typography.viewPanelTabular} w-20 flex-none text-right text-text-header`}>{sampledChanceWords(p)}</span>
     </div>
   )
 }

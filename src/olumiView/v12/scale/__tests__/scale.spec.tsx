@@ -116,13 +116,13 @@ describe('ConditionalBar', () => {
   const m = load('bakery')
   it('C1 draws the chance if the driver is low and high from core\'s numbers', () => {
     render(<ConditionalBar card={card(m, 'second_oven')} view={m} />)
-    expect(screen.getByTestId('conditional-low-label').textContent).toBe('low 53%')
-    expect(screen.getByTestId('conditional-high-label').textContent).toBe('high 81%')
+    expect(screen.getByTestId('conditional-low-label').textContent).toBe('low about 53%')
+    expect(screen.getByTestId('conditional-high-label').textContent).toBe('high about 81%')
   })
-  it('C2 labels a tiny chance "<1%"', () => {
-    const c = clone(card(m, 'second_oven')); c.driver = { ...c.driver!, low: 0.004, high: 0.7 }
+  it('C2 a sampled end never reads as certain: "under 1%" and "over 99%", never "0%" or "100%" (core\'s rule)', () => {
+    const c = clone(card(m, 'second_oven')); c.driver = { ...c.driver!, low: 0.004, high: 1 }
     render(<ConditionalBar card={c} view={m} />)
-    expect(screen.getByTestId('conditional-low-label').textContent).toBe('low <1%')
+    expect([screen.getByTestId('conditional-low-label').textContent, screen.getByTestId('conditional-high-label').textContent]).toEqual(['low under 1%', 'high over 99%'])
   })
   it('C3 draws nothing when core sends no numbers', () => {
     const c = clone(card(m, 'second_oven')); c.driver = null; c.rows = c.rows.map((r) => ({ ...r, driver: null })) as never

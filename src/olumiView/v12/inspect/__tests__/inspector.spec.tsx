@@ -10,7 +10,8 @@ import { useViewLens } from '../../../lens'
 import { useViewStore } from '../../../store'
 import type { View } from '../../../client'
 import { SID, approved, install, uninstall, type Stub } from '../../edit/__tests__/harness'
-import { movesOf, pctWords } from '../whatItMoves'
+import { movesOf } from '../whatItMoves'
+import { sampledChanceWords } from '../../scale/chanceWords'
 import { useWhatIfFocus } from '../whatIfFocus'
 
 const askAI = vi.fn()
@@ -52,7 +53,9 @@ describe('What it moves', () => {
     o.rows = [{ kind: 'chance', chance: 0.5, aim_id: 'a1' } as never, { kind: 'chance', chance: 0.6, aim_id: 'a2' } as never]
     expect(movesOf(m, FIG)[0]).toMatchObject({ now: null, high: 0.9, low: 0.2 })
   })
-  it('says "under 1%" for a chance below one per cent, never a false zero', () => { expect(pctWords(0.004)).toBe('under 1%'); expect(pctWords(0.72)).toBe('72%') })
+  it('a sampled chance is worded by core\'s one rule (format.ts chanceHedge/chancePct at 66f33c7e): never "100%" or "0%". CONTRASTS: just inside each threshold says the number', () => {
+    expect([1, 0.995, 0.9949, 0.72, 0.005, 0.0049, 0].map(sampledChanceWords)).toEqual(['over 99%', 'over 99%', 'about 99%', 'about 72%', 'about 1%', 'under 1%', 'under 1%'])
+  })
   it('a figure no option moves has no What it moves section', () => { cleanup(); open('starting_customers'); expect(screen.queryByTestId('inspector-moves')).toBeNull() })
 })
 

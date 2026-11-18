@@ -5,6 +5,7 @@
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { LABEL_PX } from './axis'
+import { sampledChanceWords } from './chanceWords'
 
 const INK = 'var(--text-header)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)', OPT = 'var(--option)'
 
@@ -13,7 +14,6 @@ export function driverChances(card: ViewCard): { low: number; high: number } | n
   const d = card.driver != null && card.driver.low != null && card.driver.high != null ? { low: card.driver.low, high: card.driver.high } : row?.driver ?? null
   return d !== null && Number.isFinite(d.low) && Number.isFinite(d.high) && d.low >= 0 && d.low <= 1 && d.high >= 0 && d.high <= 1 ? { low: d.low, high: d.high } : null
 }
-const label = (p: number): string => (p < 0.01 ? '<1%' : p > 0.99 && p < 1 ? '>99%' : `${Math.round(p * 100)}%`)
 
 export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: ViewModel | null } | ViewModel | View }) {
   const d = driverChances(card)
@@ -27,8 +27,8 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
         {dot(d.low, 'conditional-low')}{dot(d.high, 'conditional-high')}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <span data-testid="conditional-low-label">low {label(d.low)}</span>
-        <span data-testid="conditional-high-label">high {label(d.high)}</span>
+        <span data-testid="conditional-low-label">low {sampledChanceWords(d.low)}</span>
+        <span data-testid="conditional-high-label">high {sampledChanceWords(d.high)}</span>
       </div>
     </div>
   )

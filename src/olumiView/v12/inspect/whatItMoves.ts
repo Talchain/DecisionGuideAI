@@ -18,6 +18,3 @@ export function movesOf(model: ViewModel, figure: string): MovesRow[] {
     return { id: o.id, option: o.heading, now: chances.length === 1 ? chances[0]! : null, high: numbers ? d.high : null, low: numbers ? d.low : null, words: d.text }
   })
 }
-
-/** A chance as the board words it: whole per cent, and "under 1%" rather than a false zero. */
-export const pctWords = (p: number): string => (p < 0.01 ? 'under 1%' : `${Math.round(p * 100)}%`)
