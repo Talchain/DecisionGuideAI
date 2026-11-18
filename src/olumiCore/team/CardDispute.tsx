@@ -45,13 +45,13 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
 }
 
 /** "Where you differ", in the card's details: core's words for each aim the difference was run for. Nothing when none is about this card. */
-export function WhereYouDiffer({ card, peek = false, open = false }: { card: string; /** The box's preview: core's sentence alone, one line. */ peek?: boolean; /** The difference mark opened these details: the fold starts open. */ open?: boolean }): JSX.Element | null {
+export function WhereYouDiffer({ card, peek = false, open = false }: { card: string; /** The box's preview: core's sentence alone, three lines of it at most (it is whole in the pinned box). */ peek?: boolean; /** The difference mark opened these details: the fold starts open. */ open?: boolean }): JSX.Element | null {
   const own = useFigureDiffers(card)
   if (own.length === 0) return null
   const said = [...new Set(own.map((d) => d.status_text))].join(' ')
   const one = own.length === 1
   if (peek) return (
-    <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" /><span className="min-w-0 break-words">{said}</span></p>
+    <p className="m-0 flex items-start gap-1.5 text-text-body" data-testid="lane-differ-line"><OkIcon id="revealed-difference" size={12} decorative className="mt-0.5" /><span className="line-clamp-3 min-w-0 break-words">{said}</span></p>
   )
   return (
     <details open={open} aria-label={ICONS['revealed-difference'].hover} className="space-y-1" data-testid="lane-differ">

@@ -718,4 +718,28 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       expect(at(box()!), 'placed afresh at its full height, the taller box stands elsewhere').not.toEqual(previewed)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
+
+  it('A-8 a preview stands where its pinned box will fit, not merely where the small preview fits: with room above for the preview only, it is placed below (where the pinned box goes), and the press does not move it', async () => {
+    // The card spans the board (no room at its sides); 200 px above it (the preview alone would fit), 400 px below (the pinned box fits), and another card stands just below it.
+    const CARD = { left: 20, top: 200, width: 860, height: 100 }, BELOW = { left: 20, top: 320, width: 300, height: 100 }, H = { peek: 160, pinned: 340 }
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const id = this.closest('.react-flow__node')?.getAttribute('data-id')
+      if (id === FIG2) return rectOf(CARD)
+      if (id === OPT) return rectOf(BELOW)
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      expect(previewed[1], `the preview is below its card, where the pinned box fits (placed ${previewed})`).toBeGreaterThanOrEqual(CARD.top + CARD.height)
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'pinned where it was previewed').toEqual(previewed)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
 })

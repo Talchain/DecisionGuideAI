@@ -42,7 +42,7 @@ import { writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
 import { movedBy, SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
-import { DETAILS_H, DETAILS_X, DETAILS_Y, stayBeside } from './placeBeside'
+import { DETAILS_H, DETAILS_X, DETAILS_Y, PEEK_RESERVE, stayBeside } from './placeBeside'
 
 const NOOP = () => undefined
 /** The box's own fixed words (chrome): its row labels and its one fold. */
@@ -142,7 +142,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   useEffect(() => { setMore(false) }, [at, pinned])
   useLayoutEffect(() => {
     if (at === '' || target === null) return
-    return stayBeside(() => box.current, target, { x: DETAILS_X, y: DETAILS_Y, h: DETAILS_H })
+    return stayBeside(() => box.current, target, { x: DETAILS_X, y: DETAILS_Y, h: DETAILS_H }, undefined, undefined, () => (box.current?.getAttribute('data-state') === 'peek' ? PEEK_RESERVE : 0))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
   if (target === null || (card === null && link === null)) return null
