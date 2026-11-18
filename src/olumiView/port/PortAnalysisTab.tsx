@@ -7,7 +7,7 @@
  *   - limits (alone, or under a chance): each option's state against each limit, core's line for it under;
  *   - nothing yet: what a result needs, ranked, one press each.
  * Core's long reading (its most-likely line, the comparisons, its notes) is one press away under "Why this reading", never at rest.
- * Above it all, the model's state is said once: a held proposal or a what-if (`HeldProposalLine`, `WhatIfShown`).
+ * Above it all, the model's state is said once, in the Reasoning tab's own strip (`StateStrip`): a held proposal, or a what-if with its way back.
  * Every word about the person's model is core's, at its View path (`data-view`); the headings are the tab's own chrome.
  */
 import { useState } from 'react'
@@ -15,7 +15,8 @@ import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { pressCard } from '../reasoning/tabRing'
 import { shownModel, useViewStore } from '../store'
-import { HeldProposalLine, WhatIfShown } from '../ViewChances'
+import { WhatIfShown } from '../ViewChances'
+import { StateStrip, useTabState } from '../reasoning/StateStrip'
 import { comparedGroupsOf } from '../layout'
 import { ChanceChart } from './ChanceChart'
 import { cardOf, limitGroupsOf, tabStateOf } from './pick'
@@ -133,12 +134,12 @@ function ToQuestions({ model }: { model: ViewModel }) {
 }
 
 /** The tab's body for one model. */
-export function PortAnalysis({ model }: { model: ViewModel }) {
+export function PortAnalysis({ model, stated = false }: { model: ViewModel; stated?: boolean }) {
   const state = tabStateOf(model)
   // The dock's wrapper keeps a 16px gutter; the tab takes the panel's 12px (look rule) without a shared-file edit.
   return (
     <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
-      <WhatIfShown model={model} />
+      <WhatIfShown model={model} labelled={!stated} />
       {state === 'chance' ? <ChanceChart model={model} /> : null}
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
       <Limits model={model} />
@@ -152,9 +153,10 @@ export function PortAnalysis({ model }: { model: ViewModel }) {
 
 /** The tab on the lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under core's heading). */
 export function PortAnalysisTab() {
-  const model = useViewStore(shownModel)
-  // The held line sits on the tab's own 12px gutter, as the body below it does (`-mx-1` against the dock's 16px wrapper).
-  return model === null ? null : <><div className="-mx-1 empty:hidden"><HeldProposalLine /></div><PortAnalysis model={model} /></>
+  const model = useViewStore(shownModel), state = useTabState(model)
+  // The model's state is said once, above the tab, in the same strip the Reasoning tab draws (a held proposal, or a what-if with its way
+  // back), on the tab's own 12px gutter with a gap under it; nothing at rest.
+  return model === null ? null : <><div className="-mx-1 mb-3 empty:hidden"><StateStrip state={state} /></div><PortAnalysis model={model} stated={state === 'whatif'} /></>
 }
 
 export default PortAnalysisTab
