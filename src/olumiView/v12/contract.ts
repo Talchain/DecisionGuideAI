@@ -66,3 +66,17 @@ export const earlierResultsOf = (model: { run?: object | null } | null | undefin
   const e = (model?.run as { earlier?: { text?: unknown; title?: unknown } | null } | null | undefined)?.earlier
   return e != null && typeof e.text === 'string' && e.text !== '' ? { text: e.text, title: typeof e.title === 'string' && e.title !== '' ? e.title : e.text } : null
 }
+
+/**
+ * Core's one finding line (`model.run.finding`, 18 Nov): which option the current model says is most likely to meet the aim, how likely, what it moves
+ * most with. `text` is core's one sentence (where no chance exists, core's one-line "what a result needs"), `title` its long form, `figure` the card id
+ * it moves most with, `needs` a second, quieter line. Optional and newer than the generated View type, so read through this accessor; null when absent
+ * or empty (nothing is composed in its place).
+ */
+export type RunFinding = { readonly text: string; readonly title: string; readonly figure: string | null; readonly needs: string | null }
+export const findingOf = (model: { run?: object | null } | null | undefined): RunFinding | null => {
+  const f = (model?.run as { finding?: { text?: unknown; title?: unknown; figure?: unknown; needs?: unknown } | null } | null | undefined)?.finding
+  if (f == null || typeof f.text !== 'string' || f.text === '') return null
+  const str = (x: unknown): string | null => (typeof x === 'string' && x !== '' ? x : null)
+  return { text: f.text, title: str(f.title) ?? f.text, figure: str(f.figure), needs: str(f.needs) }
+}

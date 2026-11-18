@@ -12,6 +12,7 @@
  */
 import { History } from 'lucide-react'
 import { earlierResultsOf } from '../v12/contract'
+import { FindingLine } from '../FindingLine'
 import { memo, useMemo, type CSSProperties } from 'react'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import type { NodeProps } from '@xyflow/react'
@@ -285,6 +286,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // sentence that can be a mark is a mark).
   const earlierLine = earlier === null ? null
     : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
+  // The one finding line (core's `run.finding`), under the question text: nothing where core sends none (FindingLine).
+  const findingLine = id === QUESTION ? <FindingLine model={model} at="question" /> : null
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
@@ -419,10 +422,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
         // date and the chance sentence are the panel's, the date also its hover.
-        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{badgeLine}{earlierLine}</div>
+        ? <div className="ok-face" data-ok-family="question" title={question?.decide_by?.text}>{findingLine}{badgeLine}{earlierLine}</div>
         // Detailed (17 Nov): the options' chances on one rail by letter (each option's name is said on its own card), what every option says alike
         // said once, and the date, the folded notes and the saved results as marks on one row.
         : <div className="ok-face" data-ok-family="question" data-ok-detailed="">
+            {findingLine}
             <Rail qualifier={said.qualifier} />
             <SaidOnce lines={said.question} at="question" />
             <div className="ok-dt-foot">{question?.decide_by == null ? null : <DecideBy d={question.decide_by} />}{badge === null ? null : <BadgeCount cardId={id} badge={badge} at="question" />}{earlierLine}</div>

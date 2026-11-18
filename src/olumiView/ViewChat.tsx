@@ -10,6 +10,8 @@
  * closing the dock loses neither (review 00052).
  */
 import { create } from 'zustand'
+import { FindingLine } from './FindingLine'
+import { findingOf } from './v12/contract'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { call, newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
@@ -1765,6 +1767,7 @@ export function ViewChat() {
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
           the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
+      {findingOf(view?.model) === null ? null : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
       {view === null || step === null || pinned ? null
         : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
