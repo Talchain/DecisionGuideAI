@@ -18,6 +18,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 
 import { CanvasViewportControls } from '../CanvasViewportControls'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 
 function renderControls() {
   const onAutoArrange = vi.fn()
@@ -71,6 +72,9 @@ describe('CanvasViewportControls — no density toggle', () => {
     fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
     expect(
       Array.from(document.querySelectorAll('[role^="menuitem"]')).map((i) => i.getAttribute('data-testid')),
-    ).toEqual(['viewport-zoom-reset', 'viewport-auto-arrange', 'viewport-detailed-view', 'viewport-legend'])
+      // CHANGED BY DESIGN (18 Nov, Codex 07:39Z trace): the legacy "Detailed view" is the older look's only; on the core lane Layers owns the level of detail.
+    ).toEqual(isOlumiCoreLane()
+      ? ['viewport-zoom-reset', 'viewport-auto-arrange', 'viewport-legend']
+      : ['viewport-zoom-reset', 'viewport-auto-arrange', 'viewport-detailed-view', 'viewport-legend'])
   })
 })

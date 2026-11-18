@@ -236,7 +236,9 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 <span>Auto-arrange</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">⇧A</span>
               </button>
-              <button
+              {/* The older look's Standard/Detailed switch. NOT on the core lane (Codex 07:39Z trace): there it ran the legacy setViewMode -> applyLayout over
+                  the V12 cards and moved them, while V12's own level of detail is Layers -> Simple/Detailed (simpleStore). One owner per lane. */}
+              {isOlumiCoreLane() ? null : <button
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={isDetailed}
@@ -247,7 +249,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 <Eye aria-hidden="true" />
                 <span>Detailed view</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">{isDetailed ? 'On' : 'Off'}</span>
-              </button>
+              </button>}
               {coreLaneShowsSurface('legend') && <button
                 type="button"
                 role="menuitem"
