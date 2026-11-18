@@ -117,7 +117,7 @@ describe('an Olumi estimate reads as Olumi\'s at a glance (core L1/L2)', () => {
     expect(give.getAttribute('aria-label')).toBe('Give yours')
     expect(give.className).not.toContain(QUIET)
     const glyph = a.querySelector(`[data-testid="view-figure-glyph-${est.id}"]`)!
-    expect([glyph.tagName.toLowerCase(), glyph.getAttribute('data-icon'), glyph.textContent]).toEqual(['svg', 'edit', ''])
+    expect([glyph.tagName.toLowerCase(), glyph.getAttribute('data-icon'), glyph.textContent, glyph.querySelector('svg.lucide-pencil') !== null]).toEqual(['span', 'edit', '', true])
     expect(glyph.className).not.toContain('opacity-0')
     expect(a.querySelector(`[data-testid="view-figure-words-${est.id}"]`)).toBeNull()
     a.remove()

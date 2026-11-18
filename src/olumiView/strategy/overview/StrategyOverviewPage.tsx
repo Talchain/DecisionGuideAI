@@ -6,7 +6,7 @@ import { X } from 'lucide-react'
 import type { View } from '../../client'
 import { typography } from '../../../styles/typography'
 import { META, BODY, H } from '../../../olumiCore/team/ui'
-import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
+import { OkIcon } from '../../look/icons'
 import { MAX_HOLDERS, overviewOf, type Family, type Group, type Holder, type Row } from './overview'
 
 const SHAPE: Record<Family, string> = {
@@ -25,7 +25,7 @@ function Holders({ holders }: { holders: Holder[] }): JSX.Element {
     <span className="flex justify-end">
       {holders.slice(0, MAX_HOLDERS).map((h, i) => (
         <span key={`${h.id}-${i}`} data-testid="holder" data-holder={h.id} title={h.name} aria-label={h.name} className={`${AVATAR} ${i > 0 ? '-ml-[7px] shadow-[0_0_0_2px_rgb(var(--bg-panel-rgb))]' : ''}`}>
-          {h.id === 'olumi' ? <OlumiAiIcon size={14} aria-hidden="true" /> : (Array.from(h.name)[0] ?? '').toUpperCase()}
+          {h.id === 'olumi' ? <OkIcon id="olumi-mark" size={14} decorative /> : (Array.from(h.name)[0] ?? '').toUpperCase()}
         </span>
       ))}
     </span>

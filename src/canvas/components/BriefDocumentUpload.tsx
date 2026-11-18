@@ -14,7 +14,7 @@
  * model is a later slice.
  */
 import { useCallback, useId, useLayoutEffect, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
-import { Loader2, Paperclip } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { typo } from '../../styles/typography'
 import { ACCEPT_ATTRIBUTE, assembleBrief, extractBriefDocument } from '../brief-ingest'
 
@@ -118,13 +118,13 @@ export function useBriefDocumentUpload({ draft, setDraft, onAdded, inChat = fals
       htmlFor={inputId}
       title={busy ? BRIEF_UPLOAD_COPY.reading : BRIEF_UPLOAD_COPY.hint}
       aria-busy={busy}
-      className="inline-flex items-center justify-center w-6 h-6 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover cursor-pointer focus-within:ring-2 focus-within:ring-info"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-light hover:text-text-body hover:bg-panel-hover cursor-pointer focus-within:ring-2 focus-within:ring-info"
       data-testid="brief-document-trigger"
     >
       {busy ? (
-        <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+        <OkIcon id="olumi-thinking" decorative inherit className="animate-spin" />
       ) : (
-        <Paperclip className="w-4 h-4" aria-hidden="true" />
+        <OkIcon id="attach" decorative inherit />
       )}
       <span className="sr-only">{busy ? BRIEF_UPLOAD_COPY.reading : BRIEF_UPLOAD_COPY.label}</span>
       <input

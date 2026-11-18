@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
+import { OkIcon } from './look/icons'
 import { linkOf } from '../olumiCore/team/EvidencePanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
@@ -125,7 +125,7 @@ function Considered({ view, e }: { view: View; e: Evidence }): JSX.Element | nul
   if (text === null) return null
   return (
     <p className={`${BODY} flex items-start gap-2`} title={c.why?.title} data-testid="evidence-dock-considered">
-      <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px] flex-none" />
+      <OkIcon id="olumi-mark" decorative className="mt-[3px]" />
       <span className="whitespace-pre-wrap break-words">{text}</span>
     </p>
   )

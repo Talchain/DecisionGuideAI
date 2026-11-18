@@ -4,9 +4,7 @@
  * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
  */
 import { useEffect, useState } from 'react'
-import { User } from 'lucide-react'
 import type { ViewCard } from '../../client'
-import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
 
 /** A mark with words is an image named by them (its hover too); one with none is decoration. */
@@ -14,15 +12,18 @@ const named = (words: string | null | undefined) => (words == null || words === 
   ? { 'aria-hidden': true as const }
   : { role: 'img' as const, 'aria-label': words, title: words })
 
-type MarkProps = { readonly words?: string | null; readonly size?: number }
+type MarkProps = { readonly words?: string | null }
+
+/** The one size of a mark beside text (the lane's two icon sizes are 16 in a control and 14 beside text). */
+const MARK = 14
 
 /** Olumi's mark: the product's own, never a sparkle, a speech bubble or a text glyph. */
-export const OlumiMark = ({ words, size = 12 }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-olumi" data-olumi-mark="" {...named(words)}><OlumiAiIcon size={size} strokeWidth={1.75} /></span>
+export const OlumiMark = ({ words }: MarkProps): JSX.Element => (
+  <span className="ok-am ok-am-olumi" data-olumi-mark="" {...named(words)}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></span>
 )
 /** A person's mark. */
-export const PersonMark = ({ words, size = 14 }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-person" data-person-mark="" {...named(words)}><User aria-hidden="true" width={size} height={size} strokeWidth={1.75} /></span>
+export const PersonMark = ({ words }: MarkProps): JSX.Element => (
+  <span className="ok-am ok-am-person" data-person-mark="" {...named(words)}><OkIcon id="person-mark" size={MARK} decorative inherit /></span>
 )
 
 export type Whose = 'olumi' | 'person' | 'mixed'
@@ -39,13 +40,13 @@ export const authorWordsOf = (card: ViewCard): string | null =>
   [card.author?.text, card.author?.title].filter((x): x is string => x != null && x !== '').join(' · ') || card.olumi?.title || null
 
 /** The authorship mark on a card: Olumi's mark or a person's, both where core says the card is mixed; core's author words on hover. */
-export function AuthorMark({ card, simple = false, size }: { card: ViewCard; simple?: boolean; size?: number }): JSX.Element | null {
+export function AuthorMark({ card, simple = false }: { card: ViewCard; simple?: boolean }): JSX.Element | null {
   const whose = whoseOf(card)
   if (whose === null) return null
   return (
     <span className="ok-author" data-author-mark={whose} {...(simple ? { 'data-simple-author': whose } : {})} {...named(authorWordsOf(card))}>
-      {whose === 'person' ? null : <OlumiMark size={size} />}
-      {whose === 'olumi' ? null : <PersonMark size={size} />}
+      {whose === 'person' ? null : <OlumiMark />}
+      {whose === 'olumi' ? null : <PersonMark />}
     </span>
   )
 }
@@ -73,7 +74,7 @@ export const OLUMI_ASKS = 'Olumi has a question about this: see the chat'
 /** "Olumi has a question about this": a ring holding Olumi's mark, named by core's own label for the step where it sends one. */
 export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null }): JSX.Element => {
   const name = words != null && words !== '' ? words : OLUMI_ASKS
-  return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OlumiAiIcon size={12} strokeWidth={1.75} /></span>
+  return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></span>
 }
 
 /**
@@ -139,7 +140,7 @@ export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number 
     <>
       {shown.map((m) => (
         <span key={m.id} className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
-          <OkIcon id={m.icon} size={12} words={m.words} decorative={false} />
+          <OkIcon id={m.icon} size={MARK} words={m.words} decorative={false} />
         </span>
       ))}
       {over.length === 0 ? null : (

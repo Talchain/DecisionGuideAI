@@ -13,7 +13,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle, Download, Upload } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
 import { useAuth } from '../../contexts/AuthContext'
@@ -404,10 +404,10 @@ export function ScenarioSwitcher({
           /* contract v3.1 `.app-project{display:flex;align-items:center;gap:8px;
              font-size:13px}` (DESIGN-GAP #5): the model title sits in the bar
              unboxed — no bordered pill, 13px regular ink, a muted ⌄. */
-          className="flex items-center gap-2 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
+          className="flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
           data-testid="scenario-switcher-pill"
         >
-          {bare ? null : <Folder className="w-4 h-4 shrink-0 text-text-body" aria-hidden="true" />}
+          {bare ? null : <OkIcon id="scenario" decorative />}
 
           {!canRename ? (
             <span className="max-w-[360px] truncate px-0.5 text-left" data-testid="scenario-name-text">{resolvedName}</span>
@@ -471,7 +471,7 @@ export function ScenarioSwitcher({
             aria-label="Open model menu"
             data-testid="scenario-switcher-trigger"
           >
-            <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
+            <OkIcon id="fold-chevron" decorative className="rotate-90" />
           </button>
         </div>
 
@@ -489,11 +489,11 @@ export function ScenarioSwitcher({
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleSave}
-                    className={`flex-1 flex items-center gap-2 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
+                    className={`flex-1 flex items-center gap-1.5 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                     type="button"
                     role="menuitem"
                   >
-                    <Save className="w-4 h-4" />
+                    <OkIcon id="save" decorative inherit />
                     {currentScenarioId ? 'Save' : 'Save as...'}
                   </button>
                   {currentScenarioId && (
@@ -505,7 +505,7 @@ export function ScenarioSwitcher({
                         role="menuitem"
                         title="Export scenario"
                       >
-                        <Download className="w-4 h-4" />
+                        <OkIcon id="export" inherit />
                       </button>
                       <button
                         onClick={handleDuplicate}
@@ -514,7 +514,7 @@ export function ScenarioSwitcher({
                         role="menuitem"
                         title="Duplicate"
                       >
-                        <Copy className="w-4 h-4" />
+                        <OkIcon id="duplicate" decorative inherit />
                       </button>
                       {canRename && (
                         <button
@@ -524,7 +524,7 @@ export function ScenarioSwitcher({
                           role="menuitem"
                           title="Rename"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <OkIcon id="edit" decorative inherit />
                         </button>
                       )}
                       {/* Deletes a localStorage RECORD. On a persisted session
@@ -538,7 +538,7 @@ export function ScenarioSwitcher({
                           role="menuitem"
                           title="Delete"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <OkIcon id="delete" decorative inherit />
                         </button>
                       )}
                     </>
@@ -548,11 +548,11 @@ export function ScenarioSwitcher({
                 {/* Import row */}
                 <button
                   onClick={handleImport}
-                  className={`w-full flex items-center gap-2 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
+                  className={`w-full flex items-center gap-1.5 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                   type="button"
                   role="menuitem"
                 >
-                  <Upload className="w-4 h-4" />
+                  <OkIcon id="import" decorative inherit />
                   Import scenario...
                 </button>
               </div>
@@ -606,7 +606,7 @@ export function ScenarioSwitcher({
                             <span className="truncate flex-1">{scenario.name}</span>
                             {scenario.id === currentScenarioId && isDirty && (
                               <span className="flex-shrink-0 ml-2" title="Unsaved changes">
-                                <AlertCircle className="w-3 h-3 text-warning-500" aria-hidden="true" />
+                                <OkIcon id="unsaved" size={14} decorative />
                               </span>
                             )}
                           </div>
@@ -639,7 +639,7 @@ export function ScenarioSwitcher({
                             <span className="truncate flex-1">{scenario.name}</span>
                             {scenario.id === currentScenarioId && isDirty && (
                               <span className="flex-shrink-0 ml-2" title="Unsaved changes">
-                                <AlertCircle className="w-3 h-3 text-warning-500" aria-hidden="true" />
+                                <OkIcon id="unsaved" size={14} decorative />
                               </span>
                             )}
                           </div>

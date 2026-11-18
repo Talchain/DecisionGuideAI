@@ -30,11 +30,10 @@
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { Activity, AlertTriangle, BarChart3, ChevronLeft, ChevronRight, Clock, FlaskConical, HelpCircle, Info, MoreHorizontal, Shuffle, Users } from 'lucide-react'
+import { OkIcon, type IconId } from '../../../olumiView/look/icons'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
-import { OlumiAiIcon } from '../../../components/results/analysisNew/OlumiAiIcon'
 import { usePanelWidth } from './usePanelWidth'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { HIT_44 } from '../../../styles/hitArea'
@@ -77,13 +76,14 @@ export const DOCK_PANEL_DOM_ID = 'outputs-dock-panel'
  * v10 review item 8: on the olumi-core lane an unselected dock tab is its icon alone (name in `title` and `aria-label`), the selected tab
  * icon plus word. Same icon map as the collapsed rail in `OutputsDock`; Olumi keeps its own mark.
  */
-const LANE_TAB_ICON: Partial<Record<OutputTab, typeof Activity>> = {
-  results: BarChart3,
-  analysisNew: FlaskConical,
-  compare: Shuffle,
-  journey: Clock,
-  team: Users,
-  diagnostics: Activity,
+export const LANE_TAB_ICON: Readonly<Record<OutputTab, IconId>> = {
+  results: 'tab-analysis',
+  analysisNew: 'tab-reasoning',
+  compare: 'tab-compare',
+  journey: 'tab-journey',
+  team: 'team',
+  diagnostics: 'tab-model',
+  olumi: 'olumi-mark',
 }
 
 /** The accessible name shared by both strips. Written once, used by both. */
@@ -181,7 +181,6 @@ export const INSPECT_ANALYSIS_LABEL = 'Inspect this analysis'
  * correct — only the glyph was wrong.
  */
 function CollapseControl({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
-  const Icon = isOpen ? ChevronRight : ChevronLeft
   return (
     <button
       type="button"
@@ -190,7 +189,7 @@ function CollapseControl({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =
       aria-label={isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
       data-testid="dock-collapse-control"
     >
-      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+      <OkIcon id="collapse-dock" variant={isOpen ? undefined : 'alt'} decorative inherit />
     </button>
   )
 }
@@ -277,7 +276,7 @@ function TabStripOverflowMenu({
         aria-controls={open ? menuId : undefined}
         data-testid="dock-overflow-trigger"
       >
-        <MoreHorizontal className="w-3.5 h-3.5" aria-hidden="true" />
+        <OkIcon id="more" decorative inherit />
       </button>
       {open && (
         <div
@@ -295,7 +294,7 @@ function TabStripOverflowMenu({
               className={`${typography.panelBody} inline-flex items-center gap-2 px-3 py-2 rounded-md border border-field text-text-light hover:border-info hover:text-info w-full justify-start transition-colors`}
               data-testid="dock-inspect-analysis"
             >
-              <Info className="w-3.5 h-3.5" aria-hidden="true" />
+              <OkIcon id="inspect" size={14} decorative inherit />
               {INSPECT_ANALYSIS_LABEL}
             </button>
           )}
@@ -379,7 +378,7 @@ export function WorkspaceShellTabStrip({
       title={INSPECT_ANALYSIS_LABEL}
       data-testid="dock-inspect-analysis"
     >
-      <Info className="w-3.5 h-3.5" aria-hidden="true" />
+      <OkIcon id="inspect" decorative inherit />
     </button>
   ) : null
 
@@ -589,37 +588,27 @@ export function WorkspaceShellTabStrip({
                   // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named "Olumi" on hover
                   // (title and aria-label above), never a word beside it. The selected tab is told apart by its pill.
                   <>
-                    <OlumiAiIcon size={16} className="shrink-0" data-testid="outputs-dock-tab-olumi-mark" />
+                    <OkIcon id="olumi-mark" decorative inherit testid="outputs-dock-tab-olumi-mark" />
                   </>
                 ) : coreLane ? (
                   (() => {
-                    const Icon = LANE_TAB_ICON[surface.id] ?? Activity
-                    return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
+                    return <OkIcon id={LANE_TAB_ICON[surface.id]} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
                   })()
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
                   // five fit the 347px dock whole; the legacy lane is unchanged.
                   <>
                     {coreLane ? (() => {
-                      const Icon = LANE_TAB_ICON[surface.id] ?? Activity
-                      return <Icon className="w-4 h-4 shrink-0" aria-hidden="true" data-testid={`outputs-dock-tab-icon-${surface.id}`} />
+                      return <OkIcon id={LANE_TAB_ICON[surface.id]} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
                     })() : null}
                     <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
                   </>
                 )}
                 {surface.id === 'results' && showResultsFreshnessIcon && hasCompletedFirstRun && (
                   resultsStale ? (
-                    <AlertTriangle
-                      className="w-3 h-3 text-warning shrink-0"
-                      aria-label="Analysis is stale"
-                      data-testid="results-tab-stale-icon"
-                    />
+                    <OkIcon id="stale-analysis" size={14} words="Analysis is stale" testid="results-tab-stale-icon" />
                   ) : (
-                    <HelpCircle
-                      className="w-3 h-3 text-text-light shrink-0"
-                      aria-label="Cannot confirm whether this analysis is current."
-                      data-testid="results-tab-cannot-confirm-icon"
-                    />
+                    <OkIcon id="cannot-confirm" size={14} testid="results-tab-cannot-confirm-icon" />
                   )
                 )}
                 {surface.id === 'diagnostics' && factorsToVerify > 0 && (

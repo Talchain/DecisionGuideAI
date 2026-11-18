@@ -5,7 +5,7 @@
  */
 import { useMemo, type CSSProperties } from 'react'
 import { useStore, ViewportPortal, type Node } from '@xyflow/react'
-import { Unlink } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { useCanvasStore } from '../../../canvas/store'
 import type { ViewModel } from '../../client'
 import { drawnModelOf, SIMPLE_LABEL_GAP } from '../../layout'
@@ -84,14 +84,14 @@ export function BandLayer() {
           <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y, transform: `translateY(calc(-100% - ${SIMPLE_LABEL_GAP}px - ${KIND_GLYPH_PX / 2}px * var(--o-s, 1)))`, color: INK, pointerEvents: 'none', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
             className="flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 font-medium leading-tight">
             <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
-            {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 rounded-full border border-panel-border px-2 py-0.5 text-xs font-medium"
-              title="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}>Fold</button> : null}
+            {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
+              title="Fold these inputs into one group" aria-label="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}><OkIcon id="fold-group" variant="alt" size={14} decorative inherit /></button> : null}
           </div>
         ))}
         {nodes.filter((n) => unlinked.has(n.id)).map((n) => (
           <span key={n.id} role="img" data-not-linked={n.id} aria-label={NOT_LINKED} title={NOT_LINKED} className="inline-flex"
             style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200), top: n.position.y - SIMPLE_LABEL_GAP, transform: 'translate(-100%, -100%)', pointerEvents: 'auto', color: INK, ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}>
-            <Unlink aria-hidden="true" strokeWidth={1.75} style={{ width: 'calc(12px * var(--o-s, 1))', height: 'calc(12px * var(--o-s, 1))' }} />
+            <OkIcon id="not-linked" size={14} decorative inherit className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" />
           </span>
         ))}
       </div>

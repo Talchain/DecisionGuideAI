@@ -18,17 +18,7 @@
  */
 
 import { useState, useCallback } from 'react'
-import {
-  MoreVertical,
-  Pencil,
-  Download,
-  Upload,
-  Camera,
-  FilePlus,
-  Maximize,
-  Keyboard,
-  HelpCircle,
-} from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import Tooltip from '../Tooltip'
 import { ConfirmDialog } from '../../canvas/components/ConfirmDialog'
 import { ImportExportDialog } from '../../canvas/components/ImportExportDialog'
@@ -163,7 +153,7 @@ export function KebabMenu({
             aria-expanded={isOpen}
             aria-haspopup="true"
           >
-            <MoreVertical size={14} aria-hidden="true" />
+            <OkIcon id="more" decorative inherit />
           </button>
         </Tooltip>
 
@@ -178,7 +168,7 @@ export function KebabMenu({
                 className={styles.dropdownMenuButton}
                 onClick={onStartRename}
               >
-                <Pencil size={14} aria-hidden="true" />
+                <OkIcon id="edit" size={14} decorative inherit />
                 <span>Rename</span>
               </button>
             )}
@@ -190,7 +180,7 @@ export function KebabMenu({
                 onClick={handleLaneRename}
                 data-testid="kebab-rename-core"
               >
-                <Pencil size={14} aria-hidden="true" />
+                <OkIcon id="edit" size={14} decorative inherit />
                 <span>Rename</span>
               </button>
             )}
@@ -203,7 +193,7 @@ export function KebabMenu({
                 onClick={onClose}
                 data-testid="kebab-export-core"
               >
-                <Download size={14} aria-hidden="true" />
+                <OkIcon id="export" size={14} decorative inherit />
                 <span>Export summary</span>
               </a>
             )}
@@ -215,7 +205,7 @@ export function KebabMenu({
                 onClick={handleLaneSnapshots}
                 data-testid="kebab-snapshots-core"
               >
-                <Camera size={14} aria-hidden="true" />
+                <OkIcon id="snapshot" size={14} decorative inherit />
                 <span>Version history</span>
               </button>
             )}
@@ -227,7 +217,7 @@ export function KebabMenu({
                 onClick={handleLaneStartNew}
                 data-testid="kebab-start-new-core"
               >
-                <FilePlus size={14} aria-hidden="true" />
+                <OkIcon id="new-scenario" size={14} decorative inherit />
                 <span>Start new scenario</span>
               </button>
             )}
@@ -239,7 +229,7 @@ export function KebabMenu({
               onClick={handleExport}
               data-testid="kebab-export"
             >
-              <Download size={14} aria-hidden="true" />
+              <OkIcon id="export" size={14} decorative inherit />
               <span>Export</span>
             </button>
             )}
@@ -254,7 +244,7 @@ export function KebabMenu({
               onClick={handleImport}
               data-testid="kebab-import"
             >
-              <Upload size={14} aria-hidden="true" />
+              <OkIcon id="import" size={14} decorative inherit />
               <span>Import</span>
             </button>
             <button
@@ -264,7 +254,7 @@ export function KebabMenu({
               onClick={handleSnapshots}
               data-testid="kebab-snapshots"
             >
-              <Camera size={14} aria-hidden="true" />
+              <OkIcon id="snapshot" size={14} decorative inherit />
               <span>Snapshots</span>
             </button>
               </>
@@ -292,7 +282,7 @@ export function KebabMenu({
               onClick={handleStartNewModel}
               data-testid="kebab-start-new-model"
             >
-              <FilePlus size={14} aria-hidden="true" />
+              <OkIcon id="new-scenario" size={14} decorative inherit />
               <span>Start new scenario</span>
             </button>
             )}
@@ -307,7 +297,7 @@ export function KebabMenu({
               className={styles.dropdownMenuButton}
               onClick={handleFullscreen}
             >
-              <Maximize size={14} aria-hidden="true" />
+              <OkIcon id="zoom-fit" size={14} decorative inherit />
               <span>Fullscreen</span>
             </button>
 
@@ -321,7 +311,7 @@ export function KebabMenu({
               className={styles.dropdownMenuButton}
               onClick={onShowKeyboardLegend}
             >
-              <Keyboard size={14} aria-hidden="true" />
+              <OkIcon id="shortcuts" size={14} decorative inherit />
               <span>Keyboard shortcuts</span>
             </button>
             <button
@@ -330,7 +320,7 @@ export function KebabMenu({
               className={styles.dropdownMenuButton}
               onClick={onShowInfluenceExplainer}
             >
-              <HelpCircle size={14} aria-hidden="true" />
+              <OkIcon id="explain-olumi" size={14} decorative inherit />
               <span>How influence works</span>
             </button>
 

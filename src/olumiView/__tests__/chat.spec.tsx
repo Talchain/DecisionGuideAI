@@ -171,7 +171,7 @@ describe('the writes go straight to core, and the View is read again', () => {
 
   // 18 Nov, Paul's pictures of the compact controls: Approve was a CIRCLE (rounded-md is 12px here, so a 28px square drew round), the bar took two lines,
   // and Set aside's archive-with-cross was ambiguous. Bound to the lane's real card (identity: the testids), at rest (closed) and open.
-  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the dismiss cross', () => {
+  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the registry\'s archive box', () => {
     const held = golden('proposal')
     useViewStore.setState({ view: held })
     const { container } = renderTab()
@@ -187,7 +187,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(approve.className).not.toMatch(/rounded-(md|full|pill|lg)/)
     const aside = bar.querySelector<HTMLElement>('[data-testid="view-set-aside"]')!
     expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', 'Set aside'])
-    expect(aside.querySelector('svg.lucide-x'), 'the dismiss cross, not the archive box').not.toBeNull()
+    expect(aside.querySelector('svg.lucide-archive'), "the registry's set-aside (a plain archive box): the cross means Close, the box-with-cross was ambiguous").not.toBeNull()
+    expect(aside.querySelector('svg.lucide-x')).toBeNull()
     expect(aside.querySelector('svg.lucide-archive-x')).toBeNull()
   })
 

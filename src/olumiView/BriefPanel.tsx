@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import { FileText } from 'lucide-react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
-import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
+import { OkIcon } from './look/icons'
 import { useViewStore } from './store'
 import { briefAccountOf, isFirstLook } from './layout'
 import { TurnInFlight } from './ViewChat'
@@ -70,7 +70,7 @@ export function BriefPanel(): JSX.Element | null {
         <div className="sticky bottom-0 mt-auto bg-panel-hover" data-testid="brief-panel-foot">
           {a.question === null ? null : (
             <div className="space-y-2 px-3.5 pb-1 pt-3" data-testid="brief-panel-question">
-              <p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OlumiAiIcon size={16} aria-hidden="true" className="mt-0.5 flex-none" /><span>{a.question.text}</span></p>
+              <p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OkIcon id="olumi-mark" decorative className="mt-0.5" /><span>{a.question.text}</span></p>
             </div>
           )}
           {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain

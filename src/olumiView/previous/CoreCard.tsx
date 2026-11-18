@@ -10,7 +10,6 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
-import { History } from 'lucide-react'
 import { earlierResultsOf } from '../v12/contract'
 import { FindingLine } from '../FindingLine'
 import { memo, useMemo, type CSSProperties } from 'react'
@@ -53,6 +52,7 @@ import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, KindTag, LimitTag, OlumiAsksMark, OlumiMark } from '../v12/cards/marks'
+import { OkIcon } from '../look/icons'
 import { chanceParts, noChanceLineOf, onceWords, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
@@ -287,7 +287,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // v10 review item 2: a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed too since 17 Nov (Paul: a
   // sentence that can be a mark is a mark).
   const earlierLine = earlier === null ? null
-    : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><History size={12} strokeWidth={1.75} aria-hidden="true" className="mr-1 flex-none" />Saved results</p>
+    : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</p>
   // The one finding line (core's `run.finding`), under the question text: nothing where core sends none (FindingLine).
   const findingLine = id === QUESTION ? <FindingLine model={model} at="question" /> : null
   const badgeLine = badge === null ? null
@@ -353,9 +353,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div data-core-lead={id} data-ok-face="chance" title={hover}>
           <p className="ok-chance"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
-            {row?.olumi == null || qualified ? null : <span className="ok-dt-num-mark" data-view={`${id}.row.olumi`}><OlumiMark words={row.olumi.title} size={12} /></span>}{trail}</p>
+            {row?.olumi == null || qualified ? null : <span className="ok-dt-num-mark" data-view={`${id}.row.olumi`}><OlumiMark words={row.olumi.title} /></span>}{trail}</p>
           <ChanceBand card={card} />
-          {qualified ? <p className="ok-qual" title={qual!} data-view={`${id}.headline.qualifier`}>{row?.olumi == null ? null : <OlumiMark words={row.olumi.title} size={12} />}{qual}</p> : null}
+          {qualified ? <p className="ok-qual" title={qual!} data-view={`${id}.headline.qualifier`}>{row?.olumi == null ? null : <OlumiMark words={row.olumi.title} />}{qual}</p> : null}
           <RestsShareFill card={card} />
         </div>
       )
@@ -388,7 +388,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (card.figure !== null && lead === card.figure.text) return (
       <div data-core-lead={id} data-ok-face="figure" title={hover}>
         <p><span className={`ok-fig ${estimate || olumi ? 'ok-fig-olumi' : ''}`} data-core-lead-clamp={id}>{lead}</span>
-          {estimate && !olumi && card.olumi != null ? <span className="ok-dt-num-mark" data-view={`${id}.olumi`}><OlumiMark words={card.olumi.title} size={12} /></span> : null}{trail}</p>
+          {estimate && !olumi && card.olumi != null ? <span className="ok-dt-num-mark" data-view={`${id}.olumi`}><OlumiMark words={card.olumi.title} /></span> : null}{trail}</p>
       </div>
     )
     if (card.bound != null && lead === card.bound.text) {
@@ -396,7 +396,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // offers no edit. Where Olumi proposed the target, Olumi's mark beside it, core's words its name.
       const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
       const words = <span data-core-lead-clamp={id}>{lead}</span>
-      const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} size={12} /></span>
+      const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} /></span>
       return (
         <div data-core-lead={id} data-ok-face="target" title={hover} className={target === null ? undefined : 'relative'}>
           {target === null
@@ -510,7 +510,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}
             {changeOn === 'foot' ? changeMark : null}
             {cueOnAuthor ? editCue : null}
-            <span className="ok-dt-whose" data-core-author={id}><AuthorMark card={card} size={14} /></span>
+            <span className="ok-dt-whose" data-core-author={id}><AuthorMark card={card} /></span>
           </div>
           </>}
         </div>

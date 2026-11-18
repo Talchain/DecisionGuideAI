@@ -8,6 +8,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { typography } from '../../styles/typography'
+import { OkIcon } from '../../olumiView/look/icons'
 import { isDivider, isMenuItem, type MenuEntry, type MenuItemDef } from './types'
 import { CANVAS_LAYER_CLASS } from '../layers'
 
@@ -64,6 +65,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
   const [focusedIndex, setFocusedIndex] = useState(-1)
 
   const actionableItems = items.filter(isMenuItem)
+  const anyIconRow = actionableItems.some((it) => Boolean(it.glyph) || it.iconId !== undefined || Boolean(it.icon))
 
   // Re-measure after constraining the width: wrapped labels can change height.
   useLayoutEffect(() => {
@@ -138,7 +140,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
               if (item.tooltip) onShowTooltip?.(item.tooltip, e.currentTarget)
             }}
             onMouseLeave={() => onHideTooltip?.()}
-            className={`group flex h-9 w-full items-center gap-2 px-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset ${typography.panelBody} transition-colors ${
+            className={`group flex h-9 w-full items-center gap-1.5 px-4 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset ${typography.panelBody} transition-colors ${
               !item.enabled
                 ? 'cursor-not-allowed text-text-light opacity-50'
                 : item.destructive && isFocused
@@ -158,7 +160,11 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
               </span>
             )}
             {/* Icon (Lucide) */}
-            {!item.glyph && item.icon && (
+            {!item.glyph && item.iconId !== undefined && (
+              <OkIcon id={item.iconId} variant={item.iconAlt ? 'alt' : undefined} decorative inherit
+                className={item.glyphColor ? item.glyphColor : isFocused ? 'text-text-body' : 'text-text-light group-hover:text-text-body'} />
+            )}
+            {!item.glyph && item.iconId === undefined && item.icon && (
               <item.icon
                 size={16}
                 className={`shrink-0 ${
@@ -168,6 +174,7 @@ export function Submenu({ items, anchorRect, onClose, onShowTooltip, onHideToolt
                 }`}
               />
             )}
+            {anyIconRow && !item.glyph && item.iconId === undefined && !item.icon && <span aria-hidden="true" className="inline-block h-4 w-4 shrink-0" />}
             <span className="flex-1 text-left">{item.label}</span>
             {item.disabledReason && !item.enabled && (
               <span className={`${typography.panelMeta} text-text-light`}>({item.disabledReason})</span>

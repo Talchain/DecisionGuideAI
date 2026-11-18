@@ -44,7 +44,6 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { ChevronDown, ChevronUp, RotateCcw, X } from 'lucide-react'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
@@ -64,6 +63,7 @@ import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { ChangeMix } from './v12/chat/ChangeMix'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { OkIcon, OkIconButton } from './look/icons'
+import { FoldChevron } from './look/FoldChevron'
 import { SelectionPill } from '../canvas/components/SelectionPill'
 import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedRename'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
@@ -71,7 +71,7 @@ import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
-import { CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
+import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -199,7 +199,7 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
       {groups.slice(0, head).map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}{folded ? <ChevronDown className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronUp className="h-3 w-3 flex-none" strokeWidth={1.75} aria-hidden="true" />}</button>
+            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}<FoldChevron open={!folded} /></button>
         : null}
       {groups.slice(head).map((g, gi) => groupEl(g, head + gi))}
     </>
@@ -405,7 +405,7 @@ function AskAgain({ words }: { words: string }) {
     <button type="button" data-testid="view-ask-again" aria-label={ASK_AGAIN} title={ASK_AGAIN}
       onClick={() => { useViewChat.setState({ text: askAgainDraft(useViewChat.getState().text, words) }); document.getElementById('view-chat-text')?.focus() }}
       className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-      <RotateCcw className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /><span className="sr-only">{ASK_AGAIN}</span>
+      <OkIcon id="retry" size={14} inherit decorative /><span className="sr-only">{ASK_AGAIN}</span>
     </button>
   )
 }
@@ -771,7 +771,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
             an earlier message is settled only by an explicit refusal, else core answers 409). */}
         {/* Not on a closed card while Olumi's readings wait (Line reviewer F4): core refuses a set-aside that leaves a carried reading unsettled
             (approval.ts carriedSettled, 409), so the choice is made in the open review first, where Keep the original is sent with it. */}
-        {closed && readingIds.length > 0 ? null : <OkIconButton id="cancel-close" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
+        {closed && readingIds.length > 0 ? null : <OkIconButton id="set-aside" tone="ghost" words="Set aside" disabled={busy} testid="view-set-aside" onClick={() => void act(() => writes.discard(p.id, refuseReadings))} />}
       </div>
     </div>
   )
@@ -1464,7 +1464,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       </button>
       <button type="button" className={VIEW_CHIP_CLASS}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        Review{open ? <ChevronUp className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5 flex-none" strokeWidth={1.75} aria-hidden="true" />}
+        Review<FoldChevron open={open} />
       </button>
     </>
   )
@@ -1548,7 +1548,7 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
         <OkIcon id="next-step" size={14} decorative />
         <span className="flex-none font-medium">Next step</span>
         {open || nextStepLabel(step) === null ? null : <span className="min-w-0 flex-1 truncate" data-testid="view-next-step-label">{nextStepLabel(step)}</span>}
-        {open ? <ChevronUp aria-hidden="true" strokeWidth={1.75} className="ml-auto h-3.5 w-3.5 flex-none" /> : <ChevronDown aria-hidden="true" strokeWidth={1.75} className="ml-auto h-3.5 w-3.5 flex-none" />}
+        <FoldChevron open={open} className="ml-auto" />
       </button>
       <div id="view-next-step-body" hidden={!open} className="space-y-2 rounded-md border border-panel-border bg-panel p-3" data-testid="view-next-step-body">
       {step.kind === 'move' ? <MoveStep view={view} turn={step.turn} /> : null}
@@ -1612,7 +1612,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
           </button>
           <button type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} title={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
             className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed">
-            <X className="h-3 w-3" aria-hidden="true" />
+            <OkIcon id="clear-goal" size={14} decorative inherit />
           </button>
         </span>
       </div>
@@ -1820,7 +1820,7 @@ export function ViewChat() {
       {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
       {away ? (
         <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
-          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" onClick={toLatest} className={`${typography.viewPanelBody} inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-md border border-panel-border bg-panel px-3 text-text-body`}><OkIcon id="go-latest" size={14} decorative />Latest</button>
+          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" title="Go to the latest message" onClick={toLatest} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-panel-border bg-panel text-text-body"><OkIcon id="go-latest" decorative inherit /></button>
         </div>
       ) : null}
       {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
@@ -1964,7 +1964,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
               {/* The four methods are the registry's method icons, neutral (Paul, 17 Nov: icons carry no hue); the method's own label is the hover. */}
               {V10_METHODS.map(({ key, label }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} disabled={busy} testid={`view-composer-method-${key}`} size={14}
+                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} disabled={busy} testid={`view-composer-method-${key}`}
                   className={`h-7 w-7 rounded-md hover:bg-panel-hover${armed === key ? ' bg-panel-hover' : ''}`}
                   onClick={() => { if (pressChallenge(key) === 'prefixed') box.current?.focus() }} />
               ))}
@@ -1978,22 +1978,22 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {/* v10 review item 10: the popout moved here from a 44 px strip above every conversation; same control, same test id, drawn in the composer's icon row. */}
           {popped ? null : (
-            <OkIconButton id="popout" words={CHAT_POPOUT_TITLE} testid="view-chat-popout" size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
+            <OkIconButton id="popout" words={CHAT_POPOUT_LABEL} hover={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
           )}
           {analysisAction === undefined ? null : (
-            <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse" size={14}
-              className={`h-6 w-6 rounded-md hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />
+            <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse"
+              className={`h-7 w-7 rounded-md hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />
           )}
           {/* Words-start (17 Nov): the one deliberate choice for a new brief, beside Send; Send still builds a model (the default). */}
           {!brief ? null : (
             <button type="button" disabled={sendHeld} title={TALK_FIRST_HOVER} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
-              className={`${typography.viewPanelHeading} inline-flex min-h-[32px] items-center gap-1 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
-              <OkIcon id="talk-first" size={14} />{TALK_FIRST}
+              className={`${typography.viewPanelHeading} inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
+              <OkIcon id="talk-first" size={14} inherit />{TALK_FIRST}
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light">
-            <OkIcon id="send" size={14} decorative /><span className="sr-only">Send</span>
+            className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light">
+            <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>
         </div>
         </div>

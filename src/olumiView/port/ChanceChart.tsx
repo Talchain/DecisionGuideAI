@@ -8,7 +8,7 @@
  * - a press on an option selects and centres its card on the canvas; pointing at it rings the card.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
-import { ChevronDown } from 'lucide-react'
+import { FoldChevron } from '../look/FoldChevron'
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { OkIcon } from '../look/icons'
@@ -68,7 +68,7 @@ function Marks({ marks }: { marks: readonly { glyph: string; title: string }[] }
 function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<string> }) {
   return (
     <span className={`${TYPE.meta} flex min-h-6 items-center gap-1 text-text-light`} data-chart-figure={card.id}>
-      <OkIcon id="why-moves" size={12} decorative />
+      <OkIcon id="why-moves" size={14} decorative />
       <span className="min-w-0">
         <span data-view={`${card.id}.heading`}>{card.heading}</span>
         {card.figure == null || card.figure.text === '' ? null : <>{' '}<span className="text-text-body" data-view={`${card.id}.figure.text`}>{card.figure.text}</span></>}
@@ -148,7 +148,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
           {marks.length === 0 ? null : (
             <details data-testid="analysis-chart-meaning">
-              <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1 text-text-body [&::-webkit-details-marker]:hidden"><ChevronDown aria-hidden="true" strokeWidth={1.75} className="h-3 w-3" />{CHART_WORDS.meaning}</summary>
+              <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1 text-text-body [&::-webkit-details-marker]:hidden"><FoldChevron />{CHART_WORDS.meaning}</summary>
               <div className="space-y-1 pb-1"><Marks marks={marks} /></div>
             </details>
           )}

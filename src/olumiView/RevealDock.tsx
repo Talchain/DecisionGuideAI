@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Eye, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { OlumiAiIcon } from '../components/results/analysisNew/OlumiAiIcon'
+import { OkIcon } from './look/icons'
 import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
@@ -79,7 +79,7 @@ function Next({ view, chip }: { view: View; chip: CardChip | null }): JSX.Elemen
   if (text === null || text === '') return null
   return (
     <p className={`${BODY} flex items-start gap-2`} data-testid="reveal-dock-next">
-      <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px] flex-none" />
+      <OkIcon id="olumi-mark" decorative className="mt-[3px]" />
       <span>{text}</span>
     </p>
   )
@@ -119,7 +119,7 @@ function Reading({ view, chip, lead }: { view: View; chip: CardChip | null; lead
   if (chip?.reading != null) {
     return (
       <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-2" data-testid="reveal-dock-reading">
-        <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px]" />
+        <OkIcon id="olumi-mark" decorative className="mt-[3px]" />
         <div className="grid gap-1.5">
           <p className={BODY}>{chip.reading.text}</p>
           {chip.reading.note === '' ? null : <p className={META} data-testid="reveal-dock-reading-note">{chip.reading.note}</p>}
@@ -131,7 +131,7 @@ function Reading({ view, chip, lead }: { view: View; chip: CardChip | null; lead
   if (ran.length === 0) return null
   return (
     <div className="grid grid-cols-[16px_minmax(0,1fr)] items-start gap-2" data-testid="reveal-dock-consequence">
-      <OlumiAiIcon size={16} aria-hidden="true" className="mt-[3px]" />
+      <OkIcon id="olumi-mark" decorative className="mt-[3px]" />
       <div className="grid gap-3">
         {ran.map((v) => (
           <div key={v.id} className="grid gap-1.5">

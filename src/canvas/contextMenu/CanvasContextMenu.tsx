@@ -7,7 +7,7 @@
 
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronRight } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { typography } from '../../styles/typography'
 import { useShowToast } from '../ToastContext'
 import { useMenuItems } from './useMenuItems'
@@ -111,6 +111,8 @@ export function CanvasContextMenuBase({
   })
 
   const actionableItems = items.filter(isMenuItem)
+  // The blank 16px inset keeps words aligned only in a menu where some row draws an icon or glyph; a menu with none has no gap to hold.
+  const anyIconRow = actionableItems.some((it) => Boolean(it.glyph) || it.iconId !== undefined || Boolean(it.icon))
 
   const openSubmenu = useCallback((itemId: string, trigger: HTMLElement | undefined) => {
     if (!trigger || !menuRef.current) return
@@ -357,7 +359,7 @@ export function CanvasContextMenuBase({
                       : 'cursor-pointer text-text-body hover:bg-panel-hover'
               }`}
             >
-              <span className="flex min-w-0 items-center gap-2">
+              <span className="flex min-w-0 items-center gap-1.5">
                 {/* Glyph (Add node shape) — symbol font stack for cross-platform rendering */}
                 {item.glyph && (
                   <span
@@ -368,7 +370,11 @@ export function CanvasContextMenuBase({
                   </span>
                 )}
                 {/* Lucide icon */}
-                {!item.glyph && item.icon && (
+                {!item.glyph && item.iconId !== undefined && (
+                  <OkIcon id={item.iconId} variant={item.iconAlt ? 'alt' : undefined} decorative inherit
+                    className={isFocused ? 'text-text-body' : 'text-text-light group-hover:text-text-body'} />
+                )}
+                {!item.glyph && item.iconId === undefined && item.icon && (
                   <item.icon
                     size={16}
                     className={`shrink-0 ${
@@ -382,6 +388,7 @@ export function CanvasContextMenuBase({
                 )}
                 {/* One line per row (Paul, 18 Nov: core's Undo words for a kept idea ran to five lines and drew over the rows around it): a long
                     label is cut with an ellipsis here and stands whole in the row's tooltip. */}
+                {anyIconRow && !item.glyph && item.iconId === undefined && !item.icon && <span aria-hidden="true" className="inline-block h-4 w-4 shrink-0" />}
                 <span className="min-w-0 truncate" data-menu-label={item.id}>{item.label}</span>
                 {/*
                   ⚠ THE TOP-LEVEL MENU DID NOT RENDER `disabledReason` AT ALL
@@ -398,7 +405,7 @@ export function CanvasContextMenuBase({
                 )}
               </span>
               {item.hasSubmenu ? (
-                <ChevronRight size={14} className="text-text-light" />
+                <OkIcon id="fold-chevron" size={14} decorative />
               ) : item.shortcut ? (
                 <span className={`${typography.panelMeta} text-text-light`}>{item.shortcut}</span>
               ) : null}

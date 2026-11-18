@@ -8,7 +8,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
-import { X } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { typography } from '../../../styles/typography'
 import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
@@ -74,7 +74,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
   const header = (
     <div className="flex items-start justify-between gap-2">
       <h2 className={`${typography.viewPanelBody} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{title}</h2>
-      <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-6 w-6 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><X size={14} aria-hidden="true" /></button>
+      <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
     </div>
   )
   const words = (

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Share2, Users, UserPlus, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -20,7 +19,7 @@ import { useViewStore } from '../../olumiView/store'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
 import { ShareDecisionDialog } from '../sharing/ShareDecisionDialog'
 import { useTopBarFit } from './useTopBarFit'
-import { OlumiAiIcon } from '../results/analysisNew/OlumiAiIcon'
+import { OkIcon } from '../../olumiView/look/icons'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 // Lane 4 (P5): SHOW_ONBOARDING removed — its only dispatcher was the kebab
@@ -266,7 +265,7 @@ export const TopBar = ({
       <div className={styles.topBarLeft}>
         <a href="/" className={styles.logoLink} aria-label="Olumi home">
           {/* J1 gate: the strip carries Olumi's mark alone, as the prototype's does. */}
-          {strip ? <OlumiAiIcon size={22} aria-hidden="true" /> : (
+          {strip ? <OkIcon id="olumi-mark" size={22} decorative /> : (
             <img
               src="/olumi-logo.png"
               alt="Olumi"
@@ -360,7 +359,7 @@ export const TopBar = ({
           if (saveStatus === 'saving') {
             return (
               <span className={styles.saveStatus} role="status" aria-live="polite">
-                <Loader2 className="inline-block w-3 h-3 animate-spin text-text-light" aria-hidden="true" />
+                <OkIcon id="olumi-thinking" size={14} decorative className="animate-spin" />
                 <span className="text-text-light">Saving{'\u2026'}</span>
               </span>
             )
@@ -375,7 +374,7 @@ export const TopBar = ({
                 onClick={handleClick}
                 title={saveError ?? 'Save failed'}
               >
-                <XCircle size={12} className="text-danger" aria-hidden="true" />
+                <OkIcon id="save-failed" size={14} />
                 <span className="text-danger">Save failed</span>
               </button>
             )
@@ -389,7 +388,7 @@ export const TopBar = ({
                 aria-live="polite"
                 onClick={handleClick}
               >
-                <AlertTriangle size={12} className="text-warning" aria-hidden="true" />
+                <OkIcon id="unsaved" size={14} decorative />
                 <span className="text-warning">Unsaved</span>
               </button>
             )
@@ -414,7 +413,7 @@ export const TopBar = ({
               aria-label="Ask your team"
               data-testid="topbar-panel-link"
             >
-              <Users size={14} aria-hidden="true" />
+              <OkIcon id="team" decorative inherit />
               {/* ⭐ VISIBLE LABEL (29 Aug 2026). This was a bare 14px glyph
                   labelled only by `aria-label` and the tooltip above — and it
                   is one of two entry points to blind panel elicitation, the
@@ -440,7 +439,7 @@ export const TopBar = ({
               aria-label="Copy link to summary"
               data-testid="topbar-share"
             >
-              <Share2 size={14} aria-hidden="true" />
+              <OkIcon id="share" decorative inherit />
             </button>
           </Tooltip>
         )}
@@ -458,7 +457,7 @@ export const TopBar = ({
               aria-label="Invite a colleague to view this scenario"
               data-testid="topbar-invite"
             >
-              <UserPlus size={14} aria-hidden="true" />
+              <OkIcon id="invite" decorative inherit />
             </button>
           </Tooltip>
         )}
@@ -525,7 +524,7 @@ export const TopBar = ({
             opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
         {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
           <button type="button" className={styles.coreShare} data-testid="topbar-share-core" aria-label="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
-            <Share2 size={14} aria-hidden="true" />
+            <OkIcon id="share" size={14} decorative inherit />
             <span>Share</span>
           </button>
         ) : null}

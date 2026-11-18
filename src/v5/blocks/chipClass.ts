@@ -90,7 +90,7 @@ export const CHIP_PRIMARY_CLASS = [
 /**
  * THE OLUMI-CORE LANE'S CONTROL RECIPE (Paul, 18 Nov, superseding 7 Nov's "44px main targets" for this lane: "for all buttons, we need to go for
  * the smallest possible option … clear and easy, but simplified, minimised, space-saving, a premium feel"). One height, 28px (`min-h-7`), one
- * radius (6px, `rounded-md`, no pill), the 13px medium chat size, no border and no shadow. The 44px hit area is deliberately out; the focus ring stays.
+ * radius (6px, `rounded-md`, no pill), the panel's 12/500 heading size (`typography.viewPanelHeading`), no border and no shadow. The 44px hit area is deliberately out; the focus ring stays.
  *   - VIEW_CHIP_PRIMARY_CLASS: the one solid green text control (the green the lane already uses for actions: `bg-success`, ink text).
  *   - VIEW_CHIP_CLASS: a secondary is plain text on no fill; its hover fill is a token.
  *   - VIEW_ICON_BUTTON_PRIMARY_CLASS / VIEW_ICON_BUTTON_CLASS: the icon button, a 28px square, the icon drawn at 16px; solid green, or ghost grey.
@@ -100,8 +100,8 @@ const LANE_BASE = 'inline-flex min-h-7 items-center justify-center rounded-contr
 const LANE_PRIMARY = 'bg-success text-text-header hover:bg-success-hover active:bg-success-active disabled:bg-panel-border disabled:text-text-light disabled:cursor-not-allowed'
 const LANE_GHOST_SURFACE = 'bg-transparent hover:bg-panel-hover active:bg-panel-border/30 disabled:text-text-light disabled:cursor-not-allowed disabled:hover:bg-transparent'
 const LANE_GHOST = `text-text-body ${LANE_GHOST_SURFACE}`
-export const VIEW_CHIP_CLASS = [LANE_BASE, 'gap-1 px-2 text-left font-medium', typography.chatBody, LANE_GHOST].join(' ')
-export const VIEW_CHIP_PRIMARY_CLASS = [LANE_BASE, 'gap-1 px-2.5 text-left font-medium', typography.chatBody, LANE_PRIMARY].join(' ')
+export const VIEW_CHIP_CLASS = [LANE_BASE, 'gap-1 px-2 text-left', typography.viewPanelHeading, LANE_GHOST].join(' ')
+export const VIEW_CHIP_PRIMARY_CLASS = [LANE_BASE, 'gap-1 px-2.5 text-left', typography.viewPanelHeading, LANE_PRIMARY].join(' ')
 export const VIEW_ICON_BUTTON_PRIMARY_CLASS = [LANE_BASE, 'min-w-7 flex-none', LANE_PRIMARY].join(' ')
 /** No text colour of its own: the icon's registry colour is a class the button adds (OkIconButton), so `disabled:text-text-light` and a hover can win. */
 export const VIEW_ICON_BUTTON_CLASS = [LANE_BASE, 'min-w-7 flex-none', LANE_GHOST_SURFACE].join(' ')

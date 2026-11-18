@@ -7,6 +7,7 @@
 
 import type { ComponentType } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import type { IconId } from '../../olumiView/look/icons'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import type { NodeType } from '../domain/nodes'
@@ -54,6 +55,9 @@ export interface MenuItemDef {
   label: string
   /** Lucide icon component */
   icon?: LucideIcon | ComponentType<{ className?: string; size?: number }>
+  /** The lane's icon, from the registry (look/icons.tsx): drawn instead of `icon`; `iconAlt` draws its state variant. */
+  iconId?: IconId
+  iconAlt?: boolean
   /** Shape glyph for Add node submenu (rendered as text, not icon component) */
   glyph?: string
   /** Glyph colour class (e.g. 'text-danger') */

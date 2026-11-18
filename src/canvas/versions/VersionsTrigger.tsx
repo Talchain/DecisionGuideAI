@@ -31,7 +31,7 @@
  * panel is open, and neither owns the state.
  */
 
-import { History } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
 import { typography } from '../../styles/typography'
 import { useVersionsPanelStore } from './versionsPanelStore'
 
@@ -78,7 +78,7 @@ export function VersionsTrigger({
   if (variant === 'icon') {
     return (
       <button {...common} className={className}>
-        <History size={14} aria-hidden="true" />
+        <OkIcon id="held-past-version" size={14} inherit decorative />
       </button>
     )
   }
@@ -88,7 +88,7 @@ export function VersionsTrigger({
       {...common}
       className={`${typography.panelBody} inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-panel-border bg-panel text-text-body hover:bg-panel-hover ${className}`}
     >
-      <History className="w-3.5 h-3.5" aria-hidden="true" />
+      <OkIcon id="held-past-version" size={14} inherit decorative />
       {VERSIONS_TRIGGER_LABEL}
     </button>
   )
