@@ -1,0 +1,52 @@
+/**
+ * Two readers of core's Run that say where the result is weak, drawn on the Analysis tab in core's own words (never rewritten, hover kept):
+ * - what would have to be true, per option (`run.tipping`): each crossing core gives for an option, under core's heading. The lead's crossing is
+ *   WhatMovesIt's and is not drawn twice (matched by the line's place in `run.tipping`); a figure core names is one press away (as FindingLine).
+ * - what could go wrong (`run.failure`): shown only after the person has written their own reasons (core's pre-mortem gate, `session.pre_mortem.state`
+ *   'wrote'; a View with no gate falls back to the earlier chat rule), never before, so their reasons come first.
+ */
+import type { ViewModel } from '../client'
+import { failureOf, tippingOf } from '../layout'
+import { useMineWritten } from '../lens'
+import { useViewStore } from '../store'
+import { pressCard } from '../reasoning/tabRing'
+import { recordReach, showRecord } from '../v12/showInWorkspace/show'
+import { cardOf, leadChangeOf } from './pick'
+import { TYPE } from './type'
+
+export function TippingPerOption({ model }: { model: ViewModel }) {
+  const run = model.run ?? null
+  const t = tippingOf(run), lead = leadChangeOf(run)
+  const lines = (t?.lines ?? []).filter(({ i }) => !(lead?.kind === 'tipping' && lead.at === `run.tipping.${i}.line`))
+  if (t === null || lines.length === 0) return null
+  return (
+    <section className="space-y-1" data-testid="analysis-tipping" aria-label={t.heading}>
+      <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.tipping_heading">{t.heading}</p>
+      {lines.map(({ line: l, i }) => {
+        const card = l.figure?.id == null ? null : cardOf(model, l.figure.id)
+        return (
+          <p key={l.id} className={`${TYPE.meta} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}>
+            {l.olumi == null ? null : <><span className="text-info" title={l.olumi.title} aria-label={l.olumi.title}>{l.olumi.glyph}</span> </>}
+            <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
+            {card == null ? null : <> <button type="button" className={`${TYPE.meta} nodrag w-fit max-w-full truncate rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={card.heading}
+              onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }} data-tipping-figure={card.id}>{card.heading}</button></>}
+          </p>
+        )
+      })}
+    </section>
+  )
+}
+
+export function FailureAfterYours({ model }: { model: ViewModel }) {
+  const gate = useViewStore((s) => s.view?.session?.pre_mortem ?? null)
+  const chat = useMineWritten()
+  const written = gate === null ? chat : gate.state === 'wrote'
+  const t = failureOf(model.run ?? null)
+  if (!written || t === null) return null
+  return (
+    <section className="space-y-1" data-testid="analysis-failure" aria-label={t.heading}>
+      <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.failure_heading">{t.heading}</p>
+      {t.lines.map(({ line: l, i }) => <p key={l.id} className={`${TYPE.meta} m-0 text-text-body`} title={l.hover} data-view-fact={l.id}><span data-view={`run.failure.${i}.line`}>{l.line}</span></p>)}
+    </section>
+  )
+}
