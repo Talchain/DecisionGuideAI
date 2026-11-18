@@ -49,7 +49,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
   const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []), [card, link, ctx])
   // BESIDE ITS ITEM, AND IT FOLLOWS (surfaces step 3; the lane's own, the older look keeps the fixed corner): placed before paint, then re-placed whenever
   // the item, the panel or the free canvas moves (a pan, a zoom, a relayout), as the hover pop-up is. It never stays behind over a card that has moved on;
-  // while its item is off the free canvas it is hidden (not closed: its typing and saves stay) and comes back with the item.
+  // while its item is off the free canvas it stays visible, clamped inside it, as any other surface (Escape closes it).
   const lane = isOlumiCoreLane()
   const shown = target !== null && (card !== null || link !== null)
   const panel = useRef<HTMLElement>(null)
@@ -102,7 +102,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
   // The older look: the fixed corner, one scrolling box, as before. The lane: beside the card, capped to the room there, the body scrolling under a header that stays.
   return lane ? (
     <aside ref={panel} role="complementary" aria-label="Details" data-testid="lane-inspector" data-kind={target.kind}
-      className={`${frame} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden data-[off=true]:pointer-events-none data-[off=true]:invisible`}>
+      className={`${frame} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`}>
       {header}
       <div className="min-h-0 space-y-2 overflow-y-auto">{words}</div>
     </aside>

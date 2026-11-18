@@ -183,8 +183,9 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
     <form ref={box} role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan w-[280px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-y-auto data-[off=true]:pointer-events-none data-[off=true]:invisible'}`}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
       style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>
+      <div className="min-h-0 space-y-2 overflow-y-auto">
       <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
       {needsFigure ? (
         <label className="block space-y-1"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
@@ -199,6 +200,7 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
             onChange={(e) => set(f.key, e.target.value)} className={inputClass} /></label>
       ))}
       {note === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="lane-edit-note">{note}</p>}
+      </div>
       {error === null ? null : <p role="alert" className="text-danger" data-testid="lane-edit-error">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"

@@ -3,8 +3,8 @@
  * canvas (not under the top bar or the head band, the left rail, the dock or the foot controls). The side is the hover pop-up's own rule
  * (`placeHoverCard`: first side that fits whole, fewest other cards covered), run inside the free canvas's box.
  * The card's own box is a HARD constraint: when no side holds the whole panel, the panel is made shorter (its body scrolls inside, its header and close stay)
- * on the side with the most room, never laid over its card. A card or link that is drawn but off the free canvas (panned or zoomed away) hides the panel (it stays
- * mounted, with its typing and its saves) until the card comes back.
+ * on the side with the most room, never laid over its card where any non-overlapping place exists. A card or link that is drawn but off the free canvas (panned
+ * or zoomed away), or one with no side that has room, leaves the panel VISIBLE, clamped inside the free canvas where it overlaps the card least; nothing is hidden.
  */
 import { placeHoverCard, canvasCardRects, viewportSize, HOVER_CARD_GAP, type Rect } from '../../../canvas/components/hoverCard/hoverCardPlacement'
 import { SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../../../canvas/utils/computeFitPadding'
@@ -61,65 +61,81 @@ export type Placed = { left: number; top: number; /** Set when the panel must be
 /** Below this a panel is no use (its header and close alone); a side with less room is not a side. */
 const MIN_SHOWN = 64
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
+const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
-/** Where a `size` panel stands beside `anchor` inside `free`, never over the anchor; null when the anchor is off the free canvas (or no side has room). */
-export function placeBeside(anchor: Rect | null, own: Element | null, size: { width: number; height: number }, free: Rect): Placed | null {
+/** Where a `size` panel stands beside `anchor` inside `free`, never over the anchor where any place avoids it; always inside `free` (never null). */
+export function placeBeside(anchor: Rect, own: Element | null, size: { width: number; height: number }, free: Rect): Placed {
   const gap = HOVER_CARD_GAP
-  if (anchor === null || !within(anchor, free)) return null
   const shift = (r: Rect): Rect => ({ left: r.left - free.left, top: r.top - free.top, right: r.right - free.left, bottom: r.bottom - free.top })
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
   const h = Math.min(size.height, Math.max(MIN_SHOWN, H - 2 * gap))
   const out = (left: number, top: number, hh: number): Placed => ({ left: left + free.left, top: top + free.top, maxHeight: hh < size.height ? hh : null })
-  const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
   const a = shift(anchor)
-  // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
-  const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
-  if (!hits({ left: p.left, top: p.top, right: p.left + w, bottom: p.top + h }, a)) return out(p.left, p.top, h)
-  // No side holds it clear of the card: the side with the most room, the panel cut to that room.
-  const sides: Array<{ left: number; top: number; h: number }> = []
-  if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h })
-  if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: clamp(a.top, gap, H - h - gap), h })
-  const below = Math.min(h, H - a.bottom - 2 * gap), above = Math.min(h, a.top - 2 * gap), across = clamp(a.left, gap, W - w - gap)
-  if (below >= MIN_SHOWN) sides.push({ left: across, top: a.bottom + gap, h: below })
-  if (above >= MIN_SHOWN) sides.push({ left: across, top: a.top - gap - above, h: above })
-  const best = sides.sort((x, y) => y.h - x.h)[0]
-  return best === undefined ? null : out(best.left, best.top, best.h)
+  if (within(anchor, free)) {
+    const foot = regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+    // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
+    const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
+    if (!hits({ left: p.left, top: p.top, right: p.left + w, bottom: p.top + h }, a)) return out(p.left, p.top, h)
+    // No side holds it clear of the card: the side with the most room, the panel cut to that room.
+    const sides: Array<{ left: number; top: number; h: number }> = []
+    if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h })
+    if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: clamp(a.top, gap, H - h - gap), h })
+    const below = Math.min(h, H - a.bottom - 2 * gap), above = Math.min(h, a.top - 2 * gap), across = clamp(a.left, gap, W - w - gap)
+    if (below >= MIN_SHOWN) sides.push({ left: across, top: a.bottom + gap, h: below })
+    if (above >= MIN_SHOWN) sides.push({ left: across, top: a.top - gap - above, h: above })
+    const best = sides.sort((x, y) => y.h - x.h)[0]
+    if (best !== undefined) return out(best.left, best.top, best.h)
+  }
+  // The card is off the free canvas, or no side has room: still shown, inside the free canvas, where it overlaps the card least (the first of these on a tie).
+  const maxL = W - w - gap, maxT = H - h - gap
+  const spots = [
+    { left: clamp(a.right + gap, gap, maxL), top: clamp(a.top, gap, maxT) }, { left: clamp(a.left - gap - w, gap, maxL), top: clamp(a.top, gap, maxT) },
+    { left: clamp(a.left, gap, maxL), top: clamp(a.bottom + gap, gap, maxT) }, { left: clamp(a.left, gap, maxL), top: clamp(a.top - gap - h, gap, maxT) },
+    { left: gap, top: gap }, { left: Math.max(gap, maxL), top: gap }, { left: gap, top: Math.max(gap, maxT) }, { left: Math.max(gap, maxL), top: Math.max(gap, maxT) },
+  ]
+  let best = spots[0]!, least = Infinity
+  for (const s of spots) { const o = overlap({ left: s.left, top: s.top, right: s.left + w, bottom: s.top + h }, a); if (o < least) { least = o; best = s } }
+  return out(best.left, best.top, h)
 }
 
 /**
  * Keep `el` beside its item as the board moves (a pan, a zoom, a relayout): placed before paint by the caller's layout effect, then again each frame
- * the item, the element's own size or the free canvas changes. Its position and cap are written as custom properties (`vars`); while the item is off the
- * free canvas the element stays mounted but is hidden, inert and out of the reading order, and shows again when the item returns. Returns the stop.
+ * the item, the element's own size or the free canvas changes. Its position and cap are written as custom properties (`vars`), and only when the computed
+ * key changes. It is never hidden: off the free canvas it stays visible inside it. An item with no drawn card puts it at the free canvas's top-left.
+ * Returns the stop.
  */
 export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH): () => void {
-  let raf = 0, last = ''
+  let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
+  const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
+  let watched: HTMLElement | null = null
   const place = () => {
     const el = get()
     if (el !== null) {
+      if (watch !== null && watched !== el) { watch.disconnect(); watch.observe(el, { childList: true, subtree: true, characterData: true }); watched = el; dirty = true }
       const { anchor, own } = anchorOf(target), free = freeCanvas()
-      // Its natural height, not the cap it was last given.
+      const where = [anchor?.left, anchor?.top, anchor?.right, anchor?.bottom, free.left, free.top, free.right, free.bottom].join('|')
+      // Its natural height, not the cap it was last given: read free when uncapped; when capped it is measured (cap lifted and put back) only after the
+      // item or the canvas moved or its content changed, never every frame.
       const cap = el.style.getPropertyValue(vars.h)
-      if (cap !== '') el.style.removeProperty(vars.h)
-      const box = el.getBoundingClientRect()
-      if (cap !== '') el.style.setProperty(vars.h, cap)
-      const size = { width: box.width > 0 ? box.width : fallbackWidth, height: box.height }
-      const key = [anchor?.left, anchor?.top, anchor?.right, anchor?.bottom, size.width, size.height, free.left, free.top, free.right, free.bottom].join('|')
+      if (cap === '') natural = el.getBoundingClientRect().height
+      else if (natural === null || dirty || where !== lastWhere) {
+        el.style.removeProperty(vars.h); natural = el.getBoundingClientRect().height; el.style.setProperty(vars.h, cap)
+      }
+      dirty = false; lastWhere = where
+      const width = el.getBoundingClientRect().width
+      const size = { width: width > 0 ? width : fallbackWidth, height: natural }
+      const key = `${where}|${size.width}|${size.height}`
       if (key !== last) {
         last = key
-        // Its item is not drawn at all (nothing to stand beside, e.g. no canvas yet): left where its own fallback puts it, shown. Drawn but off the free canvas: hidden.
-        const p = anchor === null ? undefined : placeBeside(anchor, own, size, free)
-        if (p === undefined) { delete el.dataset.off; el.removeAttribute('aria-hidden'); el.removeAttribute('inert') }
-        else if (p === null) { el.dataset.off = 'true'; el.setAttribute('aria-hidden', 'true'); el.setAttribute('inert', '') }
-        else {
-          delete el.dataset.off; el.removeAttribute('aria-hidden'); el.removeAttribute('inert')
-          el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
-          if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
-        }
+        // Its item is not drawn at all (nothing to stand beside): the free canvas's top-left, at its own height. Otherwise beside it.
+        const p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: null } : placeBeside(anchor, own, size, free)
+        el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
+        if (p.maxHeight === null) el.style.removeProperty(vars.h); else el.style.setProperty(vars.h, `${p.maxHeight}px`)
       }
     }
     raf = requestAnimationFrame(place)
   }
   place()
-  return () => cancelAnimationFrame(raf)
+  return () => { cancelAnimationFrame(raf); watch?.disconnect() }
 }

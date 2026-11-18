@@ -443,19 +443,75 @@ describe('surfaces step 3: details beside their card', () => {
     expect(anchorOf({ kind: 'link', id: ID }).anchor, 'half way along the line, on screen').toEqual({ left: 60, top: 20, right: 60, bottom: 20 })
   })
 
-  it('S3-i a card off the free canvas hides its panel (kept mounted, inert, aria-hidden, still open in the store) and it shows again beside the card when it returns', async () => {
+  it('S3-i a card panned off the free canvas: the panel stays visible and focusable, inside the free canvas, and a press on Escape closes it as a normal visible surface', async () => {
     mockBoxes()
     await board()
     cards[OPT] = { left: 400, top: 300, width: 220, height: 120 }
     fireEvent.click(node(OPT)); await settle()
     const shown = inspector()
-    expect(shown.getAttribute('aria-hidden')).toBeNull()
     cards[OPT] = { left: -2000, top: 300, width: 220, height: 120 }; await settle()
     expect(inspector(), 'the same panel, still mounted').toBe(shown)
-    expect(shown.getAttribute('aria-hidden')).toBe('true'); expect(shown.hasAttribute('inert')).toBe(true)
-    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: OPT } })
-    cards[OPT] = { left: 300, top: 400, width: 220, height: 120 }; await settle()
-    expect(shown.getAttribute('aria-hidden')).toBeNull(); expect(shown.hasAttribute('inert')).toBe(false)
-    expect(area(rectOf(panelBox(shown)), rectOf(cards[OPT]))).toBe(0)
+    expect(shown.getAttribute('aria-hidden')).toBeNull(); expect(shown.hasAttribute('inert')).toBe(false); expect(shown.hasAttribute('data-off')).toBe(false)
+    const close = screen.getByLabelText('Close details'); close.focus()
+    expect(document.activeElement, 'focusable').toBe(close)
+    const box = rectOf(panelBox(shown))
+    expect(box.left).toBeGreaterThanOrEqual(0); expect(box.right).toBeLessThanOrEqual(window.innerWidth)
+    expect(box.top).toBeGreaterThanOrEqual(0); expect(box.bottom).toBeLessThanOrEqual(window.innerHeight)
+    expect(shown.style.getPropertyValue('--lane-details-x'), 'placed, not left hidden').not.toBe('')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(open(), 'Escape closes it').toEqual([])
+  })
+
+  it('S3-j capped to 120px, the form keeps Save, Cancel and its error line outside the scrolling element, visible', async () => {
+    mockBoxes(); withChrome()
+    Object.assign(window, { innerWidth: 560, innerHeight: 512 })
+    await board()
+    cards[OPT] = { left: 230, top: 270, width: 220, height: 120 }
+    fireEvent.click(node(OPT)); await settle()
+    formHeight.now = FORM_HEIGHT
+    fireEvent.click(OPEN_EDIT()); await settle()
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    form.style.setProperty('--lane-form-h', '120px')
+    for (const id of ['lane-edit-go', 'lane-edit-cancel']) {
+      const b = screen.getByTestId(id)
+      expect(form.contains(b), id).toBe(true)
+      expect(b.closest('.overflow-y-auto'), `${id} outside the scrolling element`).toBeNull()
+    }
+    expect(form.querySelector('.overflow-y-auto [data-testid="lane-edit-label"]'), 'the fields scroll').not.toBeNull()
+    expect(form.getAttribute('aria-hidden')).toBeNull(); expect(form.hasAttribute('inert')).toBe(false)
+  })
+
+  it('S3-k with nothing moving, a further frame performs no style write on a capped panel', async () => {
+    mockBoxes(); withChrome()
+    Object.assign(window, { innerWidth: 560, innerHeight: 512 })
+    await board()
+    cards[OPT] = { left: 230, top: 270, width: 220, height: 120 }
+    fireEvent.click(node(OPT)); await settle()
+    const el = inspector()
+    expect(el.style.getPropertyValue('--lane-details-h'), 'capped').not.toBe('')
+    const writes: string[] = []
+    const set = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty').mockImplementation(function (this: CSSStyleDeclaration, k: string) { if (this === el.style) writes.push(`set ${k}`) })
+    const rem = vi.spyOn(CSSStyleDeclaration.prototype, 'removeProperty').mockImplementation(function (this: CSSStyleDeclaration, k: string) { if (this === el.style) writes.push(`remove ${k}`); return '' })
+    await settle()
+    set.mockRestore(); rem.mockRestore()
+    expect(writes).toEqual([])
+  })
+
+  it('S3-l a target with no drawn card: the panel and the form stand at the free canvas top-left fallback, not the previous card\'s place and not 8, 8', async () => {
+    mockBoxes()
+    await board()
+    cards[OPT] = { left: 500, top: 350, width: 220, height: 120 }; cards[OTHER] = { left: 100, top: 400, width: 220, height: 120 }
+    fireEvent.click(node(OPT)); await settle()
+    const prev = { x: inspector().style.getPropertyValue('--lane-details-x'), y: inspector().style.getPropertyValue('--lane-details-y') }
+    expect(prev.x).not.toBe('')
+    node(OTHER).setAttribute('data-id', 'undrawn')      // OTHER's card is in the model, but not drawn on the canvas
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: OTHER }) }); await settle()
+    const at = { x: inspector().style.getPropertyValue('--lane-details-x'), y: inspector().style.getPropertyValue('--lane-details-y') }
+    expect(at, 'not the previous card\'s place').not.toEqual(prev)
+    expect(parseFloat(at.x), 'a position at the free canvas top-left').toBeGreaterThanOrEqual(0)
+    expect(parseFloat(at.y)).toBeGreaterThanOrEqual(112 - 112)
+    fireEvent.click(OPEN_EDIT()); await settle()
+    const form = document.querySelector<HTMLElement>('[data-testid="lane-edit-form"]')!
+    expect({ x: form.style.getPropertyValue('--lane-form-x'), y: form.style.getPropertyValue('--lane-form-y') }, 'the form uses the same fallback').toEqual(at)
   })
 })
