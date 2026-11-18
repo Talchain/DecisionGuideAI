@@ -308,6 +308,8 @@ interface OkIconButtonProps {
   words?: string
   variant?: 'alt'
   active?: boolean
+  /** A toggle that is on (a challenge waiting for its card): said to assistive technology as pressed. Omitted for a plain press. */
+  pressed?: boolean
   disabled?: boolean
   testid?: string
   size?: number
@@ -315,7 +317,7 @@ interface OkIconButtonProps {
 }
 
 /** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, variant, active, disabled, testid, size = DEFAULT_SIZE, className }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
@@ -325,6 +327,7 @@ export function OkIconButton({ id, onClick, words, variant, active, disabled, te
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
+      aria-pressed={pressed}
       title={label}
       data-testid={testid}
       className={`${HIT_44} inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`}

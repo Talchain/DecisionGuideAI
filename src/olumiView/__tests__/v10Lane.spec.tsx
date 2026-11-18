@@ -33,13 +33,13 @@ beforeEach(() => {
 afterEach(() => {
   setTeamFetch(null)
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
-  useCanvasStore.setState({ nodes: [], edges: [] })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, armed: null })
+  useCanvasStore.setState({ nodes: [], edges: [], selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
   document.body.innerHTML = ''
 })
 
 describe('v10 on the core lane', () => {
-  it('the four methods are also icon buttons inside the composer box (named, titled), fill the prefix, send nothing; none for a brief', () => {
+  it('the four methods are also icon buttons inside the composer box (named, titled); over typed words they fill the prefix and send nothing; none for a brief', () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
     const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
     const row = container.querySelector('[data-testid="view-composer"] [data-testid="view-composer-methods"]')!
@@ -55,6 +55,41 @@ describe('v10 on the core lane', () => {
     unmount()
     useViewStore.setState({ sid: null, view: null })
     expect(render(<><ViewChat /><ViewComposer /></>).container.querySelector('[data-testid="view-composer-methods"]')).toBeNull()
+  })
+  it('UI-A (menu brief, 18 Nov): with an empty box a composer challenge icon runs core\'s typed challenge on the ONE selected card (bound by id) and types nothing; with no card selected it waits, says so in words, and runs on the next card picked; Esc cancels. CONTRAST: words already typed still get the prefix and nothing is sent', async () => {
+    const sent: Array<{ url: string; body: { kind?: string; record?: string } }> = []
+    setTeamFetch((async (url: string, init?: RequestInit) => { if (init?.method === 'POST') sent.push({ url, body: JSON.parse(String(init.body)) }); return new Response(JSON.stringify(view), { status: 200 }) }) as unknown as typeof fetch)
+    const [a, b] = view.model!.cards.map((c) => c.id) as [string, string]
+    const select = (ids: string[]) => act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set(), anchorPosition: null } }) })
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    const icon = (k: string) => container.querySelector<HTMLButtonElement>(`[data-testid="view-composer-method-${k}"]`)!
+    const state = (k: string) => ({ text: useViewChat.getState().text, armed: useViewChat.getState().armed ?? null, pressed: icon(k).getAttribute('aria-pressed'), hint: container.querySelector('[data-testid="view-composer-armed"]')?.textContent ?? null,
+      sent: sent.map((x) => [x.url.replace(/^.*\/scenarios\/[^/]+/, ''), x.body.kind, x.body.record]) })
+    const settled = () => waitFor(() => expect(useViewChat.getState().busy).toBe(false))
+    // One card selected: core's typed challenge, on that card, nothing typed.
+    select([a])
+    await act(async () => { fireEvent.click(icon('opposite')) })
+    await waitFor(() => expect(sent.length).toBe(1))
+    await settled()
+    expect(state('opposite')).toEqual({ text: '', armed: null, pressed: 'false', hint: null, sent: [['/challenge', 'opposite', a]] })
+    // No card selected: it waits and says so; Esc cancels; nothing is sent.
+    select([])
+    await act(async () => { fireEvent.click(icon('disconfirming')) })
+    expect(state('disconfirming')).toMatchObject({ text: '', armed: 'disconfirming', pressed: 'true', hint: 'What would disprove it: pick a card on the canvas. Esc cancels.' })
+    await act(async () => { fireEvent.keyDown(window, { key: 'Escape' }) })
+    expect(state('disconfirming')).toMatchObject({ armed: null, pressed: 'false', hint: null })
+    expect(sent.length).toBe(1)
+    // Waiting again, then a card is picked: the challenge runs on THAT card.
+    await act(async () => { fireEvent.click(icon('disconfirming')) })
+    select([b])
+    await waitFor(() => expect(sent.length).toBe(2))
+    await settled()
+    expect(state('disconfirming')).toMatchObject({ text: '', armed: null, hint: null, sent: [['/challenge', 'opposite', a], ['/challenge', 'disconfirming', b]] })
+    // CONTRAST: words the person typed are their own subject: the prefix goes before them, nothing is sent, nothing waits.
+    await act(async () => { fireEvent.change(container.querySelector('#view-chat-text')!, { target: { value: 'the 30p rise' } }) })
+    await act(async () => { fireEvent.click(icon('outside')) })
+    expect(state('outside')).toMatchObject({ text: 'Outside view on: the 30p rise', armed: null })
+    expect(sent.length).toBe(2)
   })
   it('V12: the named method chips and the "More ways" disclosure are gone: the four icons fill the prefix and the one ⋯ menu (where core sends a session) is the way in to the rest; none of them for a brief', () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)

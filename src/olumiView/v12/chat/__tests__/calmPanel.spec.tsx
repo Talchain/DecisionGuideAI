@@ -322,9 +322,9 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(use.disabled).toBe(false)
     for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.style.color).toBe('var(--text-light)')
     fireEvent.click(q(card, 'view-question-method-opposite')!)
-    expect(bodies).toEqual([]) // an ask-for-more icon only fills the message box
-    expect(useViewChat.getState().text).not.toBe('')
-    useViewChat.setState({ text: '' })
+    expect(bodies).toEqual([]) // with no card selected an ask-for-more icon waits for a card (menu brief UI-A, 18 Nov): nothing typed, nothing sent
+    expect([useViewChat.getState().text, useViewChat.getState().armed]).toEqual(['', 'opposite'])
+    useViewChat.setState({ text: '', armed: null })
     await act(async () => { fireEvent.click(use) })
     await vi.waitFor(() => expect(bodies.some((b) => b.includes('By the end of June'))).toBe(true))
     const sent = bodies.filter((b) => b.includes('By the end of June'))

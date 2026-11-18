@@ -40,7 +40,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
   /** The person's words for this question, through the conversation's own send; true once sent. */
   onAnswer: (q: AskedQuestion, answer: string) => Promise<boolean>
   /** A method's lead-in prefix, for the message box (ViewChat puts it there; never sent). */
-  onMethod: (prefix: string) => void
+  onMethod: (key: (typeof V10_METHODS)[number]['key']) => void
 }): JSX.Element | null {
   const [at, setAt] = useState(0)
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({})
@@ -89,8 +89,8 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
         {own ? null : <button type="button" disabled={held || sending || typed.trim() === ''} onClick={() => void use()} className={USE_CLASS} data-testid="view-question-use">{USE_THIS}</button>}
         {i >= n - 1 ? null : <OkIconButton id="skip-question" testid="view-question-skip" size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" onClick={() => setAt(i + 1)} />}
         <span role="group" aria-label="Ways to ask for more" className="ml-auto flex items-center gap-0.5" data-testid="view-question-more">
-          {V10_METHODS.map(({ key, label, prefix }) => (
-            <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-question-method-${key}`} size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" disabled={held} onClick={() => onMethod(prefix)} />
+          {V10_METHODS.map(({ key, label }) => (
+            <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-question-method-${key}`} size={14} className="h-6 w-6 rounded-md hover:bg-panel-hover" disabled={held} onClick={() => onMethod(key)} />
           ))}
         </span>
       </div>
