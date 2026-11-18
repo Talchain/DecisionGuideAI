@@ -40,6 +40,7 @@ import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
 import { SimpleFace } from '../v12/SimpleFace'
+import { CardDisputeMark } from '../../olumiCore/team/CardDispute'
 import { RestsOn } from '../v12/cards/RestsOn'
 import { notesOpenOn } from '../v12/qualitativeNotes'
 import { useLevel } from '../v12/simpleStore'
@@ -492,7 +493,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
                 <span data-view={`${id}.failed_reason.olumi.glyph`}>{r.olumi.glyph}</span> <span data-view={`${id}.failed_reason.text`}>{r.text}</span>
               </span>
             ) })()}
-            <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
+            <CardViewInitials card={id} /><CardEvidenceMarks card={id} /><CardDisputeMark card={id} /><CardViewChips card={id} /><StrategyChips card={id} /></span>
           {/* The figure's ✎ takes a row of its own only where no line can carry it (DL-183). */}
           {editCue === null || cueOnLead || cueOnAuthor ? null : <span className="self-start">{editCue}</span>}
           {/* THE FOOT, ONE ROW OF MARKS (Detailed, 17 Nov; Paul: provenance as marks and colour, not sentences; text as icons with a hover): the
