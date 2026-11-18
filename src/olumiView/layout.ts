@@ -210,8 +210,9 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
 export const SIMPLE_GAP_X = LAYOUT_NODE_GAP, SIMPLE_GAP_Y = LAYOUT_LAYER_GAP
 /** The zoom at which 12 px type at the counter-scale cap draws 11 px (the card text floor on screen): the board is laid out to fit across at it. */
 export const SIMPLE_READABLE_ZOOM = 11 / (12 * LABEL_COUNTER_SCALE_CAP)
-/** Where a band's label stands above its first row: this far over the row's top, clear of the kind marker's overhang (BandLayer). */
-export const SIMPLE_LABEL_GAP = 4
+/** Where a band's label stands above its first row: this far over the row's top, clear of the kind marker's overhang and of an arrow head arriving
+ *  at the row's top (BandLayer; 18 Nov audit: at 4 the green head landed on the words). */
+export const SIMPLE_LABEL_GAP = 10
 /** One Simple placement: its place, the width its band gives it and the type scale the board is drawn at (the same on every card). */
 export type SimplePlace = { x: number; y: number; w?: number; s?: number }
 /** The widest a Simple card is drawn (flow px; Paul, 17 Nov: "max widths on all of the graph elements… in case it's a really small graph… I don't think

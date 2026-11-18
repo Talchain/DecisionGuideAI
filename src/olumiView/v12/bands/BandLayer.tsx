@@ -82,7 +82,7 @@ export function BandLayer() {
       <div style={{ pointerEvents: 'none' }} data-testid="view-band-layer">
         {labels.map(({ band, x, y }) => (
           <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y, transform: `translateY(calc(-100% - ${SIMPLE_LABEL_GAP}px - ${KIND_GLYPH_PX / 2}px * var(--o-s, 1)))`, color: INK, pointerEvents: 'none', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
-            className="flex items-center gap-1.5 whitespace-nowrap font-medium leading-tight">
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 font-medium leading-tight">
             <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
             {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 rounded-full border border-panel-border px-2 py-0.5 text-xs font-medium"
               title="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}>Fold</button> : null}

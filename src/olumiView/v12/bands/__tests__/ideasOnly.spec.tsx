@@ -16,6 +16,8 @@ import { useViewChat } from '../../../ViewChat'
 import { useMe } from '../../../../olumiCore/me'
 import { useCanvasStore } from '../../../../canvas/store'
 import { IDEA_PREFIX } from '../bands'
+import { SIMPLE_GAP_Y, SIMPLE_LABEL_GAP } from '../../../layout'
+import { KIND_GLYPH_PX } from '../../../../canvas/utils/nodeLayoutConstants'
 import { VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { CHALLENGE_IDEA, DEVELOP_IDEA, IdeaPanel, ideaDetailOf } from '../IdeaPanel'
 import { takesBrief } from '../../../ViewChat'
@@ -66,6 +68,14 @@ describe('008e 1: kept ideas with no current model', () => {
     expect(screen.getAllByTestId('view-idea-card').map((c) => c.getAttribute('data-view-idea')).sort()).toEqual(['kept:41', 'kept:42'])
     // One of the two was kept by Sam, not by the reader: the heading does not say "you" (pilot, pair row 08:5xZ).
     expect(document.querySelector('[data-band-label="ideas"]')?.textContent).toBe('Kept ideas')
+  })
+  it('a band label is readable over the links (audit canvas-band-label-struck-through): a canvas-coloured backing, and a gap that clears an arrow head, still inside the row gap', () => {
+    show(noModel(KEPT))
+    mount()
+    const label = document.querySelector('[data-band-label="ideas"]') as HTMLElement
+    expect(label.className).toContain('bg-canvas') // the link behind the words is hidden, not struck through them (STRUCTURE row: jsdom draws no links)
+    expect(SIMPLE_LABEL_GAP, 'clear of an arrow head (about 8 units)').toBeGreaterThanOrEqual(10)
+    expect(SIMPLE_LABEL_GAP + 16 + KIND_GLYPH_PX / 2, 'the label, its gap and the marker still fit the row gap').toBeLessThanOrEqual(SIMPLE_GAP_Y)
   })
   it('the welcome does not stand over them, and the message box is still the dock\'s', () => {
     show(noModel(KEPT))
