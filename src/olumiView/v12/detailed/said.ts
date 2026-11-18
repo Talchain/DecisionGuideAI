@@ -95,12 +95,12 @@ export function sharedRowStates(model: ViewModel | null): ReadonlyMap<string, Sa
 
 /**
  * The qualifier every option's chance carries alike (core's words after the number: words.ts chanceParts), said once on the question card.
- * Null unless two or more options are on the rail and EVERY one of them (charts.tsx Rail: each option with a headline) is a chance with the same
- * qualifier: a line under the rail reads as true of every row above it, so one row without that clause (a fixed result, no chance yet, another
- * condition or none) means each row keeps its own words, whole, and nothing is said once.
+ * Null unless two or more options have a result (a chance or a fixed result) and EVERY one of them is a chance with the same qualifier. A line
+ * under the rail reads as a condition on every number above it, so one result without that clause (a fixed result, another condition or none)
+ * means each row keeps its own words, whole, and nothing is said once. An option with no chance yet has no number to qualify and does not count.
  */
 export function sharedQualifier(model: ViewModel | null): string | null {
-  const heads = optionsOf(model).flatMap((c) => (c.headline != null ? [c.headline] : []))
+  const heads = optionsOf(model).flatMap((c) => (c.headline != null && c.headline.state !== 'none' ? [c.headline] : []))
   if (heads.length < 2 || !heads.every((h) => h.state === 'chance')) return null
   const quals = heads.map((h) => chanceParts(h.text).qualifier)
   return quals[0] != null && quals[0] !== '' && quals.every((q) => q === quals[0]) ? quals[0] : null

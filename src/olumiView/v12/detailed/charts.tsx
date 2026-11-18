@@ -2,7 +2,7 @@
  * THE DETAILED FACE'S TWO CHARTS, each a fact said once with the options named by their letters (the option's name is said on its own card):
  *  - Rail (the question card): every option's chance on ONE 0..100% scale, a dot at core's served chance and core's range as a whisker, core's
  *    chance words at the right, WHOLE: the number and, after it, the row's own condition ("60% chance, if capacity is available"). Only where every
- *    row carries the same condition (said.ts sharedQualifier) is it drawn once under the rail and the rows keep the number alone.
+ *    option with a result is a chance carrying the same condition (said.ts sharedQualifier) is it drawn once under the rail, the rows keeping the number alone.
  *    An option with no chance yet is its letter and core's words, with no lane (no empty track at rest): never a zero, never a run-on of names.
  *    No option with a chance: no rail (nothing to compare).
  *  - Strips (a figure worked out per option): each option's middle band on one true axis shared by the rows (SimpleFace bandRowsOf, the same

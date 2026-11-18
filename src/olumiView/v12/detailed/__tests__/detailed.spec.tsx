@@ -26,6 +26,7 @@ import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
 const ASKED = load('core-38eebca9/bakery-asked.view3.json'), HIRING = load('real/hiring-unchecked-first.view3.json'), HOSTING = load('real/hosting.view3.json')
 const APP = load('core-38eebca9/app-launch.view3.json')
+const RUN1 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run1-pending.view.json'), 'utf8')) as View
 const PENDING = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-cd6305e5-store-pending.view.json'), 'utf8')) as View
 const cardOf = (v: View, id: string): ViewCard => v.model!.cards.find((c) => c.id === id)!
 const withCard = (v: View, card: ViewCard): View => ({ ...v, model: { ...v.model!, cards: v.model!.cards.map((c) => (c.id === card.id ? card : c)) } })
@@ -130,7 +131,7 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const saying = (texts: Readonly<Record<string, string>>): View => Object.entries(texts).reduce((v, [id, text]) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, text } } as ViewCard), HIRING)
     const railOf = (v: View) => {
       const rail = draw(v, QUESTION).querySelector<HTMLElement>('[data-detailed-rail]')!
-      return { rows: [...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('.ok-dt-rail-val')?.textContent, r.querySelector('[data-rail-qualifier]')?.textContent ?? null]),
+      return { rows: [...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector(`[data-view="${r.getAttribute('data-rail-row')}.headline.text"]`)?.textContent, r.querySelector('[data-rail-qualifier]')?.textContent ?? null]),
         once: [...rail.querySelectorAll('[data-shared-qualifier]')].map((e) => e.textContent) }
     }
     const differ = saying({ [A]: '60% chance, if capacity is available', [B]: '30% chance, if a partner helps' })
@@ -149,6 +150,30 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(railOf(shared)).toEqual({ rows: [[A, '60% chance', null], [B, '30% chance', null], [C, '10% chance', null]], once: ['if capacity is available'] })
     cleanup()
     expect(faceOf(draw(shared, B), B).querySelector(`[data-view="${B}.headline.qualifier"]`), 'said once on the rail, so not again on the card').toBeNull()
+    cleanup()
+    // CONTRAST: a FIXED result among them: the line under the rail would put a condition on a result core gave none, so every row keeps its own words.
+    const fixed = withCard(shared, { ...cardOf(shared, C), headline: { ...cardOf(shared, C).headline!, state: 'fixed', text: 'never met in this model' } } as ViewCard)
+    expect(railOf(fixed)).toEqual({ rows: [[A, '60% chance, if capacity is available', ', if capacity is available'], [B, '30% chance, if capacity is available', ', if capacity is available'], [C, 'never met in this model', null]], once: [] })
+    cleanup()
+    // A live board (the run-1 funding View): two options have a chance, both on the same condition, and four have no chance yet. An option with no chance has no
+    // number to qualify, so the condition is still said once under the rail; the two chances keep the number alone and the four keep core's own words.
+    const CLAUSE = 'on Olumi\'s assumption for \'Time from now until the first funding is received in the company\'s account now\''
+    expect(RUN1.model!.cards.filter((c) => c.family === 'option').map((c) => [c.id, c.headline!.state, c.headline!.text])).toEqual([
+      ['keep_sending_cold_emails_and_seeking_warm_connections_to_investm', 'chance', 'about 10% chance, on Olumi\'s assumption for \'Time from now until the first funding is received in the company\'s account now\''],
+      ['approach_angel_investors_for_quicker_small_funding', 'none', 'No chance yet'],
+      ['widen_the_outreach_list_to_investors_who_write_smaller_cheques', 'chance', 'about 20% chance, on Olumi\'s assumption for \'Time from now until the first funding is received in the company\'s account now\''],
+      ['apply_for_non_dilutive_grants_or_a_short_term_bridge_loan', 'none', 'No chance yet'],
+      ['cut_monthly_spending_to_stretch_the_cash_runway', 'none', 'No chance yet'],
+      ['test_angel_appetite_with_a_few_early_conversations_before_commit', 'none', 'No chance yet'],
+    ])
+    expect(railOf(RUN1)).toEqual({ rows: [
+      ['keep_sending_cold_emails_and_seeking_warm_connections_to_investm', 'about 10% chance', null],
+      ['approach_angel_investors_for_quicker_small_funding', 'No chance yet', null],
+      ['widen_the_outreach_list_to_investors_who_write_smaller_cheques', 'about 20% chance', null],
+      ['apply_for_non_dilutive_grants_or_a_short_term_bridge_loan', 'No chance yet', null],
+      ['cut_monthly_spending_to_stretch_the_cash_runway', 'No chance yet', null],
+      ['test_angel_appetite_with_a_few_early_conversations_before_commit', 'No chance yet', null],
+    ], once: [CLAUSE] })
   })
   it('DT15 the same short status over DIFFERENT reasons is not said once: each option keeps its own line with its own hover, and the aim says none. CONTRAST: the same board with one reason on every option says it once, with that reason the hover, and the options say nothing', () => {
     const [A, B, C] = ['second_oven', 'longer_hours', 'carry_on'] as const, AIM = 'sell_360'
