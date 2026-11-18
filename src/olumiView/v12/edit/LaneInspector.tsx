@@ -18,6 +18,7 @@ import type { NodeTarget } from '../../../canvas/contextMenu/types'
 import type { ViewCard } from '../../client'
 import type { FigureRange } from '../contract'
 import { WhereYouDiffer } from '../../../olumiCore/team/CardDispute'
+import { CommitToThisButton } from '../team/CommitForm'
 import { FigureInspector } from '../inspect/FigureInspector'
 import { ValueRow } from '../inspect/ValueRow'
 import { useViewStore } from '../../store'
@@ -90,6 +91,7 @@ export function LaneInspector({ range }: { range?: (card: ViewCard, r: FigureRan
           {card.olumi === null ? null : <p className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{card.olumi.glyph} </span>{card.olumi.title}</p>}
           {card.status === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`}>{card.status}</p>}
           {lane ? <WhereYouDiffer card={card.id} /> : null}
+          {lane && card.family === 'option' && card.status === null ? <CommitToThisButton option={card.id} /> : null}
           <FigureInspector card={card} range={range} onAsk={ask} onClose={() => close()} />
         </>
       )}

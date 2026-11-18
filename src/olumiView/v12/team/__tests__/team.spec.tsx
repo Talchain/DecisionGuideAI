@@ -187,7 +187,7 @@ describe('Record what you will do', () => {
     expect(sent.find((s) => /commitments$/.test(s.url))!.body).toEqual({ action: 'Ask three customers', owner: '1', expect: 'Two say they would pay', reconsider: 'If none will talk to us', keeps: [] })
     unmount(); resetWrites()
     const sent2 = serve(() => ({ status: 201, body: { commitment: 6 } }))
-    putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'opt_a' }))
+    putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'add_one' })) // a live option card: only those are sent (18 Nov review: never write an option unseen)
     render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('true')
@@ -195,7 +195,7 @@ describe('Record what you will do', () => {
     fill()
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     await waitFor(() => expect(sent2.some((s) => s.method === 'POST')).toBe(true))
-    expect(sent2.find((s) => s.method === 'POST')!.body).toMatchObject({ option: 'opt_a', version: 1 })
+    expect(sent2.find((s) => s.method === 'POST')!.body).toMatchObject({ option: 'add_one', version: 1 })
   })
   it('the Team tab\'s panel keeps its option commitment behind an approved version: with none there is no option picker, only the unanchored form', () => {
     render(<CommitmentPanel sid="s_x" view={view({ version: null })} onWrote={async () => true} />)

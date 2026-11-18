@@ -37,7 +37,7 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BarChart3, BookOpen, Brain,
+  AlertOctagon, AlertTriangle, AlignLeft, ArchiveX, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
@@ -148,6 +148,8 @@ export const ICONS = {
   add: e(Plus, 'Add a figure', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--text-header' }),
   invite: e(UserPlus, 'Invite a colleague', '--text-light', 'icon-plus-word', 'person-action', { activeColour: '--text-header' }),
   'commit-action': e(ClipboardCheck, 'Record what you will do', '--text-light', 'icon-plus-word', 'person-action'),
+  // The mark on an option the person has committed to (a stored commitment names it): the person's own act, so grey and never Olumi's blue.
+  committed: e(BadgeCheck, 'Committed', '--text-light', 'icon-only', 'state'),
   'use-as-action': e(ClipboardPen, 'Use as my action', '--text-light', 'icon-only', 'person-action'),
   retry: e(RotateCcw, 'Try again', '--text-light', 'icon-plus-word', 'person-action'),
   edit: e(Pencil, 'Change', '--text-light', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
