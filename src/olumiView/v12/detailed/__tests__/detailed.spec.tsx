@@ -18,7 +18,7 @@ import { CoreCard } from '../../../previous/CoreCard'
 import { QUESTION } from '../../../layout'
 import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { optionLetters } from '../../cards/letters'
-import { chanceParts, noChanceLineOf } from '../../cards/words'
+import { noChanceLineOf } from '../../cards/words'
 import { ROW_WORDS_MAX } from '../marks'
 import { figureRange } from '../../contract'
 import { saidOnceOf, sharedNoChance, sharedRowStates } from '../said'
@@ -100,12 +100,21 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(faceOf(draw(HIRING, 'increase_productivity'), 'increase_productivity').querySelectorAll('[data-aim-result]').length).toBe(0)
   })
   it('DT4 the question compares the options by letter on one rail, core\'s number words at the right; no option name and no run-on. CONTRAST: a board with no chance draws no rail', () => {
-    const q = draw(HIRING, QUESTION), letters = optionLetters(HIRING.model!)
+    const q = draw(HIRING, QUESTION)
     const rail = q.querySelector<HTMLElement>('[data-detailed-rail]')!
     const rows = [...rail.querySelectorAll<HTMLElement>('[data-rail-row]')]
-    expect(rows.map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector('.ok-dt-rail-val')?.textContent]))
-      .toEqual(optionsOf(HIRING).map((o) => [o.id, letters.get(o.id), chanceParts(o.headline!.text).head]))
-    for (const o of optionsOf(HIRING)) expect(rail.textContent, o.heading).not.toContain(o.heading)
+    // Core's own fields, written out (the fixture's three options in the View's order, each headline's text), never worked out by the rail's own helper.
+    expect(optionsOf(HIRING).map((o) => [o.id, o.heading, o.headline!.text])).toEqual([
+      ['hire_a_tech_lead', 'Hire a Tech lead', 'about 23% chance'],
+      ['hire_two_developers', 'Hire two developers', 'about 9% chance'],
+      ['reallocate_a_developer_day_each_week_to_technical_leadership', 'Reallocate a developer-day each week to technical leadership', 'about 4% chance'],
+    ])
+    expect(rows.map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector(`[data-view="${r.getAttribute('data-rail-row')}.headline.text"]`)?.textContent, r.querySelector('.ok-dt-rail-val')?.textContent])).toEqual([
+      ['hire_a_tech_lead', 'A', 'about 23% chance', 'about 23% chance'],
+      ['hire_two_developers', 'B', 'about 9% chance', 'about 9% chance'],
+      ['reallocate_a_developer_day_each_week_to_technical_leadership', 'C', 'about 4% chance', 'about 4% chance'],
+    ])
+    for (const name of ['Hire a Tech lead', 'Hire two developers', 'Reallocate a developer-day each week to technical leadership']) expect(rail.textContent, name).not.toContain(name)
     expect(q.querySelector('[data-rail-rest]')).toBeNull()
     cleanup()
     expect(draw(ASKED, QUESTION).querySelector('[data-detailed-rail]')).toBeNull()
@@ -276,9 +285,18 @@ describe('Detailed: marks, not sentences', () => {
       expect([title.getAttribute('title') === heading && (title.textContent ?? '') !== '', title.className.includes('line-clamp'), el.querySelector('[data-whole-title], [data-whole-title-words]')]).toEqual([true, false, null])
       cleanup()
     }
-    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    const clampOn = (sel: string) => css.split('}').filter((r) => r.includes(sel) && r.includes('node-title') && r.includes('-webkit-line-clamp: ') && !r.includes('line-clamp: unset')).length
-    expect([clampOn('[data-ok-detailed]'), clampOn('[data-simple-compact]')]).toEqual([0, 1])
+    // The look: EVERY rule that names the title (not one string): a rule that cuts it (a line clamp, an ellipsis, nowrap, a clipping box, a height cap) must be
+    // bound to Simple's compact card on each of its title selectors, since any other title selector can match a Detailed card's title.
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ titles: m[1]!.split(',').map((x) => x.trim()).filter((x) => x.includes('node-title') && !/::(before|after)$/.test(x)), body: m[2]! }))
+    const titleRules = rules.filter((r) => r.titles.length > 0)
+    const cuts = (body: string) => /line-clamp:\s*(?!\s|unset|none|initial)|text-overflow:\s*ellipsis|white-space:\s*nowrap|overflow(-[xy])?:\s*(hidden|clip)|max-height:/.test(body)
+    expect(titleRules.length, 'the probe reads the title\'s rules (its type, its un-clamp, Simple\'s clamp, the letter\'s room, the set-aside ink)').toBeGreaterThanOrEqual(5)
+    expect(titleRules.filter((r) => cuts(r.body)).flatMap((r) => r.titles).filter((sel) => !sel.includes('[data-simple-compact]')), 'no rule that can match a Detailed title cuts it').toEqual([])
+    expect(titleRules.filter((r) => cuts(r.body)).map((r) => r.titles), 'CONTRAST: the one cutting rule is Simple\'s compact card, so the probe sees a clamp')
+      .toEqual([[".olumi-look .react-flow__node:not(.react-flow__node-viewQuestion) [data-simple-compact] [data-testid='node-title']"]])
+    expect(titleRules.filter((r) => /-webkit-line-clamp:\s*unset\s*!important/.test(r.body) && /overflow:\s*visible\s*!important/.test(r.body)).map((r) => r.titles), 'and every card\'s title is un-clamped by the general rule')
+      .toEqual([[".olumi-look .react-flow__node [data-testid='node-title']"]])
   })
   it('DT11 a figure with one stated value and no range draws no range bar on Detailed (no empty 0-to-x bar). CONTRAST: the same card with a range that has a spread draws one', () => {
     const c = cardOf(HIRING, 'weekly_churn')
