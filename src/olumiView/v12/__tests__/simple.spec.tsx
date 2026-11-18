@@ -45,8 +45,7 @@ afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null,
 // stack per row; approved structural cards (figures, options, aims, risks, results) are always drawn; Detailed draws every card (v12/bands/groups.ts).
 // S1 puts two of Olumi's own figures into a pending proposal (core's `change` mark, an invented title), the one field that makes them unreviewed.
 const PENDING = { glyph: '+', title: 'An invented proposal', kind: 'added' }
-// `existing_market_acquisitions` is the figure core names as the option's driver (D1d keeps it drawn), so the second proposed figure is `profitability`.
-const PROPOSED = ['horizon', 'profitability']
+const PROPOSED = ['horizon', 'existing_market_acquisitions']
 const proposing = { ...european, model: { ...model, cards: model.cards.map((c) => (PROPOSED.includes(c.id) ? { ...c, kind: 'driver', change: PENDING } : c)) } } as unknown as View
 const wholeP = drawnModelOf(proposing.model!)
 const groups = cardGroupsOf(wholeP, proposing), grouped = new Set(groups.flatMap((g) => g.cards))
