@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
-import { ViewChat, useViewChat } from '../ViewChat'
+import { NEEDED_BY, ViewChat, useViewChat } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
@@ -147,6 +147,28 @@ describe('partial approval', () => {
     expect([said.textContent, said.getAttribute('role'), c.querySelector('[data-testid="view-chat-proposal"]')!.contains(said), useViewChat.getState().said]).toEqual([WORDS, 'alert', true, null])
     expect((screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked, 'the selection is kept').toBe(true)
     expect(posts).toHaveLength(1)
+  })
+  it('core\'s partners are followed TO THE END and shown (015; Codex root 21:32Z): ticking a line ticks what it is approved with and what THAT needs, each saying why at rest; unticking a needed line unticks every line that needs it; unticking the first line leaves the others; the payload is the ticked set. CONTRAST: a line core marks with nothing is ticked alone and says nothing', async () => {
+    const base = p.changes[0]!
+    const mk = (id: string, text: string, ids: string[] | null) => ({ ...base, id, top: false, text, detail: '', together: ids === null ? null : { ids, why: `why ${id}` } })
+    const changes = [mk('a', 'line A', ['b']), mk('b', 'line B', ['c']), mk('c', 'line C', null), mk('d', 'line D', null)]
+    showOpen({ ...golden, proposal: { ...p, changes, groups: null } })
+    const tick = (i: number) => screen.getByTestId(`view-change-tick-${i}`) as HTMLInputElement
+    const ticks = () => [0, 1, 2, 3].map((i) => tick(i).checked)
+    const why = (i: number) => screen.queryByTestId(`view-change-why-${i}`)?.textContent ?? null, by = (i: number) => screen.queryByTestId(`view-change-needed-by-${i}`)?.textContent ?? null
+    fireEvent.click(tick(0))
+    expect(ticks(), 'A brings B, and B brings C').toEqual([true, true, true, false])
+    expect([why(0), why(1), why(2), by(0), by(1), by(2)]).toEqual(['why a', 'why b', null, null, `${NEEDED_BY} line A`, `${NEEDED_BY} line B`])
+    fireEvent.click(tick(2))
+    expect(ticks(), 'C unticked: B needs it and leaves, then A').toEqual([false, false, false, false])
+    fireEvent.click(tick(0)); fireEvent.click(tick(0))
+    expect(ticks(), 'A unticked: nothing needs A, so B and C stay, in view').toEqual([false, true, true, false])
+    expect([why(0), by(1), by(2)]).toEqual([null, null, `${NEEDED_BY} line B`])
+    fireEvent.click(tick(3))
+    expect([ticks(), why(3), by(3)], 'a line with no partners: ticked alone, nothing said').toEqual([[false, true, true, true], null, null])
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ base: p.base, only: ['b', 'c', 'd'], only_top: [] })
   })
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)

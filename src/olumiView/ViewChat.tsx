@@ -542,12 +542,14 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
 type Change = NonNullable<View['proposal']>['changes'][number]
 /** A line's key: its id and whether it is a top-level field, since a record named like a field gives two lines with one id (API v1.9). */
 const keyOf = (c: Change) => `${c.top ? 'top' : 'rec'}:${c.id}`
+/** Chrome label before core's own text of the ticked line(s) that need this one. */
+export const NEEDED_BY = 'Needed by:'
 
 /**
  * One change line of core's change card (View `proposal.changes`, L8): its tick, core's line, and what a tap opens (`detail`), with Olumi's
  * mark on a line of Olumi's. Every word is core's.
  */
-function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean }) {
+function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [] }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one (it names this line in its `together.ids`): why this line is ticked. */ neededBy?: readonly string[] }) {
   // R4 (core v1.13): a line approved only with others carries core's why as its hover, verbatim (`together.why`).
   const why = c.together?.why ?? null
   const line = <><span data-view={`proposal.changes.${i}.text`} title={why ?? undefined} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
@@ -555,9 +557,15 @@ function ChangeLine({ c, i, ticked, toggle, busy }: { c: Change; i: number; tick
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
       {/* R25 (24px targets): the box sits in a 24px label, the label the target. */}
       {ticked === null ? null : <label className="inline-flex min-h-[24px] min-w-[24px] flex-none cursor-pointer items-center justify-center" data-target-for={`view-change-tick-${i}`}><input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} /></label>}
-      {c.detail === '' ? <span>{line}</span> : (
-        <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
-      )}
+      <div className="min-w-0">
+        {c.detail === '' ? <span>{line}</span> : (
+          <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
+        )}
+        {/* A tick that brings other lines with it is never silent (015; Codex root 21:32Z): once ticked, the line says core's why at rest (its hover
+            before), and each line it brought says which ticked line needs it, by that line's own words from core. */}
+        {ticked === true && why !== null ? <p className="m-0 text-text-light" data-view={`proposal.changes.${i}.together.why`} data-testid={`view-change-why-${i}`}>{why}</p> : null}
+        {ticked === true && neededBy.length > 0 ? <p className="m-0 text-text-light" data-testid={`view-change-needed-by-${i}`}>{NEEDED_BY} {neededBy.join(' · ')}</p> : null}
+      </div>
     </li>
   )
 }
@@ -616,15 +624,27 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
   // ⛔ NEVER ORPHAN OLUMI'S FIGURE (R4, core v1.13 `together`): a line core marks as approved only with others is ticked and unticked with
   // them (the records named in its `together.ids`), so a tick can never leave the figure without the line that reads it.
-  const withPartners = (c: Change): Change[] => { const ids = c.together?.ids ?? []; return [c, ...changes.flatMap((o) => (!o.top && ids.includes(o.id) ? [o] : []))] }
+  // The lines a line is approved only with, FOLLOWED TO THE END (015: one step left a partner's own partner unticked, and core refused): core's `together.ids`
+  // of the line, then of each line that brings, by record id. Core's field, no rule of the page's.
+  const records = new Map(changes.flatMap((o) => (o.top ? [] : [[o.id, o] as const])))
+  const withPartners = (c: Change): Change[] => {
+    const out = new Map<string, Change>([[keyOf(c), c]]), walk = [c]
+    while (walk.length > 0) for (const id of walk.pop()!.together?.ids ?? []) { const o = records.get(id); if (o !== undefined && !out.has(keyOf(o))) { out.set(keyOf(o), o); walk.push(o) } }
+    return [...out.values()]
+  }
   const set = (n: Set<string>, cs: readonly Change[], on: boolean) => { for (const x of cs) { if (on) n.add(keyOf(x)); else n.delete(keyOf(x)) } }
-  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t); set(n, withPartners(c), !n.has(keyOf(c))); return n })
-  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) set(n, withPartners(c), on) } return n })
+  // After a line is unticked, a ticked line that needs it leaves with it (a hard dependent goes with its rejected target; Codex root 21:32Z), to the end:
+  // the ticked set always holds everything each ticked line needs, so Approve ticked never sends a selection core's own partners rule refuses.
+  const settle = (n: Set<string>): Set<string> => { for (let again = true; again;) { again = false; for (const o of changes) if (n.has(keyOf(o)) && withPartners(o).some((x) => !n.has(keyOf(x)))) { n.delete(keyOf(o)); again = true } } return n }
+  const toggle = (c: Change) => setTicked((t) => { const n = new Set(t), on = !n.has(keyOf(c)); if (on) set(n, withPartners(c), true); else n.delete(keyOf(c)); return settle(n) })
+  const toggleGroup = (lines: number[], on: boolean) => setTicked((t) => { const n = new Set(t); for (const i of lines) { const c = changes[i]; if (c) { if (on) set(n, withPartners(c), true); else n.delete(keyOf(c)) } } return settle(n) })
   // The ticked lines, in core's order: a record's id in `only`, a top-level field's name in `only_top`, never mixed (API v1.8).
   const pick: { only: string[]; only_top: string[] } = { only: [], only_top: [] }
   for (const c of changes) if (ticked.has(keyOf(c))) (c.top ? pick.only_top : pick.only).push(c.id)
   const chosen = pick.only.length + pick.only_top.length
-  const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} /> }
+  // Which ticked lines name this one as a partner (directly): core's own text of each, for the line's "Needed by".
+  const neededBy = (c: Change): string[] => (c.top ? [] : changes.flatMap((o) => (o !== c && ticked.has(keyOf(o)) && (o.together?.ids ?? []).includes(c.id) ? [o.text] : [])))
+  const line = (i: number) => { const c = changes[i]!; return <ChangeLine key={keyOf(c)} c={c} i={i} ticked={tickable ? ticked.has(keyOf(c)) : null} toggle={toggle} busy={busy} neededBy={tickable ? neededBy(c) : []} /> }
   const verdict = verdictOf(p)
   // THE FILLED BUTTON FOLLOWS THE TICKS (Codex root 21:10Z, 18 Nov, the native partial-approve read: with lines ticked the filled Approve still took the
   // whole batch, so a person who ticked three lines and pressed the one green button approved all of them). With nothing ticked the filled button is the
