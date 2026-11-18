@@ -892,10 +892,10 @@ export const isAnswering = (view: View | null): boolean => view?.turn?.status ==
 
 /** A message sent whose acceptance has not come back yet: kept in this tab per person, as a brief is, so a reload asks core again by the SAME op. */
 const PENDING_TURN = (person: string) => `olumi-pending-turn:${person}`
-function keepPendingTurn(sid: string, text: string, op: string): void {
+function keepPendingTurn(sid: string, text: string, op: string, about: string | null = null): void {
   const me = pendingPerson()
   if (me === null) return
-  try { sessionStorage.setItem(PENDING_TURN(me), JSON.stringify({ sid, text, op })) } catch { /* no storage: the op lives only in this page */ }
+  try { sessionStorage.setItem(PENDING_TURN(me), JSON.stringify(about === null ? { sid, text, op } : { sid, text, op, about })) } catch { /* no storage: the op lives only in this page */ }
 }
 function dropPendingTurn(op: string): void {
   const me = pendingPerson()
@@ -903,10 +903,12 @@ function dropPendingTurn(op: string): void {
   try { if (pendingTurn(me)?.op === op) sessionStorage.removeItem(PENDING_TURN(me)) } catch { /* nothing kept */ }
 }
 /** This person's message still waiting for core's acceptance in this tab, if any: its scenario, words and op. */
-export function pendingTurn(person: string): { sid: string; text: string; op: string } | null {
+export function pendingTurn(person: string): { sid: string; text: string; op: string; about: string | null } | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown } | null
-    return v !== null && typeof v.sid === 'string' && /^s_[0-9a-f]+$/.test(v.sid) && typeof v.text === 'string' && v.text.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op) ? { sid: v.sid, text: v.text, op: v.op } : null
+    const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown; about?: unknown } | null
+    // `about` (the card the message was about) is optional: a record kept before it existed restores as a plain message, as it was sent.
+    return v !== null && typeof v.sid === 'string' && /^s_[0-9a-f]+$/.test(v.sid) && typeof v.text === 'string' && v.text.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op)
+      ? { sid: v.sid, text: v.text, op: v.op, about: typeof v.about === 'string' && v.about !== '' ? v.about : null } : null
   } catch { return null }
 }
 /**
@@ -921,7 +923,12 @@ export function restorePendingTurn(): boolean {
   const p = pendingTurn(me)
   if (p === null || p.sid !== sid) return false
   if (useViewChat.getState().text !== '' || useViewChat.getState().busy) return false
-  useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, 'message', p.text), p.op) })
+  // A message about a card comes back about that card (Codex 008, 18 Nov): the card is selected again, so the composer shows its subject and
+  // Send asks core again with the same card and the same op. A card no longer in the model: the words come back alone, under a new op.
+  const about = p.about !== null && view.model?.cards.some((c) => c.id === p.about) ? p.about : null
+  if (p.about !== null && about === null) { useViewChat.setState({ text: p.text }); return true }
+  if (about !== null) useCanvasStore.setState({ selection: { nodeIds: new Set([about]), edgeIds: new Set(), anchorPosition: null } })
+  useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, about === null ? 'message' : `message:${about}`, p.text), p.op) })
   return true
 }
 /** Try again on a plain message that ended unanswered (failed or lost): the same words, under a new op. A challenge, method question, move
@@ -1031,7 +1038,7 @@ function say(text: string, words = false): Promise<boolean> {
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
     // The card the composer shows as "About: <card>" goes with the words, by id (core candidate 8); the same words about another card are another write.
-    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(selectedRecord())
+    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op, about); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(selectedRecord())
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }

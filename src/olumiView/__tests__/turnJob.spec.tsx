@@ -5,6 +5,7 @@
  * shows core's reason and Try again (the same words, a new op); core's one-at-a-time refusal is shown in core's words; an acceptance lost on
  * the way is asked again after a reload by the SAME op, and only on Send. Real stores and poller, a scripted fetch, fake timers.
  */
+import { useCanvasStore } from '../../canvas/store'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -125,6 +126,40 @@ describe('a turn answered in core', () => {
     expect(posts).toHaveLength(1)
   })
 
+  it('UT5b a message about a card, lost on the way: after a reload the card is selected again and Send asks with the SAME card and op. CONTRAST: a card no longer in the model brings the words back alone, under a new op', async () => {
+    const card = viewWith(null).model!.cards[0]!.id
+    const select = (ids: string[]) => useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set(), anchorPosition: null } })
+    const reload = () => { cleanup(); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null }); select([]) }
+    post = () => { throw new TypeError('network down') }
+    on(viewWith(null)); select([card])
+    useViewChat.setState({ text: 'Is this too high?' })
+    const c = render(<ViewComposer />).container
+    await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-composer-send"]')!) })
+    await tick(0)
+    const sent = posts[0]!.body['op']
+    expect(posts[0]!.body).toEqual({ text: 'Is this too high?', about: card, op: sent })
+    expect(pendingTurn('7')).toEqual({ sid: SID, text: 'Is this too high?', op: sent, about: card })
+    reload()
+    post = () => new Response(JSON.stringify({ scenario: SID, job: { id: 31, kind: 'turn', status: 'running', words: 'Olumi is answering.' }, proposal: null, discussion: null, status_url: '' }), { status: 202 })
+    on(viewWith(null))
+    const again = render(<ViewComposer />).container
+    await tick(0)
+    expect([useViewChat.getState().text, [...useCanvasStore.getState().selection.nodeIds]]).toEqual(['Is this too high?', [card]])
+    await act(async () => { fireEvent.click(again.querySelector('[data-testid="view-composer-send"]')!) })
+    await tick(0)
+    expect(posts[1]!.body).toEqual({ text: 'Is this too high?', about: card, op: sent })
+    // CONTRAST: the card has gone from the model by the time the page is back.
+    try { sessionStorage.setItem('olumi-pending-turn:7', JSON.stringify({ sid: SID, text: 'About a gone card', op: 'op-gone-0001', about: 'no_such_card' })) } catch { /* none */ }
+    reload()
+    on(viewWith(null))
+    const third = render(<ViewComposer />).container
+    await tick(0)
+    expect([useViewChat.getState().text, useCanvasStore.getState().selection.nodeIds.size]).toEqual(['About a gone card', 0])
+    await act(async () => { fireEvent.click(third.querySelector('[data-testid="view-composer-send"]')!) })
+    await tick(0)
+    expect(posts[2]!.body['op']).not.toBe('op-gone-0001')
+    expect(posts[2]!.body['about']).toBeUndefined()
+  })
   it('UT5 an acceptance lost on the way: after a reload the message is back in the box with the SAME op, sent only on Send, even when the View shows the same words', async () => {
     post = () => { throw new TypeError('network down') }
     on(viewWith(null))
@@ -133,7 +168,7 @@ describe('a turn answered in core', () => {
     await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-composer-send"]')!) })
     await tick(0)
     const sent = posts[0]!.body['op']
-    expect(pendingTurn('7')).toEqual({ sid: SID, text: 'Lost on the way', op: sent })
+    expect(pendingTurn('7')).toEqual({ sid: SID, text: 'Lost on the way', op: sent, about: null })
     cleanup()
     // The reload: a fresh composer state; nothing is sent by reading.
     useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
