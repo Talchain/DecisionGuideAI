@@ -10,6 +10,7 @@
  */
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
+import { OkIcon } from '../look/icons'
 import { chartGroupsOf, rangeOf, trackPct, type ChartRow } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
@@ -39,7 +40,7 @@ export function ChanceTrack({ chance, range }: { chance: number; range: { low: n
 }
 
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
-function Bar({ card, row, i }: ChartRow) {
+function Bar({ card, row, i, figure }: ChartRow & { figure: { id: string; heading: string } | null }) {
   const range = rangeOf(row)
   return (
     <li data-chart-option={card.id}>
@@ -54,6 +55,13 @@ function Bar({ card, row, i }: ChartRow) {
         </span>
         <span className="mt-1 block px-1"><ChanceTrack chance={row.chance!} range={range} /></span>
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+        {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). */}
+        {range === null || figure === null ? null : (
+          <span className={`${TYPE.meta} mt-0.5 flex items-center gap-1 text-text-light`} data-chart-figure={figure.id}>
+            <OkIcon id="why-moves" size={12} decorative />
+            <span data-view={`${figure.id}.heading`}>{figure.heading}</span>
+          </span>
+        )}
       </button>
     </li>
   )
@@ -73,17 +81,22 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
-          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r) => <Bar key={r.card.id} {...r} />)}</ul>
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r) => { const f = rangeOf(r.row); const fc = f === null ? null : model.cards.find((c) => c.id === f.figure) ?? null; return <Bar key={r.card.id} {...r} figure={fc} /> })}</ul>
         </div>
       ))}
       <div className={`${TYPE.meta} flex justify-between px-1 tabular-nums text-text-light`} aria-hidden="true" data-testid="analysis-chart-axis">
         {CHART_WORDS.axis.map((a) => <span key={a}>{a}</span>)}
       </div>
+      {/* The key says what the two ends are, in core's words, at rest: the chance if that figure comes out in its lowest or highest third
+          (`run.sensitivity`), never a confidence interval. Positions are core's own low and high, reversed effects included. */}
       {!ranged ? null : (
-        <p className={`${TYPE.meta} m-0 flex items-center gap-2 px-1 text-text-light`} title={run.sensitivity?.title} data-testid="analysis-chart-key">
-          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="3" strokeWidth="1" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
-          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
-        </p>
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={run.sensitivity?.title} data-testid="analysis-chart-key">
+          <p className="m-0 flex items-center gap-2" aria-hidden="true">
+            <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
+            <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
+          </p>
+          {run.sensitivity == null || run.sensitivity.text === '' ? null : <p className="m-0" data-view="run.sensitivity.text">{run.sensitivity.text}</p>}
+        </div>
       )}
     </section>
   )

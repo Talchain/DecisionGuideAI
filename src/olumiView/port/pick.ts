@@ -153,10 +153,11 @@ export function needsOf(model: ViewModel): Need[] {
   }
   const blockers = run?.shared_blockers ?? []
   blockers.forEach((b, i) => push({ key: `blocks:${i}`, cls: 'blocks', text: b.text, at: `run.shared_blockers.${i}.text`, title: b.text, card: b.aim_id, edit: cardOf(model, b.aim_id)?.figure?.edit ?? null }))
-  const blockedAims = new Set(blockers.map((b) => b.aim_id))
+  // A shared blocker says it once for the options it names, for its aim: only those option/aim lines are covered by it (Codex 01:56Z).
+  const covered = (option: string, aim: string | null) => aim !== null && blockers.some((b) => b.aim_id === aim && (b.options ?? []).includes(option))
   for (const c of optionCards(model)) c.rows.forEach((r, i) => {
-    // An option's line for an aim that no result is drawn for: core's own words for why (a shared blocker says it once for its aim).
-    if (r.kind === 'none' && !(r.aim_id !== null && blockedAims.has(r.aim_id))) {
+    // An option's line for an aim that no result is drawn for: core's own words for why, unless a shared blocker already says it for it.
+    if (r.kind === 'none' && !covered(c.id, r.aim_id)) {
       const ref = r.blocked_by?.[0]?.ref ?? r.aim_id ?? null
       push({ key: `none:${c.id}.${i}`, cls: 'blocks', text: r.text, at: `${c.id}.rows.${i}.text`, title: r.title, card: ref, edit: cardOf(model, ref)?.figure?.edit ?? null })
     }

@@ -100,8 +100,12 @@ describe('the chance chart', () => {
       expect(li.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!.textContent).toBe(row.value)
       expect(li.querySelector('[data-chance-bar]')!.getAttribute('data-chance-bar')).toBe(String(trackPct(row.chance!)))
       const range = li.querySelector('[data-chance-range]')
-      if (row.driver == null) expect(range, card.id).toBeNull()
-      else expect(range!.getAttribute('data-chance-range'), card.id).toBe(`${trackPct(row.driver.low)}:${trackPct(row.driver.high)}`)
+      if (row.driver == null) { expect(range, card.id).toBeNull(); expect(li.querySelector('[data-chart-figure]'), card.id).toBeNull() }
+      else {
+        expect(range!.getAttribute('data-chance-range'), card.id).toBe(`${trackPct(row.driver.low)}:${trackPct(row.driver.high)}`)
+        // The whisker names its figure at rest, by core's card id.
+        expect(li.querySelector('[data-chart-figure]')!.getAttribute('data-chart-figure'), card.id).toBe(row.driver.figure)
+      }
     }
     expect(expectAllBound(view, chart, expect)).toBeGreaterThan(rows.length)
   })
@@ -127,12 +131,16 @@ describe('the chance chart', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
+    // What the two ends mean is said at rest, in core's words, once.
+    expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
+    expect(document.querySelector('[data-view="run.sensitivity.text"]')!.textContent).toBe(view.model!.run!.sensitivity.text)
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getAllByTestId('analysis-chance-track').length).toBe(3)
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
     expect(document.querySelectorAll('[data-chance-range]')).toHaveLength(0)
+    expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
   })
 })
 
@@ -185,6 +193,17 @@ describe('what a result needs', () => {
     const waits = run.waits_on!.items.filter((it) => !blocked.has(it.id) && it.text !== '').map((it) => `waits:${it.id}`)
     expect(keys.slice(blocks.length, blocks.length + waits.length)).toEqual(waits.slice(0, Math.max(0, 5 - blocks.length)))
     expect(expectAllBound(view, box, expect)).toBe(keys.length)
+  })
+
+  it('a shared blocker covers only the options it names for its aim: CONTRAST, an option it does not name keeps its own line', () => {
+    const view = structuredClone(viewOf('golden/app-launch')), m = view.model!
+    const b = m.run!.shared_blockers![0]!
+    const own = optionCards(m).flatMap((c) => c.rows.map((r, i) => ({ c, r, i }))).find(({ r, c }) => r.kind === 'none' && r.aim_id === b.aim_id && b.options.includes(c.id))
+    expect(own, 'precondition: an option row the blocker covers').toBeDefined()
+    expect(needsOf(m).some((n) => n.key === `none:${own!.c.id}.${own!.i}`)).toBe(false)
+    b.options = b.options.filter((o) => o !== own!.c.id)
+    const keys = needsOf(m).map((n) => n.key)
+    expect(keys.includes(`none:${own!.c.id}.${own!.i}`) || needsOf(m).some((n) => n.text === (own!.r as { text: string }).text)).toBe(true)
   })
 
   it('more than five: five at rest, the rest one press away', () => {
