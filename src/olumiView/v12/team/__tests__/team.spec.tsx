@@ -254,10 +254,17 @@ describe('Your view, private until revealed', () => {
     render(<FrameEntry sid="s_x" view={view()} onWrote={async () => true} defaultOpen />)
     expect(screen.queryByTestId('frame-olumi-asks')).toBeNull()
   })
-  it('opens by default in Where we differ before a reveal and a first view, and stays a link otherwise', () => {
+  // CHANGED BY DESIGN (overnight Team flow, merged 17c3e85f): the whole view in words moved out of "Where we differ" into the flow's "Your view"
+  // step, folded behind its own button (ViewEntry leads that step). Before a reveal, "Where we differ" draws only core's held line.
+  it('before a reveal and a first view: "Where we differ" draws no entry form; the whole view in words is one press away in the "Your view" step', () => {
     serve(() => ({ status: 200, body: core }))
     const gated = view({ gated: true }, { shared: [], mine: [] })
     render(<WhereWeDiffer sid="s_x" view={gated} onWrote={async () => true} />)
+    expect([screen.queryByTestId('frame-entry'), !!screen.queryByTestId('team-revealed-held')]).toEqual([null, true])
+    cleanup()
+    render(<FrameEntry sid="s_x" view={gated} onWrote={async () => true} />)
+    expect([!!screen.queryByTestId('frame-open'), screen.queryByTestId('frame-entry')]).toEqual([true, null])
+    fireEvent.click(screen.getByTestId('frame-open'))
     expect(screen.getByTestId('frame-entry')).toBeTruthy()
   })
 })
