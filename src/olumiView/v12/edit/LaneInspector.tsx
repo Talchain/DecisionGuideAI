@@ -192,7 +192,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   // The rest of what the card's old pop-up said, in core's words, each once: an option's own line, the reason, and (lens on) what it drives.
   // (A person's author line carries core's account of it, their own words quoted: drawn here, not left to a browser tip.)
   const also = [c.author != null && c.author.by !== 'olumi' && c.author.title !== c.author.text ? c.author.title : null, option ? c.face?.line?.text ?? null : null, c.figure === null && c.rows.length === 0 ? null : c.reason ?? null, ...(drives ?? []).map((o) => o.driver?.title ?? null)]
-    .filter((x, i, a): x is string => x != null && x !== '' && x !== value?.text && x !== c.headline?.title && a.indexOf(x) === i)
+    // Said once: core's `detail` (drawn first in the fold) usually ends with the author's account whole; a line the detail already holds is not drawn again.
+    .filter((x, i, a): x is string => x != null && x !== '' && x !== value?.text && x !== c.headline?.title && !c.detail.includes(x) && a.indexOf(x) === i)
   const olumiSaid = c.olumi === null || said.has(c.olumi.title) ? null : c.olumi.title
   const hasFrom = olumiSaid !== null || c.detail !== '' || figureSaid !== null || explain || also.length > 0
   return (

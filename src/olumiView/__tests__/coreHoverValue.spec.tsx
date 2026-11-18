@@ -120,8 +120,17 @@ describe('the core-lane hover\'s Value line: core\'s words and core\'s own attri
     // Pinned, a person's author line carries core's account of it (their own words, quoted): drawn in the fold, once.
     act(() => { useLaneInspector.getState().open({ kind: 'card', id: o.id }) })
     const pinned = document.querySelector<HTMLElement>('[data-testid="lane-inspector"]')!
-    expect([...pinned.querySelectorAll('[data-testid="lane-inspector-also"]')].map((e) => e.textContent)).toContain(o.author!.title)
+    // ONCE: core's `detail` already ends with that account, so the fold does not say it a second time under it (seen on a reported view, 18 Nov).
+    const from = part(pinned, 'lane-inspector-from')!, times = (el: HTMLElement, x: string) => el.textContent!.split(x).length - 1
+    expect([o.detail.includes(o.author!.title), times(from, o.author!.title)], 'precondition, then once').toEqual([true, 1])
     expect(part(pinned, 'lane-inspector-basis')?.textContent, 'the basis sentence is core\'s headline title').toBe(o.headline!.title)
+    // CONTRAST: where core's detail does not carry the account, the fold draws it as its own line, once.
+    act(() => { useLaneInspector.getState().close() }); cleanup()
+    const bare = { ...o, detail: 'A detail with no quote in it.' } as ViewCard
+    hover(bare, LIVE.map((c) => (c.id === o.id ? bare : c)))
+    act(() => { useLaneInspector.getState().open({ kind: 'card', id: o.id }) })
+    const again = document.querySelector<HTMLElement>('[data-testid="lane-inspector"]')!
+    expect([[...again.querySelectorAll('[data-testid="lane-inspector-also"]')].map((e) => e.textContent).includes(o.author!.title), times(part(again, 'lane-inspector-from')!, o.author!.title)]).toEqual([true, 1])
   })
 
   it('H4b (DERIVED from H4: the same option with its chance withheld and one sentence saying why): that sentence is the Value row and is NOT said a second time as the basis', () => {
