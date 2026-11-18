@@ -230,7 +230,7 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
  */
 export const COMPARE_NONE = 'Start a model in the chat first. Compare reads the versions you approve.'
 export const COMPARE_HELD = "This model is still Olumi's proposal. Compare reads the versions you approve: approve it in the chat to start."
-export const COMPARE_ONE = 'Compare needs two approved versions. Approve a change to the model to make the second.'
+export const COMPARE_ONE = 'Comparing versions needs two approved versions. Approve a change to the model to make the second.'
 /** With one version and something else to compare it with: only comparing VERSIONS waits for a second (Codex live read, wording). */
 export const COMPARE_ONE_VERSIONS = 'Comparing versions needs two approved versions; you can compare this one with a what-if or another scenario.'
 /** Fixed chrome: the one ask where core credits no single change. It names no figure and makes no claim about the model. */
