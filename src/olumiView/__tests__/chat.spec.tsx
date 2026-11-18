@@ -401,3 +401,25 @@ describe('honest degradation (core chat[].degraded, turn policy 18 Nov; chat[].s
     expect(line[0]!.dataset['view']).toBe(`chat.${i}.degraded.text`)
   })
 })
+
+describe('honest degradation on a model-less floor reply (core floor[].degraded)', () => {
+  it('the floor reader keeps core\'s degraded note (Codex 12:24:49Z: floorOf dropped it)', async () => {
+    const { floorOf } = await import('../early')
+    const d = { text: 'Olumi answered this before it could finish its work, so it may be incomplete.', title: 'Answered on less than usual' }
+    const rows = floorOf({ floor: [{ job: 3, at: '2026-11-18T12:00:00Z', said: 'Hi', text: 'A reply.', degraded: d }, { job: 4, at: '2026-11-18T12:01:00Z', said: 'Hi again', text: 'Another.' }] })
+    expect(rows[0]!.degraded).toEqual(d)
+    expect(rows[1]!.degraded).toBeUndefined()
+  })
+  it('a floor reply core marks degraded says so verbatim; CONTRAST the same reply without it says nothing', async () => {
+    const { ViewConversation } = await import('../ViewChat')
+    const floor = [{ job: 7, said: 'Should we hire?', by: '', by_id: '', text: 'Here is a first answer.', degraded: { text: 'Olumi answered this without the team’s shared context, so it may leave out something it would usually take into account.', title: 'Answered on less than usual' } }]
+    const r = render(<ViewConversation chat={[]} floor={floor as never} draft={null} me={null} />)
+    const l = r.container.querySelector<HTMLElement>('[data-testid="view-chat-turn-degraded"]')
+    expect(l?.textContent).toBe(floor[0]!.degraded.text)
+    expect(l?.title).toBe('Answered on less than usual')
+    expect(l?.dataset['view']).toBe('floor.7.degraded.text')
+    r.unmount()
+    const r2 = render(<ViewConversation chat={[]} floor={[{ ...floor[0], degraded: undefined }] as never} draft={null} me={null} />)
+    expect(r2.container.querySelector('[data-testid="view-chat-turn-degraded"]')).toBeNull()
+  })
+})

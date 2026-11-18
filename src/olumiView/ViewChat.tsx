@@ -278,8 +278,6 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
   const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
   const early = earlyOf(t)
-  const dg = (t as { degraded?: { text?: unknown; title?: unknown } | null }).degraded
-  const degraded = typeof dg?.text === 'string' && dg.text !== '' ? { text: dg.text, title: typeof dg.title === 'string' ? dg.title : dg.text } : null
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
   const lead = t.answer === null ? null : leadOf(t.answer, [early ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
@@ -317,9 +315,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   )) : (
     <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-chat-answer">
       {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
-      {/* Honest degradation (core `chat[].degraded`, optional; the vendored contract predates it; `chat[].status` is the version stamp's string): a turn that ran on less than it should have says
-          so once, in core's own sentence, its short form on hover. Absent on every ordinary turn. */}
-      {degraded === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} title={degraded.title} data-view={`${at}.degraded.text`} data-testid="view-chat-turn-degraded">{degraded.text}</p>}
+      <DegradedLine of={t} at={at} />
       {lead !== null
         ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
             {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
@@ -413,6 +409,13 @@ function AskAgain({ words }: { words: string }) {
     </button>
   )
 }
+/** Honest degradation (core `degraded`, optional on a chat turn and a floor entry; the vendored contract predates it; `chat[].status` is the version
+ *  stamp's string): a reply that ran on less than it should have says so once, in core's own sentence, its short form on hover. */
+function DegradedLine({ of, at }: { of: unknown; at: string }): JSX.Element | null {
+  const d = (of as { degraded?: { text?: unknown; title?: unknown } | null }).degraded
+  if (typeof d?.text !== 'string' || d.text === '') return null
+  return <p className={`${typography.viewPanelMeta} m-0 text-text-light`} title={typeof d.title === 'string' ? d.title : d.text} data-view={`${at}.degraded.text`} data-testid="view-chat-turn-degraded">{d.text}</p>
+}
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
@@ -444,7 +447,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
             {un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>}
             {f.said === '' ? null : <AskAgain words={f.said} />}
           </>
-        : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}>{f.lead === undefined ? text
+        : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><DegradedLine of={f} at={`floor.${f.job}`} />{f.lead === undefined ? text
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep is one chooser beside it.
           : <ReplyLead lead={f.lead} at={`floor.${f.job}`} keep={sid === null ? null : <KeepChooser sid={sid} turn={f.job} entries={entries} />}>{text}</ReplyLead>}</div>}
     </li>
