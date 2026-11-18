@@ -25,6 +25,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { BUILD_FIELD, buildOfferOf, startedInWords, takesBrief, TALK_FIRST, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { boardOfferOf, DraftingBoard } from '../../../DraftingBoard'
 import { floorEntryOf, ideaMethodOf, keptIdeasOf } from '../../ideas'
 import { floorOf, floorShown } from '../../../early'
 import { ideaDetailOf, IdeaPanel } from '../../bands/IdeaPanel'
@@ -352,6 +353,30 @@ describe('4. "Build a model from this": one plain item in the existing menu, onl
     const d = show(withOffer())
     await openMenu(d)
     expect((q(d, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(false)
+  })
+
+  // 17 Nov (UI lead finding, DL GO 23:42:40Z): a words start left the canvas completely empty while the panel held the whole answer.
+  const board = (view: View, at: number | null = null) => {
+    cleanup(); useViewStore.setState({ uuid: UUID, sid: SID, view, status: 'ready', error: null, stale: false, at })
+    return render(<DraftingBoard />).container
+  }
+  it('the EMPTY BOARD draws the same offer: core\'s label is its one press and core\'s line sits under it; the press posts the menu row\'s write (POST …/draft with an op)', async () => {
+    answer = () => new Response(JSON.stringify({ scenario: SID, job: { id: 31 }, proposal: null, status_url: null }), { status: 202 })
+    const c = board(withOffer()), go = q(c, 'view-build-board-go')
+    expect([go?.tagName, go?.textContent, go?.getAttribute('data-view'), q(c, 'view-build-board-title')?.textContent]).toEqual(['BUTTON', OFFER.label, 'build_model.label', OFFER.title])
+    expect(c.querySelectorAll('button'), 'one press, and no sentence of the page\'s').toHaveLength(1)
+    expect(q(c, 'view-build-board')!.textContent).toBe(OFFER.label + OFFER.title)
+    await press(go)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/draft`, body: { op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
+  })
+  it('CONTRAST: the board offers nothing without core\'s field, on a past version, once a draft is under way (the drafting state has the board), or where a version, proposal or model exists', () => {
+    expect(q(board(inWords({ floor: [row(9)] })), 'view-build-board')).toBeNull()
+    expect(q(board(withOffer(), 3), 'view-build-board')).toBeNull()
+    const drafting = board(withOffer({ draft: { status: 'drafting', reason: null, at: AT, job: 5, stage: 'building', started: AT, words: 'Building the model' } }))
+    expect([q(drafting, 'view-build-board'), q(drafting, 'view-drafting-board') !== null]).toEqual([null, true])
+    expect([boardOfferOf(withOffer({ version: { n: 1 } })), boardOfferOf(withOffer({ proposal: { id: 1 } })), boardOfferOf(withOffer({ model: golden('pricing').model }))]).toEqual([null, null, null])
+    expect([(golden('pricing').model?.cards.length ?? 0) > 0, boardOfferOf(withOffer())]).toEqual([true, OFFER])
   })
 })
 

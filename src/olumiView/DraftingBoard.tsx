@@ -7,11 +7,18 @@
  * estimated, and no word here is the page's own but the Try again control. A failed or lost draft offers Try again: a new attempt on the
  * saved brief (a new op); so does a stopped one, whose words core says ('You stopped this draft…'). While it drafts, its author sees core's
  * Stop (`draft.stop`, label and hover verbatim; core API v1.34): it stops the job and the View is read again. The poller reads the View about every 1.5 s while it drafts (poll.ts).
+ *
+ * BEFORE ANY MODEL, THE BOARD OFFERS TO BUILD ONE, IN CORE'S WORDS (UI lead finding and DL GO, 17 Nov 23:42:40Z; Codex's journey named it
+ * too): a scenario started in words left the canvas completely empty while the panel held the whole answer, and core's offer to build a
+ * model sat only inside the "more" menu. Where core sends that offer (`build_model`, ViewChat.buildOfferOf) and nothing is drafting, the
+ * empty board draws it: core's label as its one press (the same write as the menu's row, ViewChat.buildModel) and core's own line for it
+ * under the press. No sentence here is the page's. The press starts a draft, and the drafting state above takes the board.
  */
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
-import { stopDraft, tryAgain, useViewChat } from './ViewChat'
+import { Button } from '../components/ui/Button'
+import { buildModel, buildOfferOf, stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { OkIcon } from './look/icons'
 import { useViewStore } from './store'
 import type { View } from './client'
@@ -27,9 +34,35 @@ export const boardDraftOf = (view: View | null): Draft | null => {
   return d.status === 'drafting' || d.status === 'failed' || d.status === 'lost' || d.status === 'stopped' ? d : null
 }
 
+/** Core's offer to build a model, where the board has nothing else to say: no model, no proposal and no draft, on the latest (never a past version). */
+export const boardOfferOf = (view: View | null): { label: string; title: string } | null =>
+  view === null || view.version !== null || view.proposal !== null || view.draft != null || (view.model?.cards.length ?? 0) > 0 ? null : buildOfferOf(view)
+
+/** The board's width beside the dock: the dock's measured inset, kept current on resize. */
+function useDockInset(): number {
+  const [right, setRight] = useState(0)
+  useLayoutEffect(() => { const measure = () => setRight(measureDockInset()); measure(); window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure) }, [])
+  return right
+}
+
 export function DraftingBoard(): JSX.Element | null {
   const draft = useViewStore((s) => (s.at === null ? boardDraftOf(s.view) : null))
-  return draft === null ? null : <Drafting draft={draft} />
+  // Two plain strings, so the selector hands back the same value while core's offer is unchanged.
+  const label = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.label ?? null : null))
+  const title = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.title ?? null : null))
+  return draft !== null ? <Drafting draft={draft} /> : label === null ? null : <BuildOffer offer={{ label, title: title ?? '' }} />
+}
+
+function BuildOffer({ offer }: { offer: { label: string; title: string } }): JSX.Element {
+  const busy = useViewChat((s) => s.busy), right = useDockInset()
+  return (
+    <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-build-board">
+      <div className="pointer-events-auto grid max-w-[420px] justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm">
+        <Button size="sm" disabled={busy} data-view="build_model.label" data-testid="view-build-board-go" onClick={() => void buildModel()}>{offer.label}</Button>
+        {offer.title === '' ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-view="build_model.title" data-testid="view-build-board-title">{offer.title}</p>}
+      </div>
+    </div>
+  )
 }
 
 function Drafting({ draft }: { draft: Draft }): JSX.Element {
@@ -37,9 +70,8 @@ function Drafting({ draft }: { draft: Draft }): JSX.Element {
   const running = draft.status === 'drafting'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
-  const [right, setRight] = useState(0)
+  const right = useDockInset()
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
-  useLayoutEffect(() => { const measure = () => setRight(measureDockInset()); measure(); window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure) }, [])
   const early = earlyOf(draft)
   const from = draft.started === undefined ? Number.NaN : Date.parse(draft.started)
   const s = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
