@@ -27,6 +27,7 @@ import { typography } from '../styles/typography'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
+import { armedIntent } from './armedIntent'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
@@ -1029,7 +1030,8 @@ function say(text: string, words = false): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
-    : write('message', text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op); dropPendingTurn(op); return r })
+    // The card the composer shows as "About: <card>" goes with the words, by id (core candidate 8); the same words about another card are another write.
+    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(selectedRecord())
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }
@@ -1302,6 +1304,7 @@ const selectedRecord = (): string | null => {
   const ids = [...useCanvasStore.getState().selection.nodeIds], view = useViewStore.getState().view
   return ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
 }
+armedIntent.cancel = () => { if ((useViewChat.getState().armed ?? null) !== null) useViewChat.setState({ armed: null }) }
 /** Fixed chrome, said in the composer while a challenge waits for its card. */
 export const PICK_A_CARD = 'pick a card on the canvas. Esc cancels.'
 /** Core's typed challenge on ONE card of the model (the route a card's own Challenge uses). The words are only what returns to the box if it is not sent. */

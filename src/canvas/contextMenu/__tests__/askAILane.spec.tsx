@@ -7,6 +7,7 @@ import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { clearAskTargetBinding, takeAskTargetBinding } from '../../ui/inspector-v2/askTargetBinding'
 import type { ContextTarget } from '../types'
+import { armedIntent } from '../../../olumiView/armedIntent'
 vi.mock('../../../olumiCore/lane', async (orig) => ({ ...(await orig<object>()), isOlumiCoreLane: () => true }))
 vi.mock('../../conversation/revealOlumi', () => ({ revealOlumiSurface: vi.fn(() => true) }))
 const a = { id: 'a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Hiring spend' } }
@@ -14,7 +15,7 @@ const target = { kind: 'node', nodeId: 'a', nodeType: 'factor', node: a, screenP
 let dispatch: ReturnType<typeof vi.fn>, prefill: ReturnType<typeof vi.fn>, send: ReturnType<typeof vi.fn>
 beforeEach(() => {
   vi.clearAllMocks(); clearAskTargetBinding()
-  useCanvasStore.setState({ nodes: [a], edges: [] } as never)
+  useCanvasStore.setState({ nodes: [a], edges: [], selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } } as never)
   dispatch = vi.fn(); prefill = vi.fn(); send = vi.fn()
   useGuidanceStore.setState({ _dispatchAction: dispatch, _prefillChat: prefill, _sendMessage: send, _isConversationBusy: () => false })
 })
@@ -29,5 +30,13 @@ describe('lane: canvas asks', () => {
     ask('challenge_element')
     expect([prefill.mock.calls.length, dispatch.mock.calls.length]).toEqual([1, 1])
     expect(dispatch.mock.calls[0]![0]).toMatchObject({ id: 'ask:challenge' })
+  })
+  it('a competing Ask stands a waiting challenge down BEFORE it selects its target (Codex root 02:18Z)', () => {
+    const seen: Array<string[]> = []
+    const was = armedIntent.cancel
+    armedIntent.cancel = () => { seen.push([...useCanvasStore.getState().selection.nodeIds]) }
+    try { ask('explain_element') } finally { armedIntent.cancel = was }
+    expect(seen).toEqual([[]])
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['a'])
   })
 })

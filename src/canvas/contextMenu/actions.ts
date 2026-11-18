@@ -9,6 +9,7 @@
  */
 
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { armedIntent } from '../../olumiView/armedIntent'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { requestAsk } from '../ui/inspector-v2/askSemantic'
@@ -1063,6 +1064,8 @@ export function askAI(
   intent: string,
   showToast?: ShowToastFn,
 ): void {
+  // A challenge waiting for its card stands down first: selecting this Ask's target must never fire it (Codex root 02:18Z).
+  armedIntent.cancel()
   const store = useCanvasStore.getState()
 
   // 1. Select target element(s) so selected_elements is populated in turn request

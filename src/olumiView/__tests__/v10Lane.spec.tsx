@@ -102,6 +102,19 @@ describe('v10 on the core lane', () => {
     expect(state('outside')).toMatchObject({ text: 'Outside view on: the 30p rise', armed: null })
     expect(sent.length).toBe(2)
   })
+  it('a message carries the ONE selected card as `about` (core candidate 8), by id, with the person\'s words unchanged. CONTRAST: nothing selected sends no about', async () => {
+    const sent: Array<Record<string, unknown>> = []
+    setTeamFetch((async (url: string, init?: RequestInit) => { if (init?.method === 'POST' && /\/messages$/.test(url)) sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify(view), { status: 200 }) }) as unknown as typeof fetch)
+    const card = view.model!.cards[0]!.id
+    const { container } = render(<><ViewChat /><ViewComposer /></>)
+    const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
+    const sendWords = async (t: string) => { await act(async () => { fireEvent.change(box, { target: { value: t } }) }); await act(async () => { fireEvent.click(container.querySelector('[data-testid="view-composer-send"]')!) }); await waitFor(() => expect(useViewChat.getState().busy).toBe(false)) }
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([card]), edgeIds: new Set(), anchorPosition: null } }) })
+    await sendWords('Is this figure too high?')
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } }) })
+    await sendWords('And overall?')
+    expect(sent.map((b) => [b['text'], b['about'] ?? null])).toEqual([['Is this figure too high?', card], ['And overall?', null]])
+  })
   it('V12: the named method chips and the "More ways" disclosure are gone: the four icons fill the prefix and the one ⋯ menu (where core sends a session) is the way in to the rest; none of them for a brief', () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
     expect(container.querySelector('[data-testid="v10-method-chips"]')).toBeNull()
