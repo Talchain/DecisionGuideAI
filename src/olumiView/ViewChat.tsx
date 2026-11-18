@@ -1307,7 +1307,7 @@ export const PICK_A_CARD = 'pick a card on the canvas. Esc cancels.'
 /** Core's typed challenge on ONE card of the model (the route a card's own Challenge uses). The words are only what returns to the box if it is not sent. */
 function challengeCard(kind: ChallengeKind, record: string): void {
   useViewChat.setState({ armed: null })
-  const label = useViewStore.getState().view?.model?.cards.find((c) => c.id === record)?.label ?? ''
+  const label = useViewStore.getState().view?.model?.cards.find((c) => c.id === record)?.heading ?? ''
   const words = `${V10_METHODS.find((m) => m.key === kind)!.prefix}${label}`
   if (keptWhileBusy(words)) return
   void challenge(kind, record, words).then(keptIfNotSent(words))
