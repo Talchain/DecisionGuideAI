@@ -46,7 +46,8 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
         <div className="space-y-1" data-testid="port-find-out">
           {run?.find_out_heading == null || run.find_out_heading === '' ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.find_out_heading">{run.find_out_heading}</p>}
           {aims.map(({ aim, a }) => (
-            <ul key={aim.aim} className="m-0 list-none space-y-1 p-0" data-find-out-aim={aim.aim} title={aim.line || undefined}>
+            <div key={aim.aim} className="space-y-1">
+            <ul className="m-0 list-none space-y-1 p-0" data-find-out-aim={aim.aim}>
               {aim.figures.map((f, k) => (
                 <li key={f.id} className={`${TYPE.meta} text-text-body`} data-find-out-figure={f.id} data-view-fact={f.fact}>
                   <span title={f.estimate_text || undefined}>
@@ -57,6 +58,10 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
                 </li>
               ))}
             </ul>
+            {/* What the ranking is and its limit ("the order is approximate"), at rest once per aim's list (DL 18:30Z): core's own line, whole. It
+                was the list's hover only. */}
+            {aim.line === '' ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view={`run.find_out.${a}.line`} data-testid="find-out-limit">{aim.line}</p>}
+            </div>
           ))}
         </div>
       )}

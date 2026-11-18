@@ -214,7 +214,10 @@ describe('the chance chart', () => {
   it('the key is drawn only where some bar has a range: CONTRAST bakery with every driver removed draws bars and no key', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
-    expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
+    // The limit on the two ends ("not a forecast") is core's title, at rest ONCE inside the key, not a hover and not inside a fold (DL 18:30Z).
+    const limits = document.querySelectorAll<HTMLElement>('[data-view="run.sensitivity.title"]')
+    expect([limits.length, limits[0]!.textContent, limits[0]!.closest('details'), screen.getByTestId('analysis-chart-key').contains(limits[0]!), screen.getByTestId('analysis-chart-key').getAttribute('title')])
+      .toEqual([1, view.model!.run!.sensitivity.title, null, true, null])
     // What the two ends ARE is core's sentence, once, OPEN at rest (Codex 008 item 3: folded, the ends could read as a confidence interval); only the marks' legend folds.
     expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
     const ends = document.querySelector('[data-view="run.sensitivity.text"]')!
@@ -229,6 +232,20 @@ describe('the chance chart', () => {
     expect(screen.queryByTestId('analysis-chart-marks'), 'CONTRAST: the mark\'s own meaning is still offered, in the marks key and not the range key').not.toBeNull()
     expect(document.querySelectorAll('[data-chance-range]')).toHaveLength(0)
     expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    expect(document.querySelector('[data-view="run.sensitivity.title"]'), 'no ends drawn, so no limit on them').toBeNull()
+  })
+
+  it('worth finding out: what the ranking is and its limit ("the order is approximate") is core\'s line at rest, once per aim\'s list; CONTRAST none where core sends no line', () => {
+    const view = structuredClone(viewOf('golden/bakery')), fo = view.model!.run!.find_out
+    expect(fo.length > 0 && fo[0]!.line.includes('approximate'), 'fixture: core\'s line carries the limit').toBe(true)
+    ready(view); render(<PortAnalysisTab />)
+    const box = screen.getByTestId('port-find-out'), said = [...box.querySelectorAll<HTMLElement>('[data-testid="find-out-limit"]')]
+    expect(said.map((e) => [e.textContent, e.getAttribute('data-view')])).toEqual(fo.filter((a) => a.line !== '').map((a) => [a.line, `run.find_out.${fo.indexOf(a)}.line`]))
+    expect(box.querySelector('[data-find-out-aim]')!.getAttribute('title'), 'no longer a hover').toBeNull()
+    cleanup()
+    for (const a of fo) a.line = ''
+    ready(view); render(<PortAnalysisTab />)
+    expect([screen.getByTestId('port-find-out').querySelectorAll('[data-find-out-figure]').length > 0, screen.queryAllByTestId('find-out-limit').length]).toEqual([true, 0])
   })
 })
 
