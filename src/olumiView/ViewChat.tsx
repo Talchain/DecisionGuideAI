@@ -1291,6 +1291,12 @@ const ASKS = {
   _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
   _isConversationBusy: () => useViewChat.getState().busy,
 }
+/**
+ * The selection chip's Ask on this lane (menu brief UI-D, 18 Nov; Codex 23:56Z: a generic Ask is prefilled and never auto-sent). It was not
+ * drawn at all: its legacy sender is never registered here. It starts the person's own question about that card in the message box, after
+ * whatever they have typed, as a card's Olumi corner does; they finish it and send it.
+ */
+const askAboutSelection = (s: { label: string }): void => { keep(`About ${s.label}: `); document.getElementById('view-chat-text')?.focus() }
 /** The one card of the model the canvas has selected: null for none, several, or a node the model does not hold. Bound by id. */
 const selectedRecord = (): string | null => {
   const ids = [...useCanvasStore.getState().selection.nodeIds], view = useViewStore.getState().view
@@ -1900,7 +1906,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
-        <SelectionPill chip after={selectedRename} mark={selectedKindMark} />
+        <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} />
         {/* A challenge waiting for its card says so here, in words (the pressed icon alone is not enough on touch or by keyboard). */}
         {armed === null ? null : <p role="status" className={`${typography.viewPanelMeta} m-0 px-3 pt-2 text-text-light`} data-testid="view-composer-armed">{V10_METHODS.find((m) => m.key === armed)!.label}: {PICK_A_CARD}</p>}
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}

@@ -43,7 +43,8 @@ beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); s
 afterEach(() => {
   cleanup(); setTeamFetch(null); resetDrafts(); vi.restoreAllMocks()
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, at: null })
-  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null, armed: null })
+  useGuidanceStore.setState({ _sendChip: null } as never)
 })
 
 describe('1. one quiet footer row per reply', () => {
@@ -189,10 +190,11 @@ describe('4. the selected card is a chip inside the composer', () => {
     expect(q(composer, 'selection-chip-label')!.getAttribute('title')).toBe(view.model!.question.text)
     expect(q(composer, 'selection-detail')).toBeNull()
   })
-  it('D2: a visible ask control keeps data-testid="selection-ask-chip" (hover: "Ask about <label>") and is the only thing that sends; the card\'s own kind shape leads', () => {
+  it('D2 + UI-D (18 Nov): the ask control (data-testid="selection-ask-chip", hover "Ask about <label>") is drawn with NO legacy sender registered, as this lane is deployed; a press starts the person\'s own question about that card in the box and sends nothing (the legacy sender, even if present, is not called); the card\'s own kind shape leads', () => {
     selection.value = { id: 'per_specialist', label: 'per specialist', kind: 'node' }
-    const sendChip = vi.fn()
-    useGuidanceStore.setState({ _sendChip: sendChip } as never)
+    const sendChip = vi.fn(), posted: string[] = []
+    setTeamFetch((async (_u: unknown, init?: RequestInit) => { if (init?.method === 'POST') posted.push(String(init.body ?? '')); return new Response('{}', { status: 201 }) }) as never)
+    useGuidanceStore.setState({ _sendChip: null } as never)
     const c = mount(session('after-find-first'))
     const chip = q(q(c, 'view-composer')!, 'selection-chip')!
     const ask = q(chip, 'selection-ask-chip')!
@@ -200,9 +202,9 @@ describe('4. the selected card is a chip inside the composer', () => {
     expect(ask.getAttribute('aria-label')).toBe('Ask about per specialist')
     expect(ask.querySelector('svg')).not.toBeNull() // drawn, not hidden
     expect(ask.style.color).toBe('var(--text-light)') // neutral
+    useGuidanceStore.setState({ _sendChip: sendChip } as never)
     fireEvent.click(ask)
-    expect(sendChip).toHaveBeenCalledTimes(1)
-    expect(sendChip.mock.calls[0]![0]).toBe('Ask about per specialist')
+    expect([useViewChat.getState().text, sendChip.mock.calls.length, posted]).toEqual(['About per specialist: ', 0, []])
     const shape = q(chip, 'selection-kind-shape')!
     expect(['factor', 'outcome']).toContain(shape.dataset['kind']) // per_specialist is a figure: its own canvas shape
     expect(chip.firstElementChild!.contains(shape)).toBe(true) // leads the label
