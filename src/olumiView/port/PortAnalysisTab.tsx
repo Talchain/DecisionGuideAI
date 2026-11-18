@@ -21,6 +21,8 @@ import { cardOf, limitGroupsOf, tabStateOf } from './pick'
 import { ResultNeeds } from './ResultNeeds'
 import { TYPE } from './type'
 import { WhatMovesIt } from './WhatMovesIt'
+import { REASONING_LABELS } from '../ViewReasoning'
+import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 
 /** The tab's own chrome: the fold that holds core's long reading. */
@@ -84,6 +86,22 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   )
 }
 
+/**
+ * With no chance yet, the questions that would move the model on are the Reasoning tab's (core's `coaching_questions`): one press goes there,
+ * with their count, rather than saying them twice.
+ */
+function ToQuestions({ model }: { model: ViewModel }) {
+  const n = (model.coaching_questions ?? []).filter((q) => q !== '').length
+  if (n === 0) return null
+  return (
+    <button type="button" onClick={() => useUIStore.getState().forceActivateOutputTab('analysisNew')} data-testid="analysis-to-questions"
+      className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-body hover:bg-panel-hover`}>
+      <span className="min-w-0 flex-1">{REASONING_LABELS.questions}</span>
+      <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{n}</span>
+    </button>
+  )
+}
+
 /** The tab's body for one model. */
 export function PortAnalysis({ model }: { model: ViewModel }) {
   const state = tabStateOf(model)
@@ -95,6 +113,7 @@ export function PortAnalysis({ model }: { model: ViewModel }) {
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
       {state === 'limit' ? <Limits model={model} /> : null}
       <ResultNeeds model={model} under={state !== 'none'} />
+      {state === 'chance' ? null : <ToQuestions model={model} />}
       <WhyThisReading model={model} />
     </div>
   )

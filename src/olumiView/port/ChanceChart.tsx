@@ -23,14 +23,15 @@ export function ChanceTrack({ chance, range }: { chance: number; range: { low: n
   const at = trackPct(chance)
   const lo = range === null ? null : trackPct(Math.min(range.low, range.high)), hi = range === null ? null : trackPct(Math.max(range.low, range.high))
   return (
-    <svg className="block h-3 w-full overflow-visible" aria-hidden="true" data-testid="analysis-chance-track">
-      <rect x="0" y="4" width="100%" height="4" rx="2" className="fill-panel-border" />
-      <rect x="0" y="4" width={`${at}%`} height="4" rx="2" className="fill-option" data-chance-bar={at} />
+    <svg className="block h-4 w-full overflow-visible" aria-hidden="true" data-testid="analysis-chance-track">
+      <rect x="0" y="0" width="100%" height="6" rx="3" className="fill-panel-border" />
+      <rect x="0" y="0" width={`${at}%`} height="6" rx="3" className="fill-option" data-chance-bar={at} />
+      {/* The whisker sits under the bar, never over it, so the chance stays the first thing read. */}
       {range === null || lo === null || hi === null ? null : (
         <g data-chance-range={`${trackPct(range.low)}:${trackPct(range.high)}`}>
-          <line x1={`${lo}%`} x2={`${hi}%`} y1="6" y2="6" strokeWidth="1.5" className="stroke-text-header" />
-          <circle cx={`${trackPct(range.low)}%`} cy="6" r="3.5" strokeWidth="1.5" className="fill-panel stroke-text-header" data-chance-low />
-          <circle cx={`${trackPct(range.high)}%`} cy="6" r="3.5" className="fill-text-header" data-chance-high />
+          <line x1={`${lo}%`} x2={`${hi}%`} y1="12" y2="12" strokeWidth="1" className="stroke-text-light" />
+          <circle cx={`${trackPct(range.low)}%`} cy="12" r="2.5" strokeWidth="1" className="fill-panel stroke-text-body" data-chance-low />
+          <circle cx={`${trackPct(range.high)}%`} cy="12" r="2.5" className="fill-text-body" data-chance-high />
         </g>
       )}
     </svg>
@@ -72,8 +73,8 @@ export function ChanceChart({ model }: { model: ViewModel }) {
       </div>
       {!ranged ? null : (
         <p className={`${TYPE.meta} m-0 flex items-center gap-2 px-1 text-text-light`} title={run.sensitivity?.title} data-testid="analysis-chart-key">
-          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="3.5" strokeWidth="1.5" className="fill-panel stroke-text-header" /></svg>{CHART_WORDS.low}
-          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="4" className="fill-text-header" /></svg>{CHART_WORDS.high}
+          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="3" strokeWidth="1" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
+          <svg className="h-2.5 w-2.5" aria-hidden="true"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
         </p>
       )}
     </section>

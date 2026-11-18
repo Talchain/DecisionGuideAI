@@ -17,6 +17,7 @@ import { optionCards } from '../../layout'
 import { PortAnalysisTab } from '../PortAnalysisTab'
 import { chartRowsOf, leadAimOf, moversOf, needsOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
+import { useUIStore } from '../../../stores/uiStore'
 
 const ready = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
@@ -198,6 +199,21 @@ describe('what a result needs', () => {
     const box = screen.getByTestId('analysis-needs')
     expect(box.dataset['needsUnder']).toBe('chart')
     for (const t of new Set(none)) expect([...box.querySelectorAll('[data-view]')].filter((e) => e.textContent === t), t).toHaveLength(1)
+  })
+})
+
+describe('no chance yet: the questions that would move it on are one press away, on the Reasoning tab', () => {
+  it('app-launch: one row with the count of core\'s coaching questions; a press fronts the Reasoning tab; CONTRAST: bakery (a chance) draws none', () => {
+    const view = viewOf('golden/app-launch')
+    useUIStore.setState({ activeOutputTab: 'results' } as never)
+    ready(view); render(<PortAnalysisTab />)
+    const row = screen.getByTestId('analysis-to-questions')
+    expect(row.querySelector('[data-count]')!.textContent).toBe(String(view.model!.coaching_questions!.length))
+    fireEvent.click(row)
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
+    cleanup()
+    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-to-questions')).toBeNull()
   })
 })
 
