@@ -14,6 +14,7 @@ import { useViewStore } from '../../../store'
 import { useReveal } from '../../../reveal'
 import { useUIStore } from '../../../../stores/uiStore'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
+import { useCanvasStore } from '../../../../canvas/store'
 import { AT_REST, JOURNEY_WORDS, journeyOf } from '../journey'
 
 const focused: string[] = []
@@ -53,7 +54,7 @@ describe('journeyOf: core records only, newest first, bound by id', () => {
     expect(j.entries.find((e) => e.key === 'outcome:601')?.line).toBe(JOURNEY_WORDS.outcome('Tom'))
   })
   it('a kept idea is dated by its keep row, named as Olumi\'s, and points at its card on the canvas', () => {
-    expect(journeyOf(team()).entries.find((e) => e.key === 'kept:1')).toMatchObject({ line: 'Olumi’s idea kept by Priya', detail: 'An invented idea.', target: { kind: 'card', id: 'idea:kept:1' } })
+    expect(journeyOf(team()).entries.find((e) => e.key === 'kept:1')).toMatchObject({ line: 'Olumi’s idea kept by Priya', detail: 'An invented idea.', target: { kind: 'kept', id: 1, turn: 2, text: 'An invented idea.' } })
     // contrast: no kept rows, no kept line
     expect(journeyOf(team({ kept: [] })).entries.some((e) => e.kind === 'kept')).toBe(false)
   })
@@ -70,6 +71,19 @@ describe('journeyOf: core records only, newest first, bound by id', () => {
     expect(j.pending).toBe(false)
     expect(journeyOf(team({ proposal: { id: 9 } })).pending).toBe(true)
   })
+  it('a disagreement is on the record only once its holder confirmed it, in their own confirmed words (core confirmDissent)', () => {
+    const dissent = [
+      { id: 'd1', holder: 'Tom', position: 'The model position.', holder_id: 't', confirmed: { at: '2026-11-07T18:00:00Z', by_id: 't', words: 'Tom’s own invented words.', tell: null } },
+      { id: 'd2', holder: 'Maya', position: 'Not confirmed.', holder_id: 'm', confirmed: null },
+    ]
+    const j = journeyOf(team({ collab: { ...base.collab, commitments: [], dissent } }))
+    expect(j.entries.find((e) => e.key === 'dissent:d1')).toMatchObject({ line: 'Tom confirmed their disagreement', detail: 'Tom’s own invented words.', at: '2026-11-07T18:00:00Z' })
+    // contrast: the unconfirmed one is not a record
+    expect(j.entries.some((e) => e.key === 'dissent:d2')).toBe(false)
+  })
+  it('the pending line never says whose the proposal is (core writes Olumi\'s and a person\'s)', () => {
+    expect(JOURNEY_WORDS.pending).toBe('A proposed change is waiting for approval')
+  })
   it('claims no stage: no line names STRATEGISE…IMPROVE', () => {
     const words = JSON.stringify(journeyOf(team()))
     for (const s of ['STRATEGISE', 'FRAME', 'IDEATE', 'EVALUATE', 'ACT', 'IMPROVE']) expect(words).not.toContain(s)
@@ -79,6 +93,7 @@ describe('journeyOf: core records only, newest first, bound by id', () => {
 describe('JourneyRecord: one press to the thing each line names, and the panel closes', () => {
   beforeEach(() => { useViewStore.setState({ uuid: 'u', sid: base.id, view: team(), status: 'ready', error: null, stale: false, at: null }) })
   it('a changed card\'s chip and a kept idea put the card in front; evidence opens that piece in Team; a commitment opens Team; each press closes', async () => {
+    useCanvasStore.setState({ nodes: [{ id: 'card_b' }, { id: 'idea:kept:1' }] as never })
     const done = vi.fn()
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
     render(<JourneyRecord view={team()} onDone={done} />)
@@ -93,7 +108,31 @@ describe('JourneyRecord: one press to the thing each line names, and the panel c
     expect(force).toHaveBeenLastCalledWith('team')
     fireEvent.click(screen.getByTestId('journey-go-commitment:501'))
     await waitFor(() => expect(force).toHaveBeenCalledTimes(2))
-    expect(done).toHaveBeenCalledTimes(4)
+    await waitFor(() => expect(done).toHaveBeenCalledTimes(4))
+  })
+  it('a press with nothing to open does nothing and leaves the panel open: a card the canvas does not draw, evidence on an earlier version', async () => {
+    useCanvasStore.setState({ nodes: [] as never })
+    const done = vi.fn()
+    render(<JourneyRecord view={team()} onDone={done} />)
+    fireEvent.click(screen.getByTestId('journey-card-card_a'))
+    fireEvent.click(screen.getByTestId('journey-go-kept:1'))
+    useViewStore.setState({ at: 1 })
+    fireEvent.click(screen.getByTestId('journey-go-evidence:29'))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(focused).toEqual([])
+    expect(useReveal.getState().evidence).toBeNull()
+    expect(done).not.toHaveBeenCalled()
+    useViewStore.setState({ at: null })
+  })
+  it('a kept idea folded into a strategy idea (same reply, same words) fronts the strategy idea\'s card, by the canvas\'s own rule', async () => {
+    const folded = team({ strategy: { items: [{ id: 's9', kind: 'idea', text: 'An invented idea.', by_id: 'olumi', source_turn: 2, status: 'live', kept_by: { id: 'p', name: 'Priya' } }], views: [], marks: [] } })
+    useViewStore.setState({ view: folded })
+    useCanvasStore.setState({ nodes: [{ id: 'idea:s9' }] as never })
+    const done = vi.fn()
+    render(<JourneyRecord view={folded} onDone={done} />)
+    fireEvent.click(screen.getByTestId('journey-go-kept:1'))
+    await waitFor(() => expect(focused).toEqual(['idea:s9']))
+    expect(done).toHaveBeenCalledTimes(1)
   })
   it('at rest only the newest few lines; the rest behind one press', () => {
     const many = Array.from({ length: AT_REST + 2 }, (_, i) => ({ ...KEPT[0]!, id: 10 + i, at: `2026-11-0${1 + (i % 8)}T10:00:00Z` }))

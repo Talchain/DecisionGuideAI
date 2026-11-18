@@ -26,20 +26,39 @@ export const journeyWhen = (iso: string): string => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
-/** One press on a line: the thing it names. The canvas focus and the reveal store are loaded on the press (see below). */
-export async function go(target: JourneyTarget): Promise<void> {
-  if (target.kind === 'card') { (await import('../../../canvas/utils/focusHelpers')).focusNodeById(target.id); return }
-  if (target.kind === 'olumi') { useUIStore.getState().forceActivateOutputTab('olumi'); return }
+/** A card on the canvas, put in front; false (nothing done) when the canvas does not draw it. */
+async function front(id: string): Promise<boolean> {
+  const [{ useCanvasStore }, { focusNodeById }] = await Promise.all([import('../../../canvas/store'), import('../../../canvas/utils/focusHelpers')])
+  if (!useCanvasStore.getState().nodes.some((n) => n.id === id)) return false
+  focusNodeById(id)
+  return true
+}
+
+/**
+ * One press on a line: the thing it names. True when it did something (the panel then closes), false when there was nothing to open, so a
+ * press never closes the panel onto nothing. The canvas, the ideas rule and the reveal store are loaded on the press, never at load: a
+ * static import of the reveal store's graph (it reads `olumiView/layout.ts`) put layout's CARD_WIDTH in the dock's load order before it was
+ * set ("Cannot access … before initialization", picture run 1), and this module is loaded early, by the top bar's history panel.
+ */
+export async function go(target: JourneyTarget): Promise<boolean> {
+  if (target.kind === 'card') return front(target.id)
+  if (target.kind === 'kept') {
+    // The canvas draws a kept idea under the canvas's own id (`keptIdeasOf`): `kept:<id>`, or the strategy idea it folds into (same reply, same words).
+    const [{ keptIdeasOf }, { IDEA_PREFIX }] = await Promise.all([import('../ideas'), import('../bands/bands')])
+    const ideas = keptIdeasOf(useViewStore.getState().view)
+    const idea = ideas.find((i) => i.id === `kept:${target.id}`) ?? ideas.find((i) => i.sourceTurn === String(target.turn) && i.text === target.text)
+    return idea === undefined ? false : front(IDEA_PREFIX + idea.id)
+  }
+  if (target.kind === 'olumi') { useUIStore.getState().forceActivateOutputTab('olumi'); return true }
   // A piece of evidence opens in the Team tab as its chip opens it (`RevealMarks.openEvidence`); nothing opens there while an earlier
-  // version is drawn. The reveal store and the canvas focus are imported on the press, never at load: a static import of the reveal
-  // store's graph (it reads `olumiView/layout.ts`) put layout's CARD_WIDTH in the dock's load order before it was set ("Cannot access …
-  // before initialization", picture run 1), and this module is loaded by the top bar's history panel, early in the page.
+  // version is drawn.
   if (target.kind === 'evidence') {
-    if (useViewStore.getState().at !== null) return
+    if (useViewStore.getState().at !== null) return false
     const { useReveal } = await import('../../reveal')
     useReveal.getState().selectEvidence(target.id)
   }
   useUIStore.getState().forceActivateOutputTab('team')
+  return true
 }
 
 function Entry({ e, press }: { e: JourneyEntry; press: (t: JourneyTarget) => void }): JSX.Element {
@@ -58,7 +77,7 @@ function Entry({ e, press }: { e: JourneyEntry; press: (t: JourneyTarget) => voi
 export function JourneyRecord({ view, onDone }: { view: View; onDone?: () => void }): JSX.Element | null {
   const j = useMemo(() => journeyOf(view), [view])
   const [all, setAll] = useState(false)
-  const press = (t: JourneyTarget) => { void go(t); onDone?.() }
+  const press = (t: JourneyTarget) => { void go(t).then((did) => { if (did) onDone?.() }) }
   if (j.changed === null && j.entries.length === 0 && j.views === null && !j.pending) return null
   const shown = all ? j.entries : j.entries.slice(0, AT_REST)
   return (

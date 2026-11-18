@@ -8,12 +8,14 @@
  * Every dated line is one of core's own records and carries core's own time:
  *   - a commitment and each outcome recorded against it (`collab.commitments[]`, `.outcomes[]`: `by`, `at`, the person's own words);
  *   - a piece of evidence (`evidence[]`: `by`, `at`, its words);
- *   - a disagreement confirmed as kept on record (`collab.dissent[].confirmed.at`);
+ *   - a disagreement its holder confirmed in their own words (`collab.dissent[].confirmed`: `at`, `words`; core record-writes.ts:73-87
+ *     `confirmDissent`, holder only, words kept verbatim);
  *   - an idea of Olumi's that someone kept (`kept[]`: `kept_by`, `at`, the idea's words; core stamps `at` on the keep row itself,
  *     olumi-core src/app/kept.ts:46 `at: r.at`, read at 9ad89f81; Codex 01:39Z).
  * Above them, the cards that changed at the version shown (`model.run.since.changed`, only when `since.to` is that version). Views given
- * (`collab.shared`) carry no time in the View, so they are counted, never placed on the timeline. An Olumi proposal not yet approved is
- * said once as provisional, never as a record. No stage (STRATEGISE…IMPROVE) is drawn: core sends none. The page writes chrome only
+ * (`collab.shared`: only views this person may see; core sends none to a gated viewer, see `ViewsPanel.tsx`) carry no time in the View,
+ * so they are counted, never placed on the timeline. A proposal not yet approved (Olumi's or a person's: core writes both) is said once
+ * as provisional, never as a record. No stage (STRATEGISE…IMPROVE) is drawn: core sends none. The page writes chrome only
  * ("made a commitment"); every name and every quoted line is core's.
  */
 import type { View } from '../../types'
@@ -22,6 +24,8 @@ export type JourneyTarget =
   | { readonly kind: 'team' }
   | { readonly kind: 'evidence'; readonly id: number }
   | { readonly kind: 'card'; readonly id: string }
+  /** A kept idea: its canvas node is resolved on the press by the canvas's own rule (`keptIdeasOf`), which may fold it into a strategy idea. */
+  | { readonly kind: 'kept'; readonly id: number; readonly turn: number; readonly text: string }
   | { readonly kind: 'olumi' }
 
 export type JourneyChange = { readonly id: string; readonly label: string; readonly olumi: boolean }
@@ -45,7 +49,7 @@ export type Journey = {
   readonly entries: readonly JourneyEntry[]
   /** Views given, counted (the View sends no time for them); null when none. */
   readonly views: { readonly line: string } | null
-  /** Olumi has proposed a change nobody has approved yet (the View's `proposal`): provisional work, not part of the record. */
+  /** A change proposed and not yet approved (the View's `proposal`, Olumi's or a person's): provisional work, not part of the record. */
   readonly pending: boolean
 }
 
@@ -57,10 +61,10 @@ export const JOURNEY_WORDS = {
   commitment: (by: string) => `${by} made a commitment`,
   outcome: (by: string) => `${by} recorded what happened`,
   evidence: (by: string) => `${by} added evidence`,
-  dissent: (holder: string) => `${holder}’s disagreement kept on record`,
+  dissent: (holder: string) => `${holder} confirmed their disagreement`,
   kept: (name: string) => `Olumi’s idea kept by ${name}`,
   views: (n: number, names: readonly string[]) => `${n === 1 ? '1 view given' : `${n} views given`}${names.length > 0 ? ` · ${names.join(', ')}` : ''}`,
-  pending: 'Olumi’s proposed change is waiting for approval',
+  pending: 'A proposed change is waiting for approval',
   showAll: (n: number) => `Show all ${n}`,
   showFewer: 'Show fewer',
 } as const
@@ -93,10 +97,10 @@ export function journeyOf(view: View): Journey {
   }
   for (const d of view.collab?.dissent ?? []) {
     if (d.confirmed === null) continue
-    entries.push({ key: `dissent:${d.id}`, kind: 'dissent', at: d.confirmed.at, line: JOURNEY_WORDS.dissent(d.holder), detail: d.position, target: { kind: 'team' } })
+    entries.push({ key: `dissent:${d.id}`, kind: 'dissent', at: d.confirmed.at, line: JOURNEY_WORDS.dissent(d.holder), detail: d.confirmed.words, target: { kind: 'team' } })
   }
   for (const k of view.kept ?? []) {
-    entries.push({ key: `kept:${k.id}`, kind: 'kept', at: k.at, line: JOURNEY_WORDS.kept(k.kept_by.name), detail: k.text, target: { kind: 'card', id: `idea:kept:${k.id}` } })
+    entries.push({ key: `kept:${k.id}`, kind: 'kept', at: k.at, line: JOURNEY_WORDS.kept(k.kept_by.name), detail: k.text, target: { kind: 'kept', id: k.id, turn: k.turn, text: k.text } })
   }
   // Newest first; a tie keeps core's order.
   const ranked = entries.map((e, i) => ({ e, i })).sort((a, z) => time(z.e.at) - time(a.e.at) || a.i - z.i).map((x) => x.e)
