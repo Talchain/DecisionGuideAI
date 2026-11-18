@@ -457,7 +457,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
               })}
             </ul>
             {c.changes.length === 0 ? null : (
-              <Fold id="core-compare-all-lines" summary={c.changes.length === 1 ? 'The change line' : `All ${c.changes.length} change lines`}>{lines}</Fold>
+              <Fold id="core-compare-all-lines" summary={c.changes.length === 1 ? 'The change in full' : `All ${c.changes.length} changes in full`}>{lines}</Fold>
             )}
           </>
         )}

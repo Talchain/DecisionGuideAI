@@ -87,7 +87,7 @@ describe('what changed, each by its author and a press to its card', () => {
     show(fixture('ui9-a6-since-v3'))
     const all = await screen.findByTestId('core-compare-all-lines')
     expect(all.tagName).toBe('DETAILS'); expect(all.hasAttribute('open')).toBe(false)
-    expect(all.querySelector('summary')!.textContent).toBe('All 3 change lines')
+    expect(all.querySelector('summary')!.textContent).toBe('All 3 changes in full')
     expect([...all.querySelectorAll('[data-compare-line]')].map((l) => [l.textContent, l.querySelector('[role="img"]')?.getAttribute('aria-label') ?? null]))
       .toEqual([['↻ figure: hours from 20 to 25', null], ['+ risk: delay', 'Proposed by Olumi'], ['↻ figure: spend from 1,000 to 1,200', 'Their figure, read as a range']])
   })
