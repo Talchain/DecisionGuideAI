@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
@@ -275,9 +275,20 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
         : <SideBySide a={self} b={value} />}
       {!canSave ? null : saving
         ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} />
-        : <div><Button size="sm" variant="ghost" data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
-            <span className="inline-flex items-center gap-1.5"><OkIcon id="what-if" size={14} decorative />Save a what-if to compare</span></Button></div>}
+        // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only).
+        : <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" onClick={() => setSaving(true)}>
+            <OkIcon id="what-if" size={14} decorative />Save a what-if to compare</button></div>}
     </>
+  )
+}
+
+/** One press to more of core's own rows: a quiet summary line, the rows under it. */
+function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
+  return (
+    <details className="grid gap-1.5" data-testid={id}>
+      <summary className={`${META} cursor-pointer`}>{summary}</summary>
+      {children}
+    </details>
   )
 }
 
@@ -303,7 +314,9 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   const c = shown?.key === key ? shown.c : null
   if (error?.key === key) return <p role="alert" className={ERR} data-testid="core-compare-error">{error.text}</p>
   if (c === null) return <p className={META} data-testid="core-compare-loading">Reading both versions…</p>
-  const names = { first: `Version ${Math.min(from, to)}`, second: `Version ${Math.max(from, to)}` }
+  // The two sides named from core's own answer (its `versions` run from the earlier to the later), never from the pick.
+  const ends = [c.versions[0]?.n ?? Math.min(from, to), c.versions.at(-1)?.n ?? Math.max(from, to)]
+  const names = { first: `Version ${ends[0]}`, second: `Version ${ends[1]}` }
   const moved = c.results.map((r, i) => ({ r, i })).filter(({ r }) => movedOf(r)).sort((a, b) => sizeOf(b.r) - sizeOf(a.r) || a.i - b.i)
   const still = c.results.length - moved.length
   // Core's line for the largest move in its own comparison, said once (its tail credits a single change, or says none is credited).
@@ -319,14 +332,36 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
           </ul>
         )}
         {c.results.length === 0 ? <p className={META} data-testid="core-compare-results-none">No results in either version.</p>
-          : still === 0 ? null : <p className={META} data-testid="core-compare-still" data-still={still}>{notMoved(still)}</p>}
+          : still === 0 ? null : (
+            // Counted at rest; core's own rows one press away, each with its words in both versions.
+            <Fold id="core-compare-still" summary={notMoved(still)}>
+              <ul className="m-0 grid list-none gap-1.5 p-0">
+                {c.results.map((r, i) => ({ r, i })).filter(({ r }) => !movedOf(r)).map(({ r, i }) => (
+                  <li key={i} className={`${META} break-words`} data-compare-still-row={i}><span className="text-text-body">{what(r)}</span>: <SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</li>
+                ))}
+              </ul>
+            </Fold>
+          )}
         {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
       </section>
       {told === null ? null : (
+        // Where a reading moved: the one useful press where core credits no single change, and core's own line for every result one press
+        // away (the largest move first), each in its own words, so no one result's line stands for the rest.
         <section className="grid gap-2" aria-label="What Olumi credits" data-testid="core-compare-credit" data-sole={since!.sole ?? ''}>
-          <p className={META} data-view={`run.since.lines.${told.i}.line`}>{told.l.line}</p>
           {since!.sole === null ? <AskWhich /> : null}
+          <Fold id="core-compare-readings" summary={since!.lines.length === 1 ? 'Olumi’s reading' : `Olumi’s reading of each result (${since!.lines.length})`}>
+            <ul className="m-0 grid list-none gap-1.5 p-0">
+              {[told, ...since!.lines.map((l, i) => ({ l, i })).filter(({ i }) => i !== told.i)].map(({ l, i }) => (
+                <li key={i} className={`${META} break-words`} data-view={`run.since.lines.${i}.line`}>{l.line}</li>
+              ))}
+            </ul>
+          </Fold>
         </section>
+      )}
+      {c.versions.length === 0 ? null : (
+        <Fold id="core-compare-who" summary="Who proposed and approved">
+          <ul className="m-0 grid list-none gap-1 p-0">{c.versions.map((v) => <li key={v.n} className={`${META} break-words`}><span className="text-text-body">Version {v.n}:</span> {whoOf(v)}</li>)}</ul>
+        </Fold>
       )}
     </div>
   )
@@ -389,10 +424,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
               })}
             </ul>
             {c.changes.length === 0 ? null : (
-              <details className="grid gap-1.5" data-testid="core-compare-all-lines">
-                <summary className={`${META} cursor-pointer`}>{c.changes.length === 1 ? 'The change line' : `All ${c.changes.length} change lines`}</summary>
-                {lines}
-              </details>
+              <Fold id="core-compare-all-lines" summary={c.changes.length === 1 ? 'The change line' : `All ${c.changes.length} change lines`}>{lines}</Fold>
             )}
           </>
         )}

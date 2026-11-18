@@ -95,10 +95,12 @@ describe('the Compare tab', () => {
 // Removed with the redesign (18 Nov): the boxed three-card layout and its "Who proposed and approved" list in the tab. The Team tab's compare,
 // inside its own section, stays inline and keeps who proposed and approved.
 describe('the Compare tab and the Team tab\'s compare', () => {
-  it('the tab draws no "Who proposed and approved" and no boxed parts; CONTRAST: the Team tab\'s compare keeps its inline lists', async () => {
+  it('the tab keeps "Who proposed and approved" one press away, in core\'s words, and no boxed parts; CONTRAST: the Team tab\'s compare keeps its inline lists', async () => {
     render(<CoreCompareTab />)
     await waitFor(() => expect(screen.getByTestId('core-compare-out')).toBeTruthy())
-    expect(screen.getByTestId('core-compare-tab').textContent).not.toContain('Who proposed and approved')
+    const who = screen.getByTestId('core-compare-who')
+    expect([who.tagName, who.hasAttribute('open'), who.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, 'Who proposed and approved'])
+    expect(who.querySelector('li')!.textContent).toBe('Version 2: proposed by Bea · approved by Ada')
     expect(screen.getByTestId('core-compare-tab').querySelectorAll('[data-compare-part]').length).toBe(0)
     cleanup()
     render(<CoreCompare sid={SID} latest={2} id="team-compare" auto />)
