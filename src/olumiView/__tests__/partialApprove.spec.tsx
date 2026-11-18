@@ -48,7 +48,7 @@ describe('partial approval', () => {
     })
     expect(screen.getByTestId('view-approve-ticked')).toBeDisabled()
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
-    expect(screen.getByTestId('view-approve-ticked')).toHaveTextContent('Approve ticked · 1')
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base, only: [p.changes[1]!.id], only_top: [] } })
@@ -59,7 +59,7 @@ describe('partial approval', () => {
     const grouped = { ...golden, proposal: { ...p, changes, groups: [{ heading: 'Everything', lines: [0, 1] }] } }
     showOpen(grouped)
     fireEvent.click(screen.getByTestId('view-change-group-0'))
-    expect(screen.getByTestId('view-approve-ticked')).toHaveTextContent('Approve ticked · 2')
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 2')
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: p.base, only: [changes[0]!.id], only_top: [changes[0]!.id] })
@@ -83,7 +83,7 @@ describe('partial approval', () => {
   it('must not change: Approve is still the whole proposal (`base` alone); one line, or none, has no ticks', async () => {
     showOpen(golden)
     fireEvent.click(screen.getByTestId('view-change-tick-0'))
-    fireEvent.click(screen.getByText('Approve'))
+    fireEvent.click(screen.getByTestId('view-approve'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ path: `/api/proposals/${p.id}/approve`, body: { base: p.base } })
     cleanup()
@@ -101,7 +101,7 @@ describe('partial approval', () => {
     const older: Record<string, unknown> = { ...p }
     delete older.changes; delete older.groups
     showOpen({ ...golden, proposal: older as unknown as View['proposal'] })
-    expect(screen.getByText('Approve')).toBeInTheDocument()
+    expect(screen.getByTestId('view-approve')).toHaveAccessibleName(/Approve/)
     expect(screen.queryByTestId('view-approve-ticked')).toBeNull()
   })
 })
@@ -129,7 +129,7 @@ describe('a figure and the line that reads it are ticked together', () => {
     expect(ticks()).toEqual([false, false, false])
     fireEvent.click(screen.getByTestId(`view-change-tick-${at('add_two')}`))
     expect(ticks()).toEqual([true, true, false])
-    expect(screen.getByTestId('view-approve-ticked')).toHaveTextContent('Approve ticked · 2')
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 2')
     fireEvent.click(screen.getByTestId('view-approve-ticked'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.body).toEqual({ base: pair.proposal!.base, only: ['two_specialists', 'add_two'], only_top: [] })

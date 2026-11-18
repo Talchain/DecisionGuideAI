@@ -258,7 +258,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS} ${visual === null && !hasFigure ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS} ${card.family === 'option' || (visual === null && !hasFigure) ? 'ok-two-lines' : 'ok-one-line'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

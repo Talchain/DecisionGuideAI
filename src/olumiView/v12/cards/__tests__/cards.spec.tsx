@@ -479,13 +479,14 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     const o = cardOf(EU, 'broader_entry')
     const { qualifier } = chanceParts(headlineChanceRow(o)!.value)
     expect(qualifier, 'the fixture\'s chance has a condition').not.toBeNull()
-    const line = lineOf(draw(described(EU, o.id), o.id, 'simple'))!
+    // CHANGED BY DESIGN (18 Nov): an option's condition is never cut to one line, so it is the two-line class here.
+    const line = twoLineOf(draw(described(EU, o.id), o.id, 'simple'))!
     expect([line.textContent, line.hasAttribute('data-simple-qual')]).toEqual([qualifier, true])
     expect(line.title).toContain(DESC)
     cleanup()
     const plain = cardOf(FACE, 'second_oven')
     expect(chanceParts(headlineChanceRow(plain)!.value).qualifier, 'CONTRAST: this chance has no condition').toBeNull()
-    expect(lineOf(draw(described(FACE, plain.id), plain.id, 'simple'))?.hasAttribute('data-simple-description'), 'so its description is its line').toBe(true)
+    expect(draw(described(FACE, plain.id), plain.id, 'simple').querySelector('.ok-quiet')?.hasAttribute('data-simple-description'), 'so its description is its line (an option card: two lines, 18 Nov)').toBe(true)
   })
   it('P2b the quiet line keeps a least width on its row (DL BUILD 3: never single letters beside the chips); it takes its line rather than shrink', () => {
     // Bound on the class the browser lays out by: grow from 7rem, never flex-1's zero basis (which let "no" narrow to one letter a line at 1232).

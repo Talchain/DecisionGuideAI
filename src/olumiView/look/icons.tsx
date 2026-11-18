@@ -48,6 +48,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { HIT_44 } from '../../styles/hitArea'
+import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 
@@ -316,10 +317,12 @@ interface OkIconButtonProps {
   testid?: string
   size?: number
   className?: string
+  /** The lane's compact icon button (18 Nov): a 28px square, ghost grey or solid green, in place of the 44px hit area. Omitted: the 44px one. */
+  tone?: 'ghost' | 'primary'
 }
 
 /** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
@@ -332,8 +335,8 @@ export function OkIconButton({ id, onClick, words, variant, active, pressed, dis
       aria-pressed={pressed}
       title={label}
       data-testid={testid}
-      className={`${HIT_44} inline-flex shrink-0 items-center justify-center${className ? ` ${className}` : ''}`}
-      style={{ color: disabled ? colourVar('--text-light') : colourVar(token) }}
+      className={`${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${className ? ` ${className}` : ''}`}
+      style={tone === 'primary' ? undefined : { color: disabled ? colourVar('--text-light') : colourVar(token) }}
     >
       <Glyph id={id} size={size} variant={variant} />
     </button>

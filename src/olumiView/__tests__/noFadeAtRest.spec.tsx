@@ -31,6 +31,15 @@ describe('a control that cannot act yet is solid, not faded', () => {
     expect(VIEW_CHIP_CLASS.split(/\s+/)).toContain('disabled:text-text-light')
     expect(VIEW_CHIP_PRIMARY_CLASS.split(/\s+/)).toEqual(expect.arrayContaining(['disabled:bg-panel-border', 'disabled:text-text-light']))
   })
+  it('NF2b the lane\'s control recipe (18 Nov): 28px, 6px radius, no pill and no border; the older look\'s chips are unchanged (contrast)', async () => {
+    const { CHIP_CLASS, CHIP_PRIMARY_CLASS } = await import('../../v5/blocks/chipClass')
+    for (const c of [VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS]) expect(c.split(/\s+/)).toEqual(expect.arrayContaining(['min-h-7', 'rounded-md']))
+    expect(VIEW_CHIP_PRIMARY_CLASS).not.toMatch(/min-h-\[44px\]|rounded-\[|shadow/)
+    expect(VIEW_CHIP_PRIMARY_CLASS.split(/\s+/)).toEqual(expect.arrayContaining(['bg-success']))
+    expect(CHIP_CLASS).toMatch(/rounded-\[14px\]/)
+    expect(CHIP_PRIMARY_CLASS).toMatch(/bg-primary border border-primary rounded-\[14px\]/)
+    expect(CHIP_PRIMARY_CLASS).toMatch(/min-h-\[28px\]/)
+  })
   // Contrast: the legacy chat chips these derive from keep their own recipe (not this lane's), so the probe sees the token where it is.
   it('NF3 contrast: the probe sees the fade where it still is (the legacy chip recipe the lane derives from)', async () => {
     const { CHIP_CLASS } = await import('../../v5/blocks/chipClass')
