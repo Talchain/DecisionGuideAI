@@ -230,6 +230,18 @@ describe('towards commitment: what is still disputed, what is recorded, and one 
     expect(commit.open.mock.calls).toEqual([[view.id, view]])
     expect(chat.prefill).not.toHaveBeenCalled()
   })
+  it('a disagreement whose card the tab already lists as challenged is said once: here only its holder, one press to that card', () => {
+    const view = withRecords()
+    const card = view.model!.cards[0]!
+    ;(view.collab as Collab).dissent[0]!.id = card.id
+    card.challenged = true as never
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const row = screen.getByTestId('reasoning-commitment').querySelector<HTMLElement>(`[data-dissent="${card.id}"]`)!
+    expect([row.dataset['dissentSaid'], row.textContent]).toEqual(['above', 'Tobias'])
+    fireEvent.click(row.querySelector('button')!)
+    expect(focus.node.mock.calls).toEqual([[card.id]])
+  })
   it('CONTRAST: a past version shows what was recorded but offers no form; nothing recorded on a past version draws no section', () => {
     const view = withRecords()
     ready(view, { at: 3 })

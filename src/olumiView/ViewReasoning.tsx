@@ -249,7 +249,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
       {lead === undefined ? null : <Focus e={lead} />}
       <RestsOn model={model} run={run} />
       <Examined items={items.filter((e) => e !== lead)} />
-      {view === null ? null : <TowardsCommitment view={view} />}
+      {view === null ? null : <TowardsCommitment view={view} model={model} />}
       <Premises model={model} />
     </div>
   )

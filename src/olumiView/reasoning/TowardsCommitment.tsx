@@ -5,7 +5,9 @@
  * form, no second write. Every word is the team's or core's (`collab.dissent`, `collab.commitments`); Olumi writes none of the answers, and
  * the form records what the PEOPLE will do, never an option Olumi picks.
  */
-import type { View } from '../client'
+import type { View, ViewModel } from '../client'
+import { challengedCards } from '../layout'
+import { pressCard } from './tabRing'
 import { OkIcon } from '../look/icons'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import { useViewStore } from '../store'
@@ -26,12 +28,14 @@ const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const SUB = `${TYPE.meta} m-0 text-text-light`
 const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 
-export function TowardsCommitment({ view }: { view: View }) {
+export function TowardsCommitment({ view, model }: { view: View; model: ViewModel }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)
   const c = view.collab
   // The form is offered only where it may be written: this page's own View, the latest version, for the person it is for.
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
   const dissent = c.dissent.filter((d) => (d.confirmed?.words ?? d.position) !== '')
+  // A disagreement whose card the tab already lists as challenged is said there; here it is named by its holder, one press to its card.
+  const above = new Set(challengedCards(model).map((x) => x.id))
   if (reach === null && dissent.length + c.commitments.length === 0) return null
   return (
     <section className="space-y-2" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
@@ -40,12 +44,22 @@ export function TowardsCommitment({ view }: { view: View }) {
         <div className="space-y-1" data-testid="reasoning-commitment-dissent">
           <p className={SUB}>{COMMITMENT_WORDS.open}</p>
           <ul className="m-0 list-none space-y-1 p-0">
-            {dissent.map((d) => (
-              <li key={d.id} className={`${TYPE.body} flex items-start gap-2 px-1 text-text-body`} data-dissent={d.id}>
-                <OkIcon id="challenged" size={14} className="mt-0.5" decorative />
-                <span className="min-w-0 flex-1 break-words">{d.holder === '' ? null : <span className="text-text-header">{d.holder}: </span>}{d.confirmed?.words ?? d.position}</span>
-              </li>
-            ))}
+            {dissent.map((d) => {
+              const words = d.confirmed?.words ?? d.position
+              if (above.has(d.id) && d.holder !== '') return (
+                <li key={d.id} data-dissent={d.id} data-dissent-said="above">
+                  <button type="button" onClick={() => pressCard(d.id)} title={words} className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
+                    <OkIcon id="challenged" size={14} decorative /><span className="min-w-0 flex-1 break-words">{d.holder}</span>
+                  </button>
+                </li>
+              )
+              return (
+                <li key={d.id} className={`${TYPE.body} flex items-start gap-2 px-1 text-text-body`} data-dissent={d.id}>
+                  <OkIcon id="challenged" size={14} className="mt-0.5" decorative />
+                  <span className="min-w-0 flex-1 break-words">{d.holder === '' ? null : <span className="text-text-header">{d.holder}: </span>}{words}</span>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
