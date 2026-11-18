@@ -355,8 +355,9 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="core-compare-out" aria-live="polite">
       <Changes c={c} since={since} />
-      <section className="grid gap-2" aria-label="What moved" data-testid="core-compare-moved">
-        <h4 className={H}>What moved</h4>
+      <section className="grid gap-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
+        {/* No heading that promises movement over nothing (18 Nov audit compare-model-02): what did not move is counted below, as it was. */}
+        {moved.length === 0 ? null : <h4 className={H}>What moved</h4>}
         {moved.length === 0 ? null : (
           <ul className="m-0 grid list-none gap-3 p-0">
             {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} names={names} />)}
@@ -421,6 +422,8 @@ function Whose({ olumi, theirs, words }: { olumi: boolean; theirs: boolean; word
  * that card. Otherwise core's change lines between the two versions. Where both exist, core's full lines sit behind one press, counted at
  * rest, so one named figure never reads as the only change.
  */
+/** Core's change lines are drawn open at rest up to this many; more are counted behind one press. */
+const OPEN_LINES_UP_TO = 3
 function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Element {
   const cards = useViewStore((s) => s.view?.model?.cards)
   const sid = useViewStore((s) => s.sid)
@@ -456,9 +459,10 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
                 )
               })}
             </ul>
-            {c.changes.length === 0 ? null : (
-              <Fold id="core-compare-all-lines" summary={c.changes.length === 1 ? 'The change in full' : `All ${c.changes.length} changes in full`}>{lines}</Fold>
-            )}
+            {c.changes.length === 0 ? null
+              // Few enough to read at rest: core's own lines are the change, open (18 Nov audit compare-model-01); a long list stays one press away.
+              : c.changes.length <= OPEN_LINES_UP_TO ? lines
+              : <Fold id="core-compare-all-lines" summary={`All ${c.changes.length} changes in full`}>{lines}</Fold>}
           </>
         )}
     </section>
