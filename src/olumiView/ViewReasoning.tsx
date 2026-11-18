@@ -29,6 +29,7 @@ import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
@@ -45,7 +46,7 @@ export const REASONING_LABELS = {
 } as const
 const RING = 'reasoning-tab'
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
-const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
 const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
 const REST_GROUPS = 2

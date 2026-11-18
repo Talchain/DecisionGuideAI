@@ -26,6 +26,7 @@ import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
@@ -1373,9 +1374,6 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
-/** The person's filled act in the panel (Paul, 17 Nov: no black buttons): Olumi's green with an ink label, over the shared Button's primary fill. */
-const GREEN_ACT = '!border-success !bg-success !text-text-header hover:!bg-success-hover hover:!border-success-hover active:!bg-success-active'
-
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
 export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
@@ -1385,8 +1383,8 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
-          className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-success text-text-header hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed"><OkIcon id="move-tap" size={16} decorative /></button>
-      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} className={primary ? GREEN_ACT : ''} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
+          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={16} decorative /></button>
+      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
 
@@ -2118,7 +2116,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             </button>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-full border border-success bg-success text-text-header hover:bg-success-hover hover:border-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light">
+            className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${controls.act}`}>
             <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>
         </div>

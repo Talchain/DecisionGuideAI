@@ -232,6 +232,17 @@ export const controls = {
   actionChip:
     'inline-flex items-center gap-1 rounded-full border border-field px-2 py-1 text-text-body hover:bg-panel-hover hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors',
 
+  /**
+   * ⭐ THE PERSON'S FILLED ACTION, defined once (Paul, 17 Nov: "there should be no black buttons… Maybe we use the green for interaction
+   * buttons"; "Don't add completely new colours"). Olumi's green with an ink label; hover and press darken it; a control that cannot act
+   * yet is one solid neutral with a light label, never faded. Blue stays Olumi's. `actColours` has no border, for recipes that set their
+   * own (the lane's `border-0` chips); `act` is the bordered pill or circle every other filled action uses.
+   */
+  actColours:
+    'bg-success text-text-header hover:bg-success-hover active:bg-success-active disabled:cursor-not-allowed disabled:bg-panel-border disabled:text-text-light',
+  act:
+    'border border-success bg-success text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light',
+
   selectableChip: {
     base: 'px-2.5 py-1 rounded-full cursor-pointer capitalize border transition-colors',
     selected: 'border-primary text-primary bg-panel',

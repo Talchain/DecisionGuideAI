@@ -26,6 +26,7 @@ import { aboutCountWords } from '../AboutChip'
 import { draftKeyOf } from '../OlumiAsks'
 import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
+import { controls } from '../../../../styles/controls'
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => selection.value }))
@@ -295,7 +296,8 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(card, 'view-question-use'), 'blank is not words').toBeNull()
     fireEvent.change(box, { target: { value: 'By the end of June' } })
     const use = q(card, 'view-question-use') as HTMLButtonElement
-    expect([use.disabled, use.className.includes('bg-success'), use.className.includes('disabled:')]).toEqual([false, true, false])
+    // Shown only with words, so never seen disabled at rest; its look is the one shared green action (controls.act), not a local copy.
+    expect([use.disabled, use.className.includes(controls.act)]).toEqual([false, true])
     fireEvent.click(q(card, 'view-question-toggle')!)
     expect(q(card, 'view-question-answer')).toBeNull()
     open(card)

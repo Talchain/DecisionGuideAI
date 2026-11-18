@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import { Settings, LogOut, LayoutGrid, FileText, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
+import { controls } from '../../styles/controls'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -133,7 +134,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
         }}
         title={words}
         data-testid="olumi-core-person-mark"
-        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
+        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="true"
@@ -249,7 +250,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
             window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
           }
         }}
-        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
+        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="true"

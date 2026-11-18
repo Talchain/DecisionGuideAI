@@ -8,12 +8,11 @@ import { Pill } from '../Pill'
 import { Skeleton } from '../Skeleton'
 
 describe('Button — the DS single-treatment button', () => {
-  it('primary carries the DS pair: bg-primary + text-text-on-color, pill radius', () => {
+  it('primary is the person\'s green action with an ink label, pill radius (Paul 17 Nov: no black buttons; blue means Olumi)', () => {
     render(<Button>Analyse first pass</Button>)
     const b = screen.getByRole('button', { name: 'Analyse first pass' })
-    expect(b.className).toContain('bg-primary')
-    expect(b.className).toContain('text-text-on-color')
-    expect(b.className).toContain('rounded-full')
+    expect(b.className.split(/\s+/)).toEqual(expect.arrayContaining(['bg-success', 'text-text-header', 'hover:bg-success-hover', 'rounded-full']))
+    expect(b.className).not.toMatch(/(^|\s)bg-(primary|info)(\s|$)|text-text-on-color/)
   })
 
   it('defaults type="button" — a Button inside a form must not submit it by accident', () => {
@@ -28,11 +27,14 @@ describe('Button — the DS single-treatment button', () => {
     expect(b.className).not.toContain('bg-danger')
   })
 
-  it('disabled keeps the DS opacity treatment and blocks interaction', () => {
+  it('a disabled primary is one solid neutral with a light label, never faded; outlined variants keep the opacity treatment', () => {
     render(<Button disabled>Analyse</Button>)
     const b = screen.getByRole('button')
     expect(b).toBeDisabled()
-    expect(b.className).toContain('disabled:opacity-40')
+    expect(b.className.split(/\s+/)).toEqual(expect.arrayContaining(['disabled:bg-panel-border', 'disabled:text-text-light']))
+    expect(b.className).not.toMatch(/(^|\s)disabled:opacity-/)
+    render(<Button variant="secondary" disabled>Later</Button>)
+    expect(screen.getByRole('button', { name: 'Later' }).className).toContain('disabled:opacity-40')
   })
 })
 

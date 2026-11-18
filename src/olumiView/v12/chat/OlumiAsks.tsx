@@ -16,6 +16,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
+import { controls } from '../../../styles/controls'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
 import { V10_METHODS } from '../../../presentation/V10MethodChips'
@@ -29,7 +30,7 @@ export const ANSWER_PLACEHOLDER = 'Your answer'
 export const OPEN_ANSWER = 'Answer this question'
 export const CLOSE_ANSWER = 'Close the answer box'
 /** The green act: Olumi's green with an ink label (Paul, 17 Nov: no black buttons). Drawn only once there are words, so it is never seen disabled. */
-const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full border border-success bg-success px-3 text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full px-3 ${controls.act}`
 const METHOD_ICON = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' } as const
 
 /** The identity of one question's draft: the scenario, the question's key and its exact words. */
