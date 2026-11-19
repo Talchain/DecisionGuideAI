@@ -26,6 +26,7 @@ import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
 import { setCurrentScenarioId } from '../canvas/store/scenarios'
 import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
+import { ThinkingIndicator } from '../canvas/conversation/zones/ThinkingIndicator'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
@@ -2091,9 +2092,12 @@ function Working() {
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
   const s = Math.floor((now - started) / 1000)
   return (
-    <p role="status" className={typography.viewPanelMeta} data-testid="view-chat-working">
-      {THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span>
-    </p>
+    // Paul, 19 Nov: the faint line alone was hard to see and dull; the older look's brand loader (the six node shapes in a colour wave,
+    // canvas/conversation/zones/ThinkingIndicator, still in use there; still under reduced motion) stands above it again.
+    <div role="status" className="grid justify-items-center gap-1 py-2" data-testid="view-chat-working">
+      <ThinkingIndicator />
+      <p className={`${typography.viewPanelMeta} m-0 text-text-light`}>{THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span></p>
+    </div>
   )
 }
 

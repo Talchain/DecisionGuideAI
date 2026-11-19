@@ -277,6 +277,14 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   const asked = () => golden('s_ce285b3617bb')
   const visible = (c: ParentNode) => [...c.querySelectorAll<HTMLElement>('[data-view^="model.coaching_questions"]')].filter((e) => !e.hidden && e.closest('[hidden]') === null)
   const open = (card: HTMLElement) => { fireEvent.click(q(card, 'view-question-toggle')!); return card }
+  it('REMOVE (Paul, 19 Nov: "not just collapse, but remove"): the card has a remove press; pressed, the card is gone, not folded; CONTRAST: the chevron only folds it', () => {
+    const c = mount(asked())
+    const card = q(c, 'view-model-question')!
+    open(card); open(card)
+    expect(q(c, 'view-model-question'), 'the chevron folds, the card stays').not.toBeNull()
+    fireEvent.click(q(card, 'view-question-remove')!)
+    expect(q(c, 'view-model-question'), 'removed, not folded').toBeNull()
+  })
   it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
     const c = mount(asked())
     const card = q(c, 'view-model-question')!

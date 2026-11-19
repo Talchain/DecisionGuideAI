@@ -36,6 +36,11 @@ const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items
 /** The identity of one question's draft: the scenario, the question's key and its exact words. */
 export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>): string => JSON.stringify([scope, q.key, q.text])
 
+/** Question sets the person removed (Paul, 19 Nov: "not just collapse, but remove"), by scenario and the questions' own keys: the card stays
+ *  gone for those questions on this page and comes back only when Olumi asks something new. Nothing is written to core. */
+const removed = new Set<string>()
+export const REMOVE_QUESTIONS = 'Remove these questions'
+
 export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   questions: readonly AskedQuestion[]
   /** The scenario these questions belong to (the View's id): part of every draft's identity. */
@@ -54,8 +59,10 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   // One surface at a time (Paul, 19 Nov): a card's pop-over opening folds this answer box. What was typed stays in `drafts`, and the question stays as one row.
   const popover = useLaneInspector((s) => (s.current?.kind === 'details' ? s.current.n : null))
   useEffect(() => { if (popover !== null) setOpen(false) }, [popover])
+  const [, bump] = useState(0)
   const n = questions.length
-  if (n === 0) return null
+  const setKey = `${scope}\u0000${questions.map((x) => x.key).join('\u0001')}`
+  if (n === 0 || removed.has(setKey)) return null
   const i = Math.min(at, n - 1), q = questions[i]!
   const head = n === 1 ? 'Olumi’s question' : 'Olumi’s questions'
   const own = q.id !== null && q.edit !== null
@@ -83,6 +90,8 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
           <FoldChevron open={open} />
         </button>
+        <OkIconButton id="cancel-close" tone="ghost" testid="view-question-remove" words={REMOVE_QUESTIONS}
+          onClick={() => { removed.add(setKey); bump((x) => x + 1) }} />
       </div>
       {!open ? null : (
         <div id="view-question-open" className="space-y-2" data-testid="view-question-open">
