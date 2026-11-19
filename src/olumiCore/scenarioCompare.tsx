@@ -4,7 +4,6 @@ import { call, newOp, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, FIELD, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { shownModel, useViewStore } from '../olumiView/store'
-import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
  * SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts): this scenario as
@@ -21,8 +20,22 @@ import { markOf, ShiftTrack, TrackKey } from './compareTrack'
  * the aim's label, its limitation if core gives one and its unpaired options, never as a pairing. A cell core marks as resting on Olumi's
  * proposals carries core's mark and its `lead` words. A limitation core says once on the aim, a figure or a side is not said again in the notes.
  */
+/**
+ * SEPARATE RUNS (compare concept v3, settled by the DL and Codex 18 Nov): two versions, or two scenarios, are each worked out in a run of
+ * their own, so a difference between them is never drawn as one chance moving on one track (the two-mark track was removed here). Core
+ * sends no `paired` / `same_draws` flag yet (engine ask 2); until it does, every version-to-version and scenario-to-scenario comparison says
+ * so in this one fixed label. Repeat drafts on one build gave one option 20% and 58% (DL, Q5), which is why it is said every time.
+ */
+export const SEPARATE_RUNS = {
+  label: 'Separate runs',
+  title: 'Each side was worked out in a run of its own, so part of a difference can come from the runs themselves.',
+} as const
+export function SeparateRuns(): JSX.Element {
+  return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} title={SEPARATE_RUNS.title} data-compare-runs="separate">{SEPARATE_RUNS.label}</span>
+}
+
 type Mark = { glyph: string; title: string }
-/** `chance`: core's own number behind `value` (0 to 1), which places the shift track's mark; absent from an older core, then no mark. */
+/** `chance`: core's own number behind `value` (0 to 1); not drawn here (two scenarios are separate runs: no track). */
 type Cell = { value: string; title: string; olumi: Mark | null; lead: string | null; condition: string | null; chance?: number | null
   /** Core's headline (the value without its companion) and the card's own short companion line (core wip/compare ff3622bb); an older core: the value. */
   headline?: string; companion?: Line | null }
@@ -81,10 +94,7 @@ function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
   return <p className={`${BODY} break-words`} title={c?.title} data-compare-most-likely="">{c ? <><MarkSpan m={c.olumi} />{c.value}</> : null}</p>
 }
 
-/** The mark for one side of an option: its first cell's own number (its headline chance), with core's words. */
-const sideMark = (s: OptionSide | null) => { const c = arr(s?.cells)[0]; return c ? markOf(c.chance, words(c.headline) ? c.headline : c.value) : null }
-
-function Aim({ aim, names }: { aim: AimRow; names: { first: string; second: string } }): JSX.Element {
+function Aim({ aim }: { aim: AimRow }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
   const lead = aim.most_likely
@@ -102,9 +112,6 @@ function Aim({ aim, names }: { aim: AimRow; names: { first: string; second: stri
         <div key={`${o.label}-${i}`} className="grid gap-1" data-compare-option={paired && o.only_in === null ? 'paired' : 'alone'}>
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
-          {/* The earlier DGAI's shift track: hollow for the first side, filled for the second, where core gives each its number. Only where
-              both sides answer the same question ('comparable'): two chances of different targets are never drawn as one chance moving. */}
-          {aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} names={names} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -148,7 +155,6 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   const said = new Set<string>([c.a?.note, c.b?.note, ...aims.map((a) => a.limitation), ...figures.map((f) => f.limitation)].filter(words))
   const notes = arr(c.limits).filter((l) => !said.has(l))
   const showFigures = figures.some((f) => f.status !== 'same')
-  const names = { first: c.a?.name ?? '', second: c.b?.name ?? '' }
   return (
     <div className="grid gap-2" data-testid="scenario-compare-out">
       <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-panel py-1" data-testid="scenario-compare-heads">
@@ -160,10 +166,9 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
           </div>
         ))}
       </div>
-      {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} names={names} />)}
-      {/* The key to the marks, once, named by the two sides as core names them; only when a track is drawn ('comparable' aims). */}
-      {aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
-        ? <TrackKey first={names.first} second={names.second} /> : null}
+      {/* Two scenarios, or a scenario and a what-if, are each core's own saved run: said once, above the aims. */}
+      {aims.length === 0 ? null : <div><SeparateRuns /></div>}
+      {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
           <h4 className={H}>Differences</h4>

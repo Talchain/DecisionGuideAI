@@ -24,6 +24,7 @@ import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
 import { CoreCompareTab, SinceVersion, type Since } from '../compare'
+import { SEPARATE_RUNS } from '../scenarioCompare'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
 const COMPARED = { versions: [], changes: [], results: [] }
@@ -50,7 +51,7 @@ afterEach(() => { cleanup(); setTeamFetch(null); vi.unstubAllEnvs(); useViewStor
 const at = (p: string) => [...document.querySelectorAll<HTMLElement>(`[data-view="${p}"]`)]
 
 describe('Since the version before, under a save\'s receipt in the chat (SinceVersion), on the served A6 journey', () => {
-  it('SI1: the latest version (3) beside version 2: core\'s heading, each option\'s line verbatim, and its two marks at core\'s fractions', () => {
+  it('SI1: the latest version (3) beside version 2: core\'s heading, each option\'s line verbatim, and no track (two versions are separate runs)', () => {
     const view = fixture('ui9-a6-since-v3'), since = view.model!.run!.since!
     expect([view.version!.n, since.from.n, since.to.n, since.lines.length]).toEqual([3, 2, 3, 2]) // control: the field is served here
     show(view)
@@ -60,16 +61,11 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
     expect([...box.querySelectorAll('[data-since-line]')].map((e) => e.getAttribute('data-since-line'))).toEqual(since.lines.map((l) => `${l.option}:${l.aim}`))
     since.lines.forEach((l, i) => {
       expect(at(`run.since.lines.${i}.line`).map((e) => e.textContent)).toEqual([l.line])
-      const track = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"] [data-compare-track]`)
-      // 18 Nov: a reading core serves unchanged (same number, same words) draws its line and no track (SI5).
-      if (l.from === l.to && l.from_text === l.to_text) { expect(track).toBeNull(); return }
-      expect([track!.getAttribute('data-first'), track!.getAttribute('data-second')]).toEqual([String(Math.round(l.from * 100)), String(Math.round(l.to * 100))])
-      expect(track!.getAttribute('aria-label')).toBe(`${since.from.label}: ${l.from_text}; ${since.to.label}: ${l.to_text}`)
     })
-    // In this served journey neither reading moved (control), so there is no track and no key: core's two lines stand alone. A moved reading's
-    // track and the key that names the two versions are pinned in SI5 and SI2.
     expect(since.lines.map((l) => l.from !== l.to || l.from_text !== l.to_text)).toEqual([false, false])
-    expect([box.querySelectorAll('[data-compare-track]').length, [...box.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)]).toEqual([0, []])
+    expect([box.querySelectorAll('[data-compare-track]').length, box.querySelectorAll('[data-compare-key]').length]).toEqual([0, 0])
+    // The heading says once that the two versions are separate runs (compare concept v3).
+    expect([...box.querySelectorAll('[data-compare-runs]')].map((e) => [e.getAttribute('data-compare-runs'), e.textContent])).toEqual([['separate', SEPARATE_RUNS.label]])
     expect(within(box).queryByTestId('core-compare-since-changed')).toBeNull()
   })
 
@@ -80,10 +76,10 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
     const box = screen.getByTestId('core-compare-since')
     expect([box.getAttribute('data-since-from'), box.getAttribute('data-since-to')]).toEqual(['1', '2'])
     expect(at('run.since.lines.0.line').map((e) => e.textContent)).toEqual([since.lines[0]!.line])
-    // A line whose chance moved: the hollow mark is version 1's (about 48%), the filled one version 2's (about 1%), never the other way.
-    const l = since.lines[0]!, track = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"] [data-compare-track]`)!
+    // A line whose chance moved (about 48% to about 1%, control): core's line stands at rest with no track; the two versions are separate runs.
+    const l = since.lines[0]!, row = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"]`)!
     expect([l.from_text, l.to_text]).toEqual(['about 48%', 'about 1%'])
-    expect([track.getAttribute('data-first'), track.getAttribute('data-second')]).toEqual(['48', '1'])
+    expect([row.textContent, row.querySelector('[data-compare-track]'), row.closest('details')]).toEqual([l.line, null, null])
   })
 
   it('SI3 (18 Nov redesign): the Compare tab no longer draws this card; it reads the same field into its own lists (compareTab.spec)', () => {
@@ -96,13 +92,16 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
 })
 
 describe('where core credits no single change (sole null)', () => {
-  it('SI5 (Paul, 18 Nov): a reading that did NOT move draws core\'s line and no track or key (two marks on one spot said nothing); CONTRAST: the moved line keeps both', () => {
+  it('SI5: no reading draws a track, moved or not (separate runs); the label is drawn once wherever there are lines; CONTRAST: no lines, no label', () => {
     const same = { ...TWO_CHANGES.lines[0]!, option: 'carry_on', from: 0, to: 0, from_text: 'never met in this model', to_text: 'never met in this model', line: "Version comparison: the chance that 'Carry on' meets the aim reads never met in this model in both version 1 and version 3." }
     const { container, unmount } = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [same] }} />)
     expect([container.querySelector('[data-since-line^="carry_on:"]')!.textContent, container.querySelectorAll('[data-compare-track]').length, container.querySelectorAll('[data-compare-track-key]').length]).toEqual([same.line, 0, 0])
     unmount()
-    const both = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [TWO_CHANGES.lines[0]!, same] }} />).container
-    expect([both.querySelectorAll('[data-compare-track]').length, both.querySelector('[data-since-line^="carry_on:"] [data-compare-track]'), both.querySelectorAll('[data-compare-track-key]').length]).toEqual([1, null, 1])
+    const both = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [TWO_CHANGES.lines[0]!, same] }} />)
+    expect([both.container.querySelectorAll('[data-compare-track]').length, both.container.querySelectorAll('[data-compare-runs="separate"]').length]).toEqual([0, 1])
+    both.unmount()
+    const none = render(<SinceVersion since={{ ...TWO_CHANGES, lines: [] }} />).container
+    expect([none.querySelector('[data-testid="core-compare-since"]') !== null, none.querySelectorAll('[data-compare-runs]').length]).toEqual([true, 0])
   })
   it('SI6 (Paul, 18 Nov): readings that did not move are counted at rest and their lines are one press away; the moved one stays at rest; CONTRAST: none unmoved draws no fold', () => {
     const same = { ...TWO_CHANGES.lines[0]!, option: 'carry_on', from: 0, to: 0, from_text: 'never met in this model', to_text: 'never met in this model', line: 'LINE-SAME' }

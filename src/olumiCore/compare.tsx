@@ -5,14 +5,13 @@ import { useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META, QUIET } from './team/ui'
 import { typography } from '../styles/typography'
-import { Pick, SideBySide, useOtherScenarios, useOwnSides, WhatIfSave, type Group } from './scenarioCompare'
+import { Pick, SeparateRuns, SideBySide, useOtherScenarios, useOwnSides, WhatIfSave, type Group } from './scenarioCompare'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../canvas/store'
 import { focusWhenDrawn } from '../olumiView/AddFigure'
 import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { OkIcon } from '../olumiView/look/icons'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
-import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 import { isForThisPage, useMe } from './me'
 import { revealedForYou } from '../olumiView/v12/views/differGroups'
 import { useCompare } from '../olumiView/v12/views/useCompare'
@@ -24,7 +23,7 @@ import { COMPARE_WORDS } from '../olumiView/v12/views/WhereWeDiffer'
  * and how each saved result moved, every word and mark core's; nothing is computed here. One module for the dock's Compare tab, the
  * version history panel and the Team tab.
  */
-/** `chance` (core wip/compare, 7 Nov): core's own number behind the value (0 to 1), which places the shift track's mark. */
+/** `chance` (core wip/compare, 7 Nov): core's own number behind the value (0 to 1); an order only, never drawn (separate runs: no track). */
 type Side = { value: string; title: string; olumi: { glyph: string; title: string } | null; chance?: number | null
   /** Core's headline and the card's short companion line (core wip/compare ff3622bb); an older core: the value alone. */
   headline?: string; companion?: { text: string; title: string } | null }
@@ -61,16 +60,11 @@ export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Eleme
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
 export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
-  // The two marks are core's `before` and `after`, which core always reads from the lower version to the higher whatever order it was asked
-  // in (core service.ts compare: [lo, hi]; pinned by its service.test 'compare(…, 3, 1) equals compare(…, 1, 3)'). Its `versions` list runs
-  // from the one to the other in that same order, so the key is named from that list's ends, in core's order, never sorted here.
-  const ends = [c.versions[0], c.versions[c.versions.length - 1]]
-  const key = { first: ends[0] ? `Version ${ends[0].n}` : '', second: ends[1] ? `Version ${ends[1].n}` : '' }
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
     ? <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
   // Inline (the Team tab's and the version history's, already inside their own sections): a heading line, then the list.
-  const part = (name: string, heading: string, body: JSX.Element) => <Fragment key={name}><p className={`${BODY} text-text-header`}>{heading}</p>{body}</Fragment>
+  const part = (name: string, heading: string, body: JSX.Element, tag: ReactNode = null) => <Fragment key={name}><p className={`${BODY} flex flex-wrap items-center gap-2 text-text-header`}>{heading}{tag}</p>{body}</Fragment>
   return (
     <div className="grid gap-2" data-testid={`${id}-out`}>
       {who && part('versions', 'Who proposed and approved',
@@ -78,13 +72,8 @@ export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compa
       {part('changes', 'What changed', list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes'))}
       {part('results', 'How the results moved', list(c.results.map((r, i) => (
         // What the result is about on its own line, then before → after and how it moved: one result, two short lines.
-        <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({moveWords(r)})</span></span>
-          {/* The earlier DGAI's shift track: the earlier version hollow, the later filled, where core gives each its number. */}
-          {r.kind !== 'most_likely' ? <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} names={key} /> : null}
-        </li>
-      )), 'No results in either version', 'results'))}
-      {c.results.some((r) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, '')))
-        ? <TrackKey first={key.first} second={key.second} /> : null}
+        <li key={i} className={`${BODY} grid`}><span className="text-text-header">{what(r)}:</span>{' '}<span><SideText s={r.before} /> → <SideText s={r.after} /> <span className="text-text-light">({moveWords(r)})</span></span></li>
+      )), 'No results in either version', 'results'), c.results.length === 0 ? null : <SeparateRuns />)}
     </div>
   )
 }
@@ -166,8 +155,8 @@ export type Since = NonNullable<ViewRun['since']>
 /**
  * UI-9 (DL 11 Nov): the version shown beside the one before it, as the View carries it (`model.run.since`, science surface 3, SCI-6: read
  * from the chance facts the two versions already saved, under one engine stamp; no Run on read). Core's heading, then each option's line
- * verbatim (what changed and what it accounts for, whose the figure is in core's words), with the shift track placing core's two fractions
- * (`from`, `to`: positions only, never drawn as numbers; the marks speak core's `from_text` and `to_text`) under the two versions' labels.
+ * verbatim (what changed and what it accounts for, whose the figure is in core's words), under one "Separate runs" label: two versions are
+ * two runs, so no track places core's two fractions (`from`, `to` are used only to order, never drawn).
  * The changed figures are listed only where no line names one (`sole` null: core credits no single change), each in core's words, Olumi's
  * in blue. Absent on version 1 and where the builds differ: nothing is drawn.
  */
@@ -177,15 +166,11 @@ export type Since = NonNullable<ViewRun['since']>
  *  thread's foot at the reading size). */
 export function SinceVersion({ since, movedFirst = false, dense = false }: { since: Since; movedFirst?: boolean; dense?: boolean }): JSX.Element | null {
   if (since.lines.length === 0 && since.changed.length === 0) return null
-  const names = { first: since.from.label, second: since.to.label }
-  // A track is drawn only for a reading that MOVED (Paul, 18 Nov: two dots on top of each other at 0% on an empty axis said nothing): where
-  // core's number and words for the two versions are both the same, core's line stands alone, and the key is drawn only if some track is.
-  // Moved means core's words differ (as its own `move` reads two versions): a drift in the number under the same words is not a move.
-  const moved = (l: Since['lines'][number]) => lineMoved(l) && (markOf(l.from, l.from_text) !== null || markOf(l.to, l.to_text) !== null)
-  const tracked = since.lines.some(moved)
+  // Two versions are two runs: core's line for each reading stands alone, with no two-mark track, and the heading says "Separate runs".
+  // A reading moved where core's words differ (as its own `move` reads two versions): a drift in the number under the same words is not one.
   return (
     <section className={CARD} data-testid="core-compare-since" aria-label={since.heading} data-since-from={since.from.n} data-since-to={since.to.n}>
-      <h4 className={H} data-view="run.since.heading">{since.heading}</h4>
+      <div className="flex flex-wrap items-center gap-2"><h4 className={H} data-view="run.since.heading">{since.heading}</h4>{since.lines.length === 0 ? null : <SeparateRuns />}</div>
       {since.lines.length === 0 ? null : (() => {
         // Each line keeps its place in core's list as its id; moved readings first where asked (`movedFirst`). A reading that did not move
         // is counted at rest and its line is one press away (Paul, 18 Nov: a line per unmoved reading was the wall he asked about).
@@ -193,7 +178,6 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
         const row = ({ l, i }: { l: Since['lines'][number]; i: number }) => (
           <li key={`${l.option}:${l.aim}`} className={dense ? META : BODY} data-since-line={`${l.option}:${l.aim}`}>
             <span data-view={`run.since.lines.${i}.line`}>{l.line}</span>
-            {moved(l) ? <ShiftTrack first={markOf(l.from, l.from_text)} second={markOf(l.to, l.to_text)} names={names} /> : null}
           </li>
         )
         const live = order.filter(({ l }) => lineMoved(l)), still = order.filter(({ l }) => !lineMoved(l))
@@ -216,7 +200,6 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
           ))}
         </ul>
       )}
-      {tracked ? <TrackKey first={names.first} second={names.second} /> : null}
     </section>
   )
 }
@@ -227,7 +210,8 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
  * two questions at a glance, every word core's:
  *  · WHAT CHANGED, each change by whose it is (Olumi's blue mark, a person's mark), each a press to its card on the canvas where core
  *    names the card (`run.since.changed[].id`); otherwise core's change lines (`/compare` `changes`), which carry no card;
- *  · WHAT MOVED, one before-and-after track per result that moved, the largest move first (ordered by core's own numbers, never printed),
+ *  · WHAT MOVED, each result that moved in core's words before and after, labelled "Separate runs", the largest move first (ordered by core's
+ *    own numbers, never printed),
  *    and one line counting the results that did not move.
  * Where the View's own comparison is the pair shown, core's line for the largest move is said once; where core credits no single change
  * (`sole` null) one press puts an editable question in the chat box (nothing is sent). Against a what-if or another scenario: core's
@@ -365,9 +349,6 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   const c = shown?.key === key ? shown.c : null
   if (error?.key === key) return <p role="alert" className={ERR} data-testid="core-compare-error">{error.text}</p>
   if (c === null) return <p className={META} data-testid="core-compare-loading">Reading both versions…</p>
-  // The two sides named from core's own answer (its `versions` run from the earlier to the later), never from the pick.
-  const ends = [c.versions[0]?.n ?? Math.min(from, to), c.versions.at(-1)?.n ?? Math.max(from, to)]
-  const names = { first: `Version ${ends[0]}`, second: `Version ${ends[1]}` }
   const moved = c.results.map((r, i) => ({ r, i })).filter(({ r }) => movedOf(r)).sort((a, b) => sizeOf(b.r) - sizeOf(a.r) || a.i - b.i)
   const still = c.results.length - moved.length
   // Core's line for the largest move in its own comparison, said once (its tail credits a single change, or says none is credited).
@@ -377,14 +358,12 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
       <Changes c={c} since={since} />
       <section className="grid gap-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
         {/* No heading that promises movement over nothing (18 Nov audit compare-model-02): what did not move is counted below, as it was. */}
-        {moved.length === 0 ? null : <h4 className={H}>What moved</h4>}
+        {moved.length === 0 ? null : <div className="flex flex-wrap items-center gap-2"><h4 className={H}>What moved</h4><SeparateRuns /></div>}
         {moved.length === 0 ? null : (
           <ul className="m-0 grid list-none gap-3 p-0">
-            {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} names={names} />)}
+            {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} />)}
           </ul>
         )}
-        {/* The key to the two marks, right under the tracks it names. */}
-        {moved.some(({ r }) => r.kind !== 'most_likely' && (markOf(r.before?.chance, '') || markOf(r.after?.chance, ''))) ? <TrackKey first={names.first} second={names.second} /> : null}
         {c.results.length === 0 ? <p className={META} data-testid="core-compare-results-none">No results in either version.</p>
           : still === 0 ? null : (
             // Counted at rest; core's own rows one press away, each with its words in both versions.
@@ -420,13 +399,11 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   )
 }
 
-/** One moved result: what it is (core's `label`), the track where core gives the numbers, and its words before and after. */
-function MovedResult({ r, i, names }: { r: Move; i: number; names: { first: string; second: string } }): JSX.Element {
-  const track = r.kind === 'most_likely' ? null : <ShiftTrack first={r.before ? markOf(r.before.chance, headOf(r.before)) : null} second={r.after ? markOf(r.after.chance, headOf(r.after)) : null} names={names} />
+/** One moved result: what it is (core's `label`) and its words before and after, in core's own words (separate runs: no track). */
+function MovedResult({ r, i }: { r: Move; i: number }): JSX.Element {
   return (
     <li className="grid gap-1" data-compare-result={i} data-compare-move={r.move}>
       <p className={`${BODY} break-words text-text-header`}>{what(r)}</p>
-      {track}
       <p className={`${META} break-words`}><SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</p>
     </li>
   )
