@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
@@ -107,7 +108,7 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
           {/* Never `disabled` while sending: a browser takes focus off a disabled control, and the ask then lost its link (Codex delta
               4960db98). They say so (aria-disabled) and ignore a press instead. */}
           <button type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-yes-${id}`} onClick={() => void take()}
-            className={`${quiet} rounded-sm bg-primary text-text-on-color ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.remove}</button>
+            className={`${quiet} rounded-sm ${controls.actColours} ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.remove}</button>
           <button ref={keepRef} type="button" aria-disabled={sending || undefined} data-testid={`view-link-remove-keep-${id}`} onClick={() => { if (!sending) close() }} className={`${quiet} text-text-light underline underline-offset-2 ${sending ? 'opacity-50' : ''}`}>{REMOVE_LINK_WORDS.keep}</button>
         </div>
       ) : (
