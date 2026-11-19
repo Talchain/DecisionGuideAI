@@ -9,7 +9,6 @@ import { findingOf, hasAnyResult } from './v12/contract'
 import { recordReach, showRecord } from './v12/showInWorkspace/show'
 import { typography } from '../styles/typography'
 import { OkIcon } from './look/icons'
-import './findingLine.css'
 
 const RING = 'finding'
 /** The pressable figure's own name, said by the same mark Analysis uses for it: a bare card name under the finding read as an orphan (roll5 pictures). */

@@ -92,11 +92,6 @@ export const findingOf = (model: { run?: object | null } | null | undefined): Ru
   return { text: f.text, title: str(f.title) ?? f.text, figure: str(f.figure), needs: str(f.needs) }
 }
 /**
- * Whether the Olumi panel draws core's finding line (S4, 19 Nov: "nothing is said twice"): it does where core sends `run.finding` AND some option has a
- * calculated result (read by field, never by words). Where it does, the question card and the Frame page show the person's question, not the sentence.
- */
-export const panelDrawsFinding = (model: { run?: object | null; cards?: readonly { family?: string; headline?: { state?: string } | null }[] } | null | undefined): boolean => findingOf(model) !== null && hasAnyResult(model)
-/**
  * Whether the model has ANY calculated result on an option (an option card whose headline is a chance or a fixed result, by core's own
  * `headline.state`). Where it has none, `run.finding` is the model's status ("cannot be worked out yet", an aim kept in words), which the reply's
  * lead already says to the person: the panel does not say it a second time above the conversation (Codex ROOT 15:37Z and 15:43Z, 18 Nov). It

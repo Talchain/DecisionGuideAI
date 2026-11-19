@@ -21,7 +21,8 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../v12/simpleStore'
-import { findingOf, hasAnyResult, panelDrawsFinding } from '../v12/contract'
+import { findingOf, hasAnyResult } from '../v12/contract'
+import { findingSurfaceOf, useDockFrontsOlumi } from '../findingSurface'
 import { FINDING_FIGURE } from '../FindingLine'
 
 const served = structuredClone(JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))) as View
@@ -39,22 +40,23 @@ const load = (view: View, level: Level) => {
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
 const question = (view: View, level: Level): HTMLElement => {
-  load(view, level)
+  load(view, level); useDockFrontsOlumi.getState().set(false)
   return render(<ReactFlowProvider><Node {...({ id: QUESTION, type: 'viewQuestion', data: { question: view.model!.question }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 }
-const panel = (view: View): HTMLElement => { load(view, 'simple'); return render(<ViewChat />).container }
+const panel = (view: View): HTMLElement => { load(view, 'simple'); useDockFrontsOlumi.getState().set(true); return render(<ViewChat />).container }
+const FRONTED = { olumiFronted: true, frameShown: false }
 const lines = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('[data-view="run.finding"]')]
 
 beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); press.mockClear() })
 afterEach(() => {
-  cleanup(); setDefaultLevel('simple'); useSimpleLevel.setState({ levels: {} })
+  cleanup(); useDockFrontsOlumi.getState().set(false); setDefaultLevel('simple'); useSimpleLevel.setState({ levels: {} })
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' })
 })
 
 describe('the one finding line', () => {
   it('FL1 the same finding survives on the question card at both levels, ready when the Olumi panel is hidden', () => {
-    expect(panelDrawsFinding(withFinding(F).model), 'precondition: the panel can draw it on this View').toBe(true)
+    expect(findingSurfaceOf(withFinding(F), FRONTED), 'precondition: the panel can draw it on this View').toBe('panel')
     for (const level of ['simple', 'working'] as const) {
       const q = question(withFinding(F), level)
       expect(lines(q).map((line) => line.textContent)).toEqual([F.text])
@@ -63,7 +65,7 @@ describe('the one finding line', () => {
       cleanup()
     }
     const q = question(noResult(withFinding(F)), 'simple')
-    expect([panelDrawsFinding(noResult(withFinding(F)).model), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual([false, 1, 1])
+    expect([findingSurfaceOf(noResult(withFinding(F)), FRONTED), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual(['question', 1, 1])
   })
   it('FL2 the top of the Olumi panel draws the same sentence once, above the next step, title on hover', () => {
     const c = panel(withFinding(F)), w = lines(c)

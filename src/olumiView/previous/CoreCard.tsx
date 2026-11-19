@@ -12,6 +12,7 @@
  */
 import { earlierResultsOf } from '../v12/contract'
 import { FindingLine } from '../FindingLine'
+import { useFindingSurface } from '../findingSurface'
 import { memo, useMemo, type CSSProperties } from 'react'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -186,6 +187,7 @@ const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', d
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
+  const findingSurface = useFindingSurface()
   // After a reveal, each person's revealed figure for this card where the team's figures differ on it (the split, drawn under the face).
   const people = usePeopleOnCard(id)
   // V12: Simple draws the card as visuals (v12/SimpleFace.tsx); Detailed draws today's full face. The note's card wears Olumi's badge.
@@ -297,7 +299,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const earlierLine = earlier === null ? null
     : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</p>
   // The one finding line (core's `run.finding`), under the question text: nothing where core sends none (FindingLine).
-  const findingLine = id === QUESTION ? <FindingLine model={model} at="question" /> : null
+  const findingLine = id === QUESTION && findingSurface === 'question' ? <FindingLine model={model} at="question" /> : null
   const badgeLine = badge === null ? null
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).

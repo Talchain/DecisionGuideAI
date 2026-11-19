@@ -18,7 +18,8 @@ import { ViewReasoningBlock } from '../ViewReasoning'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { ChanceChart, CHART_WORDS } from '../port/ChanceChart'
 import { SimpleFace } from '../v12/SimpleFace'
-import { headlineDrawn } from '../early'
+import { newestLeadDrawn } from '../early'
+import { useDockFrontsOlumi } from '../findingSurface'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
@@ -38,19 +39,19 @@ const withLead = (v: View): View => {
   (t.answer as unknown as { lead: unknown }).lead = { opening: 'An invented short opening that is not the whole answer.', points: [] }
   return c
 }
-beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never) })
-afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); useDockFrontsOlumi.getState().set(true) })
+afterEach(() => { cleanup(); useDockFrontsOlumi.getState().set(false); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('1. the Olumi tab at rest says the one fact once', () => {
   const base = (): View => withFinding({ ...golden('bakery'), chat: session('after-find-first').chat } as View)
   it('S1 the pinned finding is drawn while the newest reply has no lead; with a lead (its headline on screen) it is not. CONTRAST of the same View', () => {
     const v = base()
-    expect(headlineDrawn(v.chat), 'precondition: no lead yet').toBe(false)
+    expect(newestLeadDrawn(v), 'precondition: no lead yet').toBeNull()
     ready(v); const a = render(<ViewChat />).container
     expect(a.querySelector('[data-testid="view-chat-finding"]')).not.toBeNull()
     cleanup()
     const w = withLead(v)
-    expect(headlineDrawn(w.chat)).toBe(true)
+    expect(newestLeadDrawn(w)).not.toBeNull()
     ready(w); const b = render(<ViewChat />).container
     expect([b.querySelector('[data-testid="view-chat-finding"]'), b.querySelectorAll('[data-reply-opening]').length > 0]).toEqual([null, true])
   })

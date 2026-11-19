@@ -1,7 +1,0 @@
-/* The dock marks its actual open Olumi tab. Suppress the canvas copy only
-   while that tab carries the finding for this workspace. */
-:root:has([data-olumi-finding-fronted] [data-finding="panel"]) [data-finding="question"],
-:root:has([data-olumi-finding-fronted] [data-finding="panel"]) [data-finding="frame"],
-:root:has([data-olumi-frame-fronted]) [data-finding="question"] {
-  display: none;
-}
