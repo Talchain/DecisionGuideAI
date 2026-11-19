@@ -39,7 +39,7 @@ import { useViewStore } from '../../store'
 import { useDriverOf } from '../../lens'
 import { drawKindOf, triableCards } from '../../layout'
 import { coreHoverValueOf, leadLineOf } from '../../previous/CoreCard'
-import { writeKeyOf, type EditSpec } from './EditForm'
+import { isSizeEdit, writeKeyOf, type EditSpec } from './EditForm'
 import { CardWords } from '../../SelectedRename'
 import { movedBy, SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
@@ -289,7 +289,9 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
   const link = target?.kind === 'link' ? model?.links.find((l) => edgeIdOf(l) === target.id) ?? null : null
   useEffect(() => { if (target !== null && card === null && link === null) close() }, [target, card, link, close])
-  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []), [card, link, ctx])
+  // The "Your figure" field below carries its own "Change figure" button, so the edit row for it is not drawn as well (said once).
+  const figureField = card?.figure?.edit != null && !isSizeEdit(card.figure.edit)
+  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []).filter((r) => !(figureField && r.id === 'change-figure')), [card, link, ctx, figureField])
   if (target === null || (card === null && link === null)) return null
   const title = card !== null ? card.heading : link!.title
   const node = card === null ? undefined : useCanvasStore.getState().nodes.find((n) => n.id === card.id)

@@ -63,8 +63,9 @@ describe('Your figure', () => {
   it('on an Olumi estimate the button says "Change to your figure (was Olumi\'s estimate)" and saves through the edit route as typed', async () => {
     open()
     const form = screen.getByTestId('inspector-your-figure')
+    expect(screen.queryByTestId('inspector-figure-set'), 'no Set beside an empty field').toBeNull()
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '1' } })
     expect(within(form).getByTestId('inspector-figure-set')).toHaveTextContent("Change to your figure (was Olumi's estimate)")
-    expect(screen.getByTestId('inspector-figure-set')).toBeDisabled()
     fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '120' } })
     fireEvent.click(screen.getByTestId('inspector-figure-set'))
     await waitFor(() => expect(stub.posts()).toHaveLength(1))
@@ -73,6 +74,7 @@ describe('Your figure', () => {
   })
   it('CONTRAST: the team\'s own figure says "Change figure", and a card with no edit offers no field', () => {
     open('starting_customers')
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '1' } })
     expect(screen.getByTestId('inspector-figure-set')).toHaveTextContent('Change figure')
     cleanup(); open('single_country_test')
     expect(screen.queryByTestId('inspector-your-figure')).toBeNull()

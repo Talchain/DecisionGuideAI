@@ -84,9 +84,12 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
         onChange={(e) => { setTyped(e.target.value); if (note !== null) setNote(null) }}
         className="rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />
       {note === null ? null : <p role={note.ok ? 'status' : 'alert'} data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} ${note.ok ? 'text-text-body' : 'text-danger'}`}>{note.text}</p>}
-      <button type="submit" data-testid="inspector-figure-set" disabled={busy || typed.trim() === '' || base === null}
-        className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
-        {isOlumis(card) ? INSPECTOR_WORDS.changeOlumi : INSPECTOR_WORDS.change}</button>
+      {/* Drawn once the field has text: a Set beside an empty field read as a greyed second input (audit canvas-details-change-figure-twice-and-looks-disabled). Enter still saves. */}
+      {typed.trim() === '' ? null : (
+        <button type="submit" data-testid="inspector-figure-set" disabled={busy || base === null}
+          className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
+          {isOlumis(card) ? INSPECTOR_WORDS.changeOlumi : INSPECTOR_WORDS.change}</button>
+      )}
     </form>
   )
 }
@@ -100,7 +103,7 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
   if (model === null || card.figure === null) return null
   const r = figureRange(card)
   const canTry = triableCards(model).some((c) => c.id === card.id)
-  const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
+  const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`
   return (
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}
@@ -108,8 +111,9 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
       {/* The older look's own figure field. (The lane's box draws its Value row itself: v12/edit/LaneInspector.) */}
       <YourFigure key={card.id} card={card} />
       <div className="flex flex-wrap gap-1" role="group" aria-label="Ask or try">
-        <button type="button" data-testid="inspector-ask" disabled={onAsk == null} onClick={() => onAsk?.()} className={btn}>{INSPECTOR_WORDS.ask}</button>
-        <button type="button" data-testid="inspector-what-if" disabled={!canTry} onClick={() => { openWhatIf(card.id); onClose?.() }} className={btn}>{INSPECTOR_WORDS.whatIf}</button>
+        {/* A control that cannot act is not drawn (a worked-out figure has no What if: triableCards leaves it out), never drawn dimmed with no reason. */}
+        {onAsk == null ? null : <button type="button" data-testid="inspector-ask" onClick={() => onAsk()} className={btn}>{INSPECTOR_WORDS.ask}</button>}
+        {!canTry ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(card.id); onClose?.() }} className={btn}>{INSPECTOR_WORDS.whatIf}</button>}
       </div>
     </div>
   )
