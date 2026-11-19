@@ -6,7 +6,7 @@ import { useCompare } from './useCompare'
 import { COMPARE_WORDS } from './WhereWeDiffer'
 import { ACTION_FOCUS } from '../../../components/results/analysisNew/panelSurfaces'
 
-/** Sized as the lens buttons beside them (ViewLensBar), so the row reads as one; as they do, only an unpressed one changes colour on hover, so a
+/** The lens buttons' height (ViewLensBar), so the row reads as one (a 16 px glyph, 32 px wide; the lens radios are 28); as they do, only an unpressed one changes colour on hover, so a
  *  pressed one keeps its pressed colour. No divider before them: at 1128x680@1.33 the bar with both icons must fit beside the pill at its tightest
  *  (286 px; 280 without the divider), or it falls to the row under the pill (UI lead ruling (a), 19 Nov). */
 const rowButton = (pressed: boolean) => `h-full min-w-8 rounded-full px-2 transition-colors duration-200 ${pressed ? '' : 'hover:text-text-body'} ${ACTION_FOCUS}`
