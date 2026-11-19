@@ -33,7 +33,7 @@ vi.mock('../../../ViewChat', () => {
 const outcomeForms: Array<[string, number]> = []
 vi.mock('../../../../olumiCore/team/outcomeNav', () => ({ goToOutcome: (sid: string, id: number) => { outcomeForms.push([sid, id]) } }))
 
-const { JourneyRecord } = await import('../JourneyRecord')
+const { JourneyRecord, default: JourneyRecordBlock } = await import('../JourneyRecord')
 const { CatchUp, catchUpCounts } = await import('../CatchUp')
 const { WhatChangedPanel } = await import('../../../../canvas/versions/WhatChangedPanel')
 
@@ -270,6 +270,16 @@ describe('#2 open items, each with its exact action', () => {
     cleanup(); next = null
     render(<JourneyRecord view={full()} at={null} />)
     expect(screen.queryByTestId('journey-next')).toBeNull() // contrast: no current Next step, no row
+  })
+  it('the record is drawn only through the canvas\'s own gate: never while an approval or edit is re-read, never from a failed read', () => {
+    const at = (s: { stale: boolean; error: string | null }) => { cleanup(); useViewStore.setState({ ...s }); render(<JourneyRecordBlock />); return screen.queryByTestId('journey-proposal') }
+    show(full())
+    expect(at({ stale: false, error: null })).toBeInTheDocument() // contrast: the current View draws
+    expect(at({ stale: true, error: null })).toBeNull() // the refetch window: an approval or edit is being re-read
+    expect(at({ stale: true, error: 'read failed' })).toBeNull() // the re-read failed: the old View is kept in the store, never drawn as current
+    // Codex 15:08: a fresh View with no model yet (kept ideas only) still draws its record
+    cleanup(); show({ ...full(), model: null } as unknown as View); render(<JourneyRecordBlock />)
+    expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
   })
   it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion)', () => {
     next = { kind: 'move', turn: 3, move: 'm' }

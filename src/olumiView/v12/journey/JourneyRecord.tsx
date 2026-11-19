@@ -266,9 +266,14 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
   )
 }
 
-/** The history panel's mount on the lane (lazy-loaded by WhatChangedPanel): the View held, or nothing while none has been read. */
+/**
+ * The history panel's mount on the lane (lazy-loaded by WhatChangedPanel): the View held, only on the canvas's own store flags (the last
+ * read succeeded, `error` null, and nothing changed since, `stale` false; store `shownModel` minus its model, so a View with no model yet,
+ * only kept ideas, still draws). While an approval or an edit is re-read, or after that read failed, nothing: the record never describes
+ * the View before it as current.
+ */
 export default function JourneyRecordBlock({ onDone }: { onDone?: () => void }): JSX.Element | null {
-  const view = useViewStore((s) => s.view)
+  const view = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
   const at = useViewStore((s) => s.at)
   return view === null ? null : <JourneyRecord view={view} at={at} onDone={onDone} />
 }

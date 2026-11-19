@@ -26,7 +26,8 @@ export function catchUpCounts(view: Parameters<typeof journeyOf>[0], at: number 
 }
 
 export function CatchUp(): JSX.Element | null {
-  const view = useViewStore((s) => s.view)
+  // The record's own gate (JourneyRecordBlock, the canvas's store flags): never counts from a View being re-read or whose read failed.
+  const view = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
   const at = useViewStore((s) => s.at)
   const c = useMemo(() => (view === null ? null : catchUpCounts(view, at)), [view, at])
   if (c === null || (c.moved === 0 && c.open === 0)) return null
