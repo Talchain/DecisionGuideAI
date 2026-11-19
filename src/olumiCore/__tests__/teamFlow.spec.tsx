@@ -240,19 +240,22 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(currentStep(after)).toBe('differ')
     show(after)
     const r = render(<TeamTab />)
-    const strip = screen.getByTestId('team-steps-done')
-    expect([...strip.querySelectorAll('[data-step-compact]')].map((s) => s.getAttribute('data-testid'))).toEqual(['team-step-invite', 'team-step-view', 'team-step-reveal'])
+    const compact = () => [...document.querySelectorAll('[data-step-compact]')].map((s) => s.getAttribute('data-testid'))
+    expect(compact()).toEqual(['team-step-invite', 'team-step-view', 'team-step-reveal'])
     expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-open')).toBe(true)
-    expect(strip.contains(screen.getByTestId('team-step-differ'))).toBe(false)
+    expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-compact')).toBe(false)
     // A finished step still opens on a press, and then the steps are rows again.
+    const body = screen.getByTestId('team-step-invite-body')
     fireEvent.click(screen.getByTestId('team-step-view-row'))
-    expect(screen.queryByTestId('team-steps-done')).toBeNull()
+    expect(compact()).toEqual([])
     expect(screen.getByTestId('team-step-view').hasAttribute('data-step-open')).toBe(true)
+    // Shrinking and growing never remounts a step's body (Codex review 2 #4: the one-time invite link lived there): the same element.
+    expect(screen.getByTestId('team-step-invite-body')).toBe(body)
     r.unmount(); resetTeamFlow()
     // Contrast: the same team before the reveal (the round still waits): every step is a row.
     show(team({ waiting: 'waiting for Bea' }))
     render(<TeamTab />)
-    expect(screen.queryByTestId('team-steps-done')).toBeNull()
+    expect(compact()).toEqual([])
   })
   it('the reveal step\'s green press goes to core\'s reveal route, and nothing else is written', async () => {
     show(team({ can_reveal: true, waiting: null }))

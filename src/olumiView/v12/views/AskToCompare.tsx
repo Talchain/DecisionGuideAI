@@ -14,14 +14,15 @@ import { ASK_SAID, askOlumi, COMPARE_REQUEST, type AskOutcome } from './askOlumi
 /** Fixed chrome (the page's words, about no scenario). */
 export const ASK_TO_COMPARE = { label: 'Ask Olumi to compare these views', request: COMPARE_REQUEST } as const
 
-/** One press sends `question` (its full words are the control's title); pressed once, it holds until the question changes. */
-export function AskButton({ label, question, at }: { label: string; question: string; at: string }): JSX.Element {
+/** One deliberate press sends `question` about `cards` (its full words are the control's title). The line under it says what really happened:
+ *  sending, then sent or not sent (read from the chat's own state, Codex review 2 #1); a press is refused only while it is sending or sent. */
+export function AskButton({ label, question, cards = [], at }: { label: string; question: string; cards?: readonly string[]; at: string }): JSX.Element {
   const [done, setDone] = useState<{ q: string; out: AskOutcome } | null>(null)
   const said = done !== null && done.q === question ? done.out : null
   return (
     <div className="grid justify-items-start gap-1" data-testid={at}>
-      <button type="button" className={ASK} data-testid={`${at}-go`} title={question} disabled={said === 'sent'} data-question={question}
-        onClick={() => setDone({ q: question, out: askOlumi(question) })}>
+      <button type="button" className={ASK} data-testid={`${at}-go`} title={question} disabled={said === 'sending' || said === 'sent'} data-question={question}
+        onClick={() => setDone({ q: question, out: askOlumi(question, cards, (out) => setDone({ q: question, out })) })}>
         <OkIcon id="olumi-mark" size={14} decorative />{label}
       </button>
       <p role="status" className={META} data-testid={`${at}-said`}>{said === null ? '' : ASK_SAID[said]}</p>

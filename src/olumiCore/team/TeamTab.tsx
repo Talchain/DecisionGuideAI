@@ -198,15 +198,12 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       )}
       {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
       <StrategyOverviewSection view={view} />
-      <ol className="m-0 grid list-none gap-1 p-0" data-testid="team-steps" data-current-step={current}>
-        {done.length > 0 && (
-          <li className="flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="team-steps-done">
-            {done.map((id) => <Step key={id} id={id} n={STEP_ORDER.indexOf(id) + 1} state="done" open={false} compact summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>{bodies[id]}</Step>)}
-          </li>
-        )}
-        {STEP_ORDER.filter((id) => !done.includes(id)).map((id) => (
-          <li key={id}>
-            <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
+      {/* One <li> per step, always under this list in the same order (Codex review 2 #4): a finished step shrinking to a name never remounts its
+          body, so the one-time invite link and every draft survive. Rows take the full width; shrunk names share one line. */}
+      <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
+        {STEP_ORDER.map((id) => (
+          <li key={id} className={done.includes(id) ? '' : 'basis-full'}>
+            <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
               {bodies[id]}
             </Step>
           </li>

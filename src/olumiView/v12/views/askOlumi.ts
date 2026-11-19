@@ -1,6 +1,11 @@
 /**
- * Ask Olumi from the Team tab, SENT on the press (Paul, 18 Nov ~23:45Z: "Send it and ensure it's optimal and contextually optimised";
- * this reverses the 17 Nov rule that the compare request only filled the message box).
+ * Ask Olumi from the Team tab, SENT on a deliberate press (Paul, 18 Nov ~23:45Z: "Send it and ensure it's optimal and contextually optimised";
+ * Codex ROOT 23:48:16Z: a clearly labelled press may send, through the normal submit path, never `_sendMessage`). It goes through the canvas's
+ * own ask path (`_dispatchAction` → ViewChat `press` → `say` → `write`/`act`: its busy guard, the page's scenario, the words kept in the
+ * message box when it does not go through), with the difference's cards bound as the ask's target (`bindAskTarget`).
+ *
+ * THE GAP (named, Codex ROOT): the binding stops in the page. Core's message route takes `{ text, op }` only (olumi-core 9ad89f81
+ * src/server/app.ts:357-362), so the typed target never reaches the turn; the card is named in the words by core's exact label instead.
  *
  * What is sent is stored as the person's own message, so it stays lean: one question in fixed chrome, shaped by what kind of difference it
  * is, naming the card and the aim by core's exact labels (the words the chat's packet uses for the same card: `tells_apart.card_name`,
@@ -13,6 +18,7 @@
  */
 import type { View } from '../../client'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+import { bindAskTarget } from '../../../canvas/ui/inspector-v2/askTargetBinding'
 import { isAnswering, prefillComposer, takesBrief, useViewChat } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
@@ -23,7 +29,10 @@ export const ASK_WORDS = {
   answer: 'Answer this',
   send: 'Send to Olumi',
   answerLabel: 'Your answer',
+  sending: 'Sending to Olumi…',
   sent: 'Sent. Olumi answers in the conversation.',
+  failed: 'Not sent. Your question is in the message box: send it from there.',
+  earlier: 'Your answer is to Olumi’s earlier question:',
   placed: 'Your question is in the message box: send it when you are ready.',
   busy: 'Olumi is still answering. Your question is in the message box: send it once it has.',
 } as const
@@ -44,7 +53,10 @@ export function differenceQuestion(view: View, d: Difference): string {
   const mine = d.sides.some((s) => s.holder_id === view.you_id)
   const who = mine ? 'we' : names(holders)
   const whose = mine ? 'our' : `${names(holders)}'s`
-  switch (d.kind) {
+  switch (d.kind as string) {
+    // Core's text-only framing kinds (Codex review 2 #3, its exact wording): qualitative positions, never "figures".
+    case 'question': case 'aim': case 'option': case 'link_added':
+      return `Compare the revealed views on ${q(d.label)}: where do they differ, and what could help us clarify those differences?`
     case 'link':
       return `On the link ${d.label}${forAim(d)}: what could explain why ${who} read it differently, and what evidence would show whether it holds?`
     case 'factor': {
@@ -62,20 +74,25 @@ export const answerMessage = (question: string, words: string): string => `Answe
 /** Compare the round's revealed views (the 17 Nov request, unchanged words; now sent). */
 export const COMPARE_REQUEST = 'Compare the views we have revealed: what do we agree on, where do we differ, and what could help us resolve it?'
 
-export type AskOutcome = 'sent' | 'placed' | 'busy'
+export type AskOutcome = 'placed' | 'busy' | 'sending' | 'sent' | 'failed'
 
 /**
- * Send words to Olumi as the person's message, through the chat's own writer (`useGuidanceStore._sendMessage`, which brings the conversation
- * into view and keeps the words in the message box if they do not go through). Put in the message box instead when the chat would take them
- * as a new brief, or when nothing on the page answers asks; said as "busy" while Olumi is still answering (the writer keeps them then too).
+ * Ask Olumi with `text`, about `cards`. Placed in the message box (never sent) where the chat would take words as a new brief, or nothing on
+ * the page answers asks. Otherwise sent through the ask path; `onSettled` gets what really happened, read from the chat's own state: still
+ * answering (the words wait in the message box), sent, or failed (the chat put the words back in the message box beside its own sentence).
  */
-export function askOlumi(text: string): AskOutcome {
+export function askOlumi(text: string, cards: readonly string[], onSettled: (out: AskOutcome) => void): AskOutcome {
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
-  if (takesBrief(sid, view) || g._sendMessage === null) { prefillComposer(text); return 'placed' }
-  const busy = useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)
-  g._sendMessage(text)
-  return busy ? 'busy' : 'sent'
+  if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
+  if (useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)) { g._dispatchAction({ label: text, message: text, source: 'team' }); return 'busy' }
+  const kept = () => useViewChat.getState().text.split('\n').includes(text)
+  bindAskTarget(text, cards, [])
+  g._dispatchAction({ label: text, message: text, source: 'team' })
+  // Settled already (the write never started, or finished at once): say what happened now; else when the chat's write settles.
+  if (!useViewChat.getState().busy) return kept() ? 'failed' : 'sent'
+  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); onSettled(kept() ? 'failed' : 'sent') } })
+  return 'sending'
 }
 
-export const ASK_SAID: Record<AskOutcome, string> = { sent: ASK_WORDS.sent, placed: ASK_WORDS.placed, busy: ASK_WORDS.busy }
+export const ASK_SAID: Record<AskOutcome, string> = { placed: ASK_WORDS.placed, busy: ASK_WORDS.busy, sending: ASK_WORDS.sending, sent: ASK_WORDS.sent, failed: ASK_WORDS.failed }

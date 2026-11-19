@@ -20,7 +20,9 @@ export function sideSpans(view: View, d: Difference): Side[] | null {
   const spans = d.sides.map((s) => {
     const v = view.collab.shared.find((x) => x.id === s.view)
     const f = v?.figures.find((x) => x.quantity === d.record)
-    if (f === undefined) return null
+    // The difference's own value decides (Codex ROOT 23:48:16Z): the View's figure is drawn only when it IS the one this difference compares
+    // (its text is the side's `figure`), never a newer or older figure of the same person for the same card.
+    if (f === undefined || f.text !== s.figure) return null
     return 'value' in f ? { lo: f.value, hi: f.value, text: f.text, unit: f.unit } : { lo: f.low, hi: f.high, text: f.text, unit: f.unit }
   })
   if (!spans.every((s): s is Side & { unit: string } => s !== null && Number.isFinite(s.lo) && Number.isFinite(s.hi))) return null

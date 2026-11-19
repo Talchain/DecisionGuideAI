@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
@@ -15,6 +15,8 @@ import { resetDifferences, type Difference } from '../../../../olumiCore/team/di
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
+import { useViewChat } from '../../../ViewChat'
+import { clearAskTargetBinding, takeAskTargetBinding } from '../../../../canvas/ui/inspector-v2/askTargetBinding'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 import { answerMessage, ASK_SAID, differenceQuestion } from '../askOlumi'
 
@@ -30,15 +32,21 @@ const rowOf = (d: Difference) => `differ-row-${d.record}${d.goal ? `-${d.goal}` 
 function serve(): void {
   setTeamFetch((async () => new Response(JSON.stringify(read), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
 }
-function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> } {
-  const prefill = vi.fn(), send = vi.fn()
-  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send, _isConversationBusy: () => false } as never)
-  return { prefill, send }
+/** The chat's ask path as ViewChat registers it (`_dispatchAction` → press → say → act): busy while the write is out; the words go back to the
+ *  message box when it does not go through. `settle(ok)` ends the write. `send` records each message; `bound` the target each one carried. */
+function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; bound: (string[] | null)[]; settle: (ok: boolean) => void; direct: ReturnType<typeof vi.fn> } {
+  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn(), bound: (string[] | null)[] = []
+  let last = ''
+  const dispatch = (o: { message: string }) => { send(o.message); last = o.message; const b = takeAskTargetBinding(o.message); bound.push(b ? [...b.nodeIds] : null); useViewChat.setState({ busy: true }) }
+  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct, _isConversationBusy: () => false } as never)
+  const settle = (ok: boolean) => act(() => { useViewChat.setState({ busy: false, text: ok ? useViewChat.getState().text : last }) })
+  return { prefill, send, bound, settle, direct }
 }
 const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
-  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _isConversationBusy: null } as never)
+  useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null, _isConversationBusy: null } as never)
+  useViewChat.setState({ busy: false, text: '' }); clearAskTargetBinding()
 })
 
 describe('crux first', () => {
@@ -56,6 +64,19 @@ describe('crux first', () => {
     const order = (a: Element, b: Element) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
     expect(order(within(card).getByTestId(`${rowOf(FIGURE)}-status`), within(card).getByTestId(`${rowOf(FIGURE)}-actions`))).toBeTruthy()
     expect(order(within(card).getByTestId(`${rowOf(FIGURE)}-actions`), within(card).getByTestId(`${rowOf(FIGURE)}-drawn`))).toBeTruthy()
+  })
+
+  it('Olumi\'s reading is on its own card\'s difference, with core\'s unconfirmed note, bound by the mark\'s card id, and not drawn again in the marks fold', async () => {
+    const mark = tm04.collab.marks!.find((m) => m.reading != null)!
+    expect(mark.card).toBe(FIGURE.record)
+    serve(); show(tm04)
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    const r = await screen.findByTestId(`${rowOf(FIGURE)}-reading`)
+    expect(r.getAttribute('data-mark-card')).toBe(mark.card)
+    expect(r.textContent).toBe(`${mark.reading!.text}${mark.reading!.note}`)
+    // Contrast: a difference about another card shows no reading.
+    expect(screen.queryByTestId(`${rowOf(FACTOR)}-reading`)).toBeNull()
+    expect(screen.queryByTestId(`team-reading-${mark.card}-${mark.kind}`)).toBeNull()
   })
 
   it('the canvas marks fold never says "common ground": core\'s shared mark means several spoke to a card, not that they agree', async () => {
@@ -84,30 +105,49 @@ describe('the question for each difference', () => {
     expect(differenceQuestion(tm04, LINK_CARA)).toBe(`On the link ${LINK_CARA.label} for '${LINK_CARA.goal_label}': what could explain why we read it differently, and what evidence would show whether it holds?`)
     // Contrast: the same link seen by someone who is not a side names its people.
     expect(differenceQuestion({ ...tm04, you_id: '12' } as View, LINK_CARA)).toContain('why Cara and Dan read it differently')
+    // Core's text-only framing kinds are compared as views, never as "figures" (Codex review 2 #3, its wording).
+    expect(differenceQuestion(tm04, { ...FIGURE, kind: 'aim' as never, label: 'Generate revenue as quickly as possible' })).toBe(`Compare the revealed views on 'Generate revenue as quickly as possible': where do they differ, and what could help us clarify those differences?`)
     expect(differenceQuestion(tm04, FACTOR)).toBe(`Ana thinks the model leaves out '${FACTOR.label}'. How could we tell whether it matters for the aim, and what figure, with a range, could it take?`)
   })
 })
 
-describe('sent on the press', () => {
-  it('Ask Olumi about this difference sends that difference\'s question once, through the chat\'s writer, and says so', async () => {
+describe('sent on the press, through the chat\'s ask path', () => {
+  it('Ask Olumi about this difference sends that difference\'s question once, bound to its card, never through _sendMessage; "Sent" only once the write went through', async () => {
     serve(); show(tm04)
-    const { prefill, send } = composer()
+    const { prefill, send, bound, settle, direct } = composer()
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
     fireEvent.click(go)
     expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
+    expect(bound).toEqual([[FIGURE.record]])
+    expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
-    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
     fireEvent.click(go)
     expect(send).toHaveBeenCalledTimes(1)
-    // Contrast: another difference's button sends its own question, not this one's.
+    settle(true)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    // Contrast: another difference's button sends its own question about its own card.
     fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
     expect(send.mock.calls[1]).toEqual([differenceQuestion(tm04, FACTOR)])
   })
-  it('while Olumi is still answering it says so (the writer keeps the words in the message box)', async () => {
+  it('a send that does not go through says so and can be pressed again (Codex review 2 #1); the words are in the message box', async () => {
+    serve(); show(tm04)
+    const { send, settle } = composer()
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`) as HTMLButtonElement
+    fireEvent.click(go)
+    settle(false)
+    expect(useViewChat.getState().text).toBe(differenceQuestion(tm04, FIGURE))
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
+    expect(go.disabled).toBe(false)
+    fireEvent.click(go)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+  it('while Olumi is still answering it says so (the ask path keeps the words in the message box)', async () => {
     serve(); show(tm04)
     const { send } = composer()
-    useGuidanceStore.setState({ _isConversationBusy: () => true } as never)
+    useViewChat.setState({ busy: true })
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
     expect(send).toHaveBeenCalledTimes(1)
@@ -125,9 +165,20 @@ describe('sent on the press', () => {
     expect(send).not.toHaveBeenCalled()
     fireEvent.change(screen.getByTestId('team-views-next-words'), { target: { value: '  A past diagnostic took four months to sign.  ' } })
     fireEvent.click(screen.getByTestId('team-views-next-send'))
-    expect(send.mock.calls).toEqual([[answerMessage(tm04.collab.next!.text, 'A past diagnostic took four months to sign.')]])
-    expect(send.mock.calls[0]![0]).toBe(`Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`)
-    expect(screen.getByTestId('team-views-next-said').textContent).toBe(ASK_SAID.sent)
+    expect(send.mock.calls).toEqual([[`Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`]])
+  })
+  it('an answer stays with the question it was typed under when core\'s question changes (Codex review 2 #2)', async () => {
+    serve(); show(tm04)
+    const { send } = composer()
+    const r = render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    fireEvent.click(screen.getByTestId('team-views-next-answer'))
+    fireEvent.change(screen.getByTestId('team-views-next-words'), { target: { value: 'Four months' } })
+    const later = { ...tm04, collab: { ...tm04.collab, next: { text: 'How many sales hours are free each week?', about: [] } } } as View
+    r.rerender(<WhereWeDiffer sid="s_x" view={later} onWrote={async () => true} />)
+    expect(screen.getByTestId('team-views-next').textContent).toBe('How many sales hours are free each week?')
+    expect(screen.getByTestId('team-views-next-earlier').textContent).toContain(tm04.collab.next!.text)
+    fireEvent.click(screen.getByTestId('team-views-next-send'))
+    expect(send.mock.calls).toEqual([[answerMessage(tm04.collab.next!.text, 'Four months')]])
   })
   it('before a model is saved the chat would take words as a new brief: the question is only put in the message box, never sent', async () => {
     serve()
@@ -135,8 +186,7 @@ describe('sent on the press', () => {
     const unsaved = { ...tm04, version: null, proposal: null } as View
     show(unsaved)
     render(<WhereWeDiffer sid="s_x" view={unsaved} onWrote={async () => true} />)
-    const go = screen.queryByTestId(`${rowOf(FIGURE)}-ask-go`) ?? await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
-    fireEvent.click(go)
+    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
     expect(send).not.toHaveBeenCalled()
     expect(prefill.mock.calls).toEqual([[differenceQuestion(unsaved, FIGURE)]])
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.placed)

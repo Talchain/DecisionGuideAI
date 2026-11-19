@@ -264,7 +264,7 @@ export const markCounts = (view: View): { shared: number; all: number } => {
   return { shared: m.filter((x) => x.kind === 'shared').length, all: m.length }
 }
 const KIND_ORDER = ['shared', 'disagreement', 'unique', 'evidence'] as const
-export function RevealMarks({ view }: { view: View }): JSX.Element | null {
+export function RevealMarks({ view, promoted }: { view: View; /** Cards whose reading is drawn on their difference instead. */ promoted?: ReadonlySet<string> }): JSX.Element | null {
   const marks = view.gated ? [] : [...(view.collab.marks ?? [])].sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind))
   if (marks.length === 0) return null
   return (
@@ -279,7 +279,7 @@ export function RevealMarks({ view }: { view: View }): JSX.Element | null {
           </button>
         )}
         <p className={META}>{m.text}</p>
-        {m.reading === null ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
+        {m.reading === null || promoted?.has(m.card) ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>
           <p className={BODY}>{m.reading.text}</p><p className={META}>{m.reading.note}</p>
         </div>}
         {m.options.map((o) => <p key={o.option} className={BODY} data-mark-option={o.option}>{o.text}</p>)}

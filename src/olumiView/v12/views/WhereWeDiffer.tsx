@@ -102,6 +102,13 @@ export function MemberFrames({ view }: { view: View }): JSX.Element | null {
 /** The two steps' fixed labels (Sprint-Resolve board). */
 const STEP_LABELS = { dissent: 'Keep as a disagreement', research: 'Agree to find out' } as const
 
+/** Olumi's reading for one card, from core's marks (never while core holds the views back). */
+export function readingOf(view: View, card: string): { card: string; text: string; note: string } | null {
+  if (view.gated) return null
+  const m = (view.collab.marks ?? []).find((x) => x.card === card && x.reading != null)
+  return m?.reading ? { card: m.card, text: m.reading.text, note: m.reading.note } : null
+}
+
 /** One difference: its name to the canvas, core's sentence and what would tell the views apart, Ask Olumi and the two steps, then drawn. */
 export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: string; view: View; data: DifferencesData; d: Difference; onWrote: () => Promise<boolean>; onFocusCard?: () => void }): JSX.Element {
   const h = data.headings
@@ -111,6 +118,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
   const mine = new Set(d.steps.filter((s) => s.by_id === view.you_id).map((s) => s.step))
   const cards = d.cards ?? [d.record]
   const drawn = sideSpans(view, d) !== null
+  const reading = readingOf(view, d.record)
   const step = async (s: 'dissent' | 'research') => {
     setBusy(true); setError(null)
     try { await runWrite(`${sid}:difference:${d.record}:${s}`, { op: true }, { record: d.record, step: s }, () => stepDifference(sid, d.record, s)); await onWrote() } catch (e) {
@@ -131,6 +139,14 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       </div>
       {/* Crux first (Paul, 18 Nov): core's own sentence for this difference, at rest; then what would tell the views apart. */}
       <p className={`${BODY} break-words`} data-testid={`${at}-status`}>{d.status_text}</p>
+      {/* Olumi's reading of this card (core's `marks[].reading`, bound by the mark's own card id), with core's note naming who can say whether
+          it fits: promoted from the canvas-marks fold (Codex ROOT 23:48:16Z). */}
+      {reading !== null && (
+        <div className="grid grid-cols-[14px_minmax(0,1fr)] items-start gap-1.5" data-testid={`${at}-reading`} data-mark-card={reading.card}>
+          <span className="mt-0.5"><OkIcon id="olumi-mark" size={14} decorative /></span>
+          <div className="grid gap-0.5"><p className={`${BODY} break-words`}>{reading.text}</p><p className={META}>{reading.note}</p></div>
+        </div>
+      )}
       {d.settle.length > 0 && (
         <div className="grid gap-1" data-testid={`${at}-apart`}>
           <p className={LABEL}>{h.settle}</p>
@@ -140,7 +156,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       {/* Core's step route takes any difference this member can see now, calculated or not, so the two steps are offered on every card; a
           step records what the team will do about the difference and changes no model. Ask Olumi sends one question shaped by this difference. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1" data-testid={`${at}-actions`}>
-        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} at={`${at}-ask`} />
+        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} cards={cards} at={`${at}-ask`} />
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_LABELS.dissent}</button>
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
       </div>
@@ -186,9 +202,11 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   // in their own words (Codex 008 #2). Where core's read plots figures or chances, the differences lead and the words fold below.
   const plotted = data !== null && !data.gated && data.differences.some((d) => sideSpans(view, d) !== null || d.options.some((o) => o.chances.some((x) => x.chance !== null)))
   const words = <><RevealedViews view={view} /><MemberFrames view={view} /></>
+  // A reading drawn on its difference's card is not drawn again in the marks fold.
+  const promoted = new Set(data !== null && !data.gated && !centred ? data.differences.map((d) => d.record) : [])
   return (
     <section data-testid="differ-after" aria-label={c.heading} className="grid gap-4">
-      {c.next == null ? null : <NextQuestion question={c.next.text} />}
+      {c.next == null ? null : <NextQuestion key={sid} question={c.next.text} />}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
       {!plotted && !centred && <div className="grid gap-3" data-testid="differ-views-open">{words}</div>}
       {/* Doubt or keep one link in your own words (core POST …/links/stance) sits above the differences (the UI gate, 8 Nov). */}
@@ -207,7 +225,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
       <div className="grid gap-2">
         {plotted && !centred && <Fold at="differ-views" summary={FLOW_WORDS.views(shared)}>{words}</Fold>}
         {/* Core's `shared` marks mean several of you spoke to a card, never that you agree (core reveal.ts): counted as marks, not "common ground". */}
-        {marks.all > 0 && <Fold at="differ-marks" summary={FLOW_WORDS.marked(marks.all)}><RevealMarks view={view} /></Fold>}
+        {marks.all > 0 && <Fold at="differ-marks" summary={FLOW_WORDS.marked(marks.all)}><RevealMarks view={view} promoted={promoted} /></Fold>}
         {dissent}
       </div>
       {/* An action is one optional activity among exploring, evidence and dissent (Codex 008 #3): offered, never the lead. */}
@@ -219,26 +237,33 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
 /** Olumi's one question for the round (core's `collab.next`): the person answers in their own words and the answer is sent to Olumi with the
  *  question it answers (./askOlumi.ts). Nothing is sent until they press Send; an empty answer sends nothing. */
 function NextQuestion({ question }: { question: string }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  const [words, setWords] = useState('')
+  // The answer is bound to the question it was typed under (Codex review 2 #2): if core's question changes meanwhile, it is still sent with
+  // the question it answers, and the box says so.
+  const [draft, setDraft] = useState<{ asked: string; words: string } | null>(null)
   const [said, setSaid] = useState<AskOutcome | null>(null)
   const id = useId()
-  const send = () => { if (words.trim() === '') return; const out = askOlumi(answerMessage(question, words)); setSaid(out); if (out !== 'placed') { setWords(''); setOpen(false) } }
+  const send = () => {
+    if (draft === null || draft.words.trim() === '') return
+    const out = askOlumi(answerMessage(draft.asked, draft.words), [], setSaid)
+    setSaid(out)
+    if (out !== 'placed') setDraft(null)
+  }
   return (
     <div className="grid gap-1.5" data-testid="team-views-next-block">
       {/* `team-views-next` is the question alone (its words are core's), as before: other specs read its text. */}
       <p className={`${BODY} flex items-start gap-1.5`} data-testid="team-views-next">
         <span className="mt-0.5 flex-none"><OkIcon id="olumi-mark" size={14} decorative /></span><span className="min-w-0 break-words">{question}</span>
       </p>
-      {!open ? (
-        <div className="pl-5"><button type="button" className={QUIET} data-testid="team-views-next-answer" onClick={() => { setOpen(true); setSaid(null) }}>{ASK_WORDS.answer}</button></div>
+      {draft === null ? (
+        <div className="pl-5"><button type="button" className={QUIET} data-testid="team-views-next-answer" onClick={() => { setDraft({ asked: question, words: '' }); setSaid(null) }}>{ASK_WORDS.answer}</button></div>
       ) : (
         <div className="grid gap-1.5 pl-5">
+          {draft.asked !== question && <p className={META} data-testid="team-views-next-earlier">{ASK_WORDS.earlier} “{draft.asked}”</p>}
           <label htmlFor={id} className="sr-only">{ASK_WORDS.answerLabel}</label>
-          <textarea id={id} rows={3} className={FIELD} value={words} data-testid="team-views-next-words" onChange={(e) => setWords(e.target.value)} />
+          <textarea id={id} rows={3} className={FIELD} value={draft.words} data-testid="team-views-next-words" onChange={(e) => setDraft({ asked: draft.asked, words: e.target.value })} />
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" className={GO} data-testid="team-views-next-send" disabled={words.trim() === ''} onClick={send}><OkIcon id="olumi-mark" size={14} decorative />{ASK_WORDS.send}</button>
-            <button type="button" className={QUIET} data-testid="team-views-next-cancel" onClick={() => setOpen(false)}>Cancel</button>
+            <button type="button" className={GO} data-testid="team-views-next-send" disabled={draft.words.trim() === ''} onClick={send}><OkIcon id="olumi-mark" size={14} decorative />{ASK_WORDS.send}</button>
+            <button type="button" className={QUIET} data-testid="team-views-next-cancel" onClick={() => setDraft(null)}>Cancel</button>
           </div>
         </div>
       )}

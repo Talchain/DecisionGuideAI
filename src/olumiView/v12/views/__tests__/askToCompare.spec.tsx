@@ -39,16 +39,17 @@ function serve(body: unknown): Sent[] {
   }) as unknown as typeof fetch)
   return sent
 }
-/** The message box's two doors, as the conversation registers them: a prefill (never sends) and a send. */
-function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> } {
-  const prefill = vi.fn(), send = vi.fn()
-  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
-  return { prefill, send }
+/** The message box's doors, as the conversation registers them: a prefill (never sends), the ask path a press uses (`_dispatchAction`, its
+ *  write settling at once here), and the internal `_sendMessage`, which a press must never use (Codex ROOT 23:48:16Z). */
+function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; direct: ReturnType<typeof vi.fn> } {
+  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn()
+  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: (o: { message: string }) => send(o.message), _sendMessage: direct } as never)
+  return { prefill, send, direct }
 }
 const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
-  useCompare.setState({ open: false }); useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null } as never)
+  useCompare.setState({ open: false }); useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
 })
 
 describe('Ask Olumi to compare these views', () => {
@@ -68,7 +69,7 @@ describe('Ask Olumi to compare these views', () => {
 
   it('Paul 18 Nov: with a saved model, one press SENDS the request (once) through the chat\'s writer; contrast: before one, it is only placed', async () => {
     serve({ ...core, differences: [figure], state: 'figures' })
-    const { prefill, send } = composer()
+    const { prefill, send, direct } = composer()
     const v = view()
     expect(v.version).not.toBeNull()
     show(v)
@@ -76,6 +77,7 @@ describe('Ask Olumi to compare these views', () => {
     const go = await screen.findByTestId('differ-ask-compare-go')
     fireEvent.click(go)
     expect(send.mock.calls).toEqual([[ASK_TO_COMPARE.request]])
+    expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
     expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent)
     expect((go as HTMLButtonElement).disabled).toBe(true)
