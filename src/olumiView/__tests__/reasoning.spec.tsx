@@ -317,9 +317,8 @@ describe('pending is never shown as current', () => {
     ready(held)
     const { rerender } = render(<ViewReasoningBlock />)
     expect(screen.getByTestId('view-reasoning')).not.toBeNull()
-    const head = screen.getByTestId('view-tabs-held-proposal')
-    expect(head.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
-    expect(head.querySelector('[data-view-proposal="on"]')!.textContent).toBe(held.proposal!.on)
+    // say3: the proposal's dashed strip is drawn on the Analysis tab only (port/analysisTabs.spec); the Reasoning tab does not say it again.
+    expect(screen.queryByTestId('view-tabs-held-proposal')).toBeNull()
     const bakery = read('bakery.view.json')
     for (const bad of [{ stale: true }, { error: 'Olumi could not be reached.' }]) {
       ready(bakery, bad)
@@ -340,16 +339,13 @@ describe('the tab says its state once, above it', () => {
   const variant = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/whatif.answer.json'), 'utf8')).variants[0] as WhatIfVariant
   const show = (base: number, sid = whatIf.id) => useWhatIf.setState({ shown: { sid, base, quantity: variant.edits[0]!.quantity, typed: '5', variant } })
 
-  it('a held proposal: core\'s heading and version, in the strip above the tab, and said nowhere else', () => {
+  it('a held proposal: the Reasoning tab draws no strip (say3: the proposal is said on Analysis and in the panel\'s foot, not on every tab); the tab itself draws', () => {
     const held = read('proposal.view.json')
     ready(held)
     const { container } = render(<ViewReasoningBlock />)
-    const strip = screen.getByTestId('view-reasoning-state')
-    expect(strip.dataset['state']).toBe('proposal')
-    expect(strip.querySelector('[data-view-proposal="heading"]')!.textContent).toBe(held.proposal!.heading)
-    expect(strip.querySelector('[data-view-proposal="on"]')!.textContent).toBe(held.proposal!.on)
-    expect(container.querySelectorAll('[data-view-proposal="heading"]')).toHaveLength(1)
-    expect(strip.compareDocumentPosition(screen.getByTestId('view-reasoning')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('view-reasoning')).toBeInTheDocument()
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull()
+    expect(container.querySelectorAll('[data-view-proposal="heading"]')).toHaveLength(0)
   })
 
   it('negative: a past version draws no strip and no sentence of the tab\'s own (core sends none for that state; DL 7 Nov)', () => {
@@ -393,7 +389,7 @@ describe('the tab says its state once, above it', () => {
     ready(v)
     show(base, v.id)
     const { container } = render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('view-reasoning-state').dataset['state']).toBe('proposal')
+    expect(screen.queryByTestId('view-reasoning-state')).toBeNull() // say3: the proposal strip is Analysis's alone; the what-if box below keeps its own label
     expect(screen.queryByTestId('view-reasoning-whatif')).toBeNull()
     expect(screen.getByTestId('view-whatif-clear')).not.toBeNull()
     expect(screen.getByTestId('view-whatif').querySelector('[data-view="whatif.edits.0.words"]')!.textContent).toBe(variant.edits[0]!.words)

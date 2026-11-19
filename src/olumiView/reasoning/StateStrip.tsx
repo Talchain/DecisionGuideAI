@@ -37,9 +37,10 @@ export function useTabState(model: ViewModel | null): TabState {
 
 /** The strip for the state the block read (`useTabState`), so the strip and the what-if box below it act on one answer. A past version
  * draws nothing until core sends that state's sentence. */
-export function StateStrip({ state }: { state: TabState }) {
+export function StateStrip({ state, proposalHere = true }: { state: TabState; /** The tab that holds the proposal's detail draws its dashed strip; the other tab does not repeat it (say3: said once). */ proposalHere?: boolean }) {
   const proposal = useViewStore((s) => s.view?.proposal ?? null)
   if (state === 'proposal' && proposal !== null) {
+    if (!proposalHere) return null
     return (
       <div className={`${STRIP} border-info`} role="status" data-testid="view-reasoning-state" data-state="proposal">
         <p className="m-0 min-w-0" data-testid="view-tabs-held-proposal"><ProposalWords p={proposal} /></p>
