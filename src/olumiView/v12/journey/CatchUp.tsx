@@ -29,8 +29,10 @@ export function CatchUp(): JSX.Element | null {
   // The record's own gate (JourneyRecordBlock, the canvas's store flags): never counts from a View being re-read or whose read failed.
   const view = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
   const at = useViewStore((s) => s.at)
+  const version = useViewStore((s) => s.view?.version ?? null)
   const c = useMemo(() => (view === null ? null : catchUpCounts(view, at)), [view, at])
-  if (c === null || (c.moved === 0 && c.open === 0)) return null
+  // Nothing is saved yet (no version): nothing to catch up on.
+  if (c === null || version === null || (c.moved === 0 && c.open === 0)) return null
   const parts = [c.moved > 0 ? CATCH_UP_WORDS.moved(c.moved) : null, c.open > 0 ? CATCH_UP_WORDS.open(c.open) : null].filter((x): x is string => x !== null)
   return (
     <button type="button" onClick={openVersionsPanel} data-testid="journey-catch-up"

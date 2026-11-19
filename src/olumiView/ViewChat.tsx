@@ -47,7 +47,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_OUTLINE_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
 import { earlyOf, floorShown, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
@@ -2203,7 +2203,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {thinkingMethods.length === 0 ? null : (
         <div role="group" aria-label="Ways to think about this" className="flex flex-wrap items-center gap-2" data-testid="view-thinking-methods">
           {thinkingMethods.map((m) => (
-            <button key={m.id} type="button" className={VIEW_CHIP_CLASS} disabled={held || answering}
+            <button key={m.id} type="button" className={VIEW_CHIP_OUTLINE_CLASS} disabled={held || answering}
               data-testid={`view-thinking-${m.id}`} onClick={() => runMethod(m.id)}><span data-view={`session.methods.${m.i}.text`}>{m.text}</span></button>
           ))}
         </div>
