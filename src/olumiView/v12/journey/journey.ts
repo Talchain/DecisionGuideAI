@@ -141,8 +141,10 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
       from: l.from, to: l.to, fromText: l.from_text, toText: l.to_text, line: l.line, sameText: l.from_text === l.to_text })),
     sole: sinceHere.sole === null ? null : (() => {
       // Whose the credited change is comes from core's own change entry for it, or the card's Olumi mark; never assumed to be the team's.
-      const id = sinceHere.sole, c = sinceHere.changed.find((x) => x.id === id)
-      return { id, label: label(id) ?? id, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(id) }
+      // Named by its card, else by core's own label for the record (a what-if or an estimate has no card); never by its raw id.
+      const id = sinceHere.sole, c = sinceHere.changed.find((x) => x.id === id), name = label(id) ?? (c?.label || null)
+      if (name === null) return null
+      return { id, label: name, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(id) }
     })(),
   }
 
@@ -162,20 +164,23 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   for (const w of model?.run?.waits_on?.items ?? []) {
     open.push({ key: `wait:${w.id}`, label: w.text, words: w.unknown, title: w.edit?.ask ?? w.title, press: onCanvas(w.id) })
   }
-  for (const e of view.evidence ?? []) {
+  // On an earlier version core reads Team's records as they stood then (later outcomes, considerations and confirmations are left out),
+  // so they are not listed as open now; the version's own model (what its result waits on) still is.
+  const now = ctx.at === null
+  for (const e of now ? view.evidence ?? [] : []) {
     if (e.considered === null) open.push({ key: `consider:${e.id}`, label: JOURNEY_WORDS.notConsidered(e.by), words: e.text, press: team({ kind: 'evidence', id: e.id }) })
   }
   const commitmentsIn = view.collab?.commitments ?? []
-  for (const k of commitmentsIn) {
+  for (const k of now ? commitmentsIn : []) {
     if (k.outcomes.length === 0) {
       open.push({ key: `no-outcome:${k.id}`, label: JOURNEY_WORDS.noOutcome(k.owner) + (k.review_on ? ` · ${JOURNEY_WORDS.reviewOn(calendarDay(k.review_on))}` : ''), words: k.action, press: team({ kind: 'outcome-form', commitment: k.id }) })
     }
     if (k.trigger?.stale) open.push({ key: `stale:${k.id}`, label: JOURNEY_WORDS.stale, words: k.trigger.stale.text, press: team({ kind: 'commitment', id: k.id }) })
   }
-  for (const d of view.collab?.dissent ?? []) {
+  for (const d of now ? view.collab?.dissent ?? [] : []) {
     if (d.confirmed === null && d.holder_id !== null && d.holder_id === view.you_id) open.push({ key: `confirm:${d.id}`, label: JOURNEY_WORDS.confirmMine, words: d.position, press: team({ kind: 'dissent', id: d.id }) })
   }
-  if (view.collab?.can_reveal) open.push({ key: 'reveal', label: JOURNEY_WORDS.reveal, words: view.collab.waiting, press: team({ kind: 'views', step: 'reveal' }) })
+  if (now && view.collab?.can_reveal) open.push({ key: 'reveal', label: JOURNEY_WORDS.reveal, words: view.collab.waiting, press: team({ kind: 'views', step: 'reveal' }) })
   if (view.proposal !== null) open.push({ key: 'proposal', label: JOURNEY_WORDS.pending, words: view.proposal.heading, press: { to: { kind: 'chat' } } })
 
   const commitments: Commitment[] = commitmentsIn.map((k) => ({
