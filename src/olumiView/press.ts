@@ -40,14 +40,15 @@ export function pressHeading(p: TurnPress, view: Pick<View, 'model'> | null): st
   return card === undefined || card.heading.trim() === '' ? null : card.heading
 }
 
+/** Team's "Ask Olumi about this difference": a template control, named by its own chip id. */
+export const TEAM_DIFFERENCE_CHIP = 'team:ask-difference'
 /**
- * The press the page sends with a press's words (13b), only for a declared template control (Codex ROOT 03:07:18Z): 'explain' for the Explain
- * chip; the caller's own declaration (Team's "Ask Olumi about this difference"); 'ask_about' for any other canvas chip. A press with no chip
- * and no declaration is the person's own words (Team's answer to Olumi's question): no press. Never without exactly one card as `about`.
+ * The template controls that declare a press, by chip id (Codex ROOT 03:07:18Z; the UI lead's rule, 19 Nov): nothing else is ever a press.
+ * A message with no chip, or one whose chip is not listed, or edited words, is an ordinary message that shows its words.
  */
-export function pressKindFor(chip: string, record: string | null, declared: PressKind | null = null): PressKind | null {
-  if (record === null) return null
-  if (chip === 'ask:explain') return 'explain'
-  if (declared !== null) return declared
-  return chip !== '' ? 'ask_about' : null
+export const PRESS_CHIPS: Readonly<Record<string, PressKind>> = { 'ask:explain': 'explain', [TEAM_DIFFERENCE_CHIP]: 'ask_about' }
+
+/** The press the page sends with a press's words (13b): the listed chip's kind, only with exactly one card as `about`; never inferred. */
+export function pressKindFor(chip: string, record: string | null): PressKind | null {
+  return record === null ? null : PRESS_CHIPS[chip] ?? null
 }

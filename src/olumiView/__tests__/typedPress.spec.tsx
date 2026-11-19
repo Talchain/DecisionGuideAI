@@ -16,7 +16,7 @@ import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { TurnInFlight, ViewComposer, ViewConversation, askOnPress, restorePendingTurn, useViewChat } from '../ViewChat'
 import { useCanvasStore } from '../../canvas/store'
-import { askFieldOf, pressFieldOf, pressKindFor } from '../press'
+import { askFieldOf, pressFieldOf, pressKindFor, TEAM_DIFFERENCE_CHIP } from '../press'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/proposal.view3.json'), 'utf8'))
 const SID = 's_00000000000c', UUID = '00000000-0000-4000-8000-00000000000c'
@@ -135,10 +135,10 @@ describe('13b: a press whose acceptance was lost comes back after a reload as th
 })
 
 describe('13b: a press is declared, never inferred, and a failed one keeps its identity (Codex ROOT 03:07:18Z, report 037cbe59)', () => {
-  it('only a declared template control gets a press: the Explain chip, a caller\'s declaration, another chip; no chip and no declaration (a person\'s own answer) gets none', () => {
+  it('only a listed template chip gets a press (Explain, Team\'s difference ask); an unlisted chip, no chip (a person\'s own answer) or no single card gets none', () => {
     expect(pressKindFor('ask:explain', CARD.id)).toBe('explain')
-    expect(pressKindFor('', CARD.id, 'ask_about')).toBe('ask_about')
-    expect(pressKindFor('ask:why', CARD.id)).toBe('ask_about')
+    expect(pressKindFor(TEAM_DIFFERENCE_CHIP, CARD.id)).toBe('ask_about')
+    expect(pressKindFor('ask:why', CARD.id)).toBeNull()
     expect(pressKindFor('', CARD.id)).toBeNull()
     expect(pressKindFor('ask:explain', null)).toBeNull()
   })
