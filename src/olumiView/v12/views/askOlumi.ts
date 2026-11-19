@@ -89,6 +89,8 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
   if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
+  // A past version is open: the chat refuses every write there (PAST_HELD) and the Team tab's controls are held; nothing is sent.
+  if (useViewStore.getState().at !== null) return 'failed'
   const card = target !== null && view?.model?.cards.some((c) => c.id === target) ? target : null
   // A challenge waiting for a card would be sent by the selection below (ViewChat's armed pick, Codex review 4 #1): this deliberate ask is the
   // person's new intent, so the waiting challenge stands down first, as words typed in the message box make it.
@@ -100,17 +102,15 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   g._dispatchAction({ label: text, message: text, source: 'team' })
   if (card === null) useCanvasStore.setState({ selection: before })
   if (busyBefore) return 'busy'
-  // The write's own result (Codex review 5 #1): ViewChat's act says its refusal sentence before it stops being busy (or at once, for a past
-  // version), and says nothing new on success; that sentence, not the words in the message box, decides. A question left in the box by an
-  // earlier failed try is taken out once a retry goes through, so it is never sent twice.
-  const saidBefore = useViewChat.getState().said
-  const settle = (said: string | null) => setTimeout(() => {
-    const refused = said !== null && said !== SAVED_NOT_SHOWN
-    if (!refused) { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
-    onSettled(refused ? 'failed' : 'sent')
+  // The write's own result (Codex reviews 5 #1 and 6 #1): ViewChat's act resets its sentence and goes busy when the write starts, and says its
+  // refusal before it stops being busy; that sentence decides. A write that never went busy never started (the chat keeps the words in the
+  // message box): not sent. A question left in the box by an earlier failed try is taken out once a retry goes through.
+  const settle = (out: 'sent' | 'failed') => setTimeout(() => {
+    if (out === 'sent') { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
+    onSettled(out)
   }, 0)
-  if (!useViewChat.getState().busy) { const s = useViewChat.getState().said; settle(s !== saidBefore ? s : null); return 'sending' }
-  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said) } })
+  if (!useViewChat.getState().busy) { settle('failed'); return 'sending' }
+  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said !== null && s.said !== SAVED_NOT_SHOWN ? 'failed' : 'sent') } })
   return 'sending'
 }
 

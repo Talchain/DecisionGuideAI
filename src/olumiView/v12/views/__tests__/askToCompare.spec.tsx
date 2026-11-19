@@ -14,6 +14,7 @@ import { resetDifferences } from '../../../../olumiCore/team/differences'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
+import { useViewChat } from '../../../ViewChat'
 import { ASK_TO_COMPARE } from '../AskToCompare'
 import { ASK_SAID } from '../askOlumi'
 import { CompareViewsStage } from '../CompareViewsStage'
@@ -43,7 +44,9 @@ function serve(body: unknown): Sent[] {
  *  write settling at once here), and the internal `_sendMessage`, which a press must never use (Codex ROOT 23:48:16Z). */
 function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; direct: ReturnType<typeof vi.fn> } {
   const prefill = vi.fn(), send = vi.fn(), direct = vi.fn()
-  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: (o: { message: string }) => send(o.message), _sendMessage: direct } as never)
+  // The chat goes busy while its write is out and clears its sentence; this one goes through a moment later.
+  const dispatch = (o: { message: string }) => { send(o.message); useViewChat.setState({ busy: true, said: null }); setTimeout(() => useViewChat.setState({ busy: false }), 1) }
+  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct } as never)
   return { prefill, send, direct }
 }
 const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
