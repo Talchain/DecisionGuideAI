@@ -479,6 +479,6 @@ describe('the DL\'s look at A13f (12 Nov)', () => {
     expect(canvas).toMatch(/setTimeout\(\(\) => \{ framedRef\.current = true; setFramed\(true\) \}, REVEAL_MS\)/)
     expect(REVEAL_MS).toBeGreaterThan(FRAME_WAIT_MS)
     expect(REVEAL_MS).toBeLessThanOrEqual(3000)
-    expect((canvas.match(/(?:const|let) [^\n]*\bFRAME_WAIT_MS\b|export const FRAME_WAIT_MS/g) ?? []).length).toBe(1)
+    expect((canvas.match(/(?:const|,) FRAME_WAIT_MS =/g) ?? []).length).toBe(1)
   })
 })
