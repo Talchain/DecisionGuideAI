@@ -313,10 +313,21 @@ describe('the canvas version diff (core lines typed with record_id, wip/x-compar
     const mark = render(<CompareCardMark id={cardId} />).container.querySelector(`[data-compare-mark="${cardId}"]`)!
     expect([mark.textContent, mark.getAttribute('title')]).toEqual([changedSince(2), '↻ figure: hours\nfrom 20 to 25'])
     expect(render(<CompareCardMark id="some_other_card" />).container.querySelector('[data-compare-mark]'), 'a card core does not name has no mark').toBeNull()
-    useViewStore.setState({ view: { ...view, version: { ...view.version!, n: 2 } } } as never)
-    expect(render(<CompareCardMark id={cardId} />).container.querySelector('[data-compare-mark]'), 'the canvas shows version 2, not the pair\'s later side').toBeNull()
     tab.unmount()
     expect(useCompareMarks.getState().sid, 'the marks leave with the pair').toBeNull()
+  })
+  it('CT13b: the mark is drawn only while the canvas shows the pair\'s LATER version (control: version 3 draws it; version 2 does not), and only for that scenario', () => {
+    const view = fixture('ui9-a6-since-v3'), cardId = view.model!.cards[0]!.id
+    useCompareMarks.getState().show({ sid: view.id, from: 2, to: 3, byId: { [cardId]: [{ text: 'LINE', detail: '' }] } })
+    const at = (n: number, sid = view.id) => {
+      useViewStore.setState({ sid, view: { ...view, id: sid, version: { ...view.version!, n } } } as never)
+      const { container, unmount } = render(<CompareCardMark id={cardId} />)
+      const got = container.querySelector('[data-compare-mark]')?.textContent ?? null
+      unmount()
+      return got
+    }
+    expect([at(3), at(2), at(3, 's_other00000000')]).toEqual([changedSince(2), null, null])
+    useCompareMarks.getState().clear()
   })
   it('CT14: more than three typed lines: three open at rest, the rest behind one press counted in words; CONTRAST CT2: an older core\'s untyped lines keep the named list', async () => {
     const view = fixture('ui9-a6-since-v3'), cardId = view.model!.cards[0]!.id
