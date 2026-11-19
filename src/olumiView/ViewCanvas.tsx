@@ -100,7 +100,9 @@ const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 /** The camera's own framing never zooms in past the real size (V12 spec: a small board sits at 1.0, in Simple and in Detailed); a person may still zoom in themselves, up to MAX_ZOOM. */
 export const FRAME_MAX_ZOOM = 1
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
-const DURATION = 400, MAX_FITS = 5, FRAME_WAIT_MS = 2500
+const DURATION = 400, MAX_FITS = 5
+/** The most the board stays unpainted while it waits for its first frame (ms): longer than the settle's own wait (FRAME_WAIT_MS below), so the settle decides first. */
+export const REVEAL_MS = 2500
 /**
  * When the board is framed: once it has settled, or after a bounded wait however it stands (DL, A13f cold reopen at 1510×910: the board was
  * never framed, the question cut at the top and three cards under the dock). The wait is in time, not frames: a throttled pane draws about
@@ -276,8 +278,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
   // ends without one; later frames (a version, a resize) animate as before and never hide the board.
   const [framed, setFramed] = useState(false)
   const framedRef = useRef(false)
-  // Never hidden for long: whatever the settle does, the board shows within FRAME_WAIT_MS.
-  useEffect(() => { const t = setTimeout(() => { framedRef.current = true; setFramed(true) }, FRAME_WAIT_MS); return () => clearTimeout(t) }, [])
+  // Never hidden for long: whatever the settle does, the board shows within REVEAL_MS.
+  useEffect(() => { const t = setTimeout(() => { framedRef.current = true; setFramed(true) }, REVEAL_MS); return () => clearTimeout(t) }, [])
   const { getNodes, getViewport, setViewport } = useReactFlow()
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const pane = useRef({ width, height })

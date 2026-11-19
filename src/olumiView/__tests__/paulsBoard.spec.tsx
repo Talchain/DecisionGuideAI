@@ -472,4 +472,13 @@ describe('the DL\'s look at A13f (12 Nov)', () => {
     expect(frameDue(false, FRAME_WAIT_MS - 1)).toBe(false)
     expect(FRAME_WAIT_MS).toBeLessThanOrEqual(2000)
   })
+  it('PB12: the board is not painted until its first frame (class ok-board-unframed on the flow, hidden by the look sheet), and never hidden past REVEAL_MS; CONTRAST: the settle\'s own wait is shorter', () => {
+    const canvas = readFileSync(path.resolve('src/olumiView/ViewCanvas.tsx'), 'utf8'), look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    expect(canvas).toMatch(/className=\{framed \? 'olumi-look' : 'olumi-look ok-board-unframed'\}/)
+    expect(look).toMatch(/\.olumi-look\.ok-board-unframed \.react-flow__viewport \{ visibility: hidden; \}/)
+    expect(canvas).toMatch(/setTimeout\(\(\) => \{ framedRef\.current = true; setFramed\(true\) \}, REVEAL_MS\)/)
+    expect(REVEAL_MS).toBeGreaterThan(FRAME_WAIT_MS)
+    expect(REVEAL_MS).toBeLessThanOrEqual(3000)
+    expect((canvas.match(/(?:const|let) [^\n]*\bFRAME_WAIT_MS\b|export const FRAME_WAIT_MS/g) ?? []).length).toBe(1)
+  })
 })
