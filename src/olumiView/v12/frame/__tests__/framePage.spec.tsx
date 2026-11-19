@@ -4,7 +4,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View, ViewCard } from '../../../client'
@@ -93,6 +93,40 @@ describe('the Frame page', () => {
     expect(screen.getByTestId('frame-no-model').textContent).toContain('No model yet')
     expect(screen.getByTestId('frame-build').textContent).toBe('Build a model from this')
     expect(screen.queryByTestId('frame-edit-question')).toBeNull(); expect(screen.queryByTestId('frame-full-graph')).toBeNull()
+  })
+})
+
+describe('an Olumi bound is marked on the bound alone whether or not it is measured', () => {
+  it('measured: its words and the mark; not measured: "kept in words" and the mark; a person\'s unmeasured bound: no mark', () => {
+    const unmeasured = card({ id: 'lim_u', family: 'limit', heading: 'Cap', bound: bound('hidden words', OLUMI, false) })
+    const plain = card({ id: 'lim_p', family: 'limit', heading: 'Cap two', bound: bound('hidden words', null, false) })
+    page(viewOf([limit, unmeasured, plain]))
+    const at = (id: string) => screen.getByTestId(`frame-card-${id}`).querySelector('[data-frame="bound"]')!
+    expect(at('lim_cap').textContent).toBe('at most £5,000'); expect(at('lim_cap').querySelector('[data-olumi-mark]')).not.toBeNull()
+    expect(at('lim_u').textContent).toBe(FRAME_WORDS.inWords); expect(at('lim_u').querySelector('[data-olumi-mark]')).not.toBeNull()
+    expect(at('lim_p').textContent).toBe(FRAME_WORDS.inWords); expect(at('lim_p').querySelector('[data-olumi-mark]')).toBeNull()
+  })
+})
+
+/** The spec's own measure (SPEC.md "Result"): words, controls, objects, on every stored View with a model, drawn in jsdom. */
+describe('the build-now page on the stored Views: the spec\'s budget', () => {
+  const root = path.resolve('src/olumiView/fixtures')
+  const files = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(path.join(d, e.name)) : e.name.endsWith('.json') ? [path.join(d, e.name)] : []))
+  const views = files(root).flatMap((f) => { try { const v = JSON.parse(readFileSync(f, 'utf8')) as View; return v?.model?.cards?.length ? [v] : [] } catch { return [] } })
+  const words = (el: Element) => (el.textContent ?? '').split(/\s+/).filter((t) => /[\p{L}\p{N}]/u.test(t)).length
+  it('every stored View with a model fits 15 controls and 10 card objects; with a finding of 25 words or fewer it fits 150 words', () => {
+    expect(views.length, 'the fixtures must hold Views with a model').toBeGreaterThan(10)
+    const over: string[] = []
+    for (const v of views) {
+      page(v)
+      const el = screen.getByTestId('frame-page')
+      const f = screen.queryByTestId('frame-finding')
+      const short = f === null || words(f) <= 25
+      const controls = el.querySelectorAll('button').length, objects = el.querySelectorAll('li').length
+      if (controls > 15 || objects > 10 || (short && words(el) > 150)) over.push(`${v.id}: controls ${controls}, objects ${objects}, words ${words(el)}`)
+      cleanup()
+    }
+    expect(over).toEqual([])
   })
 })
 
