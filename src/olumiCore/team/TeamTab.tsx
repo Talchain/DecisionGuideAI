@@ -125,7 +125,7 @@ function Step({ id, n, state, open, summary, onToggle, compact = false, children
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-compact="" aria-label={STEP_WORDS[id]} className="inline-flex">
       <button type="button" aria-expanded={false} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={onToggle} title={summary}
         className={`${META} inline-flex min-h-[24px] items-center gap-1.5 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-        <span aria-hidden="true" className={`inline-grid h-[16px] w-[16px] flex-none place-items-center rounded-full border text-[10px] leading-none ${DISC[state]}`}>{n}</span>
+        <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>{STEP_WORDS[id]}
       </button>
       <div id={body} hidden className="hidden" data-testid={body}>{children}</div>

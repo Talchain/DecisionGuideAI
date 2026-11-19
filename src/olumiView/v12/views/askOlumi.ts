@@ -1,8 +1,8 @@
 /**
  * Ask Olumi from the Team tab, SENT on a deliberate press (Paul, 18 Nov ~23:45Z: "Send it and ensure it's optimal and contextually optimised";
  * Codex ROOT 23:48:16Z: a clearly labelled press may send, through the normal submit path, never `_sendMessage`). It goes through the canvas's
- * own ask path (`_dispatchAction` → ViewChat `press` → `say` → `write`/`act`: its busy guard, the page's scenario, the words kept in the
- * message box when it does not go through).
+ * own ask path, ViewChat `askOnPress` (the body of `_dispatchAction` → `press` → `say` → `write`/`act`: its busy guard, the page's scenario,
+ * the words kept in the message box when it does not go through), whose returned result is the status (Codex ROOT HOLD 01:11:46Z).
  *
  * The typed target travels the normal way (Codex review 3 #2): `say` sends, as the message's `about`, the one model card selected on the canvas
  * (ViewChat `selectedRecord`, the composer's "About: <card>"). So the ask's own card is selected on the canvas first, and stays selected (the
@@ -20,9 +20,10 @@
  */
 import type { View } from '../../client'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
+import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { useCanvasStore } from '../../../canvas/store'
 import { armedIntent } from '../../armedIntent'
-import { isAnswering, prefillComposer, SAVED_NOT_SHOWN, STILL_ANSWERING, takesBrief, useViewChat } from '../../ViewChat'
+import { askOnPress, isAnswering, prefillComposer, takesBrief, useViewChat } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
 
@@ -81,14 +82,13 @@ export type AskOutcome = 'placed' | 'busy' | 'sending' | 'sent' | 'failed'
 
 /**
  * Ask Olumi with `text`, about the model card `target` (or none). Placed in the message box (never sent) where the chat would take words as a
- * new brief, or nothing on the page answers asks. Otherwise sent through the ask path; `onSettled` gets what really happened, read from the
- * chat's own state once its write has settled (Codex review 3 #1): the chat's own sentence for a write that did not go through (set before it
- * stops being busy), or the words it puts back in the message box (a few promise steps after): either means not sent.
+ * new brief. Otherwise sent through the ask path; `onSettled` gets the write's own returned result: sent, or not sent (the chat keeps the words
+ * in the message box beside its own sentence).
  */
 export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void): AskOutcome {
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
-  if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
+  if (takesBrief(sid, view)) { prefillComposer(text); return 'placed' }
   // A past version is open: the chat refuses every write there (PAST_HELD) and the Team tab's controls are held; nothing is sent.
   if (useViewStore.getState().at !== null) return 'failed'
   // While Olumi is still answering, the question waits in the message box and nothing is dispatched: the chat's own sentence is left to the
@@ -101,17 +101,12 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const canvas = useCanvasStore.getState(), before = canvas.selection
   if (card !== null) canvas.selectNodes([card])
   else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
-  g._dispatchAction({ label: text, message: text, source: 'team' })
+  const result = askOnPress({ message: text })
   if (card === null) useCanvasStore.setState({ selection: before })
-  // The write's own result (Codex reviews 5 #1 and 6 #1): ViewChat's act resets its sentence and goes busy when the write starts, and says its
-  // refusal before it stops being busy; that sentence decides (never "still answering", which only another ask says meanwhile). A write that never went busy never started (the chat keeps the words in the
-  // message box): not sent. A question left in the box by an earlier failed try is taken out once a retry goes through.
-  const settle = (out: 'sent' | 'failed') => setTimeout(() => {
-    if (out === 'sent') { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
-    onSettled(out)
-  }, 0)
-  if (!useViewChat.getState().busy) { settle('failed'); return 'sending' }
-  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said !== null && s.said !== SAVED_NOT_SHOWN && s.said !== STILL_ANSWERING ? 'failed' : 'sent') } })
+  try { revealOlumiSurface() } catch { /* the conversation is shown where the page can; the ask goes either way */ }
+  // The write's own returned result decides (Codex ROOT HOLD 01:11:46Z), never busy timing or the message box. The message box is the
+  // chat's guarded writer's alone: nothing here removes words from it (Codex ROOT 01:51:41Z), so a person's own draft always survives.
+  void result.then((sent) => onSettled(sent ? 'sent' : 'failed'))
   return 'sending'
 }
 
