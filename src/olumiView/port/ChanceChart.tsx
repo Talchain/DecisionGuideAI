@@ -6,8 +6,12 @@
  *   `row.chance`, a whisker from `row.driver.low` to `row.driver.high`, and core's own words for the chance under it (`row.value`, its
  *   `title` on hover). The numbers only place marks; every word is core's;
  * - a press on an option selects and centres its card on the canvas; pointing at it rings the card.
+ * At rest: each chance WITH its uncertainty (the whisker), the figure it moves with and core's sentence for what the two ends are (DL ruling #87;
+ * Codex 008 item 3), so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead, 19 Nov: 279 px over). ONE press away: core's
+ * worst-tenth sentence under each option, the low/high key and the marks' legend.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
+import { useState } from 'react'
 import { FoldChevron } from '../look/FoldChevron'
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
@@ -19,7 +23,7 @@ import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
 /** The chart's own chrome: the key's two words and the axis. What low and high mean is core's sentence, on the key's hover. */
-export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], meaning: 'What the marks mean' } as const
+export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], more: 'More on these chances' } as const
 const RING = 'analysis-chart'
 
 /** The 0 to 100 axis, over the first track (never between a bar and core's words for it): three equal columns, so 50% stands at the middle. */
@@ -80,9 +84,9 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
 }
 
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
-function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean }) {
+function Bar({ card, row, i, figure, given, axis = false, open }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean; open: boolean }) {
   const range = rangeOf(row)
-  const tail = row.tail !== undefined && row.tail.text !== '' ? row.tail.text : null
+  const tail = open ? tailOf(row) : null
   return (
     <li data-chart-option={card.id}>
       <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
@@ -107,8 +111,11 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   )
 }
 
+const tailOf = (row: ChartRow['row']): string | null => (row.tail !== undefined && row.tail.text !== '' ? row.tail.text : null)
+
 /** Every aim with a chance, each its own chart on the one 0 to 100 axis: the lead aim first, under core's lead; the others under their aim. */
 export function ChanceChart({ model }: { model: ViewModel }) {
+  const [open, setOpen] = useState(false)
   const run = model.run ?? null
   const groups = chartGroupsOf(model)
   if (run === null || groups.length === 0) return null
@@ -122,6 +129,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
   const marks = [...new Map(groups.flatMap((g) => g.rows.flatMap(({ row }) => [row.likely, row.olumi])).filter((m): m is NonNullable<typeof m> => m != null).map((m) => [m.glyph, m] as const)).values()]
   const sentence = ranged && run.sensitivity != null ? run.sensitivity.text : ''
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
+  const tails = groups.some((g) => g.rows.some(({ row }) => tailOf(row) !== null))
   return (
     <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
       {groups.map((g, gi) => (
@@ -129,28 +137,29 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
-          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === 0} />)}</ul>
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === 0} open={open} />)}</ul>
         </div>
       ))}
-      {/* The key: low and high, the figure they are for, and one disclosure (reachable by touch and keyboard, never hover alone) for what the marks and
-          the two ends mean, in core's own words: each mark's title and the sensitivity sentence. */}
-      {!ranged && marks.length === 0 ? null : (
-        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
-          {!ranged ? null : (
-            <p className="m-0 flex items-center gap-2" aria-hidden="true">
-              <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
-              <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
-            </p>
-          )}
+      {/* At rest, under the bars: the figure every whisker is for (when it is one) and core's sentence for what the two ends ARE, never folded
+          (Codex 008 item 3: folded, the ends could read as a confidence interval). Then ONE press (a button, reachable by touch and keyboard, never
+          hover alone), offered whenever anything is folded: the low/high key, each mark's meaning in core's own title, and each option's tail. */}
+      {!ranged && marks.length === 0 && !tails ? null : (
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : marks.length > 0 ? 'analysis-chart-marks' : 'analysis-chart-tails'}>
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
-          {/* What the two ends ARE, at rest (Codex 008 item 3, the overnight analysis design's scientific closure): core's one sentence that they are the
-              chances if that input comes out in its lowest or highest third, never a confidence interval. Only the marks' legend folds. */}
           {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
-          {marks.length === 0 ? null : (
-            <details data-testid="analysis-chart-meaning">
-              <summary className="flex min-h-6 cursor-pointer list-none items-center gap-1 text-text-body [&::-webkit-details-marker]:hidden"><FoldChevron />{CHART_WORDS.meaning}</summary>
-              <div className="space-y-1 pb-1"><Marks marks={marks} /></div>
-            </details>
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
+            <FoldChevron open={open} />{CHART_WORDS.more}
+          </button>
+          {!open || (!ranged && marks.length === 0) ? null : (
+            <div className="space-y-0.5 pb-1" data-testid="analysis-chart-fold">
+              {!ranged ? null : (
+                <p className="m-0 flex items-center gap-2" aria-hidden="true" data-testid="analysis-chart-ends-key">
+                  <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
+                  <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
+                </p>
+              )}
+              <Marks marks={marks} />
+            </div>
           )}
         </div>
       )}
