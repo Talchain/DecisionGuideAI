@@ -288,13 +288,13 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
-        <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
+        <span className={`absolute -left-2 -top-3 inline-flex h-[18px] min-w-[18px] items-center justify-center whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
           title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined}
           data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>
       )}
       {driverOf === null || lensWords === null ? null : (
         // What would change: the ring's own name (core's lens label) on the ringed figure's corner, out of flow so no card moves; the options' driver words on hover.
-        <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-text-header bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+        <span className={`absolute -right-2 -top-3 z-10 h-[18px] max-w-[180px] truncate rounded border border-text-header bg-panel px-2 text-text-header ${typography.viewLabel}`}
           title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
       )}
       {tried === null ? null : (
