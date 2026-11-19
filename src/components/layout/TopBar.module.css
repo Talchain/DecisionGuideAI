@@ -492,6 +492,6 @@
 .topBar[data-tight="3"] .coreShare {
   padding: 0 10px;
 }
-.topBar[data-tight="3"] .coreShare span {
+.topBar[data-tight="3"] .coreShare span:not([aria-hidden]) {
   display: none;
 }
