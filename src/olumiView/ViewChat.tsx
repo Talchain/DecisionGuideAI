@@ -1705,9 +1705,9 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
         {/* One flowing run: the heading, the dot and the version wrap together, never three flex columns (DL look at 1500x904 at 1.33). It wraps and is never cut: Paul, 19 Nov. */}
         <span className="min-w-0 flex-1 break-words" data-testid="view-proposal-words"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
       </button>
-      <button type="button" className={VIEW_CHIP_CLASS}
+      <button type="button" className={`${VIEW_CHIP_CLASS} ok-review-toggle`}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        <span className="ok-review-label">Review</span><FoldChevron open={open} />
+        Review<FoldChevron open={open} />
       </button>
     </>
   )

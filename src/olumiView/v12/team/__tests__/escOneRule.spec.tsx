@@ -1,6 +1,6 @@
 /**
  * S4 lane esc3 (19 Nov, URL 3): the one Escape rule, and the Record form's reach. Escape closes the TOP-most open layer once; the Record form folds and keeps its draft
- * (as its X does); the form comes whole into the panel's scroll area. jsdom has no layout, so the scroll rows give the area and the form measured rectangles.
+ * (as its X does); opening the form scrolls it into view.
  */
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../../client'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { resetWrites } from '../../../../olumiCore/team/writes'
-import { CommitForm, bringFormIntoView } from '../CommitForm'
+import { CommitForm } from '../CommitForm'
 import { useEscapeLayer } from '../../edit/escapeLayers'
 import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
@@ -44,22 +44,15 @@ describe('esc3 task 1: Record what you will do', () => {
     fireEvent.click(screen.getByTestId('commit-form-open'))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics about hours')
   })
-  it('the whole form comes into the panel\'s scroll area: its foot is scrolled to the area\'s foot, never past its own top (a form taller than the area shows from its heading)', () => {
-    render(<div data-testid="view-chat-scroll"><CommitForm sid="s_esc1b" view={view()} onWrote={async () => true} /></div>)
-    fireEvent.click(screen.getByTestId('commit-form-open'))
-    const area = screen.getByTestId('view-chat-scroll'), form = screen.getByTestId('commit-form')
-    const at = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON: () => ({}) })
-    area.getBoundingClientRect = () => at(100, 400) // 300 px tall area (1232 x 704 minus the composer block)
-    // 324 px form at 160..484 (the audit's number): taller than the area, so it is shown from its heading, not its foot.
-    form.getBoundingClientRect = () => at(160 - area.scrollTop, 484 - area.scrollTop)
-    area.scrollTop = 0
-    bringFormIntoView()
-    expect(area.scrollTop, 'taller than the area: scrolled to the heading and no further').toBe(52)
-    // A 200 px form at 160..360 inside the same area stands whole with no scroll; at 260..460 its foot is 68 px below the area's foot, so it scrolls by that.
-    form.getBoundingClientRect = () => at(260 - area.scrollTop, 460 - area.scrollTop)
-    area.scrollTop = 0
-    bringFormIntoView()
-    expect(area.scrollTop, 'the foot (460 + 8 margin) is brought to the area\'s foot (400)').toBe(68)
+  it('opening the form (its own button, or from outside) scrolls that form into view, just far enough; folded, nothing scrolls', () => {
+    const scrolled: Array<[Element, unknown]> = [], was = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = function (this: Element, o?: boolean | ScrollIntoViewOptions) { scrolled.push([this, o]) }
+    try {
+      render(<div data-testid="view-chat-scroll"><CommitForm sid="s_esc1b" view={view()} onWrote={async () => true} /></div>)
+      expect(scrolled, 'CONTRAST: folded, nothing scrolls').toHaveLength(0)
+      fireEvent.click(screen.getByTestId('commit-form-open'))
+      expect(scrolled).toEqual([[screen.getByTestId('commit-form'), { block: 'nearest' }]])
+    } finally { Element.prototype.scrollIntoView = was }
   })
 })
 

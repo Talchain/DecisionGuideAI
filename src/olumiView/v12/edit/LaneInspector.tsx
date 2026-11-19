@@ -151,8 +151,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => (
-    <button key={r.id} type="button" title={r.tooltip} aria-disabled={!r.enabled || undefined} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (r.enabled) r.action() }}
-      className={`${VIEW_CHIP_CLASS} aria-disabled:cursor-not-allowed aria-disabled:text-text-light`}>{r.label}</button>
+    <button key={r.id} type="button" title={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
+      className={VIEW_CHIP_CLASS}>{r.label}</button>
   )
 
   if (link !== null) return (
@@ -321,8 +321,8 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
       {rows.length === 0 ? null : (
         <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label="Edit">
           {rows.map((r) => (
-            <button key={r.id} type="button" title={r.tooltip} aria-disabled={!r.enabled || undefined} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (r.enabled) r.action() }}
-              className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover aria-disabled:cursor-not-allowed aria-disabled:opacity-50`}>{r.label}</button>
+            <button key={r.id} type="button" title={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
+              className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>{r.label}</button>
           ))}
         </div>
       )}

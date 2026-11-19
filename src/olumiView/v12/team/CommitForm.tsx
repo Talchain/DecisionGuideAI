@@ -56,29 +56,7 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     const words = seedWords(action)
     return { ...base, action: !typed ? words : base.action.includes(words) ? base.action : `${base.action}\n\n${words}`, seeded: true }
   })
-  setTimeout(() => {
-    bringFormIntoView()
-    document.getElementById('commit-form-action')?.focus({ preventScroll: true })
-  }, 0)
-}
-
-/**
- * The newest reply stays in view when the form opens (Paul, 19 Nov: it pushed the reply out of sight), but the WHOLE form comes first (S4 esc3, 19 Nov: at 1232 only
- * 96 of its 324 px showed, the rest under the message box). Inside the panel's own scroll area: the reply is brought to the top, then the area scrolls on just far enough
- * for the form's foot to stand in it, never past the form's own top (a form taller than the area shows from its heading). Focus never scrolls.
- */
-export function bringFormIntoView(): void {
-  const newest = document.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
-  const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
-  const area = form?.closest<HTMLElement>('[data-testid="view-chat-scroll"]') ?? null
-  if (form === null) return
-  if (area === null) { if (typeof form.scrollIntoView === 'function') form.scrollIntoView({ block: 'nearest' }); return }
-  const edge = 8
-  if (newest !== null && typeof newest.scrollIntoView === 'function') newest.scrollIntoView({ block: 'start' })
-  const a = area.getBoundingClientRect(), f = form.getBoundingClientRect()
-  const hidden = f.bottom + edge - a.bottom // px of the form below the area's foot
-  if (hidden > 0) area.scrollTop += Math.min(hidden, Math.max(0, f.top - a.top - edge))
-  else if (f.top < a.top) area.scrollTop -= a.top - f.top + edge
+  setTimeout(() => document.getElementById('commit-form-action')?.focus({ preventScroll: true }), 0)
 }
 
 /**
@@ -191,10 +169,14 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const discard = () => { drop(); setError(null); setTried(false) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
+  // Opening, from its own button or from outside, brings the form just far enough into the panel's scroll area.
+  // Focus never scrolls. jsdom draws no layout and has no scrollIntoView.
+  const form = useRef<HTMLElement>(null)
+  useEffect(() => { if (d.open) form.current?.scrollIntoView?.({ block: 'nearest' }) }, [d.open])
   if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
-        <button type="button" data-testid="commit-form-open" onClick={() => { put({ open: true }); setTimeout(bringFormIntoView, 0) }}
+        <button type="button" data-testid="commit-form-open" onClick={() => put({ open: true })}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
           <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
           {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>
@@ -205,7 +187,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     )
   }
   return (
-    <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="true" aria-label={COMMIT_WORDS.heading} className={CARD}>
+    <section ref={form} data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="true" aria-label={COMMIT_WORDS.heading} className={CARD}>
       <div className="flex items-center justify-between gap-2">
         <h3 className={H} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
         <button type="button" aria-label={COMMIT_WORDS.close} title={COMMIT_WORDS.close} data-testid="commit-form-close" onClick={close}

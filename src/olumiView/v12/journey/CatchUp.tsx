@@ -19,8 +19,10 @@ export const CATCH_UP_WORDS = {
   open: (n: number) => `${n} open`,
 } as const
 
-/** The counts the row says: conclusions whose chance text changed at the version shown, and open items (as the panel lists them). */
+/** The counts the row says: conclusions whose chance text changed at the version shown, and open items (as the panel lists them).
+ *  A model with no saved version has no record to catch up on: nothing. */
 export function catchUpCounts(view: Parameters<typeof journeyOf>[0], at: number | null): { moved: number; open: number } {
+  if (view.version == null) return { moved: 0, open: 0 }
   const j = journeyOf(view, { at, keptNode: () => null, hasNext: false })
   return { moved: j.moved?.rows.length ?? 0, open: j.open.length }
 }
@@ -29,10 +31,8 @@ export function CatchUp(): JSX.Element | null {
   // The record's own gate (JourneyRecordBlock, the canvas's store flags): never counts from a View being re-read or whose read failed.
   const view = useViewStore((s) => (s.error === null && !s.stale ? s.view : null))
   const at = useViewStore((s) => s.at)
-  const version = useViewStore((s) => s.view?.version ?? null)
   const c = useMemo(() => (view === null ? null : catchUpCounts(view, at)), [view, at])
-  // Nothing is saved yet (no version): nothing to catch up on.
-  if (c === null || version === null || (c.moved === 0 && c.open === 0)) return null
+  if (c === null || (c.moved === 0 && c.open === 0)) return null
   const parts = [c.moved > 0 ? CATCH_UP_WORDS.moved(c.moved) : null, c.open > 0 ? CATCH_UP_WORDS.open(c.open) : null].filter((x): x is string => x !== null)
   return (
     <button type="button" onClick={openVersionsPanel} data-testid="journey-catch-up"

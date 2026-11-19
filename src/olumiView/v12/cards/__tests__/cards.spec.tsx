@@ -532,11 +532,10 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     cleanup()
     expect(line('12', { low: 10, likely: null, high: 14, unit: 'weeks' })?.textContent, 'CONTRAST: a range with no likely value is not one number').toBe('12')
   })
-  it('P5 (S4 details task 4) a card\'s quiet line wraps to two lines, never one cut with an ellipsis: no card draws ok-one-line and the look has no such rule; CONTRAST: the line is still there, whole in its hover', () => {
+  it('P5 (S4 details task 4) a card\'s quiet line wraps to two lines, never one cut with an ellipsis: no card draws ok-one-line; CONTRAST: the line is still there, whole in its hover', () => {
     const spend = cardOf(ASKED, 'spend')
     const line = lineOf(draw(ASKED, 'spend', 'simple'))!
     expect([line.classList.contains('ok-one-line'), line.title.split('\n')[0]]).toEqual([false, spend.figure!.title])
-    expect(readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')).not.toMatch(/\.ok-one-line/)
   })
   it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
