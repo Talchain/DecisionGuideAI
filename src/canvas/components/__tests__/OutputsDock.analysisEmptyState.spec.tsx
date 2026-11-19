@@ -47,7 +47,7 @@
  */
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // OutputsDock's import chain pulls in supabase + dompurify, which break under
@@ -281,11 +281,20 @@ describe('the Analysis dock tab in its two measured-dead states (affordance swee
     // defect was "zero copy", and a container with no text would satisfy a
     // presence-only assertion.
     expect(empty).toHaveTextContent('Nothing to analyse yet')
-    expect(empty).toHaveTextContent('This panel reports on a decision model')
+    expect(empty).toHaveTextContent('This panel reports on a model')
 
     // The measured symptom, asserted directly: the dock body was `innerText`
     // exactly "". It must not be that any more.
     expect(screen.getByTestId('outputs-dock-body').textContent).not.toBe('')
+  })
+
+  it('vocabulary (Paul, 14 Oct): the empty panel calls it a "model", never a "decision model" (Decision is only the person\'s own act of choosing)', async () => {
+    renderDock()
+    await expandToAnalysis()
+    const sentence = within(await screen.findByTestId('outputs-analysis-empty')).getByText(/^This panel reports on/)
+    // CONTRAST: the sentence is found and names the model; the old word is absent from it.
+    expect(sentence.textContent).toMatch(/\bmodel\b/)
+    expect(sentence.textContent).not.toMatch(/decision model/i)
   })
 
   it('A3 — the empty state’s only promise is its destination, and it keeps it', async () => {

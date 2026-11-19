@@ -3801,7 +3801,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       Nothing to analyse yet
                     </div>
                     <p className={`${typography.panelBody} text-text-light`}>
-                      This panel reports on a decision model. There isn’t one on the canvas yet.
+                      This panel reports on a model. There isn’t one on the canvas yet.
                     </p>
                     <button
                       type="button"
