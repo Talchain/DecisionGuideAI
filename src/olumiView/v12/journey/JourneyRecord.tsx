@@ -176,7 +176,9 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
     // The chat's own exclusion (ViewChat's NextStep and stepTurnOf): a move the chat refused as stale is no next step here either, so the
     // press never opens a chat with no Next step in it. The key is ViewChat's `moveKey` (sid, turn, move joined by NUL).
     const isGone = (turn: number, move: string) => sid !== null && gone === `${sid}\u0000${turn}\u0000${move}`
-    return journeyOf(view, { at, keptNode, hasNext: nextStepOf(view, isGone) !== null })
+    // The approve step is the proposal row already listed (both go to the chat's proposal), so it is not offered twice.
+    const step = nextStepOf(view, isGone)
+    return journeyOf(view, { at, keptNode, hasNext: step !== null && step.kind !== 'approve' })
   }, [view, at, sid, gone])
   const [history, setHistory] = useState(false)
   if (isEmpty(j)) return null

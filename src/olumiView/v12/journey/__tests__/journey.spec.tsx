@@ -281,6 +281,15 @@ describe('#2 open items, each with its exact action', () => {
     cleanup(); show({ ...full(), model: null } as unknown as View); render(<JourneyRecordBlock />)
     expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
   })
+  it('with a proposal waiting, its row is the way to it: the approve step is not offered again as "Go to the next step"', () => {
+    next = { kind: 'approve', turn: 3, move: 'm' }
+    show(full()); render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
+    expect(screen.queryByTestId('journey-next')).toBeNull()
+    cleanup(); next = { kind: 'move', turn: 3, move: 'm' } // contrast: another step beside the proposal is still offered
+    render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.getByTestId('journey-next')).toBeInTheDocument()
+  })
   it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion)', () => {
     next = { kind: 'move', turn: 3, move: 'm' }
     show(full())
