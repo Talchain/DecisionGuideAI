@@ -48,7 +48,7 @@ describe('the next step', () => {
     expect(catchUpCounts(view, null).open).toBeGreaterThan(0) // contrast: this View has something to count
     const rowIn = (flags: { stale: boolean; error: string | null }) => {
       cleanup()
-      const c = show(view)
+      show(view)
       cleanup()
       useViewStore.setState(flags)
       return render(<ViewChat />).container.querySelector('[data-testid="journey-catch-up"]')

@@ -63,6 +63,7 @@ describe('the Frame page', () => {
   })
   it('the finding is core\'s own words: most_likely.text, else the waits_on head, label and text', () => {
     const run = fx.model!.run
+    if (run === null) throw new Error('the fixture must carry a run')
     const ml = { ...run, most_likely: { ...run.most_likely, text: 'CORE SAYS THIS' } }
     page(viewOf([mine], { run: ml }))
     expect(screen.getByTestId('frame-finding').textContent).toBe('CORE SAYS THIS')
