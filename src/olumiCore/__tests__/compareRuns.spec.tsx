@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ComparedLists, CoreCompare, type Compared } from '../compare'
-import { SEPARATE_RUNS, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
+import { SAME_DRAWS, SEPARATE_RUNS, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
 
 afterEach(() => { cleanup(); setTeamFetch(null) })
@@ -142,5 +142,43 @@ describe('version compare: the pickers in reverse still put each version\'s word
     expect(container.querySelector('[data-testid="rv-results"] li')!.textContent).toContain('V2-WORDS about 20% → V3-WORDS about 70%')
     expect(container.querySelector('[data-compare-track]')).toBeNull()
     expect(runsLabels(container)).toEqual(ONE_LABEL)
+  })
+})
+
+describe('side by side: where the two sides answer different questions, that is said first (v3 guardrail)', () => {
+  const aim = (label: string, status: string) => ({ label, kind: 'aim', status, limitation: status === 'comparable' || status.startsWith('only') ? null : `WHY-${label}`,
+    only_in_text: null, a: { label, measure: 'M', target: 'T-a' }, b: { label, measure: 'M', target: 'T-b' }, options: [] })
+  const drawn = (c: HTMLElement) => [...c.querySelectorAll('[data-compare-aim]')].map((e) => [e.getAttribute('aria-label'), e.getAttribute('data-compare-aim')])
+  it("different_target and not_comparable aims lead, each with core's own reason; the rest keep core's order", () => {
+    const c = { ...PAIR(0.5, 0.9), aims: [aim('Reach 100', 'comparable'), aim('Hire extra', 'only_a'), aim('Reach 120', 'different_target'), aim('Cost', 'not_comparable')] as never }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    expect(drawn(container)).toEqual([['Reach 120', 'different_target'], ['Cost', 'not_comparable'], ['Reach 100', 'comparable'], ['Hire extra', 'only_a']])
+    expect(container.querySelector('[data-compare-aim="different_target"] [data-compare-limitation]')!.textContent).toBe('WHY-Reach 120')
+  })
+  it("contrast: when every aim answers the same question, core's order is kept exactly", () => {
+    const c = { ...PAIR(0.5, 0.9), aims: [aim('Z last', 'comparable'), aim('A first', 'comparable'), aim('Only b', 'only_b')] as never }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    expect(drawn(container).map(([l]) => l)).toEqual(['Z last', 'A first', 'Only b'])
+  })
+})
+
+describe('a pair core proves (SideInfo.paired, a what-if against its exact base): the track returns, said "Same draws"', () => {
+  it('the what-if side paired: one track per comparable option at core\'s numbers, "Same draws" in place of "Separate runs", the key once; the unpaired option gets none', () => {
+    const c = PAIR(0.5, 0.9)
+    const { container } = render(<ScenarioComparisonView c={{ ...c, b: { ...c.b, paired: true } }} />)
+    expect([...container.querySelectorAll('[data-compare-track]')].map((t) => [t.getAttribute('data-first'), t.getAttribute('data-second')])).toEqual([['50', '90']])
+    expect(runsLabels(container)).toEqual([['same-draws', SAME_DRAWS.label, SAME_DRAWS.title]])
+    expect([...container.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)).toEqual(['Rota', 'Busier week (what-if)'])
+    expect(optionRow(aimBox(container, 'Reach 100'), 'Hire two').querySelector('[data-compare-track]')).toBeNull()
+  })
+  it('CONTRASTS: paired false, or absent, on both sides draws no track and keeps "Separate runs"; a proven pair on a different_target aim draws no track', () => {
+    const c = PAIR(0.5, 0.9)
+    for (const sides of [{ a: { ...c.a, paired: false }, b: { ...c.b, paired: false } }, { a: c.a, b: c.b }]) {
+      const { container, unmount } = render(<ScenarioComparisonView c={{ ...c, ...sides }} />)
+      expect([container.querySelectorAll('[data-compare-track]').length, runsLabels(container)]).toEqual([0, ONE_LABEL])
+      unmount()
+    }
+    const diff = { ...c, b: { ...c.b, paired: true }, aims: [{ ...c.aims[0]!, status: 'different_target', limitation: 'WHY' }] }
+    expect(render(<ScenarioComparisonView c={diff as never} />).container.querySelector('[data-compare-track]')).toBeNull()
   })
 })

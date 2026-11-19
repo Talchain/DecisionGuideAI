@@ -13,6 +13,7 @@ import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { OkIcon } from '../olumiView/look/icons'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
 import { isForThisPage, useMe } from './me'
+import { marksOf, useCompareMarks } from './compareMarks'
 import { revealedForYou } from '../olumiView/v12/views/differGroups'
 import { useCompare } from '../olumiView/v12/views/useCompare'
 import { COMPARE_WORDS } from '../olumiView/v12/views/WhereWeDiffer'
@@ -34,7 +35,10 @@ export type Move = { kind: 'chance' | 'limit' | 'most_likely'; option: string | 
 /** `who` (core wip/compare, 7 Nov): core's own words for who proposed and approved the version. */
 export type Compared = { versions: { n: number; at: string; proposedBy: string | null; briefBy: string | null; approvedBy: string; who?: string }[]
   /** `olumi` (API v1.8): true exactly where `mark` is core's ◆, Olumi's. */
-  changes: { text: string; detail: string; mark: { glyph: string; title: string } | null; olumi?: boolean }[]; results: Move[] }
+  changes: { text: string; detail: string; mark: { glyph: string; title: string } | null; olumi?: boolean
+    /** Core wip/x-compare-core (frozen 19 Nov): the record the line is about and its family code; both null on a top-level-field line,
+     *  absent from an older core. */
+    record_id?: string | null; kind?: string | null }[]; results: Move[] }
 
 /**
  * Core's own words for a move, for what a result is about and for who proposed and approved a version (`move_text`, `label`, `who`: core
@@ -228,6 +232,7 @@ export const ASK_WHICH = {
   request: 'Between these two versions, which single change moved the results most, and how could I check it?',
   placed: 'Your question is in the message box. Edit it if you like, then send it.',
 } as const
+export const moreChanges = (n: number) => (n === 1 ? '1 more change' : `${n} more changes`)
 export const notMoved = (n: number) => (n === 1 ? '1 result did not move.' : `${n} results did not move.`)
 
 /**
@@ -347,6 +352,13 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
     return () => { live = false }
   }, [sid, from, to, key])
   const c = shown?.key === key ? shown.c : null
+  // The canvas draws this pair's difference while it is shown: core's lines by the record each names (compareMarks.tsx); gone with the pair.
+  useEffect(() => {
+    if (c === null) return
+    const [lo, hi] = from < to ? [from, to] : [to, from]
+    useCompareMarks.getState().show({ sid, from: lo, to: hi, byId: marksOf(c.changes) })
+    return () => useCompareMarks.getState().clear()
+  }, [c, sid, from, to])
   if (error?.key === key) return <p role="alert" className={ERR} data-testid="core-compare-error">{error.text}</p>
   if (c === null) return <p className={META} data-testid="core-compare-loading">Reading both versions…</p>
   const moved = c.results.map((r, i) => ({ r, i })).filter(({ r }) => movedOf(r)).sort((a, b) => sizeOf(b.r) - sizeOf(a.r) || a.i - b.i)
@@ -425,24 +437,43 @@ const OPEN_LINES_UP_TO = 3
 function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Element {
   const cards = useViewStore((s) => s.view?.model?.cards)
   const sid = useViewStore((s) => s.sid)
-  const named = since !== null && since.changed.length > 0 ? since.changed : null
+  // A core that names each line's record (`record_id`, wip/x-compare-core) makes its own lines the one list, each a press to its card: the
+  // View's named list (`since.changed`) would say the same change twice. An older core's lines name no card, so the named list stays.
+  const typed = c.changes.some((l) => typeof l.record_id === 'string' && l.record_id !== '')
+  const named = !typed && since !== null && since.changed.length > 0 ? since.changed : null
   const onCanvas = (id: string) => Array.isArray(cards) && cards.some((x) => x.id === id)
-  const lines = (
-    <ul className="m-0 grid list-none gap-1.5 p-0" data-testid="core-compare-lines">
-      {c.changes.map((l, i) => (
-        <li key={i} className={`${BODY} flex min-w-0 items-start gap-1.5`} data-compare-line={i}>
-          <span className="mt-0.5 flex-none">{/* Core's mark, with its hover: ◆ is Olumi's; ◐ is the person's figure Olumi read as a range, so the person's. */}
-          <Whose olumi={l.olumi ?? l.mark?.glyph === '◆'} theirs={l.mark !== null && !(l.olumi ?? l.mark.glyph === '◆')} words={l.mark?.title} /></span>
-          <span className="min-w-0 break-words">{l.text}{l.detail ? <> <span className="whitespace-pre-line text-text-light">{l.detail}</span></> : null}</span>
-        </li>
-      ))}
+  const linesOf = (some: Compared['changes'], at: number) => (
+    <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={at === 0 ? 'core-compare-lines' : 'core-compare-lines-more'}>
+      {some.map((l, j) => {
+        const i = at + j
+        const body = (
+          <>
+            <span className="mt-0.5 flex-none">{/* Core's mark, with its hover: ◆ is Olumi's; ◐ is the person's figure Olumi read as a range, so the person's. */}
+            <Whose olumi={l.olumi ?? l.mark?.glyph === '◆'} theirs={l.mark !== null && !(l.olumi ?? l.mark.glyph === '◆')} words={l.mark?.title} /></span>
+            <span className="min-w-0 break-words">{l.text}{l.detail ? <> <span className="whitespace-pre-line text-text-light">{l.detail}</span></> : null}</span>
+          </>
+        )
+        const rid = typeof l.record_id === 'string' && l.record_id !== '' ? l.record_id : null
+        return (
+          <li key={i} className={`${BODY} flex min-w-0 items-start gap-1.5`} data-compare-line={i} data-compare-line-record={rid ?? undefined}>
+            {rid !== null && onCanvas(rid)
+              ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={rid} title="Show it on the canvas" onClick={() => { if (sid !== null) showCard(sid, rid) }}>{body}</button>
+              : body}
+          </li>
+        )
+      })}
     </ul>
   )
+  const lines = linesOf(c.changes, 0)
   return (
     <section className="grid gap-2" aria-label="What changed" data-testid="core-compare-changes">
       <h4 className={H}>What changed</h4>
       {named === null
-        ? (c.changes.length === 0 ? <p className={META} data-testid="core-compare-changes-none">No change to the model</p> : lines)
+        ? (c.changes.length === 0 ? <p className={META} data-testid="core-compare-changes-none">No change to the model</p>
+          // Typed lines are the one list: the first few open at rest, the rest one press away (never a wall, never said twice).
+          : typed && c.changes.length > OPEN_LINES_UP_TO
+            ? <>{linesOf(c.changes.slice(0, OPEN_LINES_UP_TO), 0)}<Fold id="core-compare-more-lines" summary={moreChanges(c.changes.length - OPEN_LINES_UP_TO)}>{linesOf(c.changes.slice(OPEN_LINES_UP_TO), OPEN_LINES_UP_TO)}</Fold></>
+            : lines)
         : (
           <>
             <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-named">
