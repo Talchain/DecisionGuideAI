@@ -7,7 +7,8 @@ import { COMPARE_WORDS } from './WhereWeDiffer'
 import { ACTION_FOCUS } from '../../../components/results/analysisNew/panelSurfaces'
 
 /** Sized as the lens buttons beside them (ViewLensBar), so the row reads as one; as they do, only an unpressed one changes colour on hover, so a
- *  pressed one keeps its pressed colour. */
+ *  pressed one keeps its pressed colour. No divider before them: at 1128x680@1.33 the bar with both icons must fit beside the pill at its tightest
+ *  (286 px; 280 without the divider), or it falls to the row under the pill (UI lead ruling (a), 19 Nov). */
 const rowButton = (pressed: boolean) => `h-full min-w-8 rounded-full px-2 transition-colors duration-200 ${pressed ? '' : 'hover:text-text-body'} ${ACTION_FOCUS}`
 
 /**
@@ -24,7 +25,6 @@ export function ViewsToggle({ view, marks }: { view: View | null; /** The cards 
   if (view === null || !revealedForYou(view)) return null
   return (
     <>
-      <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-panel-border" />
       {marks ? <OkIconButton id="views" variant={on ? undefined : 'alt'} active={on} pressed={on} words="Views" testid="views-toggle" className={rowButton(on)}
         hover={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'} onClick={() => set(!on)} /> : null}
       <OkIconButton id="compare-views" active={centred} pressed={centred} words={COMPARE_WORDS.control} testid="views-compare" className={rowButton(centred)}
