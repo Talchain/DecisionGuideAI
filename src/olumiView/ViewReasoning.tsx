@@ -21,13 +21,14 @@ import { shownModel, useViewStore } from './store'
 import { WhatIfShown } from './ViewChances'
 import { prefillComposer, runMethod } from './ViewChat'
 import { Door, SignalRow } from './reasoning/parts'
-import { examineOf, type Examine } from './reasoning/examine'
+import { actionable, examineOf, type Examine } from './reasoning/examine'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
@@ -35,6 +36,7 @@ export const REASONING_LABELS = {
   olumi: 'Olumi’s', yours: 'People’s', mixed: 'Both',
   more: (n: number) => `Show ${n} more`, fewer: 'Show fewer',
   examine: 'Worth examining',
+  activity: 'Something to work on',
   challenge: 'Challenge your thinking',
   premises: 'Assumptions and evidence',
   questions: 'Questions worth answering',
@@ -43,6 +45,7 @@ export const REASONING_LABELS = {
 } as const
 const RING = 'reasoning-tab'
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
+const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
 const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
 const REST_GROUPS = 2
@@ -224,15 +227,37 @@ function Premises({ model }: { model: ViewModel }) {
   )
 }
 
+/** The activity's one green action: a card shown, a method run, or core's words put in the message box (nothing sent). */
+function LeadAct({ e }: { e: Examine }) {
+  if (e.kind === 'challenge') return <button type="button" className={GREEN} onClick={() => pressCard(e.card.id)} data-testid="reasoning-challenge-show"><OkIcon id="show-in-workspace" size={14} decorative />{REASONING_LABELS.show}</button>
+  if (e.kind === 'method' && e.method !== null) {
+    const { at: i, m } = e.method
+    return <button type="button" className={GREEN} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${i}.text`}>{m.text}</span></button>
+  }
+  const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
+  return fill === null ? null : <button type="button" className={GREEN} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={14} decorative />{REASONING_LABELS.fill}</button>
+}
+
 /**
- * The tab's one place to start, for another tab to offer where it has no result of its own to show (Analysis while no option has a chance:
- * Codex 011, a model in words must offer an activity, not only what a result still needs). The same item, words and action as here.
+ * Something to work on, for another tab where it has no result of its own to show (Analysis while no option has a chance: Codex 011, a
+ * model in words must offer an activity). An item of the Reasoning tab's list (the first that carries an action, in its order of kinds),
+ * offered as an activity under a neutral label: it claims no priority (core computes none yet, engine ask 2).
  */
 export function StartHere({ model }: { model: ViewModel }) {
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
-  const lead = examineOf(model, methods, words).find(actionable)
-  return lead === undefined ? null : <div onMouseLeave={() => ringFrom(RING, [])}><Focus e={lead} /></div>
+  const e = examineOf(model, methods, words).find(actionable)
+  if (e === undefined) return null
+  const w = wordsOf(e)
+  return (
+    <section className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
+      onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
+      <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
+      <p className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} title={w.hover ?? w.text} {...at(e, w.at)}>{w.text}</p>
+      {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
+      <div className="flex flex-wrap items-center gap-2 pt-1"><LeadAct e={e} /></div>
+    </section>
+  )
 }
 
 /** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
