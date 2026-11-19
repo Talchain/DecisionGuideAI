@@ -428,4 +428,52 @@ describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
     cleanup()
     expect(step(show(golden('bakery')))!.querySelector('[data-testid="view-next-move"]')).toBeNull()
   })
+  // S4 ruling (19 Nov): exactly one filled action at rest wherever core offers a next step, of every kind. Filled = the lane's solid green (controls.actColours: bg-success)
+  // on a visible, enabled button inside the panel; the Next step's own press sits under the closed row, never in the folded body.
+  const filled = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-testid="view-chat"] button')].filter((b) => b.className.split(/\s+/).includes('bg-success') && !b.closest('[hidden]'))
+  const pressUnderRow = (c: HTMLElement, id: string) => {
+    const s = step(c)!, body = s.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!, press = s.querySelector<HTMLElement>(`[data-testid="${id}"]`)!
+    expect([body.hidden, press === null, body.contains(press), press.closest('[hidden]')]).toEqual([true, false, false, null])
+    expect(press.className.split(/\s+/), 'filled').toContain('bg-success')
+    return press
+  }
+  it('NS1 a METHOD step: its filled press is under the closed row, once, in core\'s words; its prerequisite stays in the fold; the one filled action in the panel', () => {
+    const sv = sessionView('goal-understand')
+    const view: View = { ...sv, chat: sv.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: 'other_method' } } })) }
+    const st = nextStepOf(view)!
+    expect(st.kind).toBe('method')
+    const c = show(view), press = pressUnderRow(c, 'view-next-method')
+    expect(press.textContent).toBe(st.kind === 'method' ? st.method.text : '')
+    expect(filled(c)).toHaveLength(1)
+    expect(c.querySelectorAll('[data-testid="view-next-method"]')).toHaveLength(1)
+    expect(step(c)!.querySelector('[data-testid="view-next-step-label"]'), 'the row does not say the press\'s words again').toBeNull()
+  })
+  it('NS2 an INVITE step: its filled press is under the closed row, the sentence stays in the fold, and it opens Team', () => {
+    const view = golden('pricing'), begun: View = { ...view, chat: [], collab: { ...view.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false } as never] } }
+    const c = show(begun), press = pressUnderRow(c, 'view-next-invite')
+    expect(step(c)!.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')).toHaveTextContent(NEXT_STEP_WORDS.invite)
+    expect(filled(c)).toHaveLength(1)
+    fireEvent.click(press)
+    expect(useUIStore.getState().activeOutputTab).toBe('team')
+  })
+  it('NS3 a FIGURE step: the opener is a filled press under the closed row (both the older look and the lane), the waits words stay in the fold; opening it leaves one filled control', () => {
+    for (const core of ['0', '1']) {
+      vi.stubEnv('VITE_OLUMI_CORE', core)
+      const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null && i.unknown == null)!
+      const c = show(view), press = pressUnderRow(c, `next-figure-edit-${item.id}`)
+      expect(press.textContent).toBe('Add the figure')
+      expect(step(c)!.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!.querySelector('[data-testid="view-next-figure-waits"]')).not.toBeNull()
+      expect(filled(c)).toHaveLength(1)
+      cleanup()
+    }
+  })
+  it('NS4 never two filled at once: a held proposal is the step (Approve filled), the reply\'s move is secondary and no step press is drawn; the approved after-find-first state has exactly one', () => {
+    const c = show(golden('proposal'))
+    expect(step(c)!.getAttribute('data-step')).toBe('approve')
+    expect(step(c)!.querySelector('[data-testid="view-next-move"], [data-testid="view-next-method"], [data-testid="view-next-invite"]')).toBeNull()
+    expect(filled(c).map((b) => b.getAttribute('data-testid'))).toEqual(['view-approve'])
+    cleanup()
+    const d = show(sessionView('after-find-first'))
+    expect(filled(d).map((b) => b.getAttribute('data-testid'))).toEqual(['view-next-move'])
+  })
 })
