@@ -164,6 +164,58 @@ describe('13b: a press is declared, never inferred, and a failed one keeps its i
   })
 })
 
+describe('13b: a press put back belongs to its own scenario and person (Codex 6afc8c1a)', () => {
+  const SID_B = 's_00000000000d', UUID_B = '00000000-0000-4000-8000-00000000000d'
+  const toB = () => useViewStore.setState({ uuid: UUID_B, sid: SID_B, view: { ...fx, id: SID_B } as View, status: 'ready', error: null, stale: false, at: null })
+  const failing = () => {
+    const release: Array<() => void> = []
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (url === '/api/me') return new Response(JSON.stringify({ me: { id: 'p_1', name: 'Paul' } }), { status: 200 })
+      if (init?.method === 'POST') {
+        posts.push({ url, body: JSON.parse(String(init.body)) })
+        if (posts.length === 1) return new Promise<Response>((_, reject) => release.push(() => reject(new TypeError('network'))))
+        return new Response(JSON.stringify({ scenario: SID_B, job: { id: 45, kind: 'turn', status: 'running', words: '' }, proposal: null, discussion: null }), { status: 202 })
+      }
+      return new Response(JSON.stringify(useViewStore.getState().view), { status: 200 })
+    }) as unknown as typeof fetch)
+    return release
+  }
+  it('A\'s press fails after the page moved to B: nothing is put back; the same words sent on B are a plain message on B', async () => {
+    on(fx)
+    const release = failing()
+    useCanvasStore.setState({ selection: { nodeIds: new Set([CARD.id]), edgeIds: new Set(), anchorPosition: null } })
+    let pending!: Promise<boolean>
+    act(() => { pending = askOnPress({ id: 'ask:explain', message: PREFILL }) })
+    await waitFor(() => expect(posts).toHaveLength(1))
+    toB()
+    await act(async () => { release[0]!(); await pending })
+    expect(useViewChat.getState().pressBack ?? null).toBeNull()
+    useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+    const c = render(<ViewComposer />).container
+    act(() => { useViewChat.setState({ text: PREFILL }) })
+    await act(async () => { fireEvent.click([...c.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]).toEqual({ url: `/api/scenarios/${SID_B}/messages`, body: { text: PREFILL, op: expect.any(String) } })
+  })
+  it('A\'s press fails on A: its descriptor is A\'s; on B the same words are a plain message and A\'s descriptor stays A\'s', async () => {
+    on(fx)
+    const release = failing()
+    useCanvasStore.setState({ selection: { nodeIds: new Set([CARD.id]), edgeIds: new Set(), anchorPosition: null } })
+    let pending!: Promise<boolean>
+    act(() => { pending = askOnPress({ id: 'ask:explain', message: PREFILL }) })
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await act(async () => { release[0]!(); await pending })
+    expect(useViewChat.getState().pressBack).toMatchObject({ text: PREFILL, about: CARD.id, press: 'explain', uuid: UUID, person: 'p_1' })
+    toB()
+    useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+    const c = render(<ViewComposer />).container
+    act(() => { useViewChat.setState({ text: PREFILL }) })
+    await act(async () => { fireEvent.click([...c.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]).toEqual({ url: `/api/scenarios/${SID_B}/messages`, body: { text: PREFILL, op: expect.any(String) } })
+  })
+})
+
 describe('13a: "Asked with a method" reads core\'s chat[].ask', () => {
   it('ask challenge or method draws the chrome; ask message draws their words even where the draft entry says method; absent: the draft entry, as before', () => {
     on(fx)

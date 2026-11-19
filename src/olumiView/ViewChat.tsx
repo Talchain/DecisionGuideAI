@@ -961,7 +961,7 @@ export interface ViewChatState {
   readonly wordsBrief?: string | null
   /** Typed fields 13b (Codex HOLD 03:05:28Z): a press put back after a reload. Sending those same words again resends the same press about the
    *  same card under its op (core answers a replay with the turn it has); changed words are the person's own message. */
-  readonly pressBack?: { readonly text: string; readonly about: string; readonly press: PressKind } | null
+  readonly pressBack?: { readonly text: string; readonly about: string; readonly press: PressKind; /** The scenario (page uuid) and person it was made for: used only there (Codex 6afc8c1a). */ readonly uuid: string | null; readonly person: string | null } | null
   /** A challenge picked in the composer with no single card selected (menu brief UI-A, 18 Nov): it runs on the next card the person picks. */
   readonly armed?: ChallengeKind | null
 }
@@ -1101,7 +1101,7 @@ export function restorePendingTurn(): boolean {
   // A press comes back as that press (Codex HOLD 03:05:28Z): the same words sent unchanged resend its kind, card and op; changed words are the
   // person's own message, about no card unless they pick one (an edited prefill is their message, typed fields 13b (b)).
   if (p.press !== undefined && about !== null) {
-    useViewChat.setState({ text: p.text, pressBack: { text: p.text, about, press: p.press }, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, `message:${about}:${p.press}`, p.text), p.op) })
+    useViewChat.setState({ text: p.text, pressBack: { text: p.text, about, press: p.press, uuid, person: me }, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, `message:${about}:${p.press}`, p.text), p.op) })
     return true
   }
   if (about !== null) useCanvasStore.setState({ selection: { nodeIds: new Set([about]), edgeIds: new Set(), anchorPosition: null } })
@@ -1242,7 +1242,9 @@ async function send(pressedWords = false): Promise<void> {
   const { text, held, wordsBrief, pressBack } = useViewChat.getState()
   if (text.trim() === '') return
   const words = pressedWords || (wordsBrief != null && wordsBrief === text)
-  const back = pressBack != null && pressBack.text === text ? pressBack : null
+  // A press put back is resent as that press only on its own scenario, for its own person, with its words unchanged (Codex 6afc8c1a); anywhere
+  // else the same words are an ordinary message.
+  const back = pressBack != null && pressBack.text === text && pressBack.uuid === useViewStore.getState().uuid && pressBack.person === pendingPerson() ? pressBack : null
   const { again, drop } = resendOf(held, text, useViewStore.getState().uuid)
   if (drop) useViewChat.setState({ held: null })
   if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : back !== null ? say(text, words, back.about, back.press) : say(text, words)))) return
@@ -1459,8 +1461,10 @@ function press(opts: Press): Promise<boolean> {
   const pressed = pressKindFor(chip, record)
   // A press that did not go through keeps its whole identity for the unchanged words (Codex 037cbe59 report): Send from the message box resends
   // the same press about the same card under the same op (write() keeps it until core has it); changed words are the person's own message.
+  // Made for the scenario and person on screen now; a failure that settles after the page has moved on writes nothing (keptIfNotSent's `at`).
+  const at = useViewStore.getState().uuid, who = pendingPerson()
   return say(opts.message, false, record, pressed).then((sent) => {
-    if (!sent && pressed !== null && record !== null) useViewChat.setState({ pressBack: { text: opts.message, about: record, press: pressed } })
+    if (!sent && pressed !== null && record !== null && useViewStore.getState().uuid === at && pendingPerson() === who) useViewChat.setState({ pressBack: { text: opts.message, about: record, press: pressed, uuid: at, person: who } })
     return sent
   })
 }
