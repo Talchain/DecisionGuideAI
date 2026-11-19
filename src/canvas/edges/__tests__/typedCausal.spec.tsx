@@ -8,6 +8,7 @@ import { EdgeLabelLayer } from '../../../olumiView/__tests__/edgeLabelLayer'
 import type { ViewLink } from '../../../olumiView/client'
 import { useViewStore } from '../../../olumiView/store'
 import { DOUBT_DASH, effectStroke } from '../../../olumiView/v12/links/styles'
+import type { KeyItem } from '../../../olumiView/v12/fields/fields'
 import proposal from '../../../olumiView/golden/proposal.view.json'
 
 type Causal = NonNullable<ViewLink['causal']>
@@ -17,7 +18,7 @@ const causal = (sign: Causal['sign'], state: Causal['strength']['state'] = 'size
   strength: { state, figure: state === 'sized' ? 'coefficient' : null, low: state === 'sized' ? (sign === 'increases' ? 1 : sign === 'decreases' ? -1 : sign === 'unknown' ? -1 : 0) : null, likely: null, high: state === 'sized' ? (sign === 'increases' ? 1 : sign === 'decreases' ? -1 : sign === 'unknown' ? 1 : 0) : null, unit: null, per: 'a', share: null, relative_to: null },
   text: 'In this model, its direction is as stated here. This is provisional.',
 })
-const draw = (c: Causal | null, changes: Partial<ViewLink> = {}) => {
+const draw = (c: Causal | null, changes: Partial<ViewLink> & { label_key?: unknown } = {}) => {
   const link = { from: 'a', to: 'b', kind: 'plain', label: '', title: 'The original source words.', doubt: false, alert: false, proposed: false,
     effect: null, remove: null, holds: null, records: [], causal: c, ...changes } as unknown as ViewLink
   const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
@@ -98,6 +99,40 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(glyph).toHaveAccessibleName(entry.text)
     expect(glyph).toHaveAttribute('title', entry.text)
     expect(glyph.style.pointerEvents).toBe('auto')
+  })
+  // Typed field 12 (19 Nov): core names the key item a mark draws (`label_key`); the rows above have no field, as an older core sends, and read by glyph.
+  const withKey = (edit?: (key: KeyItem[]) => void) => {
+    const view = structuredClone(proposal) as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']>
+    edit?.(view.model!.key)
+    useViewStore.setState({ view })
+  }
+  const glyphOf = (r: HTMLElement) => r.querySelector('[data-view="links.0.label"]') as HTMLElement
+  it('an influence\'s "+" that core says is no key item (label_key null) draws the "+" with no "added" word', () => {
+    withKey()
+    const plus = glyphOf(draw(null, { label: '+', label_key: null }).r)
+    expect(plus).toHaveTextContent('+')
+    expect(plus).not.toHaveAttribute('title')
+    expect(plus).not.toHaveAttribute('aria-label')
+    expect(plus).not.toHaveAttribute('role')
+    cleanup()
+    expect(glyphOf(draw(null, { label: '+' }).r), 'CONTRAST: the same "+" from an older core (no field) still reads its glyph').toHaveAccessibleName('added')
+  })
+  it('an evidence link with label_key "evidence" reads the evidence key\'s text, by id even where another item shares its glyph', () => {
+    withKey()
+    expect(glyphOf(draw(null, { label: '✓', label_key: 'evidence' }).r)).toHaveAccessibleName('evidence')
+    cleanup()
+    withKey((key) => { key.unshift({ id: 'test-shadow', glyph: key.find((k) => k.id === 'evidence')!.glyph, text: 'shadow' }) })
+    const ev = glyphOf(draw(null, { label: '✓', label_key: 'evidence' }).r)
+    expect(ev).toHaveAccessibleName('evidence')
+    expect(ev).toHaveAttribute('title', 'evidence')
+  })
+  it('a label_key core\'s key does not hold, or one that is not a string, gives no key word and is never matched by glyph', () => {
+    withKey()
+    for (const label_key of ['test-missing', 7]) {
+      cleanup()
+      const g = glyphOf(draw(null, { label: '✓', label_key }).r)
+      expect([g.getAttribute('title'), g.getAttribute('aria-label')]).toEqual([null, null])
+    }
   })
   it('a new core legend glyph needs no UI word table', () => {
     const view = structuredClone(proposal)

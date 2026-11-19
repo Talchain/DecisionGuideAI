@@ -306,6 +306,28 @@ export function linkLook(link: ViewLink): LinkLookAnswer {
   return { direction, confidence, weight: null, causal: direction !== null, source: 'view', directionState, confidenceState, weightState, basis: null }
 }
 
+// ─── 4b. link.label_key ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export type KeyItem = ViewModel['key'][number]
+export interface LinkKeyAnswer {
+  /** The `model.key` item the link's mark (`label`) draws, or null: the mark has no key word. */
+  readonly item: KeyItem | null
+  readonly source: FieldSource
+  readonly state: FieldState
+}
+
+/**
+ * Which key item a link's mark is (typed field 12, 19 Nov): core names it by id, so a glyph two meanings share (an influence's `+` and the
+ * key's "added") is never read as the other. A string: the key item with that id, none if core's key holds no such id. Null: core says the
+ * mark is no key item. Absent (an older core): today's glyph lookup. Anything else is not taken for an id: no key word.
+ */
+export function linkKey(link: ViewLink, key: readonly KeyItem[]): LinkKeyAnswer {
+  const state = stateOf(link, 'label_key', (v) => typeof v === 'string')
+  if (state === 'absent') return { item: key.find((k) => k.glyph === link.label) ?? null, source: 'inferred', state }
+  const id = valueOf(link, 'label_key')
+  return { item: state === 'present' ? key.find((k) => k.id === id) ?? null : null, source: 'view', state }
+}
+
 // ─── 5. card.needs ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
 export interface NeedsAnswer {
