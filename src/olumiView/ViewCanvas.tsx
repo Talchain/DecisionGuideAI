@@ -59,7 +59,7 @@ import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useSettingsStore } from '../canvas/settingsStore'
 import { ViewZoomNotice } from './ViewZoomNotice'
 import { frameTop, useCardClearOfRegions } from './regions'
-import { DraftingBoard } from './DraftingBoard'
+import { DraftingBoard, LayingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
 import { ViewWhatIfKey } from './ViewWhatIfKey'
 import { ViewTradeOffsKey } from './ViewTradeOffsKey'
@@ -539,7 +539,7 @@ function ViewFlow() {
         onAutoArrange={() => { const model = useViewStore.getState().view?.model; clearLayoutUndo(); if (model) void placeViewCards(model) }}
       />
       {/* While a brief drafts, the empty board says so (plan v3 drafting state). */}
-      {hasModel ? null : <DraftingBoard secondary={ideasOnly} />}
+      {hasModel ? <LayingBoard /> : <DraftingBoard secondary={ideasOnly} />}
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
       {hasModel || ideasOnly ? null : <ViewWelcome />}
       <IdeaPanel />

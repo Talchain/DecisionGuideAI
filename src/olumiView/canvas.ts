@@ -45,6 +45,11 @@ export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null 
 /** The card (its node id) with keyboard focus on it or inside it, if any: it opens its other words as a selected card does (plan v3: full text
     on selection or keyboard focus, not hover only). */
 export const useViewFocusCard = create<{ id: string | null }>(() => ({ id: null }))
+/** The first drawing of a model on an empty canvas (021, 19 Nov: a cold reopen showed the lens bar over an empty canvas for 1-4 s while the
+ *  causal layout ran). `laying` until its cards are drawn, `failed` if the layout threw; `retry` lays it out again (Codex ruling 10:04Z). */
+export const useFirstDraw = create<{ state: 'idle' | 'laying' | 'failed'; retry: number }>(() => ({ state: 'idle', retry: 0 }))
+const firstDraw = (state: 'idle' | 'laying' | 'failed') => { if (useFirstDraw.getState().state !== state) useFirstDraw.setState({ state }) }
+export const retryFirstDraw = (): void => useFirstDraw.setState((s) => ({ state: 'laying', retry: s.retry + 1 }))
 /** The node id of the card a focus event landed on or inside, or null. */
 export const focusedCardOf = (target: EventTarget | null): string | null =>
   target instanceof Element ? target.closest('.react-flow__node')?.getAttribute('data-id') ?? null : null
@@ -322,27 +327,38 @@ export function useViewCanvas(on: boolean): void {
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
   const cols = useSimpleBudgetKey(on, level === 'simple' || ideasOnly.length > 0)
+  const retry = useFirstDraw((s) => s.retry)
   useEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    if (view === null || model === null) { if (ideasOnly.length > 0) layIdeasOnly(ideasOnly); else withdrawViewCanvas(); return }
+    if (view === null || model === null) { firstDraw('idle'); if (ideasOnly.length > 0) layIdeasOnly(ideasOnly); else withdrawViewCanvas(); return }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
+    // An empty canvas waiting for its first layout says so (DraftingBoard.tsx LayingBoard); a board already drawn keeps its cards meanwhile.
+    if (had === null) firstDraw('laying')
     let live = true
     // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
     void causalFor(model, board?.extras ?? []).then((places) => {
       if (!live) return
       const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
       drew = { sid, n, model }
-      if (!drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? []) || had === null) return
+      const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [])
+      firstDraw('idle')
+      if (!changed || had === null) return
       const arrived: string[] = []
       for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
       // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
       const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
       // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.
-      const changed = view.version?.changed
-      pulseWhenOnCanvas(advanced ? [...arrived, ...(changed === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, changed), ...addedSince(last.model, model)])] : arrived)
+      const named = view.version?.changed
+      pulseWhenOnCanvas(advanced ? [...arrived, ...(named === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, named), ...addedSince(last.model, model)])] : arrived)
+    }).catch((e: unknown) => {
+      // A layout that threw used to leave an empty canvas with no word (an unhandled rejection). An empty canvas now says it could not be
+      // drawn and offers Try again; a board already drawn keeps its cards as they were.
+      if (!live) return
+      console.error('[olumiView] causal layout failed', e)
+      if (had === null) firstDraw('failed')
     })
     return () => { live = false }
-  }, [on, view, model, board, ideasOnly, heights, laidAs, cols])
+  }, [on, view, model, board, ideasOnly, heights, laidAs, cols, retry])
 }

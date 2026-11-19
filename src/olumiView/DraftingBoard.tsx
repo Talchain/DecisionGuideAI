@@ -22,6 +22,7 @@ import { useBesideZoom } from './BelowCue'
 import { buildModel, buildOfferOf, stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { OkIcon } from './look/icons'
 import { useViewStore } from './store'
+import { retryFirstDraw, useFirstDraw } from './canvas'
 import type { View } from './client'
 import { EARLY_FAILED, earlyOf } from './early'
 import { EarlyAnswer } from './EarlyAnswer'
@@ -53,6 +54,27 @@ export function DraftingBoard({ secondary = false }: { secondary?: boolean } = {
   const label = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.label ?? null : null))
   const title = useViewStore((s) => (s.at === null ? boardOfferOf(s.view)?.title ?? null : null))
   return draft !== null ? <Drafting draft={draft} secondary={secondary} /> : label === null ? null : <BuildOffer offer={{ label, title: title ?? '' }} secondary={secondary} />
+}
+
+/** The canvas's own words while a model's first layout runs, or if it threw (chrome, never words about the model). */
+export const LAYING_WORDS = { laying: 'Drawing the model…', failed: 'The model could not be drawn.', again: 'Try again' } as const
+
+/** A model whose cards are not on the canvas yet: the board says it is drawing them (021: never a blank canvas under the lens bar). */
+export function LayingBoard(): JSX.Element | null {
+  const state = useFirstDraw((s) => s.state), right = useDockInset()
+  if (state === 'idle') return null
+  return (
+    <div className={WRAP} style={{ right }} data-testid="view-laying-board" data-state={state}>
+      <div role="status" aria-live="polite" className="pointer-events-auto grid justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm">
+        <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
+          {state === 'laying' ? <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-info motion-safe:animate-pulse" /> : null}
+          {state === 'laying' ? LAYING_WORDS.laying : LAYING_WORDS.failed}
+        </p>
+        {state === 'failed' ? <button type="button" data-testid="view-laying-again" onClick={retryFirstDraw}
+          className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover">{LAYING_WORDS.again}</button> : null}
+      </div>
+    </div>
+  )
 }
 
 const WRAP = 'pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6'
