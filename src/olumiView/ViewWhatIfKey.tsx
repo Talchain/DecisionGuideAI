@@ -99,7 +99,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
       <div className={`${typography.viewPanelBody} min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4`}>
         {legend}
         {folded ? null : picked === null ? <p data-testid="view-whatif-key-none">{WHAT_IF_COPY.noFactors}</p> : (
-          <form className="grid gap-2" data-testid="view-whatif-key-form" onSubmit={(e) => { e.preventDefault(); void run() }} onKeyDown={(e) => e.stopPropagation()}>
+          <form className="grid gap-2" data-testid="view-whatif-key-form" onSubmit={(e) => { e.preventDefault(); void run() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
             <label className="grid gap-1">
               <span className="text-text-light">{WHAT_IF_COPY.factor}</span>
               <select value={picked.id} data-testid="view-whatif-key-factor" disabled={running}

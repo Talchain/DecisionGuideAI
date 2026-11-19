@@ -33,8 +33,7 @@ import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStor
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { armedIntent } from './armedIntent'
-import { anySurfaceOpen, escapeConsumed, useLaneInspector } from './v12/edit/inspectorStore'
-import { useEscapeLayer } from './v12/edit/escapeLayers'
+import { useEscapeFloor, useEscapeLayer } from './v12/edit/escapeLayers'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
@@ -1002,9 +1001,13 @@ export interface ViewChatState {
   readonly pressBack?: { readonly text: string; readonly about: string; readonly press: PressKind; /** The scenario (page uuid) and person it was made for: used only there (Codex 6afc8c1a). */ readonly uuid: string | null; readonly person: string | null } | null
   /** A challenge picked in the composer with no single card selected (menu brief UI-A, 18 Nov): it runs on the next card the person picks. */
   readonly armed?: ChallengeKind | null
+  /** The words a canvas ask put in an EMPTY box (the Frame question's "Ask Olumi to change it"): while the box still holds exactly them nothing of the person's is in it and Escape clears it. Any typing clears this. */
+  readonly prefilled?: string | null
 }
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null }))
+// Any write to the text (typing, a send, a restore) that is not the prefill itself makes the box the person's: `prefilled` is cleared at the one place every write passes.
+useViewChat.subscribe((st, was) => { if (st.text !== was.text && st.prefilled != null && st.text !== st.prefilled) useViewChat.setState({ prefilled: null }) })
 
 /** A past version is on the canvas (the version history's Draw): nothing is written until the person is back on the latest. */
 export const PAST_HELD = 'Go back to the latest version to change the model.'
@@ -1517,14 +1520,12 @@ function press(opts: Press): Promise<boolean> {
 
 /** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */
 export const STILL_ANSWERING = 'Olumi is still answering. Your words are in the message box: send them once it has.'
-/** Words from the canvas the person can still send: put after whatever the composer already holds, never over it (review 00056). */
-/** The words a canvas ask put in an EMPTY box (the Frame question's "Ask Olumi to change it"): while the box still holds exactly them, nothing of the person's is in it and Escape clears it. */
-let prefilled: string | null = null
+/** Words from the canvas the person can still send: put after whatever the composer already holds, never over it (review 00056). An EMPTY box takes them as `prefilled`. */
 const keep = (text: string): void => {
   const now = useViewChat.getState().text
   if (now.split('\n').includes(text)) return
-  prefilled = now.trim() === '' ? text : null
-  useViewChat.setState({ text: now.trim() === '' ? text : `${now}\n${text}` })
+  const empty = now.trim() === ''
+  useViewChat.setState({ text: empty ? text : `${now}\n${text}`, prefilled: empty ? text : null })
 }
 const keptWhileBusy = (text: string): boolean => {
   if (!useViewChat.getState().busy && !isAnswering(useViewStore.getState().view)) return false
@@ -1618,14 +1619,12 @@ function useArmedChallenge(): ChallengeKind | null {
       const record = selectedRecord()
       if (record !== null) challengeCard(armed, record)
     }
-    // Escape closes the top canvas surface first (LaneEditingLayer's one listener marks the press taken); only the next one cancels the wait.
-    // With a canvas surface open, Escape is that surface's (typed in the message box or another field it is still the field's own): the wait is cancelled only when none is open.
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape' && !escapeConsumed(e) && !anySurfaceOpen(useLaneInspector.getState())) useViewChat.setState({ armed: null }) }
     const typed = (st: ViewChatState, was: ViewChatState) => { if (st.armed === armed && st.text !== was.text && st.text.trim() !== '') useViewChat.setState({ armed: null }) }
     const off = useCanvasStore.subscribe(pick), offView = useViewStore.subscribe(pick), offChat = useViewChat.subscribe(typed)
-    window.addEventListener('keydown', key)
-    return () => { off(); offView(); offChat(); window.removeEventListener('keydown', key) }
+    return () => { off(); offView(); offChat() }
   }, [armed])
+  // The waiting challenge is the Escape floor: any open surface closes first, whenever it opened; the next press cancels the wait.
+  useEscapeFloor(armed !== null, () => useViewChat.setState({ armed: null }))
   return armed
 }
 
@@ -2146,7 +2145,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
 // The same composer in either surface (A2 stop/float, DL 10 Nov).
 function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
-  const { text, busy, said } = useViewChat()
+  const { text, busy, said, prefilled } = useViewChat()
   const popped = useChatFloat((st) => st.floating)
   const drafting = isDrafting(view), answering = isAnswering(view)
   // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
@@ -2182,7 +2181,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const armed = useArmedChallenge()
   const onOlumiTab = useUIStore((s) => s.activeOutputTab === 'olumi')
   // An untouched prefill is not a draft: Escape clears it (one press, the one Escape rule). A word edited, added or deleted makes it the person's, and it is never discarded.
-  useEscapeLayer(text !== '' && text === prefilled, () => { prefilled = null; useViewChat.setState({ text: '' }) })
+  useEscapeLayer(text !== '' && text === prefilled, () => useViewChat.setState({ text: '', prefilled: null }))
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''

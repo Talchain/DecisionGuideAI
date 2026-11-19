@@ -21,6 +21,7 @@ import { useDockInset } from '../bands/KeyPill'
 import { revealedForYou } from './differGroups'
 import { FrameLines } from './FrameLines'
 import { useCompare } from './useCompare'
+import { useEscapeLayer } from '../edit/escapeLayers'
 import { COMPARE_WORDS, Differences, startCommit } from './WhereWeDiffer'
 import { QUIET } from '../../../olumiCore/team/ui'
 import { OkIcon } from '../../look/icons'
@@ -85,18 +86,13 @@ export function CompareViewsStage(): JSX.Element | null {
     if (!shown || typeof document === 'undefined') return
     const a = document.activeElement
     opener.current = a instanceof HTMLElement && a !== document.body ? a : document.querySelector<HTMLElement>('[data-testid="views-compare"]')
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (e.target instanceof Element && e.target.closest('[role="menu"], [role="dialog"]') !== null) return
-      e.preventDefault(); useCompare.getState().hide()
-    }
-    document.addEventListener('keydown', key)
     return () => {
-      document.removeEventListener('keydown', key)
       const o = opener.current
       if (o !== null && o.isConnected) o.focus({ preventScroll: true })
     }
   }, [shown])
+  // Escape closes it by the one shared rule (v12/edit/escapeLayers.ts): a menu or dialog over it handles its own press first.
+  useEscapeLayer(shown, () => useCompare.getState().hide())
   if (!shown) return null
   const v = forPage!
   const people = byPerson(v.collab.shared)

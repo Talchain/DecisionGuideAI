@@ -43,7 +43,7 @@ function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: Re
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     const onEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
     }
     document.addEventListener('mousedown', onClickOutside)
     document.addEventListener('keydown', onEscape)

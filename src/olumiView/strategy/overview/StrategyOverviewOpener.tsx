@@ -10,6 +10,7 @@ import { useViewStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { useOverview } from './useOverview'
 import { useCompare } from '../../v12/views/useCompare'
+import { useEscapeLayer } from '../../v12/edit/escapeLayers'
 
 export function StrategyOverviewOpener(): JSX.Element | null {
   const words = useViewStore((s) => s.view?.strategy?.headings.overview ?? null)
@@ -43,18 +44,13 @@ export function StrategyOverviewStage({ children }: { children: (view: NonNullab
     const a = document.activeElement
     opener.current = a instanceof HTMLElement && a !== document.body ? a : document.querySelector<HTMLElement>('[data-testid="strategy-overview-opener"]')
     // An Esc meant for an open menu or dialog (the header's Explore menu) closes that alone.
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (e.target instanceof Element && e.target.closest('[role="menu"], [role="dialog"], [data-testid="lens-bar"]') !== null) return
-      e.preventDefault(); useOverview.getState().hide()
-    }
-    document.addEventListener('keydown', key)
     return () => {
-      document.removeEventListener('keydown', key)
       const o = opener.current
       if (o !== null && o.isConnected) o.focus({ preventScroll: true })
     }
   }, [shown])
+  // Escape closes it by the one shared rule (v12/edit/escapeLayers.ts): a menu or dialog over it handles its own press first.
+  useEscapeLayer(shown, () => useOverview.getState().hide())
   if (!shown) return null
   return <div className="fixed inset-0 z-[1200] bg-panel pt-[52px]" data-testid="strategy-overview-stage">{children(view!, () => useOverview.getState().hide())}</div>
 }

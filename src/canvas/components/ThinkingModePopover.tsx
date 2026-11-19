@@ -77,7 +77,7 @@ export function ThinkingModePopover({ isOpen, onClose, anchorRef }: ThinkingMode
     if (!isOpen) return
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') { event.preventDefault(); onClose() }
     }
 
     document.addEventListener('keydown', handleEscape)

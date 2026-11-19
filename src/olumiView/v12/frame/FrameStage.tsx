@@ -7,6 +7,7 @@ import { useCompare } from '../views/useCompare'
 import { useDockInset } from '../bands/KeyPill'
 import { FramePage, FRAME_WORDS } from './FramePage'
 import { useFrameShown, useFrameStage } from './useFrameStage'
+import { useEscapeLayer } from '../edit/escapeLayers'
 
 /** The header's opener, beside the Strategy Overview's: pressed while the Frame stands over the canvas; drawn only with a model. */
 export function FrameOpener(): JSX.Element | null {
@@ -45,18 +46,13 @@ export function FrameStage(): JSX.Element | null {
     if (!shown || typeof document === 'undefined') return
     const a = document.activeElement
     opener.current = a instanceof HTMLElement && a !== document.body ? a : document.querySelector<HTMLElement>('[data-testid="frame-opener"]')
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (e.target instanceof Element && e.target.closest('[role="menu"], [role="dialog"], [data-testid="lens-bar"]') !== null) return
-      e.preventDefault(); useFrameStage.getState().hide()
-    }
-    document.addEventListener('keydown', key)
     return () => {
-      document.removeEventListener('keydown', key)
       const o = opener.current
       if (o !== null && o.isConnected) o.focus({ preventScroll: true })
     }
   }, [shown])
+  // Escape closes it by the one shared rule (v12/edit/escapeLayers.ts): a menu or dialog over it handles its own press first.
+  useEscapeLayer(shown, () => useFrameStage.getState().hide())
   if (!shown) return null
   return <div ref={box} role="region" aria-label={FRAME_WORDS.question} data-testid="frame-stage" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas"><FramePage view={view!} onClose={() => useFrameStage.getState().hide()} /></div>
 }

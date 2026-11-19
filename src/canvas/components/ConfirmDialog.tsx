@@ -25,6 +25,7 @@ export function ConfirmDialog({
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault()
         onCancel()
       }
     }

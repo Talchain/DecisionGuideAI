@@ -12,6 +12,7 @@ import { canRestoreSharedVersions } from './versions/sharedVersionsAvailability'
 import { isPersistenceSessionActive } from '../lib/persistenceSession'
 import { deleteSelectionAction, type ShowToastFn } from './contextMenu/actions'
 import { useConfirmDialogStore } from './stores/confirmDialogStore'
+import { escapeLayerOpen } from '../olumiView/v12/edit/escapeLayers'
 import { armNodeKeyboardScopeForOneDispatch } from './nodes/nodeKeyboardScope'
 import { runCanvasUndo } from './undo/undoCommand'
 import { isViewerSession } from '../lib/viewerMode'
@@ -628,7 +629,8 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
       // selection (`usePathHighlight`), so this restores the reference view.
       // A no-op write is skipped, so an idle Escape re-renders nothing.
       if (event.key === 'Escape') {
-        if (escapeOwnedAtCapture === event) return
+        // A press something handled (a handler's preventDefault) or an open layer is to close (the shared stack acts after this listener) is not this one's.
+        if (escapeOwnedAtCapture === event || event.defaultPrevented || escapeLayerOpen()) return
         const { selection, nodes, edges } = state
         if (
           selection.nodeIds.size > 0 || selection.edgeIds.size > 0 ||

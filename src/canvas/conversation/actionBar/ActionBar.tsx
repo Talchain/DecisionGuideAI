@@ -160,7 +160,7 @@ export function ActionBar({ bar, surface, typeScale, hostMenu, compact: compactP
     items()[0]?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Tab') return close(false)
-      if (e.key === 'Escape') return close(true)
+      if (e.key === 'Escape') { e.preventDefault(); return close(true) }
       if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return
       const list = items()
       if (list.length === 0) return

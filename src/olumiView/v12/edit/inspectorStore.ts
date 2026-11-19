@@ -135,6 +135,3 @@ export const boxOf = (s: { readonly current: Showing | null; readonly peek: Deta
   return s.current === null && s.peek !== null ? { target: s.peek, pinned: false } : null
 }
 export const anySurfaceOpen = (s: { readonly current: Showing | null }): boolean => s.current !== null
-
-/** Escape keys a surface has taken live in escapeLayers.ts (a module that imports only React, so the menus can use it without this store's weight); re-exported here for the callers that read them. */
-export { consumeEscape, escapeConsumed } from './escapeLayers'

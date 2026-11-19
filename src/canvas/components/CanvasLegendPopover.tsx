@@ -1242,7 +1242,7 @@ export function CanvasLegendPopover({ variant = 'icon', open: openProp, onOpenCh
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) close()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') { e.preventDefault(); close() }
     }
     document.addEventListener('mousedown', onDocPointer)
     document.addEventListener('keydown', onKey)

@@ -49,7 +49,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
   useEffect(() => {
     if (!open) return undefined
     const away = (e: MouseEvent) => { if (root.current !== null && !root.current.contains(e.target as Node)) setOpen(false) }
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); root.current?.querySelector<HTMLButtonElement>('[data-testid="view-actions-button"]')?.focus() } }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false); root.current?.querySelector<HTMLButtonElement>('[data-testid="view-actions-button"]')?.focus() } }
     document.addEventListener('mousedown', away)
     document.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }

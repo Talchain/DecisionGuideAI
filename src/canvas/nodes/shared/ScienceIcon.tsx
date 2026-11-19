@@ -52,7 +52,7 @@ export function ScienceIcon({ icon: Icon, tooltip, action, colour = 'text-text-l
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) close()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') { e.preventDefault(); close() }
     }
     document.addEventListener('mousedown', onDocPointer)
     document.addEventListener('keydown', onKey)

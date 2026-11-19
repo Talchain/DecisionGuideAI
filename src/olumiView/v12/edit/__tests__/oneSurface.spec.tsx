@@ -18,6 +18,7 @@ import { MENU_ROW, MENU_SHELL } from '../../../look/menu'
 import { LENSES_TESTID } from '../../lenses/LensesMenu'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
+import { useFrameStage } from '../../frame/useFrameStage'
 import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside, stayBeside } from '../placeBeside'
 import { registerBoxCamera, type View as BoardView } from '../makeRoom'
 import { HOVER_CARD_GAP } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
@@ -134,7 +135,7 @@ describe('surfaces step 2: one thing open at a time', () => {
 
   it.each(['add', 'menu'] as Name[])('ONE-5 Escape order with a waiting challenge: the first press closes the open %s and leaves the challenge waiting; the next press cancels it', async (k) => {
     await board(true)
-    act(() => { useViewChat.setState({ armed: 'opposite' }) })
+    act(() => { useFrameStage.getState().hide(); useViewChat.setState({ armed: 'opposite' }) }) // the Frame page is its own layer (it stands over a fresh board): shut here, so the order under test is surface, then wait
     // The menu on the empty board: right-clicking a card selects it, and a waiting challenge goes to the selected card.
     if (k === 'menu') { fireEvent.contextMenu(pane()); await settle() } else await OPENERS[k]()
     expect(open()).toEqual([k])
@@ -146,14 +147,20 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(useViewChat.getState().armed, 'second Escape cancels it').toBeNull()
   })
 
-  it('ONE-7 Escape typed in another text field (an on-card rename, the message box) is that field\'s own: the open surface stays', async () => {
+  it('ONE-7 Escape typed in another text field that takes it for its own (an on-card rename stops the key) is that field\'s own: the open surface stays; a field with no Escape of its own leaves it to the top layer', async () => {
     await board()
     await OPENERS.details()
     const other = document.body.appendChild(document.createElement('input'))
+    const own = (e: KeyboardEvent) => { e.stopPropagation() }
+    other.addEventListener('keydown', own)
     other.focus()
     fireEvent.keyDown(other, { key: 'Escape' })
     await settle()
     expect(open()).toEqual(['details'])
+    other.removeEventListener('keydown', own)
+    fireEvent.keyDown(other, { key: 'Escape' })
+    await settle()
+    expect(open(), 'a field with no Escape of its own: the top layer takes the press').toEqual([])
     other.remove()
   })
 

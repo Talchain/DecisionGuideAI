@@ -32,6 +32,7 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         setIsOpen(false)
       }
     }

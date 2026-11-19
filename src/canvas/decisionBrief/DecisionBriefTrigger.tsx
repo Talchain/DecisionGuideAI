@@ -52,7 +52,7 @@ export function DecisionBriefTrigger({ className = '' }: { className?: string })
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
+      if (e.key === 'Escape') { e.preventDefault(); close() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

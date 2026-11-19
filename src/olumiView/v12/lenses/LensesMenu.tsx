@@ -57,7 +57,7 @@ export function LensesMenu(): JSX.Element | null {
   const on = layer !== 'full'
   const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full') }
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { setMenu(false); setPanel(false); return }
+    if (e.key === 'Escape') { if (menu || panel) e.preventDefault(); setMenu(false); setPanel(false); return }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
     const items = [...(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
     const i = items.indexOf(document.activeElement as HTMLElement)

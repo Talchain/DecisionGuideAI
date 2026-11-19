@@ -32,7 +32,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) return
     const onPointer = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) onOpenChange(false) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onOpenChange(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onOpenChange(false) } }
     document.addEventListener('mousedown', onPointer)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onPointer); document.removeEventListener('keydown', onKey) }
