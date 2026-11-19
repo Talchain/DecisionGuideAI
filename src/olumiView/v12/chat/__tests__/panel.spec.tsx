@@ -214,12 +214,12 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
   it('the newest reply\'s opening is the one 18 px line when it is 20 words or fewer; a longer opening, and an older reply, stay body size', () => {
     const base = golden('proposal'), k = base.chat.length - 1
     const big = q(show(withAnswer(base, k, { answer: [{ text: LATER }] })), 'view-chat-latest')!.querySelector<HTMLElement>('[data-reply-opening]')!
-    expect(big.className).toContain(typography.viewPanelHeadline)
+    expect(big.className).toContain(typography.viewPanelHeading)
     cleanup()
     const long = `${OPENING} It also depends on the weather.` // 32 words
     const c = show(withAnswer(withAnswer(base, k, { answer: [{ text: long }] }), 0, { answer: [{ text: LATER_OPEN }] }))
-    expect(q(c, 'view-chat-latest')!.querySelector<HTMLElement>('[data-reply-opening]')!.className).not.toContain(typography.viewPanelHeadline)
-    expect(c.querySelector<HTMLElement>('[data-view-turn="chat.0"] [data-reply-opening]')!.className).not.toContain(typography.viewPanelHeadline)
+    expect(q(c, 'view-chat-latest')!.querySelector<HTMLElement>('[data-reply-opening]')!.className).not.toContain(typography.viewPanelHeading)
+    expect(c.querySelector<HTMLElement>('[data-view-turn="chat.0"] [data-reply-opening]')!.className).not.toContain(typography.viewPanelHeading)
   })
 })
 

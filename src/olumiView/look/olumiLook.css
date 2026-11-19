@@ -236,7 +236,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
 /* DL 06:57Z (2): the box is a column whose only shrinking part is the list of changes (it scrolls on its own); the step's words, the
    proposal's heading and the actions keep their height, so the step is read whole above Approve at 1232 and 1128. */
-.ok-pinned { display: flex; flex-direction: column; max-height: 62%; }
+.ok-pinned { display: flex; flex-direction: column; max-height: 62%; container-type: inline-size; }
+/* fit3 (URL 3 audit 9): at the narrow dock (317 px at 1128 x 1.33) the one-line review gave core's heading about 107 px, three lines; Review drops its word first (the chevron and the heading itself still open the list), leaving the heading about 153 px, two lines. */
+@container (max-width: 330px) { .ok-pinned .ok-review-label { display: none; } }
 .ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
 /* PL-1083 (1), DL 12:5xZ (A): while the proposal holds Olumi's readings, its reading rows and actions never go under anything. What yields,
    in order: More ways hides; then the thread may shrink below its floor (its newest message keeps its start in view while space allows);
