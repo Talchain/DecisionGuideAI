@@ -98,6 +98,24 @@ describe('a turn answered in core', () => {
     expect(posts).toEqual([]) // reading never writes
   })
 
+  it('UT3b Try again on a plain message sent about a card sends that card again (core turn.about); one the model no longer holds goes about none', async () => {
+    const card = golden('pricing').model!.cards[0]!.id
+    const failed = { ...turnOf({ status: 'failed', words: 'Olumi could not finish this turn. Please try again in a moment.' }), about: card } as Turn
+    served = viewWith(turnOf({ job: 32 }))
+    on(viewWith(failed))
+    let c = render(<TurnInFlight turn={failed} me="7" />).container
+    await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-chat-turn-again"]')!) })
+    await tick(0)
+    expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'What if demand falls?', about: card, op: expect.any(String) } }])
+    cleanup(); posts = []
+    const gone = { ...failed, job: 33, about: 'no_such_card' } as Turn
+    on(viewWith(gone))
+    c = render(<TurnInFlight turn={gone} me="7" />).container
+    await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-chat-turn-again"]')!) })
+    await tick(0)
+    expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'What if demand falls?', op: expect.any(String) } }])
+  })
+
   it('UT3 a failed turn of theirs shows core\'s reason and Try again, which sends the same words under a NEW op', async () => {
     const failed = turnOf({ status: 'failed', words: 'Olumi could not finish this turn. Please try again in a moment.' })
     served = viewWith(turnOf({ job: 32 }))

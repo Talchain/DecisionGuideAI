@@ -1120,8 +1120,12 @@ export function sayAgain(): Promise<boolean> {
   // A pressed message is asked again as the same press about the same card (typed fields 13b, Codex ROOT 02:53:03Z): core's `turn.press`;
   // where core says the card is gone (null), neither goes, and the words are a plain message, as with ABOUT_GONE.
   const p = pressFieldOf(t)
-  const about = p !== null && p.card !== null && view?.model?.cards.some((c) => c.id === p.card) ? p.card : null
-  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op, about, about === null ? null : p!.kind))
+  // A plain message sent about a card keeps that card too (typed fields 13b: core's `turn.about`, null where this reader's model lacks it, absent
+  // where it was about none or on an older core, which sends it about none as before).
+  const was = (t as { about?: unknown }).about
+  const card = p !== null ? p.card : typeof was === 'string' ? was : null
+  const about = card !== null && view?.model?.cards.some((c) => c.id === card) ? card : null
+  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op, about, about === null || p === null ? null : p.kind))
 }
 
 /** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
