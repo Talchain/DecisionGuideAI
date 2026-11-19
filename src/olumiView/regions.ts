@@ -3,7 +3,7 @@
  * layout rule here reads them from this one module:
  *
  *   HEAD  the band along the canvas's top, from the window's top to just below its lowest head control (Model · Explore · Team),
- *         across the free canvas. Drawn opaque (CanvasHeadBand), so a card panned up goes under it.
+ *         across the free canvas. Measured only (no band is drawn for it).
  *   FOOT  the canvas's foot controls: the zoom row and the more-below cue. Reserved where they stand (not a full-width band: the
  *         canvas keeps the columns beside them).
  *   DOCK  the dock's column on the right (measureDockInset).
