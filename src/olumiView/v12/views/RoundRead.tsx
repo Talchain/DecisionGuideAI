@@ -25,17 +25,21 @@ export const ROUND_WORDS = {
   ask: 'Ask Olumi to read this round',
   reading: 'Olumi is reading the round…',
   none: 'Olumi has no reading of this round yet.',
+  behind: "Asked. Press “Check for new views” to see Olumi's reading.",
   failed: 'That did not go through. Nothing was saved.',
 } as const
 
 /** The ask: one press sends core's counted route once (a second press while it is on its way waits for the first), then the View is read
  *  again, so core's reading appears in place. Offered only after two people's views are revealed to this viewer and while no reading is served. */
 function AskRound({ sid, onWrote }: { sid: string; onWrote: () => Promise<boolean> }): JSX.Element {
-  const [state, setState] = useState<'idle' | 'reading' | 'none' | 'failed'>('idle')
+  const [state, setState] = useState<'idle' | 'reading' | 'none' | 'behind' | 'failed'>('idle')
   const [error, setError] = useState<string | null>(null)
   const ask = async () => {
     setState('reading'); setError(null)
-    try { await runWrite(`${sid}:round-read`, { op: false }, {}, () => askRoundRead(sid)); await onWrote(); setState('none') } catch (e) {
+    // "No reading" is said only when the View was read again and is current (`onWrote` true) and still serves none: this block is only
+    // drawn while no reading is served, so a current View with a reading replaces it. A re-read that failed or was overtaken says the page
+    // has not caught up, never that there is no reading (Codex B2 trigger HOLD 1).
+    try { await runWrite(`${sid}:round-read`, { op: false }, {}, () => askRoundRead(sid)); setState((await onWrote()) ? 'none' : 'behind') } catch (e) {
       setState('failed'); setError(e instanceof TeamApiError ? e.message : ROUND_WORDS.failed)
     }
   }
@@ -45,7 +49,7 @@ function AskRound({ sid, onWrote }: { sid: string; onWrote: () => Promise<boolea
         <OkIcon id="olumi-mark" size={14} decorative />{ROUND_WORDS.ask}
       </button>
       {/* Said only once the ask has ended: core answered, the View was read again, and still no reading is served for this round. */}
-      <p role="status" className={META} data-testid="round-read-said">{state === 'reading' ? ROUND_WORDS.reading : state === 'none' ? ROUND_WORDS.none : ''}</p>
+      <p role="status" className={META} data-testid="round-read-said">{state === 'reading' ? ROUND_WORDS.reading : state === 'none' ? ROUND_WORDS.none : state === 'behind' ? ROUND_WORDS.behind : ''}</p>
       {error !== null && <p role="alert" className={ERR} data-testid="round-read-error">{error}</p>}
     </div>
   )

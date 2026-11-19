@@ -190,8 +190,25 @@ describe('asking for the reading (core A8: POST …/round-read, one counted call
     release()
     await waitFor(() => expect(reread).toBe(1))
     expect(sent.filter((s) => s.method === 'POST').map((s) => [s.url, s.body])).toEqual([[`/api/scenarios/${base.id}/round-read`, {}]])
-    // The View read again still serves no reading (core made none, or none for this round): said, never invented.
+    // The View was read again and is current (onWrote true) and still serves no reading: said, never invented.
     await waitFor(() => expect(screen.getByTestId('round-read-said').textContent).toBe('Olumi has no reading of this round yet.'))
+  })
+  it('a re-read that failed or was overtaken never says "no reading" (Codex B2 trigger HOLD 1); CONTRAST: a current View that serves the reading draws it in place of the ask', async () => {
+    const sent = post({ status: 201, body: { round_read: 'unchanged' } })
+    render(<RoundRead sid={base.id} view={base} headings={core.headings} onWrote={async () => false} />)
+    fireEvent.click(screen.getByTestId('round-read-ask'))
+    await waitFor(() => expect(screen.getByTestId('round-read-said').textContent).toBe("Asked. Press “Check for new views” to see Olumi's reading."))
+    expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1)
+    expect(document.body.textContent).not.toContain('Olumi has no reading of this round yet.')
+    cleanup(); resetWrites()
+    post({ status: 201, body: { round_read: 'ready' } })
+    const page = { view: base }
+    const { rerender } = render(<RoundRead sid={base.id} view={page.view} headings={core.headings} onWrote={async () => { page.view = withRead(read()); return true }} />)
+    fireEvent.click(screen.getByTestId('round-read-ask'))
+    await waitFor(() => expect(page.view).not.toBe(base))
+    rerender(<RoundRead sid={base.id} view={page.view} headings={core.headings} onWrote={async () => true} />)
+    expect(screen.getByTestId('round-read-lead').textContent).toBe('Mainly how long the diagnostic takes to sign, and two links.')
+    expect(screen.queryByTestId('round-read-ask')).toBeNull()
   })
   it('core refusing (409: not revealed to you) says core\'s words and nothing else; CONTRAST: no ask is offered with a reading served, while gated, or with fewer than two people revealed', async () => {
     const sent = post({ status: 409, body: { error: 'The round is not revealed to you.' } })
