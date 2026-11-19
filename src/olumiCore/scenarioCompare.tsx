@@ -29,7 +29,7 @@ import { shownModel, useViewStore } from '../olumiView/store'
  */
 export const SEPARATE_RUNS = {
   label: 'Separate runs',
-  title: 'Each side is its own saved run. Olumi does not yet mark two runs as like-for-like, so read them as two results side by side, not as one chance moving.',
+  title: 'Each side is its own saved run. Olumi does not yet check that two runs can be paired, so read them as two results side by side, not as one chance moving.',
 } as const
 export function SeparateRuns(): JSX.Element {
   return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} title={SEPARATE_RUNS.title} data-compare-runs="separate">{SEPARATE_RUNS.label}</span>
@@ -41,7 +41,8 @@ type Cell = { value: string; title: string; olumi: Mark | null; lead: string | n
   /** Core's headline (the value without its companion) and the card's own short companion line (core wip/compare ff3622bb); an older core: the value. */
   headline?: string; companion?: Line | null }
 type Line = { text: string; title: string }
-type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null }
+/** `has_run` (core compare-scenarios.ts SideInfo): the side has saved results. Absent from an older core: treated as not known, never as true. */
+type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null; has_run?: boolean }
 type AimSide = { label: string; measure: string; target: string | null }
 /** `moves_most` (a saved what-if's side, core wip/compare cc13ef0c): which of its changes, on its own, moves this chance most, in core's words. */
 type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null; moves_most?: (Line & { figure: string }) | null }
@@ -167,8 +168,9 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
           </div>
         ))}
       </div>
-      {/* Two scenarios, or a scenario and a what-if, are each core's own saved run: said once, above the aims. */}
-      {aims.length === 0 ? null : <div><SeparateRuns /></div>}
+      {/* Said once, above the aims, only where core says BOTH sides have saved results (`has_run`): a side with no saved model or results
+          keeps core's own note, and the label never claims a run that does not exist (Codex 2facfb64 review). */}
+      {c.a?.has_run === true && c.b?.has_run === true ? <div><SeparateRuns /></div> : null}
       {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">

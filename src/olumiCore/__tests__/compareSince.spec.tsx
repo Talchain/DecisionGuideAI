@@ -80,6 +80,7 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
     const l = since.lines[0]!, row = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"]`)!
     expect([l.from_text, l.to_text]).toEqual(['about 48%', 'about 1%'])
     expect([row.textContent, row.querySelector('[data-compare-track]'), row.closest('details')]).toEqual([l.line, null, null])
+    expect([...box.querySelectorAll('[data-compare-runs]')].map((e) => [e.textContent, e.getAttribute('title')])).toEqual([[SEPARATE_RUNS.label, SEPARATE_RUNS.title]])
   })
 
   it('SI3 (18 Nov redesign): the Compare tab no longer draws this card; it reads the same field into its own lists (compareTab.spec)', () => {

@@ -51,14 +51,15 @@ describe('the version compare: core says every word; two versions are separate r
     expect(container.textContent).toContain('‘Add one specialist’ on ‘At least 100 a week’')
     expect(container.textContent).toContain('(up)')
     expect(container.querySelector('[data-compare-track]')).toBeNull()
+    expect(runsLabels(container)).toEqual(ONE_LABEL)
   })
 })
 
 const cell = (value: string, chance: number | null) => ({ value, title: 'T', olumi: null, lead: null, condition: null, chance })
 const PAIR = (a: number | null, b: number | null): ScenarioComparison => ({
   schema: 'olumi.compare/1',
-  a: { id: 's_a', title: 'Rota', name: 'Rota', note: null, kind: 'scenario', about: null },
-  b: { id: 'w_7', title: 'Busier week', name: 'Busier week (what-if)', note: null, kind: 'whatif', about: 'A' },
+  a: { id: 's_a', title: 'Rota', name: 'Rota', note: null, kind: 'scenario', about: null, has_run: true },
+  b: { id: 'w_7', title: 'Busier week', name: 'Busier week (what-if)', note: null, kind: 'whatif', about: 'A', has_run: true },
   aims: [{ label: 'Reach 100', kind: 'aim', status: 'comparable', limitation: null, only_in_text: null, a: { label: 'Reach 100', measure: 'M', target: null }, b: { label: 'Reach 100', measure: 'M', target: null },
     options: [{ label: 'Add one specialist', only_in: null, only_in_text: null, a: { cells: [cell('about 50%', a)] }, b: { cells: [cell('about 90%', b)] } },
       { label: 'Hire two', only_in: 'a', only_in_text: 'Only in ‘Rota’', a: { cells: [cell('about 70%', 0.7)] }, b: null }] }],
@@ -80,9 +81,19 @@ describe('two sides side by side: each its own saved run, both sides in core\'s 
     expect(aimBox(container, 'Reach 100').querySelector('[data-compare-runs]')).toBeNull()
     expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
   })
-  it('contrast: a comparison with no aims has no label', () => {
-    const { container } = render(<ScenarioComparisonView c={{ ...PAIR(0.5, 0.9), aims: [] }} />)
+  it('contrast: a comparison with no aims and no results has no label', () => {
+    const c = PAIR(0.5, 0.9)
+    const { container } = render(<ScenarioComparisonView c={{ ...c, aims: [], a: { ...c.a, has_run: false }, b: { ...c.b, has_run: false } }} />)
     expect(runsLabels(container)).toEqual([])
+  })
+  it("a side with no saved results (core's has_run false, its note kept) gets no label, though the other side's aims are drawn; an older core with no has_run gets none", () => {
+    const c = PAIR(0.5, 0.9), NOTE = "‘Busier week (what-if)’ has no saved results yet: its latest model was not analysed."
+    const one = render(<ScenarioComparisonView c={{ ...c, b: { ...c.b, has_run: false, note: NOTE } }} />)
+    expect([runsLabels(one.container), one.container.querySelectorAll('[data-compare-aim]').length > 0, one.container.querySelector('[data-compare-note]')?.textContent]).toEqual([[], true, NOTE])
+    one.unmount()
+    const { has_run: _a, ...oldA } = c.a, { has_run: _b, ...oldB } = c.b
+    const old = render(<ScenarioComparisonView c={{ ...c, a: oldA, b: oldB }} />)
+    expect(runsLabels(old.container)).toEqual([])
   })
 })
 

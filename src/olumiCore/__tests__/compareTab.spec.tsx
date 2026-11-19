@@ -136,7 +136,7 @@ describe('a changed figure folded away on the board', () => {
 })
 
 describe('what moved: each moved result in core\'s words, the largest move first, the rest counted; separate runs, no track', () => {
-  it('CT4: ranked by core\'s numbers (60→10 before 20→25), no track, "Separate runs" once beside the heading, and one line for the result that did not move; CONTRAST: nothing moved draws no heading and no label', async () => {
+  it('CT4: ranked by core\'s numbers (60→10 before 20→25), no track, "Separate runs" once beside the heading, and one line for the result that did not move; CONTRAST: nothing moved draws no heading but keeps the label', async () => {
     answer = { versions: [], changes: [], results: [result('small', 0.2, 0.25, 'up'), result('large', 0.6, 0.1, 'down'), result('same', 0.5, 0.5, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))
     const moved = await screen.findByTestId('core-compare-moved')
@@ -155,7 +155,8 @@ describe('what moved: each moved result in core\'s words, the largest move first
     show(fixture('ui9-a6-since-v3'))
     expect((await screen.findByTestId('core-compare-still')).querySelector('summary')!.textContent).toBe('2 results did not move.')
     expect(screen.getByTestId('core-compare-moved').querySelector('h4'), 'no "What moved" heading over nothing that moved (audit compare-model-02)').toBeNull()
-    expect([document.querySelectorAll('[data-compare-track]').length, screen.getByTestId('core-compare-moved').querySelectorAll('[data-compare-runs]').length]).toEqual([0, 0])
+    // Nothing moved: no heading, but the results are still two separate runs, so the label stands (Codex 2facfb64 review).
+    expect([document.querySelectorAll('[data-compare-track]').length, [...screen.getByTestId('core-compare-moved').querySelectorAll('[data-compare-runs]')].map((e) => e.textContent)]).toEqual([0, [SEPARATE_RUNS.label]])
     cleanup()
     answer = { versions: [], changes: [], results: [result('large', 0.6, 0.1, 'down'), result('same', 0.5, 0.5, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))

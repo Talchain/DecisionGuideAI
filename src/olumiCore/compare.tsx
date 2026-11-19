@@ -358,7 +358,8 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
       <Changes c={c} since={since} />
       <section className="grid gap-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
         {/* No heading that promises movement over nothing (18 Nov audit compare-model-02): what did not move is counted below, as it was. */}
-        {moved.length === 0 ? null : <div className="flex flex-wrap items-center gap-2"><h4 className={H}>What moved</h4><SeparateRuns /></div>}
+        {/* The label stands wherever core gives results, moved or not (Codex 2facfb64 review); the heading only over a move. */}
+        {c.results.length === 0 ? null : <div className="flex flex-wrap items-center gap-2">{moved.length === 0 ? null : <h4 className={H}>What moved</h4>}<SeparateRuns /></div>}
         {moved.length === 0 ? null : (
           <ul className="m-0 grid list-none gap-3 p-0">
             {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} />)}
