@@ -64,10 +64,9 @@ const MIN_SHOWN = 64
 /** A form's least useful height: its padding, one field, the error line and the Save/Cancel row (44 px) - below it Save could be cut off. */
 export const FORM_MIN_SHOWN = 160
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
-/** Controls at the canvas foot that a box beside a card must also leave clear (they are not the board's own foot controls, which its layout reserves room for: regions.ts FOOT_CONTROLS). */
-const ALSO_FOOT = ['[data-testid="views-toggle"]', '[data-testid="views-compare"]'] as const
-/** The controls at the canvas foot a box must leave clear, on screen: the board's own (regions.ts FOOT_CONTROLS) and the team's Views buttons. */
-const footRects = (): Rect[] => [...regionsOf().foot, ...ALSO_FOOT.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect())).filter((r) => r.width > 0 && r.height > 0)].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+/** The controls at the canvas foot a box must leave clear, on screen: the board's own (regions.ts FOOT_CONTROLS). The team's Views buttons
+ *  moved to the top row (one control row, 19 Nov), inside the lens bar the head region already measures. */
+const footRects = (): Rect[] => regionsOf().foot.map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
 /** More than a hairline of `b` lies on `o` (2 px each way: a shared edge is not a cover). */
 const covers = (b: Rect, o: Rect) => Math.min(b.right, o.right) - Math.max(b.left, o.left) > 2 && Math.min(b.bottom, o.bottom) - Math.max(b.top, o.top) > 2
 const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
