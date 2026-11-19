@@ -17,7 +17,7 @@ import { openStep, type StepId } from '../../../olumiCore/team/flow'
 import { useViewStore } from '../../store'
 import { useReveal } from '../../reveal'
 import { forgetLanded } from '../../revealReturn'
-import { nextStepOf } from '../../ViewChat'
+import { nextStepOf, useViewChat } from '../../ViewChat'
 import { keptIdeasOf } from '../ideas'
 import { IDEA_PREFIX } from '../bands/bands'
 import type { View } from '../../types'
@@ -127,10 +127,10 @@ function Track({ m }: { m: Moved }): JSX.Element {
 function MovedRow({ m }: { m: Moved }): JSX.Element {
   const [open, setOpen] = useState(false)
   return (
-    <li className="min-w-0" data-testid={`journey-${m.key}`} data-same={m.same ? 'true' : undefined}>
+    <li className="min-w-0" data-testid={`journey-${m.key}`}>
       <button type="button" className={ROW} aria-expanded={open} onClick={() => setOpen((x) => !x)} data-testid={`journey-${m.key}-toggle`}>
         <p className={`${BODY} ${WORDS}`}><span className="text-text-header">{m.option}</span> · {m.aim}</p>
-        <p className={`${META} ${WORDS}`}>{m.same ? `${m.toText} · ${W.unchanged}` : `${m.fromText} → ${m.toText}`}</p>
+        <p className={`${META} ${WORDS}`}>{`${m.fromText} → ${m.toText}`}</p>
         <Track m={m} />
       </button>
       {open && <p className={`${META} ${WORDS} pt-1`} data-testid={`journey-${m.key}-line`}>{m.line}</p>}
@@ -165,14 +165,19 @@ function Section({ id, title, children }: { id: string; title: string; children:
 }
 
 export function JourneyRecord({ view, at, onDone }: { view: View; at: number | null; onDone?: () => void }): JSX.Element | null {
+  const sid = useViewStore((s) => s.sid)
+  const gone = useViewChat((s) => s.gone ?? null)
   const j = useMemo(() => {
     const ideas = keptIdeasOf(view)
     const keptNode = (k: { id: number; turn: number; text: string }) => {
       const idea = ideas.find((i) => i.id === `kept:${k.id}`) ?? ideas.find((i) => i.sourceTurn === String(k.turn) && i.text === k.text)
       return idea === undefined ? null : IDEA_PREFIX + idea.id
     }
-    return journeyOf(view, { at, keptNode, hasNext: nextStepOf(view) !== null })
-  }, [view, at])
+    // The chat's own exclusion (ViewChat's NextStep and stepTurnOf): a move the chat refused as stale is no next step here either, so the
+    // press never opens a chat with no Next step in it. The key is ViewChat's `moveKey` (sid, turn, move joined by NUL).
+    const isGone = (turn: number, move: string) => sid !== null && gone === `${sid}\u0000${turn}\u0000${move}`
+    return journeyOf(view, { at, keptNode, hasNext: nextStepOf(view, isGone) !== null })
+  }, [view, at, sid, gone])
   const [history, setHistory] = useState(false)
   if (isEmpty(j)) return null
   const h = j.history
@@ -212,7 +217,8 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
                 <Press id={k.key} press={k.press} onDone={onDone}>
                   <p className={`${BODY} ${WORDS} text-text-header`}>{k.action}</p>
                   <p className={META}>{W.owner(k.owner)}{k.reviewOn === null ? null : ` · ${W.reviewOn(k.reviewOn)}`}</p>
-                  {(k.band !== null || k.expect !== '') && <p className={`${META} ${WORDS}`}>{W.expected}: {k.band ?? k.expect}</p>}
+                  {k.expect !== '' && <p className={`${META} ${WORDS}`} data-testid={`journey-${k.key}-expect`}>{W.expected}: {k.expect}</p>}
+                  {k.band !== null && <p className={`${META} ${WORDS}`} data-testid={`journey-${k.key}-band`}>{W.band}: {k.band}</p>}
                   {k.reconsider !== '' && <p className={`${META} ${WORDS}`}>{W.reconsider}: {k.reconsider}</p>}
                 </Press>
                 {k.outcomes.map((o) => (
