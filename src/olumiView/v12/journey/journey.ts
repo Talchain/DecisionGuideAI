@@ -35,7 +35,7 @@ export type JourneyRef =
   | { readonly kind: 'chat' }
 
 /** A press: where it goes, or why it cannot go there now (chrome, said where the press would be). */
-export type JourneyPress = { readonly to: JourneyRef } | { readonly unavailable: string }
+export type JourneyPress = { readonly to: JourneyRef } | { readonly unavailable: string } | { readonly plain: true }
 
 export const JOURNEY_WORDS = {
   moved: 'How the conclusions moved',
@@ -128,6 +128,14 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const olumiCard = new Set((model?.cards ?? []).filter((c) => c.olumi !== null).map((c) => c.id))
   const label = (id: string) => cards.get(id) ?? null
   const onCanvas = (id: string): JourneyPress => (cards.has(id) ? { to: { kind: 'card', id } } : { unavailable: JOURNEY_WORDS.offCanvas })
+  // A record the model still holds with no card of its own (an estimate a card rests on, a what-if it sets, the record a link draws),
+  // by its typed id in the View: a plain chip, no press and no reason, never "Not on the canvas now" for a record still in the model.
+  const held = new Set<string>([
+    // (`?? []`: a View stored by an older core lacks these lists; an absent list holds nothing.)
+    ...(model?.cards ?? []).flatMap((c) => [...(c.rests_on ?? []).map((r) => r.id), ...(c.sets ?? []).map((s) => s.id)]),
+    ...(model?.links ?? []).flatMap((l) => [...(l.records ?? []), ...(l.remove == null ? [] : [l.remove.record])]),
+  ])
+  const changedPress = (id: string): JourneyPress => (cards.has(id) || !held.has(id) ? onCanvas(id) : { plain: true })
   // Team's records are held while an earlier version is drawn (TeamTab): their presses say so instead of opening nothing.
   const team = (to: JourneyRef): JourneyPress => (ctx.at !== null ? { unavailable: JOURNEY_WORDS.earlier } : { to })
 
@@ -144,7 +152,7 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
       // Named by its card, else by core's own label for the record (a what-if or an estimate has no card); never by its raw id.
       const id = sinceHere.sole, c = sinceHere.changed.find((x) => x.id === id), name = label(id) ?? (c?.label || null)
       if (name === null) return null
-      return { id, label: name, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(id) }
+      return { id, label: name, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: changedPress(id) }
     })(),
   }
 
@@ -154,7 +162,7 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
     // With `since`, core's change entries (whose and was) come first; `since.changed` holds only records both versions have, so the cards
     // this version ADDED come from `version.changed`, by id.
     const list: Changed[] = sinceHere !== null
-      ? [...sinceHere.changed.map((c) => ({ id: c.id, label: c.label, olumi: c.whose === 'olumi', was: c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(c.id) })),
+      ? [...sinceHere.changed.map((c) => ({ id: c.id, label: c.label, olumi: c.whose === 'olumi', was: c.was !== null && c.was !== c.whose ? c.was : null, press: changedPress(c.id) })),
         ...ofVersion(new Set(sinceHere.changed.map((c) => c.id)))]
       : ofVersion(new Set())
     return list.length === 0 ? null : { n, cards: list }

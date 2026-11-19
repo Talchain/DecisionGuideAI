@@ -88,9 +88,11 @@ export function go(to: JourneyRef): string | null {
   }
 }
 
-/** One row: the whole row is the control when it can open; plain, with its reason, when it cannot. */
+/** One row: the whole row is the control when it can open; plain, with its reason, when it cannot; plain alone for a record with no card. */
 function Press({ id, press, onDone, children }: { id: string; press: JourneyPress; onDone?: () => void; children: ReactNode }): JSX.Element {
   const [refused, setRefused] = useState<string | null>(null)
+  // A record the model holds with no card to open: drawn as it is, no control and no reason.
+  if ('plain' in press) return <div className="min-w-0" data-testid={`journey-${id}`} data-plain="true">{children}</div>
   if ('unavailable' in press) {
     return (
       <div className="min-w-0" data-testid={`journey-${id}`} data-unavailable="true">
