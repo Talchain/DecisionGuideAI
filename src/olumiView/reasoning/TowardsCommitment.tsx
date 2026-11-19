@@ -2,8 +2,8 @@
  * Towards commitment (Reasoning, Paul 18 Nov: Reasoning holds the move from uncertainty to commitment; reworked after the Codex critique,
  * overnight/analysis/REASONING-CRITIQUE.md). The tab's last section, in three parts, then one press:
  *   - Where your views differ: core's own differences between revealed views (`useRevealedDifferences`, the Team tab's read and gate: nothing
- *     before the reveal, while gated or on an earlier version): what the difference is about, core's sentence for whether it changes which
- *     option is most likely (`status_text`), and core's first line on what would settle it (`settle`), one press to its card;
+ *     before the reveal, while gated or on an earlier version). A figure difference is the card (one press to it) and the Team tab's own
+ *     `WhereYouDiffer` under it (core's sentence, each person's figure and chance, what would settle it); a link or factor, core's sentence;
  *   - Disagreements still open: each recorded dissent IN FULL, in its holder's words (a challenged card that is a dissent is said here, not in
  *     the list above, so it is said once);
  *   - Recorded: each commitment with what the team stored for it: owner, what it expects, what would make it reconsider, the disagreements it
@@ -16,6 +16,8 @@ import { pressCard } from './tabRing'
 import { OkIcon } from '../look/icons'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import { useRevealedDifferences } from '../../olumiCore/team/CardDiffers'
+import { WhereYouDiffer } from '../../olumiCore/team/CardDispute'
+import type { Difference } from '../../olumiCore/team/differences'
 import { useViewStore } from '../store'
 import { COMMIT_WORDS, openCommitDraft } from '../v12/team/CommitForm'
 import { TYPE } from '../port/type'
@@ -82,8 +84,14 @@ export function TowardsCommitment({ view }: { view: View }) {
   // The form is offered only where it may be written: this page's own View, the latest version, for the person it is for.
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
   const dissent = (c.dissent ?? []).filter((d) => (d.confirmed?.words ?? d.position) !== '')
-  const differ = (differences?.differences ?? []).filter((d) => d.status_text !== '')
-  const cardIds = new Set(view.model?.cards.map((x) => x.id) ?? [])
+  // Figure differences: one row per card (core may run one per aim; Team's WhereYouDiffer says every aim of that card). Others: core's sentence.
+  const differ: { key: string; card: { id: string; heading: string } | null; d: Difference | null }[] = []
+  for (const d of differences?.differences ?? []) {
+    if (d.status_text === '') continue
+    const card = (d.kind ?? 'figure') === 'figure' ? view.model?.cards.find((x) => x.id === d.record) ?? null : null
+    if (card !== null) { if (!differ.some((x) => x.card?.id === card.id)) differ.push({ key: card.id, card, d: null }) }
+    else differ.push({ key: `${d.record}|${d.goal}`, card: null, d })
+  }
   if (reach === null && dissent.length + commitments.length + differ.length === 0) return null
   return (
     <section className="space-y-3" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
@@ -91,27 +99,23 @@ export function TowardsCommitment({ view }: { view: View }) {
       {differ.length === 0 || differences === null ? null : (
         <div className="space-y-1" data-testid="reasoning-commitment-differ">
           <p className={SUB}>{differences.heading}</p>
-          <ul className="m-0 list-none p-0">
-            {differ.map((d) => {
-              // A factor one member thinks is missing names no card (core debate.ts): said without a press, never a dead button.
-              const card = d.cards?.find((id) => cardIds.has(id)) ?? (cardIds.has(d.record) ? d.record : null)
-              const settle = d.settle.find((x) => x.text !== '')
-              const body = (
-                <>
-                  <OkIcon id="compare-views" size={14} className="mt-0.5" decorative />
-                  <span className="min-w-0 flex-1">
-                    <span className={`${TYPE.body} block break-words text-text-header`}>{d.label}{d.goal_label === '' ? null : <span className="text-text-light"> · {d.goal_label}</span>}</span>
-                    <span className={`${TYPE.meta} block break-words text-text-body`} data-testid="reasoning-difference-status">{d.status_text}</span>
-                    {settle === undefined ? null : <span className={`${TYPE.meta} block break-words text-text-light`} data-testid="reasoning-difference-settle">{differences.headings.settle === '' ? null : `${differences.headings.settle}: `}{settle.text}</span>}
-                  </span>
-                </>
-              )
-              return (
-                <li key={`${d.record}|${d.goal}`} data-difference={d.record} data-difference-goal={d.goal}>
-                  {card === null ? <div className="flex items-start gap-2 px-1 py-1">{body}</div> : <button type="button" className={PRESS} onClick={() => pressCard(card)}>{body}</button>}
-                </li>
-              )
-            })}
+          <ul className="m-0 list-none space-y-2 p-0">
+            {differ.map(({ key, card, d }) => (
+              <li key={key} className={`${TYPE.body} space-y-1 px-1`} data-difference={key}>
+                {card === null
+                  // A link or a factor one member thinks is missing: core's sentence for what the difference does, nothing to press.
+                  ? <p className="m-0 break-words text-text-body" data-testid="reasoning-difference-status">{d!.label === '' ? null : <span className="text-text-header">{d!.label}: </span>}{d!.status_text}</p>
+                  : (
+                    <>
+                      <button type="button" className={`${PRESS} text-text-header`} onClick={() => pressCard(card.id)} data-testid="reasoning-difference-card">
+                        <span className="min-w-0 flex-1 break-words" data-view={`${card.id}.heading`}>{card.heading}</span>
+                      </button>
+                      {/* The Team tab's own piece: core's sentence, each person's figure and chance, what would settle it. */}
+                      <WhereYouDiffer card={card.id} />
+                    </>
+                  )}
+              </li>
+            ))}
           </ul>
         </div>
       )}

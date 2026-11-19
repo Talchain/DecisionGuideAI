@@ -166,7 +166,14 @@ function Row({ e }: { e: Examine }) {
   const whole = `flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
   if (e.kind === 'challenge') return <li {...rowData(e)}><button type="button" className={whole} title={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</button></li>
-  if (e.kind === 'question') return <li {...rowData(e)}><button type="button" className={whole} title={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question">{mark}{words}</button></li>
+  // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
+  // message box is a quiet secondary press, never the row's primary action.
+  if (e.kind === 'question') return (
+    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+      {mark}{words}
+      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="talk-first" size={12} decorative /></button>
+    </li>
+  )
   if (e.kind === 'widen') return <li {...rowData(e)}><button type="button" className={whole} title={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}>{mark}{words}</button></li>
   return (
     <li className="flex items-start gap-2 px-1 py-1.5" title={w.hover} {...rowData(e)}>

@@ -252,16 +252,19 @@ describe('towards commitment: where views differ, what is still disputed, what i
     fireEvent.click(row.querySelector('button')!)
     expect(focus.node.mock.calls).toEqual([[card.id]])
   })
-  it('core\'s differences between revealed views: what each is about, core\'s sentence on whether it changes which option is most likely, and what would settle it', () => {
+  it('a figure difference between revealed views: its card (one press to it) and the Team tab\'s own WhereYouDiffer under it, with core\'s sentence, each person\'s figure and what would settle it', () => {
     const view = withRecords(), cid = view.model!.cards[0]!.id
-    diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: 'What would settle it', steps: '', dissent: '', research: '', commit: '' },
-      differences: [{ kind: 'figure', cards: [cid], record: cid, label: 'Paid conversion', goal: 'g1', goal_label: 'Pay back', status: 'changes', status_text: 'Your figures change which option is most likely.', sides: [], options: [], settle: [{ kind: 'crossing', text: 'Above 6% the lead flips.', fact: null }], steps: [] }] } as never
+    diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: '', steps: '', dissent: '', research: '', commit: '' },
+      differences: [{ kind: 'figure', cards: [cid], record: cid, label: 'Paid conversion', goal: 'g1', goal_label: 'Pay back', status: 'changes', status_text: 'Your figures change which option is most likely.',
+        sides: [{ view: 1, holder: 'Ada', holder_id: 'p1', figure: cid, title: '', leader: null, text: 'Ada: about 6%' }, { view: 2, holder: 'Tobias', holder_id: 'p2', figure: cid, title: '', leader: null, text: 'Tobias: about 4%' }],
+        options: [], settle: [{ kind: 'crossing', text: 'Above 6% the lead flips.', fact: null }], steps: [] }] } as never
     ready(view)
     render(<ViewReasoningBlock />)
     const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>(`[data-difference="${cid}"]`)!
-    expect([screen.getByTestId('reasoning-commitment-differ').querySelector('p')!.textContent, row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent, row.querySelector('[data-testid="reasoning-difference-settle"]')!.textContent])
-      .toEqual(['Where your views differ', 'Your figures change which option is most likely.', 'What would settle it: Above 6% the lead flips.'])
-    fireEvent.click(row.querySelector('button')!)
+    expect(row.querySelector('[data-differ-status-text]')!.textContent).toBe('Your figures change which option is most likely.')
+    expect([...row.querySelectorAll('[data-differ-side]')].map((e) => e.textContent)).toEqual(['Ada: about 6%', 'Tobias: about 4%'])
+    expect(row.querySelector('[data-differ-settle]')!.textContent).toBe('Above 6% the lead flips.')
+    fireEvent.click(row.querySelector('[data-testid="reasoning-difference-card"]')!)
     expect(focus.node.mock.calls).toEqual([[cid]])
   })
   it('a difference about a factor one member thinks is missing names no card: said without a press', () => {
@@ -269,8 +272,8 @@ describe('towards commitment: where views differ, what is still disputed, what i
       differences: [{ kind: 'factor', cards: [], record: 'factor:r9', label: 'Onboarding cost', goal: 'g1', goal_label: '', status: 'not_run', status_text: 'Not run: a factor one of you thinks is missing.', sides: [], options: [], settle: [], steps: [] }] } as never
     ready(withRecords())
     render(<ViewReasoningBlock />)
-    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>('[data-difference="factor:r9"]')!
-    expect([row.querySelector('button'), row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent]).toEqual([null, 'Not run: a factor one of you thinks is missing.'])
+    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>('[data-difference="factor:r9|g1"]')!
+    expect([row.querySelector('button'), row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent]).toEqual([null, 'Onboarding cost: Not run: a factor one of you thinks is missing.'])
   })
   it('CONTRAST: before a reveal (no differences read) no differ block is drawn', () => {
     diff.data = null
