@@ -445,6 +445,7 @@
 
 /* The prototype's outlined Share: ink words on no fill, a quiet edge. */
 .coreShare {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
