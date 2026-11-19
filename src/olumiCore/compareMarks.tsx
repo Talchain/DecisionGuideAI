@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { useViewStore } from '../olumiView/store'
 import { typography } from '../styles/typography'
+import { OkIcon } from '../olumiView/look/icons'
 
 /** One of core's change lines, as the mark's hover says it. */
 export type MarkedLine = { text: string; detail: string }
@@ -45,7 +46,8 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   if (!lines || m.sid === null || m.sid !== sid || m.to === null || m.from === null || shownN !== m.to) return null
   const hover = lines.map((l) => (l.detail ? `${l.text}\n${l.detail}` : l.text)).join('\n')
   return (
-    <span className={`absolute left-3 -top-2.5 z-10 inline-flex items-center rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
-      title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}>{changedSince(m.from)}</span>
+    // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
+    <span className={`absolute left-3 -top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+      title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
   )
 }

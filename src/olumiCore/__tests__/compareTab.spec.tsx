@@ -312,6 +312,7 @@ describe('the canvas version diff (core lines typed with record_id, wip/x-compar
     expect([m.sid, m.from, m.to, Object.keys(m.byId)]).toEqual([view.id, 2, 3, [cardId, 'not_on_this_canvas']])
     const mark = render(<CompareCardMark id={cardId} />).container.querySelector(`[data-compare-mark="${cardId}"]`)!
     expect([mark.textContent, mark.getAttribute('title')]).toEqual([changedSince(2), '↻ figure: hours\nfrom 20 to 25'])
+    expect(mark.querySelector('svg'), 'the registry\'s version icon beside the chrome words').not.toBeNull()
     expect(render(<CompareCardMark id="some_other_card" />).container.querySelector('[data-compare-mark]'), 'a card core does not name has no mark').toBeNull()
     tab.unmount()
     expect(useCompareMarks.getState().sid, 'the marks leave with the pair').toBeNull()
