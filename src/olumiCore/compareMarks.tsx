@@ -10,6 +10,7 @@ import { create } from 'zustand'
 import { useViewStore } from '../olumiView/store'
 import { typography } from '../styles/typography'
 import { OkIcon } from '../olumiView/look/icons'
+import { BottomCardMark } from '../canvas/nodes/shared/CardMark'
 
 /** One of core's change lines, as the mark's hover says it. */
 export type MarkedLine = { text: string; detail: string }
@@ -37,7 +38,8 @@ export const changedSince = (from: number) => `Changed since version ${from}`
 
 /**
  * The mark on one card: drawn only for the scenario the comparison is about, while the canvas shows the comparison's later version (`to`),
- * and only where core named this card. Drawn inline: the caller places it (BaseNode puts it in the bottom marks band).
+ * and only where core named this card. It enters the card's bottom marks band (BottomCardMark) ONLY when drawn: the band registers a mark
+ * as soon as a BottomCardMark mounts, so an always-mounted wrapper would reserve band space on every card of the older look.
  */
 export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   const m = useCompareMarks()
@@ -48,7 +50,9 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   const hover = lines.map((l) => (l.detail ? `${l.text}\n${l.detail}` : l.text)).join('\n')
   return (
     // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
-    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
-      title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
+    <BottomCardMark>
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+        title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
+    </BottomCardMark>
   )
 }
