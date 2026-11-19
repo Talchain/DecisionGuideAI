@@ -172,8 +172,18 @@ describe('where an answer was bound is history, qualified by its source turn (Co
     ready(view)
     render(<ViewReasoningBlock />)
     const b = screen.getByTestId('reasoning-examined-binding')
-    expect([b.dataset['applied'], b.textContent]).toEqual(['no', `Proposed for: ${c0.heading} · Suggested, not yet accepted · Set aside for now`])
+    expect([b.dataset['applied'], b.textContent, screen.getByTestId('reasoning-examined-source').textContent]).toEqual(['no', `Proposed for: ${c0.heading}`, 'Suggested, not yet accepted · Set aside for now'])
     expect(b.textContent).not.toContain('Set on')
+  })
+  it('a set-aside answer whose bound card was later REMOVED: no binding, but the finding is still qualified by its source turn (Codex ROOT 01:46Z)', () => {
+    const view = typed(); examined(view)
+    ;((view as unknown as { reasoning: { examined: { bound: string }[] } }).reasoning.examined[0]!).bound = 'card_removed_since'
+    withTurn(view, 77, { version: 'Suggested, not yet accepted', earlier: true, status: 'Set aside for now' })
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x7"]')!
+    expect([x.querySelector('[data-testid="reasoning-examined-binding"]'), x.querySelector('[data-testid="reasoning-examined-finding"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-source"]')!.textContent])
+      .toEqual([null, 'Twelve weeks.', 'Suggested, not yet accepted · Set aside for now'])
   })
   it('CONTRAST: an approved answer on the current version reads as set, with core\'s version words; with no source turn on the chat, no binding is drawn', () => {
     const view = typed(); const c0 = examined(view)
@@ -181,7 +191,7 @@ describe('where an answer was bound is history, qualified by its source turn (Co
     ready(view)
     render(<ViewReasoningBlock />)
     const b = screen.getByTestId('reasoning-examined-binding')
-    expect([b.dataset['applied'], b.textContent]).toEqual(['yes', `Set on: ${c0.heading} · version 3`])
+    expect([b.dataset['applied'], b.textContent, screen.getByTestId('reasoning-examined-source').textContent]).toEqual(['yes', `Set on: ${c0.heading}`, 'version 3'])
     cleanup()
     const bare = typed(); examined(bare)
     ready(bare)
