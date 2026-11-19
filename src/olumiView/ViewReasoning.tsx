@@ -23,7 +23,7 @@ import { prefillComposer, runMethod } from './ViewChat'
 import { Door, SignalRow } from './reasoning/parts'
 import { actionable, examineOf, type Examine } from './reasoning/examine'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
-import { AnswerBox, AnsweredList } from './reasoning/AnswerBox'
+import { AnswerBox } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
@@ -276,7 +276,6 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
       <WhatIfShown model={model} labelled={!stated} />
       <RestsOn model={model} run={run} />
       <Examined items={items} />
-      <AnsweredList view={view} model={model} />
       {view === null ? null : <TowardsCommitment view={view} />}
       <Premises model={model} />
     </div>

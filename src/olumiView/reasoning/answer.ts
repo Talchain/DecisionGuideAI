@@ -4,25 +4,14 @@
  * - `model.questions[]`: Olumi's questions typed by identity, `{id, text, target, role, unit}` (§2, §6), beside the `coaching_questions` texts;
  * - `POST /api/scenarios/:id/answer {question_id, text, op}` (§3): a message turn bound to that question; core's 409 `question_unknown` /
  *   `question_stale` come back with core's own sentence, which is shown as it is;
- * - `view.reasoning.examined[]` (§6): what was asked, what the person supplied, the record code bound it to, Olumi's reply as served, what it
- *   rests on, its limits and any held proposal, built by core from immutable rows (so it survives reopening and a teammate sees it).
+ * The examination (`view.reasoning.examined`, §6) is NOT drawn yet: it waits for the contract's AS BUILT field names (DL 01:0xZ; Codex
+ *   ROOT 01:00Z: the records it names are mentioned/related records, never what a finding rests on or evidence).
  * Nothing here ranks, examines or words anything: the examination is core's; the page draws its fields.
  */
-import type { View, ViewModel } from '../client'
+import type { ViewModel } from '../client'
 import { call } from '../../olumiCore/team/api'
 
 export type Question = { id: string; text: string; target: string | null; role: 'value' | 'due' | null; unit: 'day' | 'week' | 'month' | 'year' | null }
-export type Examination = {
-  id: string; question_id: string; question: string; target: string | null
-  supplied: { by: string; text: string; at: string }
-  bound: string | null
-  finding: { row: number; text: string } | null
-  rests_on: string[]
-  limits: string | null
-  proposal_id: number | null
-  olumi: true
-}
-
 const isStr = (x: unknown): x is string => typeof x === 'string'
 const strOrNull = (x: unknown): x is string | null => x === null || typeof x === 'string'
 
@@ -40,28 +29,19 @@ export function questionsOf(model: ViewModel): Question[] {
   })
 }
 
-/** Core's examinations (`view.reasoning.examined`), in core's order; none on an older core. An item missing its identity is not drawn. */
-export function examinedOf(view: View | null): Examination[] {
-  const raw = (view as unknown as { reasoning?: { examined?: unknown } } | null)?.reasoning?.examined
-  if (!Array.isArray(raw)) return []
-  return raw.flatMap((x): Examination[] => {
-    if (x === null || typeof x !== 'object') return []
-    const o = x as Record<string, unknown>, s = o.supplied as Record<string, unknown> | null | undefined
-    if (!isStr(o.id) || !isStr(o.question_id) || !isStr(o.question) || s == null || !isStr(s.by) || !isStr(s.text)) return []
-    const f = o.finding as Record<string, unknown> | null | undefined
-    return [{
-      id: o.id, question_id: o.question_id, question: o.question, target: isStr(o.target) ? o.target : null,
-      supplied: { by: s.by, text: s.text, at: isStr(s.at) ? s.at : '' },
-      bound: isStr(o.bound) ? o.bound : null,
-      finding: f != null && isStr(f.text) && f.text !== '' ? { row: typeof f.row === 'number' ? f.row : 0, text: f.text } : null,
-      rests_on: Array.isArray(o.rests_on) ? o.rests_on.filter(isStr) : [],
-      limits: isStr(o.limits) && o.limits !== '' ? o.limits : null,
-      proposal_id: typeof o.proposal_id === 'number' ? o.proposal_id : null,
-      olumi: true,
-    }]
-  })
-}
-
 /** The answer route (contract §3): one message turn bound to the question. Core answers it in the conversation and in `examined`. */
 export const answerQuestion = (sid: string, question_id: string, text: string, op: string) =>
   call<unknown>('POST', `/api/scenarios/${encodeURIComponent(sid)}/answer`, { question_id, text, op })
+
+/**
+ * The chat's question card (OlumiAsks) asks Olumi's coaching questions by their place (`c:<at>`, layout.ts chatQuestionsOf). Where core sends
+ * the typed question at that same place with the same words (`model.questions[at]`, CONTRACT §6), its id; else null and the answer goes as
+ * an ordinary message, as today. A trial question (`t:`) is never one of these.
+ */
+export function coreQuestionIdOf(model: ViewModel | null | undefined, key: string, text: string): string | null {
+  const m = /^c:(\d+)$/.exec(key)
+  if (model == null || m === null) return null
+  const raw = (model as unknown as { questions?: unknown }).questions
+  const q = Array.isArray(raw) ? raw[Number(m[1])] as Record<string, unknown> | undefined : undefined
+  return q != null && isStr(q.id) && q.id !== '' && q.text === text ? q.id : null
+}

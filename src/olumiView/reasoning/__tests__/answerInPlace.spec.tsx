@@ -1,8 +1,8 @@
 /**
  * Answer in place, the UI half of dl-takeover/question-answer/CONTRACT.md: a typed question (`model.questions`) is answered where it is
  * asked, through core's answer route bound to its id; core's 409 sentence is shown as it is and the words are kept (re-sent under the same
- * op); core's examination (`view.reasoning.examined`) is drawn by its id. CONTRASTS: an older core (no `model.questions`, no `reasoning`)
- * draws today's tab: text questions with no box, no Answered section; a past version offers no box.
+ * op); the chat's question card resolves the same id (one answer path). CONTRASTS: an older core (no `model.questions`) draws today's tab
+ * (text questions, no box); a past version offers no box.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -20,6 +20,7 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { ViewReasoningBlock } from '../../ViewReasoning'
+import { coreQuestionIdOf } from '../answer'
 
 const read = (): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
 const Q = { id: 'q0123456789', text: 'How many weeks are left before the release must ship?', target: null as string | null, role: 'due', unit: 'week' }
@@ -78,29 +79,16 @@ describe('answer in place (CONTRACT §2-§3)', () => {
   })
 })
 
-describe('what core examined (CONTRACT §6): drawn by id, every word core\'s or the person\'s', () => {
-  it('the question, what was supplied and by whom, the card it was bound to (one press to it), Olumi\'s reply as served and its limits', () => {
+describe('the chat\'s question card: one answer path (CONTRACT §3)', () => {
+  it('a coaching question core sent typed at the same place carries its id: the card\'s answer goes to …/answer bound to that id', () => {
     const view = typed()
-    const card = view.model!.cards[0]!
-    ;(view as unknown as { reasoning: unknown }).reasoning = { examined: [{ id: 'x42', question_id: Q.id, question: Q.text, target: card.id, supplied: { by: 'Ada', text: '12', at: '2026-11-19T00:40:00Z' },
-      bound: card.id, finding: { row: 43, text: 'Twelve weeks is now the time left on this aim; it gives the aim no measure.' }, rests_on: [], limits: 'The aim still has no measure, so no chance is given.', proposal_id: 9, olumi: true }] }
-    ready(view)
-    render(<ViewReasoningBlock />)
-    const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x42"]')!
-    expect(x.dataset['examinedQuestion']).toBe(Q.id)
-    expect([x.querySelector('[data-testid="reasoning-examined-question"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-supplied"]')!.textContent,
-      x.querySelector('[data-testid="reasoning-examined-finding"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-limits"]')!.textContent])
-      .toEqual([Q.text, 'Answer given: Ada: 12', 'Twelve weeks is now the time left on this aim; it gives the aim no measure.', 'Limits: The aim still has no measure, so no chance is given.'])
-    fireEvent.click(x.querySelector('[data-testid="reasoning-examined-bound"]')!)
-    expect(focus.node.mock.calls).toEqual([[card.id]])
+    ;(view.model as unknown as { questions: unknown[] }).questions = view.model!.coaching_questions!.map((text, i) => ({ id: `qid${i}`, text, target: null, role: null, unit: null }))
+    expect(coreQuestionIdOf(view.model, 'c:1', view.model!.coaching_questions![1]!)).toBe('qid1')
   })
-  it('CONTRAST: no reasoning block (an older core) or an empty examined list draws no Answered section', () => {
-    ready(read())
-    render(<ViewReasoningBlock />)
-    expect(screen.queryByTestId('reasoning-answered')).toBeNull()
-    cleanup()
-    ready(typed([]))
-    render(<ViewReasoningBlock />)
-    expect(screen.queryByTestId('reasoning-answered')).toBeNull()
+  it('CONTRAST: no typed question (an older core), a trial question, or other words at that place: null, so the answer goes as today\'s message', () => {
+    const view = typed()
+    ;(view.model as unknown as { questions: unknown[] }).questions = view.model!.coaching_questions!.map((text, i) => ({ id: `qid${i}`, text, target: null, role: null, unit: null }))
+    expect([coreQuestionIdOf(read().model, 'c:1', read().model!.coaching_questions![1]!), coreQuestionIdOf(view.model, 't:abc', view.model!.coaching_questions![1]!), coreQuestionIdOf(view.model, 'c:1', 'Some other words')])
+      .toEqual([null, null, null])
   })
 })
