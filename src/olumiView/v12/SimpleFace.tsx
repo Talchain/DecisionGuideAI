@@ -26,7 +26,7 @@ import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } 
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
-import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
+import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, sharedWaitsOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
@@ -111,7 +111,7 @@ export type SimpleFaceProps = {
 }
 
 /** The card's state line: core's words, their whole as the hover, and the data marks its readers bind by. */
-type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>> }
+type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; /** Core's words wrap whole, never cut by the two-line clamp. */ readonly whole?: true }
 
 export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
@@ -147,8 +147,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     } else if (h !== null && sharedNoChanceOf(model, h.aim_id) === null) {
       // R6 (16 Nov): an option with no chance is ONE quiet line, core's own words for what is missing (words.ts noChanceLineOf); the long reason is the hover.
       // Where every option waits for one shared reason, the aim card says it once and the options say nothing (words.ts sharedNoChanceOf).
+      // Where every option waits on the same item, the options band says it once (words.ts sharedWaitsOf); each option's own `add` line is whole, never clamped.
       const { line, hover } = noChanceLineOf(h)
-      state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id } }
+      if (sharedWaitsOf(model) === null) state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
     }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
@@ -192,14 +193,24 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // The aim's question opens its target figure's own editor, as the Detailed face does (core's `target`, targets.ts); none where core offers none.
     const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
+    const quietBound = <span className="min-w-0 break-words">{card.bound.text}</span>
     visual = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
-      <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: card.bound.measured ? GOAL : undefined }}>
-        <span className="ok-pill ok-bound min-w-0">
-          {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
+      // A bound core has not measured (`bound.measured` false: "not checked yet: nothing in the model is counted against it") is the card's state, so it is its quiet
+      // meta line, no border and no heading type (Paul, url3-2: two identical large pills); a measured bound keeps the outlined pill.
+      card.bound.measured ? (
+        <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: GOAL }}>
+          <span className="ok-pill ok-bound min-w-0">
+            {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
+            {olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null}
+          </span>
+        </p>
+      ) : (
+        <p className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id} title={card.bound.title !== '' ? card.bound.title : card.bound.text}>
+          {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
           {olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null}
-        </span>
-      </p>
+        </p>
+      )
     )
   } else if (card.figure?.state === 'waits') {
     // Canvas rule 5, pending, quiet (R6): a calculated figure that waits on an input says so in core's own "waits on …" words; what it waits on (core's
@@ -259,7 +270,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS} ok-two-lines`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         <AuthorGlyph card={card} />

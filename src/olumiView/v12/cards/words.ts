@@ -41,6 +41,26 @@ export function sharedNoChanceOf(model: ViewModel | null, aimId: string | null |
 }
 
 /**
+ * The waits item every option says (18 Nov, Paul's url3-2: "Still unresolved: 'Productivity gain from th…" four times): where EVERY option of the model is
+ * a no-chance option whose headline carries core's `add` line, waiting on the same item ids (`needs[].id`) in the same words, the line is said once, by the
+ * options band's label, and not on each option. One option that differs (another id, other words, or a chance) and every option keeps its own. Read by
+ * field (ids and core's words as sent), never by matching a phrase.
+ */
+export function sharedWaitsOf(model: ViewModel | null): { text: string; title: string } | null {
+  if (model === null) return null
+  const options = model.cards.filter((c) => c.family === 'option')
+  if (options.length < 2) return null
+  const keyOf = (c: ViewCard): string | null => {
+    const h = c.headline, ids = (c.needs ?? []).map((n) => n.id)
+    return h == null || h.state !== 'none' || (h.add ?? '') === '' || ids.length === 0 ? null : `${ids.join('|')}\n${h.add}`
+  }
+  const first = keyOf(options[0]!)
+  if (first === null || !options.every((c) => keyOf(c) === first)) return null
+  const h = options[0]!.headline!
+  return { text: h.add!, title: h.why != null && h.why !== '' ? h.why : h.add! }
+}
+
+/**
  * Core makes a chance line in one place (core src/view/run-lines.ts chanceFace): `${bare} chance`, then its clauses, each after ", ". The
  * words up to the first clause are the number's own; the rest is the qualifier, drawn as its own line. A line not in that shape is whole.
  */
