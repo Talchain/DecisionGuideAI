@@ -3,7 +3,7 @@
  * the "N more cards below" control, which stand in a gutter at the window's foot). A card near the foot is either read whole down to its
  * figure line above the gutter, or wholly below the fold (the control counts it). The resting camera moves the least it must to make that
  * so, never past its anchor: the board's top under the head band at rest, or (after the first approval, DL / PL-1040) the primary aim
- * wholly in view.
+ * wholly in view, with no card left half under the top chrome where that can hold too.
  */
 import type { Node, Viewport } from '@xyflow/react'
 
@@ -35,7 +35,11 @@ export function restClearOfFoot(v: Viewport, nodes: readonly Node[], paneH: numb
   const held = (dy: number) => (a === null
     ? Math.abs(dy) <= most && topmost + dy >= freeTop - 0.5 && top.top + dy + top.lf <= G + 0.5
     : a.top + dy >= freeTop - 0.5 && a.top + dy + a.h <= G + 0.5)
-  const moves = [0, ...cards.flatMap((c) => [paneH - c.top, G - (c.top + c.lf)]), ...(a === null ? [] : [G - (a.top + a.h), freeTop - a.top])]
+  // THE FREE REGION'S TOP (Codex 019a, funding at 1232, 19 Nov: bringing the aim into view lifted the top row's options partly behind the workspace
+  // toolbar): every card is wholly in the free region or wholly above its top, never half under the top chrome. (With no anchor the board's top
+  // never leaves the free region, so this holds already.)
+  const whole = (dy: number) => cards.every((c) => c.top + dy >= freeTop - 0.5 || c.top + dy + c.h <= freeTop + 0.5)
+  const moves = [0, ...cards.flatMap((c) => [paneH - c.top, G - (c.top + c.lf), ...(a === null ? [] : [freeTop - (c.top + c.h)])]), ...(a === null ? [] : [G - (a.top + a.h), freeTop - a.top])]
   // The smallest move that qualifies (the first listed where two are as small), by size and unrounded: a fractional card top must not leave
   // a pushed row half a pixel above the fold.
   const nearest = (ok: (d: number) => boolean): number | undefined => {
@@ -43,7 +47,8 @@ export function restClearOfFoot(v: Viewport, nodes: readonly Node[], paneH: numb
     for (const d of moves) if (ok(d) && (b === undefined || Math.abs(d) < Math.abs(b))) b = d
     return b
   }
-  const best = nearest((d) => held(d) && clear(d)) ?? (a === null ? 0 : nearest(held) ?? 0)
+  // The aim in view comes first after the first approval (PL-1040); where it and a whole top row cannot both hold, the aim wins.
+  const best = nearest((d) => held(d) && whole(d) && clear(d)) ?? nearest((d) => held(d) && clear(d)) ?? (a === null ? 0 : nearest((d) => held(d) && whole(d)) ?? nearest(held) ?? 0)
   // (where no bounded move clears the foot, the frame is left as the fit made it: nothing is ever pushed out of view to pass the rule)
   return best === 0 ? v : { ...v, y: v.y + Math.ceil(best) }
 }

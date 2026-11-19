@@ -36,6 +36,24 @@ describe('at rest the board keeps every card\'s label and figure clear of the fo
   })
 })
 
+describe('the free region\'s top: no card is left half under the top chrome (Codex 019a, funding at 1232: top-row options partly behind the workspace toolbar)', () => {
+  // The board taller than FC2's: the aim at 900, so bringing it wholly into view lifts the "fig" row up to the free region's top.
+  const tall = [...board.filter((n) => n.id !== 'aim'), box('aim', 300, 900)]
+  const at = (v: { y: number; zoom: number }) => tall.map((n) => ({ id: n.id, top: n.position.y * v.zoom + v.y, bottom: (n.position.y + n.measured!.height!) * v.zoom + v.y }))
+  const half = (v: { y: number; zoom: number }) => at(v).filter((c) => c.top < TOP - 0.5 && c.bottom > TOP + 0.5).map((c) => c.id)
+  it('FC8 after the first approval the aim is brought into view and every card is wholly in the free region or wholly above its top, never half under the toolbar', () => {
+    const v = restClearOfFoot({ x: 0, y: TOP, zoom: 1 }, tall, H, TOP, 'aim')
+    const a = at(v).find((c) => c.id === 'aim')!
+    expect(half(v), `cards half under the top chrome at y ${v.y}`).toEqual([])
+    expect([a.top >= TOP, a.bottom <= G], 'the aim wholly in view').toEqual([true, true])
+    expect(at(v).every((c) => c.top >= H || c.top + Math.min(c.bottom - c.top, LABEL_FIGURE_H) <= G), 'and nothing\'s label in the foot gutter').toBe(true)
+  })
+  it('FC8 CONTRAST: with no anchor the board\'s top stays at the free region\'s top, so nothing is above it at all', () => {
+    const v = restClearOfFoot({ x: 0, y: TOP, zoom: 1 }, tall, H, TOP)
+    expect([half(v), Math.min(...at(v).map((c) => c.top)) >= TOP - 0.5]).toEqual([[], true])
+  })
+})
+
 describe('V12 Simple: no card is cut by the foot gutter (R1 priority 1, 16 Nov: controls never cover card text)', () => {
   // Boxes in flow units, the board's top at TOP; a card is cut when the gutter's line crosses it.
   const cards = [{ y: 0, h: 100 }, { y: 150, h: 300 }, { y: 560, h: 100 }, { y: 800, h: 200 }]
