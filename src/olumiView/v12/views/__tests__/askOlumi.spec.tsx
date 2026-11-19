@@ -149,6 +149,19 @@ describe('sent on the press, through the chat\'s ask path', () => {
     expect(about[1]).toBeNull()
     expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['contract_to_cash'])
   })
+  it('a challenge waiting for a card stands down before the ask selects its card, so only the ask is sent (Codex review 4 #1)', async () => {
+    serve(); show(tm04)
+    const { send } = composer()
+    const fired: string[] = []
+    useViewChat.setState({ armed: 'assumption' } as never)
+    const stop = useCanvasStore.subscribe((s) => { if (useViewChat.getState().armed != null && s.selection.nodeIds.size === 1) fired.push('challenge') })
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
+    stop()
+    expect(fired).toEqual([])
+    expect(useViewChat.getState().armed ?? null).toBeNull()
+    expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
+  })
   it('a send that does not go through says so and can be pressed again (Codex review 2 #1); the words are in the message box', async () => {
     serve(); show(tm04)
     const { send, settle } = composer()

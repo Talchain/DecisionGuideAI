@@ -21,6 +21,7 @@
 import type { View } from '../../client'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useCanvasStore } from '../../../canvas/store'
+import { armedIntent } from '../../armedIntent'
 import { isAnswering, prefillComposer, SAVED_NOT_SHOWN, takesBrief, useViewChat } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
@@ -89,6 +90,9 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const g = useGuidanceStore.getState()
   if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
   const card = target !== null && view?.model?.cards.some((c) => c.id === target) ? target : null
+  // A challenge waiting for a card would be sent by the selection below (ViewChat's armed pick, Codex review 4 #1): this deliberate ask is the
+  // person's new intent, so the waiting challenge stands down first, as words typed in the message box make it.
+  armedIntent.cancel()
   const canvas = useCanvasStore.getState(), before = canvas.selection
   if (card !== null) canvas.selectNodes([card])
   else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
