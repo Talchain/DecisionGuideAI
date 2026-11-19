@@ -123,6 +123,12 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     expect(ch.find((c) => c.id === 'add_consulting')).toMatchObject({ olumi: false, was: 'olumi' }) // contrast: core's own entry keeps whose and was
     expect(new Set(ch.map((c) => c.id)).size).toBe(ch.length)
   })
+  it('a credited record with no card is named by core\'s label, never its raw id; with no name at all nothing is credited', () => {
+    const at = (sole: string, changed = SINCE.changed) => journeyOf(full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole, changed } } } }), CTX).moved!.sole
+    expect(at('not_a_card')).toMatchObject({ id: 'not_a_card', label: 'An invented gone card' })
+    expect(at('a_lever_id', [])).toBeNull()
+    expect(at('add_consulting')?.label).toBe(base.model!.cards.find((c) => c.id === 'add_consulting')!.heading) // contrast: a card keeps its heading
+  })
   it('a `since` to another version is not this version\'s movement', () => {
     const other = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, to: { n: N + 1, label: 'version 3' } } } } })
     expect(journeyOf(other, CTX).moved).toBeNull()
@@ -206,6 +212,15 @@ describe('#8 the five defects', () => {
     expect(screen.getByTestId('journey-commitment:501')).toHaveAttribute('data-unavailable', 'true')
     expect(screen.getByTestId('journey-commitment:501-why')).toHaveTextContent(W.earlier)
     expect(screen.getByTestId('journey-wait:contract_to_cash').tagName).toBe('BUTTON')
+  })
+  it('on an earlier version Team\'s records are not listed as open now (core reads them as they stood then); its model\'s waits still are', () => {
+    const v = full({ collab: { ...base.collab, commitments: [COMMITMENT([])] } })
+    const keys = (at: number | null) => journeyOf(v, { ...CTX, at }).open.map((x) => x.key)
+    expect(keys(null)).toEqual(expect.arrayContaining(['no-outcome:501', 'stale:501'])) // contrast: on the current version they are open
+    expect(keys(null).some((k) => k.startsWith('consider:'))).toBe(true)
+    const then = keys(1)
+    expect(then.filter((k) => /^(consider|no-outcome|stale|confirm):|^reveal$/.test(k))).toEqual([])
+    expect(then).toContain('wait:contract_to_cash')
   })
   it('(d) the person\'s words are inside the control, whole', () => {
     show(full()); render(<JourneyRecord view={full()} at={null} />)
