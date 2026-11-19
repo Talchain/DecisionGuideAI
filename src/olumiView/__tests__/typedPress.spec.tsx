@@ -14,8 +14,9 @@ import type { View } from '../client'
 import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
-import { TurnInFlight, ViewComposer, ViewConversation, restorePendingTurn, useViewChat } from '../ViewChat'
-import { askFieldOf, pressFieldOf } from '../press'
+import { TurnInFlight, ViewComposer, ViewConversation, askOnPress, restorePendingTurn, useViewChat } from '../ViewChat'
+import { useCanvasStore } from '../../canvas/store'
+import { askFieldOf, pressFieldOf, pressKindFor } from '../press'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/proposal.view3.json'), 'utf8'))
 const SID = 's_00000000000c', UUID = '00000000-0000-4000-8000-00000000000c'
@@ -130,6 +131,36 @@ describe('13b: a press whose acceptance was lost comes back after a reload as th
     await waitFor(() => expect(posts).toHaveLength(2))
     expect(posts[1]!.body).toEqual({ text: 'Explain it in plain words, please', op: expect.any(String) })
     expect(posts[1]!.body['op']).not.toBe(OP)
+  })
+})
+
+describe('13b: a press is declared, never inferred, and a failed one keeps its identity (Codex ROOT 03:07:18Z, report 037cbe59)', () => {
+  it('only a declared template control gets a press: the Explain chip, a caller\'s declaration, another chip; no chip and no declaration (a person\'s own answer) gets none', () => {
+    expect(pressKindFor('ask:explain', CARD.id)).toBe('explain')
+    expect(pressKindFor('', CARD.id, 'ask_about')).toBe('ask_about')
+    expect(pressKindFor('ask:why', CARD.id)).toBe('ask_about')
+    expect(pressKindFor('', CARD.id)).toBeNull()
+    expect(pressKindFor('ask:explain', null)).toBeNull()
+  })
+  it('a press that did not go through, sent again unchanged from the message box, keeps its card, kind and op; edited, it is the person\'s own message', async () => {
+    on(fx)
+    let n = 0
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (url === '/api/me') return new Response(JSON.stringify({ me: { id: 'p_1', name: 'Paul' } }), { status: 200 })
+      if (init?.method === 'POST') { posts.push({ url, body: JSON.parse(String(init.body)) }); n++; if (n === 1) throw new TypeError('network'); return new Response(JSON.stringify({ scenario: SID, job: { id: 44, kind: 'turn', status: 'running', words: '' }, proposal: null, discussion: null }), { status: 202 }) }
+      return new Response(JSON.stringify(useViewStore.getState().view), { status: 200 })
+    }) as unknown as typeof fetch)
+    useCanvasStore.setState({ selection: { nodeIds: new Set([CARD.id]), edgeIds: new Set(), anchorPosition: null } })
+    const c = render(<ViewComposer />).container
+    let sent: boolean | null = null
+    await act(async () => { sent = await askOnPress({ id: 'ask:explain', message: PREFILL }) })
+    expect(sent).toBe(false)
+    expect(useViewChat.getState().text).toBe(PREFILL)
+    useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { fireEvent.click([...c.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[0]!.body).toEqual({ text: PREFILL, about: CARD.id, press: 'explain', op: expect.any(String) })
+    expect(posts[1]!.body).toEqual(posts[0]!.body)
   })
 })
 

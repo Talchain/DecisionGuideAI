@@ -41,11 +41,13 @@ export function pressHeading(p: TurnPress, view: Pick<View, 'model'> | null): st
 }
 
 /**
- * The press the page sends with a press's words (13b): 'explain' for the Explain chip, 'ask_about' for any other press that is not a
- * challenge and has exactly one card of the model as its own target; null otherwise (then the words go as a plain message). Sent only with
- * that card as `about`, never from the message box.
+ * The press the page sends with a press's words (13b), only for a declared template control (Codex ROOT 03:07:18Z): 'explain' for the Explain
+ * chip; the caller's own declaration (Team's "Ask Olumi about this difference"); 'ask_about' for any other canvas chip. A press with no chip
+ * and no declaration is the person's own words (Team's answer to Olumi's question): no press. Never without exactly one card as `about`.
  */
-export function pressKindFor(chip: string, record: string | null): PressKind | null {
+export function pressKindFor(chip: string, record: string | null, declared: PressKind | null = null): PressKind | null {
   if (record === null) return null
-  return chip === 'ask:explain' ? 'explain' : 'ask_about'
+  if (chip === 'ask:explain') return 'explain'
+  if (declared !== null) return declared
+  return chip !== '' ? 'ask_about' : null
 }

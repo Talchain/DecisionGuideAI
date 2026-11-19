@@ -1440,7 +1440,8 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
 /** core's four challenges (API `POST …/challenge` `kind`), by the press's chip id. */
 const CHALLENGES: Readonly<Record<string, ChallengeKind>> = { 'ask:challenge': 'assumption', 'ask:method-opposite': 'opposite', 'ask:falsify': 'disconfirming', 'ask:method-outside-view': 'outside' }
 
-export type Press = { id?: string; parameters?: Record<string, unknown>; message: string }
+/** `press`: a template control's own declaration of its press kind (typed fields 13b), for a caller with no chip id; absent for human words. */
+export type Press = { id?: string; parameters?: Record<string, unknown>; message: string; press?: PressKind }
 
 /**
  * A press on the canvas (a coaching icon, a chip). A challenge on exactly one card of the model goes to core's challenge route for that
@@ -1456,7 +1457,13 @@ function press(opts: Press): Promise<boolean> {
   if (kind !== undefined && record !== null && sid !== null) return challenge(kind, record, opts.message)
   // A press is about ITS OWN card (the ask's target, else the selection), never whatever the canvas selected since: the same `record`; with
   // it, what kind of press it was (typed fields 13b: Explain, else a one-card ask), sent as the page's own prefill, unedited.
-  return say(opts.message, false, record, pressKindFor(chip, record))
+  const pressed = pressKindFor(chip, record, opts.press ?? null)
+  // A press that did not go through keeps its whole identity for the unchanged words (Codex 037cbe59 report): Send from the message box resends
+  // the same press about the same card under the same op (write() keeps it until core has it); changed words are the person's own message.
+  return say(opts.message, false, record, pressed).then((sent) => {
+    if (!sent && pressed !== null && record !== null) useViewChat.setState({ pressBack: { text: opts.message, about: record, press: pressed } })
+    return sent
+  })
 }
 
 /** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */

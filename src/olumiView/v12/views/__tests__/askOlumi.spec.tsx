@@ -37,8 +37,8 @@ function serve(): void {
  * this fake network. A POST to …/messages waits until `answer(ok)` settles it, after the press, in the real order. `posts` are the bodies on
  * the wire (`text`, `about`, `op`); `prefill` is the message box's prefill door.
  */
-function network(): { posts: Array<{ text: string; about?: string; op: string }>; others: string[]; prefill: ReturnType<typeof vi.fn>; answer: (ok: boolean) => Promise<void> } {
-  const posts: Array<{ text: string; about?: string; op: string }> = [], others: string[] = [], waiting: Array<(r: Response) => void> = []
+function network(): { posts: Array<{ text: string; about?: string; press?: string; op: string }>; others: string[]; prefill: ReturnType<typeof vi.fn>; answer: (ok: boolean) => Promise<void> } {
+  const posts: Array<{ text: string; about?: string; press?: string; op: string }> = [], others: string[] = [], waiting: Array<(r: Response) => void> = []
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
   setTeamFetch((async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET', path = String(url)
@@ -138,6 +138,8 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     fireEvent.click(go)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toMatchObject({ text: differenceQuestion(tm04, FIGURE), about: FIGURE.record })
+    // The difference's question is the page's template: it declares its press (typed fields 13b), so the row reads core's label, not the words.
+    expect(posts[0]!.press).toBe('ask_about')
     expect(prefill).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
     expect(go.disabled).toBe(true)
@@ -212,6 +214,8 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     fireEvent.click(screen.getByTestId('team-views-next-send'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toMatchObject({ text: `Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`, about: tm04.collab.next!.about[0] })
+    // The answer is the person's own words: no press, so their row shows what they wrote (Codex ROOT 03:07:18Z).
+    expect('press' in posts[0]!).toBe(false)
     await answer(true)
     expect(screen.getByTestId('team-views-next-said').textContent).toBe(ASK_SAID.sent)
   })

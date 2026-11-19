@@ -24,6 +24,7 @@ import { revealOlumiSurface } from '../../../canvas/conversation/revealOlumi'
 import { useCanvasStore } from '../../../canvas/store'
 import { armedIntent } from '../../armedIntent'
 import { askOnPress, isAnswering, prefillComposer, takesBrief, useViewChat } from '../../ViewChat'
+import type { PressKind } from '../../press'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
 
@@ -85,7 +86,8 @@ export type AskOutcome = 'placed' | 'busy' | 'sending' | 'sent' | 'failed'
  * new brief. Otherwise sent through the ask path; `onSettled` gets the write's own returned result: sent, or not sent (the chat keeps the words
  * in the message box beside its own sentence).
  */
-export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void): AskOutcome {
+/** `press`: declared only by a template control (the difference's fixed question); a person's own words (an answer) declare none. */
+export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void, press: PressKind | null = null): AskOutcome {
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
   if (takesBrief(sid, view)) { prefillComposer(text); return 'placed' }
@@ -101,7 +103,7 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const canvas = useCanvasStore.getState(), before = canvas.selection
   if (card !== null) canvas.selectNodes([card])
   else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
-  const result = askOnPress({ message: text })
+  const result = askOnPress(press === null ? { message: text } : { message: text, press })
   if (card === null) useCanvasStore.setState({ selection: before })
   try { revealOlumiSurface() } catch { /* the conversation is shown where the page can; the ask goes either way */ }
   // The write's own returned result decides (Codex ROOT HOLD 01:11:46Z), never busy timing or the message box. The message box is the
