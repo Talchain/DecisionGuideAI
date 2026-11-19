@@ -59,11 +59,15 @@ describe('crux first', () => {
   })
 
   it('the canvas marks fold never says "common ground": core\'s shared mark means several spoke to a card, not that they agree', async () => {
-    serve(); show(tm04)
-    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    // The round with one more mark of core's kind `shared` (two people spoke to the unique card too): the count still says marks.
+    const marked = tm04.collab.marks!
+    const spoke = { ...marked[1]!, kind: 'shared' as const, text: 'Maya and Cara spoke to it' }
+    const v = { ...tm04, collab: { ...tm04.collab, marks: [...marked, spoke] } } as View
+    serve(); show(v)
+    render(<WhereWeDiffer sid="s_x" view={v} onWrote={async () => true} />)
     await screen.findByTestId(rowOf(FIGURE))
     const marks = screen.getByTestId('differ-marks')
-    expect(marks.textContent).toContain(`Marked on the canvas · ${tm04.collab.marks!.length}`)
+    expect(marks.textContent).toContain(`Marked on the canvas · ${marked.length + 1}`)
     expect(marks.textContent).not.toMatch(/common ground/i)
   })
 })
