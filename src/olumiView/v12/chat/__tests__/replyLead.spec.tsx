@@ -8,7 +8,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { setPagePerson } from '../../../../olumiCore/team/api'
 import { useMe } from '../../../../olumiCore/me'
@@ -18,7 +18,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { ViewChat, useViewChat } from '../../../ViewChat'
 import { floorOf, leadOf } from '../../../early'
 import { FULL_ANSWER } from '../ReplyLead'
-import { LEAD_WORDS, SHOW_WHOLE_FIRST } from '../../../ViewChat'
+import { LEAD_WORDS } from '../../../ViewChat'
 import { typography } from '../../../../styles/typography'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
