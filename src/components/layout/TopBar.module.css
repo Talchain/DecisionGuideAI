@@ -444,7 +444,10 @@
 }
 
 /* The prototype's outlined Share: ink words on no fill, a quiet edge. */
+/* Never shrinks: at 1128x680@1.33 the right group squeezed it to an empty 22 px pill. Where the row cannot then fit, the
+   lens bar takes the row under the pill (UI lead, 19 Nov). */
 .coreShare {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 6px;
