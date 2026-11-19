@@ -152,7 +152,7 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['contract_to_cash'])
     await answer(true)
   })
-  it('Codex ROOT HOLD: a refusal that arrives later says "Not sent" (never "Sent"), the press works again, the words are in the message box; a retry that goes through says Sent and clears them', async () => {
+  it('Codex ROOT HOLD: a refusal that arrives later says "Not sent" (never "Sent"), the press works again, the words are in the message box; a retry that goes through says Sent', async () => {
     const { posts, answer } = network(); show(tm04)
     // The chat's own asks registered as the page registers them (ViewChat useAnswersAsks), so every path through the guidance store is real too.
     render(<><Asks /><WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} /></>)
@@ -168,7 +168,17 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     expect(posts[1]!.op).toBe(posts[0]!.op) // the same write retried, never a second one
     await answer(true)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
-    expect(useViewChat.getState().text).toBe('')
+  })
+  it('the person\'s own identical draft in the message box survives a successful send (Codex ROOT 01:51:41Z: the ask never removes words from the box)', async () => {
+    const { posts, answer } = network(); show(tm04)
+    const q = differenceQuestion(tm04, FIGURE)
+    useViewChat.setState({ text: `${q}\nand my own note` })
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await answer(true)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    expect(useViewChat.getState().text).toBe(`${q}\nand my own note`)
   })
   it('a challenge waiting for a card stands down before the ask selects its card, so only the ask is sent (Codex review 4 #1)', async () => {
     const { posts, others, answer } = network(); show(tm04)

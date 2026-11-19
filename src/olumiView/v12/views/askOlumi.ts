@@ -104,12 +104,9 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const result = askOnPress({ message: text })
   if (card === null) useCanvasStore.setState({ selection: before })
   try { revealOlumiSurface() } catch { /* the conversation is shown where the page can; the ask goes either way */ }
-  // The write's own returned result decides (Codex ROOT HOLD 01:11:46Z), never busy timing or the message box. A question left in the box by
-  // an earlier failed try is taken out once a retry goes through, so it is never sent twice.
-  void result.then((sent) => {
-    if (sent) { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
-    onSettled(sent ? 'sent' : 'failed')
-  })
+  // The write's own returned result decides (Codex ROOT HOLD 01:11:46Z), never busy timing or the message box. The message box is the
+  // chat's guarded writer's alone: nothing here removes words from it (Codex ROOT 01:51:41Z), so a person's own draft always survives.
+  void result.then((sent) => onSettled(sent ? 'sent' : 'failed'))
   return 'sending'
 }
 
