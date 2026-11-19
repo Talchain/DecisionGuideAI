@@ -10,6 +10,7 @@ import { placeHoverCard, canvasCardRects, viewportSize, HOVER_CARD_GAP, type Rec
 import { SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../../../canvas/utils/computeFitPadding'
 import { frameTop, regionsOf } from '../../regions'
 import type { DetailsTarget } from './inspectorStore'
+import { canMakeRoom, slideBoard } from './makeRoom'
 
 export const DETAILS_WIDTH = 280
 /** The custom properties the panel's position is written to (set on the element, read by its classes and by the form that takes its place). */
@@ -65,6 +66,10 @@ export const FORM_MIN_SHOWN = 160
 const hits = (b: Rect, a: Rect) => b.left < a.right && b.right > a.left && b.top < a.bottom && b.bottom > a.top
 /** Controls at the canvas foot that a box beside a card must also leave clear (they are not the board's own foot controls, which its layout reserves room for: regions.ts FOOT_CONTROLS). */
 const ALSO_FOOT = ['[data-testid="views-toggle"]', '[data-testid="views-compare"]'] as const
+/** The controls at the canvas foot a box must leave clear, on screen: the board's own (regions.ts FOOT_CONTROLS) and the team's Views buttons. */
+const footRects = (): Rect[] => [...regionsOf().foot, ...ALSO_FOOT.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect())).filter((r) => r.width > 0 && r.height > 0)].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+/** More than a hairline of `b` lies on `o` (2 px each way: a shared edge is not a cover). */
+const covers = (b: Rect, o: Rect) => Math.min(b.right, o.right) - Math.max(b.left, o.left) > 2 && Math.min(b.bottom, o.bottom) - Math.max(b.top, o.top) > 2
 const overlap = (b: Rect, a: Rect) => Math.max(0, Math.min(b.right, a.right) - Math.max(b.left, a.left)) * Math.max(0, Math.min(b.bottom, a.bottom) - Math.max(b.top, a.top))
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, Math.max(lo, hi)))
 
@@ -75,7 +80,7 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   const W = free.right - free.left, H = free.bottom - free.top, w = size.width
   const h = Math.min(size.height, Math.max(minShown, H - 2 * gap))
   // (And the team's Views buttons at the canvas foot, where they are drawn: the box's action row once sat under them.)
-  const foot = [...regionsOf().foot, ...ALSO_FOOT.flatMap((s) => [...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect())).filter((r) => r.width > 0 && r.height > 0)].map((r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom }))
+  const foot = footRects()
   const footIn = foot.map(shift)
   // The foot controls (the zoom row, the "N more cards below" cue) are never covered (Codex 2f witness: the panel's last row sat under the cue): a place whose
   // box would reach one is cut to end a gap above it, or lifted when that leaves less than a usable panel.
@@ -149,6 +154,47 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
   return out(best)
 }
 
+/** Where the box goes when the board has to slide to make room (`roomFor`): the slide (dx, dy) and the box's place and height AFTER it, on screen. */
+export type Room = { dx: number; dy: number; left: number; top: number; h: number }
+/** The least clear space kept between the box and any card (px). */
+const ROOM_SEP = 4
+
+/**
+ * ROOM FOR THE BOX ON A FULL BOARD (Paul, 19 Nov). A place for a `size` box near `anchor` that no card is under, and the slide of the board that brings
+ * the card and that place both inside `free` (every card moves with the board; the box does not), clear of the canvas's foot controls (`foot`, on screen).
+ * The places tried stand beside the card, or beside any other card's edge (where the board's own edge leaves empty canvas), at the box's full height
+ * first, then shorter. Of those that fit, the one that slides least and stands nearest its card wins; a place that needs no slide wins outright.
+ * `pan` false: only places that need no slide. Null: no place exists.
+ */
+export function roomFor(anchor: Rect, others: readonly Rect[], size: { width: number; height: number }, free: Rect, foot: readonly Rect[], minShown = MIN_SHOWN, pan = true): Room | null {
+  const gap = HOVER_CARD_GAP, w = size.width
+  const h0 = Math.min(size.height, free.bottom - free.top - 2 * gap)
+  if (h0 < minShown || w > free.right - free.left - 2 * gap) return null
+  const clear = (b: Rect, o: Rect) => b.left >= o.right + ROOM_SEP || b.right <= o.left - ROOM_SEP || b.top >= o.bottom + ROOM_SEP || b.bottom <= o.top - ROOM_SEP
+  const xs = [...new Set([anchor.right + gap, anchor.left - gap - w, ...others.flatMap((o) => [o.right + gap, o.left - gap - w])].map(Math.round))]
+  const heights = [...new Set([h0, Math.round(h0 * 0.75), Math.round(h0 * 0.5)])].filter((x) => x >= minShown)
+  let best: Room | null = null, least = Infinity
+  for (const hb of heights) {
+    const ys = [...new Set([anchor.top, anchor.bottom - hb, anchor.bottom + gap, anchor.top - gap - hb, ...others.flatMap((o) => [o.bottom + gap, o.top - gap - hb])].map(Math.round))]
+    for (const x of xs) for (const y of ys) {
+      const b = { left: x, top: y, right: x + w, bottom: y + hb }
+      if (!clear(b, anchor) || !others.every((o) => clear(b, o))) continue
+      // The slide that brings the card and the box both inside the free canvas: the one nearest no slide.
+      const u = { left: Math.min(b.left, anchor.left), top: Math.min(b.top, anchor.top), right: Math.max(b.right, anchor.right), bottom: Math.max(b.bottom, anchor.bottom) }
+      const xLo = free.left + gap - u.left, xHi = free.right - gap - u.right, yLo = free.top + gap - u.top, yHi = free.bottom - gap - u.bottom
+      if (xLo > xHi || yLo > yHi) continue
+      const dx = Math.round(clamp(0, xLo, xHi)), dy = Math.round(clamp(0, yLo, yHi))
+      if (!pan && (dx !== 0 || dy !== 0)) continue
+      const bS = { left: b.left + dx, top: b.top + dy, right: b.right + dx, bottom: b.bottom + dy }, aS = { left: anchor.left + dx, top: anchor.top + dy, right: anchor.right + dx, bottom: anchor.bottom + dy }
+      if (foot.some((f) => hits(bS, f) || ((dx !== 0 || dy !== 0) && hits(aS, f)))) continue
+      const away = Math.max(0, b.left - anchor.right, anchor.left - b.right) + Math.max(0, b.top - anchor.bottom, anchor.top - b.bottom)
+      const cost = Math.abs(dx) + Math.abs(dy) + away + (h0 - hb)
+      if (cost < least) { least = cost; best = { dx, dy, left: bS.left, top: bS.top, h: hb } }
+    }
+  }
+  return best
+}
+
 /**
  * Keep `el` beside its item as the board moves (a pan, a zoom, a relayout): placed before paint by the caller's layout effect, then again each frame
  * the item, the element's own size or the free canvas changes. Its position and cap are written as custom properties (`vars`), and only when the computed
@@ -162,8 +208,12 @@ export const KEEP_REACH = 64
 export const PEEK_RESERVE = 360
 
 /** `reserve`: a height the place is chosen for when the element is shorter (a preview: the room its pinned box needs), read each time it is placed. */
-export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN, reserve?: () => number): () => void {
+export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget, vars: { x: string; y: string; h: string }, fallbackWidth = DETAILS_WIDTH, minShown = MIN_SHOWN, reserve?: () => number, pinned?: () => boolean): () => void {
   let raf = 0, last = '', lastWhere = '', natural: number | null = null, dirty = true
+  // MADE ROOM (Paul 19 Nov): where a pinned box found no place clear of the other cards, the board slid once (`roomFor`, makeRoom.ts). While it slides the
+  // box stands still where the slide brings its card beside it (`at`: never outside the window on the way); after, it is held at its offset from its card
+  // (`lock`), so it moves with the card, clear of every card as the card is. Dropped when the free canvas changes or the box would leave it.
+  let lock: { ox: number; oy: number; h: number; free: string; at: { left: number; top: number } } | null = null, slid = 0, movingUntil = 0
   let stood: { ax: number; ay: number; free: string; left: number; top: number; placed: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
   let watched: HTMLElement | null = null
@@ -184,7 +234,9 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
       const width = el.getBoundingClientRect().width
       const own_h = natural, res = reserve?.() ?? 0
       const size = { width: width > 0 ? width : fallbackWidth, height: Math.max(own_h, res) }
-      const key = `${where}|${size.width}|${own_h}|${res}`
+      // (Whether a slide is still running is in the key: the first frame after it ends is placed again, from where the card actually stopped.)
+      const sliding = movingUntil > 0 && (typeof performance === 'undefined' ? Date.now() : performance.now()) < movingUntil
+      const key = `${where}|${size.width}|${own_h}|${res}|${sliding}`
       if (key !== last) {
         last = key
         // Its item is not drawn at all (nothing to stand beside): the free canvas's top-left, at its own height. Otherwise beside it.
@@ -196,15 +248,40 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
         // grows (its quick actions) and which the board lifts 27 px clear of the foot controls; placed afresh at its pinned height the box jumped 62 px.
         // A far move (a jump of the board, a relayout) places it afresh. The kept corner is still judged against the item as it now is (placeBeside).
         const freeKey = [free.left, free.top, free.right, free.bottom].join('|')
+        const now = typeof performance === 'undefined' ? Date.now() : performance.now()
+        let p: Placed | null = null
+        if (anchor !== null && lock !== null && lock.free === freeKey) {
+          const left = anchor.left + lock.ox, top = anchor.top + lock.oy, hh = Math.min(size.height, lock.h)
+          const maxHeight = size.height > lock.h ? lock.h : null
+          if (now < movingUntil) p = { ...lock.at, maxHeight }
+          else if (left >= free.left && left + size.width <= free.right && top >= free.top && top + hh <= free.bottom) p = { left, top, maxHeight }
+        }
+        if (p === null) lock = null
         const dx = anchor === null || stood === null ? 0 : anchor.left - stood.ax, dy = anchor === null || stood === null ? 0 : anchor.top - stood.ay
         const keep = anchor !== null && stood !== null && stood.free === freeKey && Math.abs(dx) <= KEEP_REACH && Math.abs(dy) <= KEEP_REACH ? { left: stood.left + dx, top: stood.top + dy } : undefined
-        let p: Placed = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown, keep)
-        // A MOVE ALONE NEVER SHORTENS THE BOX: carried with its item towards the window's foot, the kept corner has less room below it. Where that would
-        // show less of the box than stood before the move, it is placed afresh (as every move was before step A), at the height the free canvas gives it.
-        if (anchor !== null && keep !== undefined && stood !== null && (dx !== 0 || dy !== 0) && Math.min(size.height, p.maxHeight ?? size.height) < stood.placed) p = placeBeside(anchor, own, size, free, minShown)
+        if (p === null) {
+          p = anchor === null ? { left: free.left + HOVER_CARD_GAP, top: free.top + HOVER_CARD_GAP, maxHeight: size.height > room ? room : null } : placeBeside(anchor, own, size, free, minShown, keep)
+          // A MOVE ALONE NEVER SHORTENS THE BOX: carried with its item towards the window's foot, the kept corner has less room below it. Where that would
+          // show less of the box than stood before the move, it is placed afresh (as every move was before step A), at the height the free canvas gives it.
+          if (anchor !== null && keep !== undefined && stood !== null && (dx !== 0 || dy !== 0) && Math.min(size.height, p.maxHeight ?? size.height) < stood.placed) p = placeBeside(anchor, own, size, free, minShown)
+          // A BOX ON ANOTHER CARD (Paul 19 Nov: a full board leaves no side clear): a place clear of every card is found. A preview takes one only where the
+          // board need not move (a hover never moves the board), and its pinned box then stays there; a pinned box may slide the board once to bring the card
+          // and such a place into the free canvas, and after that one slide only places that need none. None at all: the box stays where it was put.
+          const isPinned = pinned?.() === true
+          const others = anchor === null || now < movingUntil ? [] : canvasCardRects(own)
+          const at = { left: p.left, top: p.top, right: p.left + size.width, bottom: p.top + Math.min(size.height, p.maxHeight ?? size.height) }
+          if (anchor !== null && others.some((o) => covers(at, o))) {
+            const plan = roomFor(anchor, others, size, free, footRects(), minShown, isPinned && slid === 0 && canMakeRoom())
+            if (plan !== null) {
+              if (plan.dx !== 0 || plan.dy !== 0) { slid += 1; movingUntil = now + slideBoard(plan.dx, plan.dy) + 120 }
+              lock = { ox: plan.left - plan.dx - anchor.left, oy: plan.top - plan.dy - anchor.top, h: plan.h, free: freeKey, at: { left: plan.left, top: plan.top } }
+              p = { left: plan.left, top: plan.top, maxHeight: plan.h < size.height ? plan.h : null }
+            }
+          }
+        }
         const placedNow = Math.min(size.height, p.maxHeight ?? size.height)
         // Shorter than the height its place was chosen for (a preview): its cap is its own, and above its item it stands on its bottom edge, next to the item.
-        if (anchor !== null && size.height > own_h) {
+        if (anchor !== null && lock === null && size.height > own_h) {
           const placed = Math.min(size.height, p.maxHeight ?? size.height), shown = Math.min(own_h, placed)
           p = { left: p.left, top: p.top + placed <= anchor.top ? p.top + (placed - shown) : p.top, maxHeight: own_h > placed ? placed : null }
         }
