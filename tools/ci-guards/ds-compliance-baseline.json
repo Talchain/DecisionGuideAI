@@ -4764,7 +4764,7 @@
     "v12-scale-tsx": {
       "mode": "ratchet",
       "description": "V12 surfaces off the design-system scale (size 12/14/18, weight 400/500, Inter, token colour, token radius, Lucide)",
-      "total": 28,
+      "total": 27,
       "byFile": {
         "src/olumiView/v10.tsx": 8,
         "src/olumiView/ViewChances.tsx": 3,
@@ -4778,7 +4778,6 @@
         "src/olumiView/ViewWelcome.tsx": 1,
         "src/olumiView/ViewWhatIfKey.tsx": 1,
         "src/olumiView/port/ChatFloat.tsx": 1,
-        "src/olumiView/research/FindEvidence.tsx": 1,
         "src/olumiView/v12/scale/ConditionalBar.tsx": 1
       },
       "signatures": {
@@ -4847,12 +4846,6 @@
           "file": "src/olumiView/port/LensTabs.tsx",
           "token": "radius: rounded-[16px]",
           "sample": "className={`${TYPE.meta} min-h-[32px] min-w-0 rounded-[16px] px-2 py-1 text-center leading-tight [overflow-wrap:anywhere"
-        },
-        "v12-scale-tsx :: src/olumiView/research/FindEvidence.tsx :: radius: rounded-[10px]": {
-          "count": 1,
-          "file": "src/olumiView/research/FindEvidence.tsx",
-          "token": "radius: rounded-[10px]",
-          "sample": "<li key={e.id} className=\"grid gap-1 rounded-[10px] border border-panel-border p-2\" data-evidence={e.id}>"
         },
         "v12-scale-tsx :: src/olumiView/v10.tsx :: radius: borderRadius: 3": {
           "count": 4,

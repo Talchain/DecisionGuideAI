@@ -57,7 +57,6 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
 }
 
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
-/** "Find evidence" (research/FindEvidence.tsx) is not offered in N1: web research returns in N2 once its checks pass review. */
 /** Null for a selection core's model holds no card for (the question, a link, a group): the row then draws no detail box at all. */
 export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode =>
   (s.kind === 'node' && (useViewStore.getState().view?.model?.cards.some((c) => c.id === s.id) ?? false) ? <SelectedRename id={s.id} /> : null)
