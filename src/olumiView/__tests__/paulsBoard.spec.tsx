@@ -28,7 +28,7 @@ import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
 import { setLevel } from '../v12/simpleStore'
 import { railOf } from '../../canvas/edges/linkRail'
-import { frameDue, FRAME_WAIT_MS } from '../ViewCanvas'
+import { frameDue, FRAME_WAIT_MS, REVEAL_MS } from '../ViewCanvas'
 import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
@@ -471,5 +471,16 @@ describe('the DL\'s look at A13f (12 Nov)', () => {
     expect(frameDue(false, FRAME_WAIT_MS)).toBe(true) // ~5 frames at 3 fps: the old 300-frame cap waited ~100 s
     expect(frameDue(false, FRAME_WAIT_MS - 1)).toBe(false)
     expect(FRAME_WAIT_MS).toBeLessThanOrEqual(2000)
+  })
+  it('PB12: the board is not painted until its first frame (class ok-board-unframed on the flow, hidden by the look sheet), and never hidden past REVEAL_MS; CONTRAST: the settle\'s own wait is shorter', () => {
+    const canvas = readFileSync(path.resolve('src/olumiView/ViewCanvas.tsx'), 'utf8'), look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    expect(canvas).toMatch(/className=\{framed \? 'olumi-look' : 'olumi-look ok-board-unframed'\}/)
+    expect(look).toMatch(/\.olumi-look\.ok-board-unframed \.react-flow__viewport \{ visibility: hidden; \}/)
+    expect(canvas).toMatch(/setTimeout\(\(\) => \{ framedRef\.current = true; setFramed\(true\) \}, REVEAL_MS\)/)
+    expect(canvas).toMatch(/if \(!holdsCards\) return; const t = setTimeout/) // the wait starts with the first card, not at mount (a cold open mounts before the data)
+    expect(canvas).not.toMatch(/drawn\.length === 0 && ids\.size === 0\)\) \{ framedRef/) // an empty board is never "framed"
+    expect(REVEAL_MS).toBeGreaterThan(FRAME_WAIT_MS)
+    expect(REVEAL_MS).toBeLessThanOrEqual(3000)
+    expect((canvas.match(/(?:const|,) FRAME_WAIT_MS =/g) ?? []).length).toBe(1)
   })
 })
