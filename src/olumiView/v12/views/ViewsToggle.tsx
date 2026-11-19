@@ -1,34 +1,33 @@
-import { Columns3, Users } from 'lucide-react'
 import type { View } from '../../client'
-import { typography } from '../../../styles/typography'
+import { OkIconButton } from '../../look/icons'
 import { revealedForYou } from './differGroups'
 import { useViewsMarks } from './viewsMarks'
 import { useCompare } from './useCompare'
 import { COMPARE_WORDS } from './WhereWeDiffer'
+import { ACTION_FOCUS } from '../../../components/results/analysisNew/panelSurfaces'
+
+/** Sized as the lens buttons beside them (ViewLensBar), so the row reads as one. */
+const ROW_BUTTON = `h-full min-w-8 rounded-full px-2 transition-colors duration-200 hover:text-text-body ${ACTION_FOCUS}`
 
 /**
- * A small floating "Views" switch for the canvas: when on, each revealed view is marked on the card it concerns (RevealMarks). Drawn only
- * once a reveal is authorised for this viewer, so it never hints that views exist before then. Place it with the canvas's other small
- * floating controls; it carries no position of its own beyond `className`.
+ * The team's two canvas controls, as icons on the top control row (ViewLensBar's `extra`; Paul, 18 Nov: "one control row, no foot panel").
+ * Drawn only once a reveal is authorised for this viewer, so they never hint that views exist before then.
+ *  - "Views" (Eye): the one switch for the reveal marks on the cards (RevealMarks). Those marks are drawn only at Detailed (CoreCard), so at
+ *    Simple the switch has nothing to show and is not drawn (`marks`).
+ *  - "Compare views" (Columns3): opens and closes the comparison over the canvas (CompareViewsStage); pressed while open.
  */
-export function ViewsToggle({ view, className = '' }: { view: View | null; className?: string }): JSX.Element | null {
+export function ViewsToggle({ view, marks }: { view: View | null; /** The cards draw the reveal marks (Detailed). */ marks: boolean }): JSX.Element | null {
   const on = useViewsMarks((s) => s.on)
   const set = useViewsMarks((s) => s.set)
   const centred = useCompare((s) => s.open)
   if (view === null || !revealedForYou(view)) return null
-  // Beside the marks switch, the way into the main-workspace comparison (each member's view side by side, then where they differ). Pressed while open.
-  const pill = `inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 text-text-body shadow-sm hover:bg-panel-hover ${typography.viewPanelMeta} ${className}`
   return (
     <>
-    <button type="button" data-testid="views-toggle" aria-pressed={on} title={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'}
-      onClick={() => set(!on)}
-      className={`inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 text-text-body shadow-sm hover:bg-panel-hover ${typography.viewPanelMeta} ${on ? 'text-text-header' : ''} ${className}`}>
-      <Users strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />Views
-    </button>
-    <button type="button" data-testid="views-compare" aria-pressed={centred} title="Each person’s view side by side, then where you differ"
-      onClick={() => (centred ? useCompare.getState().hide() : useCompare.getState().show())} className={`${pill} ${centred ? 'text-text-header' : ''}`}>
-      <Columns3 strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{COMPARE_WORDS.control}
-    </button>
+      <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-panel-border" />
+      {marks ? <OkIconButton id="views" variant={on ? undefined : 'alt'} active={on} pressed={on} words="Views" testid="views-toggle" className={ROW_BUTTON}
+        hover={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'} onClick={() => set(!on)} /> : null}
+      <OkIconButton id="compare-views" active={centred} pressed={centred} words={COMPARE_WORDS.control} testid="views-compare" className={ROW_BUTTON}
+        hover="Each person’s view side by side, then where you differ" onClick={() => (centred ? useCompare.getState().hide() : useCompare.getState().show())} />
     </>
   )
 }

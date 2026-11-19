@@ -150,10 +150,10 @@ describe('Compare views in the main workspace', () => {
 
 describe('one comparison at a time, never drawn twice', () => {
   it('the canvas control opens and closes it, beside the marks switch; drawn only after a reveal', () => {
-    const { rerender } = render(<ViewsToggle view={{ ...withFrames(), gated: true, collab: { ...fx.collab, shared: [] } } as View} />)
+    const { rerender } = render(<ViewsToggle view={{ ...withFrames(), gated: true, collab: { ...fx.collab, shared: [] } } as View} marks />)
     expect(screen.queryByTestId('views-compare')).toBeNull()
-    rerender(<ViewsToggle view={withFrames()} />)
-    expect([screen.getByTestId('views-compare').textContent, screen.getByTestId('views-compare').getAttribute('aria-pressed')]).toEqual([COMPARE_WORDS.control, 'false'])
+    rerender(<ViewsToggle view={withFrames()} marks />)
+    expect([screen.getByTestId('views-compare').getAttribute('aria-label'), screen.getByTestId('views-compare').getAttribute('aria-pressed')]).toEqual([COMPARE_WORDS.control, 'false'])
     fireEvent.click(screen.getByTestId('views-compare'))
     expect(useCompare.getState().open).toBe(true)
     expect(screen.getByTestId('views-toggle')).toBeTruthy()

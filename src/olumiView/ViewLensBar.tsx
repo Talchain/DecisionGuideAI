@@ -13,7 +13,7 @@
  * V11 (Paul 6 Nov) `nav`: the same bar, in the same place, holding three: Model (no lens), Explore (a menu of the other lenses) and Team.
  * Paul withdrew it on 11 Nov; the canvas mounts the six (ViewCanvas.tsx).
  */
-import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Compass } from 'lucide-react'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
@@ -45,7 +45,9 @@ export function lensBarPlace(at: { readonly pill: { left: number; right: number;
   return at.tightest && at.pill !== null ? { left: Math.round(at.pill.left), top: Math.round(at.pill.bottom + 8) } : null
 }
 
-export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Element | null {
+/** `extra`: the canvas's other top-row controls (the team's Views and Compare views, v12/views/ViewsToggle), drawn after the lenses inside the
+ *  same bar, so the bar's measured width (its place, and the pill's room for it) includes them; outside the lenses' radio group and its arrow keys. */
+export function ViewLensBar({ nav = false, extra }: { nav?: boolean; extra?: ReactNode } = {}): JSX.Element | null {
   const lens = useViewLens((s) => s.lens)
   const overviewOpen = useOverview((s) => s.open)
   // Every word on the bar is core's (`lens_words`, N3); with no View there is no bar.
@@ -88,10 +90,11 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
   if (W === null || overviewOpen) return null
   if (nav) return <NavBar barRef={bar} place={place} W={W} />
   return (
-    <div ref={bar} role="radiogroup" aria-label={W.bar} data-testid={LENS_BAR_TESTID} onKeyDown={onKeyDown} {...{ [TOP_ROW_BAR]: '' }}
+    <div ref={bar} data-testid={LENS_BAR_TESTID} {...{ [TOP_ROW_BAR]: '' }}
       className="fixed z-[1250] flex items-center gap-0.5 rounded-full border border-panel-border bg-panel p-1 transition-[left,top,opacity] duration-200 ease-out motion-reduce:transition-none"
       // Paul liked the bar's responsive motion (9cce33fa): it fades in once placed, and glides when the pill gives way.
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden', opacity: place ? 1 : 0 }}>
+      <div role="radiogroup" aria-label={W.bar} data-testid={`${LENS_BAR_TESTID}-lenses`} onKeyDown={onKeyDown} className="flex h-full items-center gap-0.5">
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
@@ -106,6 +109,8 @@ export function ViewLensBar({ nav = false }: { nav?: boolean } = {}): JSX.Elemen
           </button>
         )
       })}
+      </div>
+      {extra}
     </div>
   )
 }

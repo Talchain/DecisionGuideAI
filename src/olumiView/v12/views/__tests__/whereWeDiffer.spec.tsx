@@ -208,9 +208,9 @@ describe('retaining a revealed difference, qualitative included', () => {
 
 describe('Views toggle', () => {
   it('is drawn only after a reveal, and flips the one marks switch', () => {
-    const { rerender } = render(<ViewsToggle view={view({ gated: true, collab: { ...fx.collab, shared: [] } })} />)
+    const { rerender } = render(<ViewsToggle view={view({ gated: true, collab: { ...fx.collab, shared: [] } })} marks />)
     expect(screen.queryByTestId('views-toggle')).toBeNull()
-    rerender(<ViewsToggle view={view()} />)
+    rerender(<ViewsToggle view={view()} marks />)
     const b = screen.getByTestId('views-toggle')
     expect(b.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(b)

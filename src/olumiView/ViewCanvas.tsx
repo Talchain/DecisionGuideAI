@@ -548,9 +548,8 @@ function ViewFlow() {
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}
       <LaneHelp />
-      {/* Paul, 18 Nov: Simple | Detailed moved into the left Lenses menu (v12/lenses/LensesMenu); the foot keeps only the Views switch, which
-          draws nothing until a reveal is authorised, so there is no panel at the canvas foot at rest. */}
-      {hasModel ? <div data-testid="view-foot-toggle" className="pointer-events-none absolute bottom-3 left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2 empty:hidden"><ViewsToggle view={view} className="pointer-events-auto" /></div> : null}
+      {/* Paul, 18 Nov ("one control row, no foot panel"): Simple | Detailed is in the left Lenses menu (v12/lenses/LensesMenu), and the team's
+          Views and Compare views are icons on the lens bar's row (below); the canvas foot keeps only the more-below cue. */}
       {hasModel ? <LayerCanvasStyle /> : null}
       {/* Paul, 17 Nov: no always-on key at the bottom right; the one key is "How to read this" in the left foot menu (ViewLegend, KeyLines). */}
       {/* Hand edits (the right-click menu's forms, the details panel and Undo's keys), inside the toast provider. */}
@@ -558,7 +557,7 @@ function ViewFlow() {
       {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
       {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true; hand() }} /> : null}
       {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
-      {hasModel ? <ViewLensBar /> : null}
+      {hasModel ? <ViewLensBar extra={<ViewsToggle view={view} marks={level !== 'simple'} />} /> : null}
       {hasModel ? <ViewWhatIfKey /> : null}
       {hasModel ? <ViewTradeOffsKey /> : null}
       {hasModel ? <ViewPreMortemKey /> : null}
