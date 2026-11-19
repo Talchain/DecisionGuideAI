@@ -5,7 +5,7 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
@@ -108,6 +108,13 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
     </div>
   )
 }
+/** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
+ *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
+function RowBelow({ r, at, words }: { r: RowT; at: string; words: string }): JSX.Element | null {
+  if (r.kind !== 'none') return null
+  const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || words.includes(x) ? [] : [{ f, x }]))
+  return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
+}
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')
 const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) => x != null && x !== '' && a.indexOf(x) === j).join('\n')
 
@@ -126,8 +133,11 @@ export function AimResults({ aim, model, shared }: { aim: ViewCard; model: ViewM
   return (
     <div className="ok-dt-aims" data-aim-results={aim.id}>
       {rows.map(({ c, r, i }) => (
-        <ResultRow key={`${c.id}.${i}`} r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} hover={hoverOf(c.heading, rowWords(r), r.title, r.question)}
-          lead={<span className="ok-letter" data-letter-chip={letters.get(c.id) ?? ''}>{letters.get(c.id) ?? '·'}</span>} mark={{ 'data-ok-limit': aim.id, 'data-aim-result': c.id }} />
+        <Fragment key={`${c.id}.${i}`}>
+          <ResultRow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} hover={hoverOf(c.heading, rowWords(r), r.title, r.question)}
+            lead={<span className="ok-letter" data-letter-chip={letters.get(c.id) ?? ''}>{letters.get(c.id) ?? '·'}</span>} mark={{ 'data-ok-limit': aim.id, 'data-aim-result': c.id }} />
+          <RowBelow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} />
+        </Fragment>
       ))}
     </div>
   )
@@ -142,8 +152,14 @@ export function AimRows({ card, model, shared }: { card: ViewCard; model: ViewMo
     <div className="ok-dt-aims" data-view={`${card.id}.limits`}>
       {rows.map(({ r, i }) => {
         const words = r.kind === 'none' && shared.has(r.aim_id!) ? '' : rowWords(r)
-        return <ResultRow key={i} r={r} at={`${card.id}.rows.${i}`} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, r.question)}
-          lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': shared.has(r.aim_id!) || undefined }} />
+        const at = `${card.id}.rows.${i}`
+        return (
+          <Fragment key={i}>
+            <ResultRow r={r} at={at} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, r.question)}
+              lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': shared.has(r.aim_id!) || undefined }} />
+            <RowBelow r={r} at={at} words={words} />
+          </Fragment>
+        )
       })}
     </div>
   )

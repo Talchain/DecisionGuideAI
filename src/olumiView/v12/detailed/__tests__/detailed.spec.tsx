@@ -90,6 +90,18 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect(rows.map((r) => [r.getAttribute('data-aim-result'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector('[data-row-words]')?.textContent]))
       .toEqual(opts.map((o, i) => [o.id, letters.get(o.id), i === 2 ? own : words]))
   })
+  it('A7(a) a withheld row reads core\'s switch sentence (`tips`) and the input to check (`next_test`) at rest under the row, by field; CONTRAST: a tips sentence the row already says is not drawn twice', () => {
+    // DT2's case: within_budget is withheld for all three options; one option's own state makes the limit card list every option's row.
+    const aim = 'within_budget', opts = optionsOf(ASKED), o = opts[2]!, at = `${o.id}.rows.1`
+    const TIPS = 'An invented switch sentence.', NEXT = 'An invented input to check.', OWN = 'An invented state for this option.'
+    const set = (extra: Record<string, unknown>) => withCard(ASKED, { ...o, rows: o.rows.map((r, i) => (i === 1 ? { ...r, state_text: OWN, ...extra } : r)) } as ViewCard)
+    expect(o.rows[1]!.kind).toBe('none')
+    const lines = [...faceOf(draw(set({ tips: TIPS, next_test: NEXT }), aim), aim).querySelectorAll<HTMLElement>(`[data-row-below]`)]
+    expect(lines.map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([[`${at}.tips`, TIPS], [`${at}.next_test`, NEXT]])
+    cleanup()
+    const again = faceOf(draw(set({ tips: OWN }), aim), aim)
+    expect(again.querySelectorAll('[data-row-below]').length, 'already said by the row').toBe(0)
+  })
   it('DT3 each aim\'s results by option letter on the aim\'s own card; the option card no longer names the limit. CONTRAST: the headline\'s own aim lists no option rows (the option cards and the rail carry it)', () => {
     const letters = optionLetters(HIRING.model!), opts = optionsOf(HIRING)
     const rows = [...faceOf(draw(HIRING, 'budget'), 'budget').querySelectorAll<HTMLElement>('[data-aim-results="budget"] [data-aim-result]')]

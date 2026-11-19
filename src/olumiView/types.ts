@@ -189,6 +189,8 @@ export type View = {
           role: "figure" | "link" | "calculation" | "risk" | "aim" | "limit" | "option" | "note"
         }>
         tips?: string
+        /** A7(a), core wip/science-a7-next-test: on a withheld aim row, the one input to check (core's words). */
+        next_test?: string
         draw_bounds?: {
           draws: number
           met: number
