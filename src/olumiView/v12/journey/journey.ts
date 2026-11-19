@@ -42,7 +42,6 @@ export const JOURNEY_WORDS = {
   wasTheirs: 'was the team’s',
   credited: 'Credited to',
   open: 'Open',
-  unchanged: 'unchanged',
   more: (n: number) => `+${n} more`,
   fewer: 'Show fewer',
   notConsidered: (by: string) => `${by}’s evidence: not yet considered`,
@@ -55,7 +54,8 @@ export const JOURNEY_WORDS = {
   next: 'Go to the next step',
   commitments: 'Commitments',
   owner: (o: string) => `Owner: ${o}`,
-  expected: 'Expected',
+  expected: 'What we expect',
+  band: 'The model’s band for it then',
   reconsider: 'Reconsider if',
   happened: (by: string) => `${by} recorded what happened`,
   triggered: 'Recorded as meeting the reason to reconsider',
@@ -84,7 +84,8 @@ export type Moved = {
   readonly fromText: string
   readonly toText: string
   readonly line: string
-  readonly same: boolean
+  /** Core's two texts are the same. Not a claim that the chance did not move (0.201 and 0.204 both read "about 20%"); only counted, never said. */
+  readonly sameText: boolean
 }
 export type Changed = { readonly id: string; readonly label: string; readonly olumi: boolean; readonly was: 'olumi' | 'theirs' | null; readonly press: JourneyPress }
 export type OpenItem = { readonly key: string; readonly label: string; readonly words: string | null; readonly title?: string; readonly olumi?: boolean; readonly press: JourneyPress }
@@ -121,6 +122,8 @@ const newestFirst = <T extends { at: string }>(xs: T[]): T[] => xs.map((x, i) =>
 export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const model = view.model
   const cards = new Map((model?.cards ?? []).map((c) => [c.id, c.heading]))
+  // Olumi's card (core marks it with `olumi`): its chip stays Olumi's when no `since` says whose the change was.
+  const olumiCard = new Set((model?.cards ?? []).filter((c) => c.olumi !== null).map((c) => c.id))
   const label = (id: string) => cards.get(id) ?? null
   const onCanvas = (id: string): JourneyPress => (cards.has(id) ? { to: { kind: 'card', id } } : { unavailable: JOURNEY_WORDS.offCanvas })
   // Team's records are held while an earlier version is drawn (TeamTab): their presses say so instead of opening nothing.
@@ -133,14 +136,18 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const moved = sinceHere === null || sinceHere.lines.length === 0 ? null : {
     heading: sinceHere.heading, from: sinceHere.from.label, to: sinceHere.to.label,
     rows: sinceHere.lines.map((l) => ({ key: `move:${l.option}:${l.aim}`, option: label(l.option) ?? l.option, aim: label(l.aim) ?? l.aim,
-      from: l.from, to: l.to, fromText: l.from_text, toText: l.to_text, line: l.line, same: l.from_text === l.to_text })),
-    sole: sinceHere.sole === null ? null : { id: sinceHere.sole, label: label(sinceHere.sole) ?? sinceHere.sole, olumi: false, was: null, press: onCanvas(sinceHere.sole) },
+      from: l.from, to: l.to, fromText: l.from_text, toText: l.to_text, line: l.line, sameText: l.from_text === l.to_text })),
+    sole: sinceHere.sole === null ? null : (() => {
+      // Whose the credited change is comes from core's own change entry for it, or the card's Olumi mark; never assumed to be the team's.
+      const id = sinceHere.sole, c = sinceHere.changed.find((x) => x.id === id)
+      return { id, label: label(id) ?? id, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(id) }
+    })(),
   }
 
   const changed = n === null ? null : (() => {
     const list: Changed[] = sinceHere !== null
       ? sinceHere.changed.map((c) => ({ id: c.id, label: c.label, olumi: c.whose === 'olumi', was: c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(c.id) }))
-      : (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null ? [] : [{ id, label: l, olumi: false, was: null, press: onCanvas(id) }] })
+      : (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null ? [] : [{ id, label: l, olumi: olumiCard.has(id), was: null, press: onCanvas(id) }] })
     return list.length === 0 ? null : { n, cards: list }
   })()
 

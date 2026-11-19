@@ -22,7 +22,7 @@ export const CATCH_UP_WORDS = {
 /** The counts the row says: conclusions whose chance text changed at the version shown, and open items (as the panel lists them). */
 export function catchUpCounts(view: Parameters<typeof journeyOf>[0], at: number | null): { moved: number; open: number } {
   const j = journeyOf(view, { at, keptNode: () => null, hasNext: false })
-  return { moved: j.moved?.rows.filter((r) => !r.same).length ?? 0, open: j.open.length }
+  return { moved: j.moved?.rows.filter((r) => !r.sameText).length ?? 0, open: j.open.length }
 }
 
 export function CatchUp(): JSX.Element | null {
