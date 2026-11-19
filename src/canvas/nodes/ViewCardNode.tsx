@@ -289,7 +289,7 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
         <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
-          title={[restsOn.olumi && card.olumi ? card.olumi.title : null, lensWords?.hint.rests_on ?? null].filter((t) => t !== null && t !== '').join('\n') || undefined}
+          title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined}
           data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>
       )}
       {driverOf === null || lensWords === null ? null : (

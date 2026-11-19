@@ -55,7 +55,7 @@ describe('Rests on, from the View', () => {
     expect([b.textContent, b.dataset['restsOnOlumi'], b.className.includes('text-info'), b.title]).toEqual(['6', 'true', true, olumis.olumi!.title])
   })
 
-  it('experience review job 3: each number says what it marks in core\'s words: core\'s Rests on label with the number, core\'s lens hint on hover (Olumi\'s keeps core\'s mark first). CONTRAST: a View with no lens words keeps the bare number', () => {
+  it('experience review job 3: each number says what it marks in core\'s words: core\'s Rests on label with the number, core\'s lens hint on hover (Olumi\'s keeps core\'s mark as its hover). CONTRAST: a View with no lens words keeps the bare number', () => {
     useViewStore.setState({ view })
     const W = view.lens_words!
     const { items } = restsOnOf(model)
@@ -63,7 +63,7 @@ describe('Rests on, from the View', () => {
     const a = render(<ViewCard card={mine} restsOn={items.get(mine.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
     expect([a.textContent, a.title, a.dataset['viewWords']]).toEqual([`${W.label.rests_on} 1`, W.hint.rests_on, 'lens_words.label.rests_on'])
     const b = render(<ViewCard card={olumis} restsOn={items.get(olumis.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
-    expect([b.textContent, b.title]).toEqual([`${W.label.rests_on} 6`, `${olumis.olumi!.title}\n${W.hint.rests_on}`])
+    expect([b.textContent, b.title], 'Olumi\'s pill keeps core\'s mark as its hover, unchanged').toEqual([`${W.label.rests_on} 6`, olumis.olumi!.title])
     cleanup()
     useViewStore.setState({ view: { ...view, lens_words: undefined } as unknown as View })
     const bare = render(<ViewCard card={mine} restsOn={items.get(mine.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
