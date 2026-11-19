@@ -29,7 +29,7 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -385,9 +385,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       const { line, hover: why } = noChanceLineOf(h)
       // Said once on the aim (said.ts) only where that line says exactly this option's own line and hover; an option whose reason differs keeps its own.
       const once = saysNoChanceOnce(said.none, h)
+      const hi = h.aim_id == null ? -1 : card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === h.aim_id)
+      const headRow = hi === -1 ? null : { r: card.rows[hi] as Parameters<typeof RowBelow>[0]['r'], i: hi }
       return (
         <div data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} title={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
           {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}
+          {/* A7(a), Codex 12:08Z: the headline's own aim is drawn here, not in AimRows (otherRows leaves it out), so its typed withheld row's switch
+              sentence and input to check are read here, once, at rest under the line. By field (the row whose aim_id is the headline's). */}
+          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} words={once ? '' : line} />}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </div>
       )

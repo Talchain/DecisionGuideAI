@@ -67,7 +67,7 @@ const aimKindOf = (model: ViewModel | null, aimId: string): 'goal' | 'limit' => 
   return (k.kind === 'aim' && k.aim === 'limit') || aim.family === 'limit' ? 'limit' : 'goal'
 }
 
-type RowT = { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string; text?: string | null; question?: string | null; state_text?: string | null; olumi?: { glyph: string; title: string } | null; chance?: number | null }
+type RowT = { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string; text?: string | null; question?: string | null; state_text?: string | null; olumi?: { glyph: string; title: string } | null; chance?: number | null; tips?: string; next_test?: string }
 
 /** An option's rows for aims other than its headline's (core's rows with an `aim_id`), each with its place in `rows`. */
 const otherRows = (card: ViewCard) => {
@@ -110,9 +110,11 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
 }
 /** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
  *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
-function RowBelow({ r, at, words }: { r: RowT; at: string; words: string }): JSX.Element | null {
+export function RowBelow({ r, at, words }: { r: RowT; at: string; words: string }): JSX.Element | null {
   if (r.kind !== 'none') return null
-  const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || words.includes(x) ? [] : [{ f, x }]))
+  // Only words drawn AT REST count as already said: over ROW_WORDS_MAX a row's words are a closed press (Codex 12:08Z), so they say nothing at rest.
+  const shown = words.length <= ROW_WORDS_MAX ? words : ''
+  const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || shown.includes(x) ? [] : [{ f, x }]))
   return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
 }
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')

@@ -102,6 +102,21 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const again = faceOf(draw(set({ tips: OWN }), aim), aim)
     expect(again.querySelectorAll('[data-row-below]').length, 'already said by the row').toBe(0)
   })
+  it('A7(a) HEADLINE: the option\'s own withheld aim (drawn by card.headline, not AimRows) reads its typed row\'s switch sentence and input to check at rest under the line; CONTRAST: the same card without them draws neither; a long row (a closed press) does not count as said', () => {
+    const o = optionsOf(ASKED).find((c) => c.headline?.state === 'none' && c.headline.aim_id != null && c.rows.some((r) => r.kind === 'none' && r.aim_id === c.headline!.aim_id))!
+    const i = o.rows.findIndex((r) => r.kind === 'none' && r.aim_id === o.headline!.aim_id), at = `${o.id}.rows.${i}`
+    const TIPS = 'An invented switch sentence.', NEXT = 'An invented input to check.'
+    const set = (extra: Record<string, unknown>) => withCard(ASKED, { ...o, rows: o.rows.map((r, k) => (k === i ? { ...r, ...extra } : r)) } as ViewCard)
+    const face = faceOf(draw(set({ tips: TIPS, next_test: NEXT }), o.id), o.id)
+    const lead = face.querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
+    expect([...lead.querySelectorAll<HTMLElement>('[data-row-below]')].map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([[`${at}.tips`, TIPS], [`${at}.next_test`, NEXT]])
+    cleanup()
+    expect(faceOf(draw(ASKED, o.id), o.id).querySelectorAll('[data-row-below]').length, 'CONTRAST: no tips, no line').toBe(0)
+    cleanup()
+    const LONG = 'x'.repeat(90) + ' ' + TIPS
+    const long = faceOf(draw(withCard(ASKED, { ...o, headline: { ...o.headline!, text: LONG, add: null }, rows: o.rows.map((r, k) => (k === i ? { ...r, tips: TIPS } : r)) } as ViewCard), o.id), o.id)
+    expect(long.querySelector(`[data-view="${at}.tips"]`)?.textContent, 'a long line is a closed press: its words are not said at rest').toBe(TIPS)
+  })
   it('DT3 each aim\'s results by option letter on the aim\'s own card; the option card no longer names the limit. CONTRAST: the headline\'s own aim lists no option rows (the option cards and the rail carry it)', () => {
     const letters = optionLetters(HIRING.model!), opts = optionsOf(HIRING)
     const rows = [...faceOf(draw(HIRING, 'budget'), 'budget').querySelectorAll<HTMLElement>('[data-aim-results="budget"] [data-aim-result]')]
