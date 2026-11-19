@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useViewStore } from '../../olumiView/store'
@@ -151,6 +151,10 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   const choice = useTeamFlow()
   const open = openStepOf(choice, sid, current)
   const line = useDifferLine(sid, view)
+  // The steps still to come are folded behind one press ("Where this goes"): the panel shows where the team is, not six stubs. Hidden, never unmounted.
+  const [showLater, setShowLater] = useState(false)
+  const folded = (id: StepId): boolean => !showLater && stepState(view, id) === 'later' && open !== id
+  const foldedCount = STEP_ORDER.filter(folded).length
   // A step opened from elsewhere (an outcome form, the commitment form) is the person's choice under the current step.
   useEffect(() => { if (choice.pending !== null) takePending(sid, current) }, [choice.pending, sid, current])
   // The header's "Named in the brief but not matched" notice puts a name in the invite form (TeamPresence `inviteUnjoined`): open that step.
@@ -202,12 +206,20 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
           body, so the one-time invite link and every draft survive. Rows take the full width; shrunk names share one line. */}
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
         {STEP_ORDER.map((id) => (
-          <li key={id} className={done.includes(id) ? '' : 'basis-full'}>
+          <li key={id} hidden={folded(id)} className={done.includes(id) ? '' : 'basis-full'}>
             <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
               {bodies[id]}
             </Step>
           </li>
         ))}
+        {(foldedCount > 0 || showLater) && (
+          <li className="basis-full">
+            <button type="button" aria-expanded={showLater} data-testid="team-steps-later" onClick={() => setShowLater((x) => !x)}
+              className={`${META} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+              {STEP_WORDS.whereThisGoes}
+            </button>
+          </li>
+        )}
       </ol>
       {/* Evidence and the record stand outside the flow: evidence can come at any step (and the reveal dock's "Bring evidence" lands here). */}
       <div className="grid gap-4 pt-2">

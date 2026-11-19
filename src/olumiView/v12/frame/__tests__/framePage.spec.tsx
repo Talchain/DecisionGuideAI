@@ -10,7 +10,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useLaneInspector } from '../../edit/inspectorStore'
-import { FramePage, moreCardsWords } from '../FramePage'
+import { FRAME_WORDS, FramePage, moreCardsWords } from '../FramePage'
 import { FrameOpener, FrameStage } from '../FrameStage'
 import { useFrameStage } from '../useFrameStage'
 
@@ -39,6 +39,7 @@ describe('the Frame page', () => {
     expect(screen.getByTestId('frame-route-opt_a').textContent).toContain('Carry on as now')
     expect(screen.getByTestId('frame-more').textContent).toBe(moreCardsWords(1))
     expect(screen.getByTestId('frame-full-graph')).toBeInTheDocument()
+    expect(screen.getByTestId('frame-edit-question').textContent, 'says what it does: it asks, it does not edit in place').toBe(FRAME_WORDS.askChange)
     fireEvent.click(screen.getByTestId('frame-edit-aim_mine'))
     expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: 'aim_mine' } })
   })

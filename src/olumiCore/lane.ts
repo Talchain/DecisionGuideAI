@@ -11,7 +11,7 @@
  *   - V12 hand editing, each through ITS OWN core route and never the legacy canvas store (src/olumiView/v12/edit/, src/canvas/contextMenu/laneMenu.ts):
  *     rename (…/rename), add a factor (…/figures), add an option, risk, claim or question (…/strategy/items), a link's strength or a risk's
  *     chance and size (…/size), take a link off (…/links/remove), and Undo of a saved edit (…/undo, one level, when the View carries `model.undo`).
- * What it does not (so the canvas shows it disabled, "Not available yet", or not at all): deleting a card, drawing a link, an option's
+ * What it does not (so the canvas does not offer it: the right-click menu omits the row): deleting a card, drawing a link, an option's
  * status or settings ("Take out of comparison"), an aim's target. The 'structure' write below stays NOT honoured: it names the LEGACY
  * mutation path (`canvasSemanticMutations`, `savedModelProgram`), which stays off; the routes above are the lane's own.
  */

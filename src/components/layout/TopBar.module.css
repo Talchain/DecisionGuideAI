@@ -484,14 +484,15 @@
   transform: translate(-50%, -50%);
 }
 
-/* Never past the dock (useTopBarFit): step 1 shortens the scenario name, step 3 keeps Share's icon alone. Step 2 drops the version pill (TopBar.tsx). */
-.topBar[data-tight] :global([data-testid="scenario-name-text"]),
-.topBar[data-tight] :global([data-testid="scenario-name-button"]) {
+/* Never past the dock (useTopBarFit): step 1 keeps Share's icon alone, step 2 shortens the scenario name, step 3 drops the version pill (TopBar.tsx).
+   Share goes first: the name is the person's own words and was clipped at 1232 while a label with an icon beside it stayed whole (audit 19 Nov, item 12). */
+.topBar[data-tight]:not([data-tight="1"]) :global([data-testid="scenario-name-text"]),
+.topBar[data-tight]:not([data-tight="1"]) :global([data-testid="scenario-name-button"]) {
   max-width: 110px;
 }
-.topBar[data-tight="3"] .coreShare {
+.topBar[data-tight] .coreShare {
   padding: 0 10px;
 }
-.topBar[data-tight="3"] .coreShare span:not([aria-hidden]) {
+.topBar[data-tight] .coreShare span:not([aria-hidden]) {
   display: none;
 }

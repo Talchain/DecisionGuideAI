@@ -19,8 +19,8 @@ const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/
 const eight: View = { ...real, members: Array.from({ length: 8 }, (_, i) => ({ ...real.members[i % real.members.length]!, id: `m${i}`, name: `Person ${i}` })), you_id: 'm7' }
 const rect = (o: Partial<DOMRect>): DOMRect => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...o })
 
-/** The saving of each step: the name 250 -> 110 px, the version pill (and its gap), Share's label. */
-const SAVES = [0, 140, 155, 45]
+/** The saving of each step: Share's label, the name 250 -> 110 px, the version pill (and its gap). */
+const SAVES = [0, 45, 140, 155]
 const REST = 700 // everything in the bar except the discs, at step 0 (name, version pill, controls, Share, avatar)
 
 function Bar() {
@@ -53,7 +53,7 @@ describe('the top bar never overlaps the dock (eight people)', () => {
     const bar = screen.getByRole('banner')
     expect(screen.getByTestId('team-presence-more').textContent).toBe('+7')
     expect(bar.querySelectorAll('[data-presence-disc]')).toHaveLength(0)
-    expect(Number(bar.dataset['tight']), 'the name shortens, then the version pill goes: two steps are enough').toBe(2)
+    expect(Number(bar.dataset['tight']), 'Share keeps its icon, then the name shortens: two steps are enough').toBe(2)
     expect(bar.getBoundingClientRect().right, 'the bar ends before the dock (592) less its gap').toBeLessThanOrEqual(592 - 12)
   })
   it('CONTRAST: 1232 wide with the dock open, everything fits: all seven discs, no chip, no step', () => {
@@ -91,5 +91,15 @@ describe('a measurement that changes nothing schedules no update', () => {
     }
     expect(screen.getByRole('banner').dataset['n']).toBe('3')
     expect(screen.getByRole('banner').dataset['tight'], 'CONTRAST: nothing gave way, the bar fits').toBeUndefined()
+  })
+})
+
+/** Audit 19 Nov, item 12: the name was clipped at 1232 while Share kept its label. Share's icon alone is the FIRST step; the name shortens only from the second. */
+describe('the order of the steps (the stylesheet)', () => {
+  const css = readFileSync(path.resolve('src/components/layout/TopBar.module.css'), 'utf8')
+  it('step 1 hides only Share\'s label; the name keeps its width until step 2', () => {
+    expect(css).toMatch(/\.topBar\[data-tight\] \.coreShare span:not\(\[aria-hidden\]\) \{\s*display: none;/)
+    expect(css).toMatch(/\.topBar\[data-tight\]:not\(\[data-tight="1"\]\) :global\(\[data-testid="scenario-name-text"\]\)/)
+    expect(css).not.toMatch(/\.topBar\[data-tight\] :global\(\[data-testid="scenario-name-text"\]\)/)
   })
 })

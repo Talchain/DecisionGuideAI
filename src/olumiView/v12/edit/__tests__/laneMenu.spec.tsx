@@ -1,13 +1,14 @@
 /**
  * V12 right-click menus on the lane: the pure builder says which rows exist and what each opens; the mounted menu then calls the real route.
- * Delete is shown DISABLED with "Not available yet" (core has no route), never faked.
+ * A row that cannot act is OMITTED (Paul, 19 Nov: "a menu that does nothing new goes"): no Delete (core has no route), no connected card, no
+ * Rename, Add or Undo while core takes no edit or has nothing to undo. Nothing is shown disabled with a reason.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
-import { buildLaneMenu, NOT_AVAILABLE_YET, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
+import { buildLaneMenu, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
 import { isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from '../../../../canvas/contextMenu/types'
 import { clearLayoutUndo, chooseRedo, chooseUndo, useLayoutUndo } from '../undo'
 import { LaneEditingLayer } from '../LaneEditingLayer'
@@ -34,7 +35,8 @@ beforeEach(() => { calls.length = 0; spec.length = 0 })
 describe('canvas menu', () => {
   it('has Hand mode, Add (factor, option, risk, claim, open question), Ask Olumi, Undo, Auto-arrange and the whole-model switch (Redo only where a moved card can be put back)', () => {
     const m = buildLaneMenu(pane, ctx())
-    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Hand mode', 'Add', 'Factor', 'Option', 'Risk', 'Claim', 'Open question', 'Ask Olumi', 'Undo', 'Auto-arrange', 'Show the whole model']))
+    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Hand mode', 'Add', 'Factor', 'Option', 'Risk', 'Claim', 'Open question', 'Ask Olumi', 'Auto-arrange', 'Show the whole model']))
+    expect(byId(m, 'undo'), 'nothing to undo: no row, not a disabled one').toBeUndefined()
     expect(byId(m, 'redo')).toBeUndefined()
     const withRedo = ctx({ undo: { undo: noUndo.undo, redo: { kind: 'layout', label: 'Redo move', note: null } } })
     expect(byId(buildLaneMenu(pane, withRedo), 'redo')).toMatchObject({ label: 'Redo move', enabled: true })
@@ -43,17 +45,27 @@ describe('canvas menu', () => {
     byId(buildLaneMenu(pane, ctx()), 'add-option')!.action()
     expect(spec[0]).toMatchObject({ kind: 'item', item: 'choice', sid: SID, base: BASE, concerns: [] })
   })
-  it('Add > Risk from the canvas offers the model\'s figures to pick from; with none it is disabled and says why', () => {
+  it('Add > Risk from the canvas offers the model\'s figures to pick from; with none the row is omitted', () => {
     byId(buildLaneMenu(pane, ctx()), 'add-risk')!.action()
     expect((spec[0] as { pickFigure: unknown[] }).pickFigure.length).toBeGreaterThan(0)
-    const none = byId(buildLaneMenu(pane, ctx({ model: { ...approved().model!, cards: [] } })), 'add-risk')!
-    expect(none).toMatchObject({ enabled: false, disabledReason: 'No figure yet' })
+    const none = byId(buildLaneMenu(pane, ctx({ model: { ...approved().model!, cards: [] } })), 'add-risk')
+    expect(none).toBeUndefined()
   })
-  it('every Add row is disabled while core takes no edit (Olumi\'s change held), with core\'s words in its tooltip', () => {
-    const m = buildLaneMenu(pane, ctx({ gate: { ok: false, why: 'Set aside the pending change first.' } }))
-    for (const id of ['add-factor', 'add-option', 'add-risk', 'add-claim', 'add-question']) expect(byId(m, id)).toMatchObject({ enabled: false })
-    expect(byId(m, 'add-option')!.tooltip).toContain('Set aside the pending change first.')
+  it('while core takes no edit (Olumi\'s change held) there is no Add row at all, and no row says "Not right now"', () => {
+    const held = ctx({ gate: { ok: false, why: 'Set aside the pending change first.' } })
+    const m = buildLaneMenu(pane, held)
+    for (const id of ['add', 'add-factor', 'add-option', 'add-risk', 'add-claim', 'add-question']) expect(byId(m, id), id).toBeUndefined()
+    expect(byId(m, 'ask-olumi'), 'CONTRAST: what can still act stays').toBeDefined()
+    for (const t of [pane, nodeT('starting_customers')]) for (const i of flat(buildLaneMenu(t, held))) expect(`${i.label} ${i.disabledReason ?? ''}`).not.toMatch(/Not right now|Not available yet|can't be undone/)
+    expect(flat(buildLaneMenu(pane, ctx())).map((i) => i.id), 'CONTRAST: the same menu with an edit open to core has them').toEqual(expect.arrayContaining(['add', 'add-option']))
     expect(spec).toHaveLength(0)
+  })
+  it('no divider leads, trails or doubles in any menu, held or not', () => {
+    for (const gate of [GATE_OK, { ok: false, why: 'x' } as const]) for (const t of [pane, nodeT('starting_customers'), nodeT(QUESTION)]) {
+      const m = buildLaneMenu(t, ctx({ gate }))
+      expect(isMenuItem(m[0]!), 'first is a row').toBe(true); expect(isMenuItem(m[m.length - 1]!), 'last is a row').toBe(true)
+      m.forEach((e, i) => { if (!isMenuItem(e)) expect(isMenuItem(m[i - 1]!)).toBe(true) })
+    }
   })
   it('Undo and Redo carry what they will undo; Auto-arrange and the level switch call their effects', () => {
     const c = ctx({ undo: { undo: { kind: 'saved', undoes: 7, label: 'Undo: rename of Entry', note: null }, redo: noUndo.redo } })
@@ -65,13 +77,11 @@ describe('canvas menu', () => {
 })
 
 describe('card menu', () => {
-  it('Open details, Ask Olumi, Rename, Change figure and Add a claim; Add a risk only on a figure; Delete is disabled "Not available yet"', () => {
+  it('Open details, Ask Olumi, Rename, Change figure and Add a claim; Add a risk only on a figure; no Delete and no connected card (core has no route)', () => {
     const m = buildLaneMenu(nodeT('starting_customers'), ctx())
-    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Open details', 'Ask Olumi', 'Rename', 'Change figure', 'Add a risk to this', 'Add a claim about this', 'Delete']))
-    expect(byId(m, 'delete')).toMatchObject({ enabled: false, disabledReason: NOT_AVAILABLE_YET, destructive: true })
+    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Open details', 'Ask Olumi', 'Rename', 'Change figure', 'Add a risk to this', 'Add a claim about this']))
+    expect(byId(m, 'delete')).toBeUndefined()
     expect(byId(buildLaneMenu(nodeT('broader_entry'), ctx()), 'add-risk')).toBeUndefined()
-    byId(m, 'delete')!.action()
-    expect(spec).toHaveLength(0)
   })
   it('Paul\'s option menu (audit F32): Add outcome from this, Cut and Other model edits each put a question about the card in the box; none without a box to receive it', () => {
     const asked: string[] = []
@@ -83,10 +93,9 @@ describe('card menu', () => {
     expect(byId(buildLaneMenu(nodeT('starting_customers'), ctx()), 'ask-cut')).toBeUndefined() // CONTRAST: no box to receive it, no row
     expect(byId(buildLaneMenu(nodeT(QUESTION), withBox), 'ask-cut')).toBeUndefined() // the question is not cut from the model
   })
-  it('a connected card is disabled with the reason: core has no way to draw a link', () => {
-    const r = byId(buildLaneMenu(nodeT('starting_customers'), ctx()), 'add-connected')!
-    expect(r).toMatchObject({ enabled: false, disabledReason: NOT_AVAILABLE_YET })
-    expect(r.tooltip).toMatch(/draw a link/)
+  it('a connected card has no row: core has no way to draw a link', () => {
+    expect(byId(buildLaneMenu(nodeT('starting_customers'), ctx()), 'add-connected')).toBeUndefined()
+    expect(byId(buildLaneMenu({ kind: 'multi', nodeIds: [], screenPos: { x: 1, y: 1 } } as never, ctx()), 'delete')).toBeUndefined()
   })
   it('a risk card\'s edit is a SIZE (chance and size), never the plain figure editor that posts to /edit', () => {
     const m = buildLaneMenu(nodeT('slow_ramp'), ctx())
@@ -165,12 +174,12 @@ describe('mounted on the lane: the real route is called', () => {
     expect(await screen.findByTestId('inspector-figure-note')).toHaveTextContent('A chance is between 0% and 100%.')
     expect((screen.getByTestId('inspector-figure-chance') as HTMLInputElement).value).toBe('150%')
   })
-  it('Delete shows "Not available yet" and does nothing', async () => {
+  it('the menu draws no Delete and no "(Not available yet)" row, and every row it draws is enabled', async () => {
     mount(nodeT('broader_entry'))
-    const row = await screen.findByRole('menuitem', { name: /Delete/ })
-    expect(row).toHaveAttribute('aria-disabled', 'true')
-    expect(within(row).getByText(`(${NOT_AVAILABLE_YET})`)).toBeInTheDocument()
-    fireEvent.click(row)
+    await screen.findByRole('menuitem', { name: /Open details/ })
+    expect(screen.queryByRole('menuitem', { name: /Delete/ })).toBeNull()
+    expect(screen.queryByText(/Not available yet|Not right now/)).toBeNull()
+    for (const r of screen.getAllByRole('menuitem')) expect(r).not.toHaveAttribute('aria-disabled', 'true')
     expect(stub.posts()).toHaveLength(0)
   })
   it('the legacy menu\'s own rows are not on the lane (no Add node, no legacy Undo)', async () => {

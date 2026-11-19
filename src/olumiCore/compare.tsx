@@ -223,8 +223,8 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
  * (`sole` null) one press puts an editable question in the chat box (nothing is sent). Against a what-if or another scenario: core's
  * side-by-side (`SideBySide`). With one approved version, or none, one line.
  */
-export const COMPARE_NONE = 'Start a model in the chat first. Compare reads the versions you approve.'
-export const COMPARE_HELD = "This model is still Olumi's proposal. Compare reads the versions you approve: approve it in the chat to start."
+export const COMPARE_NONE = 'Compare starts once you approve a version.'
+export const COMPARE_HELD = "Compare starts once you approve Olumi's proposal in the chat."
 export const COMPARE_ONE = 'Comparing versions needs two approved versions. Approve a change to the model to make the second.'
 /** With one version and something else to compare it with: only comparing VERSIONS waits for a second (Codex live read, wording). */
 export const COMPARE_ONE_VERSIONS = 'Comparing versions needs two approved versions; you can compare this one with a what-if or another scenario.'
@@ -261,7 +261,7 @@ export function CoreCompareTab(): JSX.Element {
     <div data-testid="core-compare-tab" className={TAB}>
       {!sid || latest === null || latest === undefined
         // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
-        ? <><p className={BODY} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p><PeopleViewsPress /></>
+        ? <><p className={META} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p><PeopleViewsPress /></>
         // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
         // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
         : <ComparePicked key={sid} sid={sid} latest={latest} />}

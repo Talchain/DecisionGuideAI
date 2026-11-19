@@ -317,7 +317,7 @@ export const TopBar = ({
         )}
 
         {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
-        {isOlumiCoreLane() && coreVersion !== null && tight < 2 ? (
+        {isOlumiCoreLane() && coreVersion !== null && tight < 3 ? (
           <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill"><span data-view="version.label">{coreVersion}</span>{coreVersionAt === null ? null : <> · <span data-view="version.at_text">{coreVersionAt}</span></>}</span>
         ) : null}
         {/* J1 gate: on the strip, history sits beside the version it lists. */}
