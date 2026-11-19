@@ -3,7 +3,8 @@
  * ask it and draw the finding only when it names them, so exactly one of them, on screen, says it. It reads typed state only: the View, whether the dock
  * fronts the Olumi tab, whether the Frame page stands over the canvas. No CSS, no attribute, no words.
  *  - 'panel': the Olumi tab is on screen, some option has a calculated result (without one the finding is a status the reply and the aim card already say),
- *    and the newest answered reply draws no lead (a lead is that reply's headline: the same fact in the panel's own place).
+ *    and the newest answered reply draws no lead. Where it draws one, that lead is the same fact in the panel's own place: NO surface draws the finding
+ *    (S4 22:4xZ, url3c visual: the question card repeated it beside the lead).
  *  - 'frame': otherwise, while the Frame page stands over the canvas.
  *  - 'question': otherwise, on the question card.
  *  - null: core sends no finding.
@@ -22,7 +23,8 @@ export const useDockFrontsOlumi = create<{ fronted: boolean; set: (fronted: bool
 
 export const findingSurfaceOf = (view: Pick<View, 'model' | 'chat' | 'draft' | 'turn'> | null, ui: { olumiFronted: boolean; frameShown: boolean }): FindingSurface | null => {
   if (findingOf(view?.model) === null) return null
-  if (ui.olumiFronted && hasAnyResult(view?.model) && newestLeadDrawn(view) === null) return 'panel'
+  // While the Olumi tab is on screen and an option has a result, the panel owns this fact: it draws the finding, or nothing where its newest lead already says it.
+  if (ui.olumiFronted && hasAnyResult(view?.model)) return newestLeadDrawn(view) === null ? 'panel' : null
   return ui.frameShown ? 'frame' : 'question'
 }
 

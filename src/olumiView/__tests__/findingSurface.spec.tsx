@@ -63,10 +63,10 @@ describe('the finding is drawn in exactly one surface that is on screen', () => 
     cleanup()
     expect(drawnAt(base(), { fronted: true, frame: true })).toEqual(['panel'])
   })
-  it('P2 the Olumi tab fronted and the newest reply draws a lead (its headline is the same fact): the panel does not; the question card does, or the Frame when it is open', () => {
-    expect(drawnAt(withLead(base()), ON)).toEqual(['question'])
+  it('P2 the Olumi tab fronted and the newest reply draws a lead (its headline is the same fact): no surface repeats it, Frame open or not', () => {
+    expect(drawnAt(withLead(base()), ON)).toEqual([])
     cleanup()
-    expect(drawnAt(withLead(base()), { fronted: true, frame: true })).toEqual(['frame'])
+    expect(drawnAt(withLead(base()), { fronted: true, frame: true })).toEqual([])
   })
   it('P3 the Team (or any other) tab fronted, or the dock collapsed: the panel is not on screen, so the question card says it, or the Frame when it is open', () => {
     expect(drawnAt(base(), { fronted: false, frame: false })).toEqual(['question'])
@@ -86,6 +86,6 @@ describe('the finding is drawn in exactly one surface that is on screen', () => 
   it('P6 the function itself, for every cell of the state it reads', () => {
     const cell = (v: View | null, s: Screen): FindingSurface | null => findingSurfaceOf(v, { olumiFronted: s.fronted, frameShown: s.frame })
     expect([cell(base(), ON), cell(withLead(base()), ON), cell(withLead(base()), { fronted: true, frame: true }), cell(base(), { fronted: false, frame: false }), cell(base(), { fronted: false, frame: true }),
-      cell(noResult(base()), ON), cell(withFinding(base(), null), ON), cell(null, ON)]).toEqual(['panel', 'question', 'frame', 'question', 'frame', 'question', null, null])
+      cell(noResult(base()), ON), cell(withFinding(base(), null), ON), cell(null, ON)]).toEqual(['panel', null, null, 'question', 'frame', 'question', null, null])
   })
 })
