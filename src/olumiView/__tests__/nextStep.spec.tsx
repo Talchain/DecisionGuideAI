@@ -43,6 +43,21 @@ describe('the next step', () => {
     expect(catchUpCounts(calm, null)).toEqual({ moved: 0, open: 0 })
     expect(show(calm).querySelector('[data-testid="journey-catch-up"]')).toBeNull()
   })
+  it('Catch up draws no row, and no counts, while the View is being re-read (stale) or its read failed (error); the fresh View draws it', () => {
+    const view = golden('proposal')
+    expect(catchUpCounts(view, null).open).toBeGreaterThan(0) // contrast: this View has something to count
+    const rowIn = (flags: { stale: boolean; error: string | null }) => {
+      cleanup()
+      const c = show(view)
+      cleanup()
+      useViewStore.setState(flags)
+      return render(<ViewChat />).container.querySelector('[data-testid="journey-catch-up"]')
+    }
+    expect(rowIn({ stale: false, error: null })).not.toBeNull()
+    expect(rowIn({ stale: true, error: null })).toBeNull()
+    expect(rowIn({ stale: false, error: 'read failed' })).toBeNull()
+    expect(rowIn({ stale: true, error: 'read failed' })).toBeNull()
+  })
   it('a proposal held: check it, then approve or set aside, with core\'s change card and its two buttons inside the step', () => {
     const c = show(golden('proposal'))
     expect(step(c)?.getAttribute('data-step')).toBe('approve')
