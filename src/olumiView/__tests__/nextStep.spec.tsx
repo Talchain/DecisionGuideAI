@@ -14,6 +14,8 @@ import { useMe } from '../../olumiCore/me'
 import { NEXT_STEP_WORDS, nextStepOf, ViewChat, ViewComposer } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { isOpen, rowOf, setOpen } from './reviewRow'
+import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
+import { catchUpCounts, CATCH_UP_WORDS } from '../v12/journey/CatchUp'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const show = (view: View) => {
@@ -26,6 +28,36 @@ beforeEach(() => useUIStore.setState({ activeOutputTab: 'olumi' } as never))
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null }) })
 
 describe('the next step', () => {
+  it('Catch up sits at the very top of the panel with the record\'s counts and opens the history panel; with nothing to catch up on, none', () => {
+    const view = golden('proposal'), counts = catchUpCounts(view, null)
+    expect(counts.open).toBeGreaterThan(0) // the golden holds a waiting proposal: something to catch up on
+    const c = show(view), row = c.querySelector<HTMLElement>('[data-testid="journey-catch-up"]')!
+    expect(c.querySelector('[data-testid="view-chat"]')!.firstElementChild).toBe(row) // first, above the finding, the step and the thread
+    expect(row).toHaveTextContent(`${CATCH_UP_WORDS.label} · ${CATCH_UP_WORDS.open(counts.open)}`)
+    useVersionsPanelStore.setState({ isOpen: false })
+    fireEvent.click(row)
+    expect(useVersionsPanelStore.getState().isOpen).toBe(true)
+    cleanup()
+    // contrast: the same View with nothing open and no movement draws no row
+    const calm = { ...view, proposal: null, evidence: [], model: view.model === null ? null : { ...view.model, run: view.model.run === null ? null : { ...view.model.run, since: null, waits_on: null } }, collab: view.collab === null ? null : { ...view.collab, commitments: [], dissent: [], can_reveal: false } } as View
+    expect(catchUpCounts(calm, null)).toEqual({ moved: 0, open: 0 })
+    expect(show(calm).querySelector('[data-testid="journey-catch-up"]')).toBeNull()
+  })
+  it('Catch up draws no row, and no counts, while the View is being re-read (stale) or its read failed (error); the fresh View draws it', () => {
+    const view = golden('proposal')
+    expect(catchUpCounts(view, null).open).toBeGreaterThan(0) // contrast: this View has something to count
+    const rowIn = (flags: { stale: boolean; error: string | null }) => {
+      cleanup()
+      const c = show(view)
+      cleanup()
+      useViewStore.setState(flags)
+      return render(<ViewChat />).container.querySelector('[data-testid="journey-catch-up"]')
+    }
+    expect(rowIn({ stale: false, error: null })).not.toBeNull()
+    expect(rowIn({ stale: true, error: null })).toBeNull()
+    expect(rowIn({ stale: false, error: 'read failed' })).toBeNull()
+    expect(rowIn({ stale: true, error: 'read failed' })).toBeNull()
+  })
   it('a proposal held: check it, then approve or set aside, with core\'s change card and its two buttons inside the step', () => {
     const c = show(golden('proposal'))
     expect(step(c)?.getAttribute('data-step')).toBe('approve')

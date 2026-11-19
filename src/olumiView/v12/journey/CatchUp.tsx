@@ -34,7 +34,7 @@ export function CatchUp(): JSX.Element | null {
   const parts = [c.moved > 0 ? CATCH_UP_WORDS.moved(c.moved) : null, c.open > 0 ? CATCH_UP_WORDS.open(c.open) : null].filter((x): x is string => x !== null)
   return (
     <button type="button" onClick={openVersionsPanel} data-testid="journey-catch-up"
-      className={`${typography.viewPanelMeta} block w-full min-w-0 rounded-sm px-0 text-left text-text-light hover:bg-panel-hover hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+      className={`${typography.viewPanelMeta} block w-full min-w-0 shrink-0 rounded-sm px-4 pt-1 text-left text-text-light hover:bg-panel-hover hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
       <span className="text-text-header">{CATCH_UP_WORDS.label}</span> · {parts.join(' · ')}
     </button>
   )
