@@ -60,11 +60,12 @@ export const SELECTION_DETAIL_WORDS = { hide: 'Hide this card’s details', show
 
 /**
  * What the lane says about the selected card (whose it is, what its headline rests on, its next step, its explanation: core's words), drawn
- * OPEN when a card is selected, so authorship and the headline's basis are read without a press (Codex, 17 Nov: they were behind a closed
- * fold). The person may fold it; a newly selected card opens again (keyed by the selection).
+ * CLOSED when a card is selected (S4 esc3, 19 Nov: it opened at 377 px of a 704 px panel and repeated the details box); one press on the info icon opens it,
+ * and a newly selected card starts closed again (keyed by the selection).
  */
 function SelectionDetail({ children }: { children: ReactNode }): JSX.Element {
-  const [open, setOpen] = useState(true)
+  // Closed until the person opens it: a card press never opens it (Paul's bar: the composer does not grow under a press, and nothing is said twice).
+  const [open, setOpen] = useState(false)
   const words = open ? SELECTION_DETAIL_WORDS.hide : SELECTION_DETAIL_WORDS.show
   return (
     <details className="basis-full" data-testid="selection-detail" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>

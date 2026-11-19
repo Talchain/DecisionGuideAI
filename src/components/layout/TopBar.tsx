@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -180,19 +181,13 @@ export const TopBar = ({
       }
     }
 
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeMenu()
-      }
-    }
-
     document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('keydown', handleEscapeKey)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
-      document.removeEventListener('keydown', handleEscapeKey)
     }
   }, [showMenu, closeMenu])
+  // Escape is the one shared rule's (v12/edit/escapeLayers.ts): the top-most open layer closes once. Still unconditional on who raised the menu.
+  useEscapeLayer(showMenu, closeMenu)
 
   // Close kebab menu when another menu claims exclusivity
   useEffect(() => {

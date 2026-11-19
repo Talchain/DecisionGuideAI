@@ -410,4 +410,14 @@ describe('ScenarioSwitcher (A3)', () => {
 
     expect(mockSaveCurrentScenario).toHaveBeenCalled()
   })
+  it('esc3: Escape closes the open model menu on the FIRST press (it had no key of its own); CONTRAST: with it closed the press does nothing', () => {
+    renderWithToast()
+    fireEvent.click(screen.getByTestId('scenario-switcher-trigger'))
+    expect(screen.getByTestId('scenario-switcher-menu')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('scenario-switcher-menu')).toBeNull()
+    expect(screen.getByTestId('scenario-switcher-trigger').getAttribute('aria-expanded')).toBe('false')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('scenario-switcher-menu')).toBeNull()
+  })
 })

@@ -169,21 +169,23 @@ describe('4. the selected card is a chip inside the composer', () => {
     fireEvent.click(q(chip, 'selection-pill-clear')!)
     expect(clear).toHaveBeenCalledTimes(1)
   })
-  it('the selected card\'s own words are drawn OPEN (whose it is, what its headline rests on): read without a press; the person may fold them', () => {
-    // Codex NO-GO on 07657eb3: these were behind a closed fold. Bound by the card: the author line drawn is this card's, in core's words.
+  it('the selected card\'s own words start CLOSED behind the info icon (S4 esc3, 19 Nov: a card press never grows the composer); one press opens them, whose it is and what its headline rests on, in core\'s words; a second folds them', () => {
+    // Was drawn OPEN (Codex 17 Nov). Paul's bar of 19 Nov: the drawer repeated the details box and took 54% of the panel, so it is the person's to open.
     const view = golden('bakery')
     const card = view.model!.cards.find((x) => x.author != null && (x.headline?.title ?? '') !== '')!
     expect(card).toBeDefined() // the fixture has a card with an author line and a headline basis
     selection.value = { id: card.id, label: card.heading, kind: 'node' }
     const c = mount(view)
     const detail = q(q(c, 'view-composer')!, 'selection-detail') as HTMLDetailsElement
-    expect(detail.open).toBe(true)
+    expect(detail.open).toBe(false)
+    const toggle = q(detail, 'selection-detail-toggle')!
+    expect(toggle.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.show)
+    detail.open = true; fireEvent(detail, new Event('toggle'))
     const author = q(detail, 'selected-author')!
     expect(author.textContent).toBe(card.author!.text)
     expect(author.getAttribute('data-view')).toBe(`${card.id}.author.text`)
     expect(q(detail, 'selected-headline-title')!.textContent).toBe(card.headline!.title) // what the headline rests on, core's sentence, whole
-    const toggle = q(detail, 'selection-detail-toggle')!
-    expect(toggle.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.hide)
+    expect(q(detail, 'selection-detail-toggle')!.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.hide)
     detail.open = false; fireEvent(detail, new Event('toggle'))
     expect(q(detail, 'selection-detail-toggle')!.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.show)
   })

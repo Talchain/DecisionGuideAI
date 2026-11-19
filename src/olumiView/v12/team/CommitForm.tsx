@@ -9,6 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../..
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { currentModel, useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
+import { useEscapeLayer } from '../edit/escapeLayers'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
@@ -56,14 +57,28 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     return { ...base, action: !typed ? words : base.action.includes(words) ? base.action : `${base.action}\n\n${words}`, seeded: true }
   })
   setTimeout(() => {
-    // The newest reply stays in view when the form opens (Paul, 19 Nov: it pushed the reply out of sight): the reply is brought to the top of the thread
-    // and the form follows it. Only with no reply on the page does the form itself come into view. Focus never scrolls.
-    const newest = document.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
-    const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
-    const scroller = newest ?? form
-    if (typeof scroller?.scrollIntoView === 'function') scroller.scrollIntoView({ block: newest === null ? 'nearest' : 'start' })
+    bringFormIntoView()
     document.getElementById('commit-form-action')?.focus({ preventScroll: true })
   }, 0)
+}
+
+/**
+ * The newest reply stays in view when the form opens (Paul, 19 Nov: it pushed the reply out of sight), but the WHOLE form comes first (S4 esc3, 19 Nov: at 1232 only
+ * 96 of its 324 px showed, the rest under the message box). Inside the panel's own scroll area: the reply is brought to the top, then the area scrolls on just far enough
+ * for the form's foot to stand in it, never past the form's own top (a form taller than the area shows from its heading). Focus never scrolls.
+ */
+export function bringFormIntoView(): void {
+  const newest = document.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
+  const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
+  const area = form?.closest<HTMLElement>('[data-testid="view-chat-scroll"]') ?? null
+  if (form === null) return
+  if (area === null) { if (typeof form.scrollIntoView === 'function') form.scrollIntoView({ block: 'nearest' }); return }
+  const edge = 8
+  if (newest !== null && typeof newest.scrollIntoView === 'function') newest.scrollIntoView({ block: 'start' })
+  const a = area.getBoundingClientRect(), f = form.getBoundingClientRect()
+  const hidden = f.bottom + edge - a.bottom // px of the form below the area's foot
+  if (hidden > 0) area.scrollTop += Math.min(hidden, Math.max(0, f.top - a.top - edge))
+  else if (f.top < a.top) area.scrollTop -= a.top - f.top + edge
 }
 
 /**
@@ -171,13 +186,15 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     <textarea id={id} data-testid={id} rows={1} className={`${FIELD} min-h-[36px] max-h-[168px] [field-sizing:content] aria-[invalid=true]:border-danger`} value={d[k]} disabled={busy || locked} aria-invalid={tried && d[k].trim() === '' ? true : undefined} onChange={(e) => put({ [k]: e.target.value })} />
   )
   const close = () => { if (d.open) put({ open: false }) }
+  // Escape folds the form and keeps the draft, as its X does (the one shared Escape rule, ../edit/escapeLayers.ts).
+  useEscapeLayer(d.open, close)
   const discard = () => { drop(); setError(null); setTried(false) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
   if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
-        <button type="button" data-testid="commit-form-open" onClick={() => put({ open: true })}
+        <button type="button" data-testid="commit-form-open" onClick={() => { put({ open: true }); setTimeout(bringFormIntoView, 0) }}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
           <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
           {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>

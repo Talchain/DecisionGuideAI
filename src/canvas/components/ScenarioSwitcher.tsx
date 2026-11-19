@@ -13,6 +13,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import { OkIcon } from '../../olumiView/look/icons'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
@@ -131,6 +132,8 @@ export function ScenarioSwitcher({
   const { showToast } = useToast()
 
   const currentScenario = currentScenarioId ? getScenario(currentScenarioId) : null
+  // Escape closes the model menu (it had no key of its own): the one Escape rule, v12/edit/escapeLayers.ts.
+  useEscapeLayer(isOpen, () => setIsOpen(false))
 
   // ---------------------------------------------------------------------
   // Inline rename (Paul, 14 Aug 2026) — replaces the buried modal dialog AND
