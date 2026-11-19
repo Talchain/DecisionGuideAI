@@ -394,7 +394,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}
           {/* A7(a), Codex 12:08Z: the headline's own aim is drawn here, not in AimRows (otherRows leaves it out), so its typed withheld row's switch
               sentence and input to check are read here, once, at rest under the line. By field (the row whose aim_id is the headline's). */}
-          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} words={once ? '' : line} />}
+          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} shown={once ? '' : line} />}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </div>
       )

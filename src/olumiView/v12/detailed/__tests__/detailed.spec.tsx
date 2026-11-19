@@ -101,6 +101,11 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     cleanup()
     const again = faceOf(draw(set({ tips: OWN }), aim), aim)
     expect(again.querySelectorAll('[data-row-below]').length, 'already said by the row').toBe(0)
+    cleanup()
+    // Codex 12:12Z: on the real secondary row a state over ROW_WORDS_MAX is a closed press, so the tips sentence inside it is not said at rest.
+    const LONG = 'x'.repeat(ROW_WORDS_MAX + 10) + ' ' + TIPS
+    const closed = faceOf(draw(withCard(ASKED, { ...o, rows: o.rows.map((r, i) => (i === 1 ? { ...r, state_text: LONG, tips: TIPS } : r)) } as ViewCard), aim), aim)
+    expect([closed.querySelector(`[data-row-words="${at}"]`)?.hasAttribute('data-row-words-long'), closed.querySelector(`[data-view="${at}.tips"]`)?.textContent]).toEqual([true, TIPS])
   })
   it('A7(a) HEADLINE: the option\'s own withheld aim (drawn by card.headline, not AimRows) reads its typed row\'s switch sentence and input to check at rest under the line; CONTRAST: the same card without them draws neither; a long row (a closed press) does not count as said', () => {
     const o = optionsOf(ASKED).find((c) => c.headline?.state === 'none' && c.headline.aim_id != null && c.rows.some((r) => r.kind === 'none' && r.aim_id === c.headline!.aim_id))!
@@ -115,7 +120,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     cleanup()
     const LONG = 'x'.repeat(90) + ' ' + TIPS
     const long = faceOf(draw(withCard(ASKED, { ...o, headline: { ...o.headline!, text: LONG, add: null }, rows: o.rows.map((r, k) => (k === i ? { ...r, tips: TIPS } : r)) } as ViewCard), o.id), o.id)
-    expect(long.querySelector(`[data-view="${at}.tips"]`)?.textContent, 'a long line is a closed press: its words are not said at rest').toBe(TIPS)
+    // Codex 12:12Z: the headline is a wrapping paragraph (CoreCard), never a closed press, so a long line that says the tips sentence has said it.
+    expect(long.querySelector(`[data-view="${at}.tips"]`), 'a long headline is drawn whole: already said').toBeNull()
   })
   it('DT3 each aim\'s results by option letter on the aim\'s own card; the option card no longer names the limit. CONTRAST: the headline\'s own aim lists no option rows (the option cards and the rail carry it)', () => {
     const letters = optionLetters(HIRING.model!), opts = optionsOf(HIRING)

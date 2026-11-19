@@ -110,14 +110,16 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
 }
 /** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
  *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
-export function RowBelow({ r, at, words }: { r: RowT; at: string; words: string }): JSX.Element | null {
+export function RowBelow({ r, at, shown }: { r: RowT; at: string; shown: string }): JSX.Element | null {
   if (r.kind !== 'none') return null
-  // Only words drawn AT REST count as already said: over ROW_WORDS_MAX a row's words are a closed press (Codex 12:08Z), so they say nothing at rest.
-  const shown = words.length <= ROW_WORDS_MAX ? words : ''
+  // `shown` = the words each caller actually draws at rest (Codex 12:12Z): a ResultRow's words over ROW_WORDS_MAX are a closed press (atRest),
+  // while the option card's headline is a wrapping paragraph and passes its whole line.
   const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || shown.includes(x) ? [] : [{ f, x }]))
   return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
 }
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')
+/** What a ResultRow/RowWords draws at rest: its words, or nothing when they sit behind a closed press. */
+const atRest = (words: string) => (words.length <= ROW_WORDS_MAX ? words : '')
 const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) => x != null && x !== '' && a.indexOf(x) === j).join('\n')
 
 /**
@@ -138,7 +140,7 @@ export function AimResults({ aim, model, shared }: { aim: ViewCard; model: ViewM
         <Fragment key={`${c.id}.${i}`}>
           <ResultRow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} hover={hoverOf(c.heading, rowWords(r), r.title, r.question)}
             lead={<span className="ok-letter" data-letter-chip={letters.get(c.id) ?? ''}>{letters.get(c.id) ?? '·'}</span>} mark={{ 'data-ok-limit': aim.id, 'data-aim-result': c.id }} />
-          <RowBelow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} />
+          <RowBelow r={r} at={`${c.id}.rows.${i}`} shown={atRest(rowWords(r))} />
         </Fragment>
       ))}
     </div>
@@ -159,7 +161,7 @@ export function AimRows({ card, model, shared }: { card: ViewCard; model: ViewMo
           <Fragment key={i}>
             <ResultRow r={r} at={at} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, r.question)}
               lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': shared.has(r.aim_id!) || undefined }} />
-            <RowBelow r={r} at={at} words={words} />
+            <RowBelow r={r} at={at} shown={atRest(words)} />
           </Fragment>
         )
       })}
