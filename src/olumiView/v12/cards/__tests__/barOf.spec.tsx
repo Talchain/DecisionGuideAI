@@ -14,6 +14,7 @@ import { useViewStore } from '../../../store'
 import { boardOf } from '../../../canvas'
 import { barsOf } from '../../../layout'
 import { SimpleFace } from '../../SimpleFace'
+import { detailsOf, useLaneInspector } from '../../edit/inspectorStore'
 import { showSimple, showWholeModel } from '../../simpleStore'
 
 const BASE = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/bakery-asked.view3.json'), 'utf8')) as View
@@ -49,7 +50,7 @@ describe('an aim\'s bar is the aim\'s bound, not a card of its own on Simple', (
     expect(barsOf(lone).size).toBe(0)
   })
   it('R4 links: what fed the bar runs to its aim, the bar\'s own bound line is no second connector; CONTRAST: no bar, no connector; an aim link of its own is not doubled', () => {
-    const onAim = (m: ViewModel) => board(m, 'simple').links.filter((l) => l.to === AIM).map((l) => [l.from, l.count])
+    const onAim = (m: ViewModel) => board(m, 'simple').links.filter((l) => l.to === AIM && l.from === INPUT).map((l) => [l.from, l.count])
     expect(onAim(WITH)).toEqual([[INPUT, 1]])
     expect(onAim(WITHOUT)).toEqual([])
     const direct = { ...WITH, links: [...WITH.links, { ...WITH.links[0]!, from: INPUT, to: AIM, title: '' }] }
@@ -66,7 +67,9 @@ describe('the aim card says the bar once, with the bar\'s author mark', () => {
     cleanup()
     expect(pill(WITHOUT).querySelector('[data-author-mark]')).toBeNull()
   })
-  it('R6 the pill still opens the bar figure\'s own editor (core\'s bound line, the existing path)', () => {
-    expect(pill(WITH).querySelector(`[data-testid="view-aim-edit-${BAR}"]`)).not.toBeNull()
+  it('R6 the pill still opens the bar figure\'s own editor (core\'s bound line, the existing path): pressing it shows the bar\'s details, though it is no card', () => {
+    board(WITH, 'simple')
+    pill(WITH).querySelector<HTMLElement>(`[data-testid="view-aim-edit-${BAR}"]`)!.click()
+    expect(detailsOf(useLaneInspector.getState())).toMatchObject({ kind: 'card', id: BAR })
   })
 })
