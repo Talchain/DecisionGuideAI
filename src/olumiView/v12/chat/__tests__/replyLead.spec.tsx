@@ -124,7 +124,7 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     const newest = base.chat.map((t) => t.answer !== null).lastIndexOf(true), turn = `chat.${newest}`
     const OPENING = 'Open on Sundays only if thirty more covers a day pay for the staff.'
     const TEXT = [LABEL, '', OPENING, '', HEADING, '', CHECK].join('\n')
-    const big = (e: Element | null | undefined) => e != null && e.className.includes(typography.viewPanelHeading)
+    const big = (e: Element | null | undefined) => e != null && e.className.includes(typography.viewPanelHeadline)
     expect([OPENING, LEAD.opening].map((x) => x.trim().split(/\s+/).length <= LEAD_WORDS), 'fixture: both are short enough to be the large line').toEqual([true, true])
     const t = show(withTurn(base, newest, { answer: [{ text: TEXT }], first_answer: { label: LABEL, heading: HEADING }, lead: LEAD } as Partial<Answer>)).querySelector<HTMLElement>(`[data-view-turn="${turn}"]`)!
     expect([big(q(t, 'view-reply-lead')!.querySelector('[data-reply-opening]')), big(t.querySelector('[data-reply-para][data-reply-opening]'))], 'the lead, not the earlier answer').toEqual([true, false])

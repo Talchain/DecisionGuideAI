@@ -15,7 +15,7 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
   return (
     <>
       <div className="space-y-2" data-testid="view-reply-lead">
-        <p className={big ? `group/item m-0 ${typography.viewPanelHeading} text-text-header` : 'group/item m-0 text-text-header'} data-view={`${at}.lead.opening`} data-reply-opening="">{richText(lead.opening)}</p>
+        <p className={big ? `group/item m-0 ${typography.viewPanelHeadline} text-text-header` : 'group/item m-0 text-text-header'} data-view={`${at}.lead.opening`} data-reply-opening="">{richText(lead.opening)}</p>
         {lead.points.length === 0 ? null : (
           <ul className="m-0 !list-none !pl-3" data-reply-list="" data-testid="view-reply-lead-points">
             {lead.points.map((p, i) => <li key={i} className="group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 before:top-[7px] before:h-1 before:w-1 before:rounded-full before:!bg-text-light before:content-['']" data-view={`${at}.lead.points.${i}`}>{richText(p)}</li>)}
