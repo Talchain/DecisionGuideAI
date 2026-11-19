@@ -41,7 +41,6 @@ export const JOURNEY_WORDS = {
   moved: 'How the conclusions moved',
   changed: 'Changed',
   wasOlumi: 'was Olumi’s',
-  wasTheirs: 'was the team’s',
   credited: 'Credited to',
   open: 'Open',
   more: (n: number) => `+${n} more`,
@@ -86,8 +85,6 @@ export type Moved = {
   readonly fromText: string
   readonly toText: string
   readonly line: string
-  /** Core's two texts are the same. Not a claim that the chance did not move (0.201 and 0.204 both read "about 20%"); only counted, never said. */
-  readonly sameText: boolean
 }
 export type Changed = { readonly id: string; readonly label: string; readonly olumi: boolean; readonly was: 'olumi' | 'theirs' | null; readonly press: JourneyPress }
 export type OpenItem = { readonly key: string; readonly label: string; readonly words: string | null; readonly title?: string; readonly olumi?: boolean; readonly press: JourneyPress }
@@ -124,8 +121,6 @@ const newestFirst = <T extends { at: string }>(xs: T[]): T[] => xs.map((x, i) =>
 export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const model = view.model
   const cards = new Map((model?.cards ?? []).map((c) => [c.id, c.heading]))
-  // Olumi's card (core marks it with `olumi`): its chip stays Olumi's when no `since` says whose the change was.
-  const olumiCard = new Set((model?.cards ?? []).filter((c) => c.olumi !== null).map((c) => c.id))
   const label = (id: string) => cards.get(id) ?? null
   const onCanvas = (id: string): JourneyPress => (cards.has(id) ? { to: { kind: 'card', id } } : { unavailable: JOURNEY_WORDS.offCanvas })
   // A record the model still holds with no card of its own (an estimate a card rests on, a what-if it sets, the record a link draws),
@@ -143,22 +138,24 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const since = model?.run?.since ?? null
   const sinceHere = since !== null && n !== null && since.to.n === n ? since : null
 
-  const moved = sinceHere === null || sinceHere.lines.length === 0 ? null : {
+  // A line whose two texts are core's same words has nothing to say ("about 40% → about 40%"): it is not drawn.
+  const movedLines = sinceHere === null ? [] : sinceHere.lines.filter((l) => l.from_text !== l.to_text)
+  const moved = sinceHere === null || movedLines.length === 0 ? null : {
     heading: sinceHere.heading, from: sinceHere.from.label, to: sinceHere.to.label,
-    rows: sinceHere.lines.map((l) => ({ key: `move:${l.option}:${l.aim}`, option: label(l.option) ?? l.option, aim: label(l.aim) ?? l.aim,
-      from: l.from, to: l.to, fromText: l.from_text, toText: l.to_text, line: l.line, sameText: l.from_text === l.to_text })),
+    rows: movedLines.map((l) => ({ key: `move:${l.option}:${l.aim}`, option: label(l.option) ?? l.option, aim: label(l.aim) ?? l.aim,
+      from: l.from, to: l.to, fromText: l.from_text, toText: l.to_text, line: l.line })),
     sole: sinceHere.sole === null ? null : (() => {
-      // Whose the credited change is comes from core's own change entry for it, or the card's Olumi mark; never assumed to be the team's.
+      // Whose the credited change is comes only from core's own change entry for it (`since.changed[].whose`); with none, the chip is neutral.
       // Named by its card, else by core's own label for the record (a what-if or an estimate has no card); never by its raw id.
       const id = sinceHere.sole, c = sinceHere.changed.find((x) => x.id === id), name = label(id) ?? (c?.label || null)
       if (name === null) return null
-      return { id, label: name, olumi: c !== undefined ? c.whose === 'olumi' : olumiCard.has(id), was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: changedPress(id) }
+      return { id, label: name, olumi: c !== undefined && c.whose === 'olumi', was: c !== undefined && c.was !== null && c.was !== c.whose ? c.was : null, press: changedPress(id) }
     })(),
   }
 
   const changed = n === null ? null : (() => {
     // The version's own changed ids (core's `version.changed` = added + changed), by id, only those the View holds as cards.
-    const ofVersion = (skip: ReadonlySet<string>): Changed[] => (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null || skip.has(id) ? [] : [{ id, label: l, olumi: olumiCard.has(id), was: null, press: onCanvas(id) }] })
+    const ofVersion = (skip: ReadonlySet<string>): Changed[] => (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null || skip.has(id) ? [] : [{ id, label: l, olumi: false, was: null, press: onCanvas(id) }] })
     // With `since`, core's change entries (whose and was) come first; `since.changed` holds only records both versions have, so the cards
     // this version ADDED come from `version.changed`, by id.
     const list: Changed[] = sinceHere !== null
