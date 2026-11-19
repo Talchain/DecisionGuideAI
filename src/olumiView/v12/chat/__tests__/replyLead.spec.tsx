@@ -18,7 +18,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { ViewChat, useViewChat } from '../../../ViewChat'
 import { floorOf, leadOf } from '../../../early'
 import { FULL_ANSWER } from '../ReplyLead'
-import { LEAD_WORDS } from '../../../ViewChat'
+import { LEAD_WORDS, SHOW_WHOLE_FIRST } from '../../../ViewChat'
 import { typography } from '../../../../styles/typography'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -79,8 +79,11 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect([body.querySelector('[data-reply-label]'), ...[OPENING, MIDDLE].map((x) => body.textContent!.includes(x))], 'the first answer is said once, beneath').toEqual([null, false, false])
     for (const x of [OPENING, HEADING, CHECK]) expect(t0.textContent!.split(x).length - 1, x).toBe(1)
     expect(t0.querySelectorAll('[data-reply-label]')).toHaveLength(1)
-    // ONE fold per reply (Paul, 19 Nov): the first answer has no fold of its own beside "Full answer"; its whole text is drawn at rest, once, outside the fold.
-    expect([q(t0, 'view-reply-fold'), t0.textContent!.split(MIDDLE).length - 1, body.textContent!.includes(MIDDLE), t0.querySelectorAll('details').length]).toEqual([null, 1, false, 1])
+    // The first answer's later detail is one press away, by the reply's own control, after its opening; pressed, it is drawn once, and not in the fold.
+    const more = q(t0, 'view-reply-fold')!
+    expect([more.textContent, more.closest('details'), t0.textContent!.includes(MIDDLE), opening.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING ? 'after its opening' : 'before']).toEqual([SHOW_WHOLE_FIRST, null, false, 'after its opening'])
+    fireEvent.click(more)
+    expect([t0.textContent!.split(MIDDLE).length - 1, body.textContent!.includes(MIDDLE), t0.textContent!.includes('Two of the staff want one free weekend day.')]).toEqual([1, false, true])
     const next = q(t0, 'view-chat-next')
     if (next !== null) expect(full.contains(next)).toBe(false)
     cleanup()
