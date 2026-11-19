@@ -475,3 +475,5 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-rail-val .ok-rail-challenge { margin-left: calc(4px * var(--o-s)); }
 /* A row's own condition after its number (core's words, whole): the quiet ink at the body weight, so the number still leads. */
 .olumi-look .ok-dt-rail-val .ok-dt-quiet { font-weight: 400; }
+/* Codex 12:40Z: the board is not painted until its first frame is taken (ViewCanvas useViewCamera `framed`): never at 0,0 scale 1 under the dock. Layout and measuring go on. */
+.olumi-look.ok-board-unframed .react-flow__viewport { visibility: hidden; }
