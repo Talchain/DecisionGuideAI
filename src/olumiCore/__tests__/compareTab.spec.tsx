@@ -29,7 +29,8 @@ import { useCanvasStore } from '../../canvas/store'
 import { useCompare } from '../../olumiView/v12/views/useCompare'
 import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { setTeamFetch } from '../team/api'
-import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
+import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, moreChanges, notMoved, type Compared, type Since } from '../compare'
+import { CompareCardMark, changedSince, useCompareMarks } from '../compareMarks'
 import { SEPARATE_RUNS } from '../scenarioCompare'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
@@ -289,5 +290,47 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     expect(screen.queryByTestId('core-compare-whatif-open')).toBeNull()
     expect((await screen.findByTestId('core-compare-results-none')).textContent).toBe('No results in either version.')
     expect(screen.queryByTestId('core-compare-still')).toBeNull()
+  })
+})
+
+describe('the canvas version diff (core lines typed with record_id, wip/x-compare-core frozen shape)', () => {
+  const typedLines = (cardId: string): Compared['changes'] => [
+    { ...LINES[0]!, record_id: cardId, kind: 'factor' },
+    { ...LINES[1]!, record_id: 'not_on_this_canvas', kind: 'risk' },
+    { ...LINES[2]!, record_id: null, kind: null },
+  ]
+  it('CT13: core\'s typed lines are the one list (no named list), a press where the card is drawn; each named card carries "Changed since version 2" with core\'s line as hover; gone when the pair goes; CONTRASTS: an unnamed card, another version on the canvas', async () => {
+    const view = fixture('ui9-a6-since-v3'), cardId = view.model!.cards[0]!.id
+    answer = { versions: [], changes: typedLines(cardId), results: [] }
+    const tab = show(view)
+    await screen.findByTestId('core-compare-out')
+    expect(screen.queryByTestId('core-compare-named'), 'said once: the View\'s named list is not drawn beside typed lines').toBeNull()
+    const rows = [...screen.getByTestId('core-compare-lines').querySelectorAll('[data-compare-line]')]
+    expect(rows.map((r) => [r.getAttribute('data-compare-line-record'), r.querySelector('[data-compare-card]')?.getAttribute('data-compare-card') ?? null]))
+      .toEqual([[cardId, cardId], ['not_on_this_canvas', null], [null, null]])
+    const m = useCompareMarks.getState()
+    expect([m.sid, m.from, m.to, Object.keys(m.byId)]).toEqual([view.id, 2, 3, [cardId, 'not_on_this_canvas']])
+    const mark = render(<CompareCardMark id={cardId} />).container.querySelector(`[data-compare-mark="${cardId}"]`)!
+    expect([mark.textContent, mark.getAttribute('title')]).toEqual([changedSince(2), '↻ figure: hours\nfrom 20 to 25'])
+    expect(render(<CompareCardMark id="some_other_card" />).container.querySelector('[data-compare-mark]'), 'a card core does not name has no mark').toBeNull()
+    useViewStore.setState({ view: { ...view, version: { ...view.version!, n: 2 } } } as never)
+    expect(render(<CompareCardMark id={cardId} />).container.querySelector('[data-compare-mark]'), 'the canvas shows version 2, not the pair\'s later side').toBeNull()
+    tab.unmount()
+    expect(useCompareMarks.getState().sid, 'the marks leave with the pair').toBeNull()
+  })
+  it('CT14: more than three typed lines: three open at rest, the rest behind one press counted in words; CONTRAST CT2: an older core\'s untyped lines keep the named list', async () => {
+    const view = fixture('ui9-a6-since-v3'), cardId = view.model!.cards[0]!.id
+    answer = { versions: [], changes: [...typedLines(cardId), { ...LINES[0]!, record_id: 'fourth', kind: 'factor' }], results: [] }
+    show(view)
+    await screen.findByTestId('core-compare-out')
+    expect(screen.getByTestId('core-compare-lines').querySelectorAll('[data-compare-line]').length).toBe(3)
+    const more = screen.getByTestId('core-compare-more-lines')
+    expect([more.hasAttribute('open'), more.querySelector('summary')!.textContent, more.querySelector('[data-compare-line]')!.getAttribute('data-compare-line-record')]).toEqual([false, moreChanges(1), 'fourth'])
+    cleanup(); useCompareMarks.getState().clear()
+    answer = { versions: [], changes: LINES, results: [] }
+    show(view)
+    await screen.findByTestId('core-compare-out')
+    expect(screen.getByTestId('core-compare-named')).toBeTruthy()
+    expect(useCompareMarks.getState().byId).toEqual({})
   })
 })
