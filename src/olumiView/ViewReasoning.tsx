@@ -49,7 +49,9 @@ const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
 const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
-const REST_GROUPS = 2
+const REST_GROUPS = 1
+/** Figures drawn per group at rest: core orders them by share, so the first is the one that carries most of the uncertainty. */
+const REST_FIGURES = 1
 const LIST_AT_REST = 4
 
 type Rest = ViewRun['rests'][number]
@@ -78,6 +80,9 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
   if (run === null || rests.length === 0) return null
   const given = new Set<string>()
   const shown = all ? rests : rests.slice(0, REST_GROUPS)
+  const figuresOf = (r: Rest) => (r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '')
+  // What is folded at rest: the groups after the first, and the figures after the first in each group shown.
+  const folded = rests.length - shown.length + shown.reduce((n, { r }) => n + (all ? 0 : Math.max(0, figuresOf(r).length - REST_FIGURES)), 0)
   const whose = new Set(rests.flatMap(({ r }) => (r.figures ?? []).map((f) => f.whose)))
   return (
     <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
@@ -97,7 +102,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
               ? <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.hover`}>{r.hover}</p>
               : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
             <ul className="m-0 list-none space-y-1 p-0">
-              {(r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '').map(({ f, j }) => {
+              {(all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f, j }) => {
                 const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
                 return (
@@ -115,9 +120,9 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
           </div>
         )
       })}
-      {rests.length <= REST_GROUPS ? null : (
+      {folded === 0 && !all ? null : (
         <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={MORE} data-testid="reasoning-rests-more">
-          {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(rests.length - REST_GROUPS)}
+          {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(folded)}
         </button>
       )}
       <p className={`${TYPE.meta} m-0 flex flex-wrap items-center gap-3 text-text-light`} aria-hidden="true" data-testid="reasoning-rests-key">
@@ -179,7 +184,14 @@ function Row({ e }: { e: Examine }) {
       <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="talk-first" size={12} decorative /></button>
     </li>
   )
-  if (e.kind === 'widen') return <li {...rowData(e)}><button type="button" className={whole} title={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}>{mark}{words}</button></li>
+  // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
+  if (e.kind === 'widen') return (
+    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+      {mark}
+      <span className="min-w-0 flex-1">{words}</span>
+      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="talk-first" size={12} decorative /></button>
+    </li>
+  )
   return (
     <li className="flex items-start gap-2 px-1 py-1.5" title={w.hover} {...rowData(e)}>
       {mark}
@@ -239,7 +251,8 @@ function LeadAct({ e }: { e: Examine }) {
   // A typed question is answered where it is asked (CONTRACT §3); only a text-only one goes to the message box.
   if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
   const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
-  return fill === null ? null : <button type="button" className={GREEN} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={14} decorative />{REASONING_LABELS.fill}</button>
+  // Filling the message box is never the primary (green) action: it is the quiet secondary press, the same as in the list.
+  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={12} decorative />{REASONING_LABELS.fill}</button>
 }
 
 /**
