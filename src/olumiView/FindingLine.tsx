@@ -21,7 +21,7 @@ export function FindingLine({ model, at, onFocusFigure }: { model: ViewModel | n
   const card = f.figure === null ? null : model?.cards.find((c) => c.id === f.figure) ?? null
   // Said once (Paul 19 Nov: "cannot be worked out" three times): with no calculated result on any option the finding is a status the aim card already says
   // ("needs a target", "No chance yet"), so the question card does not draw its sentence; the figure and the needs line stay. Read by field (`hasAnyResult`), never by words.
-  const sentence = at === 'panel' || hasAnyResult(model)
+  const sentence = at !== 'question' || hasAnyResult(model)
   if (!sentence && card === null && f.needs === null) return null
   // A figure folded behind a badge, a group or Simple's inputs is opened and shown (the reply's own show path); a drawn card is pressed.
   return (
