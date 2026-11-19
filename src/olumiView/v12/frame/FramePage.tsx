@@ -53,7 +53,7 @@ function Aim({ card }: { card: ViewCard }): JSX.Element {
           onClick={() => useLaneInspector.getState().open({ kind: 'card', id: card.id })}>{FRAME_WORDS.edit}</button>
       </div>
       <span className={`${BODY} text-text-light`} data-frame="bound" title={b?.title}>
-        {b != null && b.measured ? <>{b.text}<Mark card={card} bound /></> : FRAME_WORDS.inWords}
+        {b != null && b.measured ? b.text : FRAME_WORDS.inWords}<Mark card={card} bound />
       </span>
     </li>
   )
