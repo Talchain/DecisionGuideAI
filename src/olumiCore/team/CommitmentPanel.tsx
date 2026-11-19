@@ -17,6 +17,8 @@ interface CommitmentDraft { open: boolean; action: string; owner: string; expect
  *  Not a core option id (core ids are snake_case words), so it never collides; it is never sent: core's commit takes no option. */
 export const NO_OPTION_YET = '-'
 export const NO_OPTION_YET_WORDS = 'No option yet: gathering evidence'
+/** The form's own label for the option field: also the visible reason Record waits while no option (and not "No option yet") is chosen. */
+export const WHICH_OPTION_WORDS = 'Which option this commits to'
 const EMPTY: CommitmentDraft = { open: false, action: '', owner: '', expect: '', reconsider: '', keeps: [], option: '', reviewOn: '' }
 
 /**
@@ -57,6 +59,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
   const [error, setError] = useState<string | null>(null)
   // A commitment has no operation id in core: one whose answer was lost may have been saved, so it is locked, not sent again (`writes.ts`).
   const locked = useWriteLocked(`${sid}:commitment`)
+  const optionMissing = options.length > 0 && chosen === null && !noOptionYet
   const ready = [action, expect, reconsider].every((t) => t.trim() !== '') && c.owners.some((o) => o.id === owner) && approved !== null && (options.length === 0 || chosen !== null || noOptionYet)
 
   const save = async () => {
@@ -121,7 +124,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
           </select>
           {pending && <p className={META} data-testid="team-c-pending">The option is chosen from the approved model. Approve or set aside the proposal in the chat first.</p>}
           {options.length > 0 && (<>
-            <label htmlFor="team-c-option" className={LABEL}>Which option this commits to</label>
+            <label htmlFor="team-c-option" className={LABEL}>{WHICH_OPTION_WORDS}</label>
             <select id="team-c-option" data-testid="team-c-option" className={FIELD} value={option} disabled={busy} onChange={(e) => put({ option: e.target.value })}>
               <option value="" disabled>Choose…</option>
               {options.map((x) => <option key={x.id} value={x.id}>{x.heading}</option>)}
@@ -171,8 +174,10 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
             </fieldset>
           )}
           {locked ? <p role="alert" data-testid="team-commitment-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-commitment-error" className={ERR}>{error}</p>}
-          <div className="flex gap-2">
-            <button type="button" className={GO} data-testid="team-commitment-save" disabled={!ready || busy || locked} onClick={() => void save()}>Record it</button>
+          {optionMissing && <p id="team-c-option-reason" className={META} data-testid="team-c-option-reason">{WHICH_OPTION_WORDS}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={GO} data-testid="team-commitment-save" disabled={!ready || busy || locked} aria-describedby={optionMissing ? 'team-c-option-reason' : undefined} onClick={() => void save()}>Record it</button>
+            {optionMissing && <button type="button" className={QUIET} data-testid="team-c-no-option" disabled={busy} onClick={() => put({ option: NO_OPTION_YET })}>{NO_OPTION_YET_WORDS}</button>}
             <button type="button" className={QUIET} disabled={busy} onClick={() => put({ open: false })}>Cancel</button>
           </div>
         </div>

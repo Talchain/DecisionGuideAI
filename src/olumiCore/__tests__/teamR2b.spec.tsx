@@ -365,6 +365,38 @@ describe('a next action can gather evidence before any option is chosen (DL 10 N
     expect((posts()[0]!.body as { option?: string }).option).toBe('single_country_test')
   })
 
+  it('no option chosen yet: "No option yet: gathering evidence" is a visible control beside the disabled Record, which names the option field as its reason; pressing it enables Record', () => {
+    serve(teamView('p_1'))
+    render(<TeamTab />)
+    fireEvent.click(screen.getByTestId('team-commitment-open'))
+    fireEvent.change(screen.getByTestId('team-c-action'), { target: { value: INVESTIGATE } })
+    fireEvent.change(screen.getByTestId('team-c-owner'), { target: { value: 'p_2' } })
+    fireEvent.change(screen.getByTestId('team-c-expect'), { target: { value: 'A week of logs' } })
+    fireEvent.change(screen.getByTestId('team-c-reconsider'), { target: { value: 'Under an hour a day' } })
+    expect(save().disabled).toBe(true)
+    const none = screen.getByTestId('team-c-no-option')
+    expect(none.textContent).toBe(NO_OPTION_YET_WORDS)
+    expect(none.parentElement).toBe(save().parentElement)
+    const reason = screen.getByTestId('team-c-option-reason')
+    expect(reason.textContent).toBe('Which option this commits to')
+    expect(save().getAttribute('aria-describedby')).toBe(reason.id)
+    fireEvent.click(none)
+    expect(save().disabled).toBe(false)
+    expect(screen.queryByTestId('team-c-no-option')).toBeNull()
+    expect(screen.queryByTestId('team-c-option-reason')).toBeNull()
+    expect(save().hasAttribute('aria-describedby')).toBe(false)
+  })
+
+  it('CONTRAST: with a real option chosen there is no extra no-option control and no reason line', () => {
+    serve(teamView('p_1'))
+    render(<TeamTab />)
+    fill('Ten by March', 'p_2')
+    fireEvent.change(screen.getByTestId('team-c-option'), { target: { value: 'single_country_test' } })
+    expect(screen.queryByTestId('team-c-no-option')).toBeNull()
+    expect(screen.queryByTestId('team-c-option-reason')).toBeNull()
+    expect(save().disabled).toBe(false)
+  })
+
   it('must not change: with no option yet, Record stays disabled without an owner or without an expectation', () => {
     serve(teamView('p_1'))
     const a = render(<TeamTab />)
