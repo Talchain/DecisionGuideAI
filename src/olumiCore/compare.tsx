@@ -9,7 +9,9 @@ import { Pick, SeparateRuns, SideBySide, useOtherScenarios, useOwnSides, WhatIfS
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../canvas/store'
 import { focusWhenDrawn } from '../olumiView/AddFigure'
-import { setInputsOpen } from '../olumiView/v12/bands/foldStore'
+import { setGroupOpen, setInputsOpen } from '../olumiView/v12/bands/foldStore'
+import { cardGroupsOf } from '../olumiView/v12/bands/groups'
+import { drawnModelOf } from '../olumiView/layout'
 import { OkIcon } from '../olumiView/look/icons'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
 import { isForThisPage, useMe } from './me'
@@ -502,6 +504,9 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
  *  opened first (the group's own press, `setInputsOpen`) and the card is centred once the board draws it (`focusWhenDrawn`). */
 export function showCard(sid: string, id: string): void {
   if (useCanvasStore.getState().nodes.some((n) => n.id === id)) { focusNodeById(id); return }
+  // A card in a ROW's group card (groups.ts: Olumi's proposals, notes, unsized) is in no node either: open the group that holds it, as its own press does.
+  const { view } = useViewStore.getState()
+  if (view?.model != null) { const g = cardGroupsOf(drawnModelOf(view.model), view).find((x) => x.cards.includes(id)); if (g !== undefined) setGroupOpen(sid, g.id) }
   setInputsOpen(sid, true)
   focusWhenDrawn(id)
 }

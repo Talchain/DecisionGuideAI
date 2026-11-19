@@ -9,6 +9,7 @@ import { useRef, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import { useMe } from '../../../olumiCore/me'
 import { useViewStore } from '../../store'
+import { useShowToastSafe } from '../../../canvas/ToastContext'
 import { editGateNow } from './editGate'
 import { writeKeyOf, type SizeEdit, type EditSpec } from './EditForm'
 import { useLaneInspector } from './inspectorStore'
@@ -16,6 +17,7 @@ import { useLaneInspector } from './inspectorStore'
 /** `glyph` draws the quiet ✎ cue (the label is then its accessible name); `children` are another card's own words that open this editor (an aim's question). */
 export function SizeEditButton({ edit, subject, label, className, glyph, children }: { edit: SizeEdit; subject: string; label: string; className?: string; glyph?: boolean; children?: ReactNode }): JSX.Element {
   const ref = useRef<HTMLButtonElement | null>(null)
+  const showToast = useShowToastSafe()
   // Redrawn when the model, the page's person or the version on screen changes, so the title and aria-disabled never go stale.
   useViewStore((st) => st.view?.model?.edit_base ?? null); useViewStore((st) => st.at); useViewStore((st) => st.view); useMe((st) => st.me)
   const gate = editGateNow()
@@ -24,6 +26,6 @@ export function SizeEditButton({ edit, subject, label, className, glyph, childre
   return (
       <button ref={ref} type="button" title={gate.ok ? edit.prompt : gate.why} aria-disabled={!gate.ok || undefined} data-testid="lane-size-edit" className={className ?? `${typography.viewPanelMeta} cursor-pointer underline underline-offset-2`}
         aria-label={glyph !== undefined || children !== undefined ? label : undefined}
-        onClick={() => { const g = editGateNow(); if (g.ok) { const spec: EditSpec = { kind: 'size', sid: g.sid, base: g.base, edit, subject }; useLaneInspector.getState().show({ kind: 'form', spec, anchor: at(), busyKey: writeKeyOf(spec) }) } }}>{children ?? (glyph !== undefined ? <EditIcon /> : label)}</button>
+        onClick={() => { const g = editGateNow(); if (!g.ok) { showToast(g.why, 'warning'); return } { const spec: EditSpec = { kind: 'size', sid: g.sid, base: g.base, edit, subject }; useLaneInspector.getState().show({ kind: 'form', spec, anchor: at(), busyKey: writeKeyOf(spec) }) } }}>{children ?? (glyph !== undefined ? <EditIcon /> : label)}</button>
   )
 }
