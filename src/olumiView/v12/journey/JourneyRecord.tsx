@@ -142,7 +142,7 @@ function MovedRow({ m }: { m: Moved }): JSX.Element {
 
 function Chip({ c, onDone }: { c: Changed; onDone?: () => void }): JSX.Element {
   const tone = c.olumi ? 'border-info/40 text-info' : 'border-panel-border text-text-body'
-  const was = c.was === 'olumi' ? W.wasOlumi : c.was === 'theirs' ? W.wasTheirs : null
+  const was = c.was === 'olumi' ? W.wasOlumi : null
   const body = <span className={`${typography.viewPanelMeta} inline-block max-w-full break-words rounded-full border px-2 ${tone}`} data-olumi={c.olumi ? 'true' : undefined}>{c.label}{was === null ? null : <span className="text-text-light"> ({was})</span>}</span>
   return <li className="min-w-0 max-w-full"><Press id={`card-${c.id}`} press={c.press} onDone={onDone}>{body}</Press></li>
 }

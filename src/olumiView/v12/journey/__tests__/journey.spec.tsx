@@ -81,15 +81,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); focused.length = 0; outcomeForms.length = 0; useReveal.getState().select(null); vi.restoreAllMocks() })
 
 describe('#1 how the conclusions moved: core\'s chances, its line one press away, the credited card', () => {
-  it('one row per option and aim, named by its card, before → now in core\'s words; equal texts are shown as they are, never called "unchanged"', () => {
+  it('one row per option and aim that moved, named by its card, before → now in core\'s words; a row whose two texts are the same is not drawn (no "X → X"), and nothing is called "unchanged"', () => {
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     const row = screen.getByTestId('journey-move:add_consulting:generate_revenue_quickly')
     expect(row).toHaveTextContent('about 20% → about 50%')
     expect(row).toHaveTextContent(base.model!.cards.find((c) => c.id === 'add_consulting')!.heading)
-    // Codex NO-GO 1 (19 Nov): 0.201 and 0.204 both read "about 20%"; the page does not decide that nothing moved.
-    const same = screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')
-    expect(same).toHaveTextContent('about 40% → about 40%')
-    expect(same).not.toHaveTextContent(/unchanged/i)
+    // S4 journeyauth: core's two texts the same ("about 40% → about 40%") says nothing, so the row is dropped; the moved row above is the contrast.
+    expect(screen.queryByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).toBeNull()
+    expect(screen.getByTestId('journey-record')).not.toHaveTextContent('about 40% → about 40%')
     expect(screen.getByTestId('journey-record')).not.toHaveTextContent(/unchanged/i)
     // core's own line is behind one press, never at rest
     expect(screen.queryByTestId('journey-move:add_consulting:generate_revenue_quickly-line')).toBeNull()
@@ -105,12 +104,17 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     render(<JourneyRecord view={none} at={null} />)
     expect(screen.queryByTestId('journey-sole')).toBeNull()
   })
-  it('the credited change keeps whose it is: core\'s change entry first, else the card\'s Olumi mark (Codex NO-GO 3)', () => {
+  it('the credited change is Olumi\'s only where core\'s change entry says so; with no entry it is neutral, whatever the card\'s own mark (S4 journeyauth)', () => {
     const soleOf = (sole: string, changed = SINCE.changed) => journeyOf(full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole, changed } } } }), CTX).moved!.sole!
-    expect(soleOf('time_to_contract')).toMatchObject({ id: 'time_to_contract', olumi: true }) // not in `changed`; its card is Olumi's
+    expect(soleOf('time_to_contract')).toMatchObject({ id: 'time_to_contract', olumi: false }) // not in `changed`: core names no author, though the card carries an Olumi mark
+    expect(base.model!.cards.find((c) => c.id === 'time_to_contract')!.olumi).not.toBeNull() // contrast: the mark is there and is not used
     expect(soleOf('add_consulting')).toMatchObject({ id: 'add_consulting', olumi: false, was: 'olumi' }) // contrast: core says it is the team's now
-    expect(soleOf('time_to_contract', [{ id: 'time_to_contract', label: 'x', whose: 'theirs', was: null }])).toMatchObject({ olumi: false }) // core's entry wins over the card mark
+    expect(soleOf('time_to_contract', [{ id: 'time_to_contract', label: 'x', whose: 'olumi', was: null }])).toMatchObject({ olumi: true }) // contrast: core's entry says Olumi made it
     show(full()); render(<JourneyRecord view={full()} at={null} />)
+    expect(within(screen.getByTestId('journey-sole')).getByTestId('journey-card-time_to_contract').innerHTML).not.toContain('text-info')
+    cleanup()
+    const byOlumi = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole: 'time_to_contract', changed: [{ id: 'time_to_contract', label: 'x', whose: 'olumi', was: null }] } } } })
+    show(byOlumi); render(<JourneyRecord view={byOlumi} at={null} />)
     expect(within(screen.getByTestId('journey-sole')).getByTestId('journey-card-time_to_contract').innerHTML).toContain('text-info')
   })
   it('with `since`, the cards this version ADDED are named too: core\'s change entries first, then `version.changed` cards by id, each once', () => {
@@ -119,7 +123,7 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     expect(added).toContain('time_to_contract') // the fixture's version holds an added Olumi card
     const ch = journeyOf(full(), CTX).changed!.cards
     expect(ch.map((c) => c.id)).toEqual([...SINCE.changed.map((c) => c.id), ...added])
-    expect(ch.find((c) => c.id === 'time_to_contract')).toMatchObject({ olumi: true, was: null })
+    expect(ch.find((c) => c.id === 'time_to_contract')).toMatchObject({ olumi: false, was: null }) // added: core names no author for it, so neutral
     expect(ch.find((c) => c.id === 'add_consulting')).toMatchObject({ olumi: false, was: 'olumi' }) // contrast: core's own entry keeps whose and was
     expect(new Set(ch.map((c) => c.id)).size).toBe(ch.length)
   })
@@ -132,11 +136,20 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
   it('a `since` to another version is not this version\'s movement', () => {
     const other = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, to: { n: N + 1, label: 'version 3' } } } } })
     expect(journeyOf(other, CTX).moved).toBeNull()
-    expect(journeyOf(full(), CTX).moved?.rows).toHaveLength(2)
+    expect(journeyOf(full(), CTX).moved?.rows).toHaveLength(1) // the same-text line is dropped
   })
 })
 
 describe('#8 the five defects', () => {
+  it('a chip names its previous author only in core\'s fact: "was Olumi\'s" shown, never the page\'s own "was the team\'s"', () => {
+    const chg = (was: 'olumi' | 'theirs') => full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, changed: [{ id: 'add_consulting', label: 'An invented option', whose: was === 'olumi' ? 'theirs' : 'olumi', was }] } } } })
+    show(chg('olumi')); render(<JourneyRecord view={chg('olumi')} at={null} />)
+    expect(screen.getByTestId('journey-changed')).toHaveTextContent('(was Olumi’s)') // contrast
+    cleanup()
+    show(chg('theirs')); render(<JourneyRecord view={chg('theirs')} at={null} />)
+    expect(screen.getByTestId('journey-changed')).not.toHaveTextContent(/was the team/)
+    expect(screen.getByTestId('journey-changed')).not.toHaveTextContent('(was')
+  })
   it('(a) neutral chrome is not Olumi blue: the proposal line is neutral; a kept idea (Olumi\'s) is blue', () => {
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     expect(screen.getByTestId('journey-proposal').innerHTML).not.toContain('text-info')
@@ -253,8 +266,13 @@ describe('#8 the five defects', () => {
     expect(j.changed!.cards.length).toBeLessThan(base.version!.changed.length) // contrast: ids with no card are left out
     expect(journeyOf(full(), CTX).changed?.cards[0]).toMatchObject({ id: 'add_consulting', olumi: false, was: 'olumi' })
     // Codex NO-GO 3: with no `since`, an Olumi card keeps its mark; a team card does not take one
-    expect(j.changed!.cards.find((c) => c.id === 'time_to_contract')).toMatchObject({ olumi: true })
-    expect(j.changed!.cards.find((c) => c.id === 'focus_product_sales')).toMatchObject({ olumi: false })
+    // S4 journeyauth: with no `since` nobody is credited: every chip is neutral and unlabelled, Olumi-marked card or not
+    expect(base.model!.cards.find((c) => c.id === 'time_to_contract')!.olumi).not.toBeNull()
+    expect(j.changed!.cards.every((c) => !c.olumi && c.was === null)).toBe(true)
+    show(noSince); render(<JourneyRecord view={noSince} at={null} />)
+    expect(screen.getByTestId('journey-changed').innerHTML).not.toContain('text-info')
+    expect(screen.getByTestId('journey-changed')).not.toHaveTextContent(/was (Olumi|the team)/)
+    cleanup()
     // four chips at rest, the rest behind one press
     show(noSince); render(<JourneyRecord view={noSince} at={null} />)
     const shown = () => screen.getByTestId('journey-changed').querySelectorAll('[data-testid^="journey-card-"]').length
