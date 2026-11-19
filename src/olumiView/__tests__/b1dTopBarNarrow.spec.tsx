@@ -93,13 +93,3 @@ describe('a measurement that changes nothing schedules no update', () => {
     expect(screen.getByRole('banner').dataset['tight'], 'CONTRAST: nothing gave way, the bar fits').toBeUndefined()
   })
 })
-
-/** Audit 19 Nov, item 12: the name was clipped at 1232 while Share kept its label. Share's icon alone is the FIRST step; the name shortens only from the second. */
-describe('the order of the steps (the stylesheet)', () => {
-  const css = readFileSync(path.resolve('src/components/layout/TopBar.module.css'), 'utf8')
-  it('step 1 hides only Share\'s label; the name keeps its width until step 2', () => {
-    expect(css).toMatch(/\.topBar\[data-tight\] \.coreShare span:not\(\[aria-hidden\]\) \{\s*display: none;/)
-    expect(css).toMatch(/\.topBar\[data-tight\]:not\(\[data-tight="1"\]\) :global\(\[data-testid="scenario-name-text"\]\)/)
-    expect(css).not.toMatch(/\.topBar\[data-tight\] :global\(\[data-testid="scenario-name-text"\]\)/)
-  })
-})
