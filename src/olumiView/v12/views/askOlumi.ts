@@ -100,13 +100,17 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   g._dispatchAction({ label: text, message: text, source: 'team' })
   if (card === null) useCanvasStore.setState({ selection: before })
   if (busyBefore) return 'busy'
-  let refused: string | null = null
-  const settle = () => setTimeout(() => {
-    const kept = useViewChat.getState().text.split('\n').includes(text)
-    onSettled(kept || (refused !== null && refused !== SAVED_NOT_SHOWN) ? 'failed' : 'sent')
+  // The write's own result (Codex review 5 #1): ViewChat's act says its refusal sentence before it stops being busy (or at once, for a past
+  // version), and says nothing new on success; that sentence, not the words in the message box, decides. A question left in the box by an
+  // earlier failed try is taken out once a retry goes through, so it is never sent twice.
+  const saidBefore = useViewChat.getState().said
+  const settle = (said: string | null) => setTimeout(() => {
+    const refused = said !== null && said !== SAVED_NOT_SHOWN
+    if (!refused) { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
+    onSettled(refused ? 'failed' : 'sent')
   }, 0)
-  if (!useViewChat.getState().busy) { refused = useViewChat.getState().said; settle(); return 'sending' }
-  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); refused = s.said; settle() } })
+  if (!useViewChat.getState().busy) { const s = useViewChat.getState().said; settle(s !== saidBefore ? s : null); return 'sending' }
+  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said) } })
   return 'sending'
 }
 

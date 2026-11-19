@@ -174,6 +174,10 @@ describe('sent on the press, through the chat\'s ask path', () => {
     expect(go.disabled).toBe(false)
     fireEvent.click(go)
     expect(send).toHaveBeenCalledTimes(2)
+    // The retry goes through (Codex review 5 #1): it says Sent, and the question left in the message box by the failed try is taken out.
+    await settle(true)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    expect(useViewChat.getState().text).toBe('')
   })
   it('while Olumi is still answering it says so (the ask path keeps the words in the message box)', async () => {
     serve(); show(tm04)
