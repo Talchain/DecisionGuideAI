@@ -26,6 +26,8 @@ export function isTypingTarget(t: EventTarget | null): boolean {
 
 /** What the one listener closes. A press in any OTHER menu, modal dialog or text field belongs to it (the "+" menu, Summary, an on-card rename, the message box). */
 const OWN_SURFACE = '[data-testid="lane-edit-form"], [data-figure-edit-panel], [data-testid="view-add-figure-form"], [data-testid="lane-inspector"], [role="menu"][aria-label="Canvas context menu"]'
+/** The message box: a surface open over the canvas is still Escape's to close with focus here (the typed words stay; only with no surface open is Escape the box's own). */
+const COMPOSER = '#view-chat-text'
 const MODAL = '[role="dialog"][aria-modal="true"], [role="alertdialog"]'
 
 /**
@@ -38,11 +40,12 @@ function onEscape(e: KeyboardEvent): void {
   const store = useLaneInspector.getState(), open = store.current
   if (open === null) return
   const from = e.target instanceof Element ? e.target : null
-  if (from !== null && from.closest(OWN_SURFACE) === null && (from.closest('[role="menu"]') !== null || isTypingTarget(from))) return
+  if (from !== null && from.closest(OWN_SURFACE) === null && (from.closest('[role="menu"]') !== null || (isTypingTarget(from) && from.closest(COMPOSER) === null))) return
   if (document.querySelector(MODAL) !== null) return
   consumeEscape(e)
   if (open.kind === 'menu') return
-  store.dismiss(true)
+  // Escape puts the form away and keeps what was typed in it (the draft store): pressing the form's own Cancel is what forgets it.
+  store.dismiss(false)
   e.stopPropagation()
 }
 

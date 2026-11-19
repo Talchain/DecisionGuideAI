@@ -20,6 +20,7 @@ import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
 import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
 import { editGateNow } from './v12/edit/editGate'
+import { useShowToastSafe } from '../canvas/ToastContext'
 import { SizeEditButton } from './v12/edit/SizeEditButton'
 
 /**
@@ -252,6 +253,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
+  const showToast = useShowToastSafe()
   // Set aside and edit (R25): the card this was set aside for opens its Value row at once, with the set-aside said there.
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); useLaneInspector.getState().openFigure({ kind: 'card', id }, 'aside', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) } }, [asideFor, id])
@@ -264,7 +266,8 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   const gate = editGateNow()
   const off = size ? !gate.ok : live === null
   const why = off && !gate.ok ? gate.why : undefined
-  const press = (): void => { if (!off) useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
+  // A press the gate refuses says why, in the gate's own words (core's, or the existing sentence for a past version or another person's page), as the hover already did.
+  const press = (): void => { if (off) { if (why !== undefined) showToast(why, 'warning'); return } useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
   if (opener !== undefined) {
     return <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why ?? edit.ask} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>
   }
