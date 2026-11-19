@@ -1,3 +1,4 @@
+import { pressFieldOf, type TurnPress } from './press'
 import type { ViewTurn } from './client'
 
 /**
@@ -32,7 +33,7 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead; /** Core's note that this reply ran on less than usual (`floor[].degraded`), verbatim; absent otherwise. */ degraded?: { text: string; title: string } }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead; /** Core's note that this reply ran on less than usual (`floor[].degraded`), verbatim; absent otherwise. */ degraded?: { text: string; title: string }; /** A message sent by a press on the canvas (typed fields 13b, `floor[].press` on an unanswered turn); absent otherwise. */ press?: TurnPress }
 /** A reply's short lead (View v3, additive; DL 11:06:45Z): one or two opening sentences and its points, in Olumi's words as core serves them.
  *  The page draws it and folds the full answer beneath; it never cuts, counts or writes one. Absent: the reply is drawn as before. */
 export type ReplyLead = { opening: string; points: string[] }
@@ -66,7 +67,8 @@ export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; tex
     // A saved message whose reply failed stays in the conversation (sx-team 08:51Z): core says so by a typed `unanswered` on an empty reply,
     // never by reading words. Its own text and any prose are not drawn: there is no reply to draw or keep.
     const unanswered = row.text.trim() === '' && row.said.trim() !== '' ? unansweredOf(row.unanswered) : null
-    if (unanswered !== null) { rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: '', unanswered }); continue }
+    // A pressed message (typed fields 13b, `press` on an unanswered turn), read by type; absent on an older core.
+    if (unanswered !== null) { const press = pressFieldOf(row); rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: '', unanswered, ...(press === null ? {} : { press }) }); continue }
     if (!row.text.trim()) continue
     if (alreadyShown && row.job === alreadyShown.job && row.text === alreadyShown.text) continue
     const prose = Array.isArray(row.prose) && row.prose.length > 0 && row.prose.every((p: unknown) => typeof p === 'string') ? { prose: row.prose as string[] } : {}

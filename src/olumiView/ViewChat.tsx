@@ -49,6 +49,7 @@ import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
 import { earlyOf, floorShown, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
+import { askFieldOf, pressFieldOf, pressHeading, pressKindFor, type PressKind, type TurnPress } from './press'
 import { ReplyLead } from './v12/chat/ReplyLead'
 import { KeepChooser } from './v12/chat/KeepChooser'
 import { EarlyAnswer } from './EarlyAnswer'
@@ -269,6 +270,18 @@ export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 export const PRESSED_WORDS = ICONS['method-mark'].hover
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
+/** A message sent by a press on the canvas (typed fields 13b): core's label, then the pressed card's heading where the reader's model has it.
+ *  Never `said` as words the person typed. */
+function PressedLine({ press, at }: { press: TurnPress; at: string }): JSX.Element {
+  const view = useViewStore((st) => st.view)
+  const heading = pressHeading(press, view)
+  return (
+    <p className={typography.viewPanelBody} data-testid="view-chat-press" data-press={press.kind} data-press-card={press.card ?? undefined}>
+      <span data-view={`${at}.press.label`}>{press.label}</span>{heading === null ? null : <> · <span data-view={`${at}.press.card`}>{heading}</span></>}
+    </p>
+  )
+}
+
 function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
@@ -311,8 +324,11 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const method = methodOfSaid(whole, t.said)
   const aboutCards = t.answer === null ? [] : aboutCardsOf(whole, t.answer.next)
   // A question the page drafted that the person pressed (core's typed ask 'challenge' or 'method') is their act, not words they typed: drawn as chrome.
-  const pressed = pressOf(whole?.draft, t)
-  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}{pressed !== null
+  // How it was asked: core's own `chat[].ask` (typed fields 13a) where it sends one, else the draft's conversation entry, as before.
+  const asked = askFieldOf(t)
+  const pressed = asked === 'challenge' || asked === 'method' ? asked : asked !== null ? null : pressOf(whole?.draft, t)
+  const typed = pressFieldOf(t)
+  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}{typed !== null ? <PressedLine press={typed} at={at} /> : pressed !== null
     ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={pressed}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
     : <p className={typography.viewPanelBody} data-view={`${at}.said`}>{method === null ? null : <MethodMark id={method.id} />}{t.said}</p>}</div>
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
@@ -471,7 +487,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
         {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-testid="view-said-by">{f.by}</p>}
-        <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p>
+        {f.press === undefined ? <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p> : <PressedLine press={f.press} at={`floor.${f.job}`} />}
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
           never on a long brief drawn above it in the same exchange. */}
@@ -535,7 +551,7 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
         {shown ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{turn.ask === 'challenge' || turn.ask === 'method'
+          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
         {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
@@ -1044,10 +1060,10 @@ export const isAnswering = (view: View | null): boolean => view?.turn?.status ==
 
 /** A message sent whose acceptance has not come back yet: kept in this tab per person, as a brief is, so a reload asks core again by the SAME op. */
 const PENDING_TURN = (person: string) => `olumi-pending-turn:${person}`
-function keepPendingTurn(sid: string, text: string, op: string, about: string | null = null): void {
+function keepPendingTurn(sid: string, text: string, op: string, about: string | null = null, press: PressKind | null = null): void {
   const me = pendingPerson()
   if (me === null) return
-  try { sessionStorage.setItem(PENDING_TURN(me), JSON.stringify(about === null ? { sid, text, op } : { sid, text, op, about })) } catch { /* no storage: the op lives only in this page */ }
+  try { sessionStorage.setItem(PENDING_TURN(me), JSON.stringify(about === null ? { sid, text, op } : press === null ? { sid, text, op, about } : { sid, text, op, about, press })) } catch { /* no storage: the op lives only in this page */ }
 }
 function dropPendingTurn(op: string): void {
   const me = pendingPerson()
@@ -1055,12 +1071,12 @@ function dropPendingTurn(op: string): void {
   try { if (pendingTurn(me)?.op === op) sessionStorage.removeItem(PENDING_TURN(me)) } catch { /* nothing kept */ }
 }
 /** This person's message still waiting for core's acceptance in this tab, if any: its scenario, words and op. */
-export function pendingTurn(person: string): { sid: string; text: string; op: string; about: string | null } | null {
+export function pendingTurn(person: string): { sid: string; text: string; op: string; about: string | null; press?: true } | null {
   try {
-    const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown; about?: unknown } | null
+    const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown; about?: unknown; press?: unknown } | null
     // `about` (the card the message was about) is optional: a record kept before it existed restores as a plain message, as it was sent.
     return v !== null && typeof v.sid === 'string' && /^s_[0-9a-f]+$/.test(v.sid) && typeof v.text === 'string' && v.text.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op)
-      ? { sid: v.sid, text: v.text, op: v.op, about: typeof v.about === 'string' && v.about !== '' ? v.about : null } : null
+      ? { sid: v.sid, text: v.text, op: v.op, about: typeof v.about === 'string' && v.about !== '' ? v.about : null, ...(v.press === 'explain' || v.press === 'ask_about' ? { press: true as const } : {}) } : null
   } catch { return null }
 }
 /**
@@ -1080,6 +1096,9 @@ export function restorePendingTurn(): boolean {
   const about = p.about !== null && view.model?.cards.some((c) => c.id === p.about) ? p.about : null
   if (p.about !== null && about === null) { useViewChat.setState({ text: p.text, said: ABOUT_GONE }); return true }
   if (about !== null) useCanvasStore.setState({ selection: { nodeIds: new Set([about]), edgeIds: new Set(), anchorPosition: null } })
+  // A press put back in the box is the person's own message once they send it (typed fields 13b (b)): it goes without the press, so not under
+  // the press's op, whose identity in core includes the press.
+  if (p.press === true) { useViewChat.setState({ text: p.text }); return true }
   useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, about === null ? 'message' : `message:${about}`, p.text), p.op) })
   return true
 }
@@ -1092,7 +1111,11 @@ export function sayAgain(): Promise<boolean> {
   const t = view?.turn
   if (sid === null || t == null || t.status === 'answering' || t.said === null || t.ask !== 'message') return Promise.resolve(false)
   const said = t.said
-  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op))
+  // A pressed message is asked again as the same press about the same card (typed fields 13b, Codex ROOT 02:53:03Z): core's `turn.press`;
+  // where core says the card is gone (null), neither goes, and the words are a plain message, as with ABOUT_GONE.
+  const p = pressFieldOf(t)
+  const about = p !== null && p.card !== null && view?.model?.cards.some((c) => c.id === p.card) ? p.card : null
+  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op, about, about === null ? null : p!.kind))
 }
 
 /** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
@@ -1187,13 +1210,14 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 }
 
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
-function say(text: string, words = false, about: string | null = selectedRecord()): Promise<boolean> {
+function say(text: string, words = false, about: string | null = selectedRecord(), press: PressKind | null = null): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
   if (sid !== null) closeUntouchedCommit(sid)
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
     // The card the composer shows as "About: <card>" goes with the words, by id (core candidate 8); the same words about another card are another write.
-    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op, about); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(about)
+    // A press's kind (typed fields 13b) goes only with its card; the same words pressed differently are another write.
+    : ((about, kind) => write(about === null ? 'message' : `message:${about}${kind === null ? '' : `:${kind}`}`, text, async (op) => { keepPendingTurn(sid!, text, op, about, kind); const r = await writes.message(sid!, text, op, about, kind); dropPendingTurn(op); return r }))(about, about === null ? null : press)
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }
@@ -1423,8 +1447,9 @@ function press(opts: Press): Promise<boolean> {
   const ids = [...target]
   const record = ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
   if (kind !== undefined && record !== null && sid !== null) return challenge(kind, record, opts.message)
-  // A press is about ITS OWN card (the ask's target, else the selection), never whatever the canvas selected since: the same `record`.
-  return say(opts.message, false, record)
+  // A press is about ITS OWN card (the ask's target, else the selection), never whatever the canvas selected since: the same `record`; with
+  // it, what kind of press it was (typed fields 13b: Explain, else a one-card ask), sent as the page's own prefill, unedited.
+  return say(opts.message, false, record, pressKindFor(chip, record))
 }
 
 /** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */

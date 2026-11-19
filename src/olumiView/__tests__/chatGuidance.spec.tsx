@@ -86,7 +86,26 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
     bindAskTarget('Explain this', [other.id], [], true)
     await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:explain', label: 'Explain', message: 'Explain this', source: 'chip' }) })
-    await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'Explain this', about: other.id, op: expect.any(String) } }]))
+    // Typed fields 13b: with its own card it says what kind of press it was (Explain), never without that card.
+    await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'Explain this', about: other.id, press: 'explain', op: expect.any(String) } }]))
+  })
+  it('typed fields 13b: any other press on one card is an ask about it; a press on no single card, and words from the message box, send no press', async () => {
+    saved(); const { container } = render(<><ViewChat /><ViewComposer /></>)
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:why', label: 'Why', message: 'Why does this matter?', source: 'chip' }) })
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.body).toEqual({ text: 'Why does this matter?', about: card.id, press: 'ask_about', op: expect.any(String) })
+    // No single card: neither about nor press.
+    useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:explain', label: 'Explain', message: 'Explain the model', source: 'chip' }) })
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.body).toEqual({ text: 'Explain the model', op: expect.any(String) })
+    // The person's own words about the selected card: about, never a press (an edited prefill is their message).
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    act(() => { useViewChat.setState({ text: 'Explain this, but in plain words' }) })
+    await act(async () => { fireEvent.click([...container.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) })
+    await waitFor(() => expect(posts).toHaveLength(3))
+    expect(posts[2]!.body).toEqual({ text: 'Explain this, but in plain words', about: card.id, op: expect.any(String) })
   })
 
   it('a press on several cards is about no one card, whatever is selected', async () => {

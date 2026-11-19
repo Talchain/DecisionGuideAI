@@ -80,7 +80,8 @@ export const writes = {
   /** Stop (core API v1.34 `POST …/jobs/:id/stop`, body {}): the first draft's author stops it; answered as it stands if already ended. No AI call. */
   stopDraft: (sid: string, job: number) => call<DraftJob>('POST', `${scenarioPath(sid)}/jobs/${job}/stop`, {}),
   /** `about`: the one model card the person has selected (core candidate 8, `{text, about?, op?}`): the turn is about that card; the words stay theirs. */
-  message: (sid: string, text: string, op: string, about: string | null = null) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/messages`, about === null ? { text, op } : { text, about, op }),
+  /** `press` (typed fields 13b): the kind of canvas press these words came from, sent only together with `about` (core refuses it alone). */
+  message: (sid: string, text: string, op: string, about: string | null = null, press: 'explain' | 'ask_about' | null = null) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/messages`, about === null ? { text, op } : press === null ? { text, about, op } : { text, about, press, op }),
   challenge: (sid: string, kind: string, record: string, op: string) => call<TurnAccepted>('POST', `${scenarioPath(sid)}/challenge`, { kind, record, op }),
   /** What the team came for (core API `POST …/goal`, canon wave step 1): one of the View's `session.goals[].id`, or null to clear. No AI call. */
   goal: (sid: string, goal: string | null, op: string) => call<{ goal: number }>('POST', `${scenarioPath(sid)}/goal`, { goal, op }),
