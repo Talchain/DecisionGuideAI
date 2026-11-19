@@ -225,7 +225,7 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
                   <div key={o.key} className="mt-1"><Press id={o.key} press={o.press} onDone={onDone}>
                     <p className={BODY}>{W.happened(o.by)} <span className="text-text-light">· {journeyWhen(o.at)}</span></p>
                     <p className={`${META} ${WORDS}`}>{o.happened}{o.figure === null ? null : ` · ${o.figure}`}</p>
-                    {o.versus !== '' && <p className={`${META} ${WORDS}`}>{o.versus}</p>}
+                    {o.versus !== null && <p className={`${META} ${WORDS}`} data-testid={`journey-${o.key}-versus`}>{o.versus}</p>}
                     {o.triggered && <p className={META}>{W.triggered}</p>}
                   </Press></div>
                 ))}
