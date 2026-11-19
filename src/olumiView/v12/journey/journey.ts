@@ -28,7 +28,8 @@ export type JourneyRef =
   | { readonly kind: 'outcome-form'; readonly commitment: number }
   | { readonly kind: 'outcome'; readonly id: number }
   | { readonly kind: 'dissent'; readonly id: string }
-  | { readonly kind: 'views' }
+  /** Others' views: the reveal step when they are ready to reveal, else where the team differs. */
+  | { readonly kind: 'views'; readonly step: 'reveal' | 'differ' }
   | { readonly kind: 'chat' }
 
 /** A press: where it goes, or why it cannot go there now (chrome, said where the press would be). */
@@ -41,6 +42,9 @@ export const JOURNEY_WORDS = {
   wasTheirs: 'was the team’s',
   credited: 'Credited to',
   open: 'Open',
+  unchanged: 'unchanged',
+  more: (n: number) => `+${n} more`,
+  fewer: 'Show fewer',
   notConsidered: (by: string) => `${by}’s evidence: not yet considered`,
   noOutcome: (owner: string) => `${owner}’s commitment: no outcome recorded yet`,
   reviewOn: (date: string) => `review on ${date}`,
@@ -157,7 +161,7 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   for (const d of view.collab?.dissent ?? []) {
     if (d.confirmed === null && d.holder_id !== null && d.holder_id === view.you_id) open.push({ key: `confirm:${d.id}`, label: JOURNEY_WORDS.confirmMine, words: d.position, press: team({ kind: 'dissent', id: d.id }) })
   }
-  if (view.collab?.can_reveal) open.push({ key: 'reveal', label: JOURNEY_WORDS.reveal, words: view.collab.waiting, press: team({ kind: 'views' }) })
+  if (view.collab?.can_reveal) open.push({ key: 'reveal', label: JOURNEY_WORDS.reveal, words: view.collab.waiting, press: team({ kind: 'views', step: 'reveal' }) })
   if (view.proposal !== null) open.push({ key: 'proposal', label: JOURNEY_WORDS.pending, words: view.proposal.heading, press: { to: { kind: 'chat' } } })
 
   const commitments: Commitment[] = commitmentsIn.map((k) => ({

@@ -16,6 +16,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { useCanvasStore } from '../../../../canvas/store'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { useVersionsPanelStore } from '../../../../canvas/versions/versionsPanelStore'
+import { resetTeamFlow, useTeamFlow } from '../../../../olumiCore/team/flow'
 import { isEmpty, journeyOf, JOURNEY_WORDS as W, type JourneyContext } from '../journey'
 
 const focused: string[] = []
@@ -80,6 +81,7 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     expect(row).toHaveTextContent(base.model!.cards.find((c) => c.id === 'add_consulting')!.heading)
     expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).toHaveAttribute('data-same', 'true')
     expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).not.toHaveTextContent('→')
+    expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).toHaveTextContent('about 40% · unchanged')
     // core's own line is behind one press, never at rest
     expect(screen.queryByTestId('journey-move:add_consulting:generate_revenue_quickly-line')).toBeNull()
     fireEvent.click(screen.getByTestId('journey-move:add_consulting:generate_revenue_quickly-toggle'))
@@ -124,8 +126,10 @@ describe('#8 the five defects', () => {
     expect(screen.getByTestId('journey-card-add_consulting-why')).toHaveTextContent(W.offCanvas)
     expect(done).not.toHaveBeenCalled()
   })
-  it('(c) a commitment keeps its identity: the press opens Team on THAT commitment, with any reveal stepped aside', () => {
-    const target = document.createElement('li'); target.setAttribute('data-testid', 'team-commitment-501'); const scrolled = vi.fn(); target.scrollIntoView = scrolled; document.body.appendChild(target)
+  it('(c) a commitment keeps its identity: the press opens Team\'s "What happened" step on THAT commitment, its fold opened, any reveal stepped aside', () => {
+    resetTeamFlow()
+    const fold = document.createElement('details'); document.body.appendChild(fold)
+    const target = document.createElement('li'); target.setAttribute('data-testid', 'team-commitment-501'); const scrolled = vi.fn(); target.scrollIntoView = scrolled; fold.appendChild(target)
     const decoy = document.createElement('li'); decoy.setAttribute('data-testid', 'team-commitment-502'); const wrong = vi.fn(); decoy.scrollIntoView = wrong; document.body.appendChild(decoy)
     useReveal.getState().selectEvidence(28)
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
@@ -136,8 +140,17 @@ describe('#8 the five defects', () => {
     expect(useReveal.getState().evidence).toBeNull()
     expect(scrolled).toHaveBeenCalledTimes(1)
     expect(wrong).not.toHaveBeenCalled()
+    expect(useTeamFlow.getState().pending).toBe('outcome')
+    expect(fold.open).toBe(true)
     expect(done).toHaveBeenCalledTimes(1)
-    target.remove(); decoy.remove()
+    fold.remove(); decoy.remove()
+  })
+  it('(c) a disagreement opens "Where you differ"; views ready to reveal open the reveal step', () => {
+    resetTeamFlow(); show(full()); render(<JourneyRecord view={full()} at={null} />)
+    fireEvent.click(screen.getByTestId('journey-confirm:d_mine'))
+    expect(useTeamFlow.getState().pending).toBe('differ')
+    fireEvent.click(screen.getByTestId('journey-reveal'))
+    expect(useTeamFlow.getState().pending).toBe('reveal')
   })
   it('(c) an outcome, a disagreement and a commitment with no outcome open their own record (the outcome form by core\'s id)', () => {
     show(full({ collab: { ...base.collab, commitments: [COMMITMENT()], dissent: DISSENT, can_reveal: true } })); render(<JourneyRecord view={useViewStore.getState().view!} at={null} />)
@@ -164,6 +177,11 @@ describe('#8 the five defects', () => {
     expect(j.changed?.cards.map((c) => c.id)).toEqual(base.version!.changed.filter((id) => cards.has(id)))
     expect(j.changed!.cards.length).toBeLessThan(base.version!.changed.length) // contrast: ids with no card are left out
     expect(journeyOf(full(), CTX).changed?.cards[0]).toMatchObject({ id: 'add_consulting', olumi: false, was: 'olumi' })
+    // four chips at rest, the rest behind one press
+    show(noSince); render(<JourneyRecord view={noSince} at={null} />)
+    const shown = () => screen.getByTestId('journey-changed').querySelectorAll('[data-testid^="journey-card-"]').length
+    expect(shown()).toBe(Math.min(4, j.changed!.cards.length))
+    if (j.changed!.cards.length > 4) { fireEvent.click(screen.getByTestId('journey-changed-more')); expect(shown()).toBe(j.changed!.cards.length) }
   })
 })
 

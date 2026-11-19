@@ -13,6 +13,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { useCanvasStore } from '../../../canvas/store'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { goToOutcome } from '../../../olumiCore/team/outcomeNav'
+import { openStep, type StepId } from '../../../olumiCore/team/flow'
 import { useViewStore } from '../../store'
 import { useReveal } from '../../reveal'
 import { forgetLanded } from '../../revealReturn'
@@ -38,9 +39,21 @@ export const journeyWhen = (iso: string): string => {
 const onCanvas = (id: string): boolean => useCanvasStore.getState().nodes.some((n) => n.id === id)
 /** The Team tab with no reveal or evidence view filling it, as `goToOutcome` clears it (olumiCore/team/outcomeNav.ts). */
 const teamClear = (): void => { forgetLanded(); useReveal.getState().select(null); useUIStore.getState().forceActivateOutputTab('team') }
-/** Bring a Team record into view once the tab is drawn (two frames, as `goToOutcome` waits). */
-const into = (testid: string): void => {
-  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector(`[data-testid="${testid}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })))
+/**
+ * Bring a Team record into view: open the Team step that holds it (`openStep`, core flow.ts, as the commitment and outcome forms are opened
+ * from outside the tab), then, once drawn (two frames, as `goToOutcome` waits), any closed fold around it (a native <details>, e.g. "Where you
+ * differ"'s disagreements), and scroll to it. Picture run 19 Nov: without the step, the record sat in a closed step and nothing showed.
+ */
+const into = (step: StepId | null, testid: string | null): void => {
+  if (step !== null) openStep(step)
+  teamClear()
+  if (testid === null) return
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
+    if (el === null) return
+    for (let d = el.closest('details'); d !== null; d = d.parentElement?.closest('details') ?? null) d.open = true
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }))
 }
 
 /**
@@ -64,10 +77,10 @@ export function go(to: JourneyRef): string | null {
       goToOutcome(sid, to.commitment)
       return null
     }
-    case 'commitment': teamClear(); into(`team-commitment-${to.id}`); return null
-    case 'outcome': teamClear(); into(`team-outcome-${to.id}`); return null
-    case 'dissent': teamClear(); into(`team-dissent-${to.id}`); return null
-    case 'views': teamClear(); return null
+    case 'commitment': into('outcome', `team-commitment-${to.id}`); return null
+    case 'outcome': into('outcome', `team-outcome-${to.id}`); return null
+    case 'dissent': into('differ', `team-dissent-${to.id}`); return null
+    case 'views': into(to.step, null); return null
     case 'chat':
       useUIStore.getState().forceActivateOutputTab('olumi')
       requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('[data-testid="view-next-step"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })))
@@ -117,7 +130,7 @@ function MovedRow({ m }: { m: Moved }): JSX.Element {
     <li className="min-w-0" data-testid={`journey-${m.key}`} data-same={m.same ? 'true' : undefined}>
       <button type="button" className={ROW} aria-expanded={open} onClick={() => setOpen((x) => !x)} data-testid={`journey-${m.key}-toggle`}>
         <p className={`${BODY} ${WORDS}`}><span className="text-text-header">{m.option}</span> · {m.aim}</p>
-        <p className={`${META} ${WORDS}`}>{m.same ? m.toText : `${m.fromText} → ${m.toText}`}</p>
+        <p className={`${META} ${WORDS}`}>{m.same ? `${m.toText} · ${W.unchanged}` : `${m.fromText} → ${m.toText}`}</p>
         <Track m={m} />
       </button>
       {open && <p className={`${META} ${WORDS} pt-1`} data-testid={`journey-${m.key}-line`}>{m.line}</p>}
@@ -130,6 +143,21 @@ function Chip({ c, onDone }: { c: Changed; onDone?: () => void }): JSX.Element {
   const was = c.was === 'olumi' ? W.wasOlumi : c.was === 'theirs' ? W.wasTheirs : null
   const body = <span className={`${typography.viewPanelMeta} inline-block max-w-full break-words rounded-full border px-2 ${tone}`} data-olumi={c.olumi ? 'true' : undefined}>{c.label}{was === null ? null : <span className="text-text-light"> ({was})</span>}</span>
   return <li className="min-w-0 max-w-full"><Press id={`card-${c.id}`} press={c.press} onDone={onDone}>{body}</Press></li>
+}
+
+/** The changed cards: four at rest, the rest behind one press. */
+function ChangedChips({ n, cards, onDone }: { n: number; cards: readonly Changed[]; onDone?: () => void }): JSX.Element {
+  const [all, setAll] = useState(false)
+  const shown = all ? cards : cards.slice(0, 4)
+  return (
+    <div className="flex min-w-0 flex-col gap-1" data-testid="journey-changed">
+      <p className={META}>{W.changed} · version {n}</p>
+      <ul className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
+        {shown.map((c) => <Chip key={c.id} c={c} onDone={onDone} />)}
+        {cards.length > 4 && <li><button type="button" className={`${META} underline underline-offset-2 hover:text-text-header ${FOCUS}`} onClick={() => setAll((x) => !x)} data-testid="journey-changed-more">{all ? W.fewer : W.more(cards.length - 4)}</button></li>}
+      </ul>
+    </div>
+  )
 }
 
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }): JSX.Element {
@@ -160,12 +188,7 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
           )}
         </Section>
       )}
-      {j.changed !== null && (
-        <div className="flex min-w-0 flex-col gap-1" data-testid="journey-changed">
-          <p className={META}>{W.changed} · version {j.changed.n}</p>
-          <ul className="m-0 flex list-none flex-wrap gap-1 p-0">{j.changed.cards.map((c) => <Chip key={c.id} c={c} onDone={onDone} />)}</ul>
-        </div>
-      )}
+      {j.changed !== null && <ChangedChips n={j.changed.n} cards={j.changed.cards} onDone={onDone} />}
       {(j.open.length > 0 || j.next !== null) && (
         <Section id="open" title={W.open}>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -227,7 +250,7 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
                   <p className={`${BODY} ${WORDS}`}><span className="text-info">{k.text}</span></p>
                   <p className={META}>{W.keptBy(k.name)} · {journeyWhen(k.at)}</p>
                 </Press></li>))}</ul></Section>}
-              {h.views !== null && <Press id="views" press={{ to: { kind: 'views' } }} onDone={onDone}><p className={META}>{h.views}</p></Press>}
+              {h.views !== null && <Press id="views" press={at !== null ? { unavailable: W.earlier } : { to: { kind: 'views', step: 'differ' } }} onDone={onDone}><p className={META}>{h.views}</p></Press>}
             </div>
           )}
         </div>
