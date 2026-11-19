@@ -210,7 +210,7 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     answer = (url) => (url.endsWith('/method') ? new Response(JSON.stringify({ proposal: null, discussion: true, job: 21 }), { status: 202 }) : new Response(JSON.stringify({ kept: 50 + posts.length }), { status: 201 }))
     const c = show(inWords())
     expect(q(c, 'view-actions-button')).not.toBeNull()
-    expect(q(c, 'view-thinking-else_do')).toHaveTextContent('Generate ideas')
+    expect(q(c, 'view-thinking-else_do')).toHaveTextContent(said)
     type(c, 'I am still drafting this note.')
     await press(q(c, 'view-thinking-else_do'))
     await waitFor(() => expect(posts).toHaveLength(1))

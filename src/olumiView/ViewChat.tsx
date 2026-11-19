@@ -2181,7 +2181,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer). What a press does: `pressChallenge`.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
-  const thinkingMethods = THINKING_METHODS.filter(({ id }) => menu?.methods.some((method) => method.id === id))
+  // Core's own method offers, in core's words (`session.methods[].text`): the UI chooses which to show, never what they are called.
+  const thinkingMethods = (menu?.methods ?? []).filter((m) => THINKING_METHOD_IDS.has(m.id))
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
@@ -2201,9 +2202,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {thinkingMethods.length === 0 ? null : (
         <div role="group" aria-label="Ways to think about this" className="flex flex-wrap items-center gap-2" data-testid="view-thinking-methods">
-          {thinkingMethods.map(({ id, label }) => (
-            <button key={id} type="button" className={VIEW_CHIP_CLASS} disabled={held || answering}
-              data-testid={`view-thinking-${id}`} onClick={() => runMethod(id)}>{label}</button>
+          {thinkingMethods.map((m) => (
+            <button key={m.id} type="button" className={VIEW_CHIP_CLASS} disabled={held || answering}
+              data-testid={`view-thinking-${m.id}`} onClick={() => runMethod(m.id)}><span data-view={`session.methods.${m.i}.text`}>{m.text}</span></button>
           ))}
         </div>
       )}
@@ -2266,7 +2267,5 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
 
 /** The registry's method icons, on v10's four methods in the same order (neutral: icons carry no hue). */
 const METHOD_ICON: Readonly<Record<(typeof V10_METHODS)[number]['key'], 'method-challenge' | 'method-opposite' | 'method-disprove' | 'method-outside'>> = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' }
-const THINKING_METHODS = [
-  { id: 'else_do', label: 'Generate ideas' },
-  { id: 'right_question', label: 'Reframe' },
-] as const
+/** Core's native thinking methods offered beside the box when core serves them (ids only; their words are core's). */
+const THINKING_METHOD_IDS: ReadonlySet<string> = new Set(['else_do', 'right_question'])
