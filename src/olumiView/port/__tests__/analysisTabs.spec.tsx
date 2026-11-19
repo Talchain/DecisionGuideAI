@@ -30,7 +30,7 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const tab = () => screen.getByTestId('port-analysis-tab')
-/** The chart's one control for its detail (whiskers with their figure and core's sentence, the marks' legend, each tail). */
+/** The chart's one control for what folds: each option's tail, the low/high key, the marks' legend. */
 const more = () => fireEvent.click(screen.getByTestId('analysis-chart-more'))
 
 describe('the tab\'s state comes from the options\' rows', () => {
@@ -178,11 +178,11 @@ describe('the chance chart', () => {
     expect(chart.querySelector(`[data-chart-option="${b.card.id}"] [data-view$=".tail.text"]`)).toBeNull()
     expect(chart.querySelectorAll('[data-view$=".tail.text"]')).toHaveLength(1)
   })
-  it('bakery: one bar per option with a chance for the lead aim, in core\'s order; each bar filled to its chance and, with the detail open, its whisker at its driver\'s two chances; core\'s words under it', () => {
+  it('bakery: one bar per option with a chance for the lead aim, in core\'s order; each bar filled to its chance and its whisker at its driver\'s two chances; core\'s words under it', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     expect(rows.length).toBe(3)
     expect(rows.every((r) => r.row.aim_id === leadAimOf(view.model!))).toBe(true)
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     const chart = screen.getByTestId('analysis-chance-chart')
     expect([...chart.querySelectorAll<HTMLElement>('[data-chart-option]')].map((e) => e.dataset['chartOption'])).toEqual(rows.map((r) => r.card.id))
     for (const { card, row, i } of rows) {
@@ -193,7 +193,7 @@ describe('the chance chart', () => {
       if (row.driver == null) { expect(range, card.id).toBeNull(); expect(li.querySelector('[data-chart-figure]'), card.id).toBeNull() }
       else {
         expect(range!.getAttribute('data-chance-range'), card.id).toBe(`${trackPct(row.driver.low)}:${trackPct(row.driver.high)}`)
-        // The whisker names its figure wherever it is drawn, by core's card id.
+        // The whisker names its figure at rest, by core's card id.
         expect(li.querySelector('[data-chart-figure]')!.getAttribute('data-chart-figure'), card.id).toBe(row.driver.figure)
       }
     }
@@ -217,20 +217,19 @@ describe('the chance chart', () => {
     expect(focus.node.mock.calls).toEqual([['longer_hours']])
   })
 
-  it('the key is drawn only where some bar has a range, and core\'s sentence for the two ends is drawn wherever a whisker is, never one without the other (Codex 008 item 3): CONTRAST bakery with every driver removed draws bars and no key', () => {
+  it('the key is drawn only where some bar has a range: CONTRAST bakery with every driver removed draws bars and no key', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
-    const pair = () => [document.querySelectorAll('[data-chance-whisker]').length > 0, document.querySelectorAll('[data-view="run.sensitivity.text"]').length]
-    expect(pair(), 'at rest: no whisker, so no sentence').toEqual([false, 0])
-    more()
-    expect(pair(), 'open: the whiskers and core\'s sentence, once').toEqual([true, 1])
     expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
+    // What the two ends ARE is core's sentence, once, OPEN at rest (Codex 008 item 3: folded, the ends could read as a confidence interval); only the marks' legend folds.
+    expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
     const ends = document.querySelector('[data-view="run.sensitivity.text"]')!
     expect(ends.textContent).toBe(view.model!.run!.sensitivity.text)
+    expect(ends.closest('details'), 'not inside any fold').toBeNull()
     expect(screen.getByTestId('analysis-chart-key').contains(ends)).toBe(true)
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     expect(screen.getAllByTestId('analysis-chance-track').length).toBe(3)
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
     expect(screen.queryByTestId('analysis-chart-marks'), 'CONTRAST: the mark\'s own meaning is still offered, in the marks key and not the range key').not.toBeNull()
@@ -240,12 +239,11 @@ describe('the chance chart', () => {
 })
 
 describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)', () => {
-  it('the axis stands OVER the FIRST track (once, not at the foot, never between a bar and core\'s words for it); the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, in the key behind the chart\'s one control', () => {
+  it('the axis stands OVER the FIRST track (once, not at the foot, never between a bar and core\'s words for it); the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, behind the key\'s one control', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     ready(view); render(<PortAnalysisTab />)
     const chart = screen.getByTestId('analysis-chance-chart')
     expect(chart.querySelectorAll('[data-testid="analysis-chart-axis"]')).toHaveLength(1)
-    more()
     const first = chart.querySelector(`[data-chart-option="${rows[0]!.card.id}"]`)!
     const axis = chart.querySelector('[data-testid="analysis-chart-axis"]')!
     expect(first.contains(axis), 'in the first option, over its track').toBe(true)
@@ -254,55 +252,60 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const w = chart.querySelector('[data-chance-whisker]')!
     expect([w.getAttribute('stroke-width'), w.getAttribute('class')]).toEqual(['2', 'stroke-text-body'])
     const likely = rows.find((r) => r.row.likely != null)!.row.likely!
-    const mark = screen.getByTestId('analysis-chart-key').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
+    more()
+    const mark = screen.getByTestId('analysis-chart-fold').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
     expect(mark.textContent).toBe(`${likely.glyph}${likely.title}`)
   })
-  it('the detail folds behind ONE real button (never hover alone, never a <details> whose closed body is still drawn), with its state said; a second press folds it again', () => {
+  it('only the low/high key, the marks\' legend and the tails fold, behind ONE real button with its state said (never hover alone, never a <details> whose closed body is still drawn); the ends\' meaning stays open beside the chart', () => {
     const view = viewOf('golden/bakery')
     ready(view); render(<PortAnalysisTab />)
-    const button = screen.getByTestId('analysis-chart-more')
-    expect([button.tagName, button.textContent, button.getAttribute('aria-expanded')]).toEqual(['BUTTON', CHART_WORDS.more, 'false'])
+    const button = screen.getByTestId('analysis-chart-more'), key = screen.getByTestId('analysis-chart-key')
+    expect([button.tagName, button.textContent, button.getAttribute('aria-expanded'), key.contains(button)]).toEqual(['BUTTON', CHART_WORDS.more, 'false', true])
     expect(screen.getByTestId('analysis-chance-chart').querySelector('details')).toBeNull()
-    expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
+    expect([screen.queryByTestId('analysis-chart-fold'), document.querySelectorAll('[data-chart-mark]').length, screen.queryByTestId('analysis-chart-ends-key')]).toEqual([null, 0, null])
     more()
-    expect(screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByTestId('analysis-chart-key').querySelectorAll('[data-chart-mark]').length).toBeGreaterThan(0)
+    const fold = screen.getByTestId('analysis-chart-fold')
+    expect([screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded'), fold.querySelectorAll('[data-chart-mark]').length > 0, fold.contains(screen.getByTestId('analysis-chart-ends-key'))]).toEqual(['true', true, true])
+    expect(fold.contains(key.querySelector('[data-view="run.sensitivity.text"]'))).toBe(false)
     more()
-    expect([screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded'), screen.queryByTestId('analysis-chart-key'), document.querySelectorAll('[data-chance-whisker]').length]).toEqual(['false', null, 0])
+    expect([screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded'), screen.queryByTestId('analysis-chart-fold')]).toEqual(['false', null])
   })
 })
 
-describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232)', () => {
-  /** Everything the chart folds, by identity: whiskers, their figure, core's sentence for the ends, the marks' legend, each tail. */
-  const folded = () => ({
+describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232; ruling 19 Nov: the chance keeps its uncertainty at rest)', () => {
+  const drawnNow = () => ({
     whiskers: document.querySelectorAll('[data-chance-range]').length, figures: document.querySelectorAll('[data-chart-figure]').length,
-    ends: document.querySelectorAll('[data-view="run.sensitivity.text"]').length, marks: document.querySelectorAll('[data-chart-mark]').length,
+    ends: document.querySelectorAll('[data-view="run.sensitivity.text"]').length,
+    endsKey: document.querySelectorAll('[data-testid="analysis-chart-ends-key"]').length, marks: document.querySelectorAll('[data-chart-mark]').length,
     tails: document.querySelectorAll('[data-view$=".tail.text"]').length,
   })
   for (const n of ['golden/bakery', 'real/hiring'] as const) {
-    it(`${n}: at rest every option × aim chance row (bar and core's words), core's lead and every likely outcome row are drawn, and none of the detail; CONTRAST: one press draws the detail`, () => {
+    it(`${n}: at rest every option × aim chance row (bar, core's words, its whisker where core gives a range), core's lead, the figure and core's sentence for the ends, and every likely outcome row are drawn; the tails, the low/high key and the marks' legend are not. CONTRAST: one press draws them`, () => {
       const view = structuredClone(viewOf(n)), m = view.model!, groups = chartGroupsOf(m)
       const { card, i } = groups[0]!.rows[0]!
       ;(m.cards.find((c) => c.id === card.id)!.rows[i] as { tail?: unknown }).tail = { text: 'core tail words', mean: 3, unit: null, share: 0.1 }
       const outcomes = groups.flatMap((g) => g.rows.filter((r) => r.row.outcome != null).map((r) => `${g.aimId}:${r.card.id}`))
-      expect([groups.length > 0, outcomes.length > 0, m.run!.sensitivity.text !== ''], 'fixture: chances, outcomes and a sentence for the ends').toEqual([true, true, true])
-      // bakery's chances carry ranges (whiskers); hiring's do not, so there the fold holds the legend and the tail alone.
+      // bakery's chances carry ranges (whiskers); hiring's do not, so there nothing about ranges is drawn in either state.
       const ranged = groups.some((g) => g.rows.some((r) => rangeOf(r.row) !== null))
-      expect(ranged, 'fixture').toBe(n === 'golden/bakery')
+      expect([groups.length > 0, outcomes.length > 0, ranged], 'fixture').toEqual([true, true, n === 'golden/bakery'])
       ready(view); render(<PortAnalysisTab />)
       const chart = screen.getByTestId('analysis-chance-chart')
       for (const g of groups) for (const r of g.rows) {
-        const li = chart.querySelector(`[data-chart-aim="${g.aimId}"] [data-chart-option="${r.card.id}"]`)
-        expect(li?.querySelector('[data-chance-bar]'), `${g.aimId}:${r.card.id}`).not.toBeNull()
-        expect(li?.querySelector(`[data-view="${r.card.id}.rows.${r.i}.value"]`)?.textContent, `${g.aimId}:${r.card.id}`).toBe(r.row.value)
+        const li = chart.querySelector(`[data-chart-aim="${g.aimId}"] [data-chart-option="${r.card.id}"]`), at = `${g.aimId}:${r.card.id}`
+        expect(li?.querySelector('[data-chance-bar]'), at).not.toBeNull()
+        expect(li?.querySelector(`[data-view="${r.card.id}.rows.${r.i}.value"]`)?.textContent, at).toBe(r.row.value)
+        expect(li?.querySelector('[data-chance-range]') != null, `${at}: its whisker at rest`).toBe(rangeOf(r.row) !== null)
       }
       expect(chart.querySelector('[data-view="run.lead"]')?.textContent).toBe(m.run!.lead)
       const likely = screen.getByTestId('analysis-likely-outcome')
       expect(outcomes.filter((k) => { const [a, c] = k.split(':'); return likely.querySelector(`[data-outcome-aim="${a}"] [data-outcome-option="${c}"]`) === null })).toEqual([])
-      expect(folded(), 'at rest: none of the detail').toEqual({ whiskers: 0, figures: 0, ends: 0, marks: 0, tails: 0 })
+      const rest = drawnNow()
+      expect(rest, 'at rest').toEqual({ whiskers: rest.whiskers, figures: rest.figures, ends: ranged ? 1 : 0, endsKey: 0, marks: 0, tails: 0 })
+      expect([rest.whiskers > 0, rest.figures > 0], 'a whisker at rest has its figure').toEqual([ranged, ranged])
       more()
-      const open = folded()
-      expect([open.whiskers > 0, open.figures > 0, open.ends, open.marks > 0, open.tails], 'one press: all of it').toEqual([ranged, ranged, ranged ? 1 : 0, true, 1])
+      const open = drawnNow()
+      expect({ ...open, marks: 0 }, 'one press: the folded detail too, and nothing drawn at rest goes').toEqual({ ...rest, endsKey: ranged ? 1 : 0, tails: 1 })
+      expect(open.marks, 'the marks\' legend').toBeGreaterThan(0)
       expect(chart.querySelector(`[data-chart-option="${card.id}"] [data-view="${card.id}.rows.${i}.tail.text"]`)?.textContent).toBe('core tail words')
     })
   }
@@ -357,7 +360,7 @@ describe('no chance yet: something to do before what a result needs (Codex 011)'
 describe('what would change it', () => {
   it('bakery: each figure the whiskers are drawn for is named once, at its bar, by its card id; core\'s lead line (`run.tipping` kind lead) with a try on its figure', () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     const movers = moversOf(view.model!).map((m) => m.card.id)
     expect(movers).toEqual(['extra_sold_per_oven', 'extra_hours_sold'])
     expect([...document.querySelectorAll<HTMLElement>('[data-chart-figure]')].map((e) => e.dataset['chartFigure'])).toEqual(movers)
@@ -375,7 +378,7 @@ describe('what would change it', () => {
   it('every whisker for one figure: it is named once, beside the key, never under each bar; CONTRAST two figures are named at their bars', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance' && r.driver != null) r.driver.figure = 'extra_sold_per_oven'
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     const labels = [...document.querySelectorAll<HTMLElement>('[data-chart-figure]')]
     expect(labels.map((e) => e.dataset['chartFigure'])).toEqual(['extra_sold_per_oven'])
     expect(screen.getByTestId('analysis-chart-key').contains(labels[0]!)).toBe(true)
@@ -384,7 +387,7 @@ describe('what would change it', () => {
 
   it('a figure core\'s find-out ranking gives a ✎ is not given a second ✎ beside its mover row; CONTRAST: without the ranking the mover row has it', () => {
     const view = structuredClone(viewOf('golden/bakery'))
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     const ranked = view.model!.run!.find_out!.flatMap((a) => a.figures.filter((f) => f.give != null).map((f) => f.id))
     expect(ranked).toContain('extra_sold_per_oven')
     expect(document.querySelector('[data-testid="analysis-mover-edit-extra_sold_per_oven"]')).toBeNull()
@@ -392,7 +395,7 @@ describe('what would change it', () => {
     cleanup()
     view.model!.run!.find_out = []
     view.model!.run!.science = []
-    ready(view); render(<PortAnalysisTab />); more()
+    ready(view); render(<PortAnalysisTab />)
     expect(document.querySelector('[data-testid="analysis-mover-edit-extra_sold_per_oven"]')).not.toBeNull()
   })
 

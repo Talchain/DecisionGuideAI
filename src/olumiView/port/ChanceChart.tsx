@@ -6,9 +6,9 @@
  *   `row.chance`, a whisker from `row.driver.low` to `row.driver.high`, and core's own words for the chance under it (`row.value`, its
  *   `title` on hover). The numbers only place marks; every word is core's;
  * - a press on an option selects and centres its card on the canvas; pointing at it rings the card.
- * At rest the chart is the bars and core's words for them, so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead,
- * 19 Nov: 279 px over). The detail is ONE press away, as one unit: the whiskers WITH their figure and core's sentence for what the two ends are
- * (a range is never drawn without them, Codex 008 item 3), the marks' legend, and core's worst-tenth sentence under each option.
+ * At rest: each chance WITH its uncertainty (the whisker), the figure it moves with and core's sentence for what the two ends are (DL ruling #87;
+ * Codex 008 item 3), so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead, 19 Nov: 279 px over). ONE press away: core's
+ * worst-tenth sentence under each option, the low/high key and the marks' legend.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
 import { useState } from 'react'
@@ -85,7 +85,7 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
 
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
 function Bar({ card, row, i, figure, given, axis = false, open }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean; open: boolean }) {
-  const range = open ? rangeOf(row) : null
+  const range = rangeOf(row)
   const tail = open ? tailOf(row) : null
   return (
     <li data-chart-option={card.id}>
@@ -140,25 +140,24 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === 0} open={open} />)}</ul>
         </div>
       ))}
-      {/* One press for the detail (a button, reachable by touch and keyboard, never hover alone), offered whenever there is any; open, the key:
-          low and high, the figure they are for, core's sentence for what the two ends are (with the whiskers it explains), each mark's meaning. */}
+      {/* At rest, under the bars: the figure every whisker is for (when it is one) and core's sentence for what the two ends ARE, never folded
+          (Codex 008 item 3: folded, the ends could read as a confidence interval). Then ONE press (a button, reachable by touch and keyboard, never
+          hover alone), offered whenever anything is folded: the low/high key, each mark's meaning in core's own title, and each option's tail. */}
       {!ranged && marks.length === 0 && !tails ? null : (
-        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid="analysis-chart-detail" data-disclosure={open ? 'open' : 'closed'}>
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : marks.length > 0 ? 'analysis-chart-marks' : 'analysis-chart-tails'}>
+          {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
+          {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
             <FoldChevron open={open} />{CHART_WORDS.more}
           </button>
           {!open || (!ranged && marks.length === 0) ? null : (
-            <div className="space-y-0.5" title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
+            <div className="space-y-0.5 pb-1" data-testid="analysis-chart-fold">
               {!ranged ? null : (
-                <p className="m-0 flex items-center gap-2" aria-hidden="true">
+                <p className="m-0 flex items-center gap-2" aria-hidden="true" data-testid="analysis-chart-ends-key">
                   <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}
                   <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>{CHART_WORDS.high}
                 </p>
               )}
-              {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
-              {/* What the two ends ARE, wherever a whisker is drawn (Codex 008 item 3): core's one sentence that they are the chances if that input
-                  comes out in its lowest or highest third, never a confidence interval. */}
-              {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
               <Marks marks={marks} />
             </div>
           )}
