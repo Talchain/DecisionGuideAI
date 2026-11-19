@@ -482,6 +482,17 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
     expect(/flex:\s*1 1 0\b/.test(rule)).toBe(false)
     expect(q(c, 'view-proposal-actions')!.className).toContain('flex-nowrap')
   })
+  it('D3 open: with the review OPEN the proposal line wraps, so core\'s heading keeps its basis and the controls take the line below (19 Nov, 1.33: kept on one line the heading went eight lines tall and the sticky foot covered the last group). CONTRAST: closed, the strip stays one line', () => {
+    const c = mount(golden('proposal'))
+    const line = () => q(c, 'view-proposal-actions')!
+    expect(line().className).toContain('flex-nowrap')
+    setOpen(q(c, 'view-proposal-review')!, true)
+    expect(line().className).toContain('flex-wrap')
+    expect(line().className).not.toContain('flex-nowrap')
+    expect([line().contains(q(c, 'view-proposal-row')!), line().contains(q(c, 'view-approve')!), line().contains(q(c, 'view-set-aside')!)]).toEqual([true, true, true])
+    setOpen(q(c, 'view-proposal-review')!, false)
+    expect(line().className).toContain('flex-nowrap')
+  })
   it('the strip carries a stacked change-mix bar: one segment per change family, in that kind\'s token, as wide as its count; none where the changes carry no family', () => {
     const view = structuredClone(golden('proposal'))
     const ch = view.proposal!.changes!

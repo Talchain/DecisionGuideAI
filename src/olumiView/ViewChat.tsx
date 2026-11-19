@@ -945,7 +945,10 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {/* DL-538: the actions stay in view at the card's foot however long its list (olumiLook.css). PANEL-SPEC 1: one filled button, the others
           quiet text links. With the review closed, Approve is in view at rest; where it waits on the person's choice of Olumi's readings, or core does
           not support the change, the filled button opens the review instead (nothing is approved blind). */}
-      <div className={`ok-actions flex ${lead === undefined ? 'flex-wrap' : 'flex-nowrap'} items-center gap-x-2 gap-y-0`} data-testid="view-proposal-actions">
+      {/* Closed, the one-row strip stays ONE line (calm panel, 17 Nov). Open, the line wraps (D3, olumiLook.css): Approve ticked joins the controls, and kept on
+          one line they squeezed core's heading to a ~47 px column, eight lines tall at 1128x680 @1.33, so the sticky foot grew to 126 px and covered the
+          review's last group heading (UI lead's probe 19 Nov). Wrapped, the heading keeps its 12rem basis and the controls take the line below. */}
+      <div className={`ok-actions flex ${lead === undefined || !closed ? 'flex-wrap' : 'flex-nowrap'} items-center gap-x-2 gap-y-0`} data-testid="view-proposal-actions">
         {lead}
         {closed && (readingIds.length > 0 || verdict?.supported === false || heldTicks)
           ? (onOpen === undefined ? null : <button type="button" disabled={busy} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-review-changes" onClick={onOpen}>{REVIEW_CHANGES}</button>)
