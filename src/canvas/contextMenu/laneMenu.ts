@@ -1,8 +1,9 @@
 /**
  * THE LANE'S RIGHT-CLICK MENU (V12 manual editing, 16 Nov; MANUAL-EDITING-MAP, reply 002): a pure builder from what was right-clicked and
  * what core currently lets the person do. Every edit row opens the lane's one small form (`olumiView/v12/edit/EditForm.tsx`), which calls the
- * real core route; no row writes through the legacy canvas store, and no row is faked. What core cannot do is shown DISABLED with the reason
- * "Not available yet" (Delete; a connected card, since core has no route to draw a link), never absent and never pretended.
+ * real core route; no row writes through the legacy canvas store, and no row is faked. A row that cannot act is OMITTED (Paul, 19 Nov: "a menu that
+ * does nothing new goes"): no Delete or connected card (core has no route), no Rename, Add or Undo while core takes no edit. This reverses the
+ * earlier "shown disabled, never absent" rule; `live` below is the one place that drops them.
  *
  * Nothing here imports a legacy writer (`actions.ts`' graph mutations, `runCanvasUndo`, `handleLayoutWithRecovery`): the builder gets its
  * effects as callbacks, so a spec can say exactly which route each row reaches.
@@ -13,18 +14,15 @@ import type { EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { plainWords } from '../../olumiView/plainWords'
-import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
+import { isMenuItem, type ContextTarget, type MenuEntry, type MenuItemDef } from './types'
 
-export const NOT_AVAILABLE_YET = 'Not available yet'
 export const LANE_MENU_WORDS = {
   hand: 'Hand mode', select: 'Select mode', add: 'Add', factor: 'Factor', option: 'Option', risk: 'Risk', claim: 'Claim', question: 'Open question',
   askOlumi: 'Ask Olumi', missing: "What's missing from this model?", explain: 'Explain this', challenge: 'Challenge this',
   autoArrange: 'Auto-arrange', whole: 'Show the whole model', simple: 'Simple',
   details: 'Open details', rename: 'Rename', change: 'Change figure', setStrength: 'Set strength', setSize: 'Set chance and size', removeLink: 'Remove link',
-  addRisk: 'Add a risk to this', addClaim: 'Add a claim about this', connected: 'Add connected factor or outcome', delete: 'Delete',
+  addRisk: 'Add a risk to this', addClaim: 'Add a claim about this',
   heldTip: 'Not right now.', noFigure: 'No figure yet',
-  noLinkRoute: 'Olumi has no way to draw a link yet, so a connected card cannot be added.',
-  noDeleteRoute: 'Olumi cannot delete a card yet. Rename it, or take off the link you no longer want.',
   // Paul's option menu (5.png, audit F32): three asks that put a question about the card in the AI box for the person to send.
   addOutcome: 'Add outcome from this', cut: 'Cut (ask Olumi)', otherEdits: 'Other model edits: ask Olumi',
 } as const
@@ -67,8 +65,20 @@ function editRow(c: LaneMenuCtx, id: string, label: string, iconId: IconId | und
   const g = c.gate
   return { id, label, ...(iconId === undefined ? {} : { iconId }), tooltip: g.ok ? tooltip : `${LANE_MENU_WORDS.heldTip} ${g.why}`, enabled: g.ok, ...(g.ok ? {} : { disabledReason: LANE_MENU_WORDS.heldTip.replace(/\.$/, '') }), action: () => { if (g.ok) c.act.open(spec(g)) }, ...extra }
 }
-const notYet = (id: string, label: string, tooltip: string, extra: Partial<MenuItemDef> = {}): MenuItemDef =>
-  ({ id, label, tooltip, enabled: false, disabledReason: NOT_AVAILABLE_YET, action: () => undefined, ...extra })
+
+/** A menu shows only rows that can act: disabled rows go, a submenu left empty goes, and dividers never lead, trail or double. */
+function live(entries: ReadonlyArray<MenuEntry>): MenuEntry[] {
+  const kept: MenuEntry[] = []
+  for (const e of entries) {
+    if (!isMenuItem(e)) { if (kept.length > 0 && isMenuItem(kept[kept.length - 1]!)) kept.push(e); continue }
+    if (!e.enabled) continue
+    if (e.submenuItems === undefined) { kept.push(e); continue }
+    const sub = live(e.submenuItems)
+    if (sub.length > 0) kept.push({ ...e, submenuItems: sub })
+  }
+  while (kept.length > 0 && !isMenuItem(kept[kept.length - 1]!)) kept.pop()
+  return kept
+}
 
 const undoRows = (c: LaneMenuCtx): MenuEntry[] => {
   const row = (dir: 'undo' | 'redo', shortcut: string): MenuItemDef => {
@@ -124,14 +134,14 @@ function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuC
     { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this card', enabled: true, action: () => c.act.openDetails({ kind: 'card', id }) },
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element'], ['ask-challenge', LANE_MENU_WORDS.challenge, 'challenge_element']]),
   ]
-  const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c), notYet('add-connected', LANE_MENU_WORDS.connected, LANE_MENU_WORDS.noLinkRoute, { iconId: 'add' })] : []
+  const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c)] : []
   const prefill = c.act.prefill, name = card?.heading ?? ''
   const asks: MenuEntry[] = card !== null && !isQuestion && prefill !== undefined ? [
     { id: 'ask-add-outcome', label: LANE_MENU_WORDS.addOutcome, iconId: 'add', tooltip: 'Ask Olumi to add an outcome that follows from this', enabled: true, action: () => prefill(`Add an outcome that follows from ${name}: `, LANE_MENU_WORDS.addOutcome, id) },
     { id: 'ask-cut', label: LANE_MENU_WORDS.cut, iconId: 'cut', tooltip: 'Ask Olumi to take this out of the model', enabled: true, action: () => prefill(`Take ${name} out of the model, because `, LANE_MENU_WORDS.cut, id) },
     { id: 'ask-other-edits', label: LANE_MENU_WORDS.otherEdits, iconId: 'olumi-mark', tooltip: 'Ask Olumi for another change to this', enabled: true, action: () => prefill(`About ${name}: `, LANE_MENU_WORDS.otherEdits, id) },
   ] : []
-  return [...items, ...(edits.length > 0 ? [DIV, ...edits] : []), ...(asks.length > 0 ? [DIV, ...asks] : []), DIV, notYet('delete', LANE_MENU_WORDS.delete, LANE_MENU_WORDS.noDeleteRoute, { iconId: 'delete', destructive: true })]
+  return [...items, ...(edits.length > 0 ? [DIV, ...edits] : []), ...(asks.length > 0 ? [DIV, ...asks] : [])]
 }
 
 /** The edits core takes on one card (rename, its figure or size, a risk or claim about it): the right-click menu's rows and the details panel's buttons. */
@@ -168,11 +178,13 @@ function edgeMenu(target: Extract<ContextTarget, { kind: 'edge' }>, c: LaneMenuC
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element']]), ...(rows.length > 0 ? [DIV, ...rows] : [])]
 }
 
-export function buildLaneMenu(target: ContextTarget, c: LaneMenuCtx): MenuEntry[] {
+export function buildLaneMenu(target: ContextTarget, c: LaneMenuCtx): MenuEntry[] { return live(buildAllRows(target, c)) }
+
+function buildAllRows(target: ContextTarget, c: LaneMenuCtx): MenuEntry[] {
   switch (target.kind) {
     case 'pane': return paneMenu(target, c)
     case 'node': return nodeMenu(target, c)
     case 'edge': return edgeMenu(target, c)
-    case 'multi': return [ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_subgraph']]), DIV, notYet('delete', LANE_MENU_WORDS.delete, LANE_MENU_WORDS.noDeleteRoute, { iconId: 'delete', destructive: true })]
+    case 'multi': return [ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_subgraph']])]
   }
 }

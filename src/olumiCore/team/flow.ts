@@ -17,6 +17,7 @@ export const STEP_ORDER: readonly StepId[] = ['invite', 'view', 'reveal', 'diffe
 /** Fixed chrome: each step's name, and the summaries that are not core's words. */
 export const STEP_WORDS = {
   invite: 'Bring a colleague in', view: 'Your view', reveal: 'Reveal together', differ: 'Where you differ', commit: 'Commit to an action', outcome: 'What happened',
+  whereThisGoes: 'Where this goes',
   alone: 'Just you so far',
   aloneLead: 'Invite a colleague: each of you gives a view privately, then you reveal them together and see where you differ.',
   viewToGive: 'Not given yet', viewPrivate: 'Given, private until the reveal', viewShared: 'Given and shown to the team', viewSkipped: 'Skipped this round',

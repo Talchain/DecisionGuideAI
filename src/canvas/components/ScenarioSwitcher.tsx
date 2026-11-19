@@ -25,7 +25,8 @@ import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
 import { typography } from '../../styles/typography'
 import { SCENARIO_RENAME_REQUEST_EVENT } from './scenarioRenameEvent'
-import { coreLaneAllows, lanePreviousControl } from '../../olumiCore/lane'
+import { coreLaneAllows, isOlumiCoreLane, lanePreviousControl } from '../../olumiCore/lane'
+import { menuLook } from '../../olumiView/look/menu'
 import { HIT_44 } from '../../styles/hitArea'
 
 /** Matches the character budget the removed TopBar title input enforced. */
@@ -478,7 +479,7 @@ export function ScenarioSwitcher({
         {/* Dropdown menu */}
         {isOpen && (
           <div
-            className={`absolute ${dropdownPosition === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'} left-0 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50`}
+            className={`absolute ${dropdownPosition === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'} left-0 w-72 ${menuLook(isOlumiCoreLane()).shell} z-50`}
             role="menu"
             data-testid="scenario-switcher-menu"
           >

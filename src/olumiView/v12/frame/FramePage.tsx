@@ -16,7 +16,7 @@ import { FindingLine } from '../../FindingLine'
  * neither is Olumi's, with core's `author.text` on hover. Two aims are two cards: they are never merged.
  */
 export const FRAME_WORDS = {
-  question: 'Question', edit: 'Edit', matters: 'What matters', aims: 'Aims', limits: 'Limits', routes: 'Routes you could take', fullGraph: 'Full graph',
+  question: 'Question', edit: 'Edit', askChange: 'Ask Olumi to change it', matters: 'What matters', aims: 'Aims', limits: 'Limits', routes: 'Routes you could take', fullGraph: 'Full graph',
   inWords: 'kept in words', noModel: 'No model yet', build: 'Build a model from this',
 } as const
 export const moreCardsWords = (n: number): string => `${n} more ${n === 1 ? 'card' : 'cards'} in the full graph`
@@ -71,7 +71,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
       <section className="grid gap-2" aria-label={FRAME_WORDS.question}>
         <div className="flex items-start gap-2">
           <h2 className={`${typography.viewPanelBody} m-0 min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="frame-question">{q.text}</h2>
-          {model.cards.length === 0 ? null : <button type="button" className={EDIT} data-testid="frame-edit-question" aria-label={`${FRAME_WORDS.edit}: ${FRAME_WORDS.question}`} onClick={editQuestion}>{FRAME_WORDS.edit}</button>}
+          {model.cards.length === 0 ? null : <button type="button" className={EDIT} data-testid="frame-edit-question" title="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</button>}
         </div>
       </section>
       {model.cards.length === 0 ? (

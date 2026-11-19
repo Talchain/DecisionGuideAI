@@ -14,7 +14,7 @@ import { putDraft, resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
 import { inviteNameKey } from '../team/InvitePanel'
-import { currentStep, openStep, resetTeamFlow, stepDone, stepSummary, STEP_WORDS, type StepId } from '../team/flow'
+import { currentStep, openStep, resetTeamFlow, stepDone, stepSummary, STEP_ORDER, STEP_WORDS, type StepId } from '../team/flow'
 import { goToOutcome } from '../team/outcomeNav'
 import { useMe } from '../me'
 
@@ -135,6 +135,18 @@ describe('the tab: only the current step open, one green press, any row opens', 
       expect(screen.getByTestId(`team-step-${id}-summary`).textContent).not.toBe('')
       expect(screen.getByTestId(`team-step-${id}-summary`).className, `${id} summary is whole, never clipped`).not.toContain('truncate')
     }
+  })
+  it('the steps still to come are folded behind "Where this goes" (hidden, still mounted); the press shows them, and it is the only extra control', () => {
+    show(alone())
+    render(<TeamTab />)
+    const row = (id: StepId) => step(id).closest('li')!
+    for (const id of ['view', 'reveal', 'differ', 'commit', 'outcome'] as const) expect(row(id).hidden, `${id} folded`).toBe(true)
+    expect(row('invite').hidden, 'CONTRAST: the current step is shown').toBe(false)
+    const press = screen.getByTestId('team-steps-later')
+    expect(press.textContent).toBe(STEP_WORDS.whereThisGoes); expect(press.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(press)
+    for (const id of STEP_ORDER) expect(row(id).hidden, `${id} shown after the press`).toBe(false)
+    expect(press.getAttribute('aria-expanded')).toBe('true')
   })
   it('a member core holds sees their view open first (the private box and its green press), the reveal one line', () => {
     show(team({ mine: [] }, { gated: true }))
