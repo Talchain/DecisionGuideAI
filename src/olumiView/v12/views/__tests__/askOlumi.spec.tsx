@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
@@ -15,7 +15,7 @@ import { resetDifferences, type Difference } from '../../../../olumiCore/team/di
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
-import { STILL_ANSWERING, useViewChat } from '../../../ViewChat'
+import { useAnswersAsks, useViewChat } from '../../../ViewChat'
 import { useCanvasStore } from '../../../../canvas/store'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 import { answerMessage, ASK_SAID, differenceQuestion } from '../askOlumi'
@@ -32,34 +32,38 @@ const rowOf = (d: Difference) => `differ-row-${d.record}${d.goal ? `-${d.goal}` 
 function serve(): void {
   setTeamFetch((async () => new Response(JSON.stringify(read), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
 }
-/** The chat's ask path as ViewChat registers it (`_dispatchAction` → press → say → act), in its real order: `say` takes the one selected model card
- *  as the message's `about` at once; `act` is busy while the write is out; on a refusal it says its sentence and stops being busy, and only a
- *  promise step later are the words put back in the message box (Codex review 3 #1). `settle(ok)` ends the write. */
-function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; about: (string | null)[]; settle: (ok: boolean) => Promise<void>; direct: ReturnType<typeof vi.fn> } {
-  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn(), about: (string | null)[] = []
-  let last = ''
-  const dispatch = (o: { message: string }) => {
-    send(o.message); last = o.message
-    const ids = [...useCanvasStore.getState().selection.nodeIds]
-    about.push(ids.length === 1 ? ids[0]! : null)
-    useViewChat.setState({ busy: true, said: null })
-  }
-  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct, _isConversationBusy: () => false } as never)
-  const settle = async (ok: boolean) => {
+/**
+ * The production path end to end (Codex ROOT HOLD 01:11:46Z): Team's press → ViewChat askOnPress → press → say → write/act → team api call →
+ * this fake network. A POST to …/messages waits until `answer(ok)` settles it, after the press, in the real order. `posts` are the bodies on
+ * the wire (`text`, `about`, `op`); `prefill` is the message box's prefill door.
+ */
+function network(): { posts: Array<{ text: string; about?: string; op: string }>; others: string[]; prefill: ReturnType<typeof vi.fn>; answer: (ok: boolean) => Promise<void> } {
+  const posts: Array<{ text: string; about?: string; op: string }> = [], others: string[] = [], waiting: Array<(r: Response) => void> = []
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  setTeamFetch((async (url: string, init?: RequestInit) => {
+    const method = init?.method ?? 'GET', path = String(url)
+    if (path === '/api/me') return json({ me: { id: tm04.you_id } })
+    if (method === 'POST' && path.endsWith('/messages')) { posts.push(JSON.parse(String(init!.body))); return new Promise<Response>((res) => waiting.push(res)) }
+    if (method === 'POST') { others.push(path); return json({ error: 'not in this spec' }, 500) }
+    return json(read)
+  }) as unknown as typeof fetch)
+  const prefill = vi.fn()
+  useGuidanceStore.setState({ _prefillChat: prefill } as never)
+  const answer = async (ok: boolean) => {
     await act(async () => {
-      useViewChat.setState({ busy: false, said: ok ? null : 'That did not go through. Nothing was saved.' })
-      await Promise.resolve()
-      if (!ok) useViewChat.setState({ text: last })
-      await new Promise((r) => setTimeout(r, 5))
+      waiting.shift()!(ok ? json({ scenario: 's_x', job: 7, proposal: null, discussion: null }, 202) : json({ error: 'Olumi could not take this message just now.' }, 409))
+      await new Promise((r) => setTimeout(r, 20))
     })
   }
-  return { prefill, send, about, settle, direct }
+  return { posts, others, prefill, answer }
 }
-const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
+/** The page's own registration of the chat's asks. */
+function Asks(): null { useAnswersAsks(); return null }
+const show = (v: View) => useViewStore.setState({ uuid: '00000000-0000-4000-8000-0000000000aa', sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null, _isConversationBusy: null } as never)
-  useViewChat.setState({ busy: false, text: '', said: null }); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+  useViewChat.setState({ busy: false, text: '', said: null, ops: new Map() } as never); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
 })
 
 describe('crux first', () => {
@@ -124,93 +128,85 @@ describe('the question for each difference', () => {
   })
 })
 
-describe('sent on the press, through the chat\'s ask path', () => {
-  it('Ask Olumi about this difference sends that difference\'s question once, bound to its card, never through _sendMessage; "Sent" only once the write went through', async () => {
-    serve(); show(tm04)
-    const { prefill, send, about, settle, direct } = composer()
+describe('sent on the press, through the chat\'s ask path (production path, fake network)', () => {
+  it('sends the difference\'s question once, about its own card on the wire; "Sent" only when the write\'s own result says so', async () => {
+    const { posts, prefill, answer } = network(); show(tm04)
     // The person has another card selected: the ask still goes about its own card.
     useCanvasStore.setState({ selection: { nodeIds: new Set(['contract_to_cash']), edgeIds: new Set(), anchorPosition: null } })
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
-    const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
-    fireEvent.click(go)
-    expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
-    expect(about).toEqual([FIGURE.record])
-    expect(direct).not.toHaveBeenCalled()
-    expect(prefill).not.toHaveBeenCalled()
-    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
-    fireEvent.click(go)
-    expect(send).toHaveBeenCalledTimes(1)
-    await settle(true)
-    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
-    // Contrast: a missing factor has no card: it is sent about nothing, and the person's selection is put back at once.
-    useCanvasStore.setState({ selection: { nodeIds: new Set(['contract_to_cash']), edgeIds: new Set(), anchorPosition: null } })
-    fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
-    expect(send.mock.calls[1]).toEqual([differenceQuestion(tm04, FACTOR)])
-    expect(about[1]).toBeNull()
-    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['contract_to_cash'])
-  })
-  it('a challenge waiting for a card stands down before the ask selects its card, so only the ask is sent (Codex review 4 #1)', async () => {
-    serve(); show(tm04)
-    const { send } = composer()
-    const fired: string[] = []
-    useViewChat.setState({ armed: 'assumption' } as never)
-    const stop = useCanvasStore.subscribe((s) => { if (useViewChat.getState().armed != null && s.selection.nodeIds.size === 1) fired.push('challenge') })
-    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
-    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
-    stop()
-    expect(fired).toEqual([])
-    expect(useViewChat.getState().armed ?? null).toBeNull()
-    expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
-  })
-  it('a send that does not go through says so and can be pressed again (Codex review 2 #1); the words are in the message box', async () => {
-    serve(); show(tm04)
-    const { send, settle } = composer()
-    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`) as HTMLButtonElement
     fireEvent.click(go)
-    await settle(false)
-    expect(useViewChat.getState().text).toBe(differenceQuestion(tm04, FIGURE))
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toMatchObject({ text: differenceQuestion(tm04, FIGURE), about: FIGURE.record })
+    expect(prefill).not.toHaveBeenCalled()
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
+    expect(go.disabled).toBe(true)
+    await answer(true)
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
+    // Contrast: a missing factor has no card: no about on the wire, and the person's selection is put back at once.
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['contract_to_cash']), edgeIds: new Set(), anchorPosition: null } })
+    fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.text).toBe(differenceQuestion(tm04, FACTOR))
+    expect('about' in posts[1]!).toBe(false)
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['contract_to_cash'])
+    await answer(true)
+  })
+  it('Codex ROOT HOLD: a refusal that arrives later says "Not sent" (never "Sent"), the press works again, the words are in the message box; a retry that goes through says Sent and clears them', async () => {
+    const { posts, answer } = network(); show(tm04)
+    // The chat's own asks registered as the page registers them (ViewChat useAnswersAsks), so every path through the guidance store is real too.
+    render(<><Asks /><WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} /></>)
+    const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`) as HTMLButtonElement
+    fireEvent.click(go)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    await answer(false)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
     expect(go.disabled).toBe(false)
+    expect(useViewChat.getState().text).toBe(differenceQuestion(tm04, FIGURE))
     fireEvent.click(go)
-    expect(send).toHaveBeenCalledTimes(2)
-    // The retry goes through (Codex review 5 #1): it says Sent, and the question left in the message box by the failed try is taken out.
-    await settle(true)
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.op).toBe(posts[0]!.op) // the same write retried, never a second one
+    await answer(true)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
     expect(useViewChat.getState().text).toBe('')
   })
-  it('while Olumi is still answering, a second ask waits in the message box and the first ask still says Sent when it goes through (Codex review 7 #1)', async () => {
-    serve(); show(tm04)
-    const { send, prefill } = composer()
+  it('a challenge waiting for a card stands down before the ask selects its card, so only the ask is sent (Codex review 4 #1)', async () => {
+    const { posts, others, answer } = network(); show(tm04)
+    useViewChat.setState({ armed: 'assumption' } as never)
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
-    expect(useViewChat.getState().busy).toBe(true)
-    // Another surface's ask meanwhile says the chat's "still answering" sentence; then this tab's second ask.
-    useViewChat.setState({ said: STILL_ANSWERING })
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(others).toEqual([])
+    expect(useViewChat.getState().armed ?? null).toBeNull()
+    await answer(true)
+  })
+  it('while Olumi is still answering, a second ask waits in the message box and the first still says Sent when it goes through (Codex review 7 #1)', async () => {
+    const { posts, prefill, answer } = network(); show(tm04)
+    render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
+    fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
+    await waitFor(() => expect(posts).toHaveLength(1))
     fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
-    expect(send).toHaveBeenCalledTimes(1)
     expect(prefill.mock.calls).toEqual([[differenceQuestion(tm04, FACTOR)]])
     expect(screen.getByTestId(`${rowOf(FACTOR)}-ask-said`).textContent).toBe(ASK_SAID.busy)
-    await act(async () => { useViewChat.setState({ busy: false }); await new Promise((r) => setTimeout(r, 5)) })
+    await answer(true)
+    expect(posts).toHaveLength(1)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
   })
-  it('Olumi\'s question for the round (core\'s collab.next): the person\'s own answer is sent with the question; an empty one sends nothing', async () => {
-    serve(); show(tm04)
-    const { send } = composer()
+  it('Olumi\'s question for the round (core\'s collab.next): the person\'s own answer is sent with the question, about its one card; an empty one sends nothing', async () => {
+    const { posts, answer } = network(); show(tm04)
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     expect(screen.getByTestId('team-views-next').textContent).toBe(tm04.collab.next!.text)
     fireEvent.click(screen.getByTestId('team-views-next-answer'))
-    const sendBtn = screen.getByTestId('team-views-next-send') as HTMLButtonElement
-    expect(sendBtn.disabled).toBe(true)
-    fireEvent.click(sendBtn)
-    expect(send).not.toHaveBeenCalled()
+    expect((screen.getByTestId('team-views-next-send') as HTMLButtonElement).disabled).toBe(true)
     fireEvent.change(screen.getByTestId('team-views-next-words'), { target: { value: '  A past diagnostic took four months to sign.  ' } })
     fireEvent.click(screen.getByTestId('team-views-next-send'))
-    expect(send.mock.calls).toEqual([[`Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`]])
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toMatchObject({ text: `Answering your question "${tm04.collab.next!.text}": A past diagnostic took four months to sign.`, about: tm04.collab.next!.about[0] })
+    await answer(true)
+    expect(screen.getByTestId('team-views-next-said').textContent).toBe(ASK_SAID.sent)
   })
   it('an answer stays with the question it was typed under when core\'s question changes (Codex review 2 #2)', async () => {
-    serve(); show(tm04)
-    const { send } = composer()
+    const { posts, answer } = network(); show(tm04)
     const r = render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(screen.getByTestId('team-views-next-answer'))
     fireEvent.change(screen.getByTestId('team-views-next-words'), { target: { value: 'Four months' } })
@@ -219,33 +215,29 @@ describe('sent on the press, through the chat\'s ask path', () => {
     expect(screen.getByTestId('team-views-next').textContent).toBe('How many sales hours are free each week?')
     expect(screen.getByTestId('team-views-next-earlier').textContent).toContain(tm04.collab.next!.text)
     fireEvent.click(screen.getByTestId('team-views-next-send'))
-    expect(send.mock.calls).toEqual([[answerMessage(tm04.collab.next!.text, 'Four months')]])
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]!.text).toBe(answerMessage(tm04.collab.next!.text, 'Four months'))
+    await answer(true)
   })
-  it('a past version open: nothing is sent and it says not sent, the words untouched (Codex review 6 #1); contrast: the latest version sends', async () => {
-    serve(); show(tm04)
-    const { send } = composer()
+  it('a past version open: nothing is sent and it says not sent, the words untouched (Codex review 6 #1)', async () => {
+    const { posts } = network(); show(tm04)
     useViewStore.setState({ at: 1 } as never)
     useViewChat.setState({ text: 'my own draft' })
-    const r = render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
-    const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
-    fireEvent.click(go)
-    expect(send).not.toHaveBeenCalled()
-    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
-    expect(useViewChat.getState().text).toBe('my own draft')
-    r.unmount()
-    useViewStore.setState({ at: null } as never)
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
-    expect(send).toHaveBeenCalledTimes(1)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(posts).toEqual([])
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
+    expect(useViewChat.getState().text).toBe('my own draft')
   })
   it('before a model is saved the chat would take words as a new brief: the question is only put in the message box, never sent', async () => {
-    serve()
-    const { prefill, send } = composer()
+    const { posts, prefill } = network()
     const unsaved = { ...tm04, version: null, proposal: null } as View
     show(unsaved)
     render(<WhereWeDiffer sid="s_x" view={unsaved} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
-    expect(send).not.toHaveBeenCalled()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(posts).toEqual([])
     expect(prefill.mock.calls).toEqual([[differenceQuestion(unsaved, FIGURE)]])
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.placed)
   })

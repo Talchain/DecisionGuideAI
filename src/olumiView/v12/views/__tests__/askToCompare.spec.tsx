@@ -49,7 +49,7 @@ function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeo
   useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct } as never)
   return { prefill, send, direct }
 }
-const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
+const show = (v: View) => useViewStore.setState({ uuid: '00000000-0000-4000-8000-0000000000bb', sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
   useCompare.setState({ open: false }); useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
@@ -70,22 +70,30 @@ describe('Ask Olumi to compare these views', () => {
     expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.placed)
   })
 
-  it('Paul 18 Nov: with a saved model, one press SENDS the request (once) through the chat\'s writer; contrast: before one, it is only placed', async () => {
-    serve({ ...core, differences: [figure], state: 'figures' })
-    const { prefill, send, direct } = composer()
+  it('Paul 18 Nov: with a saved model, one press SENDS the request once on the production path, about nothing, and says Sent on the write\'s own result', async () => {
+    const posts: Array<Record<string, unknown>> = []
+    const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      if (String(url) === '/api/me') return json({ me: { id: '1' } })
+      if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return json({ scenario: 's_x', job: 1, proposal: null, discussion: null }, 202) }
+      return json({ ...core, differences: [figure], state: 'figures' })
+    }) as unknown as typeof fetch)
+    const { prefill, direct } = composer()
     const v = view()
     expect(v.version).not.toBeNull()
     show(v)
     render(<WhereWeDiffer sid="s_x" view={v} onWrote={async () => true} />)
     const go = await screen.findByTestId('differ-ask-compare-go')
     fireEvent.click(go)
-    expect(send.mock.calls).toEqual([[ASK_TO_COMPARE.request]])
+    await waitFor(() => expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent))
+    expect(posts).toHaveLength(1)
+    expect(posts[0]).toMatchObject({ text: ASK_TO_COMPARE.request })
+    expect('about' in posts[0]!).toBe(false)
     expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
-    await waitFor(() => expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent))
     expect((go as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(go)
-    expect(send).toHaveBeenCalledTimes(1)
+    expect(posts).toHaveLength(1)
   })
 
   it('the request holds no one\'s words and no one\'s name: only what to compare', () => {

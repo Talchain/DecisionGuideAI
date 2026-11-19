@@ -1425,13 +1425,24 @@ const keptWhileBusy = (text: string): boolean => {
 /** An ask from the canvas that did not go through (core refused it, or its answer never came) keeps its words beside core's sentence. */
 const keptIfNotSent = (text: string, at = useViewStore.getState().uuid) => (sent: boolean) => { if (!sent && useViewStore.getState().uuid === at) keep(text) }
 
+/**
+ * The canvas's ask path with its own result (Codex ROOT HOLD 01:11:46Z): the same guards as `_dispatchAction` (while Olumi is still answering
+ * the words wait in the message box; an ask that does not go through keeps its words, for the scenario it was made in), returning the write's
+ * actual result, so a deliberate press elsewhere on the page (Team's "Ask Olumi about this difference") can say sent or not sent truthfully.
+ */
+export function askOnPress(opts: Press): Promise<boolean> {
+  if (keptWhileBusy(opts.message)) return Promise.resolve(false)
+  const kept = keptIfNotSent(opts.message)
+  return press(opts).then((sent) => { kept(sent); return sent })
+}
+
 /** The canvas's asks, answered by this writer: one set for the page, so every holder registers the same functions. */
 const ASKS = {
   _sendMessage: withOlumiReveal((text: string) => { if (!keptWhileBusy(text)) void say(text).then(keptIfNotSent(text)) }),
   // A prefill from a card (v10's Olumi corner: "About <card>:") is put after whatever the person has typed, never over it (Codex review
   // dgai-v10 00002 #1: the corner on every card must not delete a draft).
   _prefillChat: withOlumiReveal((text: string) => { keep(text) }),
-  _dispatchAction: withOlumiReveal((opts: Press) => { if (!keptWhileBusy(opts.message)) void press(opts).then(keptIfNotSent(opts.message)) }),
+  _dispatchAction: withOlumiReveal((opts: Press) => { void askOnPress(opts) }),
   _isConversationBusy: () => useViewChat.getState().busy,
 }
 /**
