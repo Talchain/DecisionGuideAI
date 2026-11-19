@@ -22,7 +22,7 @@ import type { View } from '../../client'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
 import { useCanvasStore } from '../../../canvas/store'
 import { armedIntent } from '../../armedIntent'
-import { isAnswering, prefillComposer, SAVED_NOT_SHOWN, takesBrief, useViewChat } from '../../ViewChat'
+import { isAnswering, prefillComposer, SAVED_NOT_SHOWN, STILL_ANSWERING, takesBrief, useViewChat } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
 
@@ -91,6 +91,9 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
   // A past version is open: the chat refuses every write there (PAST_HELD) and the Team tab's controls are held; nothing is sent.
   if (useViewStore.getState().at !== null) return 'failed'
+  // While Olumi is still answering, the question waits in the message box and nothing is dispatched: the chat's own sentence is left to the
+  // write in flight, whose result another ask's "still answering" must never overwrite (Codex review 7 #1).
+  if (useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)) { prefillComposer(text); return 'busy' }
   const card = target !== null && view?.model?.cards.some((c) => c.id === target) ? target : null
   // A challenge waiting for a card would be sent by the selection below (ViewChat's armed pick, Codex review 4 #1): this deliberate ask is the
   // person's new intent, so the waiting challenge stands down first, as words typed in the message box make it.
@@ -98,19 +101,17 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const canvas = useCanvasStore.getState(), before = canvas.selection
   if (card !== null) canvas.selectNodes([card])
   else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
-  const busyBefore = useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)
   g._dispatchAction({ label: text, message: text, source: 'team' })
   if (card === null) useCanvasStore.setState({ selection: before })
-  if (busyBefore) return 'busy'
   // The write's own result (Codex reviews 5 #1 and 6 #1): ViewChat's act resets its sentence and goes busy when the write starts, and says its
-  // refusal before it stops being busy; that sentence decides. A write that never went busy never started (the chat keeps the words in the
+  // refusal before it stops being busy; that sentence decides (never "still answering", which only another ask says meanwhile). A write that never went busy never started (the chat keeps the words in the
   // message box): not sent. A question left in the box by an earlier failed try is taken out once a retry goes through.
   const settle = (out: 'sent' | 'failed') => setTimeout(() => {
     if (out === 'sent') { const lines = useViewChat.getState().text.split('\n'); if (lines.includes(text)) useViewChat.setState({ text: lines.filter((l) => l !== text).join('\n') }) }
     onSettled(out)
   }, 0)
   if (!useViewChat.getState().busy) { settle('failed'); return 'sending' }
-  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said !== null && s.said !== SAVED_NOT_SHOWN ? 'failed' : 'sent') } })
+  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); settle(s.said !== null && s.said !== SAVED_NOT_SHOWN && s.said !== STILL_ANSWERING ? 'failed' : 'sent') } })
   return 'sending'
 }
 

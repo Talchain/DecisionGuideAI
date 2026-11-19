@@ -15,7 +15,7 @@ import { resetDifferences, type Difference } from '../../../../olumiCore/team/di
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
-import { useViewChat } from '../../../ViewChat'
+import { STILL_ANSWERING, useViewChat } from '../../../ViewChat'
 import { useCanvasStore } from '../../../../canvas/store'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 import { answerMessage, ASK_SAID, differenceQuestion } from '../askOlumi'
@@ -179,14 +179,20 @@ describe('sent on the press, through the chat\'s ask path', () => {
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
     expect(useViewChat.getState().text).toBe('')
   })
-  it('while Olumi is still answering it says so (the ask path keeps the words in the message box)', async () => {
+  it('while Olumi is still answering, a second ask waits in the message box and the first ask still says Sent when it goes through (Codex review 7 #1)', async () => {
     serve(); show(tm04)
-    const { send } = composer()
-    useViewChat.setState({ busy: true })
+    const { send, prefill, settle } = composer()
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
+    expect(useViewChat.getState().busy).toBe(true)
+    // Another surface's ask meanwhile says the chat's "still answering" sentence; then this tab's second ask.
+    useViewChat.setState({ said: STILL_ANSWERING })
+    fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
     expect(send).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.busy)
+    expect(prefill.mock.calls).toEqual([[differenceQuestion(tm04, FACTOR)]])
+    expect(screen.getByTestId(`${rowOf(FACTOR)}-ask-said`).textContent).toBe(ASK_SAID.busy)
+    await act(async () => { useViewChat.setState({ busy: false }); await new Promise((r) => setTimeout(r, 5)) })
+    expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
   })
   it('Olumi\'s question for the round (core\'s collab.next): the person\'s own answer is sent with the question; an empty one sends nothing', async () => {
     serve(); show(tm04)
