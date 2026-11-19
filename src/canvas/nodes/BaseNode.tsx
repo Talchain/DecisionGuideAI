@@ -133,6 +133,7 @@ import { factorValueIsUnconfirmedEstimate } from '../domain/valueProvenance'
 import { useAssistantFocusStore } from '../stores/assistantFocusStore'
 import { useMethodPointedOption } from '../conversation/methodResultPointing'
 import { RunChangeBadge } from '../graphChanges/RunChangeBadge'
+import { CompareCardMark } from '../../olumiCore/compareMarks'
 import { selectRunChangesRouteLit } from '../graphChanges/routeFocus'
 
 /**
@@ -2167,6 +2168,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     >
       <BottomMarksBand nodeId={id} nodeType={nodeType} hidden={lodBodyHidden} style={{ right: `calc(${anchorRailReservePx(anchorRailButtonsKey(anchorRailButtons))}px * var(--canvas-glyph-scale, 1) + ${CANVAS_QUICK_ACTION_INSET_PX}px)` }} />
       {runChangeMark !== null ? <BottomCardMark><span className="[&>*]:static"><RunChangeBadge mark={runChangeMark} nodeId={id} /></span></BottomCardMark> : null}
+      {/* Compare's version diff: "Changed since version N" where core's change lines name this card (olumiCore/compareMarks.tsx). */}
+      <CompareCardMark id={id} />
       {/* R5 contextual efficiency layer — quiet at rest, revealed on hover, on
           keyboard focus within the card, and while the node is selected. One
           home for it (here) rather than per-node-type, so every node speaks the

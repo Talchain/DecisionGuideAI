@@ -3,12 +3,14 @@
  * shows two approved versions, every card core's own change lines name (`/compare` ChangeLine `record_id`, frozen shape from core
  * wip/x-compare-core) carries one small mark: "Changed since version N". Its hover is core's own line, verbatim (text, then detail). The page
  * infers nothing: a card is marked only where core names its id, a removed card (absent from the version on screen) is never drawn, and the
- * mark is gone the moment the tab stops showing that pair. No AI call; no number; no colour of Olumi's (the mark is the person's ink).
+ * mark is gone the moment the tab stops showing that pair. It sits in the card's bottom marks band (BaseNode's BottomCardMark, beside the
+ * run-change badge), never over the card's top connection handle (live check, 19 Nov: a top-edge pill hid part of its words). No AI call; no number; no colour of Olumi's (the mark is the person's ink).
  */
 import { create } from 'zustand'
 import { useViewStore } from '../olumiView/store'
 import { typography } from '../styles/typography'
 import { OkIcon } from '../olumiView/look/icons'
+import { BottomCardMark } from '../canvas/nodes/shared/CardMark'
 
 /** One of core's change lines, as the mark's hover says it. */
 export type MarkedLine = { text: string; detail: string }
@@ -36,7 +38,8 @@ export const changedSince = (from: number) => `Changed since version ${from}`
 
 /**
  * The mark on one card: drawn only for the scenario the comparison is about, while the canvas shows the comparison's later version (`to`),
- * and only where core named this card. Out of flow at the card's top edge (left of centre), so no card moves.
+ * and only where core named this card. It enters the card's bottom marks band (BottomCardMark) ONLY when drawn: the band registers a mark
+ * as soon as a BottomCardMark mounts, so an always-mounted wrapper would reserve band space on every card of the older look.
  */
 export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   const m = useCompareMarks()
@@ -47,7 +50,9 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   const hover = lines.map((l) => (l.detail ? `${l.text}\n${l.detail}` : l.text)).join('\n')
   return (
     // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
-    <span className={`absolute left-3 -top-2.5 z-10 inline-flex items-center gap-1 rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
-      title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
+    <BottomCardMark>
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+        title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
+    </BottomCardMark>
   )
 }
