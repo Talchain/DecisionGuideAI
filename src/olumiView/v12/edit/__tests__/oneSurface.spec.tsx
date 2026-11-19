@@ -637,6 +637,72 @@ describe('surfaces step 3: details beside their card', () => {
     } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()); el.remove() }
   })
 
+  // A full board driven frame by frame: a fake clock and animation frames, and a camera that moves every card by the slide (or, `cut`, lets a slide go
+  // nowhere, as when another move of the board interrupts it).
+  const slideRig = (boxH: number) => {
+    const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => ({ left: x, top: y, right: x + 300, bottom: y + 200 })))
+    const nodes = grid.map((_, i) => { const n = document.createElement('div'); n.className = 'react-flow__node'; n.setAttribute('data-id', `g${i}`); document.body.appendChild(n); return n })
+    const el = document.createElement('aside'); document.body.appendChild(el)
+    const box = { h: boxH }
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const i = nodes.indexOf(this as HTMLDivElement), r = this === el ? { left: 0, top: 0, right: 280, bottom: box.h } : i >= 0 ? grid[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
+      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
+    })
+    let t = 1000, frames: FrameRequestCallback[] = []
+    vi.spyOn(performance, 'now').mockImplementation(() => t)
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { frames.push(cb); return frames.length })
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { frames = [] })
+    const view = { x: 0, y: 0 }, slides: BoardView[] = [], camera = { cut: false }
+    const off = registerBoxCamera({ get: () => ({ ...view, zoom: 1 }), set: (v) => {
+      slides.push(v)
+      if (camera.cut) return
+      const dx = v.x - view.x, dy = v.y - view.y
+      for (const g of grid) { g.left += dx; g.right += dx; g.top += dy; g.bottom += dy }
+      view.x = v.x; view.y = v.y
+    } })
+    const vars = { x: '--t-x', y: '--t-y', h: '--t-h' }
+    const frame = (n = 1, ms = 50) => { for (let k = 0; k < n; k += 1) { t += ms; const f = frames; frames = []; f.forEach((cb) => cb(t)) } }
+    const shown = () => { const left = parseFloat(el.style.getPropertyValue(vars.x)), top = parseFloat(el.style.getPropertyValue(vars.y)), cap = parseFloat(el.style.getPropertyValue(vars.h)), h = Number.isNaN(cap) ? box.h : Math.min(cap, box.h); return { left, top, right: left + 280, bottom: top + h, h } }
+    const under = () => { const b = shown(); return grid.filter((c) => Math.min(b.right, c.right) - Math.max(b.left, c.left) > 2 && Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top) > 2).length }
+    const inWindow = () => { const b = shown(); return b.left >= 0 && b.top >= 0 && b.right <= window.innerWidth && b.bottom <= window.innerHeight }
+    const start = () => stayBeside(() => el, { kind: 'card', id: 'g4' }, vars, 280, undefined, () => 0, () => true)
+    const done = () => { off(); nodes.forEach((n) => n.remove()); el.remove() }
+    return { el, box, camera, slides, frame, shown, under, inWindow, start, done }
+  }
+
+  it('S3-t (pair check 19 Nov, 1.33 scale) a tall box on a full board gets a slide for its whole height: it is never cut shorter to save sliding the board', () => {
+    const rig = slideRig(300)
+    try {
+      const stop = rig.start()
+      rig.frame(12)
+      stop()
+      expect([rig.slides.length, rig.under(), rig.shown().h], 'one slide, no card under the box, and the whole box').toEqual([1, 0, 300])
+      expect(rig.inWindow(), 'inside the window').toBe(true)
+    } finally { rig.done() }
+  })
+
+  it('S3-u (pair check 19 Nov) a slide another move of the board cut short is checked once the board is still: the board slides again and no card is under the box. CONTRAST with nothing cut, one slide', () => {
+    const cut = slideRig(300)
+    try {
+      cut.camera.cut = true
+      const stop = cut.start()
+      cut.frame(3)
+      cut.camera.cut = false
+      cut.frame(20)
+      stop()
+      expect(cut.slides.length, 'the slide that went nowhere, then one that landed').toBe(2)
+      expect(cut.under(), `no card under the box (${JSON.stringify(cut.shown())})`).toBe(0)
+      expect(cut.inWindow(), 'inside the window').toBe(true)
+    } finally { cut.done() }
+    const clean = slideRig(300)
+    try {
+      const stop = clean.start()
+      clean.frame(20)
+      stop()
+      expect([clean.slides.length, clean.under()], 'CONTRAST: a slide that lands is the only one').toEqual([1, 0])
+    } finally { clean.done() }
+  })
+
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 340 }, card = { left: 180, top: 110, right: 420, bottom: 230 }
     const form = placeBeside(card, null, { width: 280, height: 420 }, free, FORM_MIN_SHOWN)

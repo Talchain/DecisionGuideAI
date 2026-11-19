@@ -3,10 +3,12 @@
  * box beside a card sat on the next card. When that is so, the board slides (a short animated pan of the view, never a card's place in the model) until
  * the card and its box both stand in the free canvas with no other card under the box (`roomFor`, placeBeside.ts), and slides back when the box closes.
  *
- * The lane's canvas registers its camera here (ViewCanvas); without one (a spec with no canvas) nothing pans. One pan per box opening; the view the
+ * The lane's canvas registers its camera here (ViewCanvas); without one (a spec with no canvas) nothing pans. One pan per box opening (again only where another move
+ * cut it short: placeBeside.ts MAX_SLIDES); the view the
  * person had is kept and given back when nothing is open any more, unless they moved the board themselves meanwhile (then their view stays).
  */
 import { useLaneInspector } from './inspectorStore'
+import { holdBoard } from '../../regions'
 
 export type View = { readonly x: number; readonly y: number; readonly zoom: number }
 export type BoxCamera = { readonly get: () => View; readonly set: (v: View, duration: number) => void }
@@ -28,6 +30,8 @@ export function slideBoard(dx: number, dy: number): number {
   if (camera === null || (dx === 0 && dy === 0)) return 0
   const v = camera.get(), to = { x: v.x + dx, y: v.y + dy, zoom: v.zoom }, ms = still() ? 0 : ROOM_PAN_MS
   room = { saved: room?.saved ?? v, applied: to }
+  // The focus rule (regions.ts) would move the board a moment after the press, cutting this slide short; its move waits until this slide is done.
+  holdBoard(ms + 120)
   camera.set(to, ms)
   return ms
 }
