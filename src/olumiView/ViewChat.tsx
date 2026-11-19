@@ -17,6 +17,7 @@ import { call, newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olum
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
 import { writes, VIEW_SHAPE_CHANGED, type DraftAccepted, type FigureFirstShown, type View, type ViewTurn } from './client'
 import { verdictOf } from './verdict'
+import { toReadOf } from './toRead'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
 import { chatQuestionsOf, isFirstLook, readingHeadingOf, figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
@@ -658,6 +659,9 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
 
 /** The filled button of a closed review where Approve cannot be pressed blind (Olumi's readings wait for a choice, or core does not support the change). */
 export const REVIEW_CHANGES = 'Review the changes'
+/** The fold of core's noted points (`proposal.to_read.noted`): chrome words only; the sentence it folds is core's. */
+export const NOTED_SHOW_ALL = 'Show all'
+export const NOTED_SHOW_FEWER = 'Show fewer'
 
 export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen, lead }: { /** The one-line review's own row (Olumi's mark, core's heading, Review), drawn first in the actions line, at the foot (17 Nov, the calm panel). */ lead?: ReactNode; /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
   // Olumi answering a turn on THIS proposal (core's `turn` answering while it holds this proposal as the pending one, or its `reply` to it running) holds the
@@ -673,6 +677,11 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const from = p.from == null ? null : { by: p.from.by ?? null, text: evidence.find((e) => e.id === p.from!.evidence)?.text ?? null }
   // A core before L8 serves no list (absent, never []): its card has Approve alone, as a proposal held without a list.
   const changes = p.changes ?? [], groups = p.groups ?? null
+  // Test 019 (the 32-change review): where core says how the proposal reads (`to_read`), the list is core's `lines` (or its `groups`) in core's order, and the
+  // person's own points it only notes are core's ONE sentence, folded until Show all. Nothing is ranked or hidden by the page: every index of `changes` is in
+  // exactly one of the two, or `toReadOf` gives null and today's list is drawn. Ticks and approve keep the same ids (approve takes the whole `changes`).
+  const read = toReadOf(p, changes.length)
+  const [showNoted, setShowNoted] = useState(false)
   // One line is the whole proposal: ticking it would only repeat Approve, so there are ticks from two lines (4 Nov drive at 1280).
   const tickable = changes.length > 1
   const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set())
@@ -715,6 +724,12 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const picked = without.length === 0 ? pick : { ...pick, without }
   // Which ticked lines are approved only with this one (it is in their partners or their required needs): core's own text of each, and core's why.
   const needers = (c: Change) => (c.top ? [] : changes.flatMap((o, oi) => (o !== c && ticked.has(keyOf(o)) && (requiredOf(o).includes(c.id) || (o.together?.ids ?? []).includes(c.id)) ? [{ o, oi }] : [])))
+  // A noted line that is chosen (ticked, or pulled in as another's partner) or that core's refusal names is never folded out of sight: the fold stays open.
+  const notedHeld = read?.noted != null && read.noted.lines.some((i) => { const c = changes[i]!; return ticked.has(keyOf(c)) || (!c.top && missing.some((n) => !n.top && n.id === c.id)) })
+  // Once a hold opens the fold it stays open (review 19 Nov): letting the line go never unmounts it, or the checkbox, under the person's focus.
+  if (notedHeld && !showNoted) setShowNoted(true)
+  const notedOpen = showNoted || notedHeld
+  const shownGroups = read === null ? groups : read.groups, groupAt = read === null ? 'proposal.groups' : 'proposal.to_read.groups'
   const line = (i: number) => {
     const c = changes[i]!, on = tickable ? ticked.has(keyOf(c)) : null, by = tickable ? needers(c) : []
     const reasons = by.flatMap(({ o, oi }) => needsOf(o).flatMap((n, k) => (n.id === c.id && n.kind === 'required' && n.why !== '' ? [{ at: `proposal.changes.${oi}.needs.${k}.why`, why: n.why }] : [])))
@@ -852,11 +867,11 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
           </fieldset>]
         )
       })}
-      {changes.length === 0 || closed ? null : groups === null
-        ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{changes.map((_, i) => line(i))}</ul>
+      {changes.length === 0 || closed ? null : shownGroups === null
+        ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">{(read === null ? changes.map((_, i) => i) : read.lines).map(line)}</ul>
         : (
           <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-changes">
-            {groups.map((g, gi) => {
+            {shownGroups.map((g, gi) => {
               const all = g.lines.length > 0 && g.lines.every((i) => changes[i] !== undefined && ticked.has(keyOf(changes[i]!)))
               // Some but not all of its lines are ticked (a line ticked inside it, or pulled in as another line's partner while the group is closed): the
               // box shows the mixed state, so a closed group never hides that part of it is chosen.
@@ -871,7 +886,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
                         <input type="checkbox" checked={all} ref={(el) => { if (el !== null) el.indeterminate = part }} data-group-part={part ? '' : undefined} disabled={busy} onClick={(e) => e.stopPropagation()} onChange={() => toggleGroup(g.lines, !all)}
                           aria-label={`Choose every change under ${g.heading}`} data-testid={`view-change-group-${gi}`} />
                       </label>
-                      <span className="font-medium text-text-header" data-view={`proposal.groups.${gi}.heading`}>{g.heading}</span>
+                      <span className="font-medium text-text-header" data-view={`${groupAt}.${gi}.heading`}>{g.heading}</span>
                     </summary>
                     <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{g.lines.map(line)}</ul>
                   </details>
@@ -880,6 +895,14 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
             })}
           </ul>
         )}
+      {/* Core's one sentence for the person's own points the proposal only notes (`to_read.noted.text`), and the fold of their lines (chrome words). */}
+      {changes.length === 0 || closed || read?.noted == null ? null : (
+        <div className="grid gap-1" data-testid="view-noted">
+          <p className="m-0 text-text-light"><span data-view="proposal.to_read.noted.text">{read.noted.text}</span>
+            {notedHeld ? null : <> <button type="button" aria-expanded={notedOpen} onClick={() => setShowNoted((o) => !o)} className="rounded-sm text-text-body underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info" data-testid="view-noted-show-all">{notedOpen ? NOTED_SHOW_FEWER : NOTED_SHOW_ALL}</button></>}</p>
+          {notedOpen ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-noted-lines">{read.noted.lines.map(line)}</ul> : null}
+        </div>
+      )}
       {/* V11 change 6: core's verdict on the change, before any approval (./verdict.ts). Not supported: core's words, what would support it,
           and no Approve; the person may still set it aside. */}
       {verdict === undefined || (closed && verdict.supported) ? null : (
