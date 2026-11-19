@@ -22,10 +22,12 @@ import { recordReach, showRecord } from '../showInWorkspace/show'
 
 /** The field core serves (wip/x-e4-intake, Codex 12:26Z): one row per figure in the person's words. */
 export interface IntakeFigure {
-  readonly source: { readonly row: number; readonly start: number; readonly end: number }
+  /** Where the figure stands in the stored words: the row its line was typed in ('brief' for the brief) and its offsets; null where the row is not known. */
+  readonly source: { readonly row: number | 'brief'; readonly start: number; readonly end: number } | null
   readonly quote: string
   readonly unit: string | null
-  readonly stated?: string | null
+  /** Core's reading of the stated value and bound (core dbf5aba7): not drawn; the quote says it in the person's words. */
+  readonly stated?: unknown
   readonly record: string | null
 }
 export const UNKNOWN = 'unknown'
@@ -39,17 +41,18 @@ export const OPEN_INTAKE = 'Show what you said'
 export const CLOSE_INTAKE = 'Hide what you said'
 
 const int = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x >= 0
-/** The typed rows, or none: a row is kept only with a whole source and a quote; anything else core sends is not guessed at. */
+/** The typed rows, or none: a row is kept only with a quote and a whole source or none (null: row not known); anything else core sends is not guessed at. */
 export const intakeOf = (view: View | null | undefined): IntakeFigure[] => {
   const raw = (view as { intake?: { figures?: unknown } } | null | undefined)?.intake?.figures
   if (!Array.isArray(raw)) return []
   return raw.filter((f): f is IntakeFigure => {
     if (f === null || typeof f !== 'object') return false
     const { source: s, quote, record } = f as Partial<IntakeFigure>
-    return s != null && int(s.row) && int(s.start) && int(s.end) && typeof quote === 'string' && quote !== '' && (record === null || typeof record === 'string')
+    return (s === null || (s != null && (int(s.row) || s.row === 'brief') && int(s.start) && int(s.end))) && typeof quote === 'string' && quote !== '' && (record === null || typeof record === 'string')
   })
 }
-export const sourceKey = (f: IntakeFigure): string => `${f.source.row}:${f.source.start}:${f.source.end}`
+/** A row's identity: its source; a figure with no known source is keyed by its place in the list and its words. */
+export const sourceKey = (f: IntakeFigure, i: number): string => (f.source === null ? `none:${i}:${f.quote}` : `${f.source.row}:${f.source.start}:${f.source.end}`)
 /** What `record` says, by its type alone: an id (present), null (authoritatively absent), or "unknown" (no claim). */
 export const recordState = (f: IntakeFigure): { kind: 'present'; id: string } | { kind: 'absent' } | { kind: 'unknown' } =>
   f.record === null ? { kind: 'absent' } : f.record === UNKNOWN || f.record === '' ? { kind: 'unknown' } : { kind: 'present', id: f.record }
@@ -65,7 +68,7 @@ export function IntakeSheet(): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const [, bump] = useState(0)
   const rows = intakeOf(view)
-  const key = JSON.stringify([view?.you_id ?? null, view?.id ?? null, ...rows.map((r) => [sourceKey(r), r.quote])])
+  const key = JSON.stringify([view?.you_id ?? null, view?.id ?? null, ...rows.map((r, i) => [sourceKey(r, i), r.quote])])
   if (view?.model == null || rows.length === 0 || removed.has(key)) return null
   const missing = rows.filter((r) => recordState(r).kind === 'absent').length
   const headingOf = (id: string) => view.model?.cards.find((c) => c.id === id)?.heading ?? null
@@ -84,8 +87,8 @@ export function IntakeSheet(): JSX.Element | null {
       </div>
       {!open ? null : (
         <ul id="view-intake-rows" className="m-0 list-none space-y-1 p-0" data-testid="view-intake-rows">
-          {rows.map((r) => {
-            const k = sourceKey(r), st = recordState(r), heading = st.kind === 'present' ? headingOf(st.id) : null
+          {rows.map((r, i) => {
+            const k = sourceKey(r, i), st = recordState(r), heading = st.kind === 'present' ? headingOf(st.id) : null
             return (
               <li key={k} className="flex flex-wrap items-baseline gap-x-2" data-intake-source={k} data-intake-state={st.kind}>
                 <span className="text-text-body">“{r.quote}”</span>

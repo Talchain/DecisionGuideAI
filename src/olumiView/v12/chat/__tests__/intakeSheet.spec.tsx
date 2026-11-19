@@ -30,8 +30,8 @@ const mount = (view: View) => {
 const withIntake = (v: View, figures: IntakeFigure[]): View => ({ ...v, intake: { figures } } as unknown as View)
 const at = (row: number, start: number, end: number) => ({ row, start, end })
 const FIGS = (v: View): IntakeFigure[] => [
-  { source: at(0, 4, 20), quote: 'an invented figure of 40 a week', unit: 'item/week', stated: null, record: v.model!.cards[0]!.id },
-  { source: at(0, 30, 44), quote: 'an invented limit of 3 people', unit: 'person', stated: 'at_most', record: null },
+  { source: { row: 'brief', start: 4, end: 20 }, quote: 'an invented figure of 40 a week', unit: 'item/week', stated: { value: { point: 40 }, bound: null }, record: v.model!.cards[0]!.id },
+  { source: at(0, 30, 44), quote: 'an invented limit of 3 people', unit: 'person', stated: { value: { point: 3 }, bound: 'at_most' }, record: null },
   { source: at(1, 0, 18), quote: 'maybe an invented 10%', unit: '%', stated: null, record: UNKNOWN },
 ]
 const open = (c: HTMLElement) => act(() => { fireEvent.click(q(c, 'view-intake-toggle')!) })
@@ -45,7 +45,7 @@ describe('E4 What you said (view.intake)', () => {
     const v = base(), c = mount(withIntake(v, FIGS(v)))
     expect([q(c, 'view-intake') !== null, q(c, 'view-intake-rows'), q(c, 'view-intake-missing')?.textContent]).toEqual([true, null, `1 ${NOT_IN_MODEL}`])
     open(c)
-    expect(marks(c)).toEqual([['0:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null]])
+    expect(marks(c)).toEqual([['brief:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null]])
     expect(c.querySelector('[data-intake-source="1:0:18"]')?.textContent, 'unknown: the words, with their uncertainty, and nothing else').toBe('“maybe an invented 10%”')
     cleanup()
     expect(q(mount(v), 'view-intake'), 'CONTRAST: no intake, no sheet').toBeNull()
@@ -54,13 +54,19 @@ describe('E4 What you said (view.intake)', () => {
     const v = base(), [a, b, u] = FIGS(v)
     const c = mount(withIntake(v, [{ ...a!, record: UNKNOWN }, { ...b!, record: v.model!.cards[0]!.id }, { ...u!, record: null }]))
     open(c)
-    expect(marks(c)).toEqual([['0:4:20', null], ['0:30:44', IN_MODEL], ['1:0:18', NOT_IN_MODEL]])
+    expect(marks(c)).toEqual([['brief:4:20', null], ['0:30:44', IN_MODEL], ['1:0:18', NOT_IN_MODEL]])
   })
   it('a record id links to that record: pressing "in your model" reaches the workspace with that id', () => {
     const v = base(), id = v.model!.cards[0]!.id, c = mount(withIntake(v, FIGS(v)))
     open(c)
     act(() => { fireEvent.click(c.querySelector<HTMLElement>(`[data-intake-show="${id}"]`)!) })
     expect(pressed.ids).toEqual([id])
+  })
+  it('core dbf5aba7 shape: a figure whose row is not known (source null) shows its words with no claim; CONTRAST: a malformed source is dropped, not guessed', () => {
+    const v = base(), c = mount(withIntake(v, [...FIGS(v), { source: null, quote: 'an invented unplaced 12', unit: null, stated: null, record: UNKNOWN }, { source: { row: -1, start: 0, end: 2 }, quote: 'an invented bad 7', unit: null, stated: null, record: null } as unknown as IntakeFigure]))
+    open(c)
+    expect(marks(c)).toEqual([['brief:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null], ['none:3:an invented unplaced 12', null]])
+    expect(q(c, 'view-intake-missing')?.textContent, 'the dropped row is not counted').toBe(`1 ${NOT_IN_MODEL}`)
   })
   it('never before the first model: with no model the sheet is not drawn; CONTRAST: the same intake with a model is', () => {
     const v = base()
