@@ -11,13 +11,17 @@
  * A difference core has not run (`not_run`, `pending`) says core's sentence alone: no figure and no chance is drawn for it.
  * Links and factors are CardDiffers' chips; the Team tab is unchanged. Nothing is composed here beyond naming whose chance a line is.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
 import { FOLD_SUMMARY_TOP, FoldChevron } from '../../olumiView/look/FoldChevron'
 import { useRevealedDifferences } from './CardDiffers'
 import type { Difference } from './differences'
+import { useViewStore } from '../../olumiView/store'
+import type { ViewCard } from '../../olumiView/client'
+import { at as atAxis, axisOf, sideSpans } from '../../olumiView/v12/views/DiffChart'
+import { figureRange } from '../../olumiView/v12/contract'
 
 const NONE: readonly Difference[] = []
 /** The pinned box's CLOSED fold shows two lines of core's sentence; open (its own details, never an outer one) it shows the whole of it. */
@@ -31,6 +35,65 @@ export function useFigureDiffers(card: string): readonly Difference[] {
   if (data === null) return NONE
   const own = data.differences.filter((d) => (d.kind ?? 'figure') === 'figure' && d.record === card)
   return own.length === 0 ? NONE : own
+}
+
+/** Each person whose revealed figure for this card differs from another's: their figure's span and words, read from the revealed View by the
+ *  difference's own sides (DiffChart.sideSpans, so a newer or older figure of the same person is never drawn). Once per person, in core's order. */
+export function usePeopleOnCard(card: string): readonly CardPerson[] {
+  const own = useFigureDiffers(card)
+  const view = useViewStore((s) => s.view)
+  return useMemo(() => {
+    if (view === null || own.length === 0) return []
+    const seen = new Set<string>(), out: CardPerson[] = []
+    for (const d of own) {
+      const spans = sideSpans(view, d)
+      if (spans === null) continue
+      d.sides.forEach((s, i) => {
+        const sp = spans[i]!
+        if (seen.has(s.holder_id)) return
+        seen.add(s.holder_id)
+        out.push({ id: s.holder_id, holder: s.holder, lo: sp.lo, hi: sp.hi, text: sp.text })
+      })
+    }
+    return out
+  }, [own, view])
+}
+
+/** One person's revealed figure for a card: their name, its span (a single figure has lo === hi) and the figure's own words. */
+export type CardPerson = { readonly id: string; readonly holder: string; readonly lo: number; readonly hi: number; readonly text: string }
+
+/**
+ * THE SPLIT ON THE CARD (Team critique 2, track C1; Paul's go 19 Nov): after a reveal, the card the team's figures differ on draws each
+ * person's revealed figure as a mark on one axis, with the card's own range (where core gives one in numbers) as a light band behind every
+ * row, so the team sees where they differ on the model they look at. Every number is the revealed figure's own (DiffChart.sideSpans); each
+ * row is named with the person and the figure's words. Lengths are SVG attributes, so no inline style is written. Nothing when fewer than two.
+ */
+export function CardSplit({ card, people }: { card: ViewCard; people: readonly CardPerson[] }): JSX.Element | null {
+  if (people.length < 2) return null
+  const range = figureRange(card)
+  const ref = range === null ? null : { lo: range.low, hi: range.high }
+  const axis = axisOf([...people, ...(ref === null ? [] : [ref])])
+  const said = people.map((p) => `${p.holder}: ${p.text}`)
+  return (
+    <ul className="m-0 mt-1 grid list-none gap-0.5 p-0" data-testid="card-split" data-card-split={card.id} aria-label={said.join('; ')}>
+      {people.map((p, i) => {
+        const x0 = atAxis(axis, p.lo), x1 = atAxis(axis, p.hi)
+        return (
+          <li key={p.id} className="grid grid-cols-[14px_minmax(0,1fr)] items-center gap-1" title={said[i]} data-card-person={p.id} data-range-lo={p.lo} data-range-hi={p.hi}>
+            <span aria-hidden="true" className={`${typography.viewLabel} text-center text-text-light`}>{(Array.from(p.holder)[0] ?? '').toUpperCase()}</span>
+            <svg viewBox="0 0 100 6" preserveAspectRatio="none" className="block h-1.5 w-full" aria-hidden="true">
+              {ref === null
+                ? <rect x="0" y="2.5" width="100" height="1" className="fill-current text-panel-border" />
+                : <rect x={atAxis(axis, ref.lo)} y="1" width={Math.max(1, atAxis(axis, ref.hi) - atAxis(axis, ref.lo))} height="4" rx="1" className="fill-current text-panel-border" data-card-split-model="" />}
+              {p.hi === p.lo
+                ? <rect x={Math.max(0, x0 - 0.8)} y="0" width="1.6" height="6" className="fill-current text-text-header" data-card-person-mark="point" />
+                : <rect x={x0} y="1" width={Math.max(1.6, x1 - x0)} height="4" rx="1" className="fill-current text-text-header" data-card-person-mark="span" />}
+            </svg>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 /** The mark on the card a revealed difference is about: pressing it opens the card's details (the one details panel). */

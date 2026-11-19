@@ -75,10 +75,16 @@ export function validComparison(view: View, data: Differences | null): data is D
 }
 
 export interface DifferCount { readonly places: number; readonly changes: number }
-/** Places = distinct records (core sends a link once per aim); changes = distinct records where core says it changes the answer. */
+/** One issue per row of core's read, by what it is about: a record (core sends a link once per aim), or, for a factor someone thinks the model
+ *  leaves out, the factor's own words. Core makes one `factor:<row>` per person who raised it, so two people naming the same factor are one
+ *  place, not two (Team critique 2, 19 Nov, item 7). Words are compared trimmed and case-folded only: different wordings stay apart. */
+export function issueOf(d: Difference): string {
+  return (d as { kind?: string }).kind === 'factor' ? `factor|${d.label.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-GB')}` : d.record
+}
+/** Places = distinct issues (issueOf); changes = distinct issues where core says the difference changes which option is most likely. */
 export function countDifferences(data: Differences): DifferCount {
-  const all = new Set(data.differences.map((d) => d.record))
-  const ch = new Set(data.differences.filter((d) => d.status === 'changes').map((d) => d.record))
+  const all = new Set(data.differences.map(issueOf))
+  const ch = new Set(data.differences.filter((d) => d.status === 'changes').map(issueOf))
   return { places: all.size, changes: ch.size }
 }
 
