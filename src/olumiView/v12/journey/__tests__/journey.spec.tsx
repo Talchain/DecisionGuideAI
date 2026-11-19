@@ -28,7 +28,7 @@ const chat = vi.hoisted(() => ({ store: null as unknown as { setState: (s: { gon
 vi.mock('../../../ViewChat', () => {
   const useViewChat = create<{ gone: string | null }>()(() => ({ gone: null }))
   chat.store = useViewChat
-  return { useViewChat, nextStepOf: (_v: unknown, isGone?: (turn: number, move: string) => boolean) => (next !== null && isGone?.(next.turn, next.move) === true ? null : next) }
+  return { useViewChat, moveKey: (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}`, nextStepOf: (_v: unknown, isGone?: (turn: number, move: string) => boolean) => (next !== null && isGone?.(next.turn, next.move) === true ? null : next) }
 })
 const outcomeForms: Array<[string, number]> = []
 vi.mock('../../../../olumiCore/team/outcomeNav', () => ({ goToOutcome: (sid: string, id: number) => { outcomeForms.push([sid, id]) } }))

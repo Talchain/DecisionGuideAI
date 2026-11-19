@@ -17,7 +17,7 @@ import { openStep, type StepId } from '../../../olumiCore/team/flow'
 import { useViewStore } from '../../store'
 import { useReveal } from '../../reveal'
 import { forgetLanded } from '../../revealReturn'
-import { nextStepOf, useViewChat } from '../../ViewChat'
+import { moveKey, nextStepOf, useViewChat } from '../../ViewChat'
 import { keptIdeasOf } from '../ideas'
 import { IDEA_PREFIX } from '../bands/bands'
 import type { View } from '../../types'
@@ -173,9 +173,9 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
       const idea = ideas.find((i) => i.id === `kept:${k.id}`) ?? ideas.find((i) => i.sourceTurn === String(k.turn) && i.text === k.text)
       return idea === undefined ? null : IDEA_PREFIX + idea.id
     }
-    // The chat's own exclusion (ViewChat's NextStep and stepTurnOf): a move the chat refused as stale is no next step here either, so the
-    // press never opens a chat with no Next step in it. The key is ViewChat's `moveKey` (sid, turn, move joined by NUL).
-    const isGone = (turn: number, move: string) => sid !== null && gone === `${sid}\u0000${turn}\u0000${move}`
+    // The chat's own exclusion (ViewChat's NextStep and stepTurnOf, its `moveKey`): a move the chat refused as stale is no next step here
+    // either, so the press never opens a chat with no Next step in it.
+    const isGone = (turn: number, move: string) => sid !== null && gone === moveKey(sid, turn, move)
     return journeyOf(view, { at, keptNode, hasNext: nextStepOf(view, isGone) !== null })
   }, [view, at, sid, gone])
   const [history, setHistory] = useState(false)
