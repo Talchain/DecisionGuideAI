@@ -56,7 +56,7 @@ const COMMITMENT = (outcomes: unknown[] = []) => ({
   trigger: { fact: 'f', kind: 'chance', option: 'add_consulting', aim: 'generate_revenue_quickly', versus: null, figure: 'x', text: 't', finding: 'f', version: 1, stale: { reasons: [], text: 'An invented stale reason.' } },
   outcomes,
 })
-const OUTCOME = { id: 601, at: '2026-11-08T09:00:00.000Z', by: 'Tom', by_id: 't', happened: 'An invented thing that happened.', versus: 'An invented comparison.', reconsider_triggered: true, note: null, figure: { value: 2, unit: 'month', text: '2 months' }, dissent: [] }
+const OUTCOME = { id: 601, at: '2026-11-08T09:00:00.000Z', by: 'Tom', by_id: 't', happened: 'An invented thing that happened.', versus: 'worse', reconsider_triggered: true, note: null, figure: { value: 2, unit: 'month', text: '2 months' }, dissent: [] }
 const DISSENT = [
   { id: 'd_mine', holder: 'Me', position: 'My invented position.', holder_id: base.you_id, confirmed: null },
   { id: 'd_other', holder: 'Tom', position: 'Tom’s invented position.', holder_id: 't', confirmed: null },
@@ -112,6 +112,16 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     expect(soleOf('time_to_contract', [{ id: 'time_to_contract', label: 'x', whose: 'theirs', was: null }])).toMatchObject({ olumi: false }) // core's entry wins over the card mark
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     expect(within(screen.getByTestId('journey-sole')).getByTestId('journey-card-time_to_contract').innerHTML).toContain('text-info')
+  })
+  it('with `since`, the cards this version ADDED are named too: core\'s change entries first, then `version.changed` cards by id, each once', () => {
+    const cards = new Set(base.model!.cards.map((c) => c.id)), inSince = new Set(SINCE.changed.map((c) => c.id))
+    const added = base.version!.changed.filter((id) => cards.has(id) && !inSince.has(id))
+    expect(added).toContain('time_to_contract') // the fixture's version holds an added Olumi card
+    const ch = journeyOf(full(), CTX).changed!.cards
+    expect(ch.map((c) => c.id)).toEqual([...SINCE.changed.map((c) => c.id), ...added])
+    expect(ch.find((c) => c.id === 'time_to_contract')).toMatchObject({ olumi: true, was: null })
+    expect(ch.find((c) => c.id === 'add_consulting')).toMatchObject({ olumi: false, was: 'olumi' }) // contrast: core's own entry keeps whose and was
+    expect(new Set(ch.map((c) => c.id)).size).toBe(ch.length)
   })
   it('a `since` to another version is not this version\'s movement', () => {
     const other = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, to: { n: N + 1, label: 'version 3' } } } } })
@@ -273,6 +283,10 @@ describe('#3 commitments as expectations', () => {
     const o = screen.getByTestId('journey-outcome:601')
     expect(o).toHaveTextContent('An invented thing that happened. · 2 months')
     expect(o).toHaveTextContent(W.triggered)
+    // the verdict in Team's words for core's code, never the code itself; a code Team does not know draws nothing
+    expect(screen.getByTestId('journey-outcome:601-versus').textContent).toBe('Worse than expected')
+    const odd = full({ collab: { ...base.collab, commitments: [COMMITMENT([{ ...OUTCOME, versus: 'not_a_code' }])], dissent: [], can_reveal: false } })
+    expect(journeyOf(odd, CTX).commitments[0].outcomes[0].versus).toBeNull()
     expect(journeyOf(v, CTX).open.some((x) => x.key === 'no-outcome:501')).toBe(false) // contrast: it has an outcome now
   })
 })

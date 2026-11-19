@@ -18,6 +18,8 @@
  * are NOT imitated here. No stage is claimed. A target that cannot open is drawn unavailable with its reason, never a silent button.
  */
 import type { View } from '../../types'
+// The outcome verdict in Team's own words (typed by its code); a code Team does not know draws nothing, never the raw code.
+import { VERSUS } from '../../../olumiCore/team/OutcomePanel'
 
 /** What a press opens: the exact record, never just "the Team tab" when the record has an identity. */
 export type JourneyRef =
@@ -89,7 +91,7 @@ export type Moved = {
 }
 export type Changed = { readonly id: string; readonly label: string; readonly olumi: boolean; readonly was: 'olumi' | 'theirs' | null; readonly press: JourneyPress }
 export type OpenItem = { readonly key: string; readonly label: string; readonly words: string | null; readonly title?: string; readonly olumi?: boolean; readonly press: JourneyPress }
-export type Outcome = { readonly key: string; readonly by: string; readonly at: string; readonly happened: string; readonly versus: string; readonly figure: string | null; readonly triggered: boolean; readonly press: JourneyPress }
+export type Outcome = { readonly key: string; readonly by: string; readonly at: string; readonly happened: string; readonly versus: string | null; readonly figure: string | null; readonly triggered: boolean; readonly press: JourneyPress }
 export type Commitment = {
   readonly key: string; readonly action: string; readonly owner: string; readonly expect: string; readonly band: string | null
   readonly reviewOn: string | null; readonly reconsider: string; readonly outcomes: readonly Outcome[]; readonly press: JourneyPress
@@ -145,9 +147,14 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   }
 
   const changed = n === null ? null : (() => {
+    // The version's own changed ids (core's `version.changed` = added + changed), by id, only those the View holds as cards.
+    const ofVersion = (skip: ReadonlySet<string>): Changed[] => (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null || skip.has(id) ? [] : [{ id, label: l, olumi: olumiCard.has(id), was: null, press: onCanvas(id) }] })
+    // With `since`, core's change entries (whose and was) come first; `since.changed` holds only records both versions have, so the cards
+    // this version ADDED come from `version.changed`, by id.
     const list: Changed[] = sinceHere !== null
-      ? sinceHere.changed.map((c) => ({ id: c.id, label: c.label, olumi: c.whose === 'olumi', was: c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(c.id) }))
-      : (view.version?.changed ?? []).flatMap((id) => { const l = label(id); return l === null ? [] : [{ id, label: l, olumi: olumiCard.has(id), was: null, press: onCanvas(id) }] })
+      ? [...sinceHere.changed.map((c) => ({ id: c.id, label: c.label, olumi: c.whose === 'olumi', was: c.was !== null && c.was !== c.whose ? c.was : null, press: onCanvas(c.id) })),
+        ...ofVersion(new Set(sinceHere.changed.map((c) => c.id)))]
+      : ofVersion(new Set())
     return list.length === 0 ? null : { n, cards: list }
   })()
 
@@ -173,7 +180,7 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
 
   const commitments: Commitment[] = commitmentsIn.map((k) => ({
     key: `commitment:${k.id}`, action: k.action, owner: k.owner, expect: k.expect, band: k.expect_band?.text ?? null, reviewOn: k.review_on === null ? null : calendarDay(k.review_on), reconsider: k.reconsider,
-    outcomes: k.outcomes.map((o) => ({ key: `outcome:${o.id}`, by: o.by, at: o.at, happened: o.happened, versus: o.versus, figure: o.figure?.text ?? null, triggered: o.reconsider_triggered, press: team({ kind: 'outcome', id: o.id }) })),
+    outcomes: k.outcomes.map((o) => ({ key: `outcome:${o.id}`, by: o.by, at: o.at, happened: o.happened, versus: VERSUS.find((x) => x.value === o.versus)?.words ?? null, figure: o.figure?.text ?? null, triggered: o.reconsider_triggered, press: team({ kind: 'outcome', id: o.id }) })),
     press: team({ kind: 'commitment', id: k.id }),
   }))
 
