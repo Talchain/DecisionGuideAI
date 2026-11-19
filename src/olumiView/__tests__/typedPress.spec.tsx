@@ -14,7 +14,7 @@ import type { View } from '../client'
 import { setPagePerson, setTeamFetch } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
-import { TurnInFlight, ViewConversation, useViewChat } from '../ViewChat'
+import { TurnInFlight, ViewComposer, ViewConversation, restorePendingTurn, useViewChat } from '../ViewChat'
 import { askFieldOf, pressFieldOf } from '../press'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/proposal.view3.json'), 'utf8'))
@@ -41,8 +41,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null)
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', stale: false, at: null })
-  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null })
+  useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, pressBack: null } as never)
   useMe.setState({ me: null } as never)
+  try { sessionStorage.clear() } catch { /* none */ }
 })
 const on = (view: View) => useViewStore.setState({ uuid: UUID, sid: SID, view: { ...view, id: SID } as View, status: 'ready', error: null, stale: false, at: null })
 const conversation = (chat: ChatRow[], floor: unknown[] = [], draft: unknown = null) => render(<ViewConversation chat={chat} floor={floor as never} draft={draft as never} me="p_1" />).container
@@ -105,6 +106,30 @@ describe('13b: Try again asks again as the same press about the same card', () =
     await act(async () => { fireEvent.click(c.querySelector('[data-testid="view-chat-turn-again"]')!) })
     await waitFor(() => expect(posts).toHaveLength(2))
     expect(posts[1]!.body).toEqual({ text: PREFILL, op: expect.any(String) })
+  })
+})
+
+describe('13b: a press whose acceptance was lost comes back after a reload as that press (Codex HOLD 03:05:28Z)', () => {
+  const OP = 'press-op-0000001'
+  const keep = () => sessionStorage.setItem('olumi-pending-turn:p_1', JSON.stringify({ sid: SID, text: PREFILL, op: OP, about: CARD.id, press: 'explain' }))
+  const send = async (c: HTMLElement) => { await act(async () => { fireEvent.click([...c.querySelectorAll('button')].find((b) => b.textContent === 'Send')!) }) }
+  it('an unchanged Send resends {text, about, press} under the ORIGINAL op; an edited Send is a plain message under a new op', async () => {
+    on(fx); keep()
+    expect(restorePendingTurn()).toBe(true)
+    let c = render(<ViewComposer />).container
+    expect(useViewChat.getState().text).toBe(PREFILL)
+    await send(c)
+    await waitFor(() => expect(posts).toHaveLength(1))
+    expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/messages`, body: { text: PREFILL, about: CARD.id, press: 'explain', op: OP } })
+    cleanup(); useViewChat.setState({ text: '', busy: false } as never)
+    on(fx); keep()
+    expect(restorePendingTurn()).toBe(true)
+    c = render(<ViewComposer />).container
+    act(() => { useViewChat.setState({ text: 'Explain it in plain words, please' }) })
+    await send(c)
+    await waitFor(() => expect(posts).toHaveLength(2))
+    expect(posts[1]!.body).toEqual({ text: 'Explain it in plain words, please', op: expect.any(String) })
+    expect(posts[1]!.body['op']).not.toBe(OP)
   })
 })
 

@@ -959,6 +959,9 @@ export interface ViewChatState {
   /** Words-start (Codex root 03:42:17Z): a brief put back after a reload that was sent to start in words. Sending those same words again keeps that
    *  choice and its op, whichever button is pressed; changed words are a new brief. */
   readonly wordsBrief?: string | null
+  /** Typed fields 13b (Codex HOLD 03:05:28Z): a press put back after a reload. Sending those same words again resends the same press about the
+   *  same card under its op (core answers a replay with the turn it has); changed words are the person's own message. */
+  readonly pressBack?: { readonly text: string; readonly about: string; readonly press: PressKind } | null
   /** A challenge picked in the composer with no single card selected (menu brief UI-A, 18 Nov): it runs on the next card the person picks. */
   readonly armed?: ChallengeKind | null
 }
@@ -1071,12 +1074,12 @@ function dropPendingTurn(op: string): void {
   try { if (pendingTurn(me)?.op === op) sessionStorage.removeItem(PENDING_TURN(me)) } catch { /* nothing kept */ }
 }
 /** This person's message still waiting for core's acceptance in this tab, if any: its scenario, words and op. */
-export function pendingTurn(person: string): { sid: string; text: string; op: string; about: string | null; press?: true } | null {
+export function pendingTurn(person: string): { sid: string; text: string; op: string; about: string | null; press?: PressKind } | null {
   try {
     const v = JSON.parse(sessionStorage.getItem(PENDING_TURN(person)) ?? 'null') as { sid?: unknown; text?: unknown; op?: unknown; about?: unknown; press?: unknown } | null
     // `about` (the card the message was about) is optional: a record kept before it existed restores as a plain message, as it was sent.
     return v !== null && typeof v.sid === 'string' && /^s_[0-9a-f]+$/.test(v.sid) && typeof v.text === 'string' && v.text.trim() !== '' && typeof v.op === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(v.op)
-      ? { sid: v.sid, text: v.text, op: v.op, about: typeof v.about === 'string' && v.about !== '' ? v.about : null, ...(v.press === 'explain' || v.press === 'ask_about' ? { press: true as const } : {}) } : null
+      ? { sid: v.sid, text: v.text, op: v.op, about: typeof v.about === 'string' && v.about !== '' ? v.about : null, ...(v.press === 'explain' || v.press === 'ask_about' ? { press: v.press } : {}) } : null
   } catch { return null }
 }
 /**
@@ -1095,10 +1098,13 @@ export function restorePendingTurn(): boolean {
   // Send asks core again with the same card and the same op. A card no longer in the model: the words come back alone, under a new op.
   const about = p.about !== null && view.model?.cards.some((c) => c.id === p.about) ? p.about : null
   if (p.about !== null && about === null) { useViewChat.setState({ text: p.text, said: ABOUT_GONE }); return true }
+  // A press comes back as that press (Codex HOLD 03:05:28Z): the same words sent unchanged resend its kind, card and op; changed words are the
+  // person's own message, about no card unless they pick one (an edited prefill is their message, typed fields 13b (b)).
+  if (p.press !== undefined && about !== null) {
+    useViewChat.setState({ text: p.text, pressBack: { text: p.text, about, press: p.press }, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, `message:${about}:${p.press}`, p.text), p.op) })
+    return true
+  }
   if (about !== null) useCanvasStore.setState({ selection: { nodeIds: new Set([about]), edgeIds: new Set(), anchorPosition: null } })
-  // A press put back in the box is the person's own message once they send it (typed fields 13b (b)): it goes without the press, so not under
-  // the press's op, whose identity in core includes the press.
-  if (p.press === true) { useViewChat.setState({ text: p.text }); return true }
   useViewChat.setState({ text: p.text, ops: new Map(useViewChat.getState().ops).set(opKey(uuid, about === null ? 'message' : `message:${about}`, p.text), p.op) })
   return true
 }
@@ -1233,13 +1239,14 @@ export function resendOf(held: ViewChatState['held'], text: string, here: string
 }
 
 async function send(pressedWords = false): Promise<void> {
-  const { text, held, wordsBrief } = useViewChat.getState()
+  const { text, held, wordsBrief, pressBack } = useViewChat.getState()
   if (text.trim() === '') return
   const words = pressedWords || (wordsBrief != null && wordsBrief === text)
+  const back = pressBack != null && pressBack.text === text ? pressBack : null
   const { again, drop } = resendOf(held, text, useViewStore.getState().uuid)
   if (drop) useViewChat.setState({ held: null })
-  if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : say(text, words)))) return
-  if (useViewChat.getState().text === text) useViewChat.setState({ text: '', wordsBrief: null })
+  if (!(await (again !== null ? challenge(again.kind, again.record, again.text, again) : back !== null ? say(text, words, back.about, back.press) : say(text, words)))) return
+  if (useViewChat.getState().text === text) useViewChat.setState({ text: '', wordsBrief: null, pressBack: null })
 }
 
 /** The composer's one choice for a new brief (words-start, 17 Nov): build a model from it (Send, the default), or talk it through first. */
