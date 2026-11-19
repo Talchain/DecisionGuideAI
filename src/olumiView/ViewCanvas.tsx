@@ -100,7 +100,7 @@ const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 /** The camera's own framing never zooms in past the real size (V12 spec: a small board sits at 1.0, in Simple and in Detailed); a person may still zoom in themselves, up to MAX_ZOOM. */
 export const FRAME_MAX_ZOOM = 1
 /** How long a camera move eases (ms), and how many times one version may be framed (the first fit, then a re-fit per zoom change). */
-const DURATION = 400, MAX_FITS = 5, FRAME_WAIT_MS = 2500
+const DURATION = 400, MAX_FITS = 5
 /**
  * When the board is framed: once it has settled, or after a bounded wait however it stands (DL, A13f cold reopen at 1510×910: the board was
  * never framed, the question cut at the top and three cards under the dock). The wait is in time, not frames: a throttled pane draws about
@@ -270,14 +270,7 @@ export function aimAfterFirstApproval(was: BoardSeen | null, now: View | null): 
   return was !== null && was.held && was.n === null && n.n === 1 && !n.held ? primaryAimOf(now) : null
 }
 
-function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?: number) => Viewport | null; framed: boolean } {
-  // Codex 12:40Z (13:00 bank, cold B at 1232): the cards were painted at the canvas's untouched 0,0 scale 1 before the first frame was asked, so for a
-  // moment they ran under the dock. The board is not shown until its FIRST frame is taken (snapped, not slid), or the person moves, or the settle
-  // ends without one; later frames (a version, a resize) animate as before and never hide the board.
-  const [framed, setFramed] = useState(false)
-  const framedRef = useRef(false)
-  // Never hidden for long: whatever the settle does, the board shows within FRAME_WAIT_MS.
-  useEffect(() => { const t = setTimeout(() => { framedRef.current = true; setFramed(true) }, FRAME_WAIT_MS); return () => clearTimeout(t) }, [])
+function useViewCamera(userMoved: React.MutableRefObject<boolean>): () => Viewport | null {
   const { getNodes, getViewport, setViewport } = useReactFlow()
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const pane = useRef({ width, height })
@@ -288,12 +281,12 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
   // into view, its question readable without panning; never on a later approval, never on a reload (no held first model seen before).
   const seen = useRef<{ held: boolean; n: number | null } | null>(null)
   const aim = useRef<string | null>(null)
-  const fit = useCallback((ms: number = DURATION) => {
+  const fit = useCallback(() => {
     const drawn = frameNodesOf(viewNodes(getNodes()), useViewStore.getState().view?.model == null), zoom = getViewport().zoom
     const simple = levelOf(useViewStore.getState().sid) === 'simple'
     if (drawn.length > 0) snaps.current = { ...snaps.current, [simple ? 'full' : faceRegimeOf(zoom)]: { zoom, nodes: drawn.map((n) => ({ ...n, position: { ...n.position }, measured: { ...n.measured } })) } }
     const v = cameraFrame(snaps.current, pane.current, undefined, aim.current, simple)
-    if (v) void setViewport(v, { duration: ms })
+    if (v) void setViewport(v, { duration: DURATION })
     return v
   }, [getNodes, getViewport, setViewport])
   // Each version (or first model), and each set of badges open on it: a badge opened or closed frames the board it changed to.
@@ -313,7 +306,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
     const tick = () => {
       // "Show in the workspace" is rearranging the board (v12/showInWorkspace): this framing waits, then goes on as if it had just begun.
       if (showHolds()) { since = performance.now(); last = ''; raf = requestAnimationFrame(tick); return }
-      if (userMoved.current) { framedRef.current = true; setFramed(true); return }
+      if (userMoved.current) return
       if (target !== null && performance.now() - targetAt > DURATION + 300) {
         const v = getViewport(), t = target
         target = null
@@ -332,13 +325,10 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
       last = now
       if (!frameDue(settled, performance.now() - since)) { raf = requestAnimationFrame(tick); return }
       if (drawn.length === 0 || board === fitted || fits >= MAX_FITS) {
-        if (fits >= MAX_FITS || (drawn.length === 0 && ids.size === 0)) { framedRef.current = true; setFramed(true) }
         if (target !== null && fits < MAX_FITS) raf = requestAnimationFrame(tick)
         return
       }
-      const first = !framedRef.current
-      const asked = fit(first ? 0 : DURATION)
-      if (first) { framedRef.current = true; setFramed(true) }
+      const asked = fit()
       if (levelOf(useViewStore.getState().sid) === 'simple') { target = asked; targetAt = performance.now() }
       fits += 1
       fitted = board
@@ -368,7 +358,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
     snaps.current = {}
     settling.current(); settling.current = settle()
   }, [width, height, settle, userMoved])
-  return { fit, framed }
+  return fit
 }
 
 /** The board key of kept ideas with no model (camera.ts boardKeyOf has none: no version, no proposal): the scenario and the kept set. */
@@ -419,7 +409,7 @@ function ViewFlow() {
   const activity = useRef<Activity>({ at: 0, active: false })
   // Every control the person presses to move the camera says so through this one function (handOf, above).
   const hand = handOf(movedAt, activity)
-  const { fit, framed } = useViewCamera(userMoved)
+  const fit = useViewCamera(userMoved)
   // V11: the team's disagreement is brought into view once per reveal, never over the person's own move (./revealCamera.ts).
   useRevealInView(movedAt)
   useOpenInView(movedAt)
@@ -510,7 +500,7 @@ function ViewFlow() {
           const card = useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)
           if (card !== undefined && (card.family === 'option' || isOlumiCoreLane())) useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
-        className={framed ? 'olumi-look' : 'olumi-look ok-board-unframed'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
+        className="olumi-look" nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
         onNodeContextMenu={(e, n) => {
           e.preventDefault()
