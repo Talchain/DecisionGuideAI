@@ -218,9 +218,9 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
   // MADE ROOM (Paul 19 Nov): where a pinned box found no place clear of the other cards, the board slid once (`roomFor`, makeRoom.ts). While it slides the
   // box stands still where the slide brings its card beside it (`at`: never outside the window on the way); after, it is held at its offset from its card
   // (`lock`), so it moves with the card, clear of every card as the card is. Dropped when the free canvas changes or the box would leave it.
-  // The slide is checked once the board stands still after it: a card that is not where the slide was to bring it (another move cut the slide short), or a
+  // The slide is checked once the board stands still after it: a box whose held place is not whole in the free canvas or has a card under it (another move cut the slide short), or a
   // box grown past the height (`planned`) its place was found for (its content arrived after), lets the board slide again (`again`), up to MAX_SLIDES.
-  let lock: { ox: number; oy: number; h: number; planned: number; free: string; at: { left: number; top: number }; expect: { left: number; top: number }; checked: boolean } | null = null
+  let lock: { ox: number; oy: number; h: number; planned: number; free: string; at: { left: number; top: number }; checked: boolean } | null = null
   let slid = 0, movingUntil = 0, again = false
   let stood: { ax: number; ay: number; free: string; left: number; top: number; placed: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
@@ -265,13 +265,16 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
           const maxHeight = size.height > lock.h ? lock.h : null
           if (now < movingUntil || (!lock.checked && !still)) p = { ...lock.at, maxHeight }
           else {
+            const inside = left >= free.left && left + size.width <= free.right && top >= free.top && top + hh <= free.bottom
             if (!lock.checked) {
               lock.checked = true
-              if (Math.abs(anchor.left - lock.expect.left) > 2 || Math.abs(anchor.top - lock.expect.top) > 2) again = true
+              // Did the slide do its job? Its box, held beside the card, stands whole in the free canvas with no card under it; else another move cut it short.
+              const held = { left, top, right: left + size.width, bottom: top + hh }
+              if (!inside || canvasCardRects(own).some((o) => covers(held, o))) again = true
             }
             if (size.height > lock.planned + 2) again = true
             if (again && slid < MAX_SLIDES) p = null
-            else if (left >= free.left && left + size.width <= free.right && top >= free.top && top + hh <= free.bottom) p = { left, top, maxHeight }
+            else if (inside) p = { left, top, maxHeight }
           }
         }
         if (p === null) lock = null
@@ -299,8 +302,7 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
             if (plan !== null && (onOthers || plan.h > shownNow)) {
               const slides = plan.dx !== 0 || plan.dy !== 0
               if (slides) { slid += 1; movingUntil = now + slideBoard(plan.dx, plan.dy) + 120 }
-              lock = { ox: plan.left - plan.dx - anchor.left, oy: plan.top - plan.dy - anchor.top, h: plan.h, planned: size.height, free: freeKey, at: { left: plan.left, top: plan.top },
-                expect: { left: anchor.left + plan.dx, top: anchor.top + plan.dy }, checked: !slides }
+              lock = { ox: plan.left - plan.dx - anchor.left, oy: plan.top - plan.dy - anchor.top, h: plan.h, planned: size.height, free: freeKey, at: { left: plan.left, top: plan.top }, checked: !slides }
               p = { left: plan.left, top: plan.top, maxHeight: plan.h < size.height ? plan.h : null }
             }
           }

@@ -30,7 +30,7 @@ export function slideBoard(dx: number, dy: number): number {
   if (camera === null || (dx === 0 && dy === 0)) return 0
   const v = camera.get(), to = { x: v.x + dx, y: v.y + dy, zoom: v.zoom }, ms = still() ? 0 : ROOM_PAN_MS
   room = { saved: room?.saved ?? v, applied: to }
-  // The focus rule (regions.ts) would move the board again a moment after the press; it waits until this slide is done.
+  // The focus rule (regions.ts) would move the board a moment after the press, cutting this slide short; its move waits until this slide is done.
   holdBoard(ms + 120)
   camera.set(to, ms)
   return ms
