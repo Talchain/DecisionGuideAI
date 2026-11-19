@@ -17,7 +17,6 @@ const PLAIN = 'starting_customers'
 const lane = (on: boolean): void => { vi.stubEnv('VITE_OLUMI_CORE', on ? '1' : '0') }
 afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, drafts: {} }) })
 const mount = (id: string) => { useLaneInspector.getState().open({ kind: 'card', id }); return render(<ToastProvider><LaneEditingLayer /></ToastProvider>) }
-const ids = (id: string): string[] => [...document.querySelectorAll('[data-testid^="inspector-"]')].map((e) => e.getAttribute('data-testid')!).filter((t) => t.startsWith('inspector-' + id))
 
 /** A figure core works out (no edit of its own): the model's cards that have a figure and are not triable. */
 const workedOut = () => { const m = useViewStore.getState().view!.model!; return m.cards.find((c) => c.figure !== null && !triableCards(m).some((t) => t.id === c.id))! }
