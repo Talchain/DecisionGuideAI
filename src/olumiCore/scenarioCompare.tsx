@@ -21,14 +21,15 @@ import { shownModel, useViewStore } from '../olumiView/store'
  * proposals carries core's mark and its `lead` words. A limitation core says once on the aim, a figure or a side is not said again in the notes.
  */
 /**
- * SEPARATE RUNS (compare concept v3, settled by the DL and Codex 18 Nov): two versions, or two scenarios, are each worked out in a run of
- * their own, so a difference between them is never drawn as one chance moving on one track (the two-mark track was removed here). Core
- * sends no `paired` / `same_draws` flag yet (engine ask 2); until it does, every version-to-version and scenario-to-scenario comparison says
- * so in this one fixed label. Repeat drafts on one build gave one option 20% and 58% (DL, Q5), which is why it is said every time.
+ * SEPARATE RUNS (compare concept v3, settled by the DL and Codex 18 Nov): two versions, two scenarios, or a scenario and a saved what-if are
+ * each core's own saved run. At the served core (d480ec10) every Run uses one fixed seed and draw count (engine-limits.ts `SEED = 7, DRAWS =
+ * 10_000`, a stream per input id), so the words below make NO claim about sampling noise. What core does not send is any statement that two
+ * runs are like-for-like (no `paired` / `same_draws` / validity field: engine ask 2; common draws alone do not make two models comparable,
+ * Codex B2). Until it does, no two-mark track is drawn for them, and this one fixed label says they are two results side by side.
  */
 export const SEPARATE_RUNS = {
   label: 'Separate runs',
-  title: 'Each side was worked out in a run of its own, so part of a difference can come from the runs themselves.',
+  title: 'Each side is its own saved run. Olumi does not yet mark two runs as like-for-like, so read them as two results side by side, not as one chance moving.',
 } as const
 export function SeparateRuns(): JSX.Element {
   return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} title={SEPARATE_RUNS.title} data-compare-runs="separate">{SEPARATE_RUNS.label}</span>
