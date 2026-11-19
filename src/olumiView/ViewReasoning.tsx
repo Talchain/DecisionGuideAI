@@ -1,17 +1,16 @@
 /**
- * The Reasoning tab on the olumi-core lane: HOW SOUND THE THINKING IS (redesign 2, 18 Nov 2026, after Paul compared it with the Reasoning
- * prototypes: one place to start, a visual of where the uncertainty comes from, presses that change the model). Analysis draws what the
- * model implies; this tab draws what that rests on and what is worth examining. Top to bottom:
+ * The Reasoning tab on the olumi-core lane: HOW SOUND THE THINKING IS (redesign 2 + the UI pass after the Codex critique, 18 Nov 2026:
+ * overnight/analysis/REASONING-CRITIQUE.md). Analysis draws what the model implies; this tab draws what that rests on and what is worth
+ * examining. It claims no priority core has not computed (core's ranked queue is engine ask 2, ENGINE-ASKS-REASONING.md). Top to bottom:
  *   0. above the tab, its state, said once (`reasoning/StateStrip.tsx`);
- *   1. Start here: the first actionable item of the queue (`reasoning/examine.ts`), core's words in the panel's one headline size, core's
- *      reason under it, ONE green action (show the challenged card, run core's method, or put core's words in the message box);
- *   2. What the uncertainty rests on (`run.rests`): per option and aim, each figure as a bar to its share of the variation, coloured by whose
- *      figure it is, core's line beside it and core's give ✎, so the guess that carries the most uncertainty can be replaced in place;
- *   3. Also worth examining: the rest of the queue, each row core's words with one quiet action;
- *   4. Towards commitment (`reasoning/TowardsCommitment.tsx`): disagreements still open, what the team has recorded it will do, and one
- *      press into the ONE commitment form (the chat's and Team tab's shared draft);
- *   5. Assumptions and evidence: every premise core puts on a card, once, behind one door.
- * Every word about the person's model is core's, at its View path (`data-view`); the headings and action labels are this tab's own chrome.
+ *   1. What the uncertainty rests on (`run.rests`): core's sentence per option and aim, each figure a bar to its share of the variation,
+ *      coloured by whose figure it is, core's give ✎ once per figure;
+ *   2. Worth examining (`reasoning/examine.ts`): challenged cards, core's coaching questions, its widening asks and its sharpen prompts, each
+ *      with Olumi's mark where it is Olumi's and one press (the card, the message box, or core's method);
+ *   3. Towards commitment (`reasoning/TowardsCommitment.tsx`): where revealed views differ (core's differences), disagreements still open,
+ *      what the team has recorded in full, and one press into the ONE commitment form;
+ *   4. Assumptions and evidence: every premise core puts on a card, once, behind one door.
+ * Every word about the person's model is core's, at its View path (`data-view`); headings and action labels are the tab's own chrome.
  */
 import { useState } from 'react'
 import type { ViewModel, ViewRun } from './client'
@@ -33,11 +32,11 @@ import { controls } from '../styles/controls'
 
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
-  start: 'Start here',
   rests: 'What the uncertainty rests on',
   olumi: 'Olumi’s', yours: 'People’s', mixed: 'Both',
   more: (n: number) => `Show ${n} more`, fewer: 'Show fewer',
-  examine: 'Also worth examining',
+  examine: 'Worth examining',
+  activity: 'Something to work on',
   challenge: 'Challenge your thinking',
   premises: 'Assumptions and evidence',
   questions: 'Questions worth answering',
@@ -98,7 +97,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
               : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
             <ul className="m-0 list-none space-y-1 p-0">
               {(r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '').map(({ f, j }) => {
-                const give = f.give !== null && !given.has(f.id)
+                const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
                 return (
                   <li key={f.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-2" data-rest-figure={f.id}>
@@ -141,38 +140,18 @@ function wordsOf(e: Examine): { text: string; at: string; why: string | null; wh
   }
 }
 
-/** The item's one action: a card shown, a method run, or core's words put in the message box (nothing sent). */
-function Act({ e, lead }: { e: Examine; lead: boolean }) {
-  const cls = lead ? GREEN : QUIET, size = lead ? 14 : 12
-  if (e.kind === 'challenge') return <button type="button" className={cls} onClick={() => pressCard(e.card.id)} data-testid="reasoning-challenge-show"><OkIcon id="show-in-workspace" size={size} decorative />{REASONING_LABELS.show}</button>
-  if (e.kind === 'method' && e.method !== null) {
-    const { at, m } = e.method
-    return <button type="button" className={cls} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={size} decorative /><span data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
-  }
-  const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
-  if (fill === null) return null
-  return <button type="button" className={cls} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={size} decorative />{REASONING_LABELS.fill}</button>
+/** A sharpen prompt's one action: core's method, run by its id, labelled with core's words for it. */
+function Act({ e }: { e: Examine }) {
+  if (e.kind !== 'method' || e.method === null) return null
+  const { at, m } = e.method
+  return <button type="button" className={QUIET} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={12} decorative /><span data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
 }
 
-const MARK: Record<Examine['kind'], IconId> = { challenge: 'challenged', method: 'method-mark', question: 'talk-first', widen: 'talk-first' }
+/** A challenge is marked by its state; every other item is Olumi's own contribution (core's coaching), so it carries Olumi's mark. */
+const MARK: Record<Examine['kind'], IconId> = { challenge: 'challenged', method: 'olumi-mark', question: 'olumi-mark', widen: 'olumi-mark' }
 /** Where an item's words sit: on the model (`data-view`), or in core's chrome words (`data-view-words`: the coaching questions and model words). */
 const at = (e: Examine, path: string) => e.kind === 'question' || e.kind === 'widen' ? { 'data-view-words': path } : { 'data-view': path }
 const rowData = (e: Examine) => e.kind === 'challenge' ? { 'data-reasoning-challenge': e.card.id } : e.kind === 'method' ? { 'data-sharpen': e.s.id } : { 'data-examine': e.key }
-
-/** The first actionable item, said large with its reason and one green action: the tab's one place to start. */
-function Focus({ e }: { e: Examine }) {
-  const w = wordsOf(e)
-  return (
-    <section className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.start} {...rowData(e)}
-      onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])}>
-      <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.start}</p>
-      <p className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} title={w.hover ?? w.text} {...at(e, w.at)}
-        {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-question' } : {})}>{w.text}</p>
-      {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-reason' } : {})}>{w.why}</p>}
-      <div className="flex flex-wrap items-center gap-2 pt-1"><Act e={e} lead /></div>
-    </section>
-  )
-}
 
 /**
  * Every other item, compact. A challenge or a question is one press as a whole row (the card shown; core's words put in the message box);
@@ -190,12 +169,19 @@ function Row({ e }: { e: Examine }) {
   const whole = `flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
   if (e.kind === 'challenge') return <li {...rowData(e)}><button type="button" className={whole} title={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</button></li>
-  if (e.kind === 'question') return <li {...rowData(e)}><button type="button" className={whole} title={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question">{mark}{words}</button></li>
+  // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
+  // message box is a quiet secondary press, never the row's primary action.
+  if (e.kind === 'question') return (
+    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+      {mark}{words}
+      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="talk-first" size={12} decorative /></button>
+    </li>
+  )
   if (e.kind === 'widen') return <li {...rowData(e)}><button type="button" className={whole} title={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}>{mark}{words}</button></li>
   return (
     <li className="flex items-start gap-2 px-1 py-1.5" title={w.hover} {...rowData(e)}>
       {mark}
-      <span className="min-w-0 flex-1 space-y-1">{words}<span className="block"><Act e={e} lead={false} /></span></span>
+      <span className="min-w-0 flex-1 space-y-1">{words}<span className="block"><Act e={e} /></span></span>
     </li>
   )
 }
@@ -241,15 +227,37 @@ function Premises({ model }: { model: ViewModel }) {
   )
 }
 
+/** The activity's one green action: a card shown, a method run, or core's words put in the message box (nothing sent). */
+function LeadAct({ e }: { e: Examine }) {
+  if (e.kind === 'challenge') return <button type="button" className={GREEN} onClick={() => pressCard(e.card.id)} data-testid="reasoning-challenge-show"><OkIcon id="show-in-workspace" size={14} decorative />{REASONING_LABELS.show}</button>
+  if (e.kind === 'method' && e.method !== null) {
+    const { at: i, m } = e.method
+    return <button type="button" className={GREEN} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${i}.text`}>{m.text}</span></button>
+  }
+  const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
+  return fill === null ? null : <button type="button" className={GREEN} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={14} decorative />{REASONING_LABELS.fill}</button>
+}
+
 /**
- * The tab's one place to start, for another tab to offer where it has no result of its own to show (Analysis while no option has a chance:
- * Codex 011, a model in words must offer an activity, not only what a result still needs). The same item, words and action as here.
+ * Something to work on, for another tab where it has no result of its own to show (Analysis while no option has a chance: Codex 011, a
+ * model in words must offer an activity). An item of the Reasoning tab's list (the first that carries an action, in its order of kinds),
+ * offered as an activity under a neutral label: it claims no priority (core computes none yet, engine ask 2).
  */
 export function StartHere({ model }: { model: ViewModel }) {
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
-  const lead = examineOf(model, methods, words).find(actionable)
-  return lead === undefined ? null : <div onMouseLeave={() => ringFrom(RING, [])}><Focus e={lead} /></div>
+  const e = examineOf(model, methods, words).find(actionable)
+  if (e === undefined) return null
+  const w = wordsOf(e)
+  return (
+    <section className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
+      onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
+      <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
+      <p className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} title={w.hover ?? w.text} {...at(e, w.at)}>{w.text}</p>
+      {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
+      <div className="flex flex-wrap items-center gap-2 pt-1"><LeadAct e={e} /></div>
+    </section>
+  )
 }
 
 /** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
@@ -258,15 +266,13 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
   const view = useViewStore((s) => s.view)
-  const items = examineOf(model, methods, words)
-  const lead = items.find(actionable)
+  const items = examineOf(model, methods, words, new Set((view?.collab.dissent ?? []).map((d) => d.id)))
   return (
     <div className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-5 px-3 py-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
       <WhatIfShown model={model} labelled={!stated} />
-      {lead === undefined ? null : <Focus e={lead} />}
       <RestsOn model={model} run={run} />
-      <Examined items={items.filter((e) => e !== lead)} />
-      {view === null ? null : <TowardsCommitment view={view} model={model} />}
+      <Examined items={items} />
+      {view === null ? null : <TowardsCommitment view={view} />}
       <Premises model={model} />
     </div>
   )

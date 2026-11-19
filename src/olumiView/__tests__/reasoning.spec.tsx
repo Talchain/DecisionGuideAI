@@ -13,6 +13,8 @@ const chat = vi.hoisted(() => ({ prefill: vi.fn(), method: vi.fn() }))
 vi.mock('../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../ViewChat')>()), prefillComposer: chat.prefill, runMethod: chat.method }))
 const commit = vi.hoisted(() => ({ open: vi.fn() }))
 vi.mock('../v12/team/CommitForm', async (importOriginal) => ({ ...(await importOriginal<typeof import('../v12/team/CommitForm')>()), openCommitDraft: commit.open }))
+const diff = vi.hoisted(() => ({ data: null as unknown }))
+vi.mock('../../olumiCore/team/CardDiffers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../olumiCore/team/CardDiffers')>()), useRevealedDifferences: () => diff.data }))
 const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
 
@@ -33,7 +35,7 @@ const ready = (view: View, more: object = {}) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, ...more } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
-afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
   it('european: each rest by its id in core\'s order (two at rest, the rest behind one press); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
@@ -61,6 +63,15 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     for (const id of given) expect(box.querySelectorAll(`[data-testid="reasoning-rests-edit-${id}"]`), id).toHaveLength(1)
     expect(expectAllBound(view, box, expect)).toBeGreaterThan(0)
   })
+  it('CONTRAST: an older View whose figure lacks give draws the bar with no ✎ and does not crash', () => {
+    const view = structuredClone(read('european.view.json'))
+    const f = view.model!.run!.rests.find((r) => r.line !== '' && (r.figures ?? []).length > 0)!.figures![0]!
+    delete (f as { give?: unknown }).give
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-rests').querySelector(`[data-rest-figure="${f.id}"] [data-testid="reasoning-share-bar"]`)).not.toBeNull()
+    expect(screen.getByTestId('reasoning-rests').querySelectorAll(`[data-testid="reasoning-rests-edit-${f.id}"]`)).toHaveLength(0)
+  })
   it('CONTRAST: a model whose Run sends no rests (app-launch, no chance yet) draws no such section and no bar', () => {
     const view = read('app-launch.view.json')
     expect(view.model!.run!.rests ?? []).toHaveLength(0)
@@ -71,49 +82,38 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
   })
 })
 
-describe('start here: the first actionable item, large, with ONE green action', () => {
-  it('capacity: a challenged card leads; its words are core\'s heading, and its action focuses that card by its id', () => {
-    const view = real('capacity'), cs = challengedCards(view.model!)
-    expect(cs.length).toBeGreaterThan(0)
+const openAll = () => { const more = screen.queryByTestId('reasoning-examine-more'); if (more !== null) fireEvent.click(more) }
+
+describe('worth examining: one list that claims no priority core has not computed', () => {
+  it('capacity: no "Start here" lead; challenged cards first, then questions and asks, then sharpen prompts; each Olumi row carries Olumi\'s mark', () => {
+    const view = real('capacity')
     ready(view)
     render(<ViewReasoningBlock />)
-    const lead = screen.getByTestId('reasoning-focus')
-    expect([lead.dataset['focusKind'], lead.dataset['reasoningChallenge']]).toEqual(['challenge', cs[0]!.id])
-    expect(lead.querySelector('[data-testid="view-reasoning-challenge-question"]')!.textContent).toBe(cs[0]!.heading)
-    expect(screen.getAllByTestId('reasoning-focus')).toHaveLength(1)
-    fireEvent.click(lead.querySelector('[data-testid="reasoning-challenge-show"]')!)
-    expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    expect(screen.getByTestId('view-reasoning').textContent).not.toContain('Start here')
+    openAll()
+    const kinds = [...screen.getByTestId('reasoning-examine').querySelectorAll<HTMLElement>('li')].map((li) => li.dataset['reasoningChallenge'] !== undefined ? 'c' : li.dataset['sharpen'] !== undefined ? 's' : 'q')
+    expect(kinds.join('')).toMatch(/^c*q*s*$/)
   })
-  it('app-launch (no challenge, no offered method): core\'s first coaching question leads, and its action fills the box with it', () => {
-    const view = read('app-launch.view.json'), qs = view.model!.coaching_questions!
-    ready(view)
-    render(<ViewReasoningBlock />)
-    const lead = screen.getByTestId('reasoning-focus')
-    expect(lead.dataset['focusKind']).toBe('question')
-    expect(lead.querySelector('[data-view-words="coaching_questions.0"]')!.textContent).toBe(qs[0])
-    fireEvent.click(lead.querySelector('[data-testid="reasoning-question"]')!)
-    expect(chat.prefill.mock.calls).toEqual([[qs[0]]])
-  })
-  it('CONTRAST: nothing to examine (no challenge, question, offered method or ask) draws no Start here', () => {
+  it('CONTRAST: nothing to examine (no challenge, question, offered method or ask) draws no list', () => {
     const view = structuredClone(read('app-launch.view.json'))
     view.model!.coaching_questions = []
-    for (const x of view.model!.sharpen) x.move = 'not_offered'
+    view.model!.sharpen = []
     const w = view.model_words as unknown as Record<string, unknown>
     delete w.askOption; delete w.askRisk
     ready(view)
     render(<ViewReasoningBlock />)
-    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    expect(screen.queryByTestId('reasoning-examine')).toBeNull()
   })
 })
 
 describe('questions worth answering: one press fills the message box with core\'s words, nothing sent', () => {
-  it('app-launch: every coaching question once, in core\'s order (the first leads); each press fills the box with that exact question', () => {
+  it('app-launch: every coaching question once, in core\'s order; each press fills the box with that exact question', () => {
     const view = read('app-launch.view.json'), qs = view.model!.coaching_questions!
     expect(qs.length).toBeGreaterThan(1)
     ready(view)
     render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
-    if (more !== null) fireEvent.click(more)
+    openAll()
     expect([...document.querySelectorAll('[data-view-words^="coaching_questions."]')].map((e) => e.textContent)).toEqual(qs)
     const rows = screen.getAllByTestId('reasoning-question')
     expect(rows).toHaveLength(qs.length)
@@ -125,8 +125,7 @@ describe('questions worth answering: one press fills the message box with core\'
     const view = read('app-launch.view.json'), w = view.model_words as unknown as Record<string, string>
     ready(view)
     render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
-    if (more !== null) fireEvent.click(more)
+    openAll()
     const ask = screen.queryByTestId('reasoning-widen-askRisk')
     if (typeof w.askRisk !== 'string') { expect(ask).toBeNull(); return }
     expect(ask!.textContent).toBe(w.askRisk)
@@ -143,16 +142,15 @@ describe('questions worth answering: one press fills the message box with core\'
 })
 
 describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'s method words', () => {
-  it('a sharpen row whose move core offers in session.methods leads when nothing is challenged; its press runs that method by its id', () => {
+  it('a sharpen row whose move core offers in session.methods: its press runs that method by its id', () => {
     const view = structuredClone(read('app-launch.view.json'))
     const s = view.model!.sharpen.find((x) => x.move !== null)
     expect(s, 'precondition: a sharpen row names a move').toBeDefined()
     view.session!.methods.push({ ...view.session!.methods[0]!, id: s!.move!, text: 'Method words for the move' })
     ready(view)
     render(<ViewReasoningBlock />)
-    const lead = screen.getByTestId('reasoning-focus')
-    expect([lead.dataset['focusKind'], lead.dataset['sharpen']]).toEqual(['method', s!.id])
-    const press = lead.querySelector<HTMLElement>('[data-testid="reasoning-method"]')!
+    openAll()
+    const press = document.querySelector<HTMLElement>(`[data-sharpen="${s!.id}"] [data-testid="reasoning-method"]`)!
     expect(press.textContent).toBe('Method words for the move')
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([[s!.move]])
@@ -163,38 +161,35 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     expect([s, methods.some((m) => m.id === 'widen_options'), methods.some((m) => m.id === 'else_do')]).toEqual([expect.anything(), false, true])
     ready(view)
     render(<ViewReasoningBlock />)
+    openAll()
     const press = document.querySelector<HTMLElement>(`[data-sharpen="${s.id}"] [data-testid="reasoning-method"]`)!
     expect(press.textContent).toBe(methods.find((m) => m.id === 'else_do')!.text)
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([['else_do']])
   })
-  it('CONTRAST: a sharpen row whose move core does not offer has no press, and never leads', () => {
+  it('CONTRAST: a sharpen row whose move core does not offer has no press', () => {
     const view = structuredClone(read('app-launch.view.json'))
     for (const x of view.model!.sharpen) x.move = 'not_offered'
     ready(view)
     render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
-    if (more !== null) fireEvent.click(more)
+    openAll()
     expect(document.querySelectorAll('[data-sharpen]').length).toBeGreaterThan(0)
     expect(screen.queryAllByTestId('reasoning-method')).toHaveLength(0)
-    expect(screen.getByTestId('reasoning-focus').dataset['focusKind']).not.toBe('method')
   })
 })
 
 describe('challenge your thinking', () => {
-  it('capacity: each challenged card once (the first leads), its heading and core\'s reason; each row\'s press focuses that card by its id', () => {
+  it('capacity: each challenged card once, its heading and core\'s reason; each row\'s press focuses that card by its id', () => {
     const view = real('capacity'), cs = challengedCards(view.model!)
+    expect(cs.length).toBeGreaterThan(0)
     ready(view)
     render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
-    if (more !== null) fireEvent.click(more)
+    openAll()
     const rows = [...document.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')]
     expect(rows.map((r) => r.dataset['reasoningChallenge'])).toEqual(cs.map((c) => c.id))
     expect(expectAllBound(view, screen.getByTestId('view-reasoning'), expect)).toBeGreaterThan(0)
-    if (rows.length > 1) {
-      fireEvent.click(rows[1]!.querySelector('[data-testid="reasoning-challenge-show"]')!)
-      expect(focus.node.mock.calls).toEqual([[cs[1]!.id]])
-    }
+    fireEvent.click(rows[0]!.querySelector('[data-testid="reasoning-challenge-show"]')!)
+    expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
   })
   it('the Reasoning tab draws none of the Analysis tab\'s chances, and none of the deleted strips (glance, rack, people, commitment)', () => {
     const view = read('bakery.view.json')
@@ -206,7 +201,7 @@ describe('challenge your thinking', () => {
   })
 })
 
-describe('towards commitment: what is still disputed, what is recorded, and one press into the ONE commitment form', () => {
+describe('towards commitment: where views differ, what is still disputed, what is recorded in full, and one press into the ONE form', () => {
   type Collab = View['collab']
   const withRecords = (): View => {
     const view = structuredClone(read('app-launch.view.json'))
@@ -216,37 +211,80 @@ describe('towards commitment: what is still disputed, what is recorded, and one 
       expect: 'Conversion holds at 6%', reconsider: 'Paid conversion falls under 5%', keeps: ['dissent_t1'], outcomes: [], option: null, version: null, expect_band: null, review_on: '2026-12-02', trigger: null }]
     return view
   }
-  it('each open disagreement by its id in the holder\'s words; each recorded action with its reconsider line; the press opens the shared draft for this scenario', () => {
+  it('each open disagreement in full in its holder\'s words; each recorded action with owner, expectation, reconsider line, the dissent it keeps open and its review date; the press opens the shared draft', () => {
     const view = withRecords()
     ready(view)
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-commitment')
     expect(box.querySelector('[data-dissent="dissent_t1"]')!.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
-    const k = box.querySelector<HTMLElement>('[data-commitment="7"]')!
-    expect(k.textContent).toContain('Run a two-week split test')
-    expect(k.querySelector('[data-commitment-reconsider="7"]')!.textContent).toBe('Reconsider if: Paid conversion falls under 5%')
-    expect(k.querySelector('[data-commitment-review="7"]')!.textContent).toBe('Review on 2026-12-02')
+    expect(box.querySelector('[data-commitment="7"]')!.textContent).toContain('Run a two-week split test')
+    expect(['owner', 'expect', 'reconsider', 'keep', 'review'].map((f) => screen.getByTestId(f === 'keep' ? 'reasoning-commitment-keep-7-0' : `reasoning-commitment-${f}-7`).textContent)).toEqual([
+      'Owner: Ada', 'What we expect: Conversion holds at 6%', 'What would make us reconsider: Paid conversion falls under 5%', 'Keeps open: Tobias: Keep the long version: finishers pay more.', 'Review on: 2026-12-02'])
     fireEvent.click(screen.getByTestId('reasoning-commit-open'))
     expect(commit.open.mock.calls).toEqual([[view.id, view]])
     expect(chat.prefill).not.toHaveBeenCalled()
   })
-  it('a disagreement whose card the tab already lists as challenged is said once: here only its holder, one press to that card', () => {
+  it('a commitment\'s trigger sentence and its latest outcome are drawn by its id; without them, neither line is drawn', () => {
+    const view = withRecords()
+    const k = (view.collab as Collab).commitments[0]!
+    k.trigger = { ...({} as NonNullable<typeof k.trigger>), text: 'If paid conversion with three screens falls below 5%, the lead changes.' }
+    k.outcomes = [{ ...({} as (typeof k.outcomes)[number]), id: 1, happened: 'Conversion held at 6.2%.' }, { ...({} as (typeof k.outcomes)[number]), id: 2, happened: 'Conversion fell to 5.8%.' }]
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect([screen.getByTestId('reasoning-commitment-trigger-7').textContent, screen.getByTestId('reasoning-commitment-happened-7').textContent])
+      .toEqual(['If paid conversion with three screens falls below 5%, the lead changes.', 'What happened: Conversion fell to 5.8%.'])
+    cleanup()
+    ready(withRecords())
+    render(<ViewReasoningBlock />)
+    expect([screen.queryByTestId('reasoning-commitment-trigger-7'), screen.queryByTestId('reasoning-commitment-happened-7')]).toEqual([null, null])
+  })
+  it('a challenged card that is a recorded disagreement is said once: in full under Towards commitment, not in the list above', () => {
     const view = withRecords()
     const card = view.model!.cards[0]!
     ;(view.collab as Collab).dissent[0]!.id = card.id
     card.challenged = true as never
     ready(view)
     render(<ViewReasoningBlock />)
+    openAll()
+    expect(document.querySelectorAll(`[data-reasoning-challenge="${card.id}"]`)).toHaveLength(0)
     const row = screen.getByTestId('reasoning-commitment').querySelector<HTMLElement>(`[data-dissent="${card.id}"]`)!
-    expect([row.dataset['dissentSaid'], row.textContent]).toEqual(['above', 'Tobias'])
+    expect(row.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
     fireEvent.click(row.querySelector('button')!)
     expect(focus.node.mock.calls).toEqual([[card.id]])
   })
-  it('a commitment made from an option ("Commit to this") is listed once, by its id, with that option\'s heading; the option itself is not listed again', () => {
+  it('a figure difference between revealed views: its card (one press to it) and the Team tab\'s own WhereYouDiffer under it, with core\'s sentence, each person\'s figure and what would settle it', () => {
+    const view = withRecords(), cid = view.model!.cards[0]!.id
+    diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: '', steps: '', dissent: '', research: '', commit: '' },
+      differences: [{ kind: 'figure', cards: [cid], record: cid, label: 'Paid conversion', goal: 'g1', goal_label: 'Pay back', status: 'changes', status_text: 'Your figures change which option is most likely.',
+        sides: [{ view: 1, holder: 'Ada', holder_id: 'p1', figure: cid, title: '', leader: null, text: 'Ada: about 6%' }, { view: 2, holder: 'Tobias', holder_id: 'p2', figure: cid, title: '', leader: null, text: 'Tobias: about 4%' }],
+        options: [], settle: [{ kind: 'crossing', text: 'Above 6% the lead flips.', fact: null }], steps: [] }] } as never
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>(`[data-difference="${cid}"]`)!
+    expect(row.querySelector('[data-differ-status-text]')!.textContent).toBe('Your figures change which option is most likely.')
+    expect([...row.querySelectorAll('[data-differ-side]')].map((e) => e.textContent)).toEqual(['Ada: about 6%', 'Tobias: about 4%'])
+    expect(row.querySelector('[data-differ-settle]')!.textContent).toBe('Above 6% the lead flips.')
+    fireEvent.click(row.querySelector('[data-testid="reasoning-difference-card"]')!)
+    expect(focus.node.mock.calls).toEqual([[cid]])
+  })
+  it('a difference about a factor one member thinks is missing names no card: said without a press', () => {
+    diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: '', steps: '', dissent: '', research: '', commit: '' },
+      differences: [{ kind: 'factor', cards: [], record: 'factor:r9', label: 'Onboarding cost', goal: 'g1', goal_label: '', status: 'not_run', status_text: 'Not run: a factor one of you thinks is missing.', sides: [], options: [], settle: [], steps: [] }] } as never
+    ready(withRecords())
+    render(<ViewReasoningBlock />)
+    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>('[data-difference="factor:r9|g1"]')!
+    expect([row.querySelector('button'), row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent]).toEqual([null, 'Onboarding cost: Not run: a factor one of you thinks is missing.'])
+  })
+  it('CONTRAST: before a reveal (no differences read) no differ block is drawn', () => {
+    diff.data = null
+    ready(withRecords())
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-commitment-differ')).toBeNull()
+  })
+  it('a commitment made from an option ("Commit to this") is listed once, by its id, with that option\'s heading', () => {
     const view = withRecords()
     const option = view.model!.cards.find((c) => c.family === 'option') ?? view.model!.cards[0]!
-    const k = (view.collab as Collab).commitments[0]!
-    k.option = { id: option.id, heading: option.heading }
+    ;(view.collab as Collab).commitments[0]!.option = { id: option.id, heading: option.heading }
     ready(view)
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-commitment')

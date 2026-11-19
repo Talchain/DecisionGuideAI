@@ -15,6 +15,7 @@ import { cardOf, leadChangeOf } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 import { OkIcon } from '../look/icons'
+import { FigureEdit } from '../FigureEdit'
 
 /** The pressable figure's name (mark + hover), as the finding line names its own: never a bare card heading after the sentence. */
 export const TIPPING_FIGURE = 'Show this figure on the model'
@@ -36,6 +37,8 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
             <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
             {card == null ? null : <button type="button" className={`${TYPE.meta} nodrag mt-0.5 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={`${TIPPING_FIGURE}: ${card.heading}`} aria-label={`${TIPPING_FIGURE}: ${card.heading}`}
               onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }} data-tipping-figure={card.id}><OkIcon id="why-moves" size={14} inherit decorative /><span className="min-w-0 truncate">{card.heading}</span></button>}
+            {/* What would have to be true: try the figure on a copy (nothing saved); the person types the value, nothing is prefilled from core's threshold. */}
+            {card?.figure?.edit == null ? null : <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-tip" glyph words={false} primary="try" label={`Try a figure for ${card.heading}`} />}
           </p>
         )
       })}

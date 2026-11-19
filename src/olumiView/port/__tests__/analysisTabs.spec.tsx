@@ -273,9 +273,13 @@ describe('no chance yet: something to do before what a result needs (Codex 011)'
     expect(focus.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING, 'the activity comes before the readiness list').toBeTruthy()
     const said = focus.textContent
     cleanup()
-    // The same item as the Reasoning tab's, not a second choice of what to start with.
+    // An item of the Reasoning tab's own list (its words, said there too), offered under a neutral label: no "Start here" claim on either tab.
+    expect(said).not.toContain('Start here')
     ready(launch); render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('reasoning-focus').textContent).toBe(said)
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    fireEvent.click(screen.queryByTestId('reasoning-examine-more') ?? document.createElement('i'))
+    const w = first!.kind === 'question' ? first!.q : first!.kind === 'challenge' ? first!.card.heading : first!.kind === 'widen' ? first!.w.label : first!.s.lead
+    expect(screen.getByTestId('reasoning-examine').textContent).toContain(w)
     cleanup()
     ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
     expect([tab().dataset['analysisState'], screen.queryByTestId('reasoning-focus')]).toEqual(['chance', null])
