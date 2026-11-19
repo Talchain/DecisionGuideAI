@@ -95,6 +95,8 @@ export function ViewLensBar({ nav = false, extra }: { nav?: boolean; extra?: Rea
       // Paul liked the bar's responsive motion (9cce33fa): it fades in once placed, and glides when the pill gives way.
       style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'visible' : 'hidden', opacity: place ? 1 : 0 }}>
       <div role="radiogroup" aria-label={W.bar} data-testid={`${LENS_BAR_TESTID}-lenses`} onKeyDown={onKeyDown} className="flex h-full items-center gap-0.5">
+      {/* A lens radio is 28 px (border 2 + px-1.5 + the 14 px icon); its hit area stays 44 (HIT_44). At 1128x680@1.33 Detailed a revealed board with a
+          Rests-on count must fit beside the pill at its tightest (286 px), with the team's two icons (ViewsToggle) at their own size (UI lead, 19 Nov). */}
       {VIEW_LENSES.map((id) => {
         const selected = id === lens, Icon = LENS_ICON[id], count = id === 'rests_on' ? olumi : 0, waiting = !usable(id)
         return (
@@ -102,7 +104,7 @@ export function ViewLensBar({ nav = false, extra }: { nav?: boolean; extra?: Rea
             aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTID}-${id}`} title={waiting ? W.needsRun : W.label[id]}
             aria-label={id === 'rests_on' ? W.rests_on_label : W.label[id]}
             onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
-            className={`${typography.viewPanelMeta} ${HIT_44} inline-flex h-full min-w-8 items-center justify-center gap-1 rounded-full border px-2 font-medium transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
+            className={`${typography.viewPanelMeta} ${HIT_44} inline-flex h-full min-w-7 items-center justify-center gap-1 rounded-full border px-1.5 font-medium transition-colors duration-200 ${selected ? 'border-panel-border bg-[var(--panel-tab-active-bg)] text-text-header' : waiting ? 'cursor-default border-transparent text-text-light' : 'border-transparent text-text-light hover:text-text-body'} ${ACTION_FOCUS}`}>
             <Icon aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 shrink-0" />
             <span className="sr-only" data-lens-label={id}>{W.label[id]}</span>
             {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info/30 px-1 tabular-nums text-text-body`}>{count}</span> : null}
