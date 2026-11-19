@@ -37,6 +37,11 @@ const ready = (view: View, more: object = {}) => {
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
   return refresh
 }
+/** The source turn core sends on the same View's chat for a proposal row, with core's version and status words (view.ts ~569-571). */
+const withTurn = (view: View, id: number, q: { version: string; earlier: boolean; status: string | null }) => {
+  const base = view.chat[0]!
+  ;(view as { chat: unknown[] }).chat = [...view.chat, { ...base, id, ...q }]
+}
 const answer = async (words: string) => {
   fireEvent.change(screen.getAllByTestId('reasoning-answer-input')[0]!, { target: { value: words } })
   await act(async () => { fireEvent.click(screen.getAllByTestId('reasoning-answer-send')[0]!) })
@@ -124,6 +129,7 @@ describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, ev
     const [c0, c1] = [view.model!.cards[0]!, view.model!.cards[1]!]
     ;(view as unknown as { reasoning: unknown }).reasoning = { examined: [{ id: 'x42', question_id: Q.id, question: Q.text, about: c0.id, supplied: { by: 'Ada', by_id: 'p1', text: '12', at: '2026-11-19T00:40:00Z' },
       bound: c0.id, finding: { row: 43, text: 'Twelve weeks is now the time left on this aim.' }, mentioned: [c1.id, 'not_a_card'], limits: 'The aim still has no measure.', proposal_id: 9, olumi: true }] }
+    withTurn(view, 43, { version: 'version 3', earlier: false, status: null })
     ready(view)
     render(<ViewReasoningBlock />)
     const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x42"]')!
@@ -150,5 +156,36 @@ describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, ev
     ready(typed([]))
     render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-answered')).toBeNull()
+  })
+})
+
+describe('where an answer was bound is history, qualified by its source turn (Codex ROOT 01:39Z)', () => {
+  const examined = (view: View) => {
+    const c0 = view.model!.cards[0]!
+    ;(view as unknown as { reasoning: unknown }).reasoning = { examined: [{ id: 'x7', question_id: Q.id, question: Q.text, about: c0.id, supplied: { by: 'Ada', by_id: 'p1', text: '12', at: '' },
+      bound: c0.id, finding: { row: 77, text: 'Twelve weeks.' }, mentioned: [], limits: null, proposal_id: 77, olumi: true }] }
+    return c0
+  }
+  it('a SET-ASIDE proposal\'s answer does not read as applied: "Proposed for" the card, with core\'s version and status words', () => {
+    const view = typed(); const c0 = examined(view)
+    withTurn(view, 77, { version: 'Suggested, not yet accepted', earlier: true, status: 'Set aside for now' })
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const b = screen.getByTestId('reasoning-examined-binding')
+    expect([b.dataset['applied'], b.textContent]).toEqual(['no', `Proposed for: ${c0.heading} · Suggested, not yet accepted · Set aside for now`])
+    expect(b.textContent).not.toContain('Set on')
+  })
+  it('CONTRAST: an approved answer on the current version reads as set, with core\'s version words; with no source turn on the chat, no binding is drawn', () => {
+    const view = typed(); const c0 = examined(view)
+    withTurn(view, 77, { version: 'version 3', earlier: false, status: null })
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const b = screen.getByTestId('reasoning-examined-binding')
+    expect([b.dataset['applied'], b.textContent]).toEqual(['yes', `Set on: ${c0.heading} · version 3`])
+    cleanup()
+    const bare = typed(); examined(bare)
+    ready(bare)
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-examined-binding')).toBeNull()
   })
 })
