@@ -23,11 +23,11 @@ import { StartHere, ViewReasoningBlock } from '../../ViewReasoning'
 import { chatQuestionsOf } from '../../layout'
 
 const read = (): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
-const Q = { id: 'q0123456789', text: 'How many weeks are left before the release must ship?', target: null as string | null, role: 'due', unit: 'week' }
+const Q = { id: 'q0123456789', text: 'How many weeks are left before the release must ship?', about: null as string | null, role: 'due', unit: 'week' }
 const typed = (examined: unknown[] = []): View => {
   const view = read()
   const aim = view.model!.cards[0]!
-  ;(view.model as unknown as { questions: unknown[] }).questions = [{ ...Q, target: aim.id }]
+  ;(view.model as unknown as { questions: unknown[] }).questions = [{ ...Q, about: aim.id }]
   ;(view as unknown as { reasoning: unknown }).reasoning = { examined }
   return view
 }
@@ -106,7 +106,7 @@ describe('the box belongs to one question, and a send loses nothing typed (Codex
     const r = render(<StartHere model={a.model!} />)
     fireEvent.change(screen.getByTestId('reasoning-answer-input'), { target: { value: 'for A' } })
     const b = typed()
-    ;(b.model as unknown as { questions: unknown[] }).questions = [{ id: 'qB', text: 'What would tell you the release is safe?', target: null, role: null, unit: null }]
+    ;(b.model as unknown as { questions: unknown[] }).questions = [{ id: 'qB', text: 'What would tell you the release is safe?', about: null, role: null, unit: null }]
     ready(b)
     r.rerender(<StartHere model={b.model!} />)
     const input = screen.getByTestId('reasoning-answer-input') as HTMLInputElement
@@ -115,5 +115,40 @@ describe('the box belongs to one question, and a send loses nothing typed (Codex
     fireEvent.change(input, { target: { value: 'for B' } })
     await act(async () => { fireEvent.click(screen.getByTestId('reasoning-answer-send')) })
     expect([api.call.mock.calls[0]![2].question_id, api.call.mock.calls[0]![2].text]).toEqual(['qB', 'for B'])
+  })
+})
+
+describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, every word core\'s or the person\'s', () => {
+  it('the question, what was supplied and by whom, the card it was set on (one press), Olumi\'s reply as served, the cards it MENTIONS (never "rests on"), its limits', () => {
+    const view = typed()
+    const [c0, c1] = [view.model!.cards[0]!, view.model!.cards[1]!]
+    ;(view as unknown as { reasoning: unknown }).reasoning = { examined: [{ id: 'x42', question_id: Q.id, question: Q.text, about: c0.id, supplied: { by: 'Ada', by_id: 'p1', text: '12', at: '2026-11-19T00:40:00Z' },
+      bound: c0.id, finding: { row: 43, text: 'Twelve weeks is now the time left on this aim.' }, mentioned: [c1.id, 'not_a_card'], limits: 'The aim still has no measure.', proposal_id: 9, olumi: true }] }
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x42"]')!
+    expect([x.dataset['examinedQuestion'], x.querySelector('[data-testid="reasoning-examined-question"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-supplied"]')!.textContent,
+      x.querySelector('[data-testid="reasoning-examined-bound"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-finding"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-limits"]')!.textContent])
+      .toEqual([Q.id, Q.text, 'Answer given: Ada: 12', c0.heading, 'Twelve weeks is now the time left on this aim.', 'Limits: The aim still has no measure.'])
+    expect([...x.querySelectorAll<HTMLElement>('[data-mentioned]')].map((e) => e.dataset['mentioned'])).toEqual([c1.id])
+    expect(x.querySelector('[data-testid="reasoning-examined-mentioned"]')!.textContent!.startsWith('Mentioned:')).toBe(true)
+    expect(screen.getByTestId('reasoning-answered').textContent!.toLowerCase()).not.toMatch(/rests on|evidence/)
+    fireEvent.click(x.querySelector('[data-testid="reasoning-examined-bound"]')!)
+    expect(focus.node.mock.calls).toEqual([[c0.id]])
+  })
+  it('CONTRAST: empty mentioned draws no Mentioned line; no reasoning block or an empty list draws no Answered section', () => {
+    const view = typed([{ id: 'x1', question_id: Q.id, question: Q.text, about: null, supplied: { by: 'Ada', by_id: 'p1', text: 'not sure', at: '' }, bound: null, finding: null, mentioned: [], limits: null, proposal_id: null, olumi: true }])
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x1"]')!
+    expect([x.querySelector('[data-testid="reasoning-examined-mentioned"]'), x.querySelector('[data-testid="reasoning-examined-bound"]'), x.querySelector('[data-testid="reasoning-examined-finding"]')]).toEqual([null, null, null])
+    cleanup()
+    ready(read())
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-answered')).toBeNull()
+    cleanup()
+    ready(typed([]))
+    render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-answered')).toBeNull()
   })
 })

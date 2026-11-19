@@ -8,7 +8,10 @@
 import { useState } from 'react'
 import { newOp, TeamApiError } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
-import { answerQuestion, type Question } from './answer'
+import type { ViewModel } from '../client'
+import { OkIcon } from '../look/icons'
+import { pressCard } from './tabRing'
+import { answerQuestion, examinedOf, type Examination, type Question } from './answer'
 import { TYPE } from '../port/type'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
@@ -18,6 +21,11 @@ export const ANSWER_WORDS = {
   send: 'Answer',
   sending: 'Sending',
   failed: 'Olumi could not take the answer just now. Your words are kept: try again.',
+  answered: 'Answered',
+  supplied: 'Answer given',
+  bound: 'Set on',
+  mentioned: 'Mentioned',
+  limits: 'Limits',
 } as const
 
 const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act} disabled:cursor-not-allowed disabled:opacity-60`
@@ -54,5 +62,45 @@ export function AnswerBox({ q }: { q: Question }) {
       </div>
       {error === null ? null : <p role="alert" className={`${TYPE.meta} m-0 text-text-body`} data-testid="reasoning-answer-error">{error}</p>}
     </form>
+  )
+}
+
+/**
+ * One examination, by id (AS BUILT): what was asked, what the person supplied, the card core bound it to (one press), Olumi's reply as served
+ * (marked Olumi's) and its limits. `mentioned` is said as what it is, the cards the reply mentions, never what it rests on, and only the ones
+ * that are cards on this model; empty, it draws nothing.
+ */
+function Examined({ x, model }: { x: Examination; model: ViewModel }) {
+  const card = (id: string | null) => (id === null ? null : model.cards.find((c) => c.id === id) ?? null)
+  const bound = card(x.bound)
+  const mentioned = x.mentioned.flatMap((id) => { const c = card(id); return c === null ? [] : [c] })
+  const press = `${TYPE.meta} rounded-sm text-left text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+  return (
+    <li className="space-y-1 px-1 py-1.5" data-examined={x.id} data-examined-question={x.question_id}>
+      <p className={`${TYPE.body} m-0 flex items-start gap-2 text-text-header`}><OkIcon id="olumi-mark" size={14} className="mt-0.5" decorative /><span className="min-w-0 flex-1 break-words" data-testid="reasoning-examined-question">{x.question}</span></p>
+      <p className={`${TYPE.meta} m-0 break-words pl-6 text-text-body`} data-testid="reasoning-examined-supplied"><span className="text-text-light">{ANSWER_WORDS.supplied}: </span>{x.supplied.by === '' ? null : `${x.supplied.by}: `}{x.supplied.text}</p>
+      {bound === null ? null : (
+        <p className={`${TYPE.meta} m-0 pl-6`}><span className="text-text-light">{ANSWER_WORDS.bound}: </span>
+          <button type="button" onClick={() => pressCard(bound.id)} className={press} data-testid="reasoning-examined-bound" data-view={`${bound.id}.heading`}>{bound.heading}</button></p>
+      )}
+      {x.finding === null ? null : <p className={`${TYPE.body} m-0 flex items-start gap-2 pl-6 text-text-body`} data-testid="reasoning-examined-finding"><OkIcon id="olumi-mark" size={12} className="mt-1" decorative /><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{x.finding.text}</span></p>}
+      {mentioned.length === 0 ? null : (
+        <p className={`${TYPE.meta} m-0 flex flex-wrap items-center gap-x-2 pl-6`} data-testid="reasoning-examined-mentioned"><span className="text-text-light">{ANSWER_WORDS.mentioned}:</span>
+          {mentioned.map((c) => <button key={c.id} type="button" onClick={() => pressCard(c.id)} className={press} data-mentioned={c.id} data-view={`${c.id}.heading`}>{c.heading}</button>)}</p>
+      )}
+      {x.limits === null ? null : <p className={`${TYPE.meta} m-0 break-words pl-6 text-text-light`} data-testid="reasoning-examined-limits">{ANSWER_WORDS.limits}: {x.limits}</p>}
+    </li>
+  )
+}
+
+/** What core has examined, in core's order; nothing on an older core or before any answer. */
+export function AnsweredList({ view, model }: { view: unknown; model: ViewModel }) {
+  const items = examinedOf(view)
+  if (items.length === 0) return null
+  return (
+    <section className="space-y-1" data-testid="reasoning-answered" aria-label={ANSWER_WORDS.answered}>
+      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{ANSWER_WORDS.answered}</h3>
+      <ul className="m-0 list-none divide-y divide-panel-border p-0">{items.map((x) => <Examined key={x.id} x={x} model={model} />)}</ul>
+    </section>
   )
 }
