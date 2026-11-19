@@ -12,7 +12,7 @@ import { typography } from '../../../styles/typography'
 
 type Span = { readonly lo: number; readonly hi: number }
 /** A side's span and the words for it, both from the one revealed figure, so the mark and its label can never disagree. */
-type Side = Span & { readonly text: string }
+type Side = Span & { readonly text: string; readonly unit: string }
 
 /** Each side's span from the revealed figure it names, or null when any side has none (a link, a factor, or a figure core did not send). */
 export function sideSpans(view: View, d: Difference): Side[] | null {

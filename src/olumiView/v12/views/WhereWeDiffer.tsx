@@ -140,6 +140,9 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       </div>
       {/* Crux first (Paul, 18 Nov): core's own sentence for this difference, at rest; then what would tell the views apart. */}
       <p className={`${BODY} break-words`} data-testid={`${at}-status`}>{d.status_text}</p>
+      {/* Each option's chance of meeting the aim with each person's figure, beside the sentence it supports (Paul's go, 19 Nov, track C1: the
+          product's headline is each option's chance; at the card's foot it sat below the fold). The figures' own marks stay in the drawing below. */}
+      <ChanceBars d={d} heading={h.options} modelHeading={h.model} at={at} />
       {/* Olumi's reading of this card (core's `marks[].reading`, bound by the mark's own card id), with core's note naming who can say whether
           it fits: promoted from the canvas-marks fold (Codex ROOT 23:48:16Z). */}
       {reading !== null && (
@@ -162,7 +165,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
       </div>
       {d.steps.length > 0 && <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-steps`}>{d.steps.map((s) => <li key={s.id} className={`${META} break-words text-text-body`} data-step={s.step}>{s.text}</li>)}</ul>}
-      {/* The drawing supports the sentence: who said what, and each option's chance with each person's figure. */}
+      {/* The drawing supports the sentence: who said what (each option's chance is drawn under the sentence, above). */}
       <div className="grid gap-2.5 border-t border-panel-border pt-2.5" data-testid={`${at}-drawn`}>
         {drawn ? <FigureSides view={view} d={d} at={at} /> : (
           <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-sides`}>
@@ -174,7 +177,6 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
             ))}
           </ul>
         )}
-        <ChanceBars d={d} heading={h.options} modelHeading={h.model} at={at} />
       </div>
       {error && <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p>}
     </article>

@@ -40,7 +40,7 @@ import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
 import { SimpleFace } from '../v12/SimpleFace'
-import { CardDisputeMark } from '../../olumiCore/team/CardDispute'
+import { CardDisputeMark, CardSplit, usePeopleOnCard } from '../../olumiCore/team/CardDispute'
 import { CommittedMark } from '../v12/team/CommittedMark'
 import { RestsOn } from '../v12/cards/RestsOn'
 import { notesOpenOn } from '../v12/qualitativeNotes'
@@ -186,6 +186,8 @@ const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', d
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
+  // After a reveal, each person's revealed figure for this card where the team's figures differ on it (the split, drawn under the face).
+  const people = usePeopleOnCard(id)
   // V12: Simple draws the card as visuals (v12/SimpleFace.tsx); Detailed draws today's full face. The note's card wears Olumi's badge.
   const simple = useLevel() === 'simple'
   const me = useMe((s) => s.me)
@@ -459,7 +461,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
-          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}<CardDisputeMark card={id} /></>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
+          {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}<CardDisputeMark card={id} /></>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
@@ -478,6 +480,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {(() => { const gap = unsizedWords(card); return gap === null ? null : <p className="ok-quiet" data-unsized={id} data-unsized-words={id} title={gap}>{onceWords(gap)}</p> })()}
           {/* A range bar only where the range has a spread (Paul's 17 Nov capture: a 0 to 2 months bar for a fixed deadline encoded nothing). */}
           {card.family === 'option' || !hasSpread(card) || (card.values?.length ?? 0) > 0 ? null : <RangeBar card={card} view={{ model }} />}
+          <CardSplit card={card} people={people} />
           {card.family === 'option' ? <AimRows card={card} model={model} shared={sharedRows} /> : <AimResults aim={card} model={model} shared={sharedRows} />}
           <SaidOnce lines={said.aims.get(id) ?? []} at={id} />
           {reading === null ? null : <p className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} title={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</p>}
