@@ -52,3 +52,23 @@ describe('the option card face is core\'s headline line', () => {
     expect(row.closest('[data-view-more]')).toBeNull()
   })
 })
+
+describe('from_views (typed fields, 19 Nov): who a card draws on, in the opened card only', () => {
+  const base = face('bakery').model!.cards.find((c) => c.family !== 'option')!
+  it('names each contributor once, in core order, as a contribution (never a belief), beside the card; the face is unchanged', () => {
+    const card = { ...base, from_views: [{ person: 'p_ada', name: 'Ada' }, { person: 'p_owen', name: 'Owen' }, { person: 'p_ada', name: 'Ada' }] } as typeof base
+    const { container } = render(<ViewCard card={card} />)
+    const lines = [...container.querySelectorAll('[data-from-view]')]
+    expect(lines.map((l) => [l.getAttribute('data-from-view'), l.textContent])).toEqual([['p_ada', 'From Ada’s contribution'], ['p_owen', 'From Owen’s contribution']])
+    expect(lines.every((l) => l.closest('[data-view-more]') !== null)).toBe(true)
+    const plain = render(<ViewCard card={base} />).container
+    expect(plain.querySelector('[data-from-view]')).toBeNull()
+  })
+  it('absent, empty or malformed draws nothing', () => {
+    for (const from_views of [undefined, [], [{ person: 1, name: 'X' }], [{ person: 'p', name: '  ' }], 'Ada'] as unknown[]) {
+      cleanup()
+      const { container } = render(<ViewCard card={{ ...base, from_views } as typeof base} />)
+      expect(container.querySelector('[data-from-view]')).toBeNull()
+    }
+  })
+})
