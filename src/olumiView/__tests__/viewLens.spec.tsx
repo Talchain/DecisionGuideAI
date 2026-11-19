@@ -25,12 +25,16 @@ describe('Rests on, from the View', () => {
     // what moves every option's chance most, drawn as its own card (it was folded into `customers`' badge; `customers` is worked out from others, no edit,
     // so it is no longer on the list), the four assumptions and conditions, and the two options whose badges fold the Run's what-ifs
     // (`broad_entry_acquisitions`, `pilot_acquisitions`): all in the View's card order, numbered from 1.
+    // b4ec56e08 (12 Nov, served View fixtures) re-cut the golden from core: `profitability`, a figure core offers to edit and marks Olumi's, joined it, and
+    // core's own count line (`lens_words.rests_on_label`) went from 7 to 8 in the same commit. A legitimate growth by the lens's rule; the pin follows it.
     const ids = ['starting_customers', 'customer_target', 'entry_delay', 'churn_rate', 'churn_danger_threshold', 'existing_market_acquisitions',
-      'customer_flow_assumptions', 'investment_cap', 'target_interpretation', 'broader_entry', 'country_readiness', 'shared_churn_stress', 'single_country_test']
+      'customer_flow_assumptions', 'investment_cap', 'profitability', 'target_interpretation', 'broader_entry', 'country_readiness', 'shared_churn_stress', 'single_country_test']
     expect([...items.values()].map((i) => [i.id, i.n])).toEqual(ids.map((id, i) => [id, i + 1]))
-    expect([...items.values()].filter((i) => i.olumi).map((i) => i.id)).toEqual(['existing_market_acquisitions', 'customer_flow_assumptions', 'target_interpretation',
+    expect([...items.values()].filter((i) => i.olumi).map((i) => i.id)).toEqual(['existing_market_acquisitions', 'customer_flow_assumptions', 'profitability', 'target_interpretation',
       'broader_entry', 'country_readiness', 'shared_churn_stress', 'single_country_test'])
-    expect(olumi).toBe(7) // R3: the driver card `existing_market_acquisitions` is Olumi's (core's ◆) and on the list for its own edit
+    expect(olumi).toBe(8) // b4ec56e08: `profitability` is Olumi's. R3: the driver card `existing_market_acquisitions` is Olumi's (core's ◆) and on the list for its own edit
+    // The UI's count agrees with core's own (lensWordsOf, the same rule): a drift of either side's rule turns this red, not only a re-cut golden.
+    expect(view.lens_words!.rests_on_label).toBe(`Rests on, ${olumi} to check or set`)
   })
 
   it('CONTRAST: a figure core works out from others (no edit), an option and the goal rest on nothing', () => {
@@ -64,10 +68,10 @@ describe('the lane\'s lens bar', () => {
   it('Model, Trade-offs and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
-    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on7', 'If it failed', 'What would change', 'What if'])
+    expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on8', 'If it failed', 'What would change', 'What if']) // 8 since b4ec56e08 (`profitability`)
     // Trade-offs on this lane is core's option rows by aim, not the legacy routes along links: its hover is its label, never that hint.
     expect(screen.getByTestId('lens-bar-tradeoffs').getAttribute('title')).toBe('Trade-offs')
-    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe('Rests on, 7 to check or set')
+    expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe(view.lens_words!.rests_on_label) // core's own words (8 since b4ec56e08)
     expect(screen.getByTestId('lens-bar-full').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('lens-bar-rests_on'))
     expect(useViewLens.getState().lens).toBe('rests_on')
