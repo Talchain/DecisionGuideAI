@@ -219,7 +219,8 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
   // box stands still where the slide brings its card beside it (`at`: never outside the window on the way); after, it is held at its offset from its card
   // (`lock`), so it moves with the card, clear of every card as the card is. Dropped when the free canvas changes or the box would leave it.
   // The slide is checked once the board stands still after it: a box whose held place is not whole in the free canvas or has a card under it (another move
-  // cut the slide short: 19 Nov pair check, 1.33 scale, the board moved 15 of 50 px) lets the board slide again (`again`), up to MAX_SLIDES.
+  // cut the slide short, or it fell short: 19 Nov pair check, 1.33 scale, pressed just after another card's box closed, the board moved 15 px where 52 were
+  // needed and the box was then cut and lay over two cards) lets the board slide again (`again`), up to MAX_SLIDES.
   let lock: { ox: number; oy: number; h: number; free: string; at: { left: number; top: number }; checked: boolean } | null = null
   let slid = 0, movingUntil = 0, again = false
   let stood: { ax: number; ay: number; free: string; left: number; top: number; placed: number } | null = null

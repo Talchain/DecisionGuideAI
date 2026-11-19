@@ -113,8 +113,8 @@ export function openClearOf(box: Rect, panel: Rect | undefined, r: Regions): { d
   return over > 0 ? { dx: c.dx, dy: Math.trunc(c.dy - Math.min(over, Math.max(0, box.top + c.dy - r.head.bottom))) } : c
 }
 
-/** While the details box slides the board to make room (makeRoom.ts), this rule's move waits until the slide is done: started during it, it would cut the
- *  slide short (19 Nov pair check, 1.33 scale: the box stood where the slide was to bring its card, and the cards had not moved). Until when, in `performance` ms. */
+/** While the details box slides the board to make room (makeRoom.ts), this rule's move waits until the slide is done: a second move started during it would
+ *  cut the slide short. (A guard: the 19 Nov pair-check trace did not show this rule as what stopped a slide.) Until when, in `performance` ms. */
 let heldUntil = 0
 const clock = (): number => (typeof performance === 'undefined' ? Date.now() : performance.now())
 export function holdBoard(ms: number): void { heldUntil = Math.max(heldUntil, clock() + ms) }
