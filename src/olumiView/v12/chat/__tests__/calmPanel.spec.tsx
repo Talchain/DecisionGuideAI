@@ -278,6 +278,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   const visible = (c: ParentNode) => [...c.querySelectorAll<HTMLElement>('[data-view^="model.coaching_questions"]')].filter((e) => !e.hidden && e.closest('[hidden]') === null)
   const open = (card: HTMLElement) => { fireEvent.click(q(card, 'view-question-toggle')!); return card }
   it('REMOVE (Paul, 19 Nov: "not just collapse, but remove"): the card has a remove press; pressed, the card is gone, not folded; CONTRAST: the chevron only folds it', () => {
+    try {
     const c = mount(asked())
     const card = q(c, 'view-model-question')!
     open(card); open(card)
@@ -286,11 +287,11 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(c, 'view-model-question'), 'removed, not folded').toBeNull()
     // CONTRAST (Codex 11:15:52Z): the same question id in new words is a new question, so it shows again.
     cleanup()
-    const v = asked() as unknown as { model: { coaching_questions: unknown[] } }
-    const reworded = JSON.parse(JSON.stringify(v).replace(/"text":"([^"]+)"/, '"text":"$1 (reworded)"'))
-    const c2 = mount(reworded as View)
+    const v = JSON.parse(JSON.stringify(asked())) as { model: { coaching_questions: ({ text: string } | string)[] } }
+    v.model.coaching_questions = v.model.coaching_questions.map((x) => (typeof x === 'string' ? `${x} (reworded)` : { ...x, text: `${x.text} (reworded)` }))
+    const c2 = mount(v as unknown as View)
     expect(q(c2, 'view-model-question'), 'reworded: shown again').not.toBeNull()
-    resetRemovedQuestions()
+    } finally { resetRemovedQuestions() }
   })
   it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
     const c = mount(asked())
