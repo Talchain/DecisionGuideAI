@@ -5,7 +5,7 @@
  */
 import type { ViewModel } from './client'
 import { pressCard, ringFrom } from './reasoning/tabRing'
-import { findingOf } from './v12/contract'
+import { findingOf, hasAnyResult } from './v12/contract'
 import { recordReach, showRecord } from './v12/showInWorkspace/show'
 import { typography } from '../styles/typography'
 import { OkIcon } from './look/icons'
@@ -18,10 +18,14 @@ export function FindingLine({ model, at }: { model: ViewModel | null | undefined
   const f = findingOf(model)
   if (f === null) return null
   const card = f.figure === null ? null : model?.cards.find((c) => c.id === f.figure) ?? null
+  // Said once (Paul 19 Nov: "cannot be worked out" three times): with no calculated result on any option the finding is a status the aim card already says
+  // ("needs a target", "No chance yet"), so the question card does not draw its sentence; the figure and the needs line stay. Read by field (`hasAnyResult`), never by words.
+  const sentence = !(at === 'question' && !hasAnyResult(model))
+  if (!sentence && card === null && f.needs === null) return null
   // A figure folded behind a badge, a group or Simple's inputs is opened and shown (the reply's own show path); a drawn card is pressed.
   return (
     <div className="grid min-w-0 gap-0.5" data-finding={at}>
-      <p className={`${at === 'question' ? typography.viewLabel : typography.viewPanelBody} m-0 line-clamp-2 break-words text-text-body`} title={f.title} data-view="run.finding">{f.text}</p>
+      {sentence ? <p className={`${at === 'question' ? typography.viewLabel : typography.viewPanelBody} m-0 line-clamp-2 break-words text-text-body`} title={f.title} data-view="run.finding">{f.text}</p> : null}
       {card === null ? null
         : <button type="button" className={`${typography.viewLabel} nodrag m-0 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} title={`${FINDING_FIGURE}: ${card.heading}`} aria-label={`${FINDING_FIGURE}: ${card.heading}`} onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }}
             onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])} onMouseLeave={() => ringFrom(RING, [])} data-finding-figure={card.id}><OkIcon id="why-moves" size={14} inherit decorative /><span className="min-w-0 truncate">{card.heading}</span></button>}

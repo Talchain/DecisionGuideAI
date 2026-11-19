@@ -583,6 +583,27 @@ describe('surfaces step 3: details beside their card', () => {
     } finally { spy.mockRestore(); cue.remove() }
   })
 
+  it('S3-r (Paul 19 Nov) a card at the board\'s foot with a card row above it: the box is not slid up onto that row; it stands beside the card at the card\'s own top, cut to the room below (its body scrolls). CONTRAST with no row above the hover rule\'s own place is kept', () => {
+    const free = { left: 0, top: 0, right: 1000, bottom: 700 }, card = { left: 400, top: 560, right: 620, bottom: 680 }
+    const row = [{ left: 640, top: 300, right: 900, bottom: 420 }, { left: 120, top: 300, right: 380, bottom: 420 }]
+    const size = { width: 280, height: 360 }
+    const nodes = row.map(() => { const n = document.createElement('div'); n.className = 'react-flow__node'; document.body.appendChild(n); return n })
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const i = nodes.indexOf(this as HTMLDivElement), r = i >= 0 ? row[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
+      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
+    })
+    try {
+      const p = placeBeside(card, null, size, free)
+      const box = { left: p.left, top: p.top, right: p.left + size.width, bottom: p.top + (p.maxHeight ?? size.height) }
+      const on = (b: typeof box, c: { left: number; top: number; right: number; bottom: number }) => b.left < c.right && b.right > c.left && b.top < c.bottom && b.bottom > c.top
+      expect(row.some((c) => on(box, c)), `box ${JSON.stringify(box)} on the row above`).toBe(false)
+      expect(p.top, 'at the card\'s own top, not lifted').toBe(card.top)
+      expect(p.maxHeight, 'cut to the room below, its body scrolls').not.toBeNull()
+    } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()) }
+    const free2 = placeBeside(card, null, size, free)
+    expect(free2.top, 'CONTRAST: with the row gone the same card keeps the hover rule\'s lifted place').toBeLessThan(card.top)
+  })
+
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
     const free = { left: 0, top: 0, right: 600, bottom: 340 }, card = { left: 180, top: 110, right: 420, bottom: 230 }
     const form = placeBeside(card, null, { width: 280, height: 420 }, free, FORM_MIN_SHOWN)
