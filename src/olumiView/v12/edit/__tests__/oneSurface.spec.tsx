@@ -188,7 +188,7 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open()).toEqual(['details'])
   })
 
-  it('ONE-9 Escape in the message box with a canvas surface open leaves the waiting challenge waiting and the surface open; with none open it cancels the challenge', async () => {
+  it('ONE-9 Escape in the message box with a canvas surface open closes the surface and leaves the waiting challenge waiting (S4 press: it used to leave the surface open); the next Escape, with none open, cancels the challenge', async () => {
     await board(true)
     act(() => { useViewChat.setState({ armed: 'opposite' }) })
     // Opened from the store: pressing a card would pick it for the waiting challenge.
@@ -197,9 +197,8 @@ describe('surfaces step 2: one thing open at a time', () => {
     const field = document.getElementById('view-chat-text') as HTMLElement
     field.focus()
     fireEvent.keyDown(field, { key: 'Escape' }); await settle()
-    expect(useViewChat.getState().armed, 'surface open: the challenge keeps waiting').toBe('opposite')
-    expect(open()).toEqual(['details'])
-    act(() => { useLaneInspector.getState().close() })
+    expect(useViewChat.getState().armed, 'surface was open: the challenge keeps waiting').toBe('opposite')
+    expect(open(), 'the surface is closed by the first press').toEqual([])
     fireEvent.keyDown(field, { key: 'Escape' }); await settle()
     expect(useViewChat.getState().armed, 'contrast: nothing open, Escape cancels it').toBeNull()
   })
