@@ -22,7 +22,8 @@ import { FoldChevron } from '../../look/FoldChevron'
 import { V10_METHODS } from '../../../presentation/V10MethodChips'
 import { HIT_44 } from '../../../styles/hitArea'
 
-export interface AskedQuestion { readonly key: string; readonly view: string; readonly text: string; readonly id: string | null; readonly edit: object | null }
+/** `answers`: core's typed question id (question-answer CONTRACT §2) when core sent this question typed: the answer is bound to it by identity. */
+export interface AskedQuestion { readonly key: string; readonly view: string; readonly text: string; readonly id: string | null; readonly edit: object | null; readonly answers?: string | null }
 
 export const USE_THIS = 'Use this'
 /** Chrome words only: the box's prompt and the chevron's names. The question itself is core's. */

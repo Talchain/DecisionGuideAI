@@ -228,7 +228,8 @@ describe('towards commitment: where views differ, what is still disputed, what i
     const view = withRecords()
     const k = (view.collab as Collab).commitments[0]!
     k.trigger = { ...({} as NonNullable<typeof k.trigger>), text: 'If paid conversion with three screens falls below 5%, the lead changes.' }
-    k.outcomes = [{ ...({} as (typeof k.outcomes)[number]), id: 1, happened: 'Conversion held at 6.2%.' }, { ...({} as (typeof k.outcomes)[number]), id: 2, happened: 'Conversion fell to 5.8%.' }]
+    // Core's real order (read-view.ts:213 at 339b3286: own rows .reverse()): the NEWEST outcome first.
+    k.outcomes = [{ ...({} as (typeof k.outcomes)[number]), id: 2, happened: 'Conversion fell to 5.8%.' }, { ...({} as (typeof k.outcomes)[number]), id: 1, happened: 'Conversion held at 6.2%.' }]
     ready(view)
     render(<ViewReasoningBlock />)
     expect([screen.getByTestId('reasoning-commitment-trigger-7').textContent, screen.getByTestId('reasoning-commitment-happened-7').textContent])

@@ -50,7 +50,7 @@ export function examineOf(model: ViewModel, methods: readonly MethodWord[] | nul
   // Core's typed questions when it sends them (each answerable in place by its id); else its coaching texts, as before.
   const typed = questionsOf(model)
   const questions: Examine[] = typed.length > 0
-    ? typed.map((t, i) => ({ kind: 'question', key: `q:${t.id}`, i, q: t.text, typed: t } satisfies Examine))
+    ? typed.map((t) => ({ kind: 'question', key: `q:${t.id}`, i: t.at, q: t.text, typed: t } satisfies Examine))
     : (model.coaching_questions ?? []).flatMap((q, i) => (q === '' ? [] : [{ kind: 'question', key: `q:${i}`, i, q, typed: null } satisfies Examine]))
   const rest: Examine[] = widenOf(words).map((w) => ({ kind: 'widen', key: `w:${w.k}`, w }))
   return [...challenges, ...questions, ...rest, ...sharpen.filter(actionable), ...sharpen.filter((e) => !actionable(e))]

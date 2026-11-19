@@ -3,6 +3,7 @@
  * surface draws, and coordinate arithmetic. It never writes a word, formats a figure, orders what the View ordered, or joins strings:
  * core did all of that. Everything else here draws View strings exactly as they arrive (src/olumiView/__tests__/contract.spec.tsx).
  */
+import { questionsOf } from './reasoning/answer'
 import { MODEL_GROUP_TITLE, MODEL_TAB_GOAL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import type { Edge, Node } from '@xyflow/react'
 import { FOOT_CLEAR, FOOT_W, STORY_ROOM_Y } from './regions'
@@ -1314,10 +1315,15 @@ export function readingHeadingOf(marks: NonNullable<View['proposal']>['marks'], 
 /** The three questions shown beside the model keep their exact paths, even when another question is blank. */
 export function chatQuestionsOf(model: ViewModel | null | undefined) {
   const trial = (model?.trial_questions ?? []).flatMap((t, at) => t.title === '' ? [] : [{
-    key: 't:' + t.id, view: 'model.trial_questions.' + at + '.title', text: t.title, id: t.id, edit: t.edit,
+    key: 't:' + t.id, view: 'model.trial_questions.' + at + '.title', text: t.title, id: t.id, edit: t.edit, answers: null as string | null,
   }])
-  const coaching = (model?.coaching_questions ?? []).flatMap((text, at) => text === '' ? [] : [{
-    key: 'c:' + at, view: 'model.coaching_questions.' + at, text, id: null, edit: null,
-  }])
+  // Core's typed questions when it sends them (question-answer CONTRACT §6): each card carries the question's own id, so its answer is
+  // bound by identity (never by its words). Else the coaching texts, as before.
+  const typed = model == null ? [] : questionsOf(model)
+  const coaching = typed.length > 0
+    ? typed.map((q) => ({ key: 'q:' + q.id, view: 'model.questions.' + q.at + '.text', text: q.text, id: null, edit: null, answers: q.id as string | null }))
+    : (model?.coaching_questions ?? []).flatMap((text, at) => text === '' ? [] : [{
+      key: 'c:' + at, view: 'model.coaching_questions.' + at, text, id: null, edit: null, answers: null as string | null,
+    }])
   return [...trial, ...coaching].slice(0, 3)
 }

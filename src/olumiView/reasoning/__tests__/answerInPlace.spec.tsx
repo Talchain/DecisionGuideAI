@@ -19,8 +19,8 @@ import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { TeamApiError } from '../../../olumiCore/team/api'
-import { ViewReasoningBlock } from '../../ViewReasoning'
-import { coreQuestionIdOf } from '../answer'
+import { StartHere, ViewReasoningBlock } from '../../ViewReasoning'
+import { chatQuestionsOf } from '../../layout'
 
 const read = (): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
 const Q = { id: 'q0123456789', text: 'How many weeks are left before the release must ship?', target: null as string | null, role: 'due', unit: 'week' }
@@ -79,16 +79,41 @@ describe('answer in place (CONTRACT §2-§3)', () => {
   })
 })
 
-describe('the chat\'s question card: one answer path (CONTRACT §3)', () => {
-  it('a coaching question core sent typed at the same place carries its id: the card\'s answer goes to …/answer bound to that id', () => {
+describe('the chat\'s question card: bound by core\'s typed id, never by words (CONTRACT §6)', () => {
+  it('with model.questions, each card is core\'s typed question and carries its id; CONTRAST: without it, the coaching texts carry none', () => {
     const view = typed()
-    ;(view.model as unknown as { questions: unknown[] }).questions = view.model!.coaching_questions!.map((text, i) => ({ id: `qid${i}`, text, target: null, role: null, unit: null }))
-    expect(coreQuestionIdOf(view.model, 'c:1', view.model!.coaching_questions![1]!)).toBe('qid1')
+    expect(chatQuestionsOf(view.model).filter((q) => q.key.startsWith('q:')).map((q) => [q.text, q.answers])).toEqual([[Q.text, Q.id]])
+    expect(chatQuestionsOf(read().model).filter((q) => !q.key.startsWith('t:')).every((q) => q.answers === null)).toBe(true)
   })
-  it('CONTRAST: no typed question (an older core), a trial question, or other words at that place: null, so the answer goes as today\'s message', () => {
-    const view = typed()
-    ;(view.model as unknown as { questions: unknown[] }).questions = view.model!.coaching_questions!.map((text, i) => ({ id: `qid${i}`, text, target: null, role: null, unit: null }))
-    expect([coreQuestionIdOf(read().model, 'c:1', read().model!.coaching_questions![1]!), coreQuestionIdOf(view.model, 't:abc', view.model!.coaching_questions![1]!), coreQuestionIdOf(view.model, 'c:1', 'Some other words')])
-      .toEqual([null, null, null])
+})
+
+describe('the box belongs to one question, and a send loses nothing typed (Codex ROOT 01:14Z)', () => {
+  it('read-only while its answer is being sent, and success clears only the words that were sent', async () => {
+    ready(typed())
+    let resolve!: (v: unknown) => void
+    api.call.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    render(<ViewReasoningBlock />)
+    const input = screen.getAllByTestId('reasoning-answer-input')[0] as HTMLInputElement
+    fireEvent.change(input, { target: { value: '12' } })
+    await act(async () => { fireEvent.click(screen.getAllByTestId('reasoning-answer-send')[0]!) })
+    expect(input.readOnly).toBe(true)
+    await act(async () => { resolve({}) })
+    expect([input.readOnly, input.value]).toEqual([false, ''])
+  })
+  it('Analysis\'s activity: when the first question changes from A to B, B\'s box starts empty and its answer is sent with B\'s id', async () => {
+    const a = typed()
+    ready(a)
+    const r = render(<StartHere model={a.model!} />)
+    fireEvent.change(screen.getByTestId('reasoning-answer-input'), { target: { value: 'for A' } })
+    const b = typed()
+    ;(b.model as unknown as { questions: unknown[] }).questions = [{ id: 'qB', text: 'What would tell you the release is safe?', target: null, role: null, unit: null }]
+    ready(b)
+    r.rerender(<StartHere model={b.model!} />)
+    const input = screen.getByTestId('reasoning-answer-input') as HTMLInputElement
+    expect([input.value, input.closest('[data-answer-for]')!.getAttribute('data-answer-for')]).toEqual(['', 'qB'])
+    api.call.mockResolvedValueOnce({})
+    fireEvent.change(input, { target: { value: 'for B' } })
+    await act(async () => { fireEvent.click(screen.getByTestId('reasoning-answer-send')) })
+    expect([api.call.mock.calls[0]![2].question_id, api.call.mock.calls[0]![2].text]).toEqual(['qB', 'for B'])
   })
 })
