@@ -241,7 +241,7 @@ describe('a figure with no value yet, and one that waits', () => {
     // CHANGED BY DESIGN (the lead's D2, 17 Nov: worked steps closed at rest; was R7, drawn open in the card's flow): Simple says core's "waits on" words as the
     // one quiet line, the working is not drawn open, and what it waits on (core's `needs`, fields.ts needsOf) is the line's hover after core's title.
     const el = draw(ASKED, 'spend', 'simple'), simple = el.querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([simple.textContent, simple.title.split('\n')[0], simple.classList.contains('ok-one-line')]).toEqual([spend.figure!.text, spend.figure!.title, true])
+    expect([simple.textContent, simple.title.split('\n')[0], simple.classList.contains('ok-two-lines')]).toEqual([spend.figure!.text, spend.figure!.title, true])
     expect(simple.title.split('\n').slice(1), 'what it waits on, by core\'s labels').toEqual(needsOf(spend).needs.map((n) => n.label))
     expect(el.querySelector('.ok-empty, [data-testid$="-empty-bar"]')).toBeNull()
     expect(el.querySelector('details.ok-steps-inline, [data-simple-below="spend"]'), 'the working is closed at rest').toBeNull()
@@ -464,7 +464,7 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
   const APP = golden('app-launch.view.json')
   const DESC = 'A short description from core'
   const described = (v: View, id: string): View => withCard(v, { ...cardOf(v, id), description: DESC } as unknown as ViewCard)
-  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-one-line')
+  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-two-lines')
   /** v10 review item 3: the two-line basis line, bound by its own class (only P4's card, which has no sized figure). */
   const twoLineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-two-lines')
   it('P1 a result that waits keeps core\'s "waits on" words as the line with a description sent; the description joins the hover', () => {
@@ -531,6 +531,12 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     expect(line('13', point)?.textContent, 'CONTRAST: another number is kept').toBe('13')
     cleanup()
     expect(line('12', { low: 10, likely: null, high: 14, unit: 'weeks' })?.textContent, 'CONTRAST: a range with no likely value is not one number').toBe('12')
+  })
+  it('P5 (S4 details task 4) a card\'s quiet line wraps to two lines, never one cut with an ellipsis: no card draws ok-one-line and the look has no such rule; CONTRAST: the line is still there, whole in its hover', () => {
+    const spend = cardOf(ASKED, 'spend')
+    const line = lineOf(draw(ASKED, 'spend', 'simple'))!
+    expect([line.classList.contains('ok-one-line'), line.title.split('\n')[0]]).toEqual([false, spend.figure!.title])
+    expect(readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')).not.toMatch(/\.ok-one-line/)
   })
   it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own

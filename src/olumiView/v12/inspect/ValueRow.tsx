@@ -132,11 +132,14 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
           <button type="button" disabled={sending} data-testid="inspector-figure-rebase" className="nodrag inline-flex min-h-[24px] items-center underline underline-offset-2 hover:text-text-header"
             onClick={() => { store({ ...values, [BASE_KEY]: String(live) }); setError(null) }}>{USE_LATEST}</button></p>
       ) : null}
-      <div className="flex flex-wrap gap-1">
-        <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={btn}>
-          {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
-        {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={`${btn}${primary === 'try' ? ' order-first bg-primary text-text-on-color' : ''}`}>{VALUE_WORDS.tryIt}</button>}
-      </div>
+      {/* The buttons are drawn once there is something to send: a Set (or Try) beside an empty field is a control dimmed at rest with no reason. Enter in the field still submits. */}
+      {!typedAny ? null : (
+        <div className="flex flex-wrap gap-1">
+          <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={btn}>
+            {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
+          {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={`${btn}${primary === 'try' ? ' order-first bg-primary text-text-on-color' : ''}`}>{VALUE_WORDS.tryIt}</button>}
+        </div>
+      )}
     </form>
   )
 }
