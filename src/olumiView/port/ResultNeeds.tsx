@@ -27,7 +27,11 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
   useViewStore((s) => s.view) // the View decides which rows the workspace can show
   const needs = needsOf(model)
   if (needs.length === 0) return null
-  const shown = all ? needs : needs.slice(0, AT_REST)
+  // DL / Codex 19 Nov: Olumi's worth-checking findings come last in needsOf, so on a no-chance model with many blockers they were always folded
+  // under "Show N more". They are read at rest, after the first AT_REST of the other rows; only those other rows fold.
+  const worth = needs.filter((n) => n.cls === 'worth'), rest = needs.filter((n) => n.cls !== 'worth')
+  const shown = all ? needs : [...rest.slice(0, AT_REST), ...worth]
+  const folded = rest.length - AT_REST
   const title = under ? NEEDS_WORDS.some : NEEDS_WORDS.none
   return (
     <section className="space-y-1" data-testid="analysis-needs" data-needs-under={under ? 'chart' : 'alone'} aria-label={title} onMouseLeave={() => ringFrom(RING, [])}>
@@ -42,16 +46,16 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
               <button type="button" disabled={card === null && place === null} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
                 title={n.title} className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-1 text-left hover:bg-panel-hover disabled:cursor-default disabled:hover:bg-transparent">
                 <OkIcon id={ICON_OF[n.cls]} size={14} decorative />
-                <span className="min-w-0 flex-1 text-text-body" {...(n.at === null ? {} : { 'data-view': n.at })}>{n.text}</span>
+                <span className="min-w-0 flex-1 text-text-body" {...(n.at === null ? {} : { 'data-view': n.at })}>{n.text}{n.detail === undefined ? null : <span className={`${TYPE.meta} block text-text-light`} data-need-detail={n.key}>{n.detail}</span>}</span>
               </button>
               {n.edit === null || card === null ? null : <FigureEdit id={card.id} edit={n.edit} place="analysis-need" glyph words={false} label={`Give a figure for ${card.heading}`} />}
             </li>
           )
         })}
       </ul>
-      {needs.length <= AT_REST ? null : (
+      {folded <= 0 ? null : (
         <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
-          <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(needs.length - AT_REST)}
+          <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(folded)}
         </button>
       )}
     </section>
