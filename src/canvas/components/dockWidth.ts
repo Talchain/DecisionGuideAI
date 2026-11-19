@@ -7,7 +7,12 @@
  * carried their own bounds. They agreed on the day they were written and
  * nothing would have gone red when they stopped. The rules now live here once.
  *
- * ⭐⭐ NARROWED TO 300px BY FOUNDER RULING, 14 Sep 2026 — AND THE 17 Aug RECORD
+ * ⭐⭐⭐⭐⭐ LARGE SCREENS NOW GROW THE DOCK, PAUL 19 Nov 2026 (~23:45Z, "yes, let the panel grow wider on big
+ * screens"). This SUPERSEDES the 14 Sep founder ruling recorded below: at and under the 1280 reference
+ * viewport nothing changes (347 at 1232, 360 at 1280); above it the dock keeps the same 28.125% ratio up to
+ * `DOCK_LARGE_SCREEN_MAX_WIDTH`, and the drag ceiling rises so a person can still go wider than the default.
+ *
+ * ⭐⭐ NARROWED TO 300px BY FOUNDER RULING, 14 Sep 2026 (superseded for large screens, see above) — AND THE 17 Aug RECORD
  * BELOW IS KEPT RATHER THAN DELETED, because it is the strongest argument
  * against this change and the next reader is entitled to it.
  *
@@ -52,13 +57,11 @@
  * The rules, in one place so the mount path, the resize path and the drag
  * path cannot drift apart (they were three separate copies of the bounds):
  *
- *  - `dockWidthBounds` — the HARD bounds a user drag may reach. Unchanged
- *    from the previous inline copies (`280` .. `min(480, 40% of viewport)`),
- *    so an existing persisted width keeps behaving exactly as before.
+ *  - `dockWidthBounds` — the HARD bounds a user drag may reach. `280` ..
+ *    `min(640, 40% of viewport)` (the cap was 480 until 19 Nov 2026). A stored dragged width keeps winning.
  *  - `responsiveDockWidth` — what the dock is when the user has NEVER dragged
- *    it. Capped at the historic 416px, floored at 280px so it stays usable,
- *    and proportional only in the band between — which, at the restored
- *    ratio, is viewports NARROWER than 1280.
+ *    it. Floored at 280px so it stays usable, proportional (28.125%) up to
+ *    `DOCK_LARGE_SCREEN_MAX_WIDTH`, which is viewports up to about 2000px.
  *  - `resolveDockWidth` — the width to apply right now. An explicit user
  *    width always wins over the responsive default; it is only re-clamped to
  *    the hard bounds, which is itself a fix (previously a width persisted at
@@ -71,8 +74,9 @@
 export const DOCK_MIN_WIDTH = 280
 
 /**
- * Ceiling for the RESPONSIVE default. Every viewport wide enough to reach it
- * gets it.
+ * The dock's width AT the 1280 reference viewport (the name is historic: it was the ceiling until 19 Nov 2026,
+ * when large screens were allowed to grow it — see `DOCK_LARGE_SCREEN_MAX_WIDTH`). It still defines the ratio
+ * below, and `src/index.css` carries it as the pre-hydration fallback.
  *
  * ⭐⭐⭐⭐ 360, PAUL + PANEL (27 Sep 2026 ~15:20Z). Paul: 319 "feels too small" and the V2
  * prototype's 420 card "too big"; somewhere in between. Panel's call as owner: 360, the V2
@@ -128,13 +132,22 @@ export const DOCK_MIN_WIDTH = 280
 export const DOCK_RESPONSIVE_MAX_WIDTH = 360
 
 /**
+ * Ceiling for the RESPONSIVE default on large screens (Paul, 19 Nov 2026): the 28.125% ratio is reached
+ * unchanged up to here, which is a viewport of 560 / 0.28125 = ~1991px, so about 2000px.
+ */
+export const DOCK_LARGE_SCREEN_MAX_WIDTH = 560
+
+/** Ceiling for a user drag on large screens, so a person can still widen past the default. */
+const DOCK_DRAG_MAX_WIDTH = 640
+
+/**
  * The reference viewport the ceiling is sized against — the laptop every
  * measurement in this module was taken at.
  */
 export const DOCK_REFERENCE_VIEWPORT = 1280
 
 /**
- * Share of the viewport the dock takes before the ceiling bites.
+ * Share of the viewport the dock takes before the large-screen ceiling bites.
  *
  * ⭐⭐ NOW GENUINELY DERIVED, WHICH ITS OWN COMMENT ALREADY CLAIMED IT WAS.
  *
@@ -145,8 +158,8 @@ export const DOCK_REFERENCE_VIEWPORT = 1280
  * the label of its own remedy (CLAUDE.md trap 12).
  *
  * It is now the division itself, so the invariant the module is designed around
- * — *the reference laptop lands exactly ON the ceiling, and only narrower
- * viewports taper* — holds for any future ceiling without anyone remembering.
+ * — *the reference laptop lands exactly on the reference width, narrower
+ * viewports taper and wider ones keep the same ratio* — holds for any future ceiling without anyone remembering.
  *
  * ⚠ CHANGING THE CEILING NOW CHANGES THIS. That is the point, and it is why
  * `dockWidth.spec.ts` pins the invariant (`responsiveDockWidth(1280) ===
@@ -161,7 +174,7 @@ export function dockWidthBounds(viewportWidth: number): { min: number; max: numb
     min: DOCK_MIN_WIDTH,
     // `max(min, …)` so a pathologically narrow viewport can never produce
     // max < min, which would make the clamp order-dependent.
-    max: Math.max(DOCK_MIN_WIDTH, Math.min(480, Math.floor(usable * 0.4))),
+    max: Math.max(DOCK_MIN_WIDTH, Math.min(DOCK_DRAG_MAX_WIDTH, Math.floor(usable * 0.4))),
   }
 }
 
@@ -169,7 +182,7 @@ export function dockWidthBounds(viewportWidth: number): { min: number; max: numb
 export function responsiveDockWidth(viewportWidth: number): number {
   const { min, max } = dockWidthBounds(viewportWidth)
   const proportional = Math.round((Number.isFinite(viewportWidth) ? viewportWidth : 0) * DOCK_VIEWPORT_RATIO)
-  const ceiling = Math.min(DOCK_RESPONSIVE_MAX_WIDTH, max)
+  const ceiling = Math.min(DOCK_LARGE_SCREEN_MAX_WIDTH, max)
   return Math.max(min, Math.min(ceiling, proportional))
 }
 

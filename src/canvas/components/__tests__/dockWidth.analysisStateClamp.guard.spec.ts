@@ -36,6 +36,7 @@ import { resolve } from 'node:path'
 import {
   DOCK_MIN_WIDTH,
   DOCK_RESPONSIVE_MAX_WIDTH,
+  DOCK_LARGE_SCREEN_MAX_WIDTH,
   DOCK_VIEWPORT_RATIO,
   resolveDockWidth,
   responsiveDockWidth,
@@ -49,12 +50,14 @@ import {
 const WIDE_VIEWPORTS = [1280, 1366, 1440, 1512, 1600, 1920, 2560, 3840] as const
 
 describe('G1 — the analysis-state clamp cannot return', () => {
-  it('the default width is DOCK_RESPONSIVE_MAX_WIDTH at every viewport ≥1280', () => {
+  it('the default width is the viewport ratio, floored at 360 from 1280 up and capped at the large-screen ceiling', () => {
     // `null` is the "user has never dragged it" signal, i.e. the state the
     // deleted clamp acted on. Under the clamp every one of these read 280.
     for (const vw of WIDE_VIEWPORTS) {
-      expect(resolveDockWidth(vw, null), `viewport ${vw}`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
-      expect(responsiveDockWidth(vw), `viewport ${vw} (responsive)`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+      const expected = Math.min(DOCK_LARGE_SCREEN_MAX_WIDTH, Math.round(vw * DOCK_VIEWPORT_RATIO))
+      expect(resolveDockWidth(vw, null), `viewport ${vw}`).toBe(expected)
+      expect(responsiveDockWidth(vw), `viewport ${vw} (responsive)`).toBe(expected)
+      expect(expected, `viewport ${vw} is not the drag floor`).toBeGreaterThanOrEqual(DOCK_RESPONSIVE_MAX_WIDTH)
     }
     // PIN THE PRECONDITION (trap 13b): 416 and 280 must be DIFFERENT numbers, or
     // the sweep above would be satisfied by the clamp it exists to forbid.

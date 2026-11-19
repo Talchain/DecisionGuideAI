@@ -114,10 +114,10 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
     document.documentElement.style.removeProperty(DOCK_WIDTH_VAR)
   })
 
-  it('opens at the panel width, 360px, at the 1280 acceptance frame and at 1440', () => {
+  it('opens at the panel width, 360px, at the 1280 acceptance frame, and wider (405px) at 1440', () => {
     expect(DOCK_RESPONSIVE_MAX_WIDTH).toBe(CONTRACT_PANEL_WIDTH_PX)
     expect(resolveDockWidth(1280, null)).toBe(CONTRACT_PANEL_WIDTH_PX)
-    expect(resolveDockWidth(1440, null)).toBe(CONTRACT_PANEL_WIDTH_PX)
+    expect(resolveDockWidth(1440, null)).toBe(405) // 19 Nov 2026 (Paul): the same 28.125% above 1280
     mountDock(1280)
     // The value the mounted dock actually writes, and the canvas reads back.
     expect(document.documentElement.style.getPropertyValue(DOCK_WIDTH_VAR)).toBe(`${CONTRACT_PANEL_WIDTH_PX}px`)
