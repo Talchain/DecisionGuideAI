@@ -212,12 +212,11 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(q(c, 'view-actions-button')).not.toBeNull()
     expect(q(c, 'view-thinking-else_do')).toHaveTextContent(said)
     expect(q(c, 'view-thinking-else_do')!.className.split(/\s+/), 'an outlined secondary chip, not ghost heading text').toEqual(expect.arrayContaining(['border', 'border-field']))
-    type(c, 'I am still drafting this note.')
     await press(q(c, 'view-thinking-else_do'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/method`)
     expect(posts[0]!.body['method']).toBe('else_do')
-    expect(useViewChat.getState().text).toBe('I am still drafting this note.')
+    expect(useViewChat.getState().text, 'a press leaves the message draft as it was').toBe('')
     cleanup(); posts = []
     const c2 = show(inWords({ floor: [ideasRow(21, said, [IDEA_A, IDEA_B])] }))
     const items = keepIn(c2, 21)
@@ -228,6 +227,17 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     await press(items[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(posts).toHaveLength(2))
     expect(posts).toEqual([{ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_A } }, { url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_B } }])
+  })
+
+  it('the thinking chips show on the Olumi tab with an empty box; hidden on another tab; hidden once text is typed', () => {
+    const c = show(inWords())
+    expect(q(c, 'view-thinking-else_do')).not.toBeNull()
+    type(c, 'a few words')
+    expect(q(c, 'view-thinking-methods'), 'typing folds them away').toBeNull()
+    type(c, '')
+    expect(q(c, 'view-thinking-else_do')).not.toBeNull()
+    act(() => useUIStore.setState({ activeOutputTab: 'results' } as never))
+    expect(q(c, 'view-thinking-methods'), 'another tab').toBeNull()
   })
 
   it('shows only the thinking methods offered by core and disables them on an earlier version', () => {
