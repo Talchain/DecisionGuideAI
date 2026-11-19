@@ -125,7 +125,8 @@ export const firstWhereGoalsDiffer = (aims: AimRow[]): AimRow[] => [...aims.filt
 /** The mark for one side of an option: its first cell's own number (its headline chance), with core's words. */
 const sideMark = (s: OptionSide | null) => { const c = arr(s?.cells)[0]; return c ? markOf(c.chance, words(c.headline) ? c.headline : c.value) : null }
 
-function Aim({ aim, paired, names }: { aim: AimRow; paired: boolean; names: { first: string; second: string } }): JSX.Element {
+/** `proven`: core proves this comparison a pair (pairedOf); distinct from `paired` below, which only says the options are matched across sides. */
+function Aim({ aim, proven, names }: { aim: AimRow; proven: boolean; names: { first: string; second: string } }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
   const lead = aim.most_likely
@@ -144,7 +145,7 @@ function Aim({ aim, paired, names }: { aim: AimRow; paired: boolean; names: { fi
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
           {/* The two-mark track only for a pair core proves (same seed, same inputs) and an aim both sides measure the same way. */}
-          {paired && aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} names={names} /> : null}
+          {proven && aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} names={names} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -203,7 +204,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       {/* Said once, above the aims, only where core says BOTH sides have saved results (`has_run`): a side with no saved model or results
           keeps core's own note, and the label never claims a run that does not exist (Codex 2facfb64 review). */}
       {c.a?.has_run === true && c.b?.has_run === true ? <div>{paired ? <SameDraws /> : <SeparateRuns />}</div> : null}
-      {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} paired={paired} names={names} />)}
+      {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} proven={paired} names={names} />)}
       {/* The key to the marks, once, only where a track is drawn (a proven pair, a comparable aim). */}
       {paired && aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
         ? <TrackKey first={names.first} second={names.second} /> : null}
