@@ -158,11 +158,13 @@ type CoreEdit = { prompt: string; ask: string }
  *   4. `worth`: Olumi's observation on a card (`worth_checking`), where core sends one.
  * The same card is listed once, in its first class.
  */
-export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null }
+export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null; /** Core's own finding under the title (worth only; Codex 10:39Z: core's actionable text read at rest, not on hover). */ detail?: string }
 export function needsOf(model: ViewModel): Need[] {
   const run = model.run ?? null, out: Need[] = [], seenCard = new Set<string>(), seenText = new Set<string>()
   const push = (n: Need) => {
-    if (n.text === '' || (seenText.has(n.text) && !n.key.startsWith('held:')) || (n.card !== null && n.cls !== 'blocks' && seenCard.has(n.card))) return
+    // DL/Codex 19 Nov: Olumi's worth-checking finding is its own observation, never the same line as the card's other need, so a card already
+    // listed (a figure to give, a wait) does not drop it; the same words twice still do.
+    if (n.text === '' || (seenText.has(n.text) && !n.key.startsWith('held:')) || (n.card !== null && n.cls !== 'blocks' && n.cls !== 'worth' && seenCard.has(n.card))) return
     seenText.add(n.text); if (n.card !== null) seenCard.add(n.card); out.push(n)
   }
   const blockers = run?.shared_blockers ?? []
@@ -185,7 +187,7 @@ export function needsOf(model: ViewModel): Need[] {
     // A figure core works out from others (a result, with its own values) is not one to give: it is sized by the model.
     if (f != null && f.edit != null && f.text === '' && c.status === null && c.kind !== 'result' && c.values == null) push({ key: `size:${c.id}`, cls: 'size', text: c.heading, at: `${c.id}.heading`, title: f.title, card: c.id, edit: f.edit })
   }
-  for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null }))
+  for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null, detail: w.text !== w.title ? w.text : undefined }))
   return out
 }
 
