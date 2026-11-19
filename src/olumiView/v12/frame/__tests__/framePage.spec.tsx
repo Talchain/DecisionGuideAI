@@ -71,6 +71,20 @@ describe('the Frame page', () => {
     page(viewOf([mine], { run: { ...run, most_likely: null, waits_on: { head: 'H', label: 'L', text: 'T', items: [] } } }))
     expect(screen.getByTestId('frame-finding').textContent).toBe('H L T')
   })
+  it('S4, 19 Nov (nothing is said twice): where the Olumi panel draws core\'s finding (run.finding with a calculated result) the Frame page draws no finding sentence; CONTRAST: with no run.finding, or no result, it keeps its line', () => {
+    const run = fx.model!.run
+    if (run === null) throw new Error('the fixture must carry a run')
+    const withResult = { ...route, headline: { state: 'chance' } } as unknown as ViewCard
+    const finding = { text: 'PANEL SAYS THIS', title: 'PANEL SAYS THIS', figure: null, needs: null }
+    page(viewOf([mine, withResult], { run: { ...run, finding } }))
+    expect(screen.queryByTestId('frame-finding')).toBeNull()
+    cleanup()
+    page(viewOf([mine, withResult], { run: { ...run, finding: null } }))
+    expect(screen.getByTestId('frame-finding')).toBeInTheDocument()
+    cleanup()
+    page(viewOf([mine, route], { run: { ...run, finding } }))
+    expect(screen.getByTestId('frame-finding')).toBeInTheDocument()
+  })
   it('no model yet: the question and "Build a model from this" only: no Edit, no Full graph', () => {
     page(viewOf([]))
     expect(screen.getByTestId('frame-no-model').textContent).toContain('No model yet')

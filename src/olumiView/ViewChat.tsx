@@ -11,7 +11,7 @@
  */
 import { create } from 'zustand'
 import { FindingLine } from './FindingLine'
-import { findingOf, hasAnyResult } from './v12/contract'
+import { panelDrawsFinding } from './v12/contract'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { call, newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
@@ -291,6 +291,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const gone = useViewChat((st) => st.gone ?? null)
   const inStep = useViewStore((st) => t.answer !== null && stepTurnOf(st.view, st.sid, gone) === t.id)
+  // Said once (S4, 19 Nov): where this reply's move is drawn as its own press, that press carries core's `next.label`; the bold label is not drawn beside it.
+  const sidNow = useViewStore((st) => st.sid)
+  const tapDrawn = t.answer !== null && moves && t.answer.next.newest && !inStep && moveTapDrawn(sidNow, t.answer.next, gone === null ? false : sidNow !== null && gone === moveKey(sidNow, t.id, t.answer.next.move))
   const lit = useRef(false)
   useEffect(() => () => { if (lit.current) endRing() }, [])
   const ring = (on: boolean) => { lit.current = on; if (on) pointRing(about); else endRing() }
@@ -384,8 +387,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* The reply's move that is the panel's Next step is drawn in that card at the top, once; it is not drawn again here. Every other reply keeps its own. */}
       {inStep ? null : <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
-        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}><span className={`${typography.viewPanelHeading} text-text-header${about.length > 0 && !(moves && t.answer.next.newest) ? ' sr-only' : ''}`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span> <Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
-      {moves && t.answer.next.newest && !inStep ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
+        onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}>{tapDrawn ? null : <><span className={`${typography.viewPanelHeading} text-text-header${about.length > 0 && !(moves && t.answer.next.newest) ? ' sr-only' : ''}`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span>{' '}</>}<Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>}
+      {tapDrawn ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
       <ResultReceipts claims={t.answer.claims} />
       {!leads ? null : (
         <details className="ok-reply-more" data-reply-more={at}>
@@ -1462,12 +1465,15 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
   return sent
 }
 
+/** Whether a move is drawn as a press at all (the same test MoveTap makes): a session, a real move, and not one core refused as stale. */
+export const moveTapDrawn = (sid: string | null, next: Next, gone: boolean): boolean => sid !== null && isRealMove(next.move) && !gone
+
 /** The newest reply's move as one tap, in the shell's button, with core's label for it. `arrow` (the Analysis tab's "Suggested next
  *  step", as the previous PoC drew it): the same tap as a round arrow, core's label as its name and hover. */
 export function MoveTap({ turn, next, arrow = false, primary = false, at }: { turn: number; next: Next; arrow?: boolean; /** Drawn as the filled primary button, under the newest reply (14 Nov: the reply's next move is not tucked away). */ primary?: boolean; /** Where the label sits in the View, for a surface that binds every word to its path. */ at?: string }) {
   const sid = useViewStore((s) => s.sid)
   const busy = useViewChat((s) => s.busy), gone = useViewChat((s) => s.gone ?? null)
-  if (sid === null || !isRealMove(next.move) || gone === moveKey(sid, turn, next.move)) return null
+  if (!moveTapDrawn(sid, next, sid !== null && gone === moveKey(sid, turn, next.move))) return null
   return (
     arrow
       ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
@@ -1741,7 +1747,7 @@ function FigureWaits({ view, item }: { view: View; item: WaitsOnItem }) {
   )
 }
 
-/** The newest reply's move as the Next step: core's words for it (`next.text`) at their paths, and its one tap, filled, with core's label. */
+/** The newest reply's move as the Next step: core's words for it (`next.text`) at their paths (these fold with the row); its one tap, filled, is `MoveStepTap`. */
 function MoveStep({ view, turn }: { view: View; turn: number }) {
   const k = view.chat.findIndex((t) => t.id === turn), t = view.chat[k], a = t?.answer ?? null
   if (a === null) return null
@@ -1751,9 +1757,15 @@ function MoveStep({ view, turn }: { view: View; turn: number }) {
   return (
     <div className="space-y-2">
       {a.next.text.length === 0 ? null : <p data-testid="view-next-move-words"><Words parts={a.next.text} at={`${at}.text`} first={first} /></p>}
-      <MoveTap turn={turn} next={a.next} primary at={at} />
     </div>
   )
+}
+
+/** The Next step's one filled press (S4, 19 Nov: exactly one filled action wherever core offers a next move). It is drawn under the closed row, not inside
+ *  the folded body, so it is in view at rest at every width; the row's fold holds only core's words for it. */
+function MoveStepTap({ view, turn }: { view: View; turn: number }) {
+  const k = view.chat.findIndex((t) => t.id === turn), a = view.chat[k]?.answer ?? null
+  return a === null ? null : <MoveTap turn={turn} next={a.next} primary at={`chat.${k}.answer.next`} />
 }
 
 function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: NextStep }) {
@@ -1799,6 +1811,7 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
       {/* v10 review item 12: committing is a step, so its button is here, secondary; it opens the form below and writes nothing. */}
       <div className="empty:hidden"><RecordStepButton /></div>
       </div>
+      {step.kind === 'move' ? <MoveStepTap view={view} turn={step.turn} /> : null}
     </section>
   )
 }
@@ -2010,7 +2023,7 @@ export function ViewChat() {
           the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
-      {findingOf(view?.model) === null || !hasAnyResult(view?.model) ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
+      {!panelDrawsFinding(view?.model) ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
       {view === null || step === null || pinned ? null
         : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}

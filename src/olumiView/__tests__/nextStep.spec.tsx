@@ -11,7 +11,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
-import { NEXT_STEP_WORDS, nextStepOf, ViewChat, ViewComposer } from '../ViewChat'
+import { moveKey, NEXT_STEP_WORDS, nextStepOf, useViewChat, ViewChat, ViewComposer } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { isOpen, rowOf, setOpen } from './reviewRow'
 import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
@@ -261,7 +261,8 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(moves(c)).toHaveLength(1)
     // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3): core's words for the move are drawn once, under the reply with its button; the "From my last
     // reply" copy above the box is gone. Was: the reply dropped its line and the composer's card held it.
-    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"] [data-view$=".answer.next.label"]')?.textContent).toBe(next.label)
+    // S4 (19 Nov, said once): the press carries core's label, so the bold label is not drawn beside it.
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"] [data-view$=".answer.next.label"]')).toBeNull()
     expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-text"]')).toBeNull()
   })
   it('contrast (DL order, 16 Nov): with a figure waiting, the reply\'s move leads and stays under the reply, for someone else\'s page and the owner\'s alike', () => {
@@ -392,5 +393,39 @@ describe('a withheld option\'s words are core\'s reason, never the bare "No chan
     expect(chance).toBeDefined()
     expect(withheldWords(chance.headline!)).toBeNull()
     expect(leadLineOf(chance as Card)).toBe(chance.headline!.text)
+  })
+})
+
+describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
+  const sessionView = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
+  const labelled = (c: HTMLElement, label: string) => [...c.querySelectorAll('[data-testid="view-chat-latest"] *')].filter((e) => e.children.length === 0 && e.textContent === label && !e.closest('.sr-only') && !e.classList.contains('sr-only'))
+  afterEach(() => useViewChat.setState({ gone: undefined } as never))
+
+  it('SY2 core\'s next.label is drawn once beside a press that carries it (the bold label is not drawn over the button); CONTRAST: where the press is not drawn (a stale move), the label is', () => {
+    const view = golden('proposal'), k = view.chat.length - 1, next = view.chat[k]!.answer!.next
+    expect([next.newest, next.label === '']).toEqual([true, false])
+    const c = show(view)
+    expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
+    expect(labelled(c, next.label).map((e) => e.outerHTML.slice(0, 160)), 'one visible copy of the label: the press').toHaveLength(1)
+    expect(c.querySelector(`[data-view="chat.${k}.answer.next.label"]`), 'no bold label beside the press').toBeNull()
+    cleanup()
+    useViewChat.setState({ gone: moveKey(view.id, view.chat[k]!.id, next.move) } as never)
+    const d = show(view)
+    expect(d.querySelector('[data-testid="view-next-move"]')).toBeNull()
+    expect(d.querySelector(`[data-view="chat.${k}.answer.next.label"]`)?.textContent, 'the label stays where there is no press').toBe(next.label)
+  })
+
+  it('SY3 where core offers a next move with no proposal, the filled press is in view at rest under the closed Next step row (not inside its folded body), once; the fold keeps only its words', () => {
+    const view = sessionView('after-find-first'), k = view.chat.length - 1, next = view.chat[k]!.answer!.next
+    expect([view.proposal, next.newest]).toEqual([null, true])
+    const c = show(view), s = step(c)!, body = s.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!
+    const tap = s.querySelector<HTMLElement>('[data-testid="view-next-move"]')!
+    expect([body.hidden, body.contains(tap), c.querySelectorAll('[data-testid="view-next-move"]').length]).toEqual([true, false, 1])
+    expect(tap.closest('[hidden]'), 'nothing hides the press at rest').toBeNull()
+    expect(tap.className.split(/\s+/), 'filled').toContain('bg-success')
+    expect(tap.textContent).toBe(next.label)
+    // CONTRAST: a step that is not a move draws no press under the row.
+    cleanup()
+    expect(step(show(golden('bakery')))!.querySelector('[data-testid="view-next-move"]')).toBeNull()
   })
 })
