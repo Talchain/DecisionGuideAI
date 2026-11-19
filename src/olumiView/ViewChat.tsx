@@ -358,7 +358,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         // opening is the panel's large line), with the check folded under "Full answer". The first answer is kept beneath as earlier material under
         // core's own label ("written before the model. Not checked…"): its opening at rest, the rest one press away, never the large line, and
         // never folded out of reach (Codex 011: the practical answer had been hidden under the lead) and its own later detail one press away (progressive disclosure; merging with "Full answer" is a later restructure). No flag and no reading of its words.
-        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold
+        // Paul, 19 Nov ("buried behind repeated disclosures"; Codex: one expansion): the first answer is drawn whole under core's label, so its
+        // finding and next steps read at rest; "Full answer" (the check) is the reply's one fold. No second "Show the whole first answer".
+        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)}
             under={(checkBody) => {
               const folded = early === null && floor == null && checkBody === null ? null : <>
                 {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}

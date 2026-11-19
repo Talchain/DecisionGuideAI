@@ -79,10 +79,9 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect([body.querySelector('[data-reply-label]'), ...[OPENING, MIDDLE].map((x) => body.textContent!.includes(x))], 'the first answer is said once, beneath').toEqual([null, false, false])
     for (const x of [OPENING, HEADING, CHECK]) expect(t0.textContent!.split(x).length - 1, x).toBe(1)
     expect(t0.querySelectorAll('[data-reply-label]')).toHaveLength(1)
-    // The first answer's later detail is one press away, by the reply's own control, after its opening; pressed, it is drawn once, and not in the fold.
-    const more = q(t0, 'view-reply-fold')!
-    expect([more.textContent, more.closest('details'), t0.textContent!.includes(MIDDLE), opening.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING ? 'after its opening' : 'before']).toEqual([SHOW_WHOLE_FIRST, null, false, 'after its opening'])
-    fireEvent.click(more)
+    // Paul, 19 Nov (one expansion, not three): the first answer is drawn WHOLE at rest under core's label, its later detail once and outside the
+    // fold; there is no second "Show the whole first answer". CONTRAST: the check stays in the one "Full answer" fold (asserted above).
+    expect(q(t0, 'view-reply-fold'), 'no second fold').toBeNull()
     expect([t0.textContent!.split(MIDDLE).length - 1, body.textContent!.includes(MIDDLE), t0.textContent!.includes('Two of the staff want one free weekend day.')]).toEqual([1, false, true])
     const next = q(t0, 'view-chat-next')
     if (next !== null) expect(full.contains(next)).toBe(false)
