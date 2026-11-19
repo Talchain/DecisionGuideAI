@@ -252,12 +252,8 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
       title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
   )
   const theirs = author !== null && !inferred ? author : null
-  // Typed fields (19 Nov, Codex 03:59:49Z): the people whose revealed contribution this card's record cites (core `from_views`, record-specific Refs,
-  // author resolved live). It names the CONTRIBUTOR of the source, never who holds a belief; the card's own author mark (Olumi's paraphrase) stays.
-  // Absent (an older core) or [] draws nothing. Said in the opened card, beside the author, never on the face.
-  const fromViews = fromViewsOf(card)
   // A route's line (an option's face line), a person's author and an open badge's fold-back: said in the opened card, never on the face.
-  const aside = (faceLine !== null && card.family === 'option') || theirs !== null || fromViews.length > 0 || (card.badge !== null && card.badge.open)
+  const aside = (faceLine !== null && card.family === 'option') || theirs !== null || (card.badge !== null && card.badge.open)
   // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
   const rowsDrawn = (
     <>
@@ -426,7 +422,6 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
           style={{ width: CARD_WIDTH }} data-view-more={id}>
           {faceLine === null || card.family !== 'option' ? null : <p className="text-text-body" data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>}
           {theirs === null ? null : <p className={`${typography.viewPanelMeta} font-medium`} data-provenance={id} title={theirs.title} data-view={`${id}.author.text`}>{theirs.text}</p>}
-          {fromViews.map((v, i) => <p key={v.person} className={typography.viewPanelMeta} data-from-view={v.person} data-view={`${id}.from_views.${i}.name`}>From {v.name}’s contribution</p>)}
           {card.badge === null || !card.badge.open ? null : <p className={`text-right ${typography.viewPanelMeta}`} data-badge-open={id}><Badge cardId={id} badge={card.badge} at={id} /></p>}
           {optionFace === null ? null : <div className="space-y-1" data-option-rows={id}>{rowsDrawn}</div>}
           {/* Core writes the change a line per field ("Proposed change\nlow 10 → 15\n…"): its lines kept. */}
@@ -578,17 +573,4 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       <Handle type="source" position={sides.out as Position} isConnectable={false} className="!opacity-0" />
     </div>
   )
-}
-
-/** Core's `from_views` on a card (typed fields, 19 Nov), read by type: each entry a person id and core's name for them, once each, in core's order.
- *  Anything malformed is dropped; absent is []. */
-export function fromViewsOf(card: unknown): readonly { person: string; name: string }[] {
-  const raw = (card as { from_views?: unknown } | null)?.from_views
-  if (!Array.isArray(raw)) return []
-  const seen = new Set<string>()
-  return raw.flatMap((v) => {
-    const o = v as { person?: unknown; name?: unknown } | null
-    if (o === null || typeof o.person !== 'string' || typeof o.name !== 'string' || o.name.trim() === '' || seen.has(o.person)) return []
-    seen.add(o.person); return [{ person: o.person, name: o.name }]
-  })
 }
