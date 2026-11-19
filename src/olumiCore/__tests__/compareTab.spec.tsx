@@ -30,6 +30,7 @@ import { useCompare } from '../../olumiView/v12/views/useCompare'
 import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { setTeamFetch } from '../team/api'
 import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, notMoved, type Compared, type Since } from '../compare'
+import { SEPARATE_RUNS } from '../scenarioCompare'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
 const side = (value: string, chance: number | null) => ({ value, title: 't', olumi: null, chance, headline: value, companion: null })
@@ -134,26 +135,28 @@ describe('a changed figure folded away on the board', () => {
   })
 })
 
-describe('what moved: one track per moved result, the largest move first, the rest counted', () => {
-  it('CT4: ranked by core\'s numbers (60→10 before 20→25), one track each, and one line for the result that did not move; CONTRAST: nothing moved draws no track and no key', async () => {
+describe('what moved: each moved result in core\'s words, the largest move first, the rest counted; separate runs, no track', () => {
+  it('CT4: ranked by core\'s numbers (60→10 before 20→25), no track, "Separate runs" once beside the heading, and one line for the result that did not move; CONTRAST: nothing moved draws no heading but keeps the label', async () => {
     answer = { versions: [], changes: [], results: [result('small', 0.2, 0.25, 'up'), result('large', 0.6, 0.1, 'down'), result('same', 0.5, 0.5, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))
     const moved = await screen.findByTestId('core-compare-moved')
     expect([...moved.querySelectorAll('[data-compare-result]')].map((e) => e.getAttribute('data-compare-result'))).toEqual(['1', '0'])
-    expect([...moved.querySelectorAll('[data-compare-track]')].map((t) => [t.getAttribute('data-first'), t.getAttribute('data-second')])).toEqual([['60', '10'], ['20', '25']])
+    expect([moved.querySelectorAll('[data-compare-track]').length, moved.querySelectorAll('[data-mark]').length]).toEqual([0, 0])
+    expect([...moved.querySelectorAll('[data-compare-runs]')].map((e) => [e.getAttribute('data-compare-runs'), e.textContent, e.parentElement!.querySelector('h4')?.textContent])).toEqual([['separate', SEPARATE_RUNS.label, 'What moved']])
     expect(moved.querySelector('[data-compare-result="1"]')!.textContent).toContain('B-large → A-large')
     // The unmoved result is counted at rest, and its own row (core's words in both versions) is one press away, never drawn as a track.
     const still = screen.getByTestId('core-compare-still')
     expect([still.tagName, still.hasAttribute('open'), still.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, notMoved(1)])
     expect([...still.querySelectorAll('[data-compare-still-row]')].map((e) => [e.getAttribute('data-compare-still-row'), e.textContent])).toEqual([['2', 'same: B-same → A-same (unchanged)']])
     expect([...moved.querySelectorAll('[data-compare-result]')].some((e) => e.textContent!.includes('B-same'))).toBe(false)
-    expect([...moved.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)).toEqual(['Version 2', 'Version 3'])
+    expect(moved.querySelectorAll('[data-compare-key]').length).toBe(0)
     cleanup()
     answer = { versions: [], changes: [], results: [result('same', 0.5, 0.5, 'unchanged'), result('also', 0.1, 0.1, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))
     expect((await screen.findByTestId('core-compare-still')).querySelector('summary')!.textContent).toBe('2 results did not move.')
     expect(screen.getByTestId('core-compare-moved').querySelector('h4'), 'no "What moved" heading over nothing that moved (audit compare-model-02)').toBeNull()
-    expect([document.querySelectorAll('[data-compare-track]').length, document.querySelectorAll('[data-compare-track-key]').length]).toEqual([0, 0])
+    // Nothing moved: no heading, but the results are still two separate runs, so the label stands (Codex 2facfb64 review).
+    expect([document.querySelectorAll('[data-compare-track]').length, [...screen.getByTestId('core-compare-moved').querySelectorAll('[data-compare-runs]')].map((e) => e.textContent)]).toEqual([0, [SEPARATE_RUNS.label]])
     cleanup()
     answer = { versions: [], changes: [], results: [result('large', 0.6, 0.1, 'down'), result('same', 0.5, 0.5, 'unchanged')] }
     show(fixture('ui9-a6-since-v3'))
