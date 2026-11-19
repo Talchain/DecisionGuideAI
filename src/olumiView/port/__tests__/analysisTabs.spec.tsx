@@ -460,6 +460,21 @@ describe('what a result needs', () => {
     expect(screen.queryByTestId('analysis-needs-more')).toBeNull()
   })
 
+  it('Olumi\'s worth-checking findings are read at rest even when more than five other rows fold (DL/Codex 19 Nov); CONTRAST: the sixth other row folds', () => {
+    const view = viewOf('golden/app-launch'), model = view.model!
+    const card = model.cards.find((c) => c.family !== 'option')!
+    ;(card as { worth_checking?: unknown }).worth_checking = [{ code: 'w', olumi: true, title: 'WORTH TITLE AT REST', text: 'worth text' }]
+    // Enough other rows to fold: blockers core sends for the run.
+    const run = model.run as unknown as { shared_blockers?: { text: string; aim_id: string }[] }
+    run.shared_blockers = [...(run.shared_blockers ?? []), ...Array.from({ length: 6 }, (_, i) => ({ text: `BLOCKER ${i}`, aim_id: card.id }))]
+    const all = needsOf(model), rest = all.filter((n) => n.cls !== 'worth'), w = all.find((n) => n.cls === 'worth')!
+    expect(rest.length).toBeGreaterThan(5)
+    ready(view); render(<PortAnalysisTab />)
+    expect(document.querySelector(`[data-need="${w.key}"]`)!.textContent).toContain('WORTH TITLE AT REST')
+    expect(document.querySelector(`[data-need="${rest[5]!.key}"]`), 'the sixth other row is folded').toBeNull()
+    expect(screen.getByTestId('analysis-needs-more').textContent).toContain(String(rest.length - 5))
+  })
+
   it('a press on a row focuses the card it is about, by id', () => {
     const view = viewOf('golden/app-launch'), first = needsOf(view.model!)[0]!
     ready(view); render(<PortAnalysisTab />)

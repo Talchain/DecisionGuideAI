@@ -162,7 +162,9 @@ export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; te
 export function needsOf(model: ViewModel): Need[] {
   const run = model.run ?? null, out: Need[] = [], seenCard = new Set<string>(), seenText = new Set<string>()
   const push = (n: Need) => {
-    if (n.text === '' || (seenText.has(n.text) && !n.key.startsWith('held:')) || (n.card !== null && n.cls !== 'blocks' && seenCard.has(n.card))) return
+    // DL/Codex 19 Nov: Olumi's worth-checking finding is its own observation, never the same line as the card's other need, so a card already
+    // listed (a figure to give, a wait) does not drop it; the same words twice still do.
+    if (n.text === '' || (seenText.has(n.text) && !n.key.startsWith('held:')) || (n.card !== null && n.cls !== 'blocks' && n.cls !== 'worth' && seenCard.has(n.card))) return
     seenText.add(n.text); if (n.card !== null) seenCard.add(n.card); out.push(n)
   }
   const blockers = run?.shared_blockers ?? []

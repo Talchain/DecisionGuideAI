@@ -27,7 +27,11 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
   useViewStore((s) => s.view) // the View decides which rows the workspace can show
   const needs = needsOf(model)
   if (needs.length === 0) return null
-  const shown = all ? needs : needs.slice(0, AT_REST)
+  // DL / Codex 19 Nov: Olumi's worth-checking findings come last in needsOf, so on a no-chance model with many blockers they were always folded
+  // under "Show N more". They are read at rest, after the first AT_REST of the other rows; only those other rows fold.
+  const worth = needs.filter((n) => n.cls === 'worth'), rest = needs.filter((n) => n.cls !== 'worth')
+  const shown = all ? needs : [...rest.slice(0, AT_REST), ...worth]
+  const folded = rest.length - AT_REST
   const title = under ? NEEDS_WORDS.some : NEEDS_WORDS.none
   return (
     <section className="space-y-1" data-testid="analysis-needs" data-needs-under={under ? 'chart' : 'alone'} aria-label={title} onMouseLeave={() => ringFrom(RING, [])}>
@@ -49,9 +53,9 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
           )
         })}
       </ul>
-      {needs.length <= AT_REST ? null : (
+      {folded <= 0 ? null : (
         <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
-          <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(needs.length - AT_REST)}
+          <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(folded)}
         </button>
       )}
     </section>
