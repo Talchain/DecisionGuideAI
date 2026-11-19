@@ -79,7 +79,7 @@ describe('Ask Olumi to compare these views', () => {
     expect(send.mock.calls).toEqual([[ASK_TO_COMPARE.request]])
     expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
-    expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent)
+    await waitFor(() => expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent))
     expect((go as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(go)
     expect(send).toHaveBeenCalledTimes(1)

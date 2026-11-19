@@ -16,7 +16,7 @@ import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
 import { useViewChat } from '../../../ViewChat'
-import { clearAskTargetBinding, takeAskTargetBinding } from '../../../../canvas/ui/inspector-v2/askTargetBinding'
+import { useCanvasStore } from '../../../../canvas/store'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 import { answerMessage, ASK_SAID, differenceQuestion } from '../askOlumi'
 
@@ -32,21 +32,34 @@ const rowOf = (d: Difference) => `differ-row-${d.record}${d.goal ? `-${d.goal}` 
 function serve(): void {
   setTeamFetch((async () => new Response(JSON.stringify(read), { status: 200, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
 }
-/** The chat's ask path as ViewChat registers it (`_dispatchAction` → press → say → act): busy while the write is out; the words go back to the
- *  message box when it does not go through. `settle(ok)` ends the write. `send` records each message; `bound` the target each one carried. */
-function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; bound: (string[] | null)[]; settle: (ok: boolean) => void; direct: ReturnType<typeof vi.fn> } {
-  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn(), bound: (string[] | null)[] = []
+/** The chat's ask path as ViewChat registers it (`_dispatchAction` → press → say → act), in its real order: `say` takes the one selected model card
+ *  as the message's `about` at once; `act` is busy while the write is out; on a refusal it says its sentence and stops being busy, and only a
+ *  promise step later are the words put back in the message box (Codex review 3 #1). `settle(ok)` ends the write. */
+function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; about: (string | null)[]; settle: (ok: boolean) => Promise<void>; direct: ReturnType<typeof vi.fn> } {
+  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn(), about: (string | null)[] = []
   let last = ''
-  const dispatch = (o: { message: string }) => { send(o.message); last = o.message; const b = takeAskTargetBinding(o.message); bound.push(b ? [...b.nodeIds] : null); useViewChat.setState({ busy: true }) }
+  const dispatch = (o: { message: string }) => {
+    send(o.message); last = o.message
+    const ids = [...useCanvasStore.getState().selection.nodeIds]
+    about.push(ids.length === 1 ? ids[0]! : null)
+    useViewChat.setState({ busy: true, said: null })
+  }
   useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct, _isConversationBusy: () => false } as never)
-  const settle = (ok: boolean) => act(() => { useViewChat.setState({ busy: false, text: ok ? useViewChat.getState().text : last }) })
-  return { prefill, send, bound, settle, direct }
+  const settle = async (ok: boolean) => {
+    await act(async () => {
+      useViewChat.setState({ busy: false, said: ok ? null : 'That did not go through. Nothing was saved.' })
+      await Promise.resolve()
+      if (!ok) useViewChat.setState({ text: last })
+      await new Promise((r) => setTimeout(r, 5))
+    })
+  }
+  return { prefill, send, about, settle, direct }
 }
 const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
   useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null, _isConversationBusy: null } as never)
-  useViewChat.setState({ busy: false, text: '' }); clearAskTargetBinding()
+  useViewChat.setState({ busy: false, text: '', said: null }); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
 })
 
 describe('crux first', () => {
@@ -114,22 +127,27 @@ describe('the question for each difference', () => {
 describe('sent on the press, through the chat\'s ask path', () => {
   it('Ask Olumi about this difference sends that difference\'s question once, bound to its card, never through _sendMessage; "Sent" only once the write went through', async () => {
     serve(); show(tm04)
-    const { prefill, send, bound, settle, direct } = composer()
+    const { prefill, send, about, settle, direct } = composer()
+    // The person has another card selected: the ask still goes about its own card.
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['contract_to_cash']), edgeIds: new Set(), anchorPosition: null } })
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`)
     fireEvent.click(go)
     expect(send.mock.calls).toEqual([[differenceQuestion(tm04, FIGURE)]])
-    expect(bound).toEqual([[FIGURE.record]])
+    expect(about).toEqual([FIGURE.record])
     expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
     fireEvent.click(go)
     expect(send).toHaveBeenCalledTimes(1)
-    settle(true)
+    await settle(true)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
-    // Contrast: another difference's button sends its own question about its own card.
+    // Contrast: a missing factor has no card: it is sent about nothing, and the person's selection is put back at once.
+    useCanvasStore.setState({ selection: { nodeIds: new Set(['contract_to_cash']), edgeIds: new Set(), anchorPosition: null } })
     fireEvent.click(screen.getByTestId(`${rowOf(FACTOR)}-ask-go`))
     expect(send.mock.calls[1]).toEqual([differenceQuestion(tm04, FACTOR)])
+    expect(about[1]).toBeNull()
+    expect([...useCanvasStore.getState().selection.nodeIds]).toEqual(['contract_to_cash'])
   })
   it('a send that does not go through says so and can be pressed again (Codex review 2 #1); the words are in the message box', async () => {
     serve(); show(tm04)
@@ -137,7 +155,7 @@ describe('sent on the press, through the chat\'s ask path', () => {
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     const go = await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`) as HTMLButtonElement
     fireEvent.click(go)
-    settle(false)
+    await settle(false)
     expect(useViewChat.getState().text).toBe(differenceQuestion(tm04, FIGURE))
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
     expect(go.disabled).toBe(false)

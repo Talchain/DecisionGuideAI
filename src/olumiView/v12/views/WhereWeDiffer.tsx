@@ -156,7 +156,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       {/* Core's step route takes any difference this member can see now, calculated or not, so the two steps are offered on every card; a
           step records what the team will do about the difference and changes no model. Ask Olumi sends one question shaped by this difference. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1" data-testid={`${at}-actions`}>
-        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} cards={cards} at={`${at}-ask`} />
+        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} target={d.record} at={`${at}-ask`} />
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_LABELS.dissent}</button>
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
       </div>
@@ -206,7 +206,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   const promoted = new Set(data !== null && !data.gated && !centred ? data.differences.map((d) => d.record) : [])
   return (
     <section data-testid="differ-after" aria-label={c.heading} className="grid gap-4">
-      {c.next == null ? null : <NextQuestion key={sid} question={c.next.text} />}
+      {c.next == null ? null : <NextQuestion key={sid} question={c.next.text} about={c.next.about} />}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
       {!plotted && !centred && <div className="grid gap-3" data-testid="differ-views-open">{words}</div>}
       {/* Doubt or keep one link in your own words (core POST …/links/stance) sits above the differences (the UI gate, 8 Nov). */}
@@ -236,15 +236,15 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
 
 /** Olumi's one question for the round (core's `collab.next`): the person answers in their own words and the answer is sent to Olumi with the
  *  question it answers (./askOlumi.ts). Nothing is sent until they press Send; an empty answer sends nothing. */
-function NextQuestion({ question }: { question: string }): JSX.Element {
+function NextQuestion({ question, about }: { question: string; /** Core's cards the question is about. */ about: readonly string[] }): JSX.Element {
   // The answer is bound to the question it was typed under (Codex review 2 #2): if core's question changes meanwhile, it is still sent with
   // the question it answers, and the box says so.
-  const [draft, setDraft] = useState<{ asked: string; words: string } | null>(null)
+  const [draft, setDraft] = useState<{ asked: string; card: string | null; words: string } | null>(null)
   const [said, setSaid] = useState<AskOutcome | null>(null)
   const id = useId()
   const send = () => {
     if (draft === null || draft.words.trim() === '') return
-    const out = askOlumi(answerMessage(draft.asked, draft.words), [], setSaid)
+    const out = askOlumi(answerMessage(draft.asked, draft.words), draft.card, setSaid)
     setSaid(out)
     if (out !== 'placed') setDraft(null)
   }
@@ -255,12 +255,12 @@ function NextQuestion({ question }: { question: string }): JSX.Element {
         <span className="mt-0.5 flex-none"><OkIcon id="olumi-mark" size={14} decorative /></span><span className="min-w-0 break-words">{question}</span>
       </p>
       {draft === null ? (
-        <div className="pl-5"><button type="button" className={QUIET} data-testid="team-views-next-answer" onClick={() => { setDraft({ asked: question, words: '' }); setSaid(null) }}>{ASK_WORDS.answer}</button></div>
+        <div className="pl-5"><button type="button" className={QUIET} data-testid="team-views-next-answer" onClick={() => { setDraft({ asked: question, card: about.length === 1 ? about[0]! : null, words: '' }); setSaid(null) }}>{ASK_WORDS.answer}</button></div>
       ) : (
         <div className="grid gap-1.5 pl-5">
           {draft.asked !== question && <p className={META} data-testid="team-views-next-earlier">{ASK_WORDS.earlier} “{draft.asked}”</p>}
           <label htmlFor={id} className="sr-only">{ASK_WORDS.answerLabel}</label>
-          <textarea id={id} rows={3} className={FIELD} value={draft.words} data-testid="team-views-next-words" onChange={(e) => setDraft({ asked: draft.asked, words: e.target.value })} />
+          <textarea id={id} rows={3} className={FIELD} value={draft.words} data-testid="team-views-next-words" onChange={(e) => setDraft({ ...draft, words: e.target.value })} />
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" className={GO} data-testid="team-views-next-send" disabled={draft.words.trim() === ''} onClick={send}><OkIcon id="olumi-mark" size={14} decorative />{ASK_WORDS.send}</button>
             <button type="button" className={QUIET} data-testid="team-views-next-cancel" onClick={() => setDraft(null)}>Cancel</button>

@@ -2,10 +2,12 @@
  * Ask Olumi from the Team tab, SENT on a deliberate press (Paul, 18 Nov ~23:45Z: "Send it and ensure it's optimal and contextually optimised";
  * Codex ROOT 23:48:16Z: a clearly labelled press may send, through the normal submit path, never `_sendMessage`). It goes through the canvas's
  * own ask path (`_dispatchAction` → ViewChat `press` → `say` → `write`/`act`: its busy guard, the page's scenario, the words kept in the
- * message box when it does not go through), with the difference's cards bound as the ask's target (`bindAskTarget`).
+ * message box when it does not go through).
  *
- * THE GAP (named, Codex ROOT): the binding stops in the page. Core's message route takes `{ text, op }` only (olumi-core 9ad89f81
- * src/server/app.ts:357-362), so the typed target never reaches the turn; the card is named in the words by core's exact label instead.
+ * The typed target travels the normal way (Codex review 3 #2): `say` sends, as the message's `about`, the one model card selected on the canvas
+ * (ViewChat `selectedRecord`, the composer's "About: <card>"). So the ask's own card is selected on the canvas first, and stays selected (the
+ * person sees what was asked about); an ask with no single card (a link, a missing factor, the whole round) is sent with nothing selected,
+ * and the person's selection is put back at once.
  *
  * What is sent is stored as the person's own message, so it stays lean: one question in fixed chrome, shaped by what kind of difference it
  * is, naming the card and the aim by core's exact labels (the words the chat's packet uses for the same card: `tells_apart.card_name`,
@@ -18,8 +20,8 @@
  */
 import type { View } from '../../client'
 import { useGuidanceStore } from '../../../canvas/stores/guidanceStore'
-import { bindAskTarget } from '../../../canvas/ui/inspector-v2/askTargetBinding'
-import { isAnswering, prefillComposer, takesBrief, useViewChat } from '../../ViewChat'
+import { useCanvasStore } from '../../../canvas/store'
+import { isAnswering, prefillComposer, SAVED_NOT_SHOWN, takesBrief, useViewChat } from '../../ViewChat'
 import { useViewStore } from '../../store'
 import type { Difference } from '../../../olumiCore/team/differences'
 
@@ -77,21 +79,30 @@ export const COMPARE_REQUEST = 'Compare the views we have revealed: what do we a
 export type AskOutcome = 'placed' | 'busy' | 'sending' | 'sent' | 'failed'
 
 /**
- * Ask Olumi with `text`, about `cards`. Placed in the message box (never sent) where the chat would take words as a new brief, or nothing on
- * the page answers asks. Otherwise sent through the ask path; `onSettled` gets what really happened, read from the chat's own state: still
- * answering (the words wait in the message box), sent, or failed (the chat put the words back in the message box beside its own sentence).
+ * Ask Olumi with `text`, about the model card `target` (or none). Placed in the message box (never sent) where the chat would take words as a
+ * new brief, or nothing on the page answers asks. Otherwise sent through the ask path; `onSettled` gets what really happened, read from the
+ * chat's own state once its write has settled (Codex review 3 #1): the chat's own sentence for a write that did not go through (set before it
+ * stops being busy), or the words it puts back in the message box (a few promise steps after): either means not sent.
  */
-export function askOlumi(text: string, cards: readonly string[], onSettled: (out: AskOutcome) => void): AskOutcome {
+export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void): AskOutcome {
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
   if (takesBrief(sid, view) || g._dispatchAction === null) { prefillComposer(text); return 'placed' }
-  if (useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)) { g._dispatchAction({ label: text, message: text, source: 'team' }); return 'busy' }
-  const kept = () => useViewChat.getState().text.split('\n').includes(text)
-  bindAskTarget(text, cards, [])
+  const card = target !== null && view?.model?.cards.some((c) => c.id === target) ? target : null
+  const canvas = useCanvasStore.getState(), before = canvas.selection
+  if (card !== null) canvas.selectNodes([card])
+  else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
+  const busyBefore = useViewChat.getState().busy || isAnswering(view) || (g._isConversationBusy?.() ?? false)
   g._dispatchAction({ label: text, message: text, source: 'team' })
-  // Settled already (the write never started, or finished at once): say what happened now; else when the chat's write settles.
-  if (!useViewChat.getState().busy) return kept() ? 'failed' : 'sent'
-  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); onSettled(kept() ? 'failed' : 'sent') } })
+  if (card === null) useCanvasStore.setState({ selection: before })
+  if (busyBefore) return 'busy'
+  let refused: string | null = null
+  const settle = () => setTimeout(() => {
+    const kept = useViewChat.getState().text.split('\n').includes(text)
+    onSettled(kept || (refused !== null && refused !== SAVED_NOT_SHOWN) ? 'failed' : 'sent')
+  }, 0)
+  if (!useViewChat.getState().busy) { refused = useViewChat.getState().said; settle(); return 'sending' }
+  const stop = useViewChat.subscribe((s) => { if (!s.busy) { stop(); refused = s.said; settle() } })
   return 'sending'
 }
 
