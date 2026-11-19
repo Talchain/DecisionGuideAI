@@ -59,5 +59,5 @@ export function FrameStage(): JSX.Element | null {
     }
   }, [shown])
   if (!shown) return null
-  return <div ref={box} role="region" aria-label={FRAME_WORDS.question} data-testid="frame-stage" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas"><FramePage view={view!} onClose={() => useFrameStage.getState().hide()} /></div>
+  return <div ref={box} role="region" aria-label={FRAME_WORDS.question} data-testid="frame-stage" data-olumi-frame-fronted="" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas"><FramePage view={view!} onClose={() => useFrameStage.getState().hide()} /></div>
 }

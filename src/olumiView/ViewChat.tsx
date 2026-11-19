@@ -2181,6 +2181,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer). What a press does: `pressChallenge`.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
+  const thinkingMethods = THINKING_METHODS.filter(({ id }) => menu?.methods.some((method) => method.id === id))
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
@@ -2198,6 +2199,14 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       <label className={brief ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      {thinkingMethods.length === 0 ? null : (
+        <div role="group" aria-label="Ways to think about this" className="flex flex-wrap items-center gap-2" data-testid="view-thinking-methods">
+          {thinkingMethods.map(({ id, label }) => (
+            <button key={id} type="button" className={VIEW_CHIP_CLASS} disabled={held || answering}
+              data-testid={`view-thinking-${id}`} onClick={() => runMethod(id)}>{label}</button>
+          ))}
+        </div>
+      )}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
@@ -2257,3 +2266,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
 
 /** The registry's method icons, on v10's four methods in the same order (neutral: icons carry no hue). */
 const METHOD_ICON: Readonly<Record<(typeof V10_METHODS)[number]['key'], 'method-challenge' | 'method-opposite' | 'method-disprove' | 'method-outside'>> = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' }
+const THINKING_METHODS = [
+  { id: 'else_do', label: 'Generate ideas' },
+  { id: 'right_question', label: 'Reframe' },
+] as const

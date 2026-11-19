@@ -5,7 +5,8 @@ import { OkIcon } from '../../look/icons'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
 import { useLaneInspector } from '../edit/inspectorStore'
-import { panelDrawsFinding } from '../contract'
+import { findingOf as modelFindingOf } from '../contract'
+import { FindingLine } from '../../FindingLine'
 
 /**
  * The Frame page (Paul, 19 Nov: "open on the question, with the aims beneath"; spec framing-20261119/mock/SPEC.md rows 1, 3, 4, 5, 8, 9 and "No model yet").
@@ -63,8 +64,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
   const q = model.question
   const aims = model.cards.filter((c) => c.family === 'goal'), limits = model.cards.filter((c) => c.family === 'limit'), routes = model.cards.filter((c) => c.family === 'option')
   const more = model.cards.length - aims.length - limits.length - routes.length
-  // Said once (S4, 19 Nov): where the Olumi panel draws core's finding line, the Frame page shows the question and the aims, not the sentence again.
-  const finding = panelDrawsFinding(model) ? null : findingOf(model)
+  const finding = modelFindingOf(model) === null ? findingOf(model) : null
   const editQuestion = () => { if (q.text.trim() !== '') requestAsk({ text: q.text, label: q.text, source: 'frame' }) }
   return (
     <div className="mx-auto grid max-w-[880px] gap-5 px-6 pb-12 pt-16" data-testid="frame-page">
@@ -88,7 +88,8 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
               {limits.length === 0 ? null : <div className="grid gap-1"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-2 p-0" data-testid="frame-limits">{limits.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
             </section>
           )}
-          {finding === null ? null : <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="frame-finding">{finding.join(' ')}</p>}
+          {finding === null ? <FindingLine model={model} at="frame" onFocusFigure={onClose} />
+            : <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="frame-finding">{finding.join(' ')}</p>}
           {routes.length === 0 ? null : (
             <section className="grid gap-1" aria-label={FRAME_WORDS.routes}>
               <h3 className={H}>{FRAME_WORDS.routes}</h3>
