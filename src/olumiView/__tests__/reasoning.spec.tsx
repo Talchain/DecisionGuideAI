@@ -63,6 +63,15 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     for (const id of given) expect(box.querySelectorAll(`[data-testid="reasoning-rests-edit-${id}"]`), id).toHaveLength(1)
     expect(expectAllBound(view, box, expect)).toBeGreaterThan(0)
   })
+  it('CONTRAST: an older View whose figure lacks give draws the bar with no ✎ and does not crash', () => {
+    const view = structuredClone(read('european.view.json'))
+    const f = view.model!.run!.rests.find((r) => r.line !== '' && (r.figures ?? []).length > 0)!.figures![0]!
+    delete (f as { give?: unknown }).give
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-rests').querySelector(`[data-rest-figure="${f.id}"] [data-testid="reasoning-share-bar"]`)).not.toBeNull()
+    expect(screen.getByTestId('reasoning-rests').querySelectorAll(`[data-testid="reasoning-rests-edit-${f.id}"]`)).toHaveLength(0)
+  })
   it('CONTRAST: a model whose Run sends no rests (app-launch, no chance yet) draws no such section and no bar', () => {
     const view = read('app-launch.view.json')
     expect(view.model!.run!.rests ?? []).toHaveLength(0)
@@ -215,6 +224,20 @@ describe('towards commitment: where views differ, what is still disputed, what i
     expect(commit.open.mock.calls).toEqual([[view.id, view]])
     expect(chat.prefill).not.toHaveBeenCalled()
   })
+  it('a commitment\'s trigger sentence and its latest outcome are drawn by its id; without them, neither line is drawn', () => {
+    const view = withRecords()
+    const k = (view.collab as Collab).commitments[0]!
+    k.trigger = { ...({} as NonNullable<typeof k.trigger>), text: 'If paid conversion with three screens falls below 5%, the lead changes.' }
+    k.outcomes = [{ ...({} as (typeof k.outcomes)[number]), id: 1, happened: 'Conversion held at 6.2%.' }, { ...({} as (typeof k.outcomes)[number]), id: 2, happened: 'Conversion fell to 5.8%.' }]
+    ready(view)
+    render(<ViewReasoningBlock />)
+    expect([screen.getByTestId('reasoning-commitment-trigger-7').textContent, screen.getByTestId('reasoning-commitment-happened-7').textContent])
+      .toEqual(['If paid conversion with three screens falls below 5%, the lead changes.', 'What happened: Conversion fell to 5.8%.'])
+    cleanup()
+    ready(withRecords())
+    render(<ViewReasoningBlock />)
+    expect([screen.queryByTestId('reasoning-commitment-trigger-7'), screen.queryByTestId('reasoning-commitment-happened-7')]).toEqual([null, null])
+  })
   it('a challenged card that is a recorded disagreement is said once: in full under Towards commitment, not in the list above', () => {
     const view = withRecords()
     const card = view.model!.cards[0]!
@@ -230,15 +253,24 @@ describe('towards commitment: where views differ, what is still disputed, what i
     expect(focus.node.mock.calls).toEqual([[card.id]])
   })
   it('core\'s differences between revealed views: what each is about, core\'s sentence on whether it changes which option is most likely, and what would settle it', () => {
+    const view = withRecords(), cid = view.model!.cards[0]!.id
     diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: 'What would settle it', steps: '', dissent: '', research: '', commit: '' },
-      differences: [{ kind: 'figure', cards: ['f1'], record: 'f1', label: 'Paid conversion', goal: 'g1', goal_label: 'Pay back', status: 'changes', status_text: 'Your figures change which option is most likely.', sides: [], options: [], settle: [{ kind: 'crossing', text: 'Above 6% the lead flips.', fact: null }], steps: [] }] } as never
-    ready(withRecords())
+      differences: [{ kind: 'figure', cards: [cid], record: cid, label: 'Paid conversion', goal: 'g1', goal_label: 'Pay back', status: 'changes', status_text: 'Your figures change which option is most likely.', sides: [], options: [], settle: [{ kind: 'crossing', text: 'Above 6% the lead flips.', fact: null }], steps: [] }] } as never
+    ready(view)
     render(<ViewReasoningBlock />)
-    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>('[data-difference="f1"]')!
+    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>(`[data-difference="${cid}"]`)!
     expect([screen.getByTestId('reasoning-commitment-differ').querySelector('p')!.textContent, row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent, row.querySelector('[data-testid="reasoning-difference-settle"]')!.textContent])
       .toEqual(['Where your views differ', 'Your figures change which option is most likely.', 'What would settle it: Above 6% the lead flips.'])
     fireEvent.click(row.querySelector('button')!)
-    expect(focus.node.mock.calls).toEqual([['f1']])
+    expect(focus.node.mock.calls).toEqual([[cid]])
+  })
+  it('a difference about a factor one member thinks is missing names no card: said without a press', () => {
+    diff.data = { scenario: 's', version: 1, gated: false, heading: 'Where your views differ', empty: '', headings: { sides: '', options: '', model: '', settle: '', steps: '', dissent: '', research: '', commit: '' },
+      differences: [{ kind: 'factor', cards: [], record: 'factor:r9', label: 'Onboarding cost', goal: 'g1', goal_label: '', status: 'not_run', status_text: 'Not run: a factor one of you thinks is missing.', sides: [], options: [], settle: [], steps: [] }] } as never
+    ready(withRecords())
+    render(<ViewReasoningBlock />)
+    const row = screen.getByTestId('reasoning-commitment-differ').querySelector<HTMLElement>('[data-difference="factor:r9"]')!
+    expect([row.querySelector('button'), row.querySelector('[data-testid="reasoning-difference-status"]')!.textContent]).toEqual([null, 'Not run: a factor one of you thinks is missing.'])
   })
   it('CONTRAST: before a reveal (no differences read) no differ block is drawn', () => {
     diff.data = null

@@ -90,7 +90,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
             <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>
             <ul className="m-0 list-none space-y-1 p-0">
               {(r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '').map(({ f, j }) => {
-                const give = f.give !== null && !given.has(f.id)
+                const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
                 return (
                   <li key={f.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-2" data-rest-figure={f.id}>

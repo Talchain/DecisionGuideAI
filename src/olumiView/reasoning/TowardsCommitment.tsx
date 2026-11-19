@@ -82,6 +82,7 @@ export function TowardsCommitment({ view }: { view: View }) {
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
   const dissent = (c.dissent ?? []).filter((d) => (d.confirmed?.words ?? d.position) !== '')
   const differ = (differences?.differences ?? []).filter((d) => d.status_text !== '')
+  const cardIds = new Set(view.model?.cards.map((x) => x.id) ?? [])
   if (reach === null && dissent.length + commitments.length + differ.length === 0) return null
   return (
     <section className="space-y-3" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
@@ -91,18 +92,22 @@ export function TowardsCommitment({ view }: { view: View }) {
           <p className={SUB}>{differences.heading}</p>
           <ul className="m-0 list-none p-0">
             {differ.map((d) => {
-              const card = d.cards?.[0] ?? d.record
+              // A factor one member thinks is missing names no card (core debate.ts): said without a press, never a dead button.
+              const card = d.cards?.find((id) => cardIds.has(id)) ?? (cardIds.has(d.record) ? d.record : null)
               const settle = d.settle.find((x) => x.text !== '')
+              const body = (
+                <>
+                  <OkIcon id="compare-views" size={14} className="mt-0.5" decorative />
+                  <span className="min-w-0 flex-1">
+                    <span className={`${TYPE.body} block break-words text-text-header`}>{d.label}{d.goal_label === '' ? null : <span className="text-text-light"> · {d.goal_label}</span>}</span>
+                    <span className={`${TYPE.meta} block break-words text-text-body`} data-testid="reasoning-difference-status">{d.status_text}</span>
+                    {settle === undefined ? null : <span className={`${TYPE.meta} block break-words text-text-light`} data-testid="reasoning-difference-settle">{differences.headings.settle === '' ? null : `${differences.headings.settle}: `}{settle.text}</span>}
+                  </span>
+                </>
+              )
               return (
                 <li key={`${d.record}|${d.goal}`} data-difference={d.record} data-difference-goal={d.goal}>
-                  <button type="button" className={PRESS} onClick={() => pressCard(card)}>
-                    <OkIcon id="compare-views" size={14} className="mt-0.5" decorative />
-                    <span className="min-w-0 flex-1">
-                      <span className={`${TYPE.body} block break-words text-text-header`}>{d.label}{d.goal_label === '' ? null : <span className="text-text-light"> · {d.goal_label}</span>}</span>
-                      <span className={`${TYPE.meta} block break-words text-text-body`} data-testid="reasoning-difference-status">{d.status_text}</span>
-                      {settle === undefined ? null : <span className={`${TYPE.meta} block break-words text-text-light`} data-testid="reasoning-difference-settle">{differences.headings.settle === '' ? null : `${differences.headings.settle}: `}{settle.text}</span>}
-                    </span>
-                  </button>
+                  {card === null ? <div className="flex items-start gap-2 px-1 py-1">{body}</div> : <button type="button" className={PRESS} onClick={() => pressCard(card)}>{body}</button>}
                 </li>
               )
             })}
