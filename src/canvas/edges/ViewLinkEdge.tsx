@@ -21,7 +21,7 @@ import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
-import { firstDraft as firstDraftOf, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
+import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
 import { HelpCircle, MessagesSquare, Split, type LucideIcon } from 'lucide-react'
 import { DIRECTION_NOT_SETTLED, DRIVER_WIDTH, EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, effectWidth, linkStyle, DOUBT_DASH } from '../../olumiView/v12/links/styles'
 import { LINK_OFF_PATH_OPACITY, useFocusPath } from '../../olumiView/v12/bands/focusPath'
@@ -67,7 +67,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // weighted on the width ladder, whatever its role says; every other line is a plain 2 px line (a role's own colour and end stay, its dots and weights do not).
   const styled = causal === null && direction === null && style !== null && style.role !== 'effect' ? style : null
   const modelled = styled === null && (causal !== null || direction !== null)
-  const labelWord = useViewStore((s) => causal === null ? s.view?.model?.key.find((k) => k.glyph === link.label)?.text : undefined)
+  // The mark's word is the key item core names for it (`label_key`); an older core's View, without the field, is read by its glyph (fields.ts linkKey).
+  const labelWord = useViewStore((s) => causal === null && s.view?.model != null ? linkKey(link, s.view.model.key).item?.text : undefined)
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const fromRoute = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === link.from)?.family === 'option')
