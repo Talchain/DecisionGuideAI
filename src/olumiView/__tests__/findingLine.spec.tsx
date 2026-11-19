@@ -53,16 +53,15 @@ afterEach(() => {
 })
 
 describe('the one finding line', () => {
-  it('FL1 (S4, 19 Nov: nothing is said twice) where the panel draws core\'s finding, the question card draws none of it, at both levels; CONTRAST: with the panel\'s row absent the question card still keeps the figure and needs; the finding is on screen once', () => {
-    expect(panelDrawsFinding(withFinding(F).model), 'precondition: the panel draws it on this View').toBe(true)
+  it('FL1 the same finding survives on the question card at both levels, ready when the Olumi panel is hidden', () => {
+    expect(panelDrawsFinding(withFinding(F).model), 'precondition: the panel can draw it on this View').toBe(true)
     for (const level of ['simple', 'working'] as const) {
       const q = question(withFinding(F), level)
-      expect([level, lines(q).length, q.querySelectorAll('[data-finding]').length]).toEqual([level, 0, 0])
+      expect(lines(q).map((line) => line.textContent)).toEqual([F.text])
+      expect(q.querySelector(`[data-finding-figure="${CARD.id}"]`)).not.toBeNull()
+      expect(q.querySelector('[data-view="run.finding.needs"]')?.textContent).toBe(F.needs)
       cleanup()
     }
-    const both = [question(withFinding(F), 'simple'), panel(withFinding(F))]
-    expect(both.map((c) => lines(c).length), 'the sentence is drawn once on screen: in the panel').toEqual([0, 1])
-    cleanup()
     const q = question(noResult(withFinding(F)), 'simple')
     expect([panelDrawsFinding(noResult(withFinding(F)).model), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual([false, 1, 1])
   })
@@ -81,7 +80,7 @@ describe('the one finding line', () => {
     // FL2c (Paul 19 Nov, said once): the aim card already says it, so the question card does not draw the sentence while no option has a result.
     expect(lines(question(none, 'simple')).map((e) => e.textContent), 'the question card does not repeat it').toEqual([])
     cleanup()
-    expect(lines(question(states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none')), 'simple')).map((e) => e.textContent), 'S4: with a result the panel draws the sentence, so the question card does not').toEqual([])
+    expect(lines(question(states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none')), 'simple')).map((e) => e.textContent)).toEqual([STATUS.text])
     cleanup()
     const withFigure = states(withFinding({ ...STATUS, figure: CARD.id, needs: 'Name a target.' }), () => 'none')
     const q2 = question(withFigure, 'simple')

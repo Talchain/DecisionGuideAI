@@ -4458,6 +4458,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 className={`flex flex-1 min-h-0 flex-col ${effectiveActiveTab === 'olumi' ? '' : 'hidden'}`}
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
+                data-olumi-finding-fronted={isOlumiCoreLane() && effectiveIsOpen && effectiveActiveTab === 'olumi' && !isOverlayPanelActive ? '' : undefined}
               >
                 {/* The olumi-core lane talks to core itself (src/olumiView/ViewChat), the brief included; never through /bff. */}
                 {isOlumiCoreLane() ? <ViewChat /> : <OlumiTabBody onFloatOut={floatOutToWindow} />}
