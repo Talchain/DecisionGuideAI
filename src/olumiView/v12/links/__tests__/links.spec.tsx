@@ -12,7 +12,7 @@ import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, effectWidth, linkStyle } from '../styles'
 import { effectMidpoint } from '../geometry'
-import { setDefaultLevel, setLevel, useSimpleLevel } from '../../simpleStore'
+import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { LINK_OFF_PATH_OPACITY as EDGE_OFF_PATH_OPACITY, useFocusPath } from '../../bands/focusPath'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
@@ -250,7 +250,6 @@ describe('connector density (S4 density lane, 19 Nov): a reason link is a line o
     expect(line(draw(reason({ proposed: true })))).not.toBeNull()
   })
   it('DENS4 Detailed is as before: no reason line at rest, drawn on focus; its causal line is drawn', () => {
-    setLevel('working', null)
     setDefaultLevel('working')
     expect(line(draw(reason()))).toBeNull(); cleanup()
     expect(line(draw(causal()))).not.toBeNull(); cleanup()
