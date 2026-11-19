@@ -17,6 +17,7 @@ import { writes } from './client'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from './store'
+import { VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import { noteEditSaved } from './notice'
 import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
 import { editGateNow } from './v12/edit/editGate'
@@ -115,7 +116,7 @@ export async function setFigure(sid: string, base: number, id: string, typed: st
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener }: { id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener, solid = false }: { solid?: boolean; id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -193,7 +194,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={openNow} aria-label={label} title={edit.ask}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
@@ -248,7 +249,7 @@ type FigureEditProps = Parameters<typeof FigureEditInPlace>[0]
  * is then only the way there: the pencil (or the aim's own words) opens the details of the card it names with that row's field focused. The editor that stood
  * under the card, and the ones in the panel and the chat, are the older look's: where the lane is off, `FigureEditInPlace` is this control exactly as it was.
  */
-function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab, primary, opener }: FigureEditProps): JSX.Element | null {
+function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab, primary, opener, solid = false }: FigureEditProps): JSX.Element | null {
   useViewStore((s) => s.at) // redrawn when the version on screen changes, so the pencil's title never goes stale
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
@@ -273,7 +274,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   }
   return glyph === undefined
     ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why}
-      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
     : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} title={why ?? edit.ask}
       className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
       <EditIcon testid={`${place}-glyph-${id}`} />

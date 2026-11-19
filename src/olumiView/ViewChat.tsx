@@ -58,7 +58,7 @@ import { EarlyAnswer } from './EarlyAnswer'
 import { ResultReceipts } from './ResultReceipts'
 import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
-import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
+import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
 import { answerQuestion } from './reasoning/answer'
@@ -1790,46 +1790,39 @@ function NextStepCard({ view, busy, step }: { view: View; busy: boolean; step: N
         className={`${typography.viewPanelMeta} flex min-h-[28px] w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="next-step" size={14} decorative />
         <span className="flex-none font-medium">Next step</span>
-        {open || nextStepLabel(step) === null ? null : <span className="min-w-0 flex-1 truncate" data-testid="view-next-step-label">{nextStepLabel(step)}</span>}
         <FoldChevron open={open} className="ml-auto" />
       </button>
       <div id="view-next-step-body" hidden={!open} className="space-y-2 rounded-md border border-panel-border bg-panel p-3" data-testid="view-next-step-body">
       {step.kind === 'move' ? <MoveStep view={view} turn={step.turn} /> : null}
-      {step.kind === 'figure' ? (
-        <div className="space-y-1">
-          <FigureWaits view={view} item={step.item} />
-          <FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" />
-        </div>
-      ) : null}
-      {step.kind === 'method' ? <MethodStep m={step.method} held={busy} /> : null}
-      {step.kind === 'invite' ? (
-        <>
-          <p>{NEXT_STEP_WORDS.invite}</p>
-          <button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>{NEXT_INVITE_WORDS}</button>
-        </>
-      ) : null}
+      {step.kind === 'figure' ? <FigureWaits view={view} item={step.item} /> : null}
+      {step.kind === 'method' && step.method.prerequisite !== null ? <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-method-prerequisite">{step.method.prerequisite}</p> : null}
+      {step.kind === 'invite' ? <p>{NEXT_STEP_WORDS.invite}</p> : null}
       {/* v10 review item 12: committing is a step, so its button is here, secondary; it opens the form below and writes nothing. */}
       <div className="empty:hidden"><RecordStepButton /></div>
       </div>
-      {step.kind === 'move' ? <MoveStepTap view={view} turn={step.turn} /> : null}
+      <StepPress view={view} busy={busy} step={step} />
     </section>
   )
 }
-/** The closed row's words: the step's one press, in the words that press itself carries (core's for a method or a move); none where the step is a form. */
-const nextStepLabel = (step: NextStep): string | null =>
-  step.kind === 'method' ? step.method.text : step.kind === 'move' ? step.next.label : step.kind === 'invite' ? NEXT_INVITE_WORDS : null
 const NEXT_INVITE_WORDS = 'Invite a colleague'
 
-/** The first question core orders for what they came for, as one button in core's words; an analysis-gated one says what it needs. */
-function MethodStep({ m, held }: { m: MenuMethod; held: boolean }) {
-  return (
-    <div className="space-y-1">
-      <button type="button" disabled={held} onClick={() => runMethod(m.id)} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-next-method" data-method={m.id}>
-        <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
-      </button>
-      {m.prerequisite === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-method-prerequisite">{m.prerequisite}</p>}
-    </div>
-  )
+/** The Next step's one filled press, whatever its kind (S4 ruling, 19 Nov: exactly one filled action at rest wherever core offers a next step). It is drawn
+ *  under the closed row, outside the folded body, so it is in view at rest; the fold holds only core's words for the step. A held proposal is the
+ *  'approve' step, drawn by ProposalReview (Approve outranks), so no other kind is ever drawn beside it. */
+function StepPress({ view, busy, step }: { view: View; busy: boolean; step: NextStep }) {
+  switch (step.kind) {
+    case 'move': return <MoveStepTap view={view} turn={step.turn} />
+    case 'figure': return <div><FigureEdit id={step.item.id} edit={step.item.edit} label="Add the figure" place="next-figure" solid /></div>
+    case 'method': return (
+      <div>
+        <button type="button" disabled={busy} onClick={() => runMethod(step.method.id)} className={VIEW_CHIP_PRIMARY_CLASS} data-testid="view-next-method" data-method={step.method.id}>
+          <span data-view={`session.methods.${step.method.i}.text`}>{step.method.text}</span>
+        </button>
+      </div>
+    )
+    case 'invite': return <div><button type="button" data-testid="view-next-invite" className={VIEW_CHIP_PRIMARY_CLASS} onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>{NEXT_INVITE_WORDS}</button></div>
+    default: return null
+  }
 }
 
 /** The question the goal picker asks: the page's own words for core's `session.goals` (canon wave step 1). */
