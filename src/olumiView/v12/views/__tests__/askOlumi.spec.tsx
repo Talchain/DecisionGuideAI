@@ -181,7 +181,7 @@ describe('sent on the press, through the chat\'s ask path', () => {
   })
   it('while Olumi is still answering, a second ask waits in the message box and the first ask still says Sent when it goes through (Codex review 7 #1)', async () => {
     serve(); show(tm04)
-    const { send, prefill, settle } = composer()
+    const { send, prefill } = composer()
     render(<WhereWeDiffer sid="s_x" view={tm04} onWrote={async () => true} />)
     fireEvent.click(await screen.findByTestId(`${rowOf(FIGURE)}-ask-go`))
     expect(useViewChat.getState().busy).toBe(true)
