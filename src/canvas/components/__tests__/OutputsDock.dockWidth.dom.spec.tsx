@@ -33,7 +33,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, cleanup, fireEvent } from '@testing-library/react'
 import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
-import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH, dockWidthBounds } from '../dockWidth'
+import { DOCK_MIN_WIDTH, DOCK_RESPONSIVE_MAX_WIDTH, DOCK_LARGE_SCREEN_MAX_WIDTH, dockWidthBounds } from '../dockWidth'
 import { useCanvasStore } from '../../store'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { ToastProvider } from '../../ToastContext'
@@ -182,7 +182,10 @@ describe('OutputsDock width — mounted, and independent of analysis state', () 
     // the viewports nobody tried.
     for (const viewportWidth of [1280, 1920, 3840]) {
       const width = mountAndReadDockWidth({ viewportWidth, hasCompletedFirstRun: false })
-      expect(width, `viewport ${viewportWidth}`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+      // 19 Nov 2026 (Paul): above 1280 the dock grows with the screen, to the large-screen ceiling.
+      expect(width, `viewport ${viewportWidth}`).toBe(
+        Math.min(DOCK_LARGE_SCREEN_MAX_WIDTH, Math.round(viewportWidth * (DOCK_RESPONSIVE_MAX_WIDTH / 1280))),
+      )
       expect(width, `viewport ${viewportWidth} must not be the drag floor`).toBeGreaterThan(
         DOCK_MIN_WIDTH,
       )

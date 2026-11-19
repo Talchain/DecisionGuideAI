@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest'
 import {
   DOCK_MIN_WIDTH,
   DOCK_RESPONSIVE_MAX_WIDTH,
+  DOCK_LARGE_SCREEN_MAX_WIDTH,
   DOCK_VIEWPORT_RATIO,
   dockWidthBounds,
   responsiveDockWidth,
@@ -27,12 +28,12 @@ import {
 const VIEWPORTS = [0, 320, 480, 600, 768, 900, 1024, 1280, 1366, 1440, 1600, 1920, 2560, 3840]
 
 describe('dockWidthBounds — the HARD bounds a user drag may reach', () => {
-  it('keeps the pre-existing rule: min 280, max min(480, 40% of viewport)', () => {
-    // These are the exact literals the three inline copies used, so an
-    // existing persisted width keeps behaving as it did before the refactor.
-    expect(dockWidthBounds(1280)).toEqual({ min: 280, max: 480 }) // 40% = 512, capped at 480
-    expect(dockWidthBounds(900)).toEqual({ min: 280, max: 360 }) // 40% = 360, under the cap
-    expect(dockWidthBounds(1200)).toEqual({ min: 280, max: 480 }) // 40% = 480, exactly the cap
+  it('the rule: min 280, max min(640, 40% of viewport) (the cap was 480 until Paul let big screens grow, 19 Nov 2026)', () => {
+    expect(dockWidthBounds(1280)).toEqual({ min: 280, max: 512 }) // 40% = 512, under the cap
+    expect(dockWidthBounds(900)).toEqual({ min: 280, max: 360 }) // 40% = 360
+    expect(dockWidthBounds(1200)).toEqual({ min: 280, max: 480 }) // 40% = 480
+    expect(dockWidthBounds(2000)).toEqual({ min: 280, max: 640 }) // 40% = 800, capped at 640
+    expect(dockWidthBounds(2560)).toEqual({ min: 280, max: 640 })
   })
 
   it('never returns max < min, however narrow the viewport', () => {
@@ -73,20 +74,22 @@ describe('responsiveDockWidth — the width when the user has NEVER dragged', ()
     // between the floor and the ceiling, so a mutant collapsing the taper to
     // either bound is visible here.
     expect(responsiveDockWidth(1200)).toBeGreaterThan(DOCK_MIN_WIDTH)
-    expect(responsiveDockWidth(1200)).toBeLessThan(DOCK_RESPONSIVE_MAX_WIDTH)
+    expect(responsiveDockWidth(1200)).toBeLessThan(DOCK_RESPONSIVE_MAX_WIDTH) // below the reference it still tapers
   })
 
-  it('never exceeds the historic fixed width, so wide screens are unchanged', () => {
-    // 416 is the ceiling in both directions: no viewport gets more than the
-    // dock's last known usable width, and (see the containment block below) no
-    // desktop viewport gets less.
+  it('at and below the 1280 reference nothing changed; above it the same ratio grows the dock to the large-screen ceiling', () => {
+    // Paul's own sizes: 1232 -> 347, 1128 -> 317, and 1280 is exactly the reference width.
+    expect(responsiveDockWidth(1128)).toBe(317)
+    expect(responsiveDockWidth(1232)).toBe(347)
+    expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // (360/1280)*1280 = 360 exactly
+    // Above it: the SAME ratio, not a second formula.
+    expect(responsiveDockWidth(1600)).toBe(450)
+    expect(responsiveDockWidth(2000)).toBe(DOCK_LARGE_SCREEN_MAX_WIDTH) // proportional 562.5 -> 563, capped at 560
+    expect(responsiveDockWidth(2560)).toBe(DOCK_LARGE_SCREEN_MAX_WIDTH) // proportional 720, capped
+    expect(responsiveDockWidth(3840)).toBe(DOCK_LARGE_SCREEN_MAX_WIDTH)
     for (const w of VIEWPORTS) {
-      expect(responsiveDockWidth(w), `viewport ${w}`).toBeLessThanOrEqual(DOCK_RESPONSIVE_MAX_WIDTH)
+      expect(responsiveDockWidth(w), `viewport ${w}`).toBeLessThanOrEqual(DOCK_LARGE_SCREEN_MAX_WIDTH)
     }
-    expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // (319/1280)*1280 = 319 exactly
-    expect(responsiveDockWidth(1600)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // proportional 520, capped
-    expect(responsiveDockWidth(2560)).toBe(DOCK_RESPONSIVE_MAX_WIDTH) // proportional 832, capped
-    expect(responsiveDockWidth(3840)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 
   it('never drops below the usable minimum, however narrow the viewport', () => {
@@ -118,8 +121,9 @@ describe('resolveDockWidth — explicit user width wins, re-clamped to bounds', 
 
   it('honours an explicit width that is inside the bounds', () => {
     // An explicit drag is a user decision; the responsive default must not
-    // override it. 480 is legal at 1280 (max 480) and must survive exactly.
+    // override it. 480 is legal at 1280 (max 512) and must survive exactly, as it did before 19 Nov.
     expect(resolveDockWidth(1280, 480)).toBe(480)
+    expect(resolveDockWidth(2560, 640)).toBe(640) // the raised drag ceiling is reachable
     expect(resolveDockWidth(1280, 416)).toBe(416)
     expect(resolveDockWidth(1280, 300)).toBe(300)
   })
@@ -211,14 +215,19 @@ describe('the restored 416px default — containment pins (17 Aug 2026)', () => 
     expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
   })
 
-  it('gives 416px at 1280, 1920 and 3840 — screen size may widen the dock, never narrow it', () => {
+  it('screen size may widen the dock, never narrow it: 360 at 1280, wider at 1920 and 3840', () => {
     // The three viewports named because #741's clamp was `Math.min(full, min)`
     // against an UNCONDITIONAL 280 constant, so all three answered 280. A
     // per-input probe returning the same answer for every input is evidence
     // about the probe (trap 20) — here it was evidence about the product, and
     // nothing was asking.
-    for (const viewport of [1280, 1920, 3840]) {
-      expect(responsiveDockWidth(viewport), `viewport ${viewport}`).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+    expect(responsiveDockWidth(1280)).toBe(DOCK_RESPONSIVE_MAX_WIDTH)
+    expect(responsiveDockWidth(1920)).toBe(540)
+    expect(responsiveDockWidth(3840)).toBe(DOCK_LARGE_SCREEN_MAX_WIDTH)
+    let previous = 0
+    for (const w of VIEWPORTS) {
+      expect(responsiveDockWidth(w), `viewport ${w} never narrower than a smaller screen`).toBeGreaterThanOrEqual(previous)
+      previous = responsiveDockWidth(w)
     }
   })
 

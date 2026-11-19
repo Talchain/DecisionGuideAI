@@ -254,8 +254,8 @@ describe('S4 laptop fit — the chrome the fit subtracts (verify and keep)', () 
   it('the insets are 76 / 376 / 73 / 92 at 1280x800 with the dock open', () => {
     expect(chromeAt(VIEWPORTS[0]).insets).toEqual({ left: 76, right: 376, top: 73, bottom: 92 })
   })
-  it('…and the same at 1440x900 (the dock is 360 at both widths)', () => {
-    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 376, top: 73, bottom: 92 })
+  it('…and 45px wider on the right at 1440x900 (the dock is 405 there: the same 28.125% above 1280, Paul 19 Nov 2026)', () => {
+    expect(chromeAt(VIEWPORTS[1]).insets).toEqual({ left: 76, right: 421, top: 73, bottom: 92 })
   })
 })
 
