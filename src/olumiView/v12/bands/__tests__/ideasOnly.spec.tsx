@@ -18,6 +18,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { IDEA_PREFIX } from '../bands'
 import { SIMPLE_GAP_Y, SIMPLE_LABEL_GAP } from '../../../layout'
 import { KIND_GLYPH_PX } from '../../../../canvas/utils/nodeLayoutConstants'
+import { GOAL_CHANCE_DRIVER_TAG_Z } from '../../../../canvas/utils/goalChanceDriverLinks'
 import { VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { CHALLENGE_IDEA, DEVELOP_IDEA, IdeaPanel, ideaDetailOf } from '../IdeaPanel'
 import { takesBrief } from '../../../ViewChat'
@@ -76,6 +77,13 @@ describe('008e 1: kept ideas with no current model', () => {
     expect(label.className).toContain('bg-canvas') // the link behind the words is hidden, not struck through them (STRUCTURE row: jsdom draws no links)
     expect(SIMPLE_LABEL_GAP, 'clear of an arrow head (about 8 units)').toBeGreaterThanOrEqual(10)
     expect(SIMPLE_LABEL_GAP + 16 + KIND_GLYPH_PX / 2, 'the label, its gap and the marker still fit the row gap').toBeLessThanOrEqual(SIMPLE_GAP_Y)
+  })
+  it('a band label is never crossed by an edge mark or tick: it stands above the edge marks\' stacking (Paul 19 Nov, "What drives it (uncertain)" struck by ticks)', () => {
+    show(noModel(KEPT))
+    mount()
+    const label = document.querySelector('[data-band-label="ideas"]') as HTMLElement
+    const z = Number(/(?:^|\s)z-\[(\d+)\](?:\s|$)/.exec(label.className)?.[1] ?? 0) // a class, so the label's geometry style stays geometry only
+    expect(z, 'above the link words, tick and chip (GOAL_CHANCE_DRIVER_TAG_Z, +1 for the remove control)').toBeGreaterThan(GOAL_CHANCE_DRIVER_TAG_Z + 1)
   })
   it('the welcome does not stand over them, and the message box is still the dock\'s', () => {
     show(noModel(KEPT))

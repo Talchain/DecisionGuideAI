@@ -22,7 +22,7 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
-import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract'
+import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
@@ -236,7 +236,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   // that same text said again, so it is no line. Identity only, never a fuzzy match: a different wording (core's quote of the brief) is kept.
   const said = [card.heading, card.face?.title?.text, card.figure?.text, card.bound?.text].filter((x): x is string => x != null && x.trim() !== '').map((x) => x.trim())
   const described = cardTitle(card).description
-  const description = described !== null && said.includes(described.trim()) ? null : described
+  // (And a bare number that is the card's typed figure value, `isFigureNumber`: Paul 19 Nov, "12 weeks" over "12".)
+  const description = described !== null && (said.includes(described.trim()) || isFigureNumber(card, described)) ? null : described
   const quiet: StateLine | null = state !== null
     ? (description === null ? state : { ...state, title: [state.title !== '' ? state.title : state.text, description].join('\n') })
     : description === null ? null : { text: description, title: description, marks: { 'data-simple-description': id } }

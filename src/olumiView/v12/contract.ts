@@ -33,6 +33,17 @@ export const figureRange = (card: object): FigureRange | null => {
   return { low, high, unit, likely: typeof likely === 'number' && Number.isFinite(likely) ? likely : null }
 }
 
+/**
+ * Whether `text` is nothing but the number the card's typed figure holds (its `range.likely`, or the one value where low and high are the same): a bare "12" under
+ * a "12 weeks" figure is that figure said twice. Typed fields only (`figure.range`); the figure's own prose is never read, and a card with no typed value is never "the same".
+ */
+export const isFigureNumber = (card: object, text: string): boolean => {
+  const r = figureRange(card)
+  const value = r === null ? null : r.likely ?? (r.low === r.high ? r.low : null)
+  const t = text.trim()
+  return value !== null && /^[+-]?\d+(\.\d+)?$/.test(t) && Number(t) === value
+}
+
 /** On a calculated card, the options core could not calculate, each with core's own reason (for example "170 samples gave a time below zero"):
  *  core's `values_withheld`, its own field, never among the bands in `values` (so no reader of `values` can take a position from one). */
 export interface WithheldValue { option: string; text: string }

@@ -11,7 +11,8 @@ import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { MAY_HAVE_SAVED, resetWrites } from '../../../../olumiCore/team/writes'
 import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
 import { putDraft, resetDrafts } from '../../../../olumiCore/team/drafts'
-import { CommitForm, COMMIT_WORDS, openCommitDraft } from '../CommitForm'
+import { CommitForm, COMMIT_WORDS, closeUntouchedCommit, openCommitDraft, openCommitTo } from '../CommitForm'
+import { useCanvasStore } from '../../../../canvas/store'
 import { CommitmentPanel } from '../../../../olumiCore/team/CommitmentPanel'
 import { DriverDifferMark } from '../DriverDifferMark'
 import { FrameEntry } from '../../views/FrameEntry'
@@ -85,6 +86,33 @@ describe('Record what you will do', () => {
     expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-draft-kept')]).toEqual(['false', null])
     fireEvent.click(screen.getByTestId('commit-form-open'))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('')
+  })
+  const pick = (...ids: string[]) => act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set<string>(), anchorPosition: null } }) })
+  it('Paul 19 Nov: a form with all three answers blank folds itself when the person selects another card, and when they send a message; CONTRAST: one with a word typed stays open with its draft', () => {
+    pick('a')
+    render(<CommitForm sid="s_auto" view={view()} onWrote={async () => true} />)
+    openForm()
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('true')
+    pick('b')
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('false')
+    openForm()
+    act(() => { closeUntouchedCommit('s_auto') })
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('false')
+    openForm()
+    fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Ask the two mechanics' } })
+    pick('c')
+    act(() => { closeUntouchedCommit('s_auto') })
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('true')
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics')
+  })
+  it('Paul 19 Nov: "Commit to this" from an option does not fold itself when its card is selected', () => {
+    pick('a')
+    const v = view()
+    render(<CommitForm sid="s_opt" view={v} onWrote={async () => true} />)
+    act(() => { openCommitTo('s_opt', v, 'second_oven') })
+    pick('b')
+    act(() => { closeUntouchedCommit('s_opt') })
+    expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('true')
   })
   it('Codex review 008 (18 Nov): Close during a save folds the form, and the folded line carries the save\'s own state: "Saving" while it is on its way, then the may-have-saved warning when the answer is lost. CONTRAST: a closed draft with no save says only "Draft kept"', async () => {
     let lose!: (e: Error) => void

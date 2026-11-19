@@ -107,15 +107,34 @@ export function placeBeside(anchor: Rect, own: Element | null, size: { width: nu
     // The hover pop-up's rule first (the first side that holds the whole panel, fewest other cards covered); kept only when it is clear of the card.
     const p = placeHoverCard(a, { width: w, height: h }, { width: W, height: H }, [...canvasCardRects(own), ...foot].map(shift), gap)
     const hp = fit(p.left, p.top, h)
-    if (!onCard(hp)) return out(hp)
-    // No side holds it clear of the card: the side with the most room, the panel cut to that room.
-    const sides: Array<{ left: number; top: number; h: number }> = []
-    if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h })
-    if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: clamp(a.top, gap, H - h - gap), h })
+    // Never on another card where a side exists that is not (Paul 19 Nov: the box, slid up off the board's foot, sat on the row of cards above): such a place is
+    // set aside for one that clears every card; only where none does is the hover rule's own choice kept.
+    const others = canvasCardRects(own).map(shift)
+    const onOthers = (c: { left: number; top: number; h: number }) => others.some((o) => hits({ left: c.left, top: c.top, right: c.left + w, bottom: c.top + c.h }, o))
+    if (!onCard(hp) && !onOthers(hp)) return out(hp)
+    // The sides: beside the card at its own top, cut to the room below it (its body scrolls) and never lifted into the row above; then the lifted places; then below and above.
+    const sides: Array<{ left: number; top: number; h: number; beside?: true }> = []
+    const roomBelowTop = H - a.top - gap
+    if (a.top >= gap && roomBelowTop >= minShown) {
+      if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: a.top, h: Math.min(h, roomBelowTop), beside: true })
+      if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: a.top, h: Math.min(h, roomBelowTop), beside: true })
+    }
+    if (W - a.right >= w + 2 * gap) sides.push({ left: a.right + gap, top: clamp(a.top, gap, H - h - gap), h, beside: true })
+    if (a.left >= w + 2 * gap) sides.push({ left: a.left - gap - w, top: clamp(a.top, gap, H - h - gap), h, beside: true })
     const below = Math.min(h, H - a.bottom - 2 * gap), above = Math.min(h, a.top - 2 * gap), across = clamp(a.left, gap, W - w - gap)
     if (below >= minShown) sides.push({ left: across, top: a.bottom + gap, h: below })
     if (above >= minShown) sides.push({ left: across, top: a.top - gap - above, h: above })
-    const best = sides.map((x) => fit(x.left, x.top, x.h)).filter((c) => !onCard(c) && c.h >= minShown).sort((x, y) => y.h - x.h)[0]
+    const fits = sides.map((x) => ({ ...fit(x.left, x.top, x.h), beside: x.beside === true })).filter((c) => !onCard(c) && c.h >= minShown)
+    // The tallest place; the first listed on a tie, so the top-anchored side wins over its lifted twin.
+    const tallest = (cs: typeof fits) => cs.reduce<typeof fits[number] | undefined>((b, c) => (b === undefined || c.h > b.h ? c : b), undefined)
+    if (!onCard(hp)) {
+      // The hover rule's place is off its card but on another: a side clear of every card replaces it (only a side: a shorter place above or below is not better than
+      // covering a card, which the preview's reserved height relies on, A-8); none, and its place is kept.
+      const side = tallest(fits.filter((c) => c.beside && !onOthers(c)))
+      return out(side ?? hp)
+    }
+    // It is on its card: the tallest place clear of every card, else the tallest off the card.
+    const best = tallest(fits.filter((c) => !onOthers(c))) ?? tallest(fits)
     if (best !== undefined) return out(best)
   }
   // The card is off the free canvas, or no side has room: still shown, inside the free canvas, where it overlaps the card least (the first of these on a tie).

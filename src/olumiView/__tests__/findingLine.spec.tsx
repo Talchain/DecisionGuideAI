@@ -62,14 +62,21 @@ describe('the one finding line', () => {
     expect([w.length, w[0]?.textContent, w[0]?.title]).toEqual([1, F.text, F.title])
     expect(c.querySelector('[data-testid="view-chat-finding"]')).not.toBeNull()
   })
-  it('FL2b where NO option has a calculated result the finding is a status the reply already says: not above the conversation, still on the question card. CONTRASTS: one option with a result (an incomplete comparison) keeps the row; a fixed result counts', () => {
+  it('FL2b where NO option has a calculated result the finding is a status the reply already says: not above the conversation, not on the question card either (the aim card says it). CONTRASTS: one option with a result (an incomplete comparison) keeps the row; a fixed result counts', () => {
     const states = (v: View, state: (i: number) => string): View => { const c = structuredClone(v); let i = 0; for (const card of c.model!.cards) if (card.family === 'option' && card.headline != null) (card.headline as { state: string }).state = state(i++); return c }
     const STATUS = { text: 'The chance cannot be worked out yet: the aim has no measure.', title: 'The chance cannot be worked out yet: the aim has no measure.', figure: null, needs: null }
     expect(served.model!.cards.filter((c) => c.family === 'option' && c.headline != null).length, 'precondition: the fixture has option headlines').toBeGreaterThan(1)
     const none = states(withFinding(STATUS), () => 'none')
     expect([hasAnyResult(none.model), panel(none).querySelector('[data-testid="view-chat-finding"]')]).toEqual([false, null])
     cleanup()
-    expect(lines(question(none, 'simple')).map((e) => e.textContent), 'the question card keeps it').toEqual([STATUS.text])
+    // FL2c (Paul 19 Nov, said once): the aim card already says it, so the question card does not draw the sentence while no option has a result.
+    expect(lines(question(none, 'simple')).map((e) => e.textContent), 'the question card does not repeat it').toEqual([])
+    cleanup()
+    expect(lines(question(states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none')), 'simple')).map((e) => e.textContent), 'CONTRAST: with a result it keeps the sentence').toEqual([STATUS.text])
+    cleanup()
+    const withFigure = states(withFinding({ ...STATUS, figure: CARD.id, needs: 'Name a target.' }), () => 'none')
+    const q2 = question(withFigure, 'simple')
+    expect([lines(q2).length, q2.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q2.querySelectorAll('[data-view="run.finding.needs"]').length], 'no sentence, figure button and needs row kept').toEqual([0, 1, 1])
     cleanup()
     const partial = states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none'))
     expect([hasAnyResult(partial.model), lines(panel(partial)).map((e) => e.textContent)]).toEqual([true, [STATUS.text]])

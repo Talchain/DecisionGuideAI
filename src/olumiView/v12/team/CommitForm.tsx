@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
@@ -8,6 +8,7 @@ import { putDraft, useDraft } from '../../../olumiCore/team/drafts'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../../../olumiCore/team/writes'
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { currentModel, useViewStore } from '../../store'
+import { useCanvasStore } from '../../../canvas/store'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
@@ -118,8 +119,16 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const busy = mine || sending
   // Collapsed to one quiet line until pressed (V12 refinement spec 6). Open only while the person has it open (its own line, the Next step
   // card or a kept idea opened it): Close folds it and KEEPS the draft, which the folded line then says; Discard draft empties it.
-  const [opened, setOpened] = useState(false)
   const hasDraft = [d.action, d.expect, d.reconsider].some((t) => t.trim() !== '')
+  // ONE open flag (the draft's `open`). A form the person has not touched folds itself when they go on to another card: it was in the way of the chat,
+  // and nothing is lost. A touched form, one opened from an option, or one that is saving stays as it is.
+  const picked = useCanvasStore((s) => [...s.selection.nodeIds].join('\u0000'))
+  const seen = useRef(picked)
+  useEffect(() => {
+    if (seen.current === picked) return
+    seen.current = picked
+    if (d.open && !hasDraft && !d.option && !busy && !locked) setD((x) => ({ ...x, open: false }))
+  })
   // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
   // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
   // proposal stays unapproved; nothing here is read from it.
@@ -139,7 +148,6 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       drop()
       // Saved: the form folds back to its one line. It stayed open and empty when the person had opened it by its own button (the native
       // team journey, 17 Nov: an expanded empty form left after save).
-      setOpened(false)
       await onWrote()
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : view.team_words.failed)
@@ -149,14 +157,14 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     // One line tall at rest and as tall as what is typed, to about seven lines (three empty tall boxes read as a long form).
     <textarea id={id} data-testid={id} rows={1} className={`${FIELD} min-h-[36px] max-h-[168px] [field-sizing:content]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
   )
-  const close = () => { setOpened(false); if (d.open) put({ open: false }) }
-  const discard = () => { drop(); setOpened(false); setError(null) }
+  const close = () => { if (d.open) put({ open: false }) }
+  const discard = () => { drop(); setError(null) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
-  if (!opened && !d.open) {
+  if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
-        <button type="button" data-testid="commit-form-open" onClick={() => setOpened(true)}
+        <button type="button" data-testid="commit-form-open" onClick={() => put({ open: true })}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
           <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
           {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>
@@ -200,6 +208,11 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       {!busy && !locked && !ready ? <p className={META} data-testid="commit-form-why">{COMMIT_WORDS.notReady}</p> : <p className={META} data-testid="commit-form-footnote">{COMMIT_WORDS.footnote}</p>}
     </section>
   )
+}
+
+/** A message is sent: a form the person has not touched (all three answers blank, not opened from an option) folds itself; a touched one keeps its draft. */
+export function closeUntouchedCommit(sid: string): void {
+  putDraft<Draft>(`${sid}:commitment`, (prev) => prev !== undefined && prev.open && !prev.option && [prev.action, prev.expect, prev.reconsider].every((t) => t.trim() === '') ? { ...prev, open: false } : (prev as Draft))
 }
 
 /** The Olumi tab's mount: reads the page's own View, never past versions, and only for the person this page is for. */

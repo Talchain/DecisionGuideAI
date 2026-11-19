@@ -82,6 +82,28 @@ describe('a saved figure says what it changed (journey 4)', () => {
     top.mockRestore(); tall.mockRestore()
   })
 
+  it('S3c (Paul 19 Nov) a short lost-reply line is never left scrolled out above the thread after an approval: where the line and the top of the receipt both fit from the line\'s first line, it starts there. CONTRAST: a line the receipt cannot share the thread with keeps the receipt whole', () => {
+    const at = (n: HTMLElement) => (n.dataset.testid === 'view-model-notice-block' ? 700 : n.hasAttribute('data-latest-floor') ? 600 : 0)
+    const high = (n: HTMLElement, receipt: number) => (n.dataset.testid === 'view-model-notice-block' ? receipt : n.hasAttribute('data-latest-floor') ? 40 : 0)
+    const run = (receiptTop: number, receipt: number): number => {
+      const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? receiptTop : at(this) })
+      const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return high(this, receipt) })
+      try {
+        useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+        const lost = { job: 99, at: '2026-11-19T00:00:00Z', by: 'Paul', by_id: RUN2.you_id, said: 'Please add a risk', text: '', unanswered: { status: 'lost', words: 'The model changed while Olumi was working, send your message again.' } }
+        useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: { ...RUN2, floor: [lost] } as unknown as View, status: 'ready', error: null, stale: false } as never)
+        const el = render(<ViewChat />).container
+        expect(el.querySelector('[data-latest-floor]')?.getAttribute('data-view'), 'precondition: the lost line is the newest').toBe('floor.99.unanswered.words')
+        const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
+        Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
+        act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
+        return scroll.scrollTop
+      } finally { top.mockRestore(); tall.mockRestore(); cleanup() }
+    }
+    expect(run(700, 250), 'the line whole from its first line (600 - 16), the receipt below it').toBe(584)
+    expect(run(900, 250), 'CONTRAST: a receipt whose top is out of reach from the line keeps the old rule (its foot 16 under the thread foot)').toBe(866)
+  })
+
   it('S4 with a Next step card below it (core asks to bring in a colleague after the save), the receipt still comes into view, not the step', () => {
     const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 700 : this.dataset.testid === 'view-next-step' ? 1300 : 600 })
     const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : this.dataset.testid === 'view-next-step' ? 150 : 0 })

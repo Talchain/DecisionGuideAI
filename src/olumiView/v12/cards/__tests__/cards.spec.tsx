@@ -516,6 +516,22 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     cleanup()
     expect(body(shown!)[0], 'the bound said again').toBeNull()
   })
+  it('P6 (Paul 19 Nov, "12 weeks" over "12") a description that is a bare number equal to the card\'s typed figure value is no line; another number, a range\'s other value or words are kept', () => {
+    const id = 'option_scheduled'
+    const base = cardOf(APP, id)
+    const line = (description: string, range: { low: number; likely: number | null; high: number; unit: string } | null) =>
+      lineOf(draw(withCard(APP, { ...base, description, figure: { text: '12 weeks', title: '', edit: null, ...(range === null ? {} : { range }) } } as unknown as ViewCard), id, 'simple')) ?? twoLineOf(document.body)
+    const point = { low: 12, likely: 12, high: 12, unit: 'weeks' }
+    expect(line('12', point), 'the figure\'s own number said again').toBeNull()
+    cleanup()
+    expect(line('12', { low: 12, likely: null, high: 12, unit: 'weeks' }), 'low equals high').toBeNull()
+    cleanup()
+    expect(line('about 12 a week', point)?.textContent, 'CONTRAST: words are kept').toBe('about 12 a week')
+    cleanup()
+    expect(line('13', point)?.textContent, 'CONTRAST: another number is kept').toBe('13')
+    cleanup()
+    expect(line('12', { low: 10, likely: null, high: 14, unit: 'weeks' })?.textContent, 'CONTRAST: a range with no likely value is not one number').toBe('12')
+  })
   it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
     const line = twoLineOf(draw(described(APP, id), id, 'simple'))!

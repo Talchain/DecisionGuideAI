@@ -57,7 +57,7 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { CommitFormSlot, RecordStepButton } from './v12/team'
+import { CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
@@ -1172,6 +1172,7 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
 function say(text: string, words = false): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
+  if (sid !== null) closeUntouchedCommit(sid)
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
     // The card the composer shows as "About: <card>" goes with the words, by id (core candidate 8); the same words about another card are another write.
@@ -1836,7 +1837,10 @@ export function ViewChat() {
       const first = top, own = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
       // Where the receipt would slice the reply (its top lands inside the reply's body), the reply's first line wins: a half-cut headline
       // is worse than a receipt a scroll away (audit chat-1). Where the reply would be wholly above the thread, nothing is cut: the receipt wins.
-      const cuts = newest !== null && own > newest.offsetTop && own < newest.offsetTop + newest.offsetHeight
+      // Nor is a short line left scrolled out above the thread (Paul 19 Nov, a lost reply half under the strip): where, from its first line, the whole line and the
+      // top of the receipt both stand in the thread, it starts there and the receipt follows it. A line the page has not measured (height 0) has nothing to cut.
+      const wholeLine = newest !== null && newest.offsetHeight > 0 && newest.offsetTop + newest.offsetHeight <= first + el.clientHeight && saved.offsetTop + 16 <= first + el.clientHeight
+      const cuts = newest !== null && own > newest.offsetTop && (own < newest.offsetTop + newest.offsetHeight || wholeLine)
       top = cuts ? first : own
     }
     // Someone who has scrolled on themselves (readerTop, contract 3) is never pulled back above where they scrolled, except to bring the
