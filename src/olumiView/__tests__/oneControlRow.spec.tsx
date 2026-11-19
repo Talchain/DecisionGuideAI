@@ -69,6 +69,7 @@ const settle = (ms = 30) => act(async () => { await new Promise((r) => setTimeou
 
 describe('the team\'s two controls sit on the top row, never at the canvas foot', () => {
   it('OR1 revealed, Detailed: both are icons inside the lens bar, outside its radio group; the foot holds neither; each press does what it did', async () => {
+    setLevel('working', revealed.id)
     mount(revealed)
     await settle()
     const views = screen.getByTestId('views-toggle'), compare = screen.getByTestId('views-compare')
@@ -79,6 +80,8 @@ describe('the team\'s two controls sit on the top row, never at the canvas foot'
     expect([views.textContent, views.getAttribute('aria-label'), compare.textContent, compare.getAttribute('aria-label')]).toEqual(['', 'Views', '', COMPARE_WORDS.control])
     expect([views.querySelector('svg') !== null, compare.querySelector('svg') !== null]).toEqual([true, true])
     expect(views.getAttribute('aria-pressed')).toBe('true')
+    // A pressed control keeps its pressed colour on hover; an unpressed one takes the hover colour (as the lens buttons do).
+    expect([views.className.includes('hover:text-text-body'), compare.className.includes('hover:text-text-body')]).toEqual([false, true])
     fireEvent.click(views)
     expect(useViewsMarks.getState().on).toBe(false)
     expect(screen.getByTestId('views-toggle').getAttribute('aria-pressed')).toBe('false')

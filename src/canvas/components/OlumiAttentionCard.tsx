@@ -200,7 +200,7 @@ function drawnCardBoxes(note: HTMLElement | null, anchorId: string): Box[] {
  * as boxes in the note's own frame. Measured from what is drawn, never guessed.
  */
 const CONTROL_SELECTORS = ['nav[aria-label="Canvas tools"]', 'nav[aria-label="Viewport controls"]', '[data-testid="assistant-focus-chip"]', '[role="banner"]', '[data-testid="lens-bar"]']
-function controlBoxes(note: HTMLElement | null): Box[] {
+export function controlBoxes(note: HTMLElement | null): Box[] {
   const frame = note?.offsetParent?.getBoundingClientRect()
   if (!note || !frame) return []
   return CONTROL_SELECTORS.flatMap((sel) => Array.from(document.querySelectorAll<HTMLElement>(sel)))
