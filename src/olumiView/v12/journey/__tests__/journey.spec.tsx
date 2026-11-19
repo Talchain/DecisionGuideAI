@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { create } from 'zustand'
 import type { View } from '../../../types'
 import { useViewStore } from '../../../store'
 import { useReveal } from '../../../reveal'
@@ -21,8 +22,14 @@ import { isEmpty, journeyOf, JOURNEY_WORDS as W, type JourneyContext } from '../
 
 const focused: string[] = []
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusNodeById: (id: string) => { focused.push(id) } }))
-let next: unknown = null
-vi.mock('../../../ViewChat', () => ({ nextStepOf: () => next }))
+let next: { kind: string; turn: number; move: string } | null = null
+// The chat's store, as ViewChat holds it: `gone` is the move the chat refused as stale (ViewChat `moveKey`: sid, turn, move joined by NUL).
+const chat = vi.hoisted(() => ({ store: null as unknown as { setState: (s: { gone: string | null }) => void } }))
+vi.mock('../../../ViewChat', () => {
+  const useViewChat = create<{ gone: string | null }>()(() => ({ gone: null }))
+  chat.store = useViewChat
+  return { useViewChat, nextStepOf: (_v: unknown, isGone?: (turn: number, move: string) => boolean) => (next !== null && isGone?.(next.turn, next.move) === true ? null : next) }
+})
 const outcomeForms: Array<[string, number]> = []
 vi.mock('../../../../olumiCore/team/outcomeNav', () => ({ goToOutcome: (sid: string, id: number) => { outcomeForms.push([sid, id]) } }))
 
@@ -69,19 +76,21 @@ const show = (view: View, at: number | null = null) => useViewStore.setState({ u
 beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((f: FrameRequestCallback) => { f(0); return 0 })
   useCanvasStore.setState({ nodes: [{ id: 'add_consulting' }, { id: 'time_to_contract' }, { id: 'contract_to_cash' }, { id: 'idea:kept:1' }] as never })
-  next = null
+  next = null; chat.store.setState({ gone: null })
 })
 afterEach(() => { cleanup(); focused.length = 0; outcomeForms.length = 0; useReveal.getState().select(null); vi.restoreAllMocks() })
 
 describe('#1 how the conclusions moved: core\'s chances, its line one press away, the credited card', () => {
-  it('one row per option and aim, named by its card, before → now in core\'s words; an unchanged one says so once', () => {
+  it('one row per option and aim, named by its card, before → now in core\'s words; equal texts are shown as they are, never called "unchanged"', () => {
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     const row = screen.getByTestId('journey-move:add_consulting:generate_revenue_quickly')
     expect(row).toHaveTextContent('about 20% → about 50%')
     expect(row).toHaveTextContent(base.model!.cards.find((c) => c.id === 'add_consulting')!.heading)
-    expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).toHaveAttribute('data-same', 'true')
-    expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).not.toHaveTextContent('→')
-    expect(screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')).toHaveTextContent('about 40% · unchanged')
+    // Codex NO-GO 1 (19 Nov): 0.201 and 0.204 both read "about 20%"; the page does not decide that nothing moved.
+    const same = screen.getByTestId('journey-move:paid_enterprise_diagnostic:generate_revenue_quickly')
+    expect(same).toHaveTextContent('about 40% → about 40%')
+    expect(same).not.toHaveTextContent(/unchanged/i)
+    expect(screen.getByTestId('journey-record')).not.toHaveTextContent(/unchanged/i)
     // core's own line is behind one press, never at rest
     expect(screen.queryByTestId('journey-move:add_consulting:generate_revenue_quickly-line')).toBeNull()
     fireEvent.click(screen.getByTestId('journey-move:add_consulting:generate_revenue_quickly-toggle'))
@@ -95,6 +104,14 @@ describe('#1 how the conclusions moved: core\'s chances, its line one press away
     const none = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole: null } } } })
     render(<JourneyRecord view={none} at={null} />)
     expect(screen.queryByTestId('journey-sole')).toBeNull()
+  })
+  it('the credited change keeps whose it is: core\'s change entry first, else the card\'s Olumi mark (Codex NO-GO 3)', () => {
+    const soleOf = (sole: string, changed = SINCE.changed) => journeyOf(full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole, changed } } } }), CTX).moved!.sole!
+    expect(soleOf('time_to_contract')).toMatchObject({ id: 'time_to_contract', olumi: true }) // not in `changed`; its card is Olumi's
+    expect(soleOf('add_consulting')).toMatchObject({ id: 'add_consulting', olumi: false, was: 'olumi' }) // contrast: core says it is the team's now
+    expect(soleOf('time_to_contract', [{ id: 'time_to_contract', label: 'x', whose: 'theirs', was: null }])).toMatchObject({ olumi: false }) // core's entry wins over the card mark
+    show(full()); render(<JourneyRecord view={full()} at={null} />)
+    expect(within(screen.getByTestId('journey-sole')).getByTestId('journey-card-time_to_contract').innerHTML).toContain('text-info')
   })
   it('a `since` to another version is not this version\'s movement', () => {
     const other = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, to: { n: N + 1, label: 'version 3' } } } } })
@@ -157,6 +174,23 @@ describe('#8 the five defects', () => {
     fireEvent.click(screen.getByTestId('journey-no-outcome:501'))
     expect(outcomeForms).toEqual([['s_0123456789ab', 501]])
   })
+  it('(c) an outcome and a disagreement open THAT record in Team, not another of the same kind (Codex NO-GO 5)', () => {
+    const place = (id: string) => { const el = document.createElement('li'); el.setAttribute('data-testid', id); const f = vi.fn(); el.scrollIntoView = f; document.body.appendChild(el); return { el, f } }
+    const OUT2 = { ...OUTCOME, id: 602, happened: 'An invented second outcome.' }
+    const v = full({ collab: { ...base.collab, commitments: [COMMITMENT([OUTCOME, OUT2])], dissent: DISSENT, can_reveal: false } })
+    const t601 = place('team-outcome-601'), t602 = place('team-outcome-602'), mine = place('team-dissent-d_mine'), other = place('team-dissent-d_other'), done = place('team-dissent-d_done')
+    resetTeamFlow(); show(v); render(<JourneyRecord view={v} at={null} />)
+    fireEvent.click(screen.getByTestId('journey-outcome:602'))
+    expect(useTeamFlow.getState().pending).toBe('outcome')
+    expect(t602.f).toHaveBeenCalledTimes(1); expect(t601.f).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('journey-confirm:d_mine'))
+    expect(useTeamFlow.getState().pending).toBe('differ')
+    expect(mine.f).toHaveBeenCalledTimes(1); expect(other.f).not.toHaveBeenCalled(); expect(done.f).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('journey-history-toggle'))
+    fireEvent.click(screen.getByTestId('journey-dissent:d_done'))
+    expect(done.f).toHaveBeenCalledTimes(1); expect(other.f).not.toHaveBeenCalled(); expect(mine.f).toHaveBeenCalledTimes(1)
+    for (const x of [t601, t602, mine, other, done]) x.el.remove()
+  })
   it('(c) on an earlier version Team\'s records say why they cannot open; a card still opens', () => {
     show(full(), 1); render(<JourneyRecord view={full()} at={1} />)
     expect(screen.getByTestId('journey-commitment:501')).toHaveAttribute('data-unavailable', 'true')
@@ -177,6 +211,9 @@ describe('#8 the five defects', () => {
     expect(j.changed?.cards.map((c) => c.id)).toEqual(base.version!.changed.filter((id) => cards.has(id)))
     expect(j.changed!.cards.length).toBeLessThan(base.version!.changed.length) // contrast: ids with no card are left out
     expect(journeyOf(full(), CTX).changed?.cards[0]).toMatchObject({ id: 'add_consulting', olumi: false, was: 'olumi' })
+    // Codex NO-GO 3: with no `since`, an Olumi card keeps its mark; a team card does not take one
+    expect(j.changed!.cards.find((c) => c.id === 'time_to_contract')).toMatchObject({ olumi: true })
+    expect(j.changed!.cards.find((c) => c.id === 'focus_product_sales')).toMatchObject({ olumi: false })
     // four chips at rest, the rest behind one press
     show(noSince); render(<JourneyRecord view={noSince} at={null} />)
     const shown = () => screen.getByTestId('journey-changed').querySelectorAll('[data-testid^="journey-card-"]').length
@@ -195,7 +232,7 @@ describe('#2 open items, each with its exact action', () => {
     expect(journeyOf(considered, CTX).open.some((o) => o.key.startsWith('consider:'))).toBe(false)
   })
   it('each opens its own thing: the waited-on card, that evidence in Team, the next step in the chat', () => {
-    next = { kind: 'move', turn: 3 }
+    next = { kind: 'move', turn: 3, move: 'm' }
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     expect(screen.getByTestId('journey-no-outcome:501')).toHaveTextContent('review on 1 Dec 2026')
@@ -209,6 +246,17 @@ describe('#2 open items, each with its exact action', () => {
     render(<JourneyRecord view={full()} at={null} />)
     expect(screen.queryByTestId('journey-next')).toBeNull() // contrast: no current Next step, no row
   })
+  it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion)', () => {
+    next = { kind: 'move', turn: 3, move: 'm' }
+    show(full())
+    chat.store.setState({ gone: 's_0123456789ab\u00003\u0000m' })
+    render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.queryByTestId('journey-next')).toBeNull()
+    cleanup()
+    chat.store.setState({ gone: 's_0123456789ab\u00004\u0000m' }) // contrast: another turn's refusal leaves this step offered
+    render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.getByTestId('journey-next')).toBeInTheDocument()
+  })
 })
 
 describe('#3 commitments as expectations', () => {
@@ -217,7 +265,10 @@ describe('#3 commitments as expectations', () => {
     show(v); render(<JourneyRecord view={v} at={null} />)
     const k = screen.getByTestId('journey-commitment:501')
     expect(k).toHaveTextContent('Owner: Maya · review on 1 Dec 2026')
-    expect(k).toHaveTextContent('Expected: 1 to 3 months')
+    // Codex NO-GO 2: the person's own expectation, and the model's band beside it, never one for the other (Team's words)
+    expect(screen.getByTestId('journey-commitment:501-expect')).toHaveTextContent('What we expect: An invented expectation.')
+    expect(screen.getByTestId('journey-commitment:501-band')).toHaveTextContent('The model’s band for it then: 1 to 3 months')
+    expect(screen.getByTestId('journey-commitment:501-expect')).not.toHaveTextContent('1 to 3 months')
     expect(k).toHaveTextContent('Reconsider if: An invented reason to reconsider.')
     const o = screen.getByTestId('journey-outcome:601')
     expect(o).toHaveTextContent('An invented thing that happened. · 2 months')
