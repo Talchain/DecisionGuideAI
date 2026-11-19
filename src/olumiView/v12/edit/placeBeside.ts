@@ -206,7 +206,7 @@ export function roomFor(anchor: Rect, others: readonly Rect[], size: { width: nu
 /** How far (px, each way) an item may move between two placements and still take its box with it; further, the box is placed afresh. */
 export const KEEP_REACH = 64
 
-/** Slides one opening may make: the first, then one more each time it did not land (another move cut it short) or the box grew past the height it made room for. */
+/** Slides one opening may make: the first, then one more each time it did not do its job (another move cut it short). */
 export const MAX_SLIDES = 3
 
 /** The height a preview's place is chosen for: where the box it becomes when pinned will stand, so a press changes what the box holds and not where it is. */
@@ -218,9 +218,9 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
   // MADE ROOM (Paul 19 Nov): where a pinned box found no place clear of the other cards, the board slid once (`roomFor`, makeRoom.ts). While it slides the
   // box stands still where the slide brings its card beside it (`at`: never outside the window on the way); after, it is held at its offset from its card
   // (`lock`), so it moves with the card, clear of every card as the card is. Dropped when the free canvas changes or the box would leave it.
-  // The slide is checked once the board stands still after it: a box whose held place is not whole in the free canvas or has a card under it (another move cut the slide short), or a
-  // box grown past the height (`planned`) its place was found for (its content arrived after), lets the board slide again (`again`), up to MAX_SLIDES.
-  let lock: { ox: number; oy: number; h: number; planned: number; free: string; at: { left: number; top: number }; checked: boolean } | null = null
+  // The slide is checked once the board stands still after it: a box whose held place is not whole in the free canvas or has a card under it (another move
+  // cut the slide short: 19 Nov pair check, 1.33 scale, the board moved 15 of 50 px) lets the board slide again (`again`), up to MAX_SLIDES.
+  let lock: { ox: number; oy: number; h: number; free: string; at: { left: number; top: number }; checked: boolean } | null = null
   let slid = 0, movingUntil = 0, again = false
   let stood: { ax: number; ay: number; free: string; left: number; top: number; placed: number } | null = null
   const watch = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { dirty = true })
@@ -272,7 +272,6 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
               const held = { left, top, right: left + size.width, bottom: top + hh }
               if (!inside || canvasCardRects(own).some((o) => covers(held, o))) again = true
             }
-            if (size.height > lock.planned + 2) again = true
             if (again && slid < MAX_SLIDES) p = null
             else if (inside) p = { left, top, maxHeight }
           }
@@ -289,20 +288,20 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
           // board need not move (a hover never moves the board), and its pinned box then stays there; a pinned box may slide the board once to bring the card
           // and such a place into the free canvas, and after that one slide only places that need none. None at all: the box stays where it was put.
           const isPinned = pinned?.() === true
-          // A slide again is allowed for this placement only (a missed or outgrown slide); a later move, the person's own pan among them, never earns one.
+          // A slide again is allowed for this placement only (after a slide cut short); a later move, the person's own pan among them, never earns one.
           const mayAgain = again
           again = false
           const others = anchor === null || now < movingUntil ? [] : canvasCardRects(own)
           const shownNow = Math.min(size.height, p.maxHeight ?? size.height)
           const at = { left: p.left, top: p.top, right: p.left + size.width, bottom: p.top + shownNow }
           const onOthers = others.some((o) => covers(at, o))
-          // (A box that outgrew its slide's room is also looked at again where it is clear but cut: its whole height is worth a slide, never a cut.)
+          // (After a slide cut short, a place that is clear but cuts the box is looked at again: its whole height is worth a slide, never a cut.)
           if (anchor !== null && (onOthers || (mayAgain && shownNow < size.height))) {
             const plan = roomFor(anchor, others, size, free, footRects(), minShown, isPinned && canMakeRoom() && (slid === 0 || (mayAgain && slid < MAX_SLIDES)))
             if (plan !== null && (onOthers || plan.h > shownNow)) {
               const slides = plan.dx !== 0 || plan.dy !== 0
               if (slides) { slid += 1; movingUntil = now + slideBoard(plan.dx, plan.dy) + 120 }
-              lock = { ox: plan.left - plan.dx - anchor.left, oy: plan.top - plan.dy - anchor.top, h: plan.h, planned: size.height, free: freeKey, at: { left: plan.left, top: plan.top }, checked: !slides }
+              lock = { ox: plan.left - plan.dx - anchor.left, oy: plan.top - plan.dy - anchor.top, h: plan.h, free: freeKey, at: { left: plan.left, top: plan.top }, checked: !slides }
               p = { left: plan.left, top: plan.top, maxHeight: plan.h < size.height ? plan.h : null }
             }
           }

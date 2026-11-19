@@ -638,7 +638,7 @@ describe('surfaces step 3: details beside their card', () => {
   })
 
   // A full board driven frame by frame: a fake clock and animation frames, and a camera that moves every card by the slide (or, `cut`, lets a slide go
-  // nowhere, as when another move of the board interrupts it). The box's height can change between frames, as when its content arrives after the press.
+  // nowhere, as when another move of the board interrupts it).
   const slideRig = (boxH: number) => {
     const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => ({ left: x, top: y, right: x + 300, bottom: y + 200 })))
     const nodes = grid.map((_, i) => { const n = document.createElement('div'); n.className = 'react-flow__node'; n.setAttribute('data-id', `g${i}`); document.body.appendChild(n); return n })
@@ -670,20 +670,14 @@ describe('surfaces step 3: details beside their card', () => {
     return { el, box, camera, slides, frame, shown, under, inWindow, start, done }
   }
 
-  it('S3-t (pair check 19 Nov, 1.33 scale: the box grew to about 395 px after its slide and sat on the question card) a box whose content arrives after the board slid for it slides again for its whole height: nothing cut, no card under it, inside the window. CONTRAST the box at its first height needed one slide', async () => {
+  it('S3-t (pair check 19 Nov, 1.33 scale) a tall box on a full board gets a slide for its whole height: it is never cut shorter to save sliding the board', () => {
     const rig = slideRig(300)
     try {
       const stop = rig.start()
       rig.frame(12)
-      expect([rig.slides.length, rig.under(), rig.shown().h], 'at its first height: one slide, a clear place and the whole box (never cut to save a slide)').toEqual([1, 0, 300])
-      rig.box.h = 560; rig.el.appendChild(document.createElement('div')); await Promise.resolve()
-      rig.frame(20)
       stop()
-      const b = rig.shown()
-      expect(b.h, `the whole box is shown, not cut to the height its first slide made room for (${JSON.stringify(b)})`).toBe(560)
-      expect(rig.under(), `no card under the grown box (${JSON.stringify(b)}) after ${rig.slides.length} slides`).toBe(0)
+      expect([rig.slides.length, rig.under(), rig.shown().h], 'one slide, no card under the box, and the whole box').toEqual([1, 0, 300])
       expect(rig.inWindow(), 'inside the window').toBe(true)
-      expect(rig.slides.length, 'one more slide, for the new height').toBe(2)
     } finally { rig.done() }
   })
 

@@ -3,8 +3,8 @@
  * box beside a card sat on the next card. When that is so, the board slides (a short animated pan of the view, never a card's place in the model) until
  * the card and its box both stand in the free canvas with no other card under the box (`roomFor`, placeBeside.ts), and slides back when the box closes.
  *
- * The lane's canvas registers its camera here (ViewCanvas); without one (a spec with no canvas) nothing pans. One pan per box opening (again only where it did
- * not land or the box grew: placeBeside.ts MAX_SLIDES); the view the
+ * The lane's canvas registers its camera here (ViewCanvas); without one (a spec with no canvas) nothing pans. One pan per box opening (again only where another move
+ * cut it short: placeBeside.ts MAX_SLIDES); the view the
  * person had is kept and given back when nothing is open any more, unless they moved the board themselves meanwhile (then their view stays).
  */
 import { useLaneInspector } from './inspectorStore'
