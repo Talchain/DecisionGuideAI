@@ -405,8 +405,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       <span tabIndex={0} role="img" aria-label={stampWords} title={stampWords} className="inline-flex" data-testid={t.status === null || waiting ? 'view-chat-version-icon' : 'view-chat-status-icon'}>
         <OkIcon id="version-tag" size={14} decorative />
       </span>
-      <span data-view={`${at}.version`}>{t.version}</span>
-      {t.status === null ? null : <><span aria-hidden="true">·</span><span title={t.status} data-view={`${at}.status`}>{t.status}</span></>}
+      {/* Paul, 19 Nov (one plain status line; DL GO 12:08Z): ONE of core's two words is drawn, its status when it sends one (the reply's current
+          state), else its version; both stay in the icon's hover. No UI words. */}
+      {t.status === null ? <span data-view={`${at}.version`}>{t.version}</span> : <span title={stampWords} data-view={`${at}.status`}>{t.status}</span>}
     </span>
   )
   const tools = (

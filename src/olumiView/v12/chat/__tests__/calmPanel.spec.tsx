@@ -84,11 +84,14 @@ describe('1. one quiet footer row per reply', () => {
     expect(stamp.className).toContain('text-text-light') // small and light: viewPanelMeta
     expect(stamp.className).toContain(typography.viewPanelMeta)
     expect(icon.contains(words)).toBe(false) // beside the icon, not inside it
-    if (t.status !== null) {
-      const status = stamp.querySelector<HTMLElement>('[data-view$=".status"]')!
-      expect(status.textContent).toBe(t.status)
-      expect(status.closest('.sr-only')).toBeNull() // visible: a hidden status would fail here
-    }
+    expect(t.status, 'this fixture has no status: the version is the one word').toBeNull()
+    // Paul, 19 Nov (one plain status line; DL GO 12:08Z): with a status, ONE word is drawn, core's status; the version is in the icon's hover only.
+    cleanup()
+    const STATUS = 'An invented status from core.'
+    const withStatus = { ...view, chat: view.chat.map((x, k) => (k === view.chat.length - 1 ? { ...x, status: STATUS } : x)) } as View
+    const s2 = q(q(mount(withStatus), 'view-chat-latest')!, 'view-chat-version')!
+    expect([s2.querySelector('[data-view$=".status"]')?.textContent, s2.querySelector('[data-view$=".version"]')]).toEqual([STATUS, null])
+    expect(s2.querySelector<HTMLElement>('[role="img"]')!.title).toBe(`${t.version} · ${STATUS}`)
   })
 })
 
