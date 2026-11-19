@@ -252,9 +252,6 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
       title={card.olumi === null ? author.title : `${author.title}\n${card.olumi.title}`} data-view={`${id}.author.text`}>{author.text}</span>
   )
   const theirs = author !== null && !inferred ? author : null
-  // Experience review job 3: a lens's mark says what it marks, in core's lens words (`lens_words`, N3): Rests on's number reads core's label with it and
-  // core's hint on hover; What would change's ring carries core's label. A View without lens words keeps the bare marks; no sentence about the model is the UI's.
-  const lensWords = useViewStore((s) => s.view?.lens_words ?? null)
   // A route's line (an option's face line), a person's author and an open badge's fold-back: said in the opened card, never on the face.
   const aside = (faceLine !== null && card.family === 'option') || theirs !== null || (card.badge !== null && card.badge.open)
   // The rows as core sends them (each chance, limit or reason), drawn on the face, or in the opened card where core gives a face line.
@@ -288,14 +285,8 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
     >
       {restsOn === null ? null : (
         // The Rests on lens: this card's number, in Olumi's blue when core marks it Olumi's (one to check or set), its hover core's mark.
-        <span className={`absolute -left-2 -top-3 inline-flex h-[18px] min-w-[18px] items-center justify-center whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
-          title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined}
-          data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>
-      )}
-      {driverOf === null || lensWords === null ? null : (
-        // What would change: the ring's own name (core's lens label) on the ringed figure's corner, out of flow so no card moves; the options' driver words on hover.
-        <span className={`absolute -right-2 -top-3 z-10 h-[18px] max-w-[180px] truncate rounded border border-text-header bg-panel px-2 text-text-header ${typography.viewLabel}`}
-          title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
+        <span className={`absolute -left-2 -top-2 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsOn.olumi ? 'border-info text-info' : 'border-border text-text-body'}`}
+          title={restsOn.olumi && card.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-olumi={restsOn.olumi || undefined}>{restsOn.n}</span>
       )}
       {tried === null ? null : (
         // What if: the figure tried on a copy, as the person typed it, on its card's corner, out of flow so no card moves (legacy

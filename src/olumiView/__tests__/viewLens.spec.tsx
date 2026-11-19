@@ -59,21 +59,6 @@ describe('Rests on, from the View', () => {
     expect([b.textContent, b.dataset['restsOnOlumi'], b.className.includes('text-info'), b.title]).toEqual(['6', 'true', true, olumis.olumi!.title])
   })
 
-  it('experience review job 3: each number says what it marks in core\'s words: core\'s Rests on label with the number, core\'s lens hint on hover (Olumi\'s keeps core\'s mark as its hover). CONTRAST: a View with no lens words keeps the bare number', () => {
-    useViewStore.setState({ view })
-    const W = view.lens_words!
-    const { items } = restsOnOf(model)
-    const mine = model.cards.find((c) => c.id === 'starting_customers')!, olumis = model.cards.find((c) => c.id === 'existing_market_acquisitions')!
-    const a = render(<ViewCard card={mine} restsOn={items.get(mine.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
-    expect([a.textContent, a.title, a.dataset['viewWords']]).toEqual([`${W.label.rests_on} 1`, W.hint.rests_on, 'lens_words.label.rests_on'])
-    const b = render(<ViewCard card={olumis} restsOn={items.get(olumis.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
-    expect([b.textContent, b.title], 'Olumi\'s pill keeps core\'s mark as its hover, unchanged').toEqual([`${W.label.rests_on} 6`, olumis.olumi!.title])
-    cleanup()
-    useViewStore.setState({ view: { ...view, lens_words: undefined } as unknown as View })
-    const bare = render(<ViewCard card={mine} restsOn={items.get(mine.id)!} />).container.querySelector<HTMLElement>('[data-rests-on]')!
-    expect([bare.textContent, bare.dataset['viewWords']]).toEqual(['1', undefined])
-  })
-
   it('must not change: with no lens on, a card draws no number', () => {
     expect(render(<ViewCard card={model.cards[0]!} />).container.querySelector('[data-rests-on]')).toBeNull()
   })
@@ -123,18 +108,6 @@ describe('What would change, from the View', () => {
     // CONTRAST: the same card off the lens is neither ringed nor marked
     const off = render(<ViewCard card={card} />).container
     expect([off.querySelector('[data-driver-of]'), off.querySelector('[data-view-card]')!.className.includes('ring-[3px]')]).toEqual([null, false])
-  })
-  it('experience review job 3: the ringed figure says what the ring marks: core\'s What would change label on the card, its hover the options\' driver words. CONTRAST: off the lens, or a View with no lens words, no label', () => {
-    useViewStore.setState({ view })
-    const d = driversOf(withFigures('existing_market_acquisitions').model!)
-    const card = model.cards.find((c) => c.id === 'existing_market_acquisitions')!
-    const mark = render(<ViewCard card={card} driverOf={d.get(card.id)!} />).container.querySelector<HTMLElement>('[data-driver-mark]')
-    expect([mark?.textContent, mark?.dataset['driverMark'], mark?.dataset['viewWords'], mark?.title]).toEqual([view.lens_words!.label.what_changes, card.id, 'lens_words.label.what_changes', d.get(card.id)!.map((o) => o.driver!.title).join('\n')])
-    cleanup()
-    expect(render(<ViewCard card={card} />).container.querySelector('[data-driver-mark]')).toBeNull()
-    cleanup()
-    useViewStore.setState({ view: { ...view, lens_words: undefined } as unknown as View })
-    expect(render(<ViewCard card={card} driverOf={d.get(card.id)!} />).container.querySelector('[data-driver-mark]')).toBeNull()
   })
   it('the bar: before a Run names a driver the lens is shown but cannot be chosen, and says how to get one; with one it switches', () => {
     useViewStore.setState({ view: withFigures(null) })
