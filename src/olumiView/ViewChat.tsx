@@ -72,6 +72,7 @@ import { SelectionPill } from '../canvas/components/SelectionPill'
 import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedRename'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
+import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
@@ -1993,6 +1994,9 @@ export function ViewChat() {
   const pinned = step?.kind === 'approve'
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
+      {/* Catch up (overnight/journey SYNTHESIS item 4): one quiet row of counts at the very top, one press to the scenario record in the
+          history panel; drawn only when there is something to catch up on. It repeats nothing below it (no Next step, no conclusion words). */}
+      <CatchUp />
       {/* PANEL-SPEC 1 (sx-panel): the one next step sits under the tabs, above the conversation, with its button in view at rest; never below
           the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
