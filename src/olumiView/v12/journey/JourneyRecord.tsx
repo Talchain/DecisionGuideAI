@@ -88,9 +88,11 @@ export function go(to: JourneyRef): string | null {
   }
 }
 
-/** One row: the whole row is the control when it can open; plain, with its reason, when it cannot. */
+/** One row: the whole row is the control when it can open; plain, with its reason, when it cannot; plain alone for a record with no card. */
 function Press({ id, press, onDone, children }: { id: string; press: JourneyPress; onDone?: () => void; children: ReactNode }): JSX.Element {
   const [refused, setRefused] = useState<string | null>(null)
+  // A record the model holds with no card to open: drawn as it is, no control and no reason.
+  if ('plain' in press) return <div className="min-w-0" data-testid={`journey-${id}`} data-plain="true">{children}</div>
   if ('unavailable' in press) {
     return (
       <div className="min-w-0" data-testid={`journey-${id}`} data-unavailable="true">
@@ -176,7 +178,9 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
     // The chat's own exclusion (ViewChat's NextStep and stepTurnOf): a move the chat refused as stale is no next step here either, so the
     // press never opens a chat with no Next step in it. The key is ViewChat's `moveKey` (sid, turn, move joined by NUL).
     const isGone = (turn: number, move: string) => sid !== null && gone === `${sid}\u0000${turn}\u0000${move}`
-    return journeyOf(view, { at, keptNode, hasNext: nextStepOf(view, isGone) !== null })
+    // The approve step is the proposal row already listed (both go to the chat's proposal), so it is not offered twice.
+    const step = nextStepOf(view, isGone)
+    return journeyOf(view, { at, keptNode, hasNext: step !== null && step.kind !== 'approve' })
   }, [view, at, sid, gone])
   const [history, setHistory] = useState(false)
   if (isEmpty(j)) return null

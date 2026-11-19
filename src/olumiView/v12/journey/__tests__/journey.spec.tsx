@@ -151,6 +151,22 @@ describe('#8 the five defects', () => {
     expect(screen.getByTestId('journey-card-not_a_card-why')).toHaveTextContent(W.offCanvas)
     expect(screen.getByTestId('journey-card-add_consulting').tagName).toBe('BUTTON')
   })
+  it('(b) a changed record the model still holds with no card (an estimate a card rests on) is a plain chip: no press, no reason', () => {
+    const changed = [{ id: 'cash_reading', label: 'An invented estimate', whose: 'olumi' as const, was: null }, ...SINCE.changed]
+    const v = full({ model: { ...base.model!, run: { ...base.model!.run!, since: { ...SINCE, sole: 'cash_reading', changed } } } })
+    expect(base.model!.cards.some((c) => c.id === 'cash_reading')).toBe(false)
+    expect(base.model!.cards.some((c) => c.rests_on.some((r) => r.id === 'cash_reading'))).toBe(true) // held by the model, by its typed id
+    show(v); render(<JourneyRecord view={v} at={null} />)
+    const held = within(screen.getByTestId('journey-changed')).getByTestId('journey-card-cash_reading')
+    expect(held).toHaveAttribute('data-plain', 'true')
+    expect(held.tagName).not.toBe('BUTTON')
+    expect(held.querySelector('button')).toBeNull()
+    expect(screen.queryByTestId('journey-card-cash_reading-why')).toBeNull()
+    expect(journeyOf(v, CTX).moved!.sole!.press).toEqual({ plain: true }) // the credited record too
+    // contrast: a record the View does not hold keeps its reason
+    expect(screen.getByTestId('journey-card-not_a_card')).toHaveAttribute('data-unavailable', 'true')
+    expect(screen.getByTestId('journey-card-not_a_card-why')).toHaveTextContent(W.offCanvas)
+  })
   it('(b) a card the View holds but the canvas does not draw now says why on the press, and the panel stays', () => {
     useCanvasStore.setState({ nodes: [] as never })
     const done = vi.fn()
@@ -280,6 +296,15 @@ describe('#2 open items, each with its exact action', () => {
     // Codex 15:08: a fresh View with no model yet (kept ideas only) still draws its record
     cleanup(); show({ ...full(), model: null } as unknown as View); render(<JourneyRecordBlock />)
     expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
+  })
+  it('with a proposal waiting, its row is the way to it: the approve step is not offered again as "Go to the next step"', () => {
+    next = { kind: 'approve', turn: 3, move: 'm' }
+    show(full()); render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
+    expect(screen.queryByTestId('journey-next')).toBeNull()
+    cleanup(); next = { kind: 'move', turn: 3, move: 'm' } // contrast: another step beside the proposal is still offered
+    render(<JourneyRecord view={full()} at={null} />)
+    expect(screen.getByTestId('journey-next')).toBeInTheDocument()
   })
   it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion)', () => {
     next = { kind: 'move', turn: 3, move: 'm' }
