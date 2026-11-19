@@ -23,7 +23,7 @@ import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { SELECTION_DETAIL_WORDS } from '../../../../canvas/components/SelectionPill'
 import { aboutCountWords } from '../AboutChip'
-import { draftKeyOf } from '../OlumiAsks'
+import { draftKeyOf, resetRemovedQuestions } from '../OlumiAsks'
 import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
 import { controls } from '../../../../styles/controls'
@@ -284,6 +284,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(c, 'view-model-question'), 'the chevron folds, the card stays').not.toBeNull()
     fireEvent.click(q(card, 'view-question-remove')!)
     expect(q(c, 'view-model-question'), 'removed, not folded').toBeNull()
+    resetRemovedQuestions()
   })
   it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
     const c = mount(asked())

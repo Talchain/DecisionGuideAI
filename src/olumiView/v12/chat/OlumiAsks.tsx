@@ -40,6 +40,8 @@ export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>
  *  gone for those questions on this page and comes back only when Olumi asks something new. Nothing is written to core. */
 const removed = new Set<string>()
 export const REMOVE_QUESTIONS = 'Remove these questions'
+/** Tests only: forget every removal (the set lives for the page). */
+export const resetRemovedQuestions = (): void => removed.clear()
 
 export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   questions: readonly AskedQuestion[]

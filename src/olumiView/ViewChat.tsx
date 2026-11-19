@@ -2094,9 +2094,9 @@ function Working() {
   return (
     // Paul, 19 Nov: the faint line alone was hard to see and dull; the older look's brand loader (the six node shapes in a colour wave,
     // canvas/conversation/zones/ThinkingIndicator, still in use there; still under reduced motion) stands above it again.
-    <div role="status" className="grid justify-items-center gap-1 py-2" data-testid="view-chat-working">
-      <ThinkingIndicator />
-      <p className={`${typography.viewPanelMeta} m-0 text-text-light`}>{THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span></p>
+    <div className="grid justify-items-center gap-1 py-2">
+      <div aria-hidden="true"><ThinkingIndicator /></div>
+      <p role="status" className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-chat-working">{THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span></p>
     </div>
   )
 }
