@@ -21,6 +21,7 @@ import { OkIcon, OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
 import { HIT_44 } from '../../../styles/hitArea'
 import { useLaneInspector } from '../edit/inspectorStore'
+import { useViewStore } from '../../store'
 
 /** `answers`: core's typed question id (question-answer CONTRACT §2) when core sent this question typed: the answer is bound to it by identity. */
 export interface AskedQuestion { readonly key: string; readonly view: string; readonly text: string; readonly id: string | null; readonly edit: object | null; readonly answers?: string | null }
@@ -36,8 +37,9 @@ const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items
 /** The identity of one question's draft: the scenario, the question's key and its exact words. */
 export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>): string => JSON.stringify([scope, q.key, q.text])
 
-/** Question sets the person removed (Paul, 19 Nov: "not just collapse, but remove"), by scenario and the questions' own keys: the card stays
- *  gone for those questions on this page and comes back only when Olumi asks something new. Nothing is written to core. */
+/** Question sets the person removed (Paul, 19 Nov: "not just collapse, but remove"): the card stays gone on this page, for this viewer, for
+ *  exactly these questions in these words (draftKeyOf: scenario, key and text; Codex 11:15:52Z), and comes back for a new or reworded question.
+ *  Page and session only: nothing is written to core or to storage. */
 const removed = new Set<string>()
 export const REMOVE_QUESTIONS = 'Remove these questions'
 /** Tests only: forget every removal (the set lives for the page). */
@@ -62,8 +64,9 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   const popover = useLaneInspector((s) => (s.current?.kind === 'details' ? s.current.n : null))
   useEffect(() => { if (popover !== null) setOpen(false) }, [popover])
   const [, bump] = useState(0)
+  const viewer = useViewStore((st) => st.view?.you_id ?? null)
   const n = questions.length
-  const setKey = `${scope}\u0000${questions.map((x) => x.key).join('\u0001')}`
+  const setKey = JSON.stringify([viewer, ...questions.map((x) => draftKeyOf(scope, x))])
   if (n === 0 || removed.has(setKey)) return null
   const i = Math.min(at, n - 1), q = questions[i]!
   const head = n === 1 ? 'Olumi’s question' : 'Olumi’s questions'

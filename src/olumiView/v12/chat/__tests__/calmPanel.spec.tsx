@@ -284,6 +284,12 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(c, 'view-model-question'), 'the chevron folds, the card stays').not.toBeNull()
     fireEvent.click(q(card, 'view-question-remove')!)
     expect(q(c, 'view-model-question'), 'removed, not folded').toBeNull()
+    // CONTRAST (Codex 11:15:52Z): the same question id in new words is a new question, so it shows again.
+    cleanup()
+    const v = asked() as unknown as { model: { coaching_questions: unknown[] } }
+    const reworded = JSON.parse(JSON.stringify(v).replace(/"text":"([^"]+)"/, '"text":"$1 (reworded)"'))
+    const c2 = mount(reworded as View)
+    expect(q(c2, 'view-model-question'), 'reworded: shown again').not.toBeNull()
     resetRemovedQuestions()
   })
   it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
