@@ -96,6 +96,31 @@ describe('the review reads core\'s to_read', () => {
     expect(screen.getByTestId('view-noted-show-all')).toHaveAttribute('aria-expanded', 'true')
   })
 
+  it('a noted line pulled in as another line\'s partner opens the fold, and the fold STAYS open when it is let go (focus and the line never vanish under the person)', () => {
+    const paired = { ...withNoted, proposal: { ...withNoted.proposal!, changes: [{ ...changes[0]!, together: { ids: ['rec-noted-1'], why: 'core why' } }, changes[1]!, changes[2]!] } as P }
+    const c = showOpen(paired)
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    expect(drawn(c), 'the partner is drawn, never folded while chosen').toEqual([2, 0, 1])
+    expect(screen.queryByTestId('view-noted-show-all')).toBeNull()
+    fireEvent.click(screen.getByTestId('view-change-tick-0'))
+    expect(drawn(c), 'unticked, the fold stays open').toEqual([2, 0, 1])
+    expect(screen.getByTestId('view-noted-show-all')).toHaveTextContent(NOTED_SHOW_FEWER)
+    expect(screen.getByTestId('view-noted-show-all')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('core\'s refusal naming a noted line opens the fold, so core\'s why on that line is in view; nothing is ticked for the person', async () => {
+    setTeamFetch((async (u: unknown, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'POST') { posts.push({ path: String(u), body: JSON.parse(String(init!.body)) }); return new Response(JSON.stringify({ error: 'core refuses', code: 'needs', needs: [{ of: 'h', id: 'rec-noted-1', top: false, kind: 'required', why: 'core why' }] }), { status: 409 }) }
+      return new Response(JSON.stringify(withNoted), { status: 200 })
+    }) as unknown as typeof fetch)
+    const c = showOpen(withNoted)
+    fireEvent.click(screen.getByTestId('view-change-tick-2'))
+    fireEvent.click(screen.getByTestId('view-approve-ticked'))
+    await waitFor(() => expect(screen.queryByTestId('view-change-refused-1')).not.toBeNull())
+    expect(drawn(c)).toEqual([2, 0, 1])
+    expect((screen.getByTestId('view-change-tick-1') as HTMLInputElement).checked).toBe(false)
+  })
+
   it('absent to_read (an older core, a gated viewer) gives today\'s list: every change in index order, no noted sentence, no Show all', () => {
     const c = showOpen({ ...golden, proposal: { ...p, changes, groups: null } })
     expect(drawn(c)).toEqual([0, 1, 2])

@@ -710,6 +710,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const needers = (c: Change) => (c.top ? [] : changes.flatMap((o, oi) => (o !== c && ticked.has(keyOf(o)) && (requiredOf(o).includes(c.id) || (o.together?.ids ?? []).includes(c.id)) ? [{ o, oi }] : [])))
   // A noted line that is chosen (ticked, or pulled in as another's partner) or that core's refusal names is never folded out of sight: the fold stays open.
   const notedHeld = read?.noted != null && read.noted.lines.some((i) => { const c = changes[i]!; return ticked.has(keyOf(c)) || (!c.top && missing.some((n) => !n.top && n.id === c.id)) })
+  // Once a hold opens the fold it stays open (review 19 Nov): letting the line go never unmounts it, or the checkbox, under the person's focus.
+  if (notedHeld && !showNoted) setShowNoted(true)
   const notedOpen = showNoted || notedHeld
   const shownGroups = read === null ? groups : read.groups, groupAt = read === null ? 'proposal.groups' : 'proposal.to_read.groups'
   const line = (i: number) => {
