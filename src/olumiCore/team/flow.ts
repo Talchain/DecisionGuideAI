@@ -46,6 +46,9 @@ export function viewIn(view: View): boolean {
 /** Revealed views this viewer may see (core holds back nothing from them, and at least one is shown). */
 export const revealed = (view: View): boolean => !view.gated && view.collab.shared.length > 0
 
+/** Two or more different people's views (not skips) are revealed to this viewer. */
+const twoRevealed = (view: View): boolean => new Set(view.collab.shared.filter((s) => !s.skip).map((s) => s.by_id)).size >= 2
+
 /** The current step, the first of these that holds. After the reveal it is "Where you differ": exploring, evidence, dissent, an action and
  *  its review are activities the person opens when they want them; nothing here decides the thinking is finished (Codex 008 #3). */
 export function currentStep(view: View): StepId {
@@ -54,7 +57,10 @@ export function currentStep(view: View): StepId {
   if (view.gated) return 'view'
   if (c.can_reveal) return 'reveal'
   if (!viewIn(view)) return 'view'
-  if (c.waiting !== null || !revealed(view)) return 'reveal'
+  if (!revealed(view)) return 'reveal'
+  // A round that waits for others leaves this viewer nothing to do in "Reveal together". Where two or more people's views are already revealed
+  // to them (an earlier round, core's TM-04 shape), where they differ is the work: it leads (Paul's critique, 18 Nov). One view alone: reveal.
+  if (c.waiting !== null && !twoRevealed(view)) return 'reveal'
   return 'differ'
 }
 

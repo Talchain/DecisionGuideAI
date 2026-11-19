@@ -79,6 +79,15 @@ describe('the current step is the View\'s, field by field', () => {
     expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', shared: [bea3] }))).toBe('reveal')
     expect(currentStep(team({ can_reveal: false, waiting: null, shared: [bea3] }))).toBe('differ')
   })
+  it('a new round that waits for others, with two people\'s views already revealed (core\'s TM-04 shape), leads with where you differ; contrast: one view revealed → reveal', () => {
+    const adaShown = { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [bea3, adaShown] }))).toBe('differ')
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [adaShown] }))).toBe('reveal')
+    // a skip is not a view
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [{ ...bea3, skip: true }, adaShown] }))).toBe('reveal')
+    // the reveal step still says whom the round waits for, in core's words
+    expect(stepSummary(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [bea3, adaShown] }), 'reveal', null)).toBe('waiting for Bea')
+  })
   it('a commitment with no outcome does not take over: after the reveal the current step stays "Where you differ" (Codex 008 #3)', () => {
     expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [k9] }))).toBe('differ')
     expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }] }))).toBe('differ')
