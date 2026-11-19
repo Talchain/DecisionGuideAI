@@ -11,6 +11,7 @@ import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import { coreScenarioIdOf } from '../../olumiCore/team/sid'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { canReceiveAsk } from '../../canvas/ui/inspector-v2/askSemantic'
+import { bindAskTarget, clearAskTargetBinding } from '../../canvas/ui/inspector-v2/askTargetBinding'
 import { useCanvasStore } from '../../canvas/store'
 import type { View } from '../client'
 import { useViewStore } from '../store'
@@ -77,6 +78,25 @@ describe('the canvas\'s asks reach core through the Olumi tab (00054 #3)', () =>
     useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
     await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:challenge', label: 'Challenge', message: 'Challenge this', source: 'chip' }) })
     await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/challenge`, body: { kind: 'assumption', record: card.id, op: expect.any(String) } }]))
+  })
+
+  it('a press is about ITS OWN card, not the card the canvas has selected (typed-fields 13b, UI read 19 Nov)', async () => {
+    saved(); render(<ViewChat />)
+    const other = view.model!.cards.find((c) => c.id !== card.id)!
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    bindAskTarget('Explain this', [other.id], [], true)
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:explain', label: 'Explain', message: 'Explain this', source: 'chip' }) })
+    await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'Explain this', about: other.id, op: expect.any(String) } }]))
+  })
+
+  it('a press on several cards is about no one card, whatever is selected', async () => {
+    saved(); render(<ViewChat />)
+    const other = view.model!.cards.find((c) => c.id !== card.id)!
+    useCanvasStore.setState({ selection: { nodeIds: new Set([card.id]), edgeIds: new Set(), anchorPosition: null } })
+    bindAskTarget('Explain these', [card.id, other.id], [], true)
+    await act(async () => { useGuidanceStore.getState()._dispatchAction!({ id: 'ask:explain', label: 'Explain', message: 'Explain these', source: 'chip' }) })
+    await waitFor(() => expect(posts).toEqual([{ url: `/api/scenarios/${SID}/messages`, body: { text: 'Explain these', op: expect.any(String) } }]))
+    clearAskTargetBinding()
   })
 
   it('a challenge whose answer was lost is sent again AS THAT CHALLENGE, with its op, when its words are sent from the composer (review 00002 #3)', async () => {

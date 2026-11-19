@@ -1187,13 +1187,13 @@ async function write(kind: string, text: string, f: (op: string) => Promise<unkn
 }
 
 /** Words to core: a new brief while it holds no model for this scenario, else a message. */
-function say(text: string, words = false): Promise<boolean> {
+function say(text: string, words = false, about: string | null = selectedRecord()): Promise<boolean> {
   const { uuid, sid, view } = useViewStore.getState()
   if (sid !== null) closeUntouchedCommit(sid)
   // A message while its first model drafts is a message to THIS scenario (onFloor), never a second scenario: core answers it, or refuses it in its own words.
   return takesBrief(sid, view) ? write(words ? 'brief-words' : 'brief', text, (op) => startScenario(text, op, uuid, words))
     // The card the composer shows as "About: <card>" goes with the words, by id (core candidate 8); the same words about another card are another write.
-    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op, about); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(selectedRecord())
+    : ((about) => write(about === null ? 'message' : `message:${about}`, text, async (op) => { keepPendingTurn(sid!, text, op, about); const r = await writes.message(sid!, text, op, about); dropPendingTurn(op); return r }))(about)
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
       .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
 }
@@ -1423,7 +1423,8 @@ function press(opts: Press): Promise<boolean> {
   const ids = [...target]
   const record = ids.length === 1 && view?.model?.cards.some((c) => c.id === ids[0]) ? ids[0]! : null
   if (kind !== undefined && record !== null && sid !== null) return challenge(kind, record, opts.message)
-  return say(opts.message)
+  // A press is about ITS OWN card (the ask's target, else the selection), never whatever the canvas selected since: the same `record`.
+  return say(opts.message, false, record)
 }
 
 /** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */
