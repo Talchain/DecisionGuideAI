@@ -663,7 +663,7 @@ describe('Contract 3: the readings rest moves nothing while the review is closed
     HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
       const id = this.getAttribute('data-testid') ?? ''
       if (id === 'view-chat-pinned') return rect(BOX_TOP, boxH(this))
-      if (id === 'view-proposal-actions') return rect(0, FOOT)
+      if (id === 'view-proposal-foot' || id === 'view-proposal-actions') return rect(0, FOOT) // the rows rest above the pinned foot that holds the actions
       if (ROWS[id] !== undefined) return rect(BOX_TOP + ROWS[id]![0] - boxOf().scrollTop, ROWS[id]![1])
       return rect(0, 0)
     }
