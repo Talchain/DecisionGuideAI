@@ -18,7 +18,8 @@ import { MENU_ROW, MENU_SHELL } from '../../../look/menu'
 import { LENSES_TESTID } from '../../lenses/LensesMenu'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
-import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside } from '../placeBeside'
+import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside, stayBeside } from '../placeBeside'
+import { registerBoxCamera, type View as BoardView } from '../makeRoom'
 import { HOVER_CARD_GAP } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import type { View } from '../../../client'
@@ -602,6 +603,38 @@ describe('surfaces step 3: details beside their card', () => {
     } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()) }
     const free2 = placeBeside(card, null, size, free)
     expect(free2.top, 'CONTRAST: with the row gone the same card keeps the hover rule\'s lifted place').toBeLessThan(card.top)
+  })
+
+  it('S3-s (Paul 19 Nov, "pop-overs cover the risk cards") a pinned box on a FULL board, where every side of its card has another card: the board slides once so the card and its box both stand in the window, and after the slide no card is under the box; CONTRAST with no board to slide the box still lands on a card', () => {
+    // A 3 x 3 board filling the window (1024 x 768 in jsdom), 30 px between cards: the middle card has a card on every side, closer than the box is wide.
+    const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => ({ left: x, top: y, right: x + 300, bottom: y + 200 })))
+    const mid = 4, size = { width: 280, height: 300 }
+    const nodes = grid.map((_, i) => { const n = document.createElement('div'); n.className = 'react-flow__node'; n.setAttribute('data-id', `g${i}`); document.body.appendChild(n); return n })
+    const el = document.createElement('aside'); document.body.appendChild(el)
+    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const i = nodes.indexOf(this as HTMLDivElement), r = this === el ? { left: 0, top: 0, right: size.width, bottom: size.height } : i >= 0 ? grid[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
+      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
+    })
+    const vars = { x: '--t-x', y: '--t-y', h: '--t-h' }
+    const boxAt = () => { const left = parseFloat(el.style.getPropertyValue(vars.x)), top = parseFloat(el.style.getPropertyValue(vars.y)), h = parseFloat(el.style.getPropertyValue(vars.h)) || size.height; return { left, top, right: left + size.width, bottom: top + h } }
+    const on = (b: { left: number; top: number; right: number; bottom: number }, c: typeof b) => Math.min(b.right, c.right) - Math.max(b.left, c.left) > 2 && Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top) > 2
+    const slides: BoardView[] = []
+    try {
+      const off = registerBoxCamera({ get: () => ({ x: 0, y: 0, zoom: 1 }), set: (v) => { slides.push(v) } })
+      const stop = stayBeside(() => el, { kind: 'card', id: `g${mid}` }, vars, 280, undefined, () => 0, () => true)
+      stop(); off()
+      expect(slides.length, 'the board slides once').toBe(1)
+      const { x: dx, y: dy } = slides[0]!, b = boxAt(), card = grid[mid]!
+      const moved = grid.map((c) => ({ left: c.left + dx, top: c.top + dy, right: c.right + dx, bottom: c.bottom + dy }))
+      expect(moved.filter((c) => on(b, c)).length, `box ${JSON.stringify(b)} after a slide of ${dx},${dy}: no card under it, its own included`).toBe(0)
+      expect(b.left >= 0 && b.right <= window.innerWidth && b.top >= 0 && b.bottom <= window.innerHeight, 'the box is inside the window').toBe(true)
+      const c = moved[mid]!
+      expect(c.left >= 0 && c.right <= window.innerWidth && c.top >= 0 && c.bottom <= window.innerHeight, `its card ${JSON.stringify(card)} is still whole in the window after the slide`).toBe(true)
+      // CONTRAST: no camera (nothing can slide), the same press: the box can only stand beside its card, on another one.
+      const stop2 = stayBeside(() => el, { kind: 'card', id: `g${mid}` }, vars, 280, undefined, () => 0, () => true)
+      stop2()
+      expect(grid.some((g, i) => i !== mid && on(boxAt(), g)), 'CONTRAST: with nothing to slide the box is on a card').toBe(true)
+    } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()); el.remove() }
   })
 
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
