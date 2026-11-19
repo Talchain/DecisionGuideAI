@@ -31,7 +31,7 @@
  *     string (`versionLabels.ts`).
  */
 
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
 import { History, Save, Trash2 } from 'lucide-react'
 import { PanelShell } from '../panels/_shared/PanelShell'
 import { PanelSection } from '../panels/_shared/PanelSection'
@@ -40,7 +40,8 @@ import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
 import { coreLaneHasAccounts, isOlumiCoreLane } from '../../olumiCore/lane'
 import { CoreVersions } from '../../olumiCore/versions'
-import { JourneyRecordBlock } from '../../olumiView/v12/journey/JourneyRecord'
+// Catch up on the scenario (olumiView/v12/journey), loaded only when this panel opens: never part of the page's first load order.
+const JourneyRecordBlock = lazy(() => import('../../olumiView/v12/journey/JourneyRecord'))
 import { isThinClientSession } from '../thinClient/thinClient'
 import { useModelVersions } from './useModelVersions'
 import {
@@ -124,8 +125,8 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
     return (
       <div className="fixed right-0 z-[2000]" style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }} data-testid="what-changed-panel">
         <PanelShell icon={<History className="w-5 h-5" />} title="Version history" onClose={onClose} width="420px">
-          {/* What has happened here (commitments, outcomes, evidence, kept ideas; olumiView/v12/journey), above core's versions. */}
-          <JourneyRecordBlock onDone={onClose} />
+          {/* Catch up: how the conclusions moved, what is open, commitments, history (olumiView/v12/journey), above core's versions. */}
+          <Suspense fallback={null}><JourneyRecordBlock onDone={onClose} /></Suspense>
           <CoreVersions />
         </PanelShell>
       </div>
