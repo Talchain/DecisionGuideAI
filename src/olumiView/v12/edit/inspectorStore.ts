@@ -136,10 +136,5 @@ export const boxOf = (s: { readonly current: Showing | null; readonly peek: Deta
 }
 export const anySurfaceOpen = (s: { readonly current: Showing | null }): boolean => s.current !== null
 
-/**
- * Escape keys a canvas surface has taken. The one key listener (LaneEditingLayer) records every Escape it consumed; a waiting challenge's own
- * listener reads this, so one press closes the top canvas surface and only the next one cancels the challenge.
- */
-const consumed = new WeakSet<Event>()
-export const consumeEscape = (e: Event): void => { consumed.add(e) }
-export const escapeConsumed = (e: Event): boolean => consumed.has(e)
+/** Escape keys a surface has taken live in escapeLayers.ts (a module that imports only React, so the menus can use it without this store's weight); re-exported here for the callers that read them. */
+export { consumeEscape, escapeConsumed } from './escapeLayers'

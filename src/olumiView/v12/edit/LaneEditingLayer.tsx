@@ -13,7 +13,9 @@ import { useShowToast } from '../../../canvas/ToastContext'
 import { useViewStore } from '../../store'
 import { LaneEditForm } from './EditForm'
 import { LaneInspector } from './LaneInspector'
-import { consumeEscape, useLaneInspector } from './inspectorStore'
+import { useCanvasStore } from '../../../canvas/store'
+import { useLaneInspector } from './inspectorStore'
+import { useEscapeLayer, type EscapeTake } from './escapeLayers'
 import { RangeBar } from '../scale/RangeBar'
 import { clearLayoutUndo, noteSavedVersion, pressUndo, trackLayoutMoves, undoChoicesNow } from './undo'
 
@@ -31,22 +33,23 @@ const COMPOSER = '#view-chat-text'
 const MODAL = '[role="dialog"][aria-modal="true"], [role="alertdialog"]'
 
 /**
- * Escape, in the capture phase on `window`: it is seen first wherever the focus is (a field that stops its keys, a card React Flow would
- * unselect on Escape) and decides alone. A canvas surface is open: it closes (unless it is saving), and the press goes no further. The right-click
- * menu closes through its own key handler (its open submenu closes first), so the press is only marked taken, for a waiting challenge.
+ * The canvas's open surface as an Escape layer (escapeLayers.ts: the one listener, newest layer first, so a Record form opened earlier never takes a press meant for a
+ * details box opened after it). A canvas surface is open: it closes (unless it is saving), and the press goes no further. The right-click menu closes through its own key
+ * handler (its open submenu closes first), so the press is only marked taken, for a waiting challenge. A press in another menu, a modal dialog or a text field of another
+ * surface is that one's own: this layer yields.
  */
-function onEscape(e: KeyboardEvent): void {
-  if (e.key !== 'Escape') return
+function escapeSurface(e: KeyboardEvent): EscapeTake {
   const store = useLaneInspector.getState(), open = store.current
-  if (open === null) return
+  if (open === null) return 'yield'
   const from = e.target instanceof Element ? e.target : null
-  if (from !== null && from.closest(OWN_SURFACE) === null && (from.closest('[role="menu"]') !== null || (isTypingTarget(from) && from.closest(COMPOSER) === null))) return
-  if (document.querySelector(MODAL) !== null) return
-  consumeEscape(e)
-  if (open.kind === 'menu') return
+  if (from !== null && from.closest(OWN_SURFACE) === null && (from.closest('[role="menu"]') !== null || (isTypingTarget(from) && from.closest(COMPOSER) === null))) return 'yield'
+  if (document.querySelector(MODAL) !== null) return 'yield'
+  if (open.kind === 'menu') return 'pass'
   // Escape puts the form away and keeps what was typed in it (the draft store): pressing the form's own Cancel is what forgets it.
-  store.dismiss(false)
-  e.stopPropagation()
+  const closed = store.dismiss(false)
+  // The card's details box and its selection chip go together (Paul's bar: nothing is left standing in the composer after Escape).
+  if (closed && open.kind === 'details') useCanvasStore.getState().clearSelection()
+  return undefined
 }
 
 /** The one small edit form, wherever it was asked for (a right-click row or the details panel). A form opened again starts from its own words. */
@@ -67,10 +70,8 @@ export function LaneEditingLayer(): JSX.Element {
   useEffect(() => { if (lastSid.current !== sid) { lastSid.current = sid; useLaneInspector.setState({ current: null }) } }, [sid])
   // The canvas going away leaves nothing open over the next one.
   useEffect(() => () => useLaneInspector.setState({ current: null }), [])
-  useEffect(() => {
-    window.addEventListener('keydown', onEscape, true)
-    return () => window.removeEventListener('keydown', onEscape, true)
-  }, [])
+  const shown = useLaneInspector((st) => st.current)
+  useEscapeLayer(shown !== null, escapeSurface, shown?.n)
   const seen = useRef<{ sid: string | null; n: number | null }>({ sid, n })
   useEffect(() => {
     if (seen.current.sid === sid && seen.current.n !== null && n !== null && n !== seen.current.n) noteSavedVersion()

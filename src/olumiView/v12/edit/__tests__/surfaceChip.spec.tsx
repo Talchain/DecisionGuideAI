@@ -10,7 +10,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { ViewCanvas } from '../../../ViewCanvas'
-import { ViewComposer, useViewChat } from '../../../ViewChat'
+import { ViewComposer, prefillComposer, useViewChat } from '../../../ViewChat'
 import { currentModel } from '../../../store'
 import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
@@ -94,13 +94,14 @@ describe('surfaces step 4: the AI panel keeps the chip', () => {
     expect(composerRow().box).toBeNull()
     expect(composerRow().chip).not.toBeNull()
   })
-  it('S4-b CONTRAST: the same card selected by right-click (no details open) keeps the box, with its author and basis, open', async () => {
+  it('S4-b CONTRAST: the same card selected by right-click (no details open) keeps the box behind its info icon, CLOSED (esc3), and its author and basis are there once the person opens it', async () => {
     const card = await board()
     fireEvent.contextMenu(node(card.id)); await settle()
     expect(q('lane-inspector')).toBeNull()
     const r = composerRow()
     expect(r.chip).not.toBeNull()
-    expect((r.box as HTMLDetailsElement).open).toBe(true)
+    expect((r.box as HTMLDetailsElement).open, 'a press never opens it').toBe(false)
+    ;(r.box as HTMLDetailsElement).open = true; fireEvent(r.box!, new Event('toggle'))
     expect(q('selected-author')!.textContent).toBe(card.author)
     expect(q('selected-headline-title')!.textContent).toBe(card.basis)
     expect(q('selected-headline-add')!.textContent).toBe(card.add)
@@ -115,30 +116,48 @@ describe('surfaces step 4: the AI panel keeps the chip', () => {
     act(() => { useLaneInspector.getState().open({ kind: 'card', id: other }) }); await settle()
     expect(composerRow().words, 'the details are for another card: its author and basis stay').toBe(2)
   })
-  it('S4-c Escape closes the details and the box returns; opening them again folds it again', async () => {
+  it('S4-c Escape clears the card\'s details box AND its selection chip together (esc3): nothing is left standing in the composer; opening the details again folds the box away as before', async () => {
     const card = await board()
     fireEvent.click(node(card.id)); await settle()
     expect(composerRow().words).toBe(0)
+    expect(composerRow().chip).not.toBeNull()
     fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
     expect(q('lane-inspector')).toBeNull()
-    expect(composerRow().chip, 'Escape closed the details, not the selection').not.toBeNull()
-    expect((composerRow().box as HTMLDetailsElement).open).toBe(true)
-    expect(q('selected-author')!.textContent).toBe(card.author)
-    expect(q('selected-headline-add')!.textContent).toBe(card.add)
-    expect(q('selected-explain-sets')!.textContent).toContain(card.set)
-    expect(q('lane-inspector-add')).toBeNull()
-    act(() => { useLaneInspector.getState().open({ kind: 'card', id: card.id }) }); await settle()
+    expect(composerRow().chip, 'one Escape: the details and the chip go together').toBeNull()
+    expect(composerRow().box).toBeNull()
+    expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
+    expect(q('selected-author')).toBeNull()
+    fireEvent.click(node(card.id)); await settle()
     expect(composerRow().words).toBe(0)
     expect(composerRow().box).toBeNull()
   })
-  it('S4-d the draft in the message box and the chip survive press, Escape and re-open', async () => {
+  it('S4-c2 the composer does not grow on a card press: no detail drawer is drawn open (it was 377 px of 704 after Escape), and the box is CLOSED when a card is selected another way', async () => {
+    const card = await board()
+    fireEvent.click(node(card.id)); await settle()
+    expect(composerRow().box).toBeNull()
+    fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
+    fireEvent.contextMenu(node(card.id)); await settle()
+    expect((composerRow().box as HTMLDetailsElement).open).toBe(false)
+  })
+  it('S4-d the draft in the message box survives press, Escape and re-open (the chip goes with the details on Escape, never the words)', async () => {
     const card = await board()
     typeDraft('my own half-typed question')
-    for (const step of [() => fireEvent.click(node(card.id)), () => fireEvent.keyDown(document.body, { key: 'Escape' }), () => act(() => { useLaneInspector.getState().open({ kind: 'card', id: card.id }) })]) {
+    for (const step of [() => fireEvent.click(node(card.id)), () => fireEvent.keyDown(document.getElementById('view-chat-text')!, { key: 'Escape' }), () => act(() => { useLaneInspector.getState().open({ kind: 'card', id: card.id }) })]) {
       step(); await settle()
       expect((document.getElementById('view-chat-text') as HTMLTextAreaElement).value).toBe('my own half-typed question')
-      expect(composerRow().chip!.textContent).toContain('About:')
     }
+  })
+  it('esc3: Escape clears a composer that holds ONLY an untouched canvas prefill (the Frame question\'s "Ask Olumi to change it"); CONTRAST: the same words once edited are the person\'s draft and Escape never discards them', async () => {
+    await board()
+    const field = () => document.getElementById('view-chat-text') as HTMLTextAreaElement
+    act(() => { prefillComposer('Is this the right question?') }); await settle()
+    expect(field().value).toBe('Is this the right question?')
+    fireEvent.keyDown(field(), { key: 'Escape' }); await settle()
+    expect(field().value, 'untouched prefill: cleared by one Escape').toBe('')
+    act(() => { prefillComposer('Is this the right question?') }); await settle()
+    fireEvent.change(field(), { target: { value: 'Is this the right question for the Q3 plan?' } }); await settle()
+    fireEvent.keyDown(field(), { key: 'Escape' }); await settle()
+    expect(field().value, 'edited: the person\'s own words stay').toBe('Is this the right question for the Q3 plan?')
   })
   it('S4-e the chip keeps its clear and its Ask while the details are open', async () => {
     const card = await board()

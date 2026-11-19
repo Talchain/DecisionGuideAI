@@ -5,6 +5,7 @@
  * The version is the one on screen: the earlier version being looked at, else the latest saved one, never a proposal still held.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEscapeLayer } from './v12/edit/escapeLayers'
 import { createPortal } from 'react-dom'
 import { Download, FileText, Printer, X } from 'lucide-react'
 import { typography } from '../styles/typography'
@@ -125,12 +126,8 @@ export function ViewSummaryTrigger({ className = '', tooltip = null }: { classNa
   useEffect(() => { setOpen(false) }, [sid])
   // Closing hands focus back to the control that opened the page.
   const close = useCallback(() => { setOpen(false); trigger.current?.focus() }, [])
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, close])
+  // Escape: the one shared rule (v12/edit/escapeLayers.ts), so the page closes on the first press and never with another layer.
+  useEscapeLayer(open, close)
   if (sid === null || !saved) return null
   return (
     <>

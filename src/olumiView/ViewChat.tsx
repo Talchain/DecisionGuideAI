@@ -34,6 +34,7 @@ import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { armedIntent } from './armedIntent'
 import { anySurfaceOpen, escapeConsumed, useLaneInspector } from './v12/edit/inspectorStore'
+import { useEscapeLayer } from './v12/edit/escapeLayers'
 import type { AIInputBarProps } from '../canvas/components/AIInputBar'
 import { useBriefDocumentUpload } from '../canvas/components/BriefDocumentUpload'
 import { useUIStore } from '../stores/uiStore'
@@ -1515,9 +1516,12 @@ function press(opts: Press): Promise<boolean> {
 /** An ask made while a write is in flight: its words wait in the composer, never lost or sent twice (review 00055). */
 export const STILL_ANSWERING = 'Olumi is still answering. Your words are in the message box: send them once it has.'
 /** Words from the canvas the person can still send: put after whatever the composer already holds, never over it (review 00056). */
+/** The words a canvas ask put in an EMPTY box (the Frame question's "Ask Olumi to change it"): while the box still holds exactly them, nothing of the person's is in it and Escape clears it. */
+let prefilled: string | null = null
 const keep = (text: string): void => {
   const now = useViewChat.getState().text
   if (now.split('\n').includes(text)) return
+  prefilled = now.trim() === '' ? text : null
   useViewChat.setState({ text: now.trim() === '' ? text : `${now}\n${text}` })
 }
 const keptWhileBusy = (text: string): boolean => {
@@ -2173,6 +2177,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // The dock's focus channel reaches this composer (review 00065 ledger).
   useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
   const armed = useArmedChallenge()
+  // An untouched prefill is not a draft: Escape clears it (one press, the one Escape rule). A word edited, added or deleted makes it the person's, and it is never discarded.
+  useEscapeLayer(text !== '' && text === prefilled, () => { prefilled = null; useViewChat.setState({ text: '' }) })
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''
