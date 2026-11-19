@@ -96,6 +96,14 @@ function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
   return <p className={`${BODY} break-words`} title={c?.title} data-compare-most-likely="">{c ? <><MarkSpan m={c.olumi} />{c.value}</> : null}</p>
 }
 
+/**
+ * Where the two sides answer different questions, that is said first (compare concept v3 guardrail: "Where goals or targets differ, say so
+ * first"): an aim core marks `different_target` or `not_comparable` leads, so a chance that answers another question is never read before the
+ * reason it does. Ordered by core's own status only, never by a number; core's order is kept within each group (a stable sort).
+ */
+const GOALS_DIFFER = new Set(['different_target', 'not_comparable'])
+export const firstWhereGoalsDiffer = (aims: AimRow[]): AimRow[] => [...aims.filter((a) => GOALS_DIFFER.has(a.status)), ...aims.filter((a) => !GOALS_DIFFER.has(a.status))]
+
 function Aim({ aim }: { aim: AimRow }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
@@ -171,7 +179,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       {/* Said once, above the aims, only where core says BOTH sides have saved results (`has_run`): a side with no saved model or results
           keeps core's own note, and the label never claims a run that does not exist (Codex 2facfb64 review). */}
       {c.a?.has_run === true && c.b?.has_run === true ? <div><SeparateRuns /></div> : null}
-      {aims.map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
+      {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
           <h4 className={H}>Differences</h4>

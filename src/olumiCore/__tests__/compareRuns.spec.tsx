@@ -144,3 +144,20 @@ describe('version compare: the pickers in reverse still put each version\'s word
     expect(runsLabels(container)).toEqual(ONE_LABEL)
   })
 })
+
+describe('side by side: where the two sides answer different questions, that is said first (v3 guardrail)', () => {
+  const aim = (label: string, status: string) => ({ label, kind: 'aim', status, limitation: status === 'comparable' || status.startsWith('only') ? null : `WHY-${label}`,
+    only_in_text: null, a: { label, measure: 'M', target: 'T-a' }, b: { label, measure: 'M', target: 'T-b' }, options: [] })
+  const drawn = (c: HTMLElement) => [...c.querySelectorAll('[data-compare-aim]')].map((e) => [e.getAttribute('aria-label'), e.getAttribute('data-compare-aim')])
+  it("different_target and not_comparable aims lead, each with core's own reason; the rest keep core's order", () => {
+    const c = { ...PAIR(0.5, 0.9), aims: [aim('Reach 100', 'comparable'), aim('Hire extra', 'only_a'), aim('Reach 120', 'different_target'), aim('Cost', 'not_comparable')] as never }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    expect(drawn(container)).toEqual([['Reach 120', 'different_target'], ['Cost', 'not_comparable'], ['Reach 100', 'comparable'], ['Hire extra', 'only_a']])
+    expect(container.querySelector('[data-compare-aim="different_target"] [data-compare-limitation]')!.textContent).toBe('WHY-Reach 120')
+  })
+  it("contrast: when every aim answers the same question, core's order is kept exactly", () => {
+    const c = { ...PAIR(0.5, 0.9), aims: [aim('Z last', 'comparable'), aim('A first', 'comparable'), aim('Only b', 'only_b')] as never }
+    const { container } = render(<ScenarioComparisonView c={c} />)
+    expect(drawn(container).map(([l]) => l)).toEqual(['Z last', 'A first', 'Only b'])
+  })
+})
