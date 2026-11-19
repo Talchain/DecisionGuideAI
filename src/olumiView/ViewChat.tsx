@@ -58,6 +58,7 @@ import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type MenuMethod, type NextStep as V12NextStep, type WaitsOnItem, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
 import { CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
+import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
@@ -1934,7 +1935,8 @@ export function ViewChat() {
               questions={chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)}
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
-              onAnswer={(_q, answer) => say(answer)}
+              // A question core sent typed (CONTRACT §3) carries its id (`answers`): the answer is bound to it on core's answer route (same op for the same words; a refusal is core's). Else today's message.
+              onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }}
               onMethod={(key) => { if (pressChallenge(key) === 'prefixed') document.getElementById('view-chat-text')?.focus() }} />
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}

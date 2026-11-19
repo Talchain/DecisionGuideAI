@@ -23,6 +23,7 @@ import { prefillComposer, runMethod } from './ViewChat'
 import { Door, SignalRow } from './reasoning/parts'
 import { actionable, examineOf, type Examine } from './reasoning/examine'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
+import { AnswerBox } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
@@ -135,7 +136,7 @@ function wordsOf(e: Examine): { text: string; at: string; why: string | null; wh
     case 'method': return e.s.lead !== ''
       ? { text: e.s.lead, at: `sharpen.${e.i}.lead`, why: e.s.emphasis || null, whyAt: `sharpen.${e.i}.emphasis`, hover: e.s.rationale || undefined }
       : { text: e.s.emphasis, at: `sharpen.${e.i}.emphasis`, why: null, whyAt: null, hover: e.s.rationale || undefined }
-    case 'question': return { text: e.q, at: `coaching_questions.${e.i}`, why: null, whyAt: null }
+    case 'question': return { text: e.q, at: e.typed === null ? `coaching_questions.${e.i}` : `questions.${e.i}.text`, why: null, whyAt: null }
     case 'widen': return { text: e.w.label, at: `model_words.${e.w.k}`, why: null, whyAt: null }
   }
 }
@@ -173,7 +174,8 @@ function Row({ e }: { e: Examine }) {
   // message box is a quiet secondary press, never the row's primary action.
   if (e.kind === 'question') return (
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
-      {mark}{words}
+      {mark}
+      <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
       <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="talk-first" size={12} decorative /></button>
     </li>
   )
@@ -234,6 +236,8 @@ function LeadAct({ e }: { e: Examine }) {
     const { at: i, m } = e.method
     return <button type="button" className={GREEN} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${i}.text`}>{m.text}</span></button>
   }
+  // A typed question is answered where it is asked (CONTRACT §3); only a text-only one goes to the message box.
+  if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
   const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
   return fill === null ? null : <button type="button" className={GREEN} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={14} decorative />{REASONING_LABELS.fill}</button>
 }
@@ -250,7 +254,7 @@ export function StartHere({ model }: { model: ViewModel }) {
   if (e === undefined) return null
   const w = wordsOf(e)
   return (
-    <section className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
+    <section key={e.key} className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
       <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
       <p className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} title={w.hover ?? w.text} {...at(e, w.at)}>{w.text}</p>

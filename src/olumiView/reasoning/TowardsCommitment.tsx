@@ -58,7 +58,8 @@ function Recorded({ k, view }: { k: Commitment; view: View }) {
     const label = (c.records ?? []).find((r) => r.id === id)?.label
     return label == null || label === '' ? [] : [label]
   })
-  const last = (k.outcomes ?? [])[(k.outcomes ?? []).length - 1]
+  // Core sends a commitment's outcomes newest first (read-view ~213): the latest is the first, in the wire's order; nothing is sorted here.
+  const last = (k.outcomes ?? [])[0]
   return (
     <li className="flex items-start gap-2 px-1" data-commitment={k.id}>
       <OkIcon id="commit-action" size={14} className="mt-0.5" decorative />

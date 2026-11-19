@@ -366,6 +366,44 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(sent[0]).not.toContain(qs[0]!.slice(0, 20))
     expect((JSON.parse(sent[0]!) as { text?: string }).text).toBe('By the end of June')
   })
+  it('ONE ANSWER PATH (CONTRACT §3, Paul 00:10Z): a question core sent typed at that place carries its id, and "Use this" posts …/answer bound to it, once; CONTRAST: without the typed question it is today\'s message', async () => {
+    const calls: { url: string; body: string }[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => { calls.push({ url: String(u), body: String(init?.body ?? '') }); return new Response('{}', { status: 201 }) }) as never)
+    const view = asked(), qs = view.model!.coaching_questions!
+    ;(view.model as unknown as { questions: unknown[] }).questions = qs.map((text, i) => ({ id: `qid${i}`, text, target: null, role: null, unit: null }))
+    let card = open(q(mount(view), 'view-model-question')!)
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'Twelve weeks' } })
+    await act(async () => { fireEvent.click(q(card, 'view-question-use')!) })
+    await vi.waitFor(() => expect(calls.some((c) => c.body.includes('Twelve weeks'))).toBe(true))
+    const mine = calls.filter((c) => c.body.includes('Twelve weeks'))
+    expect(mine.map((c) => [c.url.endsWith('/answer'), (JSON.parse(c.body) as { question_id?: string }).question_id])).toEqual([[true, 'qid0']])
+    cleanup(); calls.length = 0; useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null, armed: null }); resetDrafts()
+    card = open(q(mount(asked()), 'view-model-question')!)
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'Twelve weeks' } })
+    await act(async () => { fireEvent.click(q(card, 'view-question-use')!) })
+    await vi.waitFor(() => expect(calls.some((c) => c.body.includes('Twelve weeks'))).toBe(true))
+    expect(calls.filter((c) => c.body.includes('Twelve weeks')).map((c) => [c.url.endsWith('/messages'), (JSON.parse(c.body) as { question_id?: string }).question_id ?? null])).toEqual([[true, null]])
+  })
+  it('ONE ANSWER PATH, bound at the draft (Codex ROOT 01:20Z): a draft typed for core\'s question X never goes out under a new question Y at the same place with the same words; Y\'s box starts empty and its answer carries Y\'s id', async () => {
+    const calls: { url: string; body: string }[] = []
+    setTeamFetch((async (u: unknown, init?: RequestInit) => { calls.push({ url: String(u), body: String(init?.body ?? '') }); return new Response('{}', { status: 201 }) }) as never)
+    const view = asked(), qs = view.model!.coaching_questions!
+    ;(view.model as unknown as { questions: unknown[] }).questions = qs.map((text, i) => ({ id: `qX${i}`, text, target: null, role: null, unit: null }))
+    const c = mount(view)
+    let card = open(q(c, 'view-model-question')!)
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: '12' } })
+    // Core re-mints the question at the same place with the same words (e.g. its target's unit changed): a new typed id.
+    const next = structuredClone(view)
+    ;(next.model as unknown as { questions: unknown[] }).questions = qs.map((text, i) => ({ id: `qY${i}`, text, target: null, role: null, unit: null }))
+    act(() => { useViewStore.setState({ view: next } as never) })
+    card = q(c, 'view-model-question')!
+    if (q(card, 'view-question-answer') === null) open(card)
+    expect((q(card, 'view-question-answer') as HTMLTextAreaElement).value).toBe('')
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: '14' } })
+    await act(async () => { fireEvent.click(q(card, 'view-question-use')!) })
+    await vi.waitFor(() => expect(calls.some((x) => x.url.endsWith('/answer'))).toBe(true))
+    expect(calls.filter((x) => x.url.endsWith('/answer')).map((x) => [(JSON.parse(x.body) as { question_id: string; text: string }).question_id, (JSON.parse(x.body) as { text: string }).text])).toEqual([['qY0', '14']])
+  })
   it('a draft belongs to one question of one scenario: core rewriting the question, or another scenario at the same place, shows an empty box (CONTRAST: the same question keeps its draft)', () => {
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)

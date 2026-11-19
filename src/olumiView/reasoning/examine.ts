@@ -12,6 +12,7 @@
  */
 import type { ViewCard, ViewModel } from '../client'
 import { challengedCards } from '../layout'
+import { questionsOf, type Question } from './answer'
 
 export type Sharpen = NonNullable<ViewModel['sharpen']>[number]
 export type MethodWord = { id: string; text: string }
@@ -22,7 +23,8 @@ type Widen = { k: 'askOption' | 'askRisk'; label: string; draft: string }
 export type Examine =
   | { kind: 'challenge'; key: string; card: ViewCard }
   | { kind: 'method'; key: string; i: number; s: Sharpen; method: { at: number; m: MethodWord } | null }
-  | { kind: 'question'; key: string; i: number; q: string }
+  /** `typed`: core's typed question (answer in place, CONTRACT §2), when core sends `model.questions`; null for a text-only question. */
+  | { kind: 'question'; key: string; i: number; q: string; typed: Question | null }
   | { kind: 'widen'; key: string; w: Widen }
 
 /** Whether an item carries a press of its own (a challenge always does: the card). */
@@ -45,7 +47,11 @@ export function examineOf(model: ViewModel, methods: readonly MethodWord[] | nul
     const method = at < 0 || methods === null ? null : { at, m: methods[at]! }
     return [{ kind: 'method', key: `s:${s.id}`, i, s, method } satisfies Examine]
   })
-  const questions: Examine[] = (model.coaching_questions ?? []).flatMap((q, i) => (q === '' ? [] : [{ kind: 'question', key: `q:${i}`, i, q } satisfies Examine]))
+  // Core's typed questions when it sends them (each answerable in place by its id); else its coaching texts, as before.
+  const typed = questionsOf(model)
+  const questions: Examine[] = typed.length > 0
+    ? typed.map((t) => ({ kind: 'question', key: `q:${t.id}`, i: t.at, q: t.text, typed: t } satisfies Examine))
+    : (model.coaching_questions ?? []).flatMap((q, i) => (q === '' ? [] : [{ kind: 'question', key: `q:${i}`, i, q, typed: null } satisfies Examine]))
   const rest: Examine[] = widenOf(words).map((w) => ({ kind: 'widen', key: `w:${w.k}`, w }))
   return [...challenges, ...questions, ...rest, ...sharpen.filter(actionable), ...sharpen.filter((e) => !actionable(e))]
 }
