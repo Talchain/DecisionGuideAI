@@ -197,7 +197,7 @@ export function journeyOf(view: View, ctx: JourneyContext): Journey {
   const given = (view.collab?.shared ?? []).filter((s) => !s.skip)
   const history = {
     evidence: newestFirst((view.evidence ?? []).map((e) => ({ key: `evidence:${e.id}`, by: e.by, at: e.at, text: e.text, stance: e.stance_text, considered: e.considered !== null, press: team({ kind: 'evidence', id: e.id }) }))),
-    dissent: newestFirst((view.collab?.dissent ?? []).flatMap((d) => d.confirmed === null ? [] : [{ key: `dissent:${d.id}`, holder: d.holder, at: d.confirmed.at, words: d.confirmed.words, tell: d.confirmed.tell, press: team({ kind: 'dissent', id: d.id }) }])),
+    dissent: newestFirst((view.collab?.dissent ?? []).flatMap((d) => d.confirmed == null ? [] : [{ key: `dissent:${d.id}`, holder: d.holder, at: d.confirmed.at, words: d.confirmed.words, tell: d.confirmed.tell, press: team({ kind: 'dissent', id: d.id }) }])),
     kept: newestFirst((view.kept ?? []).map((k) => { const node = ctx.keptNode(k); return { key: `kept:${k.id}`, name: k.kept_by.name, at: k.at, text: k.text, press: node === null ? { unavailable: JOURNEY_WORDS.offCanvas } : { to: { kind: 'kept', node } as const } } })),
     views: given.length === 0 ? null : JOURNEY_WORDS.views(given.length, [...new Set(given.map((s) => s.by))]),
   }
