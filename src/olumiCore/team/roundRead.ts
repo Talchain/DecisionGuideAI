@@ -29,21 +29,38 @@ const isStr = (x: unknown): x is string => typeof x === 'string'
 const words = (x: unknown): x is string => isStr(x) && x.trim() !== ''
 const obj = (x: unknown): Record<string, unknown> | null => (x !== null && typeof x === 'object' && !Array.isArray(x) ? (x as Record<string, unknown>) : null)
 
-/** One comparison core embedded: a whole Difference by its fields, or null. */
+const num = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x)
+
+/** One comparison core embedded: a whole Difference by every field the page draws from it, or null (Codex B2 UI HOLD 2). Each side names a
+ *  person; every chance belongs to one of those sides, so no chance can be drawn without its holder; every option has its words. Whether it
+ *  is core's own Difference for `{record, goal}` is core's guarantee: the UI checks its shape and its internal references, never its truth. */
 function comparisonOf(x: unknown): Difference | null {
   const d = obj(x)
   if (d === null || !words(d.record) || !isStr(d.goal) || !isStr(d.label) || !isStr(d.goal_label) || !STATUSES.includes(d.status as DifferenceStatus) || !words(d.status_text)) return null
   if (!Array.isArray(d.sides) || !Array.isArray(d.options) || !Array.isArray(d.settle) || !Array.isArray(d.steps)) return null
+  const sides = d.sides.map(obj)
+  if (sides.length === 0 || sides.some((s) => s === null || !words(s.holder_id) || !words(s.holder) || !isStr(s.figure) || !isStr(s.title) || !isStr(s.text))) return null
+  const holders = new Set(sides.map((s) => s!.holder_id as string))
+  const optionOk = (o: Record<string, unknown> | null): boolean => o !== null && words(o.option) && words(o.label) && isStr(o.model) && Array.isArray(o.chances)
+    && o.chances.map(obj).every((c) => {
+      if (c === null || !words(c.holder_id) || !holders.has(c.holder_id) || !isStr(c.text)) return false
+      if (c.chance === null) { const w = c.withheld == null ? null : obj(c.withheld); return c.withheld == null || (w !== null && isStr(w.value) && isStr(w.reason)) }
+      return num(c.chance) && c.chance >= 0 && c.chance <= 1
+    })
+  if (!d.options.map(obj).every(optionOk)) return null
+  if (!d.settle.map(obj).every((s) => s !== null && isStr(s.kind) && isStr(s.text))) return null
+  if (!d.steps.map(obj).every((s) => s !== null && isStr(s.text))) return null
   return d as unknown as Difference
 }
 
-/** A quote, bound by identity: the revealed view it names is in this View, is that person's, and holds these exact words. */
+/** A quote, bound by identity: the revealed view it names is in this View, is that person's (id AND name), and holds these exact words. The
+ *  name drawn is the revealed view's own (`by`), never the payload's (Codex B2 UI HOLD 1). */
 function quoteOf(x: unknown, view: View): RoundQuote | null {
   const q = obj(x)
   if (q === null || !words(q.id) || typeof q.view_id !== 'number' || !words(q.holder_id) || !words(q.holder) || !words(q.text)) return null
   const shown = view.collab.shared.find((s) => s.id === q.view_id)
-  if (shown === undefined || shown.by_id !== q.holder_id || !shown.text.includes(q.text)) return null
-  return { id: q.id, view_id: q.view_id, holder_id: q.holder_id, holder: q.holder, text: q.text }
+  if (shown === undefined || shown.by_id !== q.holder_id || shown.by !== q.holder || !shown.text.includes(q.text)) return null
+  return { id: q.id, view_id: q.view_id, holder_id: shown.by_id, holder: shown.by, text: q.text }
 }
 
 /** A crux, or null when any reference fails: an invalid crux is dropped whole, never drawn in part. */

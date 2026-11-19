@@ -24,6 +24,10 @@ const AIM = 'generate_revenue_quickly', OTHER = 'enterprise_opportunities'
 const FIG = cmp('diagnostic_time_to_contract', AIM), PAY = cmp('link:first_cash_timing:contract_to_cash', AIM), PAY2 = cmp('link:first_cash_timing:contract_to_cash', OTHER)
 const said = (id: number) => base.collab.shared.find((s) => s.id === id)!
 const quote = (id: string, view: number, text: string) => ({ id, view_id: view, holder_id: said(view).by_id, holder: said(view).by, text })
+/** Each option's chance drawn for a comparison, by option and holder: [option, holder, text, bar?, withheld title]. */
+const drawnChances = (el: Element) => [...el.querySelectorAll('[data-difference-option]')].flatMap((o) => [...o.querySelectorAll('[data-difference-chance]')].map((c) =>
+  [o.getAttribute('data-difference-option'), c.getAttribute('data-difference-chance'), c.lastElementChild!.textContent, c.querySelector('svg[data-chance]') !== null, c.getAttribute('title')]))
+const coreChances = (d: Difference) => d.options.flatMap((o) => o.chances.map((c) => [o.option, c.holder_id, c.text, c.chance !== null, c.withheld?.reason ?? null]))
 const WRONG = 'This is the only difference that changes which option is most likely'
 
 const estimate = { id: 'c1', kind: 'estimate', kind_text: 'A different estimate', quotes: [quote('q1', 19, 'take most of a year to sign anything'), quote('q2', 20, 'I think one would sign within a quarter')],
@@ -67,12 +71,30 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
     const fig = document.querySelector(`[data-round-comparison="${FIG.record}|${AIM}"]`) as HTMLElement
     expect(fig.getAttribute('data-difference-status')).toBe('changes')
     expect(fig.querySelector('[data-round-status]')!.textContent).toBe(FIG.status_text)
+    // Each option's chance is core's, by option and holder, for each comparison (Codex B2 UI HOLD 3).
+    expect(drawnChances(pay)).toEqual(coreChances(PAY))
+    expect(drawnChances(fig)).toEqual(coreChances(FIG))
+    expect(coreChances(FIG).length, 'precondition: chances to compare').toBeGreaterThan(2)
   })
   it('one link on two aims is two comparisons by {record, goal}, each with its own core status (one withheld)', () => {
     render(<RoundRead view={withRead(read())} headings={core.headings} />)
     const c2 = document.querySelector('[data-round-crux="c2"]') as HTMLElement
     expect([...c2.querySelectorAll('[data-round-comparison]')].map((e) => [e.getAttribute('data-round-comparison'), e.getAttribute('data-difference-status')])).toEqual([
       [`${PAY.record}|${AIM}`, 'moves'], [`${PAY.record}|${OTHER}`, 'withheld']])
+    const [a, b] = [...c2.querySelectorAll('[data-round-comparison]')]
+    expect(PAY.status_text, 'precondition: two sentences').not.toBe(PAY2.status_text)
+    expect([a!.querySelector('[data-round-status]')!.textContent, b!.querySelector('[data-round-status]')!.textContent]).toEqual([PAY.status_text, PAY2.status_text])
+    // Withheld: core's words and its reason on hover, and no bar for a chance core did not give.
+    expect(drawnChances(b!)).toEqual(coreChances(PAY2))
+    expect(coreChances(PAY2).some((c) => c[3] === false), 'precondition: a withheld chance').toBe(true)
+    expect(b!.querySelectorAll('[data-chance-withheld]').length).toBe(coreChances(PAY2).filter((c) => c[3] === false).length)
+  })
+  it('a person\'s own figure in their words is drawn verbatim, numbers and all; it is their words, never Olumi\'s', () => {
+    const tom = { ...said(20), text: `${said(20).text} Say 1 to 3 months.` }
+    const v = { ...withRead(read({ cruxes: [{ ...estimate, quotes: [quote('q1', 19, 'take most of a year to sign anything'), { ...quote('q9', 20, 'x'), text: 'Say 1 to 3 months.' }] }] })) }
+    const view = { ...v, collab: { ...v.collab, shared: v.collab.shared.map((s) => (s.id === 20 ? tom : s)) } } as View
+    render(<RoundRead view={view} headings={core.headings} />)
+    expect(document.querySelector('[data-round-quote="q9"]')!.textContent).toBe('TTom: “Say 1 to 3 months.”')
   })
 })
 
@@ -84,6 +106,13 @@ describe('every reference is checked; an invalid crux is dropped whole', () => {
     expect(only({ ...cause, id: 'bad-view', quotes: [{ ...quote('x', 19, 'take most of a year'), view_id: 999 }] })).toEqual(['c1'])
     expect(only({ ...cause, id: 'bad-cmp', comparisons: [{ ...PAY, status_text: '' }] })).toEqual(['c1'])
     expect(only({ ...cause, id: 'bad-kind', kind: 'values' })).toEqual(['c1'])
+    expect(only({ ...cause, id: 'bad-name', quotes: [{ ...quote('x', 19, 'take most of a year'), holder: 'Tom' }] })).toEqual(['c1'])
+    expect(only({ ...cause, id: 'mixed', quotes: [quote('ok', 47, 'I am not sure this link holds'), quote('x', 19, 'procurement takes two years')] })).toEqual(['c1'])
+    const strayChance = { ...PAY, options: PAY.options.map((o, i) => (i === 0 ? { ...o, chances: [...o.chances, { holder_id: '999', chance: 0.5, text: 'about 50%' }] } : o)) }
+    expect(only({ ...cause, id: 'bad-chance-holder', comparisons: [strayChance] })).toEqual(['c1'])
+    expect(only({ ...cause, id: 'bad-option', comparisons: [{ ...PAY, options: [{ option: 'x' }] }] })).toEqual(['c1'])
+    expect(only({ ...cause, id: 'bad-side', comparisons: [{ ...PAY, sides: [{ holder_id: '43' }] }] })).toEqual(['c1'])
+    expect(only({ ...cause, id: 'mixed-cmp', comparisons: [PAY, { ...PAY2, status_text: '' }] })).toEqual(['c1'])
     expect(only({ ...cause, id: 'ok' })).toEqual(['ok', 'c1'])
   })
 })
@@ -105,14 +134,21 @@ describe('mounted in "Where you differ"', () => {
   const serve = (answer: Differences) => setTeamFetch((async (url: string) =>
     String(url).endsWith('/differences') ? new Response(JSON.stringify(answer), { status: 200, headers: { 'content-type': 'application/json' } })
       : new Response(JSON.stringify({ error: 'not here' }), { status: 404, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch)
-  it('after the reveal the reading leads the step, above core\'s round question; CONTRAST: without core\'s field the step is as before', async () => {
+  it('after the reveal the reading leads the step and core\'s round question stays the one prompt, below it; a view update to another version or a gate removes it; CONTRAST: without core\'s field the step is as before', async () => {
+    expect(base.collab.next?.text, 'precondition: core sends the round question').toBeTruthy()
     serve(core)
     const v = withRead(read())
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000000', sid: v.id, view: v, status: 'ready', error: null, stale: false, at: null })
-    render(<WhereWeDiffer sid={v.id} view={v} onWrote={async () => true} />)
+    const { rerender } = render(<WhereWeDiffer sid={v.id} view={v} onWrote={async () => true} />)
     const r = await screen.findByTestId('round-read')
-    const next = screen.queryByTestId('team-views-next-block')
-    if (next !== null) expect((r.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true)
+    const next = screen.getByTestId('team-views-next')
+    expect(next.textContent).toBe(base.collab.next!.text)
+    expect(screen.getAllByTestId('team-views-next')).toHaveLength(1)
+    expect((r.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0).toBe(true)
+    rerender(<WhereWeDiffer sid={v.id} view={withRead(read({ at_version: base.version!.id + 1 }))} onWrote={async () => true} />)
+    expect(screen.queryByTestId('round-read')).toBeNull()
+    rerender(<WhereWeDiffer sid={v.id} view={withRead(read(), { gated: true })} onWrote={async () => true} />)
+    expect(screen.queryByTestId('round-read')).toBeNull()
     cleanup(); resetDifferences()
     useViewStore.setState({ view: base, sid: base.id })
     render(<WhereWeDiffer sid={base.id} view={base} onWrote={async () => true} />)
