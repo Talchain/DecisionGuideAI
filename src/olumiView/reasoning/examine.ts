@@ -1,12 +1,14 @@
 /**
- * What is worth examining in the thinking, as ONE ranked queue (Reasoning redesign 2, 18 Nov 2026): the tab leads with the first item, large,
- * with its one action, and lists the rest under it. Every word is core's; only the ORDER OF KINDS is the tab's, fixed and content-blind:
+ * What is worth examining in the thinking, as ONE list (Reasoning, 18 Nov 2026). It claims no priority: core computes none yet (engine ask 2,
+ * ENGINE-ASKS-REASONING.md), so nothing leads and nothing is called "first". Every word is core's; only the ORDER OF KINDS is the tab's:
  *   1. a card core marks `challenged` (a disagreement or a challenge is the most consequential thing to look at): its action shows the card;
  *   2. core's `sharpen` prompts (science-grounded: shared mechanism, option breadth, risk count) whose move core offers as a method
  *      (`session.methods`, by the move's id, else by `MOVE_METHOD`: core names the move `widen_options` but offers it as `else_do`);
  *   3. core's `coaching_questions`, each filling the message box with that question (nothing sent);
  *   4. core's remaining widening asks (`askOption` / `askRisk`), each filling the box with core's draft.
- * A sharpen prompt with no action is still listed (its words are worth reading), but never leads.
+ * Order as built: challenges, then questions and asks (specific to this model), then sharpen prompts (count-based shape advice, whose method
+ * press is kept), offered ones before the rest. A challenged card that is a recorded disagreement (`collab.dissent`) is said under Towards
+ * commitment instead, once.
  */
 import type { ViewCard, ViewModel } from '../client'
 import { challengedCards } from '../layout'
@@ -33,8 +35,8 @@ export function widenOf(words: Record<string, unknown> | null): Widen[] {
   })
 }
 
-export function examineOf(model: ViewModel, methods: readonly MethodWord[] | null, words: Record<string, unknown> | null): Examine[] {
-  const challenges: Examine[] = challengedCards(model).map((card) => ({ kind: 'challenge', key: `c:${card.id}`, card }))
+export function examineOf(model: ViewModel, methods: readonly MethodWord[] | null, words: Record<string, unknown> | null, saidElsewhere: ReadonlySet<string> = new Set()): Examine[] {
+  const challenges: Examine[] = challengedCards(model).filter((card) => !saidElsewhere.has(card.id)).map((card) => ({ kind: 'challenge', key: `c:${card.id}`, card }))
   const sharpen: Examine[] = (model.sharpen ?? []).flatMap((s, i) => {
     if (s.lead === '' && s.emphasis === '') return []
     const find = (id: string | undefined) => (id === undefined ? -1 : (methods ?? []).findIndex((x) => x.id === id))
@@ -45,5 +47,5 @@ export function examineOf(model: ViewModel, methods: readonly MethodWord[] | nul
   })
   const questions: Examine[] = (model.coaching_questions ?? []).flatMap((q, i) => (q === '' ? [] : [{ kind: 'question', key: `q:${i}`, i, q } satisfies Examine]))
   const rest: Examine[] = widenOf(words).map((w) => ({ kind: 'widen', key: `w:${w.k}`, w }))
-  return [...challenges, ...sharpen.filter(actionable), ...questions, ...rest, ...sharpen.filter((e) => !actionable(e))]
+  return [...challenges, ...questions, ...rest, ...sharpen.filter(actionable), ...sharpen.filter((e) => !actionable(e))]
 }

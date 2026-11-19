@@ -121,6 +121,21 @@ export function leadChangeOf(run: ViewRun | null): LeadChange | null {
   return null
 }
 
+/**
+ * Core's other reasons nothing tested would change a result (`run.tipping_aims[].silent[]`), each drawn once in core's order with core's own line
+ * (missing-input coaching included): every entry with a line except the one `leadChangeOf` already draws.
+ */
+export function silentOthersOf(run: ViewRun | null): { at: string; aim: string; line: string; hover: string }[] {
+  if (run === null) return []
+  const lead = leadChangeOf(run)
+  const out: { at: string; aim: string; line: string; hover: string }[] = []
+  ;(run.tipping_aims ?? []).forEach((a, ai) => (a.silent ?? []).forEach((x, si) => {
+    const at = `run.tipping_aims.${ai}.silent.${si}.line`
+    if (x.line !== '' && !(lead?.kind === 'silent' && lead.at === at)) out.push({ at, aim: a.aim, line: x.line, hover: x.text })
+  }))
+  return out
+}
+
 /** Each limit an option is checked against, with every option's row for it, in core's order (the aim's words are core's `row.aim`). */
 export function limitGroupsOf(model: ViewModel): { aimId: string; aim: { text: string; at: string }; rows: { card: ViewCard; row: LimitRow; i: number }[] }[] {
   const out: { aimId: string; aim: { text: string; at: string }; rows: { card: ViewCard; row: LimitRow; i: number }[] }[] = []

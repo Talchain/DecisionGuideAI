@@ -486,3 +486,43 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     expect(box.querySelectorAll(`[data-rest="${r.id}"] [data-testid="rests-sentence"]`)).toHaveLength(1)
   })
 })
+
+describe('every tipping line core gives is drawn once, in core\'s order, with core\'s words (analysis tab)', () => {
+  it('european (chance-kind tipping): each line once by id, in core\'s order, exact text; bakery\'s lead line is not drawn twice', () => {
+    for (const n of ['golden/european', 'golden/bakery'] as const) {
+      const view = viewOf(n), run = view.model!.run!, lead = leadChangeOfIndex(run)
+      ready(view); render(<PortAnalysisTab />)
+      const expected = run.tipping.filter((t, i) => t.line !== '' && i !== lead)
+      expect(expected.length, n).toBeGreaterThan(0)
+      const drawn = [...tab().querySelectorAll<HTMLElement>('[data-view-fact^="F"]')].filter((e) => run.tipping.some((t) => t.id === e.dataset['viewFact']))
+      expect(drawn.map((e) => e.dataset['viewFact']), n).toEqual(expected.map((t) => t.id))
+      expected.forEach((t) => expect(tab().querySelector(`[data-view-fact="${t.id}"] [data-view="run.tipping.${run.tipping.indexOf(t)}.line"]`)!.textContent, t.id).toBe(t.line))
+      if (lead >= 0) expect([...tab().querySelectorAll('[data-view]')].filter((e) => e.textContent === run.tipping[lead]!.line), n).toHaveLength(1)
+      cleanup()
+    }
+  })
+
+  it('CONTRAST: with run.tipping emptied no tipping line is drawn', () => {
+    const view = structuredClone(viewOf('golden/european'))
+    view.model!.run!.tipping = []
+    ready(view); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-tipping')).toBeNull()
+    expect(tab().querySelector('[data-view^="run.tipping."]')).toBeNull()
+  })
+
+  it('a silent entry draws core\'s own line (its coaching), once, at its View path; CONTRAST: without it nothing is drawn', () => {
+    const view = structuredClone(viewOf('golden/bakery'))
+    ready(view); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-tip-silent')).toBeNull()
+    cleanup()
+    const line = 'Core says: give a figure for the oven hours and this can be worked out.'
+    view.model!.run!.tipping_aims = [{ aim: 'sell_360', lines: [], silent: [{ crossing: null, reason: 'no_figure', text: 'Core hover.', line }] }] as never
+    ready(view); render(<PortAnalysisTab />)
+    const p = screen.getByTestId('analysis-tip-silent').querySelector<HTMLElement>('[data-tip-silent="sell_360"]')!
+    expect(p.querySelector('[data-view="run.tipping_aims.0.silent.0.line"]')!.textContent).toBe(line)
+    expect([...document.querySelectorAll('span')].filter((e) => e.textContent === line)).toHaveLength(1)
+  })
+})
+
+/** Index of the tipping line `leadChangeOf` draws under "What would change it" (kind lead), or -1. */
+const leadChangeOfIndex = (run: { tipping: { kind: string; line: string }[] }) => run.tipping.findIndex((x) => x.kind === 'lead' && x.line !== '')

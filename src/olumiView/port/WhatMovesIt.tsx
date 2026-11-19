@@ -3,6 +3,8 @@
  * once, at the chart's whiskers (`ChanceChart`), with their ✎ there; this section never names them again:
  * - what would change which option leads: core's own line (`run.tipping` about the lead, else core's reason nothing tested does), with a
  *   try on its figure where core names one (nothing saved);
+ * - core's other reasons nothing tested changes a result (`run.tipping_aims[].silent`), its own line each; the per-option crossings
+ *   (`run.tipping`, kind chance) are drawn by `TippingPerOption` (AnalysisReaders) and are not drawn twice here;
  * - what is worth finding out first: core's ranking (`run.find_out`, its heading and each figure's line with core's give words and ✎), then
  *   any worth line (`run.science`) the ranking does not already name. A figure the ranking gives a ✎ is not given a second ✎ at the chart.
  * The heading and its hint are core's lens words (`lens_words.label/hint.what_changes`).
@@ -10,7 +12,7 @@
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { useViewStore } from '../store'
-import { cardOf, findOutOf, leadChangeOf } from './pick'
+import { cardOf, findOutOf, leadChangeOf, silentOthersOf } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
@@ -22,7 +24,8 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
   const run = model.run ?? null
   const lead = leadChangeOf(run)
   const { aims, worth } = findOutOf(run)
-  if (lead === null && aims.length + worth.length === 0) return null
+  const silent = silentOthersOf(run)
+  if (lead === null && aims.length + worth.length + silent.length === 0) return null
   const leadCard = lead === null ? null : cardOf(model, lead.figure)
   return (
     <section className="space-y-2" data-testid="analysis-what-moves" aria-label={words?.label.what_changes ?? MOVES_FALLBACK}>
@@ -34,6 +37,15 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
           <span className="min-w-0 flex-1" data-view={lead.at}>{lead.line}</span>
           {leadCard?.figure?.edit == null ? null : <FigureEdit id={leadCard.id} edit={leadCard.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${leadCard.heading}`} />}
         </p>
+      )}
+      {silent.length === 0 ? null : (
+        <ul className="m-0 list-none space-y-1 p-0" data-testid="analysis-tip-silent">
+          {silent.map((x) => (
+            <li key={x.at} className={`${TYPE.meta} text-text-body`} title={x.hover || undefined} data-tip-silent={x.aim}>
+              <span data-view={x.at}>{x.line}</span>
+            </li>
+          ))}
+        </ul>
       )}
       {aims.length === 0 ? null : (
         <div className="space-y-1" data-testid="port-find-out">
