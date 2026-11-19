@@ -6,7 +6,7 @@ import { useOverview } from '../../strategy/overview/useOverview'
 import { useCompare } from '../views/useCompare'
 import { useDockInset } from '../bands/KeyPill'
 import { FramePage, FRAME_WORDS } from './FramePage'
-import { useFrameStage } from './useFrameStage'
+import { useFrameShown, useFrameStage } from './useFrameStage'
 
 /** The header's opener, beside the Strategy Overview's: pressed while the Frame stands over the canvas; drawn only with a model. */
 export function FrameOpener(): JSX.Element | null {
@@ -30,7 +30,6 @@ export function FrameOpener(): JSX.Element | null {
 export function FrameStage(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const sid = useViewStore((s) => s.sid)
-  const open = useFrameStage((s) => s.open)
   const armedFor = useFrameStage((s) => s.armedFor)
   const overview = useOverview((s) => s.open)
   const compare = useCompare((s) => s.open)
@@ -38,7 +37,7 @@ export function FrameStage(): JSX.Element | null {
   const hasModel = view?.model != null
   useEffect(() => { if (hasModel && sid !== null && armedFor !== sid) useFrameStage.getState().arm(sid) }, [hasModel, sid, armedFor])
   useEffect(() => { if (overview || compare) useFrameStage.getState().hide() }, [overview, compare])
-  const shown = open && hasModel && !overview && !compare
+  const shown = useFrameShown()
   const box = useRef<HTMLDivElement | null>(null)
   useLayoutEffect(() => { if (box.current !== null) box.current.style.right = `${inset}px` }, [inset, shown])
   const opener = useRef<HTMLElement | null>(null)
@@ -59,5 +58,5 @@ export function FrameStage(): JSX.Element | null {
     }
   }, [shown])
   if (!shown) return null
-  return <div ref={box} role="region" aria-label={FRAME_WORDS.question} data-testid="frame-stage" data-olumi-frame-fronted="" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas"><FramePage view={view!} onClose={() => useFrameStage.getState().hide()} /></div>
+  return <div ref={box} role="region" aria-label={FRAME_WORDS.question} data-testid="frame-stage" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas"><FramePage view={view!} onClose={() => useFrameStage.getState().hide()} /></div>
 }

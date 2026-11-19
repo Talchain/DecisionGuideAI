@@ -7,6 +7,7 @@ import { OlumiMark, PersonMark } from '../cards/marks'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { findingOf as modelFindingOf } from '../contract'
 import { FindingLine } from '../../FindingLine'
+import { useFindingSurface } from '../../findingSurface'
 
 /**
  * The Frame page (Paul, 19 Nov: "open on the question, with the aims beneath"; spec framing-20261119/mock/SPEC.md rows 1, 3, 4, 5, 8, 9 and "No model yet").
@@ -60,6 +61,7 @@ function Aim({ card }: { card: ViewCard }): JSX.Element {
 
 export function FramePage({ view, onClose }: { view: View; onClose: () => void }): JSX.Element | null {
   const model = view.model
+  const surface = useFindingSurface()
   if (model == null) return null
   const q = model.question
   const aims = model.cards.filter((c) => c.family === 'goal'), limits = model.cards.filter((c) => c.family === 'limit'), routes = model.cards.filter((c) => c.family === 'option')
@@ -88,7 +90,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
               {limits.length === 0 ? null : <div className="grid gap-1"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-2 p-0" data-testid="frame-limits">{limits.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
             </section>
           )}
-          {finding === null ? <FindingLine model={model} at="frame" onFocusFigure={onClose} />
+          {finding === null ? (surface === 'frame' ? <FindingLine model={model} at="frame" onFocusFigure={onClose} /> : null)
             : <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="frame-finding">{finding.join(' ')}</p>}
           {routes.length === 0 ? null : (
             <section className="grid gap-1" aria-label={FRAME_WORDS.routes}>

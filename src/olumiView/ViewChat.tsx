@@ -11,7 +11,7 @@
  */
 import { create } from 'zustand'
 import { FindingLine } from './FindingLine'
-import { panelDrawsFinding } from './v12/contract'
+import { useFindingSurface } from './findingSurface'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { call, newOp, READ_FAILED, TeamApiError, UNCERTAIN_WRITE } from '../olumiCore/team/api'
 import { registerDockedOlumiFocus } from '../canvas/conversation/dockedOlumiFocus'
@@ -51,7 +51,7 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_OUTLINE_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, floorShown, headlineDrawn, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
+import { earlyOf, drawnLeadOf, floorShown, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
 import { askFieldOf, pressFieldOf, pressHeading, pressKindFor, type PressKind, type TurnPress } from './press'
 import { ReplyLead } from './v12/chat/ReplyLead'
 import { KeepChooser } from './v12/chat/KeepChooser'
@@ -316,7 +316,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const early = earlyOf(t)
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
-  const lead = t.answer === null ? null : leadOf(t.answer, [early ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
+  const lead = drawnLeadOf(t, floor)
   // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
   // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
   // a method reply with no such lines is kept whole.
@@ -1893,6 +1893,7 @@ export function ViewChat() {
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at)
+  const surface = useFindingSurface()
   const held = busy || past !== null
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
   const ff = view === null ? null : figureFirstOf(view)
@@ -2022,7 +2023,7 @@ export function ViewChat() {
           the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
-      {!panelDrawsFinding(view?.model) || headlineDrawn(view?.chat) ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
+      {surface !== 'panel' ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
       {view === null || step === null || pinned ? null
         : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}

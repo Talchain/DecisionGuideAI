@@ -27,7 +27,8 @@ const route = card({ id: 'opt_a', family: 'option', heading: 'Carry on as now', 
 
 beforeEach(() => { useFrameStage.setState({ open: false, armedFor: null }); useLaneInspector.setState({ current: null }) })
 afterEach(cleanup)
-const page = (v: View) => render(<FramePage view={v} onClose={() => undefined} />)
+// The page is drawn as FrameStage draws it: the View is the store's and the Frame is open (findingSurfaceOf names the Frame for the finding).
+const page = (v: View) => { useViewStore.setState({ view: v } as never); useFrameStage.setState({ open: true }); return render(<FramePage view={v} onClose={() => undefined} />) }
 
 describe('the Frame page', () => {
   it('the question is the headline, and Edit is the first control; finding, routes and the count follow', () => {

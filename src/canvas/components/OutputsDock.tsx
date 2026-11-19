@@ -227,6 +227,7 @@ import { PortAnalysisTab } from '../../olumiView/port/PortAnalysisTab'
 import { ViewModelTabBlock } from '../../olumiView/ViewModelTab'
 import { ViewReasoningBlock } from '../../olumiView/ViewReasoning'
 import { useAnswersAsks, ViewChat } from '../../olumiView/ViewChat'
+import { useDockFrontsOlumi } from '../../olumiView/findingSurface'
 import { DockComposer } from '../../olumiView/ViewWelcome'
 import { focusDockedOlumi } from '../conversation/dockedOlumiFocus'
 import { RUN_ANALYSIS_LABEL } from '../runAnalysisLabel'
@@ -3102,6 +3103,9 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
   const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
+  // Where core's finding is drawn is decided by one function (olumiView/findingSurface); the dock only says whether the Olumi tab is on screen.
+  const olumiFronted = effectiveIsOpen && effectiveActiveTab === 'olumi' && !isOverlayPanelActive
+  useLayoutEffect(() => { useDockFrontsOlumi.getState().set(olumiFronted); return () => useDockFrontsOlumi.getState().set(false) }, [olumiFronted])
 
   // Empty state: under FF off, unmount when canvas has no nodes. Under
   // aiPanelV2 we keep the dock mounted so the 40px rail can show even
@@ -4458,7 +4462,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 className={`flex flex-1 min-h-0 flex-col ${effectiveActiveTab === 'olumi' ? '' : 'hidden'}`}
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
-                data-olumi-finding-fronted={isOlumiCoreLane() && effectiveIsOpen && effectiveActiveTab === 'olumi' && !isOverlayPanelActive ? '' : undefined}
               >
                 {/* The olumi-core lane talks to core itself (src/olumiView/ViewChat), the brief included; never through /bff. */}
                 {isOlumiCoreLane() ? <ViewChat /> : <OlumiTabBody onFloatOut={floatOutToWindow} />}

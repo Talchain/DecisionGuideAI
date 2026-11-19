@@ -48,18 +48,6 @@ export const leadOf = (holder: unknown, full: string): ReplyLead | null => {
   const lead = { opening, points: points as string[] }
   return squash(full) === squash([opening, ...lead.points].join('\n')) ? null : lead
 }
-/** True when the newest answered turn draws a lead (its short opening, the panel's headline): the finding line above the thread would then say the
- *  same fact again, so the panel draws one of the two (say3, Paul 18 Nov "nothing said twice"). Read by the typed `lead`, never by words. */
-export const headlineDrawn = (chat: readonly { answer?: unknown }[] | null | undefined): boolean => {
-  if (!chat) return false
-  for (let i = chat.length - 1; i >= 0; i--) {
-    const t = chat[i]!, a = t.answer as { answer?: unknown } | null | undefined
-    if (a === null || a === undefined || typeof a !== 'object') continue
-    const parts = Array.isArray(a.answer) ? a.answer as { text?: unknown }[] : []
-    return leadOf(a, [earlyOf(t) ?? '', ...parts.map((p) => (typeof p.text === 'string' ? p.text : ''))].join('\n')) !== null
-  }
-  return false
-}
 export type Unanswered = { status: 'failed' | 'lost'; words: string | null }
 const unansweredOf = (u: unknown): Unanswered | null => {
   if (u === null || typeof u !== 'object') return null
@@ -159,6 +147,23 @@ export function threadRows(chat: readonly ViewTurn[], floors: readonly FloorTurn
     rows.push({ seq: entry.seq, index: t?.index ?? null, floor: entry.kind === 'brief' && t && f && earlyOf(chat[t.index]) === f.floor.text ? null : f?.floor ?? null })
   }
   return [...rows, ...byProposal.values(), ...byJob.values()].sort((a, b) => a.seq - b.seq)
+}
+
+/** The lead a saved turn DRAWS (core `answer.lead`), or null: the one definition Turn draws by and the finding's place is decided by. `floor` is the
+ *  floor reply that rides the same row (its text is part of the whole answer a lead must not merely repeat). */
+export const drawnLeadOf = (t: ViewTurn, floor: FloorTurn | null | undefined): ReplyLead | null =>
+  t.answer === null ? null : leadOf(t.answer, [earlyOf(t) ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
+
+/** The lead drawn by the newest answered turn of the thread, in the thread's own row order (`threadRows`); null where it draws none. */
+export const newestLeadDrawn = (view: { chat: readonly ViewTurn[]; draft?: unknown; turn?: { job?: unknown } | null } | null): ReplyLead | null => {
+  if (view === null) return null
+  const rows = threadRows(view.chat, floorShown(view), entriesOf(view.draft))
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i]!
+    const t = row.index === null ? undefined : view.chat[row.index]
+    if (t !== undefined && t.answer !== null) return drawnLeadOf(t, row.floor)
+  }
+  return null
 }
 
 /**
