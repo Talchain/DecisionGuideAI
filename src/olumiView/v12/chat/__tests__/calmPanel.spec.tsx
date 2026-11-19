@@ -287,6 +287,17 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(card.className).toContain('border-info/30')
     expect(card.className).not.toContain('bg-info/10')
   })
+  it('E. a card\'s pop-over opening folds the question card\'s answer box (one surface at a time); what was typed is kept for when it is opened again', async () => {
+    const { useLaneInspector } = await import('../../edit/inspectorStore')
+    const c = mount(asked())
+    const card = open(q(c, 'view-model-question')!)
+    fireEvent.change(q(card, 'view-question-answer')!, { target: { value: 'By the end of June' } })
+    act(() => { useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: 'c1' } }) })
+    expect([card.getAttribute('data-open'), q(card, 'view-question-answer')]).toEqual([null, null])
+    act(() => { useLaneInspector.getState().close() })
+    open(card)
+    expect((q(card, 'view-question-answer') as HTMLTextAreaElement).value).toBe('By the end of June')
+  })
   it('OPEN (audit chat-2): the answer box has a visible placeholder and "Use this" is not drawn until words are typed (never seen disabled); the draft survives closing and opening', () => {
     const card = open(q(mount(asked()), 'view-model-question')!)
     const box = q(card, 'view-question-answer') as HTMLTextAreaElement
@@ -352,11 +363,8 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(use.className).toContain('bg-success')
     expect(use.className).toContain('text-text-header')
     expect(use.className).not.toContain('bg-text-header')
-    for (const k of ['assumption', 'opposite', 'disconfirming', 'outside']) expect(q(card, `view-question-method-${k}`)!.className.split(/\s+/)).toContain('text-text-light')
-    fireEvent.click(q(card, 'view-question-method-opposite')!)
-    expect(bodies).toEqual([]) // with no card selected an ask-for-more icon waits for a card (menu brief UI-A, 18 Nov): nothing typed, nothing sent
-    expect([useViewChat.getState().text, useViewChat.getState().armed]).toEqual(['', 'opposite'])
-    useViewChat.setState({ text: '', armed: null })
+    // CHANGED 19 Nov (Paul): the four method icons are the composer's alone; the question card draws none of its own.
+    expect([q(card, 'view-question-more'), ...['assumption', 'opposite', 'disconfirming', 'outside'].map((k) => q(card, `view-question-method-${k}`))]).toEqual([null, null, null, null, null])
     await act(async () => { fireEvent.click(use) })
     await vi.waitFor(() => expect(bodies.some((b) => b.includes('By the end of June'))).toBe(true))
     const sent = bodies.filter((b) => b.includes('By the end of June'))
@@ -429,6 +437,64 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
     const older = structuredClone(golden('proposal'))
     older.proposal!.changes = older.proposal!.changes!.map((x) => ({ ...x, family: '' }))
     expect(q(mount(older), 'view-change-mix')).toBeNull()
+  })
+})
+
+describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold', () => {
+  it('D. opening the record form from outside brings the mounted thread\'s newest reply to its top and never scrolls the form over it (focus does not scroll)', async () => {
+    const { openCommitDraft } = await import('../../team/CommitForm')
+    const view = golden('proposal'), c = mount(view)
+    const calls: string[] = []
+    const real = HTMLElement.prototype.scrollIntoView
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) { calls.push(this.getAttribute('data-testid') ?? this.tagName) }
+    try {
+      vi.useFakeTimers()
+      act(() => openCommitDraft(view.id, view))
+      act(() => { vi.runAllTimers() })
+    } finally { vi.useRealTimers(); HTMLElement.prototype.scrollIntoView = real }
+    expect([q(c, 'view-chat-latest') !== null, calls.includes('view-chat-latest'), calls.includes('commit-form')]).toEqual([true, true, false])
+  })
+  const youOf = (v: View) => v.you_id
+  /** The proposal fixture with core's typed conversation entry for its second turn saying how that turn was asked. */
+  const asking = (ask: string): View => {
+    const v = golden('proposal'), t = v.chat[1]!
+    return { ...v, draft: { status: 'done', reason: null, at: '2026-11-19T00:00:00Z', conversation: [{ seq: t.id, kind: 'turn', job: null, by_id: t.by_id, ask, proposal: t.id, discussion: null, state: null }] } } as unknown as View
+  }
+  const bubbleOf = (c: ParentNode, i: number) => c.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"] [data-testid="view-chat-said-bubble"]`)!
+  it('A. a question the page drafted that the person pressed (typed ask "challenge" or "method") is drawn as their act in chrome, never as the template words in their bubble; a plain message keeps its words', () => {
+    for (const [ask, words] of [['challenge', 'Asked with a method'], ['method', 'Asked with a method']] as const) {
+      const v = asking(ask), said = v.chat[1]!.said
+      const b = bubbleOf(mount(v), 1)
+      expect([q(b, 'view-chat-pressed')?.getAttribute('data-pressed'), q(b, 'view-chat-pressed')?.textContent, b.textContent!.includes(said)], ask).toEqual([ask, words, false])
+      cleanup()
+    }
+    // CONTRAST: the same turn asked as a plain message is the person's words, with no chrome; and the other turn (no entry) keeps its words too.
+    const v = asking('message'), c = mount(v)
+    expect([q(bubbleOf(c, 1), 'view-chat-pressed'), bubbleOf(c, 1).textContent!.includes(v.chat[1]!.said), bubbleOf(c, 0).textContent!.includes(v.chat[0]!.said)]).toEqual([null, true, true])
+  })
+  it('A. the turn in flight reads core\'s typed `turn.ask` the same way', () => {
+    const base = golden('proposal')
+    const turn = (ask: string) => ({ ...base, turn: { job: 9, status: 'answering', said: 'TEMPLATE-WORDS-OF-THE-PAGE', ask, by: 'You', by_id: youOf(base), words: 'Olumi is answering', started: '2026-11-19T00:00:00Z', at: '2026-11-19T00:00:00Z' } }) as unknown as View
+    const c = mount(turn('challenge')), job = q(c, 'view-chat-turn-job')!
+    expect([q(job, 'view-chat-pressed')?.getAttribute('data-pressed'), job.textContent!.includes('TEMPLATE-WORDS-OF-THE-PAGE')]).toEqual(['challenge', false])
+    cleanup()
+    const m = q(mount(turn('message')), 'view-chat-turn-job')!
+    expect([q(m, 'view-chat-pressed'), m.textContent!.includes('TEMPLATE-WORDS-OF-THE-PAGE')]).toEqual([null, true])
+  })
+  it('B. the review\'s approve controls are held while Olumi answers a turn on that same proposal (by id and status), and free when it answers nothing there', () => {
+    const base = golden('proposal'), p = base.proposal!
+    const approves = (v: View) => { const c = mount(v); const r = ['view-approve'].map((t) => (q(c, t) as HTMLButtonElement | null)?.disabled); cleanup(); return r }
+    // The ticked approval too: open the review, tick a line, and "Approve ticked" is held with the whole one while Olumi answers on this proposal.
+    const ticked = (v: View) => { const c = mount(v); setOpen(q(c, 'view-proposal-review')!, true); const box = q(c, 'view-change-tick-0') as HTMLInputElement | null; if (box !== null) fireEvent.click(box); const r = [q(c, 'view-approve-ticked') as HTMLButtonElement | null, q(c, 'view-approve') as HTMLButtonElement | null].map((b) => b?.disabled); cleanup(); return r }
+    const turn = (status: string) => ({ job: 9, status, said: 'x', ask: 'message', by: 'You', by_id: youOf(base), words: 'w', started: '2026-11-19T00:00:00Z', at: '2026-11-19T00:00:00Z' })
+    const reply = (status: string, proposal: number) => ({ job: 10, proposal, version: 1, status, words: 'w', by: 'You', by_id: youOf(base), started: '2026-11-19T00:00:00Z', at: '2026-11-19T00:00:00Z' })
+    expect(approves({ ...base, turn: null } as unknown as View), 'nothing answering').toEqual([false])
+    expect(approves({ ...base, turn: turn('answering') } as unknown as View), 'answering a turn on the pending proposal').toEqual([true])
+    expect(approves({ ...base, turn: turn('failed') } as unknown as View), 'a failed turn holds nothing').toEqual([false])
+    expect(approves({ ...base, reply: reply('running', p.id) } as unknown as View), 'its reply running').toEqual([true])
+    expect(approves({ ...base, reply: reply('running', p.id + 1) } as unknown as View), 'a reply running on another proposal').toEqual([false])
+    expect(ticked({ ...base, turn: null } as unknown as View), 'ticked, nothing answering').toEqual([false, false])
+    expect(ticked({ ...base, turn: turn('answering') } as unknown as View), 'ticked, answering on this proposal').toEqual([true, true])
   })
 })
 

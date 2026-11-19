@@ -9,6 +9,7 @@ import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from '../..
 import { CARD, ERR, FIELD, H, LABEL, META } from '../../../olumiCore/team/ui'
 import { currentModel, useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
+import { useLaneInspector } from '../edit/inspectorStore'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
@@ -26,7 +27,7 @@ export const COMMIT_WORDS = {
   heading: 'Record what you will do', action: 'What will you do?', expect: 'What do you expect to happen?',
   reconsider: 'When would you reconsider?', keep: 'Keep it', footnote: 'You can compare what happened with what you expected later.',
   /** Paul, 18 Nov ("There's no way to get rid of the 'Record what you will do' panel"): the form closes, and a draft can be thrown away. */
-  close: 'Close', discard: 'Discard draft', draftKept: 'Draft kept', notReady: 'Answer all three to keep it.',
+  close: 'Close', discard: 'Discard draft', draftKept: 'Draft kept',
   /** Codex review 008 (18 Nov): the folded line says a save in flight; it never reads as a draft merely kept. */
   saving: 'Saving',
   /** Fixed chrome for the form before a model is approved: says what it is not (no option chosen), and claims nothing about the model. */
@@ -55,9 +56,13 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
     return { ...base, action: !typed ? words : base.action.includes(words) ? base.action : `${base.action}\n\n${words}`, seeded: true }
   })
   setTimeout(() => {
+    // The newest reply stays in view when the form opens (Paul, 19 Nov: it pushed the reply out of sight): the reply is brought to the top of the thread
+    // and the form follows it. Only with no reply on the page does the form itself come into view. Focus never scrolls.
+    const newest = document.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     const form = document.querySelector<HTMLElement>('[data-testid="commit-form"]')
-    if (typeof form?.scrollIntoView === 'function') form.scrollIntoView({ block: 'nearest' })
-    document.getElementById('commit-form-action')?.focus()
+    const scroller = newest ?? form
+    if (typeof scroller?.scrollIntoView === 'function') scroller.scrollIntoView({ block: newest === null ? 'nearest' : 'start' })
+    document.getElementById('commit-form-action')?.focus({ preventScroll: true })
   }, 0)
 }
 
@@ -115,6 +120,8 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const [d, setD, drop] = useDraft<Draft>(key, { ...EMPTY, owner: view.you_id })
   const [mine, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // "Keep it" is always pressable: pressed with a box empty it marks the empty boxes (aria-invalid) and sends nothing (Paul, 19 Nov).
+  const [tried, setTried] = useState(false)
   const locked = useWriteLocked(key), sending = useWriteSending(key)
   const busy = mine || sending
   // Collapsed to one quiet line until pressed (V12 refinement spec 6). Open only while the person has it open (its own line, the Next step
@@ -129,6 +136,11 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     seen.current = picked
     if (d.open && !hasDraft && !d.option && !busy && !locked) setD((x) => ({ ...x, open: false }))
   })
+  // One surface at a time (Paul, 19 Nov): a card's pop-over opening folds a form nobody has touched; a touched one, one opened from an option, or a saving one stays.
+  const popover = useLaneInspector((s) => (s.current?.kind === 'details' ? s.current.n : null))
+  useEffect(() => {
+    if (popover !== null && d.open && !hasDraft && !d.option && !busy && !locked) setD((x) => ({ ...x, open: false }))
+  }, [popover]) // eslint-disable-line react-hooks/exhaustive-deps
   // Core refuses a commitment TO AN OPTION without an approved version, so with none this is the unanchored form: an action and what the
   // person expects, with no option, version, trigger, review date or kept dissent (record-writes.ts commit takes option:null). A pending
   // proposal stays unapproved; nothing here is read from it.
@@ -141,11 +153,12 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const ready = [d.action, d.expect, d.reconsider].every((t) => t.trim() !== '') && view.collab.owners.some((o) => o.id === owner)
   const put = (p: Partial<Draft>) => { setD((x) => ({ ...x, ...p })); if (error) setError(null) }
   const save = async () => {
-    if (!ready || locked || busy) return
+    if (locked || busy) return
+    if (!ready) { setTried(true); return }
     setBusy(true); setError(null)
     try {
       await runWrite(key, { op: false }, null, () => teamApi.addCommitment(sid, { action: d.action, owner, expect: d.expect, reconsider: d.reconsider, keeps: anchored ? d.keeps ?? [] : [], option: bound?.id ?? null, version: view.version?.n ?? null, review_on: anchored && d.reviewOn ? d.reviewOn : null, trigger: anchored && d.trigger ? d.trigger : null }))
-      drop()
+      drop(); setTried(false)
       // Saved: the form folds back to its one line. It stayed open and empty when the person had opened it by its own button (the native
       // team journey, 17 Nov: an expanded empty form left after save).
       await onWrote()
@@ -155,10 +168,10 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   }
   const area = (id: string, k: 'action' | 'expect' | 'reconsider') => (
     // One line tall at rest and as tall as what is typed, to about seven lines (three empty tall boxes read as a long form).
-    <textarea id={id} data-testid={id} rows={1} className={`${FIELD} min-h-[36px] max-h-[168px] [field-sizing:content]`} value={d[k]} disabled={busy || locked} onChange={(e) => put({ [k]: e.target.value })} />
+    <textarea id={id} data-testid={id} rows={1} className={`${FIELD} min-h-[36px] max-h-[168px] [field-sizing:content] aria-[invalid=true]:border-danger`} value={d[k]} disabled={busy || locked} aria-invalid={tried && d[k].trim() === '' ? true : undefined} onChange={(e) => put({ [k]: e.target.value })} />
   )
   const close = () => { if (d.open) put({ open: false }) }
-  const discard = () => { drop(); setError(null) }
+  const discard = () => { drop(); setError(null); setTried(false) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
   if (!d.open) {
@@ -197,15 +210,15 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>
       {status}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" data-testid="commit-form-keep" disabled={!ready || busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
+        <Button size="sm" data-testid="commit-form-keep" disabled={busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
         {/* A quiet grey text press, never blue (blue is Olumi's) and never a second filled button beside Keep it. */}
         {hasDraft && !busy && !locked ? (
           <button type="button" data-testid="commit-form-discard" onClick={discard}
             className={`${typography.viewPanelMeta} inline-flex min-h-[28px] cursor-pointer items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.discard}</button>
         ) : null}
       </div>
-      {/* One quiet line under the buttons: what is still needed, or (once all three are answered) what keeping it is for. */}
-      {!busy && !locked && !ready ? <p className={META} data-testid="commit-form-why">{COMMIT_WORDS.notReady}</p> : <p className={META} data-testid="commit-form-footnote">{COMMIT_WORDS.footnote}</p>}
+      {/* One quiet line under the buttons: what keeping it is for. A box left empty is marked on the box itself, not said again here. */}
+      <p className={META} data-testid="commit-form-footnote">{COMMIT_WORDS.footnote}</p>
     </section>
   )
 }

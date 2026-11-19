@@ -38,6 +38,8 @@
 /* C1: a card's ACTION controls (add, edit, add-figure, fold) show on hover, keyboard focus and selection only. Information marks never carry
    the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest. */
 .olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action] { visibility: hidden; }
+/* One surface at a time (Paul, 19 Nov): while a card's pop-over is pinned (LaneInspector, `data-state='pinned'`), the selected card's own action rows (the figure's pen and the hover rail of ask / more / Olumi) are not drawn beside it. */
+body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) .olumi-look .react-flow__node.selected :is([data-card-action], [data-testid^='node-card-rail-']) { visibility: hidden; }
 
 /* The title: 14 / 500, header ink. The kind marker is BaseNode's own (the real shape on the top edge, about 19 px); the option's letter is drawn further down. */
 .olumi-look .react-flow__node [data-testid='node-title'] {

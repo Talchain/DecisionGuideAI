@@ -48,7 +48,7 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, floorShown, leadOf, onFloor, entriesOf, threadRows, type FloorTurn } from './early'
+import { earlyOf, floorShown, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
 import { ReplyLead } from './v12/chat/ReplyLead'
 import { KeepChooser } from './v12/chat/KeepChooser'
 import { EarlyAnswer } from './EarlyAnswer'
@@ -63,7 +63,7 @@ import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { ChangeMix } from './v12/chat/ChangeMix'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
-import { OkIcon, OkIconButton } from './look/icons'
+import { ICONS, OkIcon, OkIconButton } from './look/icons'
 import { FoldChevron } from './look/FoldChevron'
 import { SelectionPill } from '../canvas/components/SelectionPill'
 import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedRename'
@@ -263,6 +263,10 @@ export function stepTurnOf(view: View | null, sid: string | null, gone: string |
 /** The reply's disclosure (V12 Main): the reasons, and what would move the answer. */
 export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 
+/** The label of a pressed ask (core's typed ask 'challenge' or 'method'): the registry's own words for the mark, what the person did, never the question the page drafted for it.
+ *  One mark for both: 'challenge' covers four methods and core's entry does not say which. */
+export const PRESSED_WORDS = ICONS['method-mark'].hover
+
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
 function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
@@ -305,7 +309,11 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const whole = useViewStore((st) => st.view)
   const method = methodOfSaid(whole, t.said)
   const aboutCards = t.answer === null ? [] : aboutCardsOf(whole, t.answer.next)
-  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}<p className={typography.viewPanelBody} data-view={`${at}.said`}>{method === null ? null : <MethodMark id={method.id} />}{t.said}</p></div>
+  // A question the page drafted that the person pressed (core's typed ask 'challenge' or 'method') is their act, not words they typed: drawn as chrome.
+  const pressed = pressOf(whole?.draft, t)
+  const said = <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-chat-said-bubble">{by}{pressed !== null
+    ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={pressed}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
+    : <p className={typography.viewPanelBody} data-view={`${at}.said`}>{method === null ? null : <MethodMark id={method.id} />}{t.said}</p>}</div>
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
   const model = useViewStore((st) => st.view?.model ?? null)
   const olumi = model === null ? null : olumiKey(model)
@@ -330,8 +338,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         // A first draft's reply with a lead. The CURRENT answer leads (Codex 19:46:53Z): core's lead first, as on any reply (the newest one's short
         // opening is the panel's large line), with the check folded under "Full answer". The first answer is kept beneath as earlier material under
         // core's own label ("written before the model. Not checked…"): its opening at rest, the rest one press away, never the large line, and
-        // never folded out of reach (Codex 011: the practical answer had been hidden under the lead). No flag and no reading of its words.
-        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} fold
+        // never folded out of reach (Codex 011: the practical answer had been hidden under the lead), and with no fold of its own: the reply has ONE fold, the "Full answer" (Paul, 19 Nov). No flag and no reading of its words.
+        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)}
             under={(checkBody) => {
               const folded = early === null && floor == null && checkBody === null ? null : <>
                 {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
@@ -526,7 +534,9 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
         {shown ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}<p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p></div>}
+          : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{turn.ask === 'challenge' || turn.ask === 'method'
+            ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
+            : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
         {shown ? null : <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${running ? 'text-text-light' : 'text-text-body'}`}>
           <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
           {running ? <span aria-hidden="true" className="ml-2 inline-flex gap-1 motion-safe:animate-pulse" data-testid="view-chat-dots"><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /><span className="h-1 w-1 rounded-full bg-current" /></span> : null}
@@ -633,6 +643,10 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
 export const REVIEW_CHANGES = 'Review the changes'
 
 export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen, lead }: { /** The one-line review's own row (Olumi's mark, core's heading, Review), drawn first in the actions line, at the foot (17 Nov, the calm panel). */ lead?: ReactNode; /** Drawn inside the one-row review (NextStepCard): its heading is the row's own line, so it is not drawn again. */ inRow?: boolean; /** In the one-row review: false while the row is closed, when only core's alerts and the actions are drawn (the person's ticks and choices are kept). */ open?: boolean; /** Opens the row (the closed review's filled button where Approve waits on a choice). */ onOpen?: () => void; p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+  // Olumi answering a turn on THIS proposal (core's `turn` answering while it holds this proposal as the pending one, or its `reply` to it running) holds the
+  // approve controls (only those) as a write of the person's own does: an approval made now would discard the answer (Paul's 19 Nov test). Read by id and status, never words.
+  const answeringHere = useViewStore((st) => st.view?.proposal?.id === p.id && (isAnswering(st.view) || (st.view?.reply?.status === 'running' && st.view.reply.proposal === p.id)))
+  const approveHeld = busy || answeringHere
   const closed = inRow && !open
   // ORDER-UI-5 (5): core's words for the three actions where it sends them, so the coach's sentence and these buttons read one value.
   const actions = { keep: p.actions?.keep ?? READING_KEEP, use: p.actions?.use ?? READING_USE, approve: p.actions?.approve ?? APPROVE_WORD }
@@ -703,8 +717,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   const heldTicks = tickable && chosen > 0
   const followsTicks = heldTicks
   const wholeWords = actions.approve === APPROVE_WORD ? (followsTicks ? 'Approve all' : 'Approve these changes') : actions.approve
-  const approveWhole = <OkIconButton id="approve" tone={followsTicks ? 'ghost' : 'primary'} words={followsTicks ? `${wholeWords} · ${changes.length}` : wholeWords} count={followsTicks ? changes.length : undefined} disabled={busy} testid="view-approve" onClick={() => approve()} />
-  const approveTicked = !tickable ? null : <OkIconButton id="approve-ticked" tone={followsTicks ? 'primary' : 'ghost'} words={`Approve ticked · ${chosen}`} count={chosen} disabled={busy || chosen === 0} testid="view-approve-ticked" onClick={() => approve(picked)} />
+  const approveWhole = <OkIconButton id="approve" tone={followsTicks ? 'ghost' : 'primary'} words={followsTicks ? `${wholeWords} · ${changes.length}` : wholeWords} count={followsTicks ? changes.length : undefined} disabled={approveHeld} testid="view-approve" onClick={() => approve()} />
+  const approveTicked = !tickable ? null : <OkIconButton id="approve-ticked" tone={followsTicks ? 'primary' : 'ghost'} words={`Approve ticked · ${chosen}`} count={chosen} disabled={approveHeld || chosen === 0} testid="view-approve-ticked" onClick={() => approve(picked)} />
   // The readings Olumi offers, by core's own id for each (`marks[].reading.id`). A core that serves no change list offers no choice: the
   // proposal's own lines could not be named beside the readings, and core would then drop them. Nor does a proposal core does not support:
   // it has no Approve, so there is nothing a choice could be sent with.
@@ -1582,8 +1596,8 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       <button type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row" title={p.on === '' ? p.heading : `${p.heading} · ${p.on}`}
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <OkIcon id="olumi-mark" size={16} decorative />
-        {/* One flowing line: the heading, the dot and the version wrap together as one inline run, never three flex columns (DL look at 1500x904 at 1.33). */}
-        <span className="min-w-0 flex-1 truncate"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
+        {/* One flowing run: the heading, the dot and the version wrap together, never three flex columns (DL look at 1500x904 at 1.33). It wraps and is never cut: Paul, 19 Nov. */}
+        <span className="min-w-0 flex-1 break-words" data-testid="view-proposal-words"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
       </button>
       <button type="button" className={VIEW_CHIP_CLASS}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
@@ -1934,8 +1948,7 @@ export function ViewChat() {
               questions={chatQuestionsOf(view?.model).filter((q) => step?.kind !== 'figure' || q.id !== step.item.id)}
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
-              onAnswer={(_q, answer) => say(answer)}
-              onMethod={(key) => { if (pressChallenge(key) === 'prefixed') document.getElementById('view-chat-text')?.focus() }} />
+              onAnswer={(_q, answer) => say(answer)} />
             <CommitFormSlot />
             {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
             <div {...{ [VIEW_NOTE_SLOT]: '' }} />
