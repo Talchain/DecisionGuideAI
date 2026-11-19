@@ -750,7 +750,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
     const land = () => {
       // Contract 3: while the one-row review is closed, its rows are not on screen; nothing is placed and the box keeps its own height.
       if (el.closest<HTMLElement>('[data-testid="view-proposal-review"]')?.getAttribute('data-open') === 'false') { box.style.maxHeight = ''; return }
-      const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
+      // The rows rest above the WHOLE pinned foot (fcab51e6: the omission list, core's refusal and the press sit above the actions in it),
+      // never only above the actions line, or a shown omission list would cover them. Older layouts without the foot: the actions.
+      const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-foot"]') ?? el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null) return
       // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
       // cannot give that much it shrinks rather than run past the composer, and as many leading rows as fit are shown whole. Measured

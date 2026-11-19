@@ -26,6 +26,8 @@ const PLAIN: Mark = { what: 'Budget', status: 'not yet confirmed', title: 'A fig
 const BOX_TOP = 248, CAP = 350, SCROLL_H = 1043, SHORT_ROWS: Record<string, [number, number]> = { 'view-reading-0': [300, 143], 'view-reading-1': [451, 121] }
 // `panelMax`: the most the dock's column can give the box (the thread squeezed to nothing).
 let footH = 116, panelMax = 620, ROWS = SHORT_ROWS, rowH = 0
+// What the pinned foot holds above the actions line (the omission list, core's refusal): 0 when nothing is shown there.
+let aboveActions = 0
 const boxOf = () => document.querySelector<HTMLElement>('[data-testid="view-chat-pinned"]')
 const boxH = (b: HTMLElement) => (b.style.maxHeight === '' ? CAP : Math.min(parseFloat(b.style.maxHeight), panelMax))
 const rect = (top: number, height: number) => ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect
@@ -44,13 +46,14 @@ const show = (marks: Mark[], open = true) => {
   return r
 }
 beforeEach(() => {
-  footH = 116; panelMax = 620; ROWS = SHORT_ROWS; rowH = 0; observers = []
+  footH = 116; panelMax = 620; ROWS = SHORT_ROWS; rowH = 0; aboveActions = 0; observers = []
   useUIStore.setState({ activeOutputTab: 'olumi' } as never)
   setTeamFetch((async () => new Response(JSON.stringify(golden), { status: 200 })) as unknown as typeof fetch)
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
     const id = this.getAttribute('data-testid') ?? '', b = boxOf()
     if (id === 'view-chat-pinned') return rect(BOX_TOP, boxH(this))
-    if (id === 'view-proposal-actions') return rect(0, footH)
+    if (id === 'view-proposal-foot') return rect(0, footH)
+    if (id === 'view-proposal-actions') return rect(0, footH - aboveActions)
     if (id === 'view-proposal-row') return rect(BOX_TOP, rowH) // the review's sticky row, held at the box's top
     if (ROWS[id] !== undefined && b !== null) return rect(BOX_TOP + ROWS[id]![0] - b.scrollTop, ROWS[id]![1])
     return rect(0, 0)
@@ -117,6 +120,11 @@ describe('PL-1083 (1): placing the held reading rows', () => {
     fireEvent.pointerDown(b); fireEvent.pointerUp(b); fireEvent.keyDown(b, { key: 'ArrowDown' })
     expect(b.scrollTop).toBe(40) // no listener of ours answers their input: only a size change places
   })
+  it('19 Nov (Paul\'s test, readings under the foot): with an omission list shown in the pinned foot above the actions, the rows rest whole above the WHOLE foot', () => {
+    aboveActions = 48; footH = 164 // the foot is the actions line plus the omission list above it
+    show(held)
+    expect(whole()).toBe(true)
+  })
   it('a change of layout that leaves the rows whole moves nothing (the least move is none)', () => {
     show(held)
     const b = boxOf()!
@@ -127,11 +135,11 @@ describe('PL-1083 (1): placing the held reading rows', () => {
   it('Codex (2): the actions are watched; when they grow (a label wraps to another row) the rows are placed again, still whole above them', () => {
     show(held)
     const b = boxOf()!
-    expect(placer().seen).toContain(screen.getByTestId('view-proposal-actions'))
+    expect(placer().seen).toContain(screen.getByTestId('view-proposal-foot')) // the pinned foot holds the actions (fcab51e6)
     expect(placer().seen).toEqual(expect.arrayContaining([screen.getByTestId('view-reading-0'), screen.getByTestId('view-reading-1')])) // each row is watched
     footH = 168
     expect(whole()).toBe(false)
-    expect(resized(screen.getByTestId('view-proposal-actions'))).toBe(1)
+    expect(resized(screen.getByTestId('view-proposal-foot'))).toBe(1)
     expect(b.style.maxHeight).toBe('458px')
     expect(whole()).toBe(true)
   })
@@ -237,7 +245,7 @@ describe('PL-1083 (1): a first row taller than the box can ever be', () => {
 describe('the actions line across a wrapping heading, closing and opening (17 Nov, the calm panel)', () => {
   it('a heading that wraps to two lines makes the foot taller and the rows are placed again above it; closed, the box keeps no height of ours; reopened, the rows are placed again', () => {
     show(held)
-    const b = boxOf()!, review = screen.getByTestId('view-proposal-review'), foot = screen.getByTestId('view-proposal-actions')
+    const b = boxOf()!, review = screen.getByTestId('view-proposal-review'), foot = screen.getByTestId('view-proposal-foot')
     expect(b.scrollTop).toBe(292)
     footH = 140 // the heading wraps to a second line, so the line is taller
     expect(resized(foot)).toBeGreaterThan(0)
