@@ -316,7 +316,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <span role="img" className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-info bg-panel px-1 !leading-tight tabular-nums text-info ${typography.viewLabel}`} title={ring.text} aria-label={ring.text} data-question-ring={id} data-question-n={ring.n}>{ring.n}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const driverMark = driverOf === null || lensWords === null ? null
-    : <span className={`max-w-[180px] truncate rounded-sm border border-text-header bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
+    : <span className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
     : <span className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
   const restsFar = restsOn === null ? null
@@ -434,7 +434,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // `--ok-slot`: the width the lane's layout placed this card at, so the Detailed face's floor (olumiLook.css) never draws it wider than its
       // slot and over its neighbour (1232 and 1128: the floor beat a narrower slot by 6 to 26 px).
       style={letter === null && !(hosted && width !== undefined) ? undefined : ({ ...(letter === null ? {} : { '--ok-letter': `"${letter}"` }), ...(hosted && width !== undefined ? { '--ok-slot': `${width}px` } : {}) } as CSSProperties)}>
-    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? driverMark ?? ringMark ?? undefined}
+    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
@@ -452,6 +452,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} data-driver-of={driverOf === null ? undefined : ''}>
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>}
+          {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
+          {driverMark}
           {simple ? <SimpleFace card={card} model={model} noted={noted} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<>{editCue}{badgeLine}<CardDisputeMark card={id} /></>} below={notesOpenOn(model) ? <RestsOn card={card} open /> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.

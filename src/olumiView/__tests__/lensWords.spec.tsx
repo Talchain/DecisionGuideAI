@@ -60,6 +60,15 @@ describe('the lens marks say what they mark, on the mounted card (CoreCard)', ()
     const mark = document.querySelector<HTMLElement>(`[data-driver-mark="${id}"]`)
     expect([mark?.textContent, mark?.dataset['viewWords'], mark?.title]).toEqual([W.label.what_changes, 'lens_words.label.what_changes', options!.map((o) => o.driver!.title).join('\n')])
     expect(document.querySelector(`[data-core-card="${id}"]`)?.hasAttribute('data-driver-of')).toBe(true)
+    // Read whole, never cut (lead's 1232 look at 38ebeed7: "What wo…" squeezed into the corner slot at the face's foot): the label is the face's own first
+    // line, as Rests on's number is, with nothing that can cut it. jsdom lays nothing out, so scrollWidth/clientWidth are both 0 here (the lead's picture is the
+    // layout witness); the structural half is what binds: in the face, no truncating class on it or any box up to the card.
+    expect(mark!.scrollWidth).toBeLessThanOrEqual(mark!.clientWidth)
+    const face = document.querySelector<HTMLElement>(`[data-core-card="${id}"]`)!
+    expect(face.contains(mark), 'in the face itself, not the corner slot').toBe(true)
+    expect(face.firstElementChild === mark || face.firstElementChild?.nextElementSibling === mark, 'the face\'s first line').toBe(true)
+    const CUT = /(^|\s)(truncate|text-ellipsis|overflow-hidden|line-clamp-\d+|max-w-\S+)(\s|$)/
+    for (let el: HTMLElement | null = mark!; el !== null && el !== face.parentElement; el = el.parentElement) expect(el.className, el.tagName).not.toMatch(CUT)
     cleanup()
     show(view, 'full', id!)
     expect(document.querySelector('[data-driver-mark]')).toBeNull()
