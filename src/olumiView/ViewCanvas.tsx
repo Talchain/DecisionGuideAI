@@ -274,12 +274,13 @@ export function aimAfterFirstApproval(was: BoardSeen | null, now: View | null): 
 
 function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?: number) => Viewport | null; framed: boolean } {
   // Codex 12:40Z (13:00 bank, cold B at 1232): the cards were painted at the canvas's untouched 0,0 scale 1 before the first frame was asked, so for a
-  // moment they ran under the dock. The board is not shown until its FIRST frame is taken (snapped, not slid), or the person moves, or the settle
-  // ends without one; later frames (a version, a resize) animate as before and never hide the board.
+  // moment they ran under the dock. The board is not shown until its FIRST frame is taken (snapped, not slid), or the person moves, or REVEAL_MS passes with cards held; later frames (a version, a resize) animate as before and never hide the board.
   const [framed, setFramed] = useState(false)
   const framedRef = useRef(false)
-  // Never hidden for long: whatever the settle does, the board shows within REVEAL_MS.
-  useEffect(() => { const t = setTimeout(() => { framedRef.current = true; setFramed(true) }, REVEAL_MS); return () => clearTimeout(t) }, [])
+  // Never hidden for long: whatever the settle does, the board shows within REVEAL_MS of its first card. The wait starts when a card exists, never at mount: a
+  // cold open mounts this canvas BEFORE the view's data arrives, and an empty board must not count as "framed" (the cards then painted at 0,0 scale 1 and slid in).
+  const holdsCards = useStore((s) => s.nodeLookup.size > 0)
+  useEffect(() => { if (!holdsCards) return; const t = setTimeout(() => { framedRef.current = true; setFramed(true) }, REVEAL_MS); return () => clearTimeout(t) }, [holdsCards])
   const { getNodes, getViewport, setViewport } = useReactFlow()
   const width = useStore((s) => s.width), height = useStore((s) => s.height)
   const pane = useRef({ width, height })
@@ -334,7 +335,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>): { fit: (ms?:
       last = now
       if (!frameDue(settled, performance.now() - since)) { raf = requestAnimationFrame(tick); return }
       if (drawn.length === 0 || board === fitted || fits >= MAX_FITS) {
-        if (fits >= MAX_FITS || (drawn.length === 0 && ids.size === 0)) { framedRef.current = true; setFramed(true) }
+        if (fits >= MAX_FITS) { framedRef.current = true; setFramed(true) }
         if (target !== null && fits < MAX_FITS) raf = requestAnimationFrame(tick)
         return
       }

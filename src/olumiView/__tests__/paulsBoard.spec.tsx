@@ -477,6 +477,8 @@ describe('the DL\'s look at A13f (12 Nov)', () => {
     expect(canvas).toMatch(/className=\{framed \? 'olumi-look' : 'olumi-look ok-board-unframed'\}/)
     expect(look).toMatch(/\.olumi-look\.ok-board-unframed \.react-flow__viewport \{ visibility: hidden; \}/)
     expect(canvas).toMatch(/setTimeout\(\(\) => \{ framedRef\.current = true; setFramed\(true\) \}, REVEAL_MS\)/)
+    expect(canvas).toMatch(/if \(!holdsCards\) return; const t = setTimeout/) // the wait starts with the first card, not at mount (a cold open mounts before the data)
+    expect(canvas).not.toMatch(/drawn\.length === 0 && ids\.size === 0\)\) \{ framedRef/) // an empty board is never "framed"
     expect(REVEAL_MS).toBeGreaterThan(FRAME_WAIT_MS)
     expect(REVEAL_MS).toBeLessThanOrEqual(3000)
     expect((canvas.match(/(?:const|,) FRAME_WAIT_MS =/g) ?? []).length).toBe(1)
