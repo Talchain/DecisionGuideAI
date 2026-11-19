@@ -5,21 +5,57 @@
  * core resolved them (verbatim, under their name), each comparison core embedded (its name, core's `status_text` for what it does, and each
  * option's chance with each person's figure), and core's settle line. Nothing here says which option leads but core's `status_text`.
  *
+ * With no reading served, after two people's views are revealed: one ask (core A8's counted route), and the reading appears in place.
  * The crux's question is carried but not drawn in this slice: the round's one question stays core's `collab.next` with its Answer, so the
  * panel never shows two competing prompts; the crux's own actions wait on core's typed crux target (Codex B2 ruling, item 5).
  */
+import { useState } from 'react'
 import type { View } from '../../client'
 import { OkIcon } from '../../look/icons'
-import { AVATAR, BODY, LABEL, META } from '../../../olumiCore/team/ui'
+import { ASK, AVATAR, BODY, ERR, LABEL, META } from '../../../olumiCore/team/ui'
 import type { DifferenceHeadings } from '../../../olumiCore/team/differences'
-import { roundReadOf } from '../../../olumiCore/team/roundRead'
+import { TeamApiError } from '../../../olumiCore/team/api'
+import { runWrite } from '../../../olumiCore/team/writes'
+import { askRoundRead, roundReadOf } from '../../../olumiCore/team/roundRead'
 import { ChanceBars } from './DiffChart'
+import { twoPeopleRevealed } from './differGroups'
+
+/** Chrome words for asking (never about the scenario). */
+export const ROUND_WORDS = {
+  ask: 'Ask Olumi to read this round',
+  reading: 'Olumi is reading the round…',
+  none: 'Olumi has no reading of this round yet.',
+  failed: 'That did not go through. Nothing was saved.',
+} as const
+
+/** The ask: one press sends core's counted route once (a second press while it is on its way waits for the first), then the View is read
+ *  again, so core's reading appears in place. Offered only after two people's views are revealed to this viewer and while no reading is served. */
+function AskRound({ sid, onWrote }: { sid: string; onWrote: () => Promise<boolean> }): JSX.Element {
+  const [state, setState] = useState<'idle' | 'reading' | 'none' | 'failed'>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const ask = async () => {
+    setState('reading'); setError(null)
+    try { await runWrite(`${sid}:round-read`, { op: false }, {}, () => askRoundRead(sid)); await onWrote(); setState('none') } catch (e) {
+      setState('failed'); setError(e instanceof TeamApiError ? e.message : ROUND_WORDS.failed)
+    }
+  }
+  return (
+    <div className="grid justify-items-start gap-1" data-testid="round-read-ask-block">
+      <button type="button" className={ASK} data-testid="round-read-ask" disabled={state === 'reading'} onClick={() => void ask()}>
+        <OkIcon id="olumi-mark" size={14} decorative />{ROUND_WORDS.ask}
+      </button>
+      {/* Said only once the ask has ended: core answered, the View was read again, and still no reading is served for this round. */}
+      <p role="status" className={META} data-testid="round-read-said">{state === 'reading' ? ROUND_WORDS.reading : state === 'none' ? ROUND_WORDS.none : ''}</p>
+      {error !== null && <p role="alert" className={ERR} data-testid="round-read-error">{error}</p>}
+    </div>
+  )
+}
 
 const initial = (name: string) => (Array.from(name)[0] ?? '').toUpperCase()
 
-export function RoundRead({ view, headings }: { view: View; /** Core's headings from the differences read, for the chances; null draws no chances. */ headings: DifferenceHeadings | null }): JSX.Element | null {
+export function RoundRead({ sid, view, headings, onWrote }: { sid: string; view: View; /** Core's headings from the differences read, for the chances; null draws no chances. */ headings: DifferenceHeadings | null; onWrote: () => Promise<boolean> }): JSX.Element | null {
   const read = roundReadOf(view)
-  if (read === null) return null
+  if (read === null) return view.gated || !twoPeopleRevealed(view) ? null : <AskRound key={sid} sid={sid} onWrote={onWrote} />
   return (
     <section className="grid gap-3" data-testid="round-read" data-round-snapshot={read.snapshot} data-round-version={read.at_version} aria-label={read.provisional_text}>
       <p className={`${META} flex items-start gap-1.5`} data-testid="round-read-provisional">

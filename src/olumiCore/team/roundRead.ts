@@ -11,6 +11,12 @@
  */
 import type { View } from '../../olumiView/client'
 import type { Difference, DifferenceStatus } from './differences'
+import { call } from './api'
+
+/** Ask core for Olumi's reading of the revealed round (core A8: POST …/round-read, one counted call, only when a member asks; core answers
+ *  409 unless the round is revealed to them, and `unchanged` when a reading of exactly this round already exists). Core serves the reading
+ *  in the View; nothing is read from this answer but whether it went through. */
+export const askRoundRead = (sid: string) => call<{ round_read: 'ready' | 'unchanged' }>('POST', `/api/scenarios/${encodeURIComponent(sid)}/round-read`, {})
 
 export type CruxKind = 'estimate' | 'cause' | 'framing' | 'priorities_question'
 const KINDS: readonly CruxKind[] = ['estimate', 'cause', 'framing', 'priorities_question']

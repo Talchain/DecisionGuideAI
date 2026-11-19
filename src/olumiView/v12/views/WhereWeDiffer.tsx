@@ -211,7 +211,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   return (
     <section data-testid="differ-after" aria-label={c.heading} className="grid gap-4">
       {/* B2: Olumi's reading of the round, in core's words only (olumiCore/team/roundRead.ts); nothing when core sends none. */}
-      <RoundRead view={view} headings={data !== null && !data.gated ? data.headings : null} />
+      <RoundRead sid={sid} view={view} headings={data !== null && !data.gated ? data.headings : null} onWrote={onWrote} />
       {c.next == null ? null : <NextQuestion key={sid} question={c.next.text} about={c.next.about} />}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
       {!plotted && !centred && <div className="grid gap-3" data-testid="differ-views-open">{words}</div>}

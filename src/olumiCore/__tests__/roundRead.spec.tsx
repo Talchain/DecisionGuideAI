@@ -7,13 +7,14 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { RoundRead } from '../../olumiView/v12/views/RoundRead'
 import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { roundReadOf } from '../team/roundRead'
 import { setTeamFetch } from '../team/api'
+import { resetWrites } from '../team/writes'
 import { resetDifferences, type Difference, type Differences } from '../team/differences'
 
 const FX = path.resolve('src/olumiView/fixtures/debate')
@@ -39,11 +40,11 @@ const read = (over: Record<string, unknown> = {}) => ({ at_version: base.version
 const withRead = (r: unknown, over: Partial<View> = {}): View => ({ ...base, ...over, collab: { ...base.collab, round_read: r } } as unknown as View)
 
 beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
-afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); vi.unstubAllEnvs() })
+afterEach(() => { cleanup(); setTeamFetch(null); resetDifferences(); resetWrites(); vi.unstubAllEnvs() })
 
 describe('what is drawn, in core\'s words only', () => {
   it('core\'s provisional line and lead; per crux core\'s kind words, each person\'s own words under their name, and each comparison with core\'s sentence and chances', () => {
-    render(<RoundRead view={withRead(read())} headings={core.headings} />)
+    render(<RoundRead sid={base.id} onWrote={async () => true} view={withRead(read())} headings={core.headings} />)
     expect(screen.getByTestId('round-read-provisional').textContent).toBe("Olumi's reading, provisional: correct anything that's wrong")
     expect(screen.getByTestId('round-read-lead').textContent).toBe('Mainly how long the diagnostic takes to sign, and two links.')
     const c1 = document.querySelector('[data-round-crux="c1"]') as HTMLElement
@@ -63,7 +64,7 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
   it('a crux on a comparison core says only MOVES the chances draws core\'s "moves" sentence; a claim in any field the contract does not name is never drawn; CONTRAST: the crux on a comparison core says CHANGES the leader draws core\'s changes sentence', () => {
     expect(PAY.status, 'precondition').toBe('moves')
     expect(FIG.status, 'precondition').toBe('changes')
-    render(<RoundRead view={withRead(read())} headings={core.headings} />)
+    render(<RoundRead sid={base.id} onWrote={async () => true} view={withRead(read())} headings={core.headings} />)
     const pay = document.querySelector(`[data-round-comparison="${PAY.record}|${AIM}"]`) as HTMLElement
     expect(pay.getAttribute('data-difference-status')).toBe('moves')
     expect(pay.querySelector('[data-round-status]')!.textContent).toBe(PAY.status_text)
@@ -77,7 +78,7 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
     expect(coreChances(FIG).length, 'precondition: chances to compare').toBeGreaterThan(2)
   })
   it('one link on two aims is two comparisons by {record, goal}, each with its own core status (one withheld)', () => {
-    render(<RoundRead view={withRead(read())} headings={core.headings} />)
+    render(<RoundRead sid={base.id} onWrote={async () => true} view={withRead(read())} headings={core.headings} />)
     const c2 = document.querySelector('[data-round-crux="c2"]') as HTMLElement
     expect([...c2.querySelectorAll('[data-round-comparison]')].map((e) => [e.getAttribute('data-round-comparison'), e.getAttribute('data-difference-status')])).toEqual([
       [`${PAY.record}|${AIM}`, 'moves'], [`${PAY.record}|${OTHER}`, 'withheld']])
@@ -93,7 +94,7 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
     const tom = { ...said(20), text: `${said(20).text} Say 1 to 3 months.` }
     const v = { ...withRead(read({ cruxes: [{ ...estimate, quotes: [quote('q1', 19, 'take most of a year to sign anything'), { ...quote('q9', 20, 'x'), text: 'Say 1 to 3 months.' }] }] })) }
     const view = { ...v, collab: { ...v.collab, shared: v.collab.shared.map((s) => (s.id === 20 ? tom : s)) } } as View
-    render(<RoundRead view={view} headings={core.headings} />)
+    render(<RoundRead sid={base.id} onWrote={async () => true} view={view} headings={core.headings} />)
     expect(document.querySelector('[data-round-quote="q9"]')!.textContent).toBe('TTom: “Say 1 to 3 months.”')
   })
 })
@@ -154,5 +155,62 @@ describe('mounted in "Where you differ"', () => {
     render(<WhereWeDiffer sid={base.id} view={base} onWrote={async () => true} />)
     await screen.findByTestId('differ-after')
     expect(screen.queryByTestId('round-read')).toBeNull()
+  })
+})
+
+describe('asking for the reading (core A8: POST …/round-read, one counted call)', () => {
+  type Sent = { method: string; url: string; body: unknown }
+  const post = (answer: { status: number; body: unknown }) => {
+    const sent: Sent[] = []
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      sent.push({ method: init?.method ?? 'GET', url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      if (String(url).endsWith('/api/me')) return new Response(JSON.stringify({ me: { id: base.you_id } }), { status: 200, headers: { 'content-type': 'application/json' } })
+      return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { 'content-type': 'application/json' } })
+    }) as unknown as typeof fetch)
+    return sent
+  }
+  it('after two people\'s views are revealed and with no reading served, one press sends core\'s route once and reads the View again; a second press while it is on its way sends nothing more', async () => {
+    let release: () => void = () => {}
+    const sent: Sent[] = []
+    setTeamFetch((async (url: string, init?: RequestInit) => {
+      sent.push({ method: init?.method ?? 'GET', url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      if (String(url).endsWith('/api/me')) return new Response(JSON.stringify({ me: { id: base.you_id } }), { status: 200, headers: { 'content-type': 'application/json' } })
+      if ((init?.method ?? 'GET') !== 'POST') return new Response(JSON.stringify({ error: 'not here' }), { status: 404, headers: { 'content-type': 'application/json' } })
+      await new Promise<void>((r) => { release = r })
+      return new Response(JSON.stringify({ round_read: 'ready' }), { status: 201, headers: { 'content-type': 'application/json' } })
+    }) as unknown as typeof fetch)
+    let reread = 0
+    render(<RoundRead sid={base.id} view={base} headings={core.headings} onWrote={async () => { reread++; return true }} />)
+    const ask = screen.getByTestId('round-read-ask')
+    expect(ask.textContent).toBe('Ask Olumi to read this round')
+    fireEvent.click(ask)
+    await waitFor(() => expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1))
+    expect(screen.getByTestId('round-read-said').textContent).toBe('Olumi is reading the round…')
+    fireEvent.click(ask)
+    release()
+    await waitFor(() => expect(reread).toBe(1))
+    expect(sent.filter((s) => s.method === 'POST').map((s) => [s.url, s.body])).toEqual([[`/api/scenarios/${base.id}/round-read`, {}]])
+    // The View read again still serves no reading (core made none, or none for this round): said, never invented.
+    await waitFor(() => expect(screen.getByTestId('round-read-said').textContent).toBe('Olumi has no reading of this round yet.'))
+  })
+  it('core refusing (409: not revealed to you) says core\'s words and nothing else; CONTRAST: no ask is offered with a reading served, while gated, or with fewer than two people revealed', async () => {
+    const sent = post({ status: 409, body: { error: 'The round is not revealed to you.' } })
+    let reread = 0
+    render(<RoundRead sid={base.id} view={base} headings={core.headings} onWrote={async () => { reread++; return true }} />)
+    fireEvent.click(screen.getByTestId('round-read-ask'))
+    expect((await screen.findByTestId('round-read-error')).textContent).toBe('The round is not revealed to you.')
+    expect(sent.filter((s) => s.method === 'POST').map((s) => s.url)).toEqual([`/api/scenarios/${base.id}/round-read`])
+    expect(screen.getByTestId('round-read-said').textContent).toBe('')
+    expect(reread).toBe(0)
+    cleanup()
+    render(<RoundRead sid={base.id} view={withRead(read())} headings={core.headings} onWrote={async () => true} />)
+    expect(screen.queryByTestId('round-read-ask')).toBeNull()
+    cleanup()
+    render(<RoundRead sid={base.id} view={withRead(undefined, { gated: true })} headings={core.headings} onWrote={async () => true} />)
+    expect(screen.queryByTestId('round-read-ask')).toBeNull()
+    cleanup()
+    const one = { ...base, collab: { ...base.collab, shared: base.collab.shared.filter((s) => s.by_id === base.collab.shared[0]!.by_id) } } as View
+    render(<RoundRead sid={base.id} view={one} headings={core.headings} onWrote={async () => true} />)
+    expect(screen.queryByTestId('round-read-ask')).toBeNull()
   })
 })
