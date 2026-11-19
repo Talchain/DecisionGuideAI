@@ -183,8 +183,10 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
   // A route's rail is drawn while either of its cards is active (layout.ts routeRailAtRest).
-  // V12 Simple draws every link at rest (the structure is the reasoning; only text is removed): reason links and route rails included, quiet.
-  if (styled === null && !simple && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || !routeRailAtRest(link, fromRoute, rail !== null, active))) return null
+  // V12 Simple draws every causal link and route rail at rest (the structure is the reasoning; only text is removed), but a reason link (a premise
+  // or an assumption on what it concerns) only while one of its cards is hovered or selected, or when core marks it challenged or proposed
+  // (linkDrawn). The link stays in the View (the details box, "not linked"); Detailed draws it as before.
+  if (styled === null && !driver && !focused && !removing && !marked && (!linkDrawn(link, active) || (!simple && !routeRailAtRest(link, fromRoute, rail !== null, active)))) return null
   // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour and production's width ladder (2 / 3 / 4 / 5); every other line,
   // a plain structural one and a reason link (a note, a route "considered against this aim") included, is 2 px and neutral, and an effect's
   // colour is never borrowed for it. A dash means doubt and nothing else. Nothing fades at rest: a link fades only while a path is lit (`offPath`).
