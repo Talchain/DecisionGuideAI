@@ -21,13 +21,16 @@ import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../v12/simpleStore'
-import { findingOf, hasAnyResult } from '../v12/contract'
+import { findingOf, hasAnyResult, panelDrawsFinding } from '../v12/contract'
 import { FINDING_FIGURE } from '../FindingLine'
 
 const served = structuredClone(JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))) as View
 const CARD = served.model!.cards[1]!
 const F = { text: 'An invented finding: on this model the first option is likely to meet the aim.', title: 'An invented long form of the finding.', figure: CARD.id, needs: 'An invented need: a figure for the sales target.' }
 const withFinding = (finding: unknown): View => { const v = structuredClone(served); (v.model!.run as { finding?: unknown }).finding = finding; return v }
+
+/** The same View with no calculated result on any option: the panel draws no finding, so the question card keeps the figure and the needs line. */
+const noResult = (v: View): View => { const c = structuredClone(v); for (const card of c.model!.cards) if (card.family === 'option' && card.headline != null) (card.headline as { state: string }).state = 'none'; return c }
 
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
 const load = (view: View, level: Level) => {
@@ -50,12 +53,18 @@ afterEach(() => {
 })
 
 describe('the one finding line', () => {
-  it('FL1 the question card draws core\'s sentence once, verbatim, at both levels; its title is the hover', () => {
+  it('FL1 (S4, 19 Nov: nothing is said twice) where the panel draws core\'s finding, the question card draws none of it, at both levels; CONTRAST: with the panel\'s row absent the question card still keeps the figure and needs; the finding is on screen once', () => {
+    expect(panelDrawsFinding(withFinding(F).model), 'precondition: the panel draws it on this View').toBe(true)
     for (const level of ['simple', 'working'] as const) {
-      const w = lines(question(withFinding(F), level))
-      expect([level, w.length, w[0]?.textContent, w[0]?.title]).toEqual([level, 1, F.text, F.title])
+      const q = question(withFinding(F), level)
+      expect([level, lines(q).length, q.querySelectorAll('[data-finding]').length]).toEqual([level, 0, 0])
       cleanup()
     }
+    const both = [question(withFinding(F), 'simple'), panel(withFinding(F))]
+    expect(both.map((c) => lines(c).length), 'the sentence is drawn once on screen: in the panel').toEqual([0, 1])
+    cleanup()
+    const q = question(noResult(withFinding(F)), 'simple')
+    expect([panelDrawsFinding(noResult(withFinding(F)).model), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual([false, 1, 1])
   })
   it('FL2 the top of the Olumi panel draws the same sentence once, above the next step, title on hover', () => {
     const c = panel(withFinding(F)), w = lines(c)
@@ -72,7 +81,7 @@ describe('the one finding line', () => {
     // FL2c (Paul 19 Nov, said once): the aim card already says it, so the question card does not draw the sentence while no option has a result.
     expect(lines(question(none, 'simple')).map((e) => e.textContent), 'the question card does not repeat it').toEqual([])
     cleanup()
-    expect(lines(question(states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none')), 'simple')).map((e) => e.textContent), 'CONTRAST: with a result it keeps the sentence').toEqual([STATUS.text])
+    expect(lines(question(states(withFinding(STATUS), (i) => (i === 0 ? 'chance' : 'none')), 'simple')).map((e) => e.textContent), 'S4: with a result the panel draws the sentence, so the question card does not').toEqual([])
     cleanup()
     const withFigure = states(withFinding({ ...STATUS, figure: CARD.id, needs: 'Name a target.' }), () => 'none')
     const q2 = question(withFigure, 'simple')
@@ -84,8 +93,8 @@ describe('the one finding line', () => {
     const fixed = states(withFinding(STATUS), (i) => (i === 0 ? 'fixed' : 'none'))
     expect([hasAnyResult(fixed.model), panel(fixed).querySelector('[data-testid="view-chat-finding"]') !== null]).toEqual([true, true])
   })
-  it('FL3 the figure\'s heading presses to that card, on the question card and in the panel', () => {
-    const q = question(withFinding(F), 'simple')
+  it('FL3 the figure\'s heading presses to that card, on the question card (where the panel draws no finding) and in the panel', () => {
+    const q = question(noResult(withFinding(F)), 'simple')
     const b = q.querySelector<HTMLElement>(`[data-finding-figure="${CARD.id}"]`)!
     // The figure is named (mark + hover and accessible name), never a bare card heading.
     expect([b.title, b.getAttribute('aria-label'), b.querySelectorAll('svg').length, b.textContent]).toEqual([`${FINDING_FIGURE}: ${CARD.heading}`, `${FINDING_FIGURE}: ${CARD.heading}`, 1, CARD.heading])
@@ -97,7 +106,7 @@ describe('the one finding line', () => {
     expect(press).toHaveBeenCalledWith(CARD.id)
   })
   it('FL4 needs is drawn only when not null; a figure that is no card draws no button', () => {
-    const on = (v: View) => [question(v, 'simple').querySelectorAll('[data-view="run.finding.needs"]').length, document.querySelectorAll('[data-finding-figure]').length]
+    const on = (v: View) => [question(noResult(v), 'simple').querySelectorAll('[data-view="run.finding.needs"]').length, document.querySelectorAll('[data-finding-figure]').length]
     expect(on(withFinding(F))).toEqual([1, 1])
     cleanup()
     expect(on(withFinding({ ...F, needs: null, figure: null }))).toEqual([0, 0])

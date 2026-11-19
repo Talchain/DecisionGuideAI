@@ -5,6 +5,7 @@ import { OkIcon } from '../../look/icons'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
 import { useLaneInspector } from '../edit/inspectorStore'
+import { panelDrawsFinding } from '../contract'
 
 /**
  * The Frame page (Paul, 19 Nov: "open on the question, with the aims beneath"; spec framing-20261119/mock/SPEC.md rows 1, 3, 4, 5, 8, 9 and "No model yet").
@@ -62,7 +63,8 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
   const q = model.question
   const aims = model.cards.filter((c) => c.family === 'goal'), limits = model.cards.filter((c) => c.family === 'limit'), routes = model.cards.filter((c) => c.family === 'option')
   const more = model.cards.length - aims.length - limits.length - routes.length
-  const finding = findingOf(model)
+  // Said once (S4, 19 Nov): where the Olumi panel draws core's finding line, the Frame page shows the question and the aims, not the sentence again.
+  const finding = panelDrawsFinding(model) ? null : findingOf(model)
   const editQuestion = () => { if (q.text.trim() !== '') requestAsk({ text: q.text, label: q.text, source: 'frame' }) }
   return (
     <div className="mx-auto grid max-w-[880px] gap-5 px-6 pb-12 pt-16" data-testid="frame-page">
