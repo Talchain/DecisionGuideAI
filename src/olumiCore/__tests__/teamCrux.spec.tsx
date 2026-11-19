@@ -18,6 +18,7 @@ import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { countDifferences, issueOf } from '../../olumiView/v12/views/differGroups'
 import { setTeamFetch } from '../team/api'
 import { resetDifferences, type Differences } from '../team/differences'
+import { CardSplit, type CardPerson } from '../team/CardDispute'
 
 const FX = path.resolve('src/olumiView/fixtures/debate')
 const view: View = JSON.parse(readFileSync(path.join(FX, 'tm04-cara.view3.json'), 'utf8'))
@@ -88,5 +89,35 @@ describe('the canvas shows the split', () => {
     const theirs = drawCard(other)
     await waitFor(() => expect(theirs.querySelector(`[data-core-card="${other}"]`)).not.toBeNull())
     expect(theirs.querySelector('[data-card-split]')).toBeNull()
+  })
+})
+
+describe('the split is read against the card\'s own range, in one unit (Codex C1 HOLD 1 and 2)', () => {
+  const card = view.model!.cards.find((c) => c.id === CARD)!
+  const withRange = (unit: string) => ({ ...card, figure: { ...card.figure!, range: { low: 0.25, likely: null, high: 12, unit } } }) as typeof card
+  const people: CardPerson[] = [
+    { id: '12', holder: 'Priya', lo: 6, hi: 12, text: '6 to 12 months', unit: 'month' },
+    { id: '13', holder: 'Tom', lo: 1, hi: 3, text: '1 to 3 months', unit: 'month' },
+  ]
+  const marks = (c: HTMLElement) => [...c.querySelectorAll('[data-card-person-mark]')].map((r) => [Number(r.getAttribute('x')), Number(r.getAttribute('width'))])
+  it('in the same unit: the card\'s range is the band behind each row, on the range bar\'s 0-based scale (0 to 20 for 0.25 to 12), its ends labelled with the unit', () => {
+    const { container } = render(<CardSplit card={withRange('month')} people={people} />)
+    const split = container.querySelector('[data-card-split]') as HTMLElement
+    expect([split.dataset.axisMin, split.dataset.axisMax]).toEqual(['0', '20'])
+    expect(marks(split)).toEqual([[30, 30], [5, 10]])
+    const band = split.querySelector('[data-card-split-model]')!
+    expect([Number(band.getAttribute('x')), Number(band.getAttribute('width'))]).toEqual([1.25, 58.75])
+    expect(split.querySelector('[data-card-split-axis]')!.textContent).toBe('020 month')
+  })
+  it('CONTRAST, another unit: the card\'s range is never drawn beside the people\'s figures, and the axis is theirs alone', () => {
+    const { container } = render(<CardSplit card={withRange('week')} people={people} />)
+    const split = container.querySelector('[data-card-split]') as HTMLElement
+    expect(split.querySelector('[data-card-split-model]')).toBeNull()
+    expect(split.querySelector('[data-card-split-axis]')!.textContent).toBe('020 month')
+    expect(marks(split)).toEqual([[30, 30], [5, 10]])
+  })
+  it('one person alone draws nothing', () => {
+    const { container } = render(<CardSplit card={withRange('month')} people={people.slice(0, 1)} />)
+    expect(container.querySelector('[data-card-split]')).toBeNull()
   })
 })

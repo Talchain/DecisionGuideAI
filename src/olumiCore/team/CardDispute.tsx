@@ -20,7 +20,8 @@ import { useRevealedDifferences } from './CardDiffers'
 import type { Difference } from './differences'
 import { useViewStore } from '../../olumiView/store'
 import type { ViewCard } from '../../olumiView/client'
-import { at as atAxis, axisOf, sideSpans } from '../../olumiView/v12/views/DiffChart'
+import { sideSpans } from '../../olumiView/v12/views/DiffChart'
+import { axisOf, fmt, pctOf } from '../../olumiView/v12/scale/axis'
 import { figureRange } from '../../olumiView/v12/contract'
 
 const NONE: readonly Difference[] = []
@@ -47,12 +48,13 @@ export function usePeopleOnCard(card: string): readonly CardPerson[] {
     const seen = new Set<string>(), out: CardPerson[] = []
     for (const d of own) {
       const spans = sideSpans(view, d)
-      if (spans === null) continue
+      // One unit on one card (Codex C1 HOLD 1): a difference whose figures are in another unit than those already drawn is never put beside them.
+      if (spans === null || (out.length > 0 && spans[0]!.unit !== out[0]!.unit)) continue
       d.sides.forEach((s, i) => {
         const sp = spans[i]!
         if (seen.has(s.holder_id)) return
         seen.add(s.holder_id)
-        out.push({ id: s.holder_id, holder: s.holder, lo: sp.lo, hi: sp.hi, text: sp.text })
+        out.push({ id: s.holder_id, holder: s.holder, lo: sp.lo, hi: sp.hi, text: sp.text, unit: sp.unit })
       })
     }
     return out
@@ -60,7 +62,7 @@ export function usePeopleOnCard(card: string): readonly CardPerson[] {
 }
 
 /** One person's revealed figure for a card: their name, its span (a single figure has lo === hi) and the figure's own words. */
-export type CardPerson = { readonly id: string; readonly holder: string; readonly lo: number; readonly hi: number; readonly text: string }
+export type CardPerson = { readonly id: string; readonly holder: string; readonly lo: number; readonly hi: number; readonly text: string; readonly unit: string }
 
 /**
  * THE SPLIT ON THE CARD (Team critique 2, track C1; Paul's go 19 Nov): after a reveal, the card the team's figures differ on draws each
@@ -70,29 +72,38 @@ export type CardPerson = { readonly id: string; readonly holder: string; readonl
  */
 export function CardSplit({ card, people }: { card: ViewCard; people: readonly CardPerson[] }): JSX.Element | null {
   if (people.length < 2) return null
+  const unit = people[0]!.unit
   const range = figureRange(card)
-  const ref = range === null ? null : { lo: range.low, hi: range.high }
-  const axis = axisOf([...people, ...(ref === null ? [] : [ref])])
+  // The card's own range is drawn behind the rows only in the same unit as the people's figures (Codex C1 HOLD 1); never converted.
+  const ref = range !== null && range.unit === unit ? { lo: range.low, hi: range.high } : null
+  // The range bar's own scale rule (v12/scale axis: 0-based, rounded), with its ends labelled as the range bar labels its own (Codex C1 HOLD 2).
+  const all = [...people, ...(ref === null ? [] : [ref])]
+  const axis = axisOf(Math.min(...all.map((s) => s.lo)), Math.max(...all.map((s) => s.hi)), 1)
   const said = people.map((p) => `${p.holder}: ${p.text}`)
   return (
-    <ul className="m-0 mt-1 grid list-none gap-0.5 p-0" data-testid="card-split" data-card-split={card.id} aria-label={said.join('; ')}>
-      {people.map((p, i) => {
-        const x0 = atAxis(axis, p.lo), x1 = atAxis(axis, p.hi)
-        return (
-          <li key={p.id} className="grid grid-cols-[14px_minmax(0,1fr)] items-center gap-1" title={said[i]} data-card-person={p.id} data-range-lo={p.lo} data-range-hi={p.hi}>
-            <span aria-hidden="true" className={`${typography.viewLabel} text-center text-text-light`}>{(Array.from(p.holder)[0] ?? '').toUpperCase()}</span>
-            <svg viewBox="0 0 100 6" preserveAspectRatio="none" className="block h-1.5 w-full" aria-hidden="true">
-              {ref === null
-                ? <rect x="0" y="2.5" width="100" height="1" className="fill-current text-panel-border" />
-                : <rect x={atAxis(axis, ref.lo)} y="1" width={Math.max(1, atAxis(axis, ref.hi) - atAxis(axis, ref.lo))} height="4" rx="1" className="fill-current text-panel-border" data-card-split-model="" />}
-              {p.hi === p.lo
-                ? <rect x={Math.max(0, x0 - 0.8)} y="0" width="1.6" height="6" className="fill-current text-text-header" data-card-person-mark="point" />
-                : <rect x={x0} y="1" width={Math.max(1.6, x1 - x0)} height="4" rx="1" className="fill-current text-text-header" data-card-person-mark="span" />}
-            </svg>
-          </li>
-        )
-      })}
-    </ul>
+    <div className="mt-1 grid gap-0.5" data-testid="card-split" data-card-split={card.id} data-axis-min={axis.min} data-axis-max={axis.max} aria-label={said.join('; ')}>
+      <ul className="m-0 grid list-none gap-0.5 p-0">
+        {people.map((p, i) => {
+          const x0 = pctOf(axis, p.lo), x1 = pctOf(axis, p.hi)
+          return (
+            <li key={p.id} className="grid grid-cols-[14px_minmax(0,1fr)] items-center gap-1" title={said[i]} data-card-person={p.id} data-range-lo={p.lo} data-range-hi={p.hi}>
+              <span aria-hidden="true" className={`${typography.viewLabel} text-center text-text-light`}>{(Array.from(p.holder)[0] ?? '').toUpperCase()}</span>
+              <svg viewBox="0 0 100 6" preserveAspectRatio="none" className="block h-1.5 w-full" aria-hidden="true">
+                {ref === null
+                  ? <rect x="0" y="2.5" width="100" height="1" className="fill-current text-panel-border" />
+                  : <rect x={pctOf(axis, ref.lo)} y="1" width={Math.max(1, pctOf(axis, ref.hi) - pctOf(axis, ref.lo))} height="4" rx="1" className="fill-current text-panel-border" data-card-split-model="" />}
+                {p.hi === p.lo
+                  ? <rect x={Math.max(0, x0 - 0.8)} y="0" width="1.6" height="6" className="fill-current text-text-header" data-card-person-mark="point" />
+                  : <rect x={x0} y="1" width={Math.max(1.6, x1 - x0)} height="4" rx="1" className="fill-current text-text-header" data-card-person-mark="span" />}
+              </svg>
+            </li>
+          )
+        })}
+      </ul>
+      <p className={`${typography.viewLabel} m-0 ml-[18px] flex justify-between gap-2 whitespace-nowrap text-text-light`} data-card-split-axis="">
+        <span aria-label={`${fmt(axis.min)} ${unit}`}>{fmt(axis.min)}</span><span>{fmt(axis.max)} {unit}</span>
+      </p>
+    </div>
   )
 }
 
