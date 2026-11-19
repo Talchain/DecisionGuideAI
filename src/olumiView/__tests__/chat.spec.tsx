@@ -164,7 +164,9 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(approve.querySelector('svg.lucide-check'), 'a tick from the registry').not.toBeNull()
     const row28 = ['view-proposal-row', 'view-proposal-review-toggle', 'view-approve', 'view-set-aside'].map((t) => review.querySelector<HTMLElement>(`[data-testid="${t}"]`)!.className.split(/\s+/).filter((c) => /^(min-)?h-/.test(c)))
     expect(row28).toEqual([['min-h-7'], ['min-h-7'], ['min-h-7'], ['min-h-7']])
-    expect(review.querySelector('[data-testid="view-proposal-row"] .truncate'), 'the summary is one line, cut with an ellipsis').not.toBeNull()
+    // CHANGED BY DESIGN (19 Nov, Paul: "Olumi proposes 13 chan…" was cut): the summary wraps, never cut with an ellipsis.
+    const words = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"] [data-testid="view-proposal-words"]')!
+    expect([review.querySelector('[data-testid="view-proposal-row"] .truncate'), words.className.split(/\s+/).includes('break-words')], 'the summary wraps and is never cut').toEqual([null, true])
     expect(row.getAttribute('title'), 'the whole sentence on hover').toBe(row.textContent)
     expect(review.querySelector('[data-testid="view-set-aside"]')!.getAttribute('aria-label')).toBe('Set aside')
   })

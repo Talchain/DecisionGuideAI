@@ -97,7 +97,7 @@ export const onFloor = (view: Holder & object | null): boolean => {
 }
 
 /** The conversation sequence is the acceptance row id. floor.job and chat.id identify its replies. */
-type Entry = { seq: number; kind: string; by_id: string; job: number | null; proposal: number | null }
+type Entry = { seq: number; kind: string; by_id: string; job: number | null; proposal: number | null; /** Core's typed kind of the ask (`conversation[].ask`), where it sends one. */ ask: string | null }
 export function entriesOf(draft: unknown): Entry[] | null {
   const entries = (draft as { conversation?: unknown } | null)?.conversation
   if (!Array.isArray(entries) || entries.length === 0) return null
@@ -107,7 +107,7 @@ export function entriesOf(draft: unknown): Entry[] | null {
     // The ordering and identity fields also apply to a newer kind. Only a known brief shares its first answer with the drafting board.
     if (e.job == null && e.proposal == null) continue
     if ((e.job != null && !Number.isSafeInteger(e.job)) || (e.proposal != null && !Number.isSafeInteger(e.proposal))) continue
-    known.push({ seq: e.seq, kind: e.kind, by_id: e.by_id, job: e.job ?? null, proposal: e.proposal ?? null })
+    known.push({ seq: e.seq, kind: e.kind, by_id: e.by_id, job: e.job ?? null, proposal: e.proposal ?? null, ask: typeof e.ask === 'string' ? e.ask : null })
   }
   return known.length ? known : null
 }
@@ -145,4 +145,14 @@ export function threadRows(chat: readonly ViewTurn[], floors: readonly FloorTurn
     rows.push({ seq: entry.seq, index: t?.index ?? null, floor: entry.kind === 'brief' && t && f && earlyOf(chat[t.index]) === f.floor.text ? null : f?.floor ?? null })
   }
   return [...rows, ...byProposal.values(), ...byJob.values()].sort((a, b) => a.seq - b.seq)
+}
+
+/**
+ * How a saved turn was asked, by core's typed `draft.conversation[].ask` of the entry that names this turn (`proposal` is the chat row's id, same
+ * `by_id`): 'challenge' or 'method' is a press the person made on a control, whose question is the page's template, not words they typed. Null
+ * for a plain message or where core sends no entry. Never read from the words. (The chat row itself carries no ask kind.)
+ */
+export const pressOf = (draft: unknown, turn: { id: number; by_id: string | null }): 'challenge' | 'method' | null => {
+  const e = entriesOf(draft)?.find((x) => x.proposal === turn.id && x.by_id === turn.by_id)
+  return e?.ask === 'challenge' || e?.ask === 'method' ? e.ask : null
 }

@@ -1,26 +1,26 @@
 /**
  * "Olumi's question" card (17 Nov, calm panel mock v2, Paul): ONE of Olumi's questions at a time, the rest behind it (progress dashes and "1 of N"),
- * an answer field, the person's green "Use this", Skip as a neutral icon, and a row of neutral ask-for-more icons (the registry's method icons).
+ * an answer field, the person's green "Use this" and Skip as a neutral icon. The four method icons are the composer's alone, never repeated here (Paul, 19 Nov).
  * The card is Olumi's (a panel with an --info border); every word of it is viewPanelBody. At rest it is ONE row (Olumi's mark, the question, a
- * chevron); pressing opens the answer box, the dashes, Skip and the ask-for-more icons (18 Nov audit chat-2, chat-3: nothing open over the thread).
+ * chevron); pressing opens the answer box, the dashes, Skip (18 Nov audit chat-2, chat-3: nothing open over the thread).
  *
  * The questions are core's, in core's words, as `chatQuestionsOf` draws them (model.trial_questions first, then model.coaching_questions, three
  * at most). Core serves no answer type, so a question that names a figure with its editor (`id` and `edit`) is answered in that figure's own
  * editor (`body`, ViewChat's QuestionLine: its own write), and every other question takes plain words. "Use this" sends the person's words,
  * and only those, through the conversation's own send path (`onAnswer`: the same `say` a typed message uses; core's question is never sent as
- * the person's); the ask-for-more icons put a method's lead-in in the message box (as the composer's own method icons), and send nothing. The
+ * the person's); nothing else is sent. The
  * questions not shown stay in the page, hidden, in core's words.
  *
  * A draft belongs to ONE question of ONE scenario: it is kept under the scenario, the question's key and the question's exact words, so a
  * question core rewrites, or another scenario's question at the same place, never shows words typed for a different question (Codex, 17 Nov).
  */
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
-import { V10_METHODS } from '../../../presentation/V10MethodChips'
 import { HIT_44 } from '../../../styles/hitArea'
+import { useLaneInspector } from '../edit/inspectorStore'
 
 /** `answers`: core's typed question id (question-answer CONTRACT §2) when core sent this question typed: the answer is bound to it by identity. */
 export interface AskedQuestion { readonly key: string; readonly view: string; readonly text: string; readonly id: string | null; readonly edit: object | null; readonly answers?: string | null }
@@ -32,12 +32,11 @@ export const OPEN_ANSWER = 'Answer this question'
 export const CLOSE_ANSWER = 'Close the answer box'
 /** The green act: Olumi's green with an ink label (Paul, 17 Nov: no black buttons). Drawn only once there are words, so it is never seen disabled. */
 const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full px-3 ${controls.act}`
-const METHOD_ICON = { assumption: 'method-challenge', opposite: 'method-opposite', disconfirming: 'method-disprove', outside: 'method-outside' } as const
 
 /** The identity of one question's draft: the scenario, the question's key and its exact words. */
 export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>): string => JSON.stringify([scope, q.key, q.text])
 
-export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: {
+export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   questions: readonly AskedQuestion[]
   /** The scenario these questions belong to (the View's id): part of every draft's identity. */
   scope: string
@@ -47,13 +46,14 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
   held: boolean
   /** The person's words for this question, through the conversation's own send; true once sent. */
   onAnswer: (q: AskedQuestion, answer: string) => Promise<boolean>
-  /** One of the four challenges pressed (ViewChat's `pressChallenge`: typed on the selected card, or waiting for one). */
-  onMethod: (key: (typeof V10_METHODS)[number]['key']) => void
 }): JSX.Element | null {
   const [at, setAt] = useState(0)
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({})
   const [sending, setSending] = useState(false)
   const [open, setOpen] = useState(false)
+  // One surface at a time (Paul, 19 Nov): a card's pop-over opening folds this answer box. What was typed stays in `drafts`, and the question stays as one row.
+  const popover = useLaneInspector((s) => (s.current?.kind === 'details' ? s.current.n : null))
+  useEffect(() => { if (popover !== null) setOpen(false) }, [popover])
   const n = questions.length
   if (n === 0) return null
   const i = Math.min(at, n - 1), q = questions[i]!
@@ -105,11 +105,6 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer, onMethod }: 
           <div className="flex flex-wrap items-center gap-1">
             {own || typed.trim() === '' ? null : <button type="button" disabled={held || sending} onClick={() => void use()} className={USE_CLASS} data-testid="view-question-use">{USE_THIS}</button>}
             {i >= n - 1 ? null : <OkIconButton id="skip-question" testid="view-question-skip" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={() => setAt(i + 1)} />}
-            <span role="group" aria-label="Ways to ask for more" className="ml-auto flex items-center gap-0.5" data-testid="view-question-more">
-              {V10_METHODS.map(({ key, label }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} testid={`view-question-method-${key}`} className="h-7 w-7 rounded-md hover:bg-panel-hover" disabled={held} onClick={() => onMethod(key)} />
-              ))}
-            </span>
           </div>
         </div>
       )}
