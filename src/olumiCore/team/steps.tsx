@@ -16,7 +16,6 @@ export const FLOW_WORDS = {
   revealReady: 'Everyone has given their view.',
   revealAfter: 'Once everyone has given or skipped a view, any of you can reveal them all together.',
   views: (n: number) => `Everyone’s views in words · ${n}`,
-  common: (n: number) => `Common ground · ${n}`,
   marked: (n: number) => `Marked on the canvas · ${n}`,
   dissent: (n: number) => `Disagreements kept · ${n}`,
 } as const

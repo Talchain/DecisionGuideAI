@@ -1,7 +1,7 @@
 /**
- * "Ask Olumi to compare these views" (Codex root, 17 Nov 22:23Z): after a reveal with two people's views, one press puts an editable request
- * in the person's own message box. Nothing is sent, no one's words are in it, it is offered before a model is approved, and never before a
- * reveal or with one person's view alone. Core's own state and sentence are drawn as sent.
+ * "Ask Olumi to compare these views" (Codex root, 17 Nov 22:23Z; SENT on the press since Paul, 18 Nov): after a reveal with two people's
+ * views, one press sends the request as the person's message. Before a model is saved the chat would take words as a new brief, so there it
+ * is only put in the message box. No one's words are in it; never offered before a reveal or with one person's view alone.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -14,7 +14,9 @@ import { resetDifferences } from '../../../../olumiCore/team/differences'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useGuidanceStore } from '../../../../canvas/stores/guidanceStore'
 import { useViewStore } from '../../../store'
+import { useViewChat } from '../../../ViewChat'
 import { ASK_TO_COMPARE } from '../AskToCompare'
+import { ASK_SAID } from '../askOlumi'
 import { CompareViewsStage } from '../CompareViewsStage'
 import { WhereWeDiffer } from '../WhereWeDiffer'
 import { useCompare } from '../useCompare'
@@ -38,16 +40,19 @@ function serve(body: unknown): Sent[] {
   }) as unknown as typeof fetch)
   return sent
 }
-/** The message box's two doors, as the conversation registers them: a prefill (never sends) and a send. */
-function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn> } {
-  const prefill = vi.fn(), send = vi.fn()
-  useGuidanceStore.setState({ _prefillChat: prefill, _sendMessage: send } as never)
-  return { prefill, send }
+/** The message box's doors, as the conversation registers them: a prefill (never sends), the ask path a press uses (`_dispatchAction`, its
+ *  write settling at once here), and the internal `_sendMessage`, which a press must never use (Codex ROOT 23:48:16Z). */
+function composer(): { prefill: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; direct: ReturnType<typeof vi.fn> } {
+  const prefill = vi.fn(), send = vi.fn(), direct = vi.fn()
+  // The chat goes busy while its write is out and clears its sentence; this one goes through a moment later.
+  const dispatch = (o: { message: string }) => { send(o.message); useViewChat.setState({ busy: true, said: null }); setTimeout(() => useViewChat.setState({ busy: false }), 1) }
+  useGuidanceStore.setState({ _prefillChat: prefill, _dispatchAction: dispatch, _sendMessage: direct } as never)
+  return { prefill, send, direct }
 }
 const show = (v: View) => useViewStore.setState({ sid: 's_x', view: v, at: null, status: 'ready', error: null, refresh: async () => true } as never)
 afterEach(() => {
   cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts()
-  useCompare.setState({ open: false }); useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null } as never)
+  useCompare.setState({ open: false }); useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null, _dispatchAction: null } as never)
 })
 
 describe('Ask Olumi to compare these views', () => {
@@ -57,12 +62,30 @@ describe('Ask Olumi to compare these views', () => {
     render(<WhereWeDiffer sid="s_x" view={beforeApproval()} onWrote={async () => true} />)
     await waitFor(() => expect(screen.getByTestId('differ-empty').textContent).toBe(IN_WORDS))
     expect(screen.getByTestId('differ-differences').getAttribute('data-differences-state')).toBe('before_approval_in_words')
-    expect(screen.getByTestId('differ-ask-compare-placed').textContent).toBe('')
+    expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe('')
     fireEvent.click(screen.getByTestId('differ-ask-compare-go'))
     expect(prefill.mock.calls).toEqual([[ASK_TO_COMPARE.request]])
     expect(send).not.toHaveBeenCalled()
     expect(sent.every((s) => s.method === 'GET')).toBe(true)
-    expect(screen.getByTestId('differ-ask-compare-placed').textContent).toBe(ASK_TO_COMPARE.placed)
+    expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.placed)
+  })
+
+  it('Paul 18 Nov: with a saved model, one press SENDS the request (once) through the chat\'s writer; contrast: before one, it is only placed', async () => {
+    serve({ ...core, differences: [figure], state: 'figures' })
+    const { prefill, send, direct } = composer()
+    const v = view()
+    expect(v.version).not.toBeNull()
+    show(v)
+    render(<WhereWeDiffer sid="s_x" view={v} onWrote={async () => true} />)
+    const go = await screen.findByTestId('differ-ask-compare-go')
+    fireEvent.click(go)
+    expect(send.mock.calls).toEqual([[ASK_TO_COMPARE.request]])
+    expect(direct).not.toHaveBeenCalled()
+    expect(prefill).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByTestId('differ-ask-compare-said').textContent).toBe(ASK_SAID.sent))
+    expect((go as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(go)
+    expect(send).toHaveBeenCalledTimes(1)
   })
 
   it('the request holds no one\'s words and no one\'s name: only what to compare', () => {

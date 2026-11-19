@@ -79,6 +79,15 @@ describe('the current step is the View\'s, field by field', () => {
     expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', shared: [bea3] }))).toBe('reveal')
     expect(currentStep(team({ can_reveal: false, waiting: null, shared: [bea3] }))).toBe('differ')
   })
+  it('a new round that waits for others, with two people\'s views already revealed (core\'s TM-04 shape), leads with where you differ; contrast: one view revealed → reveal', () => {
+    const adaShown = { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [bea3, adaShown] }))).toBe('differ')
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [adaShown] }))).toBe('reveal')
+    // a skip is not a view
+    expect(currentStep(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [{ ...bea3, skip: true }, adaShown] }))).toBe('reveal')
+    // the reveal step still says whom the round waits for, in core's words
+    expect(stepSummary(team({ can_reveal: false, waiting: 'waiting for Bea', mine: [], shared: [bea3, adaShown] }), 'reveal', null)).toBe('waiting for Bea')
+  })
   it('a commitment with no outcome does not take over: after the reveal the current step stays "Where you differ" (Codex 008 #3)', () => {
     expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [k9] }))).toBe('differ')
     expect(currentStep(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }] }))).toBe('differ')
@@ -225,6 +234,28 @@ describe('the tab: only the current step open, one green press, any row opens', 
     render(<TeamTab />)
     expect(screen.getByTestId('team-member-p_1').hasAttribute('data-view-in')).toBe(false)
     expect(screen.getByTestId('team-member-p_2').hasAttribute('data-view-in')).toBe(false)
+  })
+  it('after the reveal the finished steps before "Where you differ" are one line of names (Paul 18 Nov); each still opens; contrast: before the reveal there is no such line', () => {
+    const after = team({ waiting: null, mine: [], shared: [bea3, { ...bea3, id: 5, by: 'Ada', by_id: 'p_1' }] })
+    expect(currentStep(after)).toBe('differ')
+    show(after)
+    const r = render(<TeamTab />)
+    const compact = () => [...document.querySelectorAll('[data-step-compact]')].map((s) => s.getAttribute('data-testid'))
+    expect(compact()).toEqual(['team-step-invite', 'team-step-view', 'team-step-reveal'])
+    expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-open')).toBe(true)
+    expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-compact')).toBe(false)
+    // A finished step still opens on a press, and then the steps are rows again.
+    const body = screen.getByTestId('team-step-invite-body')
+    fireEvent.click(screen.getByTestId('team-step-view-row'))
+    expect(compact()).toEqual([])
+    expect(screen.getByTestId('team-step-view').hasAttribute('data-step-open')).toBe(true)
+    // Shrinking and growing never remounts a step's body (Codex review 2 #4: the one-time invite link lived there): the same element.
+    expect(screen.getByTestId('team-step-invite-body')).toBe(body)
+    r.unmount(); resetTeamFlow()
+    // Contrast: the same team before the reveal (the round still waits): every step is a row.
+    show(team({ waiting: 'waiting for Bea' }))
+    render(<TeamTab />)
+    expect(compact()).toEqual([])
   })
   it('the reveal step\'s green press goes to core\'s reveal route, and nothing else is written', async () => {
     show(team({ can_reveal: true, waiting: null }))
