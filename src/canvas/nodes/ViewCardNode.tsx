@@ -35,7 +35,6 @@ import { Badge } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 import { StatedFigure } from '../../olumiView/StatedFigure'
-import { CompareCardMark } from '../../olumiCore/compareMarks'
 
 export type ViewCardData = { card: Card }
 
@@ -295,8 +294,6 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
         <span className={`absolute -right-2 -top-2 z-10 max-w-[180px] truncate rounded border border-info bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
           title={tried} data-whatif-mark={card.id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
       )}
-      {/* Compare's version diff: "Changed since version N" where core's change lines name this card (compareMarks.tsx). */}
-      <CompareCardMark id={id} />
       {/* R25 (DL 7 Nov, Paul's rule: visual indicators, not default text): a proposed addition is shown by its info-coloured border on a
           translucent card (solid, never dashed: dashed means core doubts it) and core's + mark; core's words for it ("Proposed addition") are
           for readers and the mark's hover, never a printed line. */}
