@@ -57,6 +57,23 @@ export const sourceKey = (f: IntakeFigure, i: number): string => (f.source === n
 export const recordState = (f: IntakeFigure): { kind: 'present'; id: string } | { kind: 'absent' } | { kind: 'unknown' } =>
   f.record === null ? { kind: 'absent' } : f.record === UNKNOWN || f.record === '' ? { kind: 'unknown' } : { kind: 'present', id: f.record }
 
+/** One quoted sentence with its figures' statuses counted: core sends one row per FIGURE and each quote is the whole sentence, so rows with the
+ *  same source row and the same quote are one sentence. A row with no known source is never merged (nothing says it is the same place). */
+export interface IntakeGroup { readonly key: string; readonly quote: string; readonly figures: IntakeFigure[]; readonly absent: number; readonly present: Map<string, number> }
+export const intakeGroups = (rows: readonly IntakeFigure[]): IntakeGroup[] => {
+  const by = new Map<string, { key: string; quote: string; figures: IntakeFigure[]; absent: number; present: Map<string, number> }>()
+  rows.forEach((r, i) => {
+    const gk = r.source === null ? sourceKey(r, i) : `${r.source.row}|${r.quote}`
+    const g = by.get(gk) ?? { key: sourceKey(r, i), quote: r.quote, figures: [], absent: 0, present: new Map<string, number>() }
+    g.figures.push(r)
+    const st = recordState(r)
+    if (st.kind === 'absent') g.absent += 1
+    else if (st.kind === 'present') g.present.set(st.id, (g.present.get(st.id) ?? 0) + 1)
+    by.set(gk, g)
+  })
+  return [...by.values()]
+}
+
 const removed = new Set<string>()
 /** Tests only. */
 export const resetRemovedIntake = (): void => removed.clear()
@@ -71,6 +88,7 @@ export function IntakeSheet(): JSX.Element | null {
   const key = JSON.stringify([view?.you_id ?? null, view?.id ?? null, ...rows.map((r, i) => [sourceKey(r, i), r.quote])])
   if (view?.model == null || rows.length === 0 || removed.has(key)) return null
   const missing = rows.filter((r) => recordState(r).kind === 'absent').length
+  const groups = intakeGroups(rows)
   const headingOf = (id: string) => view.model?.cards.find((c) => c.id === id)?.heading ?? null
   return (
     <section className={`${typography.viewPanelBody} space-y-2 rounded-md border border-panel-border bg-panel p-2`} data-testid="view-intake" aria-label={INTAKE_HEAD} data-open={open ? '' : undefined}>
@@ -87,19 +105,20 @@ export function IntakeSheet(): JSX.Element | null {
       </div>
       {!open ? null : (
         <ul id="view-intake-rows" className="m-0 list-none space-y-1 p-0" data-testid="view-intake-rows">
-          {rows.map((r, i) => {
-            const k = sourceKey(r, i), st = recordState(r), heading = st.kind === 'present' ? headingOf(st.id) : null
-            return (
-              <li key={k} className="flex flex-wrap items-baseline gap-x-2" data-intake-source={k} data-intake-state={st.kind}>
-                <span className="text-text-body">“{r.quote}”</span>
-                {st.kind === 'unknown' ? null
-                  : st.kind === 'absent' ? <span className={`${typography.viewPanelMeta} text-text-header`} data-intake-mark="absent">{NOT_IN_MODEL}</span>
-                  : <button type="button" data-intake-mark="present" data-intake-show={st.id} onClick={() => show(st.id)}
-                      title={heading === null ? SHOW_RECORD : `${SHOW_RECORD}: ${heading}`} aria-label={heading === null ? `${IN_MODEL}. ${SHOW_RECORD}` : `${IN_MODEL}. ${SHOW_RECORD}: ${heading}`}
-                      className={`${typography.viewPanelMeta} rounded-sm text-text-light underline underline-offset-2 hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{IN_MODEL}</button>}
-              </li>
-            )
-          })}
+          {groups.map((g) => (
+            <li key={g.key} className="space-y-0.5" data-intake-source={g.key} data-intake-count={g.figures.length}>
+              <span className="block text-text-body">“{g.quote}”</span>
+              {g.absent === 0 ? null : <span className={`${typography.viewPanelMeta} block text-text-header`} data-intake-mark="absent" data-intake-n={g.absent}>{NOT_IN_MODEL}{g.absent > 1 ? ` · ${g.absent}` : ''}</span>}
+              {[...g.present].map(([id, n]) => {
+                const heading = headingOf(id)
+                return (
+                  <button key={id} type="button" data-intake-mark="present" data-intake-show={id} data-intake-n={n} onClick={() => show(id)}
+                    title={heading === null ? SHOW_RECORD : `${SHOW_RECORD}: ${heading}`} aria-label={heading === null ? `${IN_MODEL}. ${SHOW_RECORD}` : `${IN_MODEL}. ${SHOW_RECORD}: ${heading}`}
+                    className={`${typography.viewPanelMeta} mr-2 block rounded-sm text-text-light underline underline-offset-2 hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{IN_MODEL}{n > 1 ? ` · ${n}` : ''}</button>
+                )
+              })}
+            </li>
+          ))}
         </ul>
       )}
     </section>

@@ -84,4 +84,20 @@ describe('E4 What you said (view.intake)', () => {
     const more = [...FIGS(v), { source: at(2, 0, 9), quote: 'an invented third figure of 5', unit: null, stated: null, record: null }]
     expect(q(mount(withIntake(v, more)), 'view-intake'), 'a new figure is a new list').not.toBeNull()
   })
+  it('one sentence is drawn once: figures with the same source row and quote are grouped, one status line per distinct status with its count; the head count stays per figure; CONTRAST: another row is another sentence', () => {
+    const v = base(), id = v.model!.cards[0]!.id, one = { unit: null, stated: null } as const
+    const same = 'an invented question sentence'
+    const figs: IntakeFigure[] = [
+      { ...one, source: at(0, 0, 4), quote: same, record: null }, { ...one, source: at(0, 5, 9), quote: same, record: null }, { ...one, source: at(0, 10, 14), quote: same, record: id },
+      { ...one, source: at(1, 0, 4), quote: same, record: null },
+    ]
+    const c = mount(withIntake(v, figs))
+    expect(q(c, 'view-intake-missing')?.textContent).toBe(`3 ${NOT_IN_MODEL}`)
+    open(c)
+    const lis = [...c.querySelectorAll<HTMLElement>('[data-intake-source]')]
+    expect(lis.map((l) => l.textContent)).toEqual([`“${same}”${NOT_IN_MODEL} · 2${IN_MODEL}`, `“${same}”${NOT_IN_MODEL}`])
+    expect(lis[0]!.querySelectorAll('[data-intake-show]')).toHaveLength(1)
+    act(() => { fireEvent.click(lis[0]!.querySelector<HTMLElement>(`[data-intake-show="${id}"]`)!) })
+    expect(pressed.ids).toEqual([id])
+  })
 })

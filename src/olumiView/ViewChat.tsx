@@ -47,7 +47,7 @@ import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
-import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_OUTLINE_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
 import { earlyOf, floorShown, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
@@ -2173,6 +2173,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // The dock's focus channel reaches this composer (review 00065 ledger).
   useEffect(() => registerDockedOlumiFocus(() => box.current?.focus()), [])
   const armed = useArmedChallenge()
+  const onOlumiTab = useUIStore((s) => s.activeOutputTab === 'olumi')
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''
@@ -2182,7 +2183,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
   // Core's own method offers, in core's words (`session.methods[].text`): the UI chooses which to show, never what they are called.
-  const thinkingMethods = (menu?.methods ?? []).filter((m) => THINKING_METHOD_IDS.has(m.id))
+  // Only on the Olumi tab and only while the box is empty: they duplicate the method icons, so they fold away once the person types or leaves the tab.
+  const thinkingMethods = !onOlumiTab || text !== '' ? [] : (menu?.methods ?? []).filter((m) => THINKING_METHOD_IDS.has(m.id))
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
@@ -2201,9 +2203,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {thinkingMethods.length === 0 ? null : (
-        <div role="group" aria-label="Ways to think about this" className="flex flex-wrap items-center gap-2" data-testid="view-thinking-methods">
+        <div role="group" aria-label="Ways to think about this" className="flex flex-wrap items-center gap-1" data-testid="view-thinking-methods">
           {thinkingMethods.map((m) => (
-            <button key={m.id} type="button" className={VIEW_CHIP_CLASS} disabled={held || answering}
+            <button key={m.id} type="button" className={VIEW_CHIP_OUTLINE_CLASS} disabled={held || answering}
               data-testid={`view-thinking-${m.id}`} onClick={() => runMethod(m.id)}><span data-view={`session.methods.${m.i}.text`}>{m.text}</span></button>
           ))}
         </div>

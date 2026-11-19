@@ -43,6 +43,12 @@ describe('the next step', () => {
     expect(catchUpCounts(calm, null)).toEqual({ moved: 0, open: 0 })
     expect(show(calm).querySelector('[data-testid="journey-catch-up"]')).toBeNull()
   })
+  it('Catch up is not drawn on a first model (no saved version): nothing to catch up on; CONTRAST: the same View with a version draws it', () => {
+    const view = golden('proposal'), row = (v: View) => { cleanup(); return show(v).querySelector('[data-testid="journey-catch-up"]') }
+    expect(catchUpCounts(view, null).open).toBeGreaterThan(0)
+    expect(row({ ...view, version: { n: 1, id: 'v1' } } as unknown as View)).not.toBeNull()
+    expect(row({ ...view, version: null } as unknown as View)).toBeNull()
+  })
   it('Catch up draws no row, and no counts, while the View is being re-read (stale) or its read failed (error); the fresh View draws it', () => {
     const view = golden('proposal')
     expect(catchUpCounts(view, null).open).toBeGreaterThan(0) // contrast: this View has something to count
