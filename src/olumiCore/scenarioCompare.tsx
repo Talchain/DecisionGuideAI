@@ -4,6 +4,7 @@ import { call, newOp, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, FIELD, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { shownModel, useViewStore } from '../olumiView/store'
+import { markOf, ShiftTrack, TrackKey } from './compareTrack'
 
 /**
  * SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts): this scenario as
@@ -31,6 +32,21 @@ export const SEPARATE_RUNS = {
   label: 'Separate runs',
   title: 'Each side is its own saved run. Olumi does not yet check that two runs can be paired, so read them as two results side by side, not as one chance moving.',
 } as const
+/**
+ * SAME DRAWS (DL 14:43Z, 19 Nov; core wip/x-compare-core): core sets `paired` on a what-if's side, true only when code proves the OTHER side of
+ * this comparison is that what-if's exact base (same seed, same input ids). Only then is a difference read as one chance moving: the two-mark
+ * track is drawn and this label replaces "Separate runs". Never inferred here from names, versions or numbers.
+ */
+export const SAME_DRAWS = {
+  label: 'Same draws',
+  title: 'Olumi checked that this what-if was worked out from the other side, its exact base, on the same draws, so the two marks read as one chance moving.',
+} as const
+export function SameDraws(): JSX.Element {
+  return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-panel-border px-2 font-normal text-text-body`} title={SAME_DRAWS.title} data-compare-runs="same-draws">{SAME_DRAWS.label}</span>
+}
+/** Core proves this comparison paired: `paired` is set on the what-if's side, so either side carrying true is the pair (DL ruling). */
+export const pairedOf = (c: { a: Side | null; b: Side | null }): boolean => c.a?.paired === true || c.b?.paired === true
+
 export function SeparateRuns(): JSX.Element {
   return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} title={SEPARATE_RUNS.title} data-compare-runs="separate">{SEPARATE_RUNS.label}</span>
 }
@@ -42,7 +58,9 @@ type Cell = { value: string; title: string; olumi: Mark | null; lead: string | n
   headline?: string; companion?: Line | null }
 type Line = { text: string; title: string }
 /** `has_run` (core compare-scenarios.ts SideInfo): the side has saved results. Absent from an older core: treated as not known, never as true. */
-type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null; has_run?: boolean }
+type Side = { id: string; title: string; name: string; note: string | null; kind?: string; about?: string | null; has_run?: boolean
+  /** Core wip/x-compare-core: true only on a what-if's side whose other side here is its proven exact base. Absent: not proven. */
+  paired?: boolean }
 type AimSide = { label: string; measure: string; target: string | null }
 /** `moves_most` (a saved what-if's side, core wip/compare cc13ef0c): which of its changes, on its own, moves this chance most, in core's words. */
 type OptionSide = { cells: Cell[]; uncertainty?: Line | null; driver?: (Line & { figure: string; label: string }) | null; moves_most?: (Line & { figure: string }) | null }
@@ -104,7 +122,10 @@ function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
 const GOALS_DIFFER = new Set(['different_target', 'not_comparable'])
 export const firstWhereGoalsDiffer = (aims: AimRow[]): AimRow[] => [...aims.filter((a) => GOALS_DIFFER.has(a.status)), ...aims.filter((a) => !GOALS_DIFFER.has(a.status))]
 
-function Aim({ aim }: { aim: AimRow }): JSX.Element {
+/** The mark for one side of an option: its first cell's own number (its headline chance), with core's words. */
+const sideMark = (s: OptionSide | null) => { const c = arr(s?.cells)[0]; return c ? markOf(c.chance, words(c.headline) ? c.headline : c.value) : null }
+
+function Aim({ aim, paired, names }: { aim: AimRow; paired: boolean; names: { first: string; second: string } }): JSX.Element {
   const targets = aim.status === 'different_target'
   const paired = aim.status === 'comparable' || targets
   const lead = aim.most_likely
@@ -122,6 +143,8 @@ function Aim({ aim }: { aim: AimRow }): JSX.Element {
         <div key={`${o.label}-${i}`} className="grid gap-1" data-compare-option={paired && o.only_in === null ? 'paired' : 'alone'}>
           <p className={`${BODY} text-text-header break-words`}>{o.label}</p>
           {words(o.only_in_text) ? <p className={META} data-compare-only-in="">{o.only_in_text}</p> : null}
+          {/* The two-mark track only for a pair core proves (same seed, same inputs) and an aim both sides measure the same way. */}
+          {paired && aim.status === 'comparable' && o.only_in === null ? <ShiftTrack first={sideMark(o.a)} second={sideMark(o.b)} names={names} /> : null}
           <div className="grid grid-cols-2 gap-3"><Cells side={o.a} /><Cells side={o.b} /></div>
         </div>
       ))}
@@ -165,6 +188,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
   const said = new Set<string>([c.a?.note, c.b?.note, ...aims.map((a) => a.limitation), ...figures.map((f) => f.limitation)].filter(words))
   const notes = arr(c.limits).filter((l) => !said.has(l))
   const showFigures = figures.some((f) => f.status !== 'same')
+  const paired = pairedOf(c), names = { first: c.a?.name ?? '', second: c.b?.name ?? '' }
   return (
     <div className="grid gap-2" data-testid="scenario-compare-out">
       <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 bg-panel py-1" data-testid="scenario-compare-heads">
@@ -178,8 +202,11 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       </div>
       {/* Said once, above the aims, only where core says BOTH sides have saved results (`has_run`): a side with no saved model or results
           keeps core's own note, and the label never claims a run that does not exist (Codex 2facfb64 review). */}
-      {c.a?.has_run === true && c.b?.has_run === true ? <div><SeparateRuns /></div> : null}
-      {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} />)}
+      {c.a?.has_run === true && c.b?.has_run === true ? <div>{paired ? <SameDraws /> : <SeparateRuns />}</div> : null}
+      {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} paired={paired} names={names} />)}
+      {/* The key to the marks, once, only where a track is drawn (a proven pair, a comparable aim). */}
+      {paired && aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
+        ? <TrackKey first={names.first} second={names.second} /> : null}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
           <h4 className={H}>Differences</h4>
