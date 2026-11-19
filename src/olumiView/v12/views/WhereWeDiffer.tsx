@@ -22,6 +22,7 @@ import { Fold, FLOW_WORDS } from '../../../olumiCore/team/steps'
 import { FrameLines } from './FrameLines'
 import { frameIsEmpty, frameOf } from './frame'
 import { ChanceBars, FigureSides, sideSpans } from './DiffChart'
+import { RoundRead } from './RoundRead'
 
 /**
  * Where we differ, after an authorised reveal (overnight 18 Nov redesign; crux first after Paul's critique, 18 Nov ~23:50Z): core's
@@ -209,6 +210,8 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
   const promoted = new Set(data !== null && !data.gated && !centred ? data.differences.map((d) => d.record) : [])
   return (
     <section data-testid="differ-after" aria-label={c.heading} className="grid gap-4">
+      {/* B2: Olumi's reading of the round, in core's words only (olumiCore/team/roundRead.ts); nothing when core sends none. */}
+      <RoundRead view={view} headings={data !== null && !data.gated ? data.headings : null} />
       {c.next == null ? null : <NextQuestion key={sid} question={c.next.text} about={c.next.about} />}
       {line !== null && <p className={`${BODY} font-medium text-text-header`} data-testid="differ-summary">{line}</p>}
       {!plotted && !centred && <div className="grid gap-3" data-testid="differ-views-open">{words}</div>}
