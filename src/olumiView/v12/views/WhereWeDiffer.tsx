@@ -12,6 +12,7 @@ import { AVATAR, BODY, ERR, FIELD, GO, LABEL, META, QUIET } from '../../../olumi
 import { emptyConsequence, groupDifferences, NOTHING_CALCULATED, revealedForYou } from './differGroups'
 import { useDifferLine, useRevealedDifferences } from './SimpleSummary'
 import { AskButton, AskToCompare } from './AskToCompare'
+import { TEAM_DIFFERENCE_CHIP } from '../../press'
 import { answerMessage, ASK_SAID, ASK_WORDS, askOlumi, differenceQuestion, type AskOutcome } from './askOlumi'
 import { useCompare } from './useCompare'
 import { DissentPanel } from '../../../olumiCore/team/DissentPanel'
@@ -156,7 +157,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       {/* Core's step route takes any difference this member can see now, calculated or not, so the two steps are offered on every card; a
           step records what the team will do about the difference and changes no model. Ask Olumi sends one question shaped by this difference. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1" data-testid={`${at}-actions`}>
-        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} target={d.record} at={`${at}-ask`} />
+        <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} target={d.record} chip={TEAM_DIFFERENCE_CHIP} at={`${at}-ask`} />
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_LABELS.dissent}</button>
         <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
       </div>

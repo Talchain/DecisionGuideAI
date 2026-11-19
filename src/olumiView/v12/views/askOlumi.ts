@@ -85,7 +85,8 @@ export type AskOutcome = 'placed' | 'busy' | 'sending' | 'sent' | 'failed'
  * new brief. Otherwise sent through the ask path; `onSettled` gets the write's own returned result: sent, or not sent (the chat keeps the words
  * in the message box beside its own sentence).
  */
-export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void): AskOutcome {
+/** `chip`: the template control's own chip id (the difference's fixed question, press.ts PRESS_CHIPS); a person's own words (an answer) have none. */
+export function askOlumi(text: string, target: string | null, onSettled: (out: AskOutcome) => void, chip: string | null = null): AskOutcome {
   const { sid, view } = useViewStore.getState()
   const g = useGuidanceStore.getState()
   if (takesBrief(sid, view)) { prefillComposer(text); return 'placed' }
@@ -101,7 +102,7 @@ export function askOlumi(text: string, target: string | null, onSettled: (out: A
   const canvas = useCanvasStore.getState(), before = canvas.selection
   if (card !== null) canvas.selectNodes([card])
   else useCanvasStore.setState({ selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>(), anchorPosition: null } })
-  const result = askOnPress({ message: text })
+  const result = askOnPress(chip === null ? { message: text } : { id: chip, message: text })
   if (card === null) useCanvasStore.setState({ selection: before })
   try { revealOlumiSurface() } catch { /* the conversation is shown where the page can; the ask goes either way */ }
   // The write's own returned result decides (Codex ROOT HOLD 01:11:46Z), never busy timing or the message box. The message box is the
