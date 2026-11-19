@@ -87,6 +87,7 @@ describe('1. one deliberate choice at the fresh composer; Send stays the default
     served = (url) => (url.startsWith(`/api/scenarios/${MADE}/view`) ? inWords({ id: MADE }) : null)
     const c = show(null, null)
     expect(q(c, 'view-composer-talk-first')?.textContent).toBe(TALK_FIRST)
+    expect(q(c, 'view-thinking-methods')).toBeNull()
     type(c, BRIEF)
     await press(q(c, 'view-composer-talk-first'))
     await waitFor(() => expect(posts).toHaveLength(2))
@@ -204,16 +205,18 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
   const keptRow = (id: number, job: number, text: string, from?: string) => ({ id, turn: job, text, by: 'olumi', kept_by: { id: '7', name: 'Ada' }, at: AT, concerns: [], ...(from ? { from } : {}) })
   const keepIn = (c: ParentNode, job: number) => [...floorTurn(c, job)!.querySelectorAll<HTMLElement>('[data-reply-list] li')]
 
-  it('PAIRED: a menu press on a words scenario posts the existing method route; its floor reply offers each of Olumi\'s two approaches on its own, never the host line; each Keep posts { floor, text }', async () => {
+  it('PAIRED: Generate ideas is visible without a model, posts the native method without changing the message draft, and each idea can be kept on its own', async () => {
     const said = METHOD(inWords()).text
     answer = (url) => (url.endsWith('/method') ? new Response(JSON.stringify({ proposal: null, discussion: true, job: 21 }), { status: 202 }) : new Response(JSON.stringify({ kept: 50 + posts.length }), { status: 201 }))
     const c = show(inWords())
-    expect(q(c, 'view-actions-button')).not.toBeNull() // the thinking menu is offered with no model (Codex 04:27:24Z)
-    await press(q(c, 'view-actions-button'))
-    await press(c.querySelector<HTMLElement>('[data-testid="view-session-method"][data-method="else_do"]'))
+    expect(q(c, 'view-actions-button')).not.toBeNull()
+    expect(q(c, 'view-thinking-else_do')).toHaveTextContent('Generate ideas')
+    type(c, 'I am still drafting this note.')
+    await press(q(c, 'view-thinking-else_do'))
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/method`)
     expect(posts[0]!.body['method']).toBe('else_do')
+    expect(useViewChat.getState().text).toBe('I am still drafting this note.')
     cleanup(); posts = []
     const c2 = show(inWords({ floor: [ideasRow(21, said, [IDEA_A, IDEA_B])] }))
     const items = keepIn(c2, 21)
@@ -224,6 +227,15 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     await press(items[1]!.querySelector('[data-testid="view-keep-idea-button"]'))
     await waitFor(() => expect(posts).toHaveLength(2))
     expect(posts).toEqual([{ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_A } }, { url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_B } }])
+  })
+
+  it('shows only the thinking methods offered by core and disables them on an earlier version', () => {
+    const v = inWords()
+    const c = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
+    expect(q(c, 'view-thinking-else_do')).toBeEnabled()
+    expect(q(c, 'view-thinking-right_question')).toBeNull()
+    act(() => useViewStore.setState({ at: 2 }))
+    expect(q(c, 'view-thinking-else_do')).toBeDisabled()
   })
 
   it('CONTRAST: the same reply WITHOUT prose (legacy, untyped, or a first draft\'s) offers no Keep at all', () => {
