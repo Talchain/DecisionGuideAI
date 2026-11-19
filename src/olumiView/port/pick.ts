@@ -158,7 +158,7 @@ type CoreEdit = { prompt: string; ask: string }
  *   4. `worth`: Olumi's observation on a card (`worth_checking`), where core sends one.
  * The same card is listed once, in its first class.
  */
-export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null }
+export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null; /** Core's own finding under the title (worth only; DL 19 Nov: read at rest, not hover only). */ detail?: string }
 export function needsOf(model: ViewModel): Need[] {
   const run = model.run ?? null, out: Need[] = [], seenCard = new Set<string>(), seenText = new Set<string>()
   const push = (n: Need) => {
@@ -185,7 +185,7 @@ export function needsOf(model: ViewModel): Need[] {
     // A figure core works out from others (a result, with its own values) is not one to give: it is sized by the model.
     if (f != null && f.edit != null && f.text === '' && c.status === null && c.kind !== 'result' && c.values == null) push({ key: `size:${c.id}`, cls: 'size', text: c.heading, at: `${c.id}.heading`, title: f.title, card: c.id, edit: f.edit })
   }
-  for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null }))
+  for (const c of model.cards) worthCheckingOf(c).forEach((w, j) => push({ key: `worth:${c.id}.${j}`, cls: 'worth', text: w.title, at: null, title: `${c.heading}\n${w.text}`, card: c.id, edit: null, detail: w.text !== w.title ? w.text : undefined }))
   return out
 }
 

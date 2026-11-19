@@ -23,9 +23,12 @@ export function withheldWords(h: Headline): string | null {
  * sends one, else its headline's text. Core's long reason (`why`, else the `title` every option shares) and the next step are the card's hover,
  * never a "?", a "Why not" or an empty track at rest. Unknown is never drawn as zero; no sentence is cut.
  */
-export function noChanceLineOf(h: Headline): { line: string; hover: string } {
+export function noChanceLineOf(h: Headline): { line: string; hover: string; why: string | null } {
   const hover = [withheldField(h) === 'text' ? null : withheldWords(h), h.add].filter((x) => x != null && x !== '').join('\n')
-  return { line: h.add != null && h.add !== '' ? h.add : h.text, hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text }
+  // DL 19 Nov (Codex 10:16:55Z "fix its actual adapter seam"): core's own reason (`why`, e.g. the switch point) is also returned on its own, so the
+  // Detailed face can draw it under the line. Simple keeps R6's one quiet line with the reason on hover.
+  const why = withheldField(h) === 'why' ? h.why! : null
+  return { line: h.add != null && h.add !== '' ? h.add : h.text, hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text, why }
 }
 
 /**

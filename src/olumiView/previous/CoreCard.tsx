@@ -382,12 +382,14 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // DL 16 Nov: an option with a result on a limit and no goal-type aim leads with that limit (AimRows draws it); no "No chance…" line too.
     if (h !== null && h.state === 'none' && limitLeadOf(card) !== null) return null
     if (h !== null && h.state === 'none') {
-      const { line, hover: why } = noChanceLineOf(h)
+      const { line, hover: why, why: reason } = noChanceLineOf(h)
       // Said once on the aim (said.ts) only where that line says exactly this option's own line and hover; an option whose reason differs keeps its own.
       const once = saysNoChanceOnce(said.none, h)
       return (
         <div data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} title={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
           {once ? null : <p className="ok-quiet" title={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>}
+          {/* DL 19 Nov: core's reason (the switch point, where core works one out) is read at rest on Detailed, not only on hover. */}
+          {once || reason === null || reason === line ? null : <p className="ok-quiet" data-view={`${id}.headline.why`} data-core-why={id}>{reason}</p>}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </div>
       )

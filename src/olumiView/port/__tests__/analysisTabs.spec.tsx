@@ -460,6 +460,20 @@ describe('what a result needs', () => {
     expect(screen.queryByTestId('analysis-needs-more')).toBeNull()
   })
 
+  it('a worth-checking finding is read at rest: its title and, under it, core\'s own text (DL 19 Nov); CONTRAST: a non-Olumi entry draws neither', () => {
+    const view = viewOf('golden/app-launch'), card = view.model!.cards.find((c) => c.family !== 'option')!
+    const TITLE = 'Two figures rest on one guess', TEXT = 'Both the price and the uptake come from the same single estimate.'
+    ;(card as { worth_checking?: unknown }).worth_checking = [{ code: 'shared_guess', olumi: true, title: TITLE, text: TEXT }, { code: 'x', olumi: false, title: 'NOT OLUMI', text: 'NOT OLUMI TEXT' }]
+    const w = needsOf(view.model!).find((n) => n.cls === 'worth')!
+    expect(w.text).toBe(TITLE)
+    ready(view); render(<PortAnalysisTab />)
+    fireEvent.click(screen.queryByTestId('analysis-needs-more') ?? document.body)
+    const row = document.querySelector(`[data-need="${w.key}"]`)!
+    expect(row.textContent).toContain(TITLE)
+    expect(row.querySelector(`[data-need-detail="${w.key}"]`)!.textContent).toBe(TEXT)
+    expect(document.body.textContent).not.toContain('NOT OLUMI')
+  })
+
   it('a press on a row focuses the card it is about, by id', () => {
     const view = viewOf('golden/app-launch'), first = needsOf(view.model!)[0]!
     ready(view); render(<PortAnalysisTab />)
@@ -535,18 +549,17 @@ describe('the model\'s state is said once, above the tab, in the same strip as R
 })
 
 describe('why this reading: core\'s long reading, one press away', () => {
-  it('bakery: the most-likely paragraph is not drawn at rest; opened, it is drawn once at its path with its ✎', () => {
+  it('bakery: the most-likely paragraph is drawn AT REST (DL 19 Nov), once at its path with its ✎; the toggle closes it', () => {
     const view = viewOf('golden/bakery'), ml = view.model!.run!.most_likely!
     ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector('[data-view="run.most_likely.text"]')).toBeNull()
-    expect(screen.getByTestId('analysis-why-toggle').querySelector('[data-fold-chevron="closed"]'), 'polish 13: a chevron, pointing right while closed').not.toBeNull()
-    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
     expect(screen.getByTestId('analysis-why-toggle').querySelector('[data-fold-chevron="open"]')).not.toBeNull()
     const said = document.querySelectorAll('[data-view="run.most_likely.text"]')
     expect(said).toHaveLength(1)
     expect(said[0]!.textContent).toBe(ml.text)
     expect(document.querySelector(`[data-testid="analysis-likely-edit-${ml.estimate}"]`)).not.toBeNull()
     expect(expectAllBound(view, tab(), expect)).toBeGreaterThan(0)
+    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+    expect(document.querySelector('[data-view="run.most_likely.text"]'), 'CONTRAST: the toggle still closes it').toBeNull()
   })
 })
 

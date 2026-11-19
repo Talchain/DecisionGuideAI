@@ -33,8 +33,7 @@ const withCompared = (compared: unknown[], headings: unknown): ViewModel => {
 // core's worth lines under "What would change" at rest. They are in the DOM once the fold is opened, as a reader opens it.
 const show = (model: ViewModel) => {
   const r = render(<PortAnalysis model={model} />)
-  const toggle = screen.queryByTestId('analysis-why-toggle')
-  if (toggle !== null) fireEvent.click(toggle)
+  // DL 19 Nov: "Why this reading" is open at rest in the chance state (it was one press away).
   return r
 }
 
@@ -51,13 +50,13 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
       expect(container.querySelector(`[data-view-fact="${c.id}"]`)!.getAttribute('title')).toBe(c.hover)
     }
   })
-  it('the groups are inside the "Why this reading" fold, never at rest, and each group sits apart from the next (space-y-3)', () => {
+  it('the groups are inside "Why this reading", open at rest (DL 19 Nov), closed by its toggle, and each group sits apart from the next (space-y-3)', () => {
     render(<PortAnalysis model={withCompared(COMPARED, HEADINGS)} />)
-    expect(screen.queryByTestId('view-run-compared')).toBeNull()
-    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
     const box = screen.getByTestId('view-run-compared')
     expect(screen.getByTestId('analysis-why-region').contains(box)).toBe(true)
     expect(box.classList.contains('space-y-3')).toBe(true)
+    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+    expect(screen.queryByTestId('view-run-compared')).toBeNull()
   })
   it('an unknown kind draws nothing, and a group core gives no heading for draws nothing', () => {
     const { container } = show(withCompared(COMPARED, { middle: 'H middle', later: 'H later' })) // a heading for a kind this page does not know, too

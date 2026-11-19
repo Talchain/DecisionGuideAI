@@ -88,9 +88,10 @@ function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
   )
 }
 
-/** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons, its notes. */
+/** Core's long reading, OPEN at rest (DL 19 Nov: the science core computed is read, not hidden; drawn only in the chance state): its most-likely
+ *  line (with ✎ for the figure it rests on), what that rests on, its comparisons, its notes. The toggle still closes it. */
 function WhyThisReading({ model }: { model: ViewModel }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const run = model.run ?? null
   if (run === null) return null
   const ml = run.most_likely ?? null

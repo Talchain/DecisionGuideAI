@@ -144,7 +144,10 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
     expect(card).toContain('return withheldWords(card.headline) ?? card.headline.text')
     // R6 (16 Nov): the withheld face is one quiet line, core's next step else its text (words.ts noChanceLineOf), named by the field it came from; its why is the hover.
     expect(card).toContain("data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</p>")
-    expect(words).toContain("hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text }")
+    expect(words).toContain("hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text, why }")
+    // DL 19 Nov: core's why (picked by field, never by words) is also drawn at rest on Detailed under the line, bound to its own path.
+    expect(words).toContain("const why = withheldField(h) === 'why' ? h.why! : null")
+    expect(card).toContain("data-view={`${id}.headline.why`} data-core-why={id}>{reason}</p>")
   })
   it('CATCH: "Why not" is not drawn for a withheld chance at all (R6): core\'s why, where it sends one, is the quiet line\'s hover (olumiLook L2b binds it drawn)', () => {
     expect(card).not.toContain('<summary>Why not</summary>')
