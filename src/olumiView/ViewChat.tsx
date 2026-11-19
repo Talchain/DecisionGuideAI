@@ -65,6 +65,7 @@ import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
+import { IntakeSheet } from './v12/chat/IntakeSheet'
 import { ChangeMix } from './v12/chat/ChangeMix'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { ICONS, OkIcon, OkIconButton } from './look/icons'
@@ -2020,6 +2021,8 @@ export function ViewChat() {
             <ModelNoticeLine />
             {/* V12 Solo-Return: the ideas kept on this scenario, with where each came from and who kept it. */}
             <KeptIdeas />
+            {/* E4 (DL 19 Nov, URL 2): what the person said, figure by figure, and whether the model uses it: only where core serves view.intake, only once a model exists. */}
+            <IntakeSheet />
             {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
                 questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
                 first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
