@@ -368,6 +368,7 @@ export const InspectorModal = memo(({ nodeId, edgeId, onClose }: InspectorModalP
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         onClose()
       }
     }

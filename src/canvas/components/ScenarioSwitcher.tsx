@@ -674,6 +674,7 @@ export function ScenarioSwitcher({
               onKeyDown={e => {
                 if (e.key === 'Enter') handleSaveDialogSubmit()
                 if (e.key === 'Escape') {
+                  e.preventDefault()
                   setShowSaveDialog(false)
                   setInputValue('')
                 }

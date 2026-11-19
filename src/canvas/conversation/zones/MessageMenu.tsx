@@ -124,6 +124,7 @@ export function MessageMenu({ role, content, onRetry, onSendFollowUp }: MessageM
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault()
         setOpen(false)
         triggerRef.current?.focus()
       }

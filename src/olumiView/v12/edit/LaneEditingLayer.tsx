@@ -4,8 +4,7 @@
  *   - notes when the saved model moves to a new version, so Undo knows which act is newer;
  *   - ⌘Z (undo) and ⇧⌘Z (put a moved card back) (Ctrl on Windows), never while typing in a field;
  *   - the details panel (./LaneInspector.tsx) and the one small edit form (./EditForm.tsx), each shown through the one surface store (./inspectorStore.ts);
- *   - THE ONE ESCAPE LISTENER for what floats over the canvas: it closes the open canvas surface, and only when none is open does Escape reach a
- *     waiting challenge (ViewChat's `useArmedChallenge`, which reads `escapeConsumed`) or anything else.
+ *   - the open canvas surface as an Escape layer (./escapeLayers.ts): it closes on an Escape nothing else handled.
  * Mount it once inside the lane's canvas, within its ToastProvider: `<LaneEditingLayer />`.
  */
 import { useEffect, useRef } from 'react'
@@ -15,7 +14,7 @@ import { LaneEditForm } from './EditForm'
 import { LaneInspector } from './LaneInspector'
 import { useCanvasStore } from '../../../canvas/store'
 import { useLaneInspector } from './inspectorStore'
-import { useEscapeLayer, type EscapeTake } from './escapeLayers'
+import { useEscapeLayer } from './escapeLayers'
 import { RangeBar } from '../scale/RangeBar'
 import { clearLayoutUndo, noteSavedVersion, pressUndo, trackLayoutMoves, undoChoicesNow } from './undo'
 
@@ -26,30 +25,18 @@ export function isTypingTarget(t: EventTarget | null): boolean {
   return el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]') !== null
 }
 
-/** What the one listener closes. A press in any OTHER menu, modal dialog or text field belongs to it (the "+" menu, Summary, an on-card rename, the message box). */
-const OWN_SURFACE = '[data-testid="lane-edit-form"], [data-figure-edit-panel], [data-testid="view-add-figure-form"], [data-testid="lane-inspector"], [role="menu"][aria-label="Canvas context menu"]'
-/** The message box: a surface open over the canvas is still Escape's to close with focus here (the typed words stay; only with no surface open is Escape the box's own). */
-const COMPOSER = '#view-chat-text'
-const MODAL = '[role="dialog"][aria-modal="true"], [role="alertdialog"]'
-
 /**
- * The canvas's open surface as an Escape layer (escapeLayers.ts: the one listener, newest layer first, so a Record form opened earlier never takes a press meant for a
- * details box opened after it). A canvas surface is open: it closes (unless it is saving), and the press goes no further. The right-click menu closes through its own key
- * handler (its open submenu closes first), so the press is only marked taken, for a waiting challenge. A press in another menu, a modal dialog or a text field of another
- * surface is that one's own: this layer yields.
+ * The canvas's open surface as an Escape layer (escapeLayers.ts: newest layer first, so a Record form opened earlier never takes a press meant for a details
+ * box opened after it). A press that a menu, a dialog or a field of another surface handled never gets here. A canvas surface is open: it closes (unless it is
+ * saving). The right-click menu's own key handler (its open submenu closes first) marks its press handled, so that press does not get here.
  */
-function escapeSurface(e: KeyboardEvent): EscapeTake {
+function escapeSurface(): void {
   const store = useLaneInspector.getState(), open = store.current
-  if (open === null) return 'yield'
-  const from = e.target instanceof Element ? e.target : null
-  if (from !== null && from.closest(OWN_SURFACE) === null && (from.closest('[role="menu"]') !== null || (isTypingTarget(from) && from.closest(COMPOSER) === null))) return 'yield'
-  if (document.querySelector(MODAL) !== null) return 'yield'
-  if (open.kind === 'menu') return 'pass'
+  if (open === null) return
   // Escape puts the form away and keeps what was typed in it (the draft store): pressing the form's own Cancel is what forgets it.
   const closed = store.dismiss(false)
   // The card's details box and its selection chip go together (Paul's bar: nothing is left standing in the composer after Escape).
   if (closed && open.kind === 'details') useCanvasStore.getState().clearSelection()
-  return undefined
 }
 
 /** The one small edit form, wherever it was asked for (a right-click row or the details panel). A form opened again starts from its own words. */

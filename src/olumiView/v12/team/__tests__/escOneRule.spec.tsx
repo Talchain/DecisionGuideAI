@@ -2,7 +2,7 @@
  * S4 lane esc3 (19 Nov, URL 3): the one Escape rule, and the Record form's reach. Escape closes the TOP-most open layer once; the Record form folds and keeps its draft
  * (as its X does); the form comes whole into the panel's scroll area. jsdom has no layout, so the scroll rows give the area and the form measured rectangles.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -11,7 +11,7 @@ import type { View } from '../../../client'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { resetWrites } from '../../../../olumiCore/team/writes'
 import { CommitForm, bringFormIntoView } from '../CommitForm'
-import { useEscapeLayer } from '../../edit/escapeLayers'
+import { useEscapeFloor, useEscapeLayer } from '../../edit/escapeLayers'
 import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { CommitFormSlot } from '../CommitForm'
@@ -85,19 +85,82 @@ describe('esc3 task 2: one Escape closes one layer', () => {
     esc()
     expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', '· Draft kept'])
   })
-  it('the press is taken: a layer that closed does not let the same key reach a listener beneath it', () => {
-    let beneath = 0
-    const count = () => { beneath += 1 }
-    window.addEventListener('keydown', count)
+  it('the stack acts last: a listener on window sees the press before the layer closes (not yet handled); a press with nothing open goes on', () => {
+    const seen: boolean[] = []
+    const watch = (e: Event) => { seen.push(e.defaultPrevented) }
+    window.addEventListener('keydown', watch)
     try {
       render(<Menu name="model" />)
       fireEvent.click(screen.getByTestId('model-open'))
       act(() => { esc() })
       expect(screen.queryByTestId('model-menu')).toBeNull()
-      expect(beneath, 'the bubbling listeners never saw it').toBe(0)
       esc() // nothing open: the key goes on its way
-      expect(beneath).toBe(1)
-    } finally { window.removeEventListener('keydown', count) }
+      expect(seen, 'window saw both presses unhandled').toEqual([false, false])
+    } finally { window.removeEventListener('keydown', watch) }
+  })
+})
+
+/** A popover with its own Escape handler that is NOT a registered layer (a document listener, as the canvas's popovers are). */
+function Popover(): JSX.Element {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false) } }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+  return <div><button type="button" data-testid="pop-open" onClick={() => setOpen(true)}>pop</button>{open ? <div role="menu" data-testid="pop-menu" /> : null}</div>
+}
+/** The same, opened AFTER the layer and listening on window: registered later than the stack's own listener. */
+function WindowPopover(): JSX.Element {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open])
+  return <div><button type="button" data-testid="wpop-open" onClick={() => setOpen(true)}>wpop</button>{open ? <div role="menu" data-testid="wpop-menu" /> : null}</div>
+}
+
+/** A state waiting (a challenge waiting for its card): the floor, whenever it began. */
+function Wait({ on, done }: { on: boolean; done: () => void }): null { useEscapeFloor(on, done); return null }
+
+describe('escfix: the floor is under every surface, whenever it began', () => {
+  it('a wait that began AFTER a surface opened still takes the second press, never the first', () => {
+    let waits = true
+    const App = ({ w }: { w: boolean }) => <><Menu name="model" /><Wait on={w} done={() => { waits = false }} /></>
+    const { rerender } = render(<App w={false} />)
+    fireEvent.click(screen.getByTestId('model-open'))
+    rerender(<App w />)
+    esc()
+    expect([screen.queryByTestId('model-menu') === null, waits]).toEqual([true, true])
+    esc()
+    expect(waits).toBe(false)
+  })
+})
+
+describe('escfix: an unregistered popover over a registered layer', () => {
+  it('one Escape closes only the popover (the layer stays), the second closes the layer, the Record form\'s draft is never discarded', () => {
+    render(<><CommitForm sid="s_escfix1" view={view()} onWrote={async () => true} /><Popover /></>)
+    fireEvent.click(screen.getByTestId('commit-form-open'))
+    fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Keep this draft' } })
+    fireEvent.click(screen.getByTestId('pop-open'))
+    esc()
+    expect([screen.queryByTestId('pop-menu') === null, screen.getByTestId('commit-form').getAttribute('data-open')]).toEqual([true, 'true'])
+    esc()
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', '· Draft kept'])
+    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Keep this draft')
+  })
+  it('the same when the popover listens on window and opened after the layer (its listener is later than the stack\'s)', () => {
+    render(<><Menu name="model" /><WindowPopover /></>)
+    fireEvent.click(screen.getByTestId('model-open'))
+    fireEvent.click(screen.getByTestId('wpop-open'))
+    esc()
+    expect([screen.queryByTestId('wpop-menu') === null, screen.queryByTestId('model-menu') !== null]).toEqual([true, true])
+    esc()
+    expect(screen.queryByTestId('model-menu')).toBeNull()
   })
 })
 

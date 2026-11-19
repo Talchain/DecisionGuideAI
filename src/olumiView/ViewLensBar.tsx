@@ -135,7 +135,7 @@ function NavBar({ barRef, place, W }: { barRef: RefObject<HTMLDivElement>; place
   useEffect(() => {
     if (!open) return
     const down = (e: MouseEvent) => { if (!menu.current?.contains(e.target as Node) && !exploreBtn.current?.contains(e.target as Node)) setOpen(false) }
-    const key = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); exploreBtn.current?.focus() } }
+    const key = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false); exploreBtn.current?.focus() } }
     document.addEventListener('mousedown', down); document.addEventListener('keydown', key)
     return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key) }
   }, [open])

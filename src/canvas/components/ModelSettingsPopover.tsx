@@ -141,6 +141,7 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
         onClose()
       }
     }

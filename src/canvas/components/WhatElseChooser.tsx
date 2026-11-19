@@ -89,7 +89,7 @@ export function WhatElseChooser({ open, onClose }: { open: WhatElseOpen; onClose
   const [text, setText] = useState('')
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }
     const onDown = (e: PointerEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pointerdown', onDown, true)

@@ -22,6 +22,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault()
         onClose()
       }
     }

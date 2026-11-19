@@ -112,7 +112,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenuOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu(true)
+      if (e.key === 'Escape') { e.preventDefault(); closeMenu(true) }
     }
     document.addEventListener('mousedown', onPointer)
     document.addEventListener('keydown', onKey)

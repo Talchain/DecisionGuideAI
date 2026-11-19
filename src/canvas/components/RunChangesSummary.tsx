@@ -88,7 +88,7 @@ export function RunChangesSummary(): JSX.Element | null {
   // The popover closes on Escape or a press outside it (a pencil press re-anchors it instead).
   useEffect(() => {
     if (anchor === null) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closePopover() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); closePopover() } }
     const onDown = (e: PointerEvent) => {
       const el = e.target instanceof Element ? e.target : null
       if (el?.closest(`[data-testid="${RUN_CHANGES_SUMMARY_TESTID}"], [data-testid^="run-change-pencil-"]`)) return

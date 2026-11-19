@@ -114,7 +114,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
 
   return (
     <form className="grid gap-1" data-testid="inspector-your-figure" data-value-row={`${kind}:${id}`} aria-busy={sending || undefined}
-      onSubmit={(e) => { e.preventDefault(); void (primary === 'try' && !size ? tryIt() : save()) }} onKeyDown={(e) => e.stopPropagation()}>
+      onSubmit={(e) => { e.preventDefault(); void (primary === 'try' && !size ? tryIt() : save()) }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
       {fresh ? <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="inspector-figure-aside">{ASIDE_WORDS.done}</p> : null}
       {fields.map((f, i) => (
         <div key={f.key} className="grid gap-1">

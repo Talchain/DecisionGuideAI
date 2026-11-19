@@ -341,7 +341,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   useEffect(() => {
     if (!isHeld) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') clearOlumiAttention()
+      if (e.key === 'Escape') { e.preventDefault(); clearOlumiAttention() }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
