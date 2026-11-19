@@ -70,6 +70,7 @@ import { registerShowCameraPort, showHolds } from './v12/showInWorkspace/cameraP
 import { makeShowCameraPort } from './v12/showInWorkspace/canvasSide'
 import { revealOf, useReveal, withChipsAbove, withOpenCard } from './reveal'
 import { StrategyOverviewPage } from './strategy/overview/StrategyOverviewPage'
+import { FrameStage } from './v12/frame/FrameStage'
 import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpener'
 export { showSimple, showWholeModel, toggleSimple } from './v12/simpleStore'
 import { levelOf, useLevel, useSimpleLevel } from './v12/simpleStore'
@@ -587,6 +588,8 @@ export function ViewCanvas(): JSX.Element {
                   <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>
                   {/* V12 (proposal 005, Codex 16:52Z): each member's view side by side, then where they differ, over the canvas beside the dock. */}
                   <CompareViewsStage />
+                  {/* Paul, 19 Nov ("open on the question, with the aims beneath"): the Frame page over the canvas region, beside the dock. */}
+                  <FrameStage />
                 </div>
               </MaybeConversationProvider>
             </CanvasOverlayBandProvider>
