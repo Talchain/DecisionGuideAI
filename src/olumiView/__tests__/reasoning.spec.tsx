@@ -38,7 +38,7 @@ const ready = (view: View, more: object = {}) => {
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
-  it('european: each rest by its id in core\'s order (two at rest, the rest behind one press); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
+  it('european: each rest by its id in core\'s order (the first group and its first figure at rest, the rest behind one press); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
     const view = read('european.view.json'), run = view.model!.run!
     const rests = run.rests.filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
     expect(rests.length).toBeGreaterThan(2)
@@ -46,7 +46,7 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-rests')
     const groups = () => [...box.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])
-    expect(groups()).toEqual(rests.slice(0, 2).map((r) => r.id))
+    expect(groups()).toEqual(rests.slice(0, 1).map((r) => r.id))
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))
     expect(groups()).toEqual(rests.map((r) => r.id))
     for (const r of rests) {
@@ -128,7 +128,9 @@ describe('questions worth answering: one press fills the message box with core\'
     openAll()
     const ask = screen.queryByTestId('reasoning-widen-askRisk')
     if (typeof w.askRisk !== 'string') { expect(ask).toBeNull(); return }
-    expect(ask!.textContent).toBe(w.askRisk)
+    // The row is core's label; the press is the quiet icon (never the row's primary action) and fills the box with core's draft.
+    expect(ask!.closest('li')!.querySelector('[data-view-words="model_words.askRisk"]')!.textContent).toBe(w.askRisk)
+    expect(ask!.textContent, 'the press is an icon, not a labelled primary').toBe('')
     fireEvent.click(ask!)
     expect(chat.prefill.mock.calls).toEqual([[w.askRiskDraft]])
   })
