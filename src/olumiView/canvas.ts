@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -205,8 +205,11 @@ export async function layViewCanvas(core: ViewModel): Promise<boolean> {
  *  proposals and the approved notes, until the person opens that row's group) and the inputs while 15 or more of core's are folded (rule 7), with the nodes Simple adds (kept ideas, the folded group, the group cards) and the grouped cards' links run to their group card. Detailed
  *  draws core's model as it is. */
 export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>> = useInputsOpen.getState().open, active?: FoldActive): { model: ViewModel; extras: BandExtra[]; links: GroupLink[] } {
-  const { sid, view } = useViewStore.getState(), drawn = drawnModelOf(core)
-  if (levelOf(sid) !== 'simple') return { model: drawn, extras: [], links: [] }
+  const { sid, view } = useViewStore.getState(), whole = drawnModelOf(core)
+  if (levelOf(sid) !== 'simple') return { model: whole, extras: [], links: [] }
+  // An aim's bar is its bound, said on the aim card (layout.ts barsOf): no card of its own. Its links stay in the list (every drawn link keeps its place);
+  // those into it run to its aim (groupLinksOf).
+  const bars = barsOf(whole), drawn = bars.size === 0 ? whole : { ...whole, cards: whole.cards.filter((c) => !bars.has(c.id)) }
   // Rule 7 counts core's inputs as before D1 (a row it folds holds its group cards' cards too), so D1 never unfolds a board rule 7 folded.
   const folded = inputsFolded(sid, drawn, open)
   // D1c keeps the active cards drawn: the canvas hook passes the ids it subscribes to (useViewCanvas); any other caller reads them once.
@@ -214,7 +217,7 @@ export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>>
   const grouped = withoutGrouped(drawn, groups)
   // One numbering for every drawn link and every rerouted one: the drawn model's (rule 7's fold leaves the links in place; cardLinks skips an undrawn end).
   const model = folded ? { ...withoutInputs(grouped), links: drawn.links } : grouped, extras = extrasOf(view, sid, folded ? drawn : null, groups)
-  return { model, extras, links: groupLinksOf(drawn, groups, new Set([QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)])) }
+  return { model, extras, links: groupLinksOf(drawn, groups, new Set([QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)]), bars) }
 }
 
 /**

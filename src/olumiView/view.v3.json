@@ -4235,6 +4235,9 @@
            ],
            "additionalProperties": false
           }
+         },
+         "bar_of": {
+          "type": "string"
          }
         },
         "required": [

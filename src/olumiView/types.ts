@@ -758,6 +758,7 @@ export type View = {
         rests_on: Array<string>
         olumi: true
       }>
+      bar_of?: string
     }>
     links: Array<{
       from: string
