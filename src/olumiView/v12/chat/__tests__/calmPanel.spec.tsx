@@ -24,6 +24,7 @@ import { ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { SELECTION_DETAIL_WORDS } from '../../../../canvas/components/SelectionPill'
 import { aboutCountWords } from '../AboutChip'
 import { draftKeyOf, resetRemovedQuestions } from '../OlumiAsks'
+import { chatQuestionsOf } from '../../../layout'
 import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
 import { controls } from '../../../../styles/controls'
@@ -287,10 +288,16 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(q(c, 'view-model-question'), 'removed, not folded').toBeNull()
     // CONTRAST (Codex 11:15:52Z): the same question id in new words is a new question, so it shows again.
     cleanup()
-    const v = JSON.parse(JSON.stringify(asked())) as { model: { coaching_questions: ({ text: string } | string)[] } }
-    v.model.coaching_questions = v.model.coaching_questions.map((x) => (typeof x === 'string' ? `${x} (reworded)` : { ...x, text: `${x.text} (reworded)` }))
+    // Codex 11:52Z: reword EXACTLY the first question the chat shows (chatQuestionsOf, by its own data path), keeping its id and the viewer.
+    const before = asked(), first = chatQuestionsOf(before.model)[0]!
+    const v = JSON.parse(JSON.stringify(before)) as Record<string, unknown>
+    const path = first.view.split('.'), last = path.pop()!
+    const owner = path.reduce<Record<string, unknown>>((o, k) => o[k] as Record<string, unknown>, v)
+    owner[last] = `${first.text} (reworded)`
+    const after = chatQuestionsOf((v as unknown as View).model)[0]!
+    expect([after.key, after.text, (v as unknown as View).you_id]).toEqual([first.key, `${first.text} (reworded)`, before.you_id])
     const c2 = mount(v as unknown as View)
-    expect(q(c2, 'view-model-question'), 'reworded: shown again').not.toBeNull()
+    expect(q(c2, 'view-model-question'), 'same id, same viewer, new words: shown again').not.toBeNull()
     } finally { resetRemovedQuestions() }
   })
   it('REST (audit chat-2, chat-3): ONE quiet row (Olumi\'s mark, the question, a chevron): no answer box, no Use this, no icons; a panel with the info border, not the info fill', () => {
