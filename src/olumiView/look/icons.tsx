@@ -44,7 +44,7 @@ import {
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
-  ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, Trash2, TrendingDown, TrendingUp, Undo2,
+  ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
 } from 'lucide-react'
@@ -134,6 +134,8 @@ export const ICONS = {
   'idea-challenge': e(Swords, 'Challenge this idea', '--text-light', 'icon-only', 'olumi-ask'),
   'explain-olumi': e(GraduationCap, 'How influence works', '--text-light', 'icon-plus-word', 'olumi-ask'),
   'talk-first': e(MessageSquare, 'Talk it through first', '--text-light', 'icon-plus-word', 'olumi-ask'),
+  // Reasoning's fill-the-box press: it puts the row's words in the message box (nothing is sent); talk-first stays the composer's own send-as-talk.
+  'fill-box': e(TextCursorInput, 'Put this in the message box', '--text-light', 'icon-plus-word', 'person-action'),
   'file-read': e(FileCheck, 'Olumi read this from your file', '--text-light', 'icon-plus-word', 'olumi-ask', { keepWords: 'the file-read check sentence stays words' }),
 
   // the person's own acts: green fill, ink (--text-header) label; quiet reversible ones stay light

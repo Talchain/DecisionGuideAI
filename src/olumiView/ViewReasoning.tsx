@@ -181,7 +181,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
-      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="talk-first" size={12} decorative /></button>
+      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></button>
     </li>
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
@@ -189,7 +189,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
-      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="talk-first" size={12} decorative /></button>
+      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></button>
     </li>
   )
   return (
@@ -252,7 +252,7 @@ function LeadAct({ e }: { e: Examine }) {
   if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
   const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
   // Filling the message box is never the primary (green) action: it is the quiet secondary press, the same as in the list.
-  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="talk-first" size={12} decorative />{REASONING_LABELS.fill}</button>
+  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="fill-box" size={12} decorative />{REASONING_LABELS.fill}</button>
 }
 
 /**

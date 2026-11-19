@@ -11,6 +11,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { typography } from '../../../styles/typography'
+import { controls } from '../../../styles/controls'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../../olumiCore/team/writes'
@@ -204,7 +205,7 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
       {error === null ? null : <p role="alert" className="text-danger" data-testid="lane-edit-error">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"
-          className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm bg-primary px-3 text-text-on-color disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`}>{goLabel(spec)}</button>
+          className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm ${controls.actColours} px-3 disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`}>{goLabel(spec)}</button>
         <button type="button" disabled={sending} onClick={cancel} data-testid="lane-edit-cancel" className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
           {spec.kind === 'remove-link' ? REMOVE_LINK_WORDS.keep : FORM_WORDS.cancel}</button>
       </div>

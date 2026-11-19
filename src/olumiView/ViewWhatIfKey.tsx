@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
@@ -146,7 +147,7 @@ export function WhatIfBar({ label, canKeep, keeping, onKeep, onDiscard }: { labe
       <button type="button" data-testid="view-whatif-bar-discard" onClick={onDiscard} className={`${btn} text-text-body hover:bg-panel-hover`}>{WHAT_IF_BAR.discard}</button>
       <button type="button" data-testid="view-whatif-bar-keep" aria-disabled={!canKeep || keeping || undefined} title={canKeep ? undefined : WHAT_IF_BAR.tryFirst}
         onClick={() => { if (canKeep && !keeping) onKeep() }}
-        className={`${btn} bg-primary text-text-on-color aria-disabled:cursor-not-allowed aria-disabled:bg-panel-border aria-disabled:text-text-light`}>{WHAT_IF_BAR.keep}</button>
+        className={`${btn} ${controls.actColours} aria-disabled:cursor-not-allowed aria-disabled:bg-panel-border aria-disabled:text-text-light`}>{WHAT_IF_BAR.keep}</button>
       {canKeep ? null : <span data-testid="view-whatif-bar-reason" className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_BAR.tryFirst}</span>}
     </div>
   )
