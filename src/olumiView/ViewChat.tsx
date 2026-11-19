@@ -50,7 +50,7 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_OUTLINE_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, floorShown, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
+import { earlyOf, floorShown, headlineDrawn, leadOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
 import { askFieldOf, pressFieldOf, pressHeading, pressKindFor, type PressKind, type TurnPress } from './press'
 import { ReplyLead } from './v12/chat/ReplyLead'
 import { KeepChooser } from './v12/chat/KeepChooser'
@@ -412,7 +412,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       </span>
       {/* Paul, 19 Nov (one plain status line; DL GO 12:08Z): ONE of core's two words is drawn, its status when it sends one (the reply's current
           state), else its version; both stay in the icon's hover. No UI words. */}
-      {t.status === null ? <span data-view={`${at}.version`}>{t.version}</span> : <span title={stampWords} data-view={`${at}.status`}>{t.status}</span>}
+      {/* say3 (Paul 18 Nov, "nothing said twice"): while Olumi's proposal waits, its foot already says it (the newest reply only) ("Olumi proposes N changes"), so the reply's
+          status ("Proposed, waiting for approval: N changes…") is not drawn a second time; core's words stay in the icon's hover. */}
+      {waiting && latest && t.status !== null ? null : t.status === null ? <span data-view={`${at}.version`}>{t.version}</span> : <span title={stampWords} data-view={`${at}.status`}>{t.status}</span>}
     </span>
   )
   const tools = (
@@ -2016,7 +2018,7 @@ export function ViewChat() {
           the thread, never cut by the composer. Olumi's waiting proposal is the one exception: one line pinned at the thread's foot (below). */}
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
-      {!panelDrawsFinding(view?.model) ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
+      {!panelDrawsFinding(view?.model) || headlineDrawn(view?.chat) ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
       {view === null || step === null || pinned ? null
         : <div className="shrink-0 px-4 pt-1" data-testid="view-chat-step"><NextStepCard view={view} busy={busy} step={step} /></div>}
       {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}

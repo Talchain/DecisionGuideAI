@@ -302,5 +302,5 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
  */
 export function ViewReasoningBlock() {
   const model = useViewStore(shownModel), state = useTabState(model)
-  return model === null ? null : <><div className="px-3 pt-3 empty:hidden"><StateStrip state={state} /></div><ViewReasoning model={model} stated={state === 'whatif'} /></>
+  return model === null ? null : <><div className="px-3 pt-3 empty:hidden"><StateStrip state={state} proposalHere={false} /></div><ViewReasoning model={model} stated={state === 'whatif'} /></>
 }

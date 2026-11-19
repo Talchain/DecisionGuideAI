@@ -248,7 +248,11 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const said = [card.heading, card.face?.title?.text, card.figure?.text, card.bound?.text].filter((x): x is string => x != null && x.trim() !== '').map((x) => x.trim())
   const described = cardTitle(card).description
   // (And a bare number that is the card's typed figure value, `isFigureNumber`: Paul 19 Nov, "12 weeks" over "12".)
-  const description = described !== null && (said.includes(described.trim()) || isFigureNumber(card, described)) ? null : described
+  // An aim's measured bound is drawn once, as its value (say3, Paul 18 Nov, "the aim said three times"): core's description there is the person's own quote
+  // that the bound was read from, and core serves that same quote in `author.title` ("Theirs: “…”"): the same text in core's own field, matched whole, never by
+  // its words. The quote stays one hover away on the author's mark; the card does not draw it under its value.
+  const quoteOfBound = described !== null && card.bound != null && card.bound.measured && typeof card.author?.title === 'string' && card.author.title.includes(`\u201c${described.trim()}\u201d`)
+  const description = described !== null && (said.includes(described.trim()) || isFigureNumber(card, described) || quoteOfBound) ? null : described
   const quiet: StateLine | null = state !== null
     ? (description === null ? state : { ...state, title: [state.title !== '' ? state.title : state.text, description].join('\n') })
     : description === null ? null : { text: description, title: description, marks: { 'data-simple-description': id } }

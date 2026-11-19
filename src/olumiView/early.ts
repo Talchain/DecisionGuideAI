@@ -48,6 +48,18 @@ export const leadOf = (holder: unknown, full: string): ReplyLead | null => {
   const lead = { opening, points: points as string[] }
   return squash(full) === squash([opening, ...lead.points].join('\n')) ? null : lead
 }
+/** True when the newest answered turn draws a lead (its short opening, the panel's headline): the finding line above the thread would then say the
+ *  same fact again, so the panel draws one of the two (say3, Paul 18 Nov "nothing said twice"). Read by the typed `lead`, never by words. */
+export const headlineDrawn = (chat: readonly { answer?: unknown }[] | null | undefined): boolean => {
+  if (!chat) return false
+  for (let i = chat.length - 1; i >= 0; i--) {
+    const t = chat[i]!, a = t.answer as { answer?: unknown } | null | undefined
+    if (a === null || a === undefined || typeof a !== 'object') continue
+    const parts = Array.isArray(a.answer) ? a.answer as { text?: unknown }[] : []
+    return leadOf(a, [earlyOf(t) ?? '', ...parts.map((p) => (typeof p.text === 'string' ? p.text : ''))].join('\n')) !== null
+  }
+  return false
+}
 export type Unanswered = { status: 'failed' | 'lost'; words: string | null }
 const unansweredOf = (u: unknown): Unanswered | null => {
   if (u === null || typeof u !== 'object') return null

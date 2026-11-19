@@ -83,6 +83,10 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
   )
 }
 
+/** An option core calls fixed (`headline.state`) whose chance row is 0: "never met in this model". Its words say all of it, so no empty track is drawn
+ *  (say3, Paul 18 Nov: a chart only when it shows a change). Read by core's typed state and the row's number, never by its words. */
+export const neverMet = (card: ViewCard, row: ChartRow['row']): boolean => card.headline?.state === 'fixed' && row.chance === 0
+
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
 function Bar({ card, row, i, figure, given, axis = false, open }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean; open: boolean }) {
   const range = rangeOf(row)
@@ -98,7 +102,7 @@ function Bar({ card, row, i, figure, given, axis = false, open }: ChartRow & { f
             {row.olumi == null ? null : <span className="text-info" title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
           </span>
         </span>
-        <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>
+        {neverMet(card, row) ? null : <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>}
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
@@ -137,7 +141,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
-          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === 0} open={open} />)}</ul>
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} open={open} />)}</ul>
         </div>
       ))}
       {/* At rest, under the bars: the figure every whisker is for (when it is one) and core's sentence for what the two ends ARE, never folded
