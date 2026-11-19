@@ -7,17 +7,18 @@ import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewLink } from '../../../client'
 import { useViewStore } from '../../../store'
+import { useViewHover } from '../../../canvas'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, effectWidth, linkStyle } from '../styles'
 import { effectMidpoint } from '../geometry'
-import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
+import { setDefaultLevel, setLevel, useSimpleLevel } from '../../simpleStore'
 import { LINK_OFF_PATH_OPACITY as EDGE_OFF_PATH_OPACITY, useFocusPath } from '../../bands/focusPath'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const first = view.model!.links[0]!
 const base = { ...first, causal: { sign: 'increases', of: 'more_of_from', target: first.to, disputed: false, author: null, text: '', strength: { state: 'sized', figure: null, low: null, likely: null } } } as unknown as ViewLink
-afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useFocusPath.setState({ path: null }); useSimpleLevel.setState({ levels: {} }); setDefaultLevel('simple') })
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useFocusPath.setState({ path: null }); useSimpleLevel.setState({ levels: {} }); setDefaultLevel('simple'); useViewHover.setState({ id: null }) })
 
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 const draw = (link: ViewLink, nodes: { id: string; x: number; y: number }[] = []) => render(
@@ -85,6 +86,7 @@ describe('a modelled effect', () => {
     expect([0.25, 0.8, 0.1, null].map((x) => { const c = draw(shared(x)); const w = line(c).style.strokeWidth; cleanup(); return w })).toEqual(['3', '5', '2', '2'])
     // CONTRAST: a plain structural line is 2 px whatever the share beside it says; a reason link too.
     const plain = { ...shared(0.8), causal: null, role: null, kind: 'reason' } as unknown as ViewLink
+    useViewHover.setState({ id: plain.from })
     expect(line(draw(plain)).style.strokeWidth).toBe('2')
   })
   it('is dashed only when doubted (not when unsized or proposed)', () => {
@@ -135,6 +137,7 @@ describe('a first draft marks no link as Olumi\'s proposal (R3, 16 Nov)', () => 
     expect(line(draw(plain())).style.stroke, 'an approved model keeps the mark').toBe('var(--semantic-info)'); cleanup()
     // The defect's own case (Line reviewer, edbd5fda F1): a REASON line Olumi proposed keeps Olumi's ink; one nobody proposed stays neutral.
     expect(line(draw(plain({ kind: 'reason', role: 'reason' }))).style.stroke, 'a proposed reason line is Olumi\'s too').toBe('var(--semantic-info)'); cleanup()
+    useViewHover.setState({ id: first.from })
     expect(line(draw(plain({ kind: 'reason', role: 'reason', proposed: false }))).style.stroke, 'CONTRAST: an unproposed reason line').toBe(EDGE_NEUTRAL); cleanup()
     withView({ proposal: { id: 'p1' }, version: null })
     expect(line(draw(plain())).style.stroke, 'a first draft marks nothing').toBe(EDGE_NEUTRAL); cleanup()
@@ -170,8 +173,9 @@ describe('link roles', () => {
     expect(g(c).getAttribute('data-link-role')).toBe('input')
   })
   it('reason: a plain 2 px neutral line, never coloured or weighted as an effect, never ink (R5)', () => {
-    // Simple draws every link at rest (Detailed draws a reason link only while one of its cards is active).
+    // A reason link is drawn only while one of its cards is active, in Simple and Detailed alike: its card hovered here.
     setDefaultLevel('simple')
+    useViewHover.setState({ id: first.from })
     for (const l of [role('reason'), { ...role('reason'), role: undefined, kind: 'reason' } as unknown as ViewLink, { ...first, doubt: false, alert: false, proposed: false, causal: null, label: '' } as unknown as ViewLink]) {
       const c = draw(l)
       expect(line(c).style.stroke).toBe(EDGE_NEUTRAL)
@@ -184,6 +188,7 @@ describe('link roles', () => {
   it('only a doubted link is dashed, whatever kind of line it is (R5)', () => {
     expect(line(draw(role('input', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
     cleanup()
+    useViewHover.setState({ id: first.from })
     expect(line(draw(role('reason', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
   })
   it('size: a plain wire to the midpoint of the sized effect, labelled "size"; never an arrowhead', () => {
@@ -221,5 +226,35 @@ describe('the lit path (R1, 16 Nov): links fade only while a path is lit', () =>
     const off = draw(l('a', 'z'))
     expect([g(off).style.opacity, g(off).hasAttribute('data-off-path')], 'one end off the path').toEqual([String(EDGE_OFF_PATH_OPACITY), true])
     expect(EDGE_OFF_PATH_OPACITY).toBe(0.18)
+  })
+})
+
+describe('connector density (S4 density lane, 19 Nov): a reason link is a line only while its card is active', () => {
+  const reason = (extra: Partial<ViewLink> = {}) => ({ ...first, from: 'a', to: 'b', kind: 'reason', role: 'reason', causal: null, doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
+  const causal = () => ({ ...withCausal('increases'), from: 'a', to: 'b' }) as ViewLink
+  it('DENS1 Simple at rest draws no reason line, and its causal line is still drawn', () => {
+    setDefaultLevel('simple')
+    expect(line(draw(reason()))).toBeNull(); cleanup()
+    expect(line(draw(causal()))).not.toBeNull()
+  })
+  it('DENS2 Simple draws the reason line while either of its cards is hovered; another card hovered draws nothing', () => {
+    setDefaultLevel('simple')
+    useViewHover.setState({ id: 'b' })
+    expect(line(draw(reason()))).not.toBeNull(); cleanup()
+    useViewHover.setState({ id: 'z' })
+    expect(line(draw(reason()))).toBeNull()
+  })
+  it('DENS3 a reason line core marks challenged or proposed is drawn at rest on Simple', () => {
+    setDefaultLevel('simple')
+    expect(line(draw(reason({ alert: true })))).not.toBeNull(); cleanup()
+    expect(line(draw(reason({ proposed: true })))).not.toBeNull()
+  })
+  it('DENS4 Detailed is as before: no reason line at rest, drawn on focus; its causal line is drawn', () => {
+    setLevel('working', null)
+    setDefaultLevel('working')
+    expect(line(draw(reason()))).toBeNull(); cleanup()
+    expect(line(draw(causal()))).not.toBeNull(); cleanup()
+    useViewHover.setState({ id: 'a' })
+    expect(line(draw(reason()))).not.toBeNull()
   })
 })
