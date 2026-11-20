@@ -93,7 +93,8 @@ describe.each([
       })
       cleanup()
     }
-    expect(seen).toContain('if approved; now about 50% chance')
+    // Some chance row carries core's mark and some none; the loop above already holds each one to core's own title, whatever its words.
+    expect(seen.some((t) => t !== null)).toBe(true)
     expect(seen).toContain(null)
   })
 

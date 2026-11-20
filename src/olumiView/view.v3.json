@@ -961,6 +961,9 @@
                 "additionalProperties": false
                }
               },
+              "next_test": {
+               "type": "string"
+              },
               "tips": {
                "type": "string"
               },
@@ -1176,6 +1179,9 @@
            "string",
            "null"
           ]
+         },
+         "used": {
+          "type": "boolean"
          },
          "values": {
           "anyOf": [
@@ -4190,6 +4196,9 @@
            "additionalProperties": false
           }
          },
+         "bar_of": {
+          "type": "string"
+         },
          "worth_checking": {
           "minItems": 1,
           "type": "array",
@@ -4206,7 +4215,8 @@
               "one_evidence_for_several_figures",
               "narrow_range",
               "view_without_evidence",
-              "assumption_without_test"
+              "assumption_without_test",
+              "olumi_range_turns"
              ]
             },
             "title": {
@@ -4235,9 +4245,6 @@
            ],
            "additionalProperties": false
           }
-         },
-         "bar_of": {
-          "type": "string"
          }
         },
         "required": [
@@ -4730,6 +4737,12 @@
            {
             "type": "null"
            }
+          ]
+         },
+         "label_key": {
+          "type": [
+           "string",
+           "null"
           ]
          }
         },
@@ -6438,6 +6451,36 @@
            ],
            "additionalProperties": false
           },
+          "finding": {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "figure": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "needs": {
+             "type": [
+              "string",
+              "null"
+             ]
+            },
+            "title": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "text",
+            "figure",
+            "needs",
+            "title"
+           ],
+           "additionalProperties": false
+          },
           "lenses": {
            "type": "array",
            "items": {
@@ -6651,6 +6694,65 @@
        "type": "array",
        "items": {
         "type": "string"
+       }
+      },
+      "questions": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "text": {
+          "type": "string"
+         },
+         "about": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "role": {
+          "anyOf": [
+           {
+            "type": "string",
+            "enum": [
+             "value",
+             "due",
+             "measure"
+            ]
+           },
+           {
+            "type": "null"
+           }
+          ]
+         },
+         "unit": {
+          "anyOf": [
+           {
+            "type": "string",
+            "enum": [
+             "day",
+             "week",
+             "month",
+             "year"
+            ]
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "id",
+         "text",
+         "about",
+         "role",
+         "unit"
+        ],
+        "additionalProperties": false
        }
       },
       "trial_questions": {
@@ -7063,6 +7165,39 @@
            }
           ]
          },
+         "needs": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "top": {
+             "type": "boolean",
+             "const": false
+            },
+            "kind": {
+             "type": "string",
+             "enum": [
+              "required",
+              "optional",
+              "one_of"
+             ]
+            },
+            "why": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "id",
+            "top",
+            "kind",
+            "why"
+           ],
+           "additionalProperties": false
+          }
+         },
          "accepted": {
           "type": "array",
           "items": {
@@ -7136,7 +7271,8 @@
          "detail",
          "family",
          "olumi",
-         "together"
+         "together",
+         "needs"
         ],
         "additionalProperties": false
        }
@@ -7620,6 +7756,28 @@
               ],
               "additionalProperties": false
              }
+            },
+            "assumed": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "model_assumed": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            },
+            "leader_unavailable": {
+             "type": "boolean",
+             "const": true
+            },
+            "leader_note": {
+             "type": "string"
+            },
+            "model_leader_note": {
+             "type": "string"
             },
             "chip": {
              "type": "string"
@@ -8826,6 +8984,151 @@
       }
      ]
     },
+    "round_read": {
+     "type": "object",
+     "properties": {
+      "at_version": {
+       "type": "number"
+      },
+      "snapshot": {
+       "type": "string"
+      },
+      "scope": {
+       "type": "string"
+      },
+      "source": {
+       "type": "string",
+       "const": "olumi"
+      },
+      "provisional": {
+       "type": "boolean",
+       "const": true
+      },
+      "provisional_text": {
+       "type": "string"
+      },
+      "lead": {
+       "type": "string"
+      },
+      "cruxes": {
+       "type": "array",
+       "items": {
+        "type": "object",
+        "properties": {
+         "id": {
+          "type": "string"
+         },
+         "kind": {
+          "type": "string",
+          "enum": [
+           "estimate",
+           "cause",
+           "framing",
+           "priorities_question"
+          ]
+         },
+         "kind_text": {
+          "type": "string"
+         },
+         "quotes": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "id": {
+             "type": "string"
+            },
+            "view_id": {
+             "type": "number"
+            },
+            "holder_id": {
+             "type": "string"
+            },
+            "holder": {
+             "type": "string"
+            },
+            "text": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "id",
+            "view_id",
+            "holder_id",
+            "holder",
+            "text"
+           ],
+           "additionalProperties": false
+          }
+         },
+         "comparisons": {
+          "type": "array",
+          "items": {
+           "type": "object",
+           "propertyNames": {
+            "type": "string"
+           },
+           "additionalProperties": {}
+          }
+         },
+         "settle_text": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "question": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "to": {
+              "type": [
+               "string",
+               "null"
+              ]
+             },
+             "text": {
+              "type": "string"
+             }
+            },
+            "required": [
+             "to",
+             "text"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "id",
+         "kind",
+         "kind_text",
+         "quotes",
+         "comparisons",
+         "settle_text",
+         "question"
+        ],
+        "additionalProperties": false
+       }
+      }
+     },
+     "required": [
+      "at_version",
+      "snapshot",
+      "scope",
+      "source",
+      "provisional",
+      "provisional_text",
+      "lead",
+      "cruxes"
+     ],
+     "additionalProperties": false
+    },
     "marks": {
      "type": "array",
      "items": {
@@ -9873,6 +10176,65 @@
        "next"
       ],
       "additionalProperties": false
+     },
+     "degraded": {
+      "type": "object",
+      "properties": {
+       "text": {
+        "type": "string"
+       },
+       "title": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "text",
+       "title"
+      ],
+      "additionalProperties": false
+     },
+     "ask": {
+      "type": "string",
+      "enum": [
+       "message",
+       "challenge",
+       "method",
+       "move",
+       "consider"
+      ]
+     },
+     "about": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "press": {
+      "type": "object",
+      "properties": {
+       "kind": {
+        "type": "string",
+        "enum": [
+         "explain",
+         "ask_about"
+        ]
+       },
+       "card": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "label": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "kind",
+       "card",
+       "label"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [
@@ -10127,6 +10489,138 @@
     "savedNotShown",
     "triedFailed",
     "askChangeDraft"
+   ],
+   "additionalProperties": false
+  },
+  "intake": {
+   "type": "object",
+   "properties": {
+    "figures": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "source": {
+        "anyOf": [
+         {
+          "type": "object",
+          "properties": {
+           "row": {
+            "anyOf": [
+             {
+              "type": "number"
+             },
+             {
+              "type": "string",
+              "const": "brief"
+             }
+            ]
+           },
+           "start": {
+            "type": "number"
+           },
+           "end": {
+            "type": "number"
+           }
+          },
+          "required": [
+           "row",
+           "start",
+           "end"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "quote": {
+        "type": "string"
+       },
+       "unit": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "stated": {
+        "type": "object",
+        "properties": {
+         "value": {
+          "anyOf": [
+           {
+            "type": "object",
+            "properties": {
+             "point": {
+              "type": "number"
+             }
+            },
+            "required": [
+             "point"
+            ],
+            "additionalProperties": false
+           },
+           {
+            "type": "object",
+            "properties": {
+             "low": {
+              "type": "number"
+             },
+             "high": {
+              "type": "number"
+             }
+            },
+            "required": [
+             "low",
+             "high"
+            ],
+            "additionalProperties": false
+           }
+          ]
+         },
+         "bound": {
+          "anyOf": [
+           {
+            "type": "string",
+            "enum": [
+             "at_least",
+             "at_most",
+             "unresolved"
+            ]
+           },
+           {
+            "type": "null"
+           }
+          ]
+         }
+        },
+        "required": [
+         "value",
+         "bound"
+        ],
+        "additionalProperties": false
+       },
+       "record": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "source",
+       "quote",
+       "unit",
+       "stated",
+       "record"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "figures"
    ],
    "additionalProperties": false
   },
@@ -10876,6 +11370,22 @@
       "type": "boolean",
       "const": true
      },
+     "degraded": {
+      "type": "object",
+      "properties": {
+       "text": {
+        "type": "string"
+       },
+       "title": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "text",
+       "title"
+      ],
+      "additionalProperties": false
+     },
      "unanswered": {
       "type": "object",
       "properties": {
@@ -10980,6 +11490,39 @@
       },
       "at": {
        "type": "string"
+      },
+      "about": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "press": {
+       "type": "object",
+       "properties": {
+        "kind": {
+         "type": "string",
+         "enum": [
+          "explain",
+          "ask_about"
+         ]
+        },
+        "card": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "label": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "kind",
+        "card",
+        "label"
+       ],
+       "additionalProperties": false
       }
      },
      "required": [
@@ -11056,6 +11599,133 @@
      "type": "null"
     }
    ]
+  },
+  "reasoning": {
+   "type": "object",
+   "properties": {
+    "examined": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "question_id": {
+        "type": "string"
+       },
+       "question": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "about": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "supplied": {
+        "type": "object",
+        "properties": {
+         "by": {
+          "type": "string"
+         },
+         "by_id": {
+          "type": "string"
+         },
+         "text": {
+          "type": [
+           "string",
+           "null"
+          ]
+         },
+         "at": {
+          "type": "string"
+         }
+        },
+        "required": [
+         "by",
+         "by_id",
+         "text",
+         "at"
+        ],
+        "additionalProperties": false
+       },
+       "bound": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "finding": {
+        "anyOf": [
+         {
+          "type": "object",
+          "properties": {
+           "row": {
+            "type": "number"
+           },
+           "text": {
+            "type": "string"
+           }
+          },
+          "required": [
+           "row",
+           "text"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "mentioned": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       },
+       "limits": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "proposal_id": {
+        "type": [
+         "number",
+         "null"
+        ]
+       },
+       "olumi": {
+        "type": "boolean",
+        "const": true
+       }
+      },
+      "required": [
+       "id",
+       "question_id",
+       "question",
+       "about",
+       "supplied",
+       "bound",
+       "finding",
+       "mentioned",
+       "limits",
+       "proposal_id",
+       "olumi"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "examined"
+   ],
+   "additionalProperties": false
   },
   "strategy": {
    "type": "object",

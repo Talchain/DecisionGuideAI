@@ -188,9 +188,8 @@ export type View = {
           ref: string
           role: "figure" | "link" | "calculation" | "risk" | "aim" | "limit" | "option" | "note"
         }>
-        tips?: string
-        /** A7(a), core wip/science-a7-next-test: on a withheld aim row, the one input to check (core's words). */
         next_test?: string
+        tips?: string
         draw_bounds?: {
           draws: number
           met: number
@@ -229,6 +228,7 @@ export type View = {
         icon: string
       } | null
       unused?: string | null
+      used?: boolean
       values: Array<{
         option: string
         text: string
@@ -751,14 +751,14 @@ export type View = {
           }>
         } | null
       }>
+      bar_of?: string
       worth_checking?: Array<{
-        code: "olumi_estimate_under_every_aim" | "result_rests_on_olumi_range" | "estimate_held_as_one_figure" | "only_supporting_evidence" | "one_evidence_for_several_figures" | "narrow_range" | "view_without_evidence" | "assumption_without_test"
+        code: "olumi_estimate_under_every_aim" | "result_rests_on_olumi_range" | "estimate_held_as_one_figure" | "only_supporting_evidence" | "one_evidence_for_several_figures" | "narrow_range" | "view_without_evidence" | "assumption_without_test" | "olumi_range_turns"
         title: string
         text: string
         rests_on: Array<string>
         olumi: true
       }>
-      bar_of?: string
     }>
     links: Array<{
       from: string
@@ -837,6 +837,7 @@ export type View = {
       } | null
       direction?: "raises" | "lowers" | "depends" | "disputed" | "unknown" | null
       confidence?: "likely" | "unsure" | "unknown" | null
+      label_key?: string | null
     }>
     run: {
       aim: string | null
@@ -1155,6 +1156,12 @@ export type View = {
           line: string
         }>
       }
+      finding?: {
+        text: string
+        figure: string | null
+        needs: string | null
+        title: string
+      }
       lenses: Array<{
         id: "goal" | "outcome"
         label: string
@@ -1192,6 +1199,13 @@ export type View = {
       text: string
     }>
     coaching_questions?: Array<string>
+    questions?: Array<{
+      id: string
+      text: string
+      about: string | null
+      role: "value" | "due" | "measure" | null
+      unit: "day" | "week" | "month" | "year" | null
+    }>
     trial_questions?: Array<{
       id: string
       text: string
@@ -1269,6 +1283,12 @@ export type View = {
         ids: Array<string>
         why: string
       } | null
+      needs: Array<{
+        id: string
+        top: false
+        kind: "required" | "optional" | "one_of"
+        why: string
+      }>
       accepted?: Array<{
         record_id: string
         field: string
@@ -1376,6 +1396,11 @@ export type View = {
           gap_high: number
           differ: number
         }>
+        assumed?: Array<string>
+        model_assumed?: Array<string>
+        leader_unavailable?: true
+        leader_note?: string
+        model_leader_note?: string
         chip?: string
         not_compared?: Array<string>
         scope_text?: string
@@ -1618,6 +1643,35 @@ export type View = {
       text: string
       about: Array<string>
     } | null
+    round_read?: {
+      at_version: number
+      snapshot: string
+      scope: string
+      source: "olumi"
+      provisional: true
+      provisional_text: string
+      lead: string
+      cruxes: Array<{
+        id: string
+        kind: "estimate" | "cause" | "framing" | "priorities_question"
+        kind_text: string
+        quotes: Array<{
+          id: string
+          view_id: number
+          holder_id: string
+          holder: string
+          text: string
+        }>
+        comparisons: Array<{
+          [key: string]: unknown
+        }>
+        settle_text: string | null
+        question: {
+          to: string | null
+          text: string
+        } | null
+      }>
+    }
     marks?: Array<{
       card: string
       kind: "shared" | "unique" | "disagreement" | "evidence"
@@ -1806,6 +1860,17 @@ export type View = {
       limit: string
       next: string | null
     }
+    degraded?: {
+      text: string
+      title: string
+    }
+    ask?: "message" | "challenge" | "method" | "move" | "consider"
+    about?: string | null
+    press?: {
+      kind: "explain" | "ask_about"
+      card: string | null
+      label: string
+    }
   }>
   model_words: {
     changeFigure: string
@@ -1866,6 +1931,27 @@ export type View = {
     askChangeDraft: {
       [key: string]: string
     }
+  }
+  intake?: {
+    figures: Array<{
+      source: {
+        row: number | "brief"
+        start: number
+        end: number
+      } | null
+      quote: string
+      unit: string | null
+      stated: {
+        value: {
+          point: number
+        } | {
+          low: number
+          high: number
+        }
+        bound: "at_least" | "at_most" | "unresolved" | null
+      }
+      record: string | null
+    }>
   }
   brief: string
   brief_by?: string
@@ -2006,6 +2092,10 @@ export type View = {
       points: Array<string>
     }
     held?: true
+    degraded?: {
+      text: string
+      title: string
+    }
     unanswered?: {
       status: "failed" | "lost"
       words: string | null
@@ -2026,6 +2116,12 @@ export type View = {
     words: string | null
     started: string
     at: string
+    about?: string | null
+    press?: {
+      kind: "explain" | "ask_about"
+      card: string | null
+      label: string
+    }
   } | null
   reply?: {
     job: number
@@ -2038,6 +2134,29 @@ export type View = {
     started: string
     at: string
   } | null
+  reasoning?: {
+    examined: Array<{
+      id: string
+      question_id: string
+      question: string | null
+      about: string | null
+      supplied: {
+        by: string
+        by_id: string
+        text: string | null
+        at: string
+      }
+      bound: string | null
+      finding: {
+        row: number
+        text: string
+      } | null
+      mentioned: Array<string>
+      limits: string | null
+      proposal_id: number | null
+      olumi: true
+    }>
+  }
   strategy?: {
     items: Array<{
       id: string

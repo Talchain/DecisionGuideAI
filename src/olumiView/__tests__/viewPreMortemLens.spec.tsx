@@ -88,12 +88,13 @@ describe('the "If it failed" lens on the lane', () => {
   })
 
   it('their reasons written and Olumi has told no stories: core\'s own words say so, and the ask is offered only while core\'s menu offers pre_mortem', () => {
-    show(withStories(false, true))
+    // The menu is set here, by meaning (core's golden menu may or may not offer pre_mortem).
+    const v = withStories(false, true), others = v.session.methods.filter((m) => m.id !== 'pre_mortem')
+    show({ ...v, session: { ...v.session, methods: others } })
     expect(screen.getByTestId('view-premortem-empty').textContent).toBe('Olumi has not imagined this model failing yet.')
     expect(screen.queryByTestId('view-premortem-ask')).toBeNull()
     cleanup()
-    const v = withStories(false, true)
-    show({ ...v, session: { ...v.session, methods: [...v.session.methods, { id: 'pre_mortem', text: 'Imagine it failed', first: false }] } })
+    show({ ...v, session: { ...v.session, methods: [...others, { id: 'pre_mortem', text: 'Imagine it failed', first: false }] } })
     expect(screen.getByTestId('view-premortem-ask').textContent).toBe('Ask Olumi to imagine it failed')
   })
 
