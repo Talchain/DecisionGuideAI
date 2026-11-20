@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
@@ -54,7 +53,7 @@ export function TeamTab(): JSX.Element {
 
   return (
     <div data-testid="team-tab" className="grid gap-4 pb-6">
-      {shown === null && <TabHead heading="Team" sid={sid} />}
+      {shown === null && <TabHead heading="Team" />}
       {!sid && <p className={BODY} data-testid="team-none">Start a model in the chat first. The team works on a model that is already saved.</p>}
       {sid && status === 'loading' && view === null && <p className={BODY} data-testid="team-loading">Reading your team’s page…</p>}
       {sid && view === null && status === 'error' && (
@@ -69,22 +68,9 @@ export function TeamTab(): JSX.Element {
   )
 }
 
-/** The tab's heading line with "Check for new views". `heading` is core's `collab.heading` once a View is drawn. */
-function TabHead({ heading, sid }: { heading: string; sid: string | null }): JSX.Element {
-  const status = useViewStore((s) => s.status)
-  const refresh = useViewStore((s) => s.refresh)
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <h2 className={H} data-testid="team-views-heading">{heading}</h2>
-      <button
-        type="button" data-testid="team-check" disabled={!sid || status === 'loading'} onClick={() => void refresh()}
-        className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1 underline underline-offset-2 hover:text-text-body disabled:cursor-not-allowed disabled:no-underline disabled:text-text-light`}
-      >
-        {status === 'loading' ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />}
-        Check for new views
-      </button>
-    </div>
-  )
+/** The tab's heading line: `heading` is core's `collab.heading` once a View is drawn. Another member's change arrives on its own (the poll), so no press asks for it. */
+function TabHead({ heading }: { heading: string }): JSX.Element {
+  return <h2 className={H} data-testid="team-views-heading">{heading}</h2>
 }
 
 /** Whose view is in, where the View says so: yours once given, another member's once it is shown to you. Nobody else's private state is drawn. */
@@ -190,7 +176,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   return (
     <>
       <div className="grid gap-2">
-        <TabHead heading={view.collab.heading} sid={sid} />
+        <TabHead heading={view.collab.heading} />
         <Members view={view} />
       </div>
       {stale && <p role="alert" className={ERR} data-testid="team-stale">{stale} What you see may be out of date.</p>}

@@ -49,9 +49,10 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   if (!lines || m.sid === null || m.sid !== sid || m.to === null || m.from === null || shownN !== m.to) return null
   const hover = lines.map((l) => (l.detail ? `${l.text}\n${l.detail}` : l.text)).join('\n')
   return (
+    // The words wrap inside the band's own width (min-w-0, no nowrap) rather than run on under the card's action rail; the band's height holds two lines.
     // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
     <BottomCardMark>
-      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+      <span className={`inline-flex min-w-0 items-center gap-1 rounded-xl border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
         title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
     </BottomCardMark>
   )

@@ -278,9 +278,10 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const first = since !== null && since.to.n === base ? since.from.n : base - 1
   const [picked, setPicked] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  // The what-if press is offered only where the form has something to show: a figure core lets the person set on the version shown, or
-  // the line saying a waiting change must be dealt with first (WhatIfSave draws nothing otherwise).
-  const canSave = useViewStore((s) => s.at === null && s.sid === sid && (s.view?.proposal != null || (s.view?.model?.cards ?? []).some((c) => c.figure?.edit != null)))
+  // The what-if press is offered only where it can act: a figure core lets the person set on the version shown (while a change waits, core
+  // offers none, so no press), or the form already open, which stays so a started draft is kept (WhatIfSave says what it waits for).
+  const settable = useViewStore((s) => s.at === null && s.sid === sid && (s.view?.model?.cards ?? []).some((c) => c.figure?.edit != null))
+  const canSave = settable || saving
   const earlier: Group = { label: 'Earlier versions', choices: Array.from({ length: base - 1 }, (_, i) => base - 1 - i).map((n) => ({ value: `v:${n}`, label: `Version ${n}`, title: `Version ${n} of this scenario, as approved` })) }
   const whatIfs: Group = { label: 'Saved what-ifs', choices: [...own.whatifs].reverse().map((w) => ({ value: w.id, label: `What-if: ${w.name}`, title: w.about })) }
   const scenarios: Group = { label: 'Your other scenarios', choices: (Array.isArray(others) ? others : []).map((o) => ({ value: o.id, label: o.label, title: o.title })) }
@@ -372,8 +373,8 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
       <Changes c={c} since={since} />
       <section className="grid gap-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
         {/* No heading that promises movement over nothing (18 Nov audit compare-model-02): what did not move is counted below, as it was. */}
-        {/* The label stands wherever core gives results, moved or not (Codex 2facfb64 review); the heading only over a move. */}
-        {c.results.length === 0 ? null : <div className="flex flex-wrap items-center gap-2">{moved.length === 0 ? null : <h4 className={H}>What moved</h4>}<SeparateRuns /></div>}
+        {/* The label is drawn only where it labels something: the moved list, on its heading line. Nothing moved, the counted line says it. */}
+        {moved.length === 0 ? null : <div className="flex flex-wrap items-center gap-2"><h4 className={H}>What moved</h4><SeparateRuns /></div>}
         {moved.length === 0 ? null : (
           <ul className="m-0 grid list-none gap-3 p-0">
             {moved.map(({ r, i }) => <MovedResult key={i} r={r} i={i} />)}
