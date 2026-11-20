@@ -8,7 +8,6 @@
  */
 import type { View, ViewTurn } from '../client'
 import { sessionOf, type SessionMethod } from '../layout'
-import { replyHasNext } from '../replyHasNext'
 
 /** The reply's next step as core words it (`answer.next`), with `move` the coach's move id. */
 export type Next = NonNullable<ViewTurn['answer']>['next']
@@ -66,48 +65,15 @@ export function menuOf(view: View): Menu | null {
   }
 }
 
-/** One figure the chances wait on (core's `run.waits_on.items[]`). */
-export type WaitsOnItem = NonNullable<NonNullable<NonNullable<View['model']>['run']>['waits_on']>['items'][number]
-
-export type NextStep =
-  | { readonly kind: 'approve' }
-  /** The first figure the chances wait on that core lets them type (`edit` non-null, on a version they may edit). In core's words; drawn with the figure's own editor. */
-  | { readonly kind: 'figure'; readonly item: WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  /** The newest reply's own move, drawn under that reply as its one tap (ViewChat MoveTap); no second card. */
-  | { readonly kind: 'move'; readonly turn: number; readonly next: Next }
-  /** The first question core puts for the person's goal. */
-  | { readonly kind: 'method'; readonly method: MenuMethod }
-  | { readonly kind: 'invite' }
-
-/** A person who is alone has begun a private view: the part that needs others is the reveal, so the step is to bring someone in. */
-const teamActivity = (view: View): boolean => view.collab.alone && view.collab.mine.length > 0
+/** The panel's one pinned step is a proposal Olumi holds. Every other next step is the newest reply's own `answer.next`, drawn once at that reply's end (ViewChat Turn). */
+export type NextStep = { readonly kind: 'approve' }
 
 /**
- * The one thing for the person to do next, from their purpose and the state, in this order:
- *  1. a proposal Olumi holds (nothing is kept until it is approved);
- *  2. the newest reply's own move, when it is a real move (never the filler) and has not gone stale (`isGone`): the person's reasoning
- *     comes before completing the model (Codex 006: after a question, the step asked for a figure no one could size yet);
- *  3. the first figure the chances wait on that core lets them type and someone can give (never one core marks `unknown`: no one can size it
- *     yet; it stays on its card, "waits on", with its editor, whatever leads here).
- *     The DL's exception (the figure leads when the latest ask needs the result it blocks) waits on core saying so explicitly: Codex 006h
- *     found that no proxy in the View today (core's own question, a card the reply points at) establishes that dependency;
- *  4. the first question core orders for the goal (`first`: with no goal nothing leads, so none is chosen);
- *  5. bringing a colleague in, only while the View shows a team activity begun alone.
- * Else nothing: the conversation is the next step.
+ * The one step the panel pins: a proposal Olumi holds (nothing is kept until it is approved). Nothing else is chosen here (system spec P2): the
+ * newest reply's own move is drawn at the end of that reply, once; the UI no longer picks a method, a figure or an invitation of its own.
  */
-export function nextStepFor(view: View, isGone: (turn: number, move: string) => boolean = () => false): NextStep | null {
-  if (view.proposal !== null) return { kind: 'approve' }
-  // DL ruling (17 Nov, ~10:00Z): a figure core marks as one no one can size yet (`unknown`) is never the step; it stays on its card in core's
-  // words, and the next step goes on (the goal's first question). Only a figure someone can give is asked for here.
-  const figure = view.model?.edit_base == null ? undefined : view.model.run?.waits_on?.items.find((i) => i.edit !== null && i.unknown == null)
-  const figureStep = figure === undefined ? null : { kind: 'figure' as const, item: figure as WaitsOnItem & { edit: NonNullable<WaitsOnItem['edit']> } }
-  const t = view.chat.at(-1)
-  if (t?.answer != null && t.answer.next.newest && isRealMove(t.answer.next.move) && !isGone(t.id, t.answer.next.move)) return { kind: 'move', turn: t.id, next: t.answer.next }
-  if (figureStep !== null) return figureStep
-  const m = view.version === null ? null : menuOf(view)?.methods.find((x) => x.first)
-  if (m !== undefined && m !== null) return { kind: 'method', method: m }
-  if (view.version !== null && !replyHasNext(view) && teamActivity(view)) return { kind: 'invite' }
-  return null
+export function nextStepFor(view: View): NextStep | null {
+  return view.proposal !== null ? { kind: 'approve' } : null
 }
 
 /** The method replies are the turns whose `said` is one of core's own menu questions, word for word. */

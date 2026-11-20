@@ -14,7 +14,7 @@ import { useLaneInspector } from '../edit/inspectorStore'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import { ExpectationEntry } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
-import { OkIcon } from '../../look/icons'
+import { OkIcon, OkIconButton } from '../../look/icons'
 import { VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 
 /**
@@ -87,11 +87,12 @@ function useCommitReach(): { view: View; sid: string } | null {
   return view === null || !sid || at !== null || !isForThisPage(view, me) ? null : { view, sid }
 }
 
-/** The Next step card's secondary button: commitment is a step, not a footnote. It only opens the form below. */
+/** P5 (system spec): "Record what you will do" is an icon in the panel's top row, its words the hover (the registry's `commit-action`, through the one Tip). It only opens
+ *  the form below (the same form, draft and write route as ever); commitment stays a step, not a footnote. */
 export function RecordStepButton(): JSX.Element | null {
   const reach = useCommitReach()
   if (reach === null) return null
-  return <Button size="sm" variant="secondary" data-testid="view-next-record" onClick={() => openCommitDraft(reach.sid, reach.view)}>{COMMIT_WORDS.nextStepButton}</Button>
+  return <OkIconButton id="commit-action" words={COMMIT_WORDS.nextStepButton} testid="view-next-record" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={() => openCommitDraft(reach.sid, reach.view)} />
 }
 
 /** A kept idea's "Use as my action": its words, verbatim, in the form's first box as the person's draft. */

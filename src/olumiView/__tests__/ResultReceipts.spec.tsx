@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -24,11 +24,7 @@ describe('the basis of an answer', () => {
     render(<ResultReceipts claims={[first, { ...first, cite: '[[chance:firms:round:a2]]', analysis: 'a2', result: 'firms:round',
       option: 'firms', optionName: 'Institutional round', aim: 'round', aimName: 'Main round closed', version: 1, status: 'saved',
       basis: 'The full round must close', conditions: 'Subject to a lead investor', superseded: true, assumptions: [] }]} />)
-    const toggle = screen.getByText('What these results rest on')
-    const details = toggle.closest('details')!
-    expect(details.open).toBe(false)
-    toggle.click()
-    expect(details.open).toBe(true)
+    // P4 (system spec): the list is drawn inside the reply's one facts disclosure (ReplyFacts), so it has no fold of its own.
     const row = screen.getByText('Angel bridge').closest('li')!
     expect(within(row).getByText(/If investors reply within a week/)).toBeTruthy()
     expect(row.textContent).toContain('Timing improvement · 2 to 6 (most likely 4) weeks')
@@ -59,9 +55,12 @@ describe('the basis of an answer', () => {
     const { container } = render(<ViewChat />)
     const bubble = container.querySelector('[data-view-turn="chat.' + index + '"]')!
     expect(within(bubble as HTMLElement).getByText(first.rendered)).toBeTruthy()
-    const toggle = within(bubble as HTMLElement).getByText('What these results rest on')
-    toggle.click()
-    expect(toggle.closest('details')!.open).toBe(true)
+    // P4 (system spec): closed at rest; the facts row's rests-on icon opens ONE disclosure holding the receipts (and the why lines, where the reply has them).
+    expect(within(bubble as HTMLElement).queryByText(first.conditions)).toBeNull()
+    const toggle = within(bubble as HTMLElement).getByTestId('view-reply-rests')
+    expect(toggle.getAttribute('aria-label')).toContain('What these results rest on')
+    fireEvent.click(toggle)
+    expect(within(bubble as HTMLElement).getByText('What these results rest on')).toBeTruthy()
     expect(within(bubble as HTMLElement).getByText(first.conditions)).toBeTruthy()
   })
   it('identifies a first proposal before any model was approved', () => {

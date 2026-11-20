@@ -1,6 +1,6 @@
 /**
- * V12 one action system: the menu's order, the next step chosen from purpose (proposal, the reply's real move, the goal's first question,
- * invite), filler suppression, and the analysis prerequisite. Bound by identity to core's own Views (fixtures/session, golden).
+ * V12 one action system: the menu's order, the one pinned step (a proposal; every other next step is the newest reply's own, drawn at its end), filler
+ * suppression, and the analysis prerequisite. Bound by identity to core's own Views (fixtures/session, golden).
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -56,47 +56,24 @@ describe('the menu', () => {
 
 describe('the next step', () => {
   const base = session('goal-understand')
-  it('a proposal awaiting approval comes first, over a real move and a goal', () => {
+  it('the panel pins only a proposal awaiting approval', () => {
     const p = golden('proposal')
     expect(nextStepFor(p)?.kind).toBe('approve')
   })
-  it('else the newest reply\'s own real move', () => {
-    const s = nextStepFor(withMove(base, 'pre_mortem'))
-    expect(s).toMatchObject({ kind: 'move', next: { move: 'pre_mortem' } })
-    expect(s?.kind === 'move' && s.turn).toBe(base.chat.at(-1)!.id)
+  it('system spec P2: nothing else is chosen here: not the reply\'s move, a method, a figure or an invitation', () => {
+    // the newest reply's real move is drawn at that reply's end (ViewChat Turn), never as a step the UI picks
+    expect(nextStepFor(withMove(base, 'pre_mortem'))).toBeNull()
+    // contrast: the filler move, a goal with a first question, and a person alone with a view begun all gave a step before
+    expect(nextStepFor(withMove(base, FILLER_MOVE))).toBeNull()
+    expect(nextStepFor(withMove(noMoveGoal(base, 'better_option'), FILLER_MOVE))).toBeNull()
+    const alone: View = { ...base, collab: { ...base.collab, alone: true, mine: [{} as never] } }
+    expect(nextStepFor(alone)).toBeNull()
   })
-  it('the filler move is suppressed: the goal\'s first question is the step instead', () => {
-    const s = nextStepFor(withMove(base, FILLER_MOVE))
-    expect(s).toMatchObject({ kind: 'method', method: { id: 'right_question', first: true } })
+  it('a filler move is never a real move', () => {
     expect(isRealMove(FILLER_MOVE)).toBe(false)
     expect(isRealMove('')).toBe(false)
     expect(isRealMove(null)).toBe(false)
-  })
-  it('a move that is not the newest reply\'s, or that core has refused as stale, is not the step', () => {
-    expect(nextStepFor(withMove(base, 'pre_mortem', false))?.kind).toBe('method')
-    expect(nextStepFor(withMove(base, 'pre_mortem'), (turn, move) => turn === base.chat.at(-1)!.id && move === 'pre_mortem')?.kind).toBe('method')
-  })
-  it('the first question follows the person\'s goal: another goal, another first question', () => {
-    const better = nextStepFor(withMove(noMoveGoal(base, 'better_option'), FILLER_MOVE))
-    expect(better?.kind).toBe('method')
-    // core's own order for the goal is the View's session.methods: the first `first` one
-    expect(better?.kind === 'method' && better.method.id).toBe(base.session.methods.find((m) => m.first)!.id)
-  })
-  it('with no goal nothing leads, so no question is chosen for them (and no invite while they are not alone with a view begun)', () => {
-    expect(nextStepFor(withMove(noMoveGoal(base, null), FILLER_MOVE))).toBeNull()
-  })
-  it('invite only when the View shows a team activity begun alone', () => {
-    const q0 = withMove(noMoveGoal(base, null), FILLER_MOVE)
-    // the reply asks nothing of its own (an invitation never stacks under a reply's own question: replyHasNext)
-    const quiet: View = { ...q0, chat: q0.chat.map((t, i) => (i === q0.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, text: [] } } } : t)) }
-    const alone: View = { ...quiet, collab: { ...quiet.collab, alone: true, mine: [] } }
-    expect(nextStepFor(alone)).toBeNull()
-    const begun: View = { ...alone, collab: { ...alone.collab, mine: [{} as never] } }
-    expect(nextStepFor(begun)?.kind).toBe('invite')
-    // contrast: with a goal's question available it is the question, never an invite
-    expect(nextStepFor({ ...begun, session: base.session })?.kind).toBe('method')
-    // and not once others are in
-    expect(nextStepFor({ ...begun, collab: { ...begun.collab, alone: false } })).toBeNull()
+    expect(isRealMove('pre_mortem')).toBe(true)
   })
 })
 

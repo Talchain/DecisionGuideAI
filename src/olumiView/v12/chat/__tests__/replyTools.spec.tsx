@@ -3,7 +3,7 @@
  * 6.  A reply's bookkeeping is ONE icon row: one "N on the canvas" chip, icon buttons whose words stay in the page, core's status line behind an icon.
  * 10. No strip above the thread; the popout lives in the composer's icon row; the thread's top edge fades.
  * 11. "Ask this again" on an unanswered floor entry and on an unanswered chat turn copies that message's words into the composer draft; sends nothing.
- * 12. "Record what you will do" is a secondary button in the Next step card; "Use as my action" puts a kept idea's words verbatim into the first box.
+ * 12. "Record what you will do" is an icon in the panel's top row; "Use as my action" puts a kept idea's words verbatim into the first box.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -96,12 +96,16 @@ describe('11. "Ask this again" copies the words into the composer and sends noth
   })
 })
 
-describe('12. committing is a step: a secondary button in the Next step card, and "Use as my action"', () => {
-  it('the Next step card holds a secondary "Record what you will do"; pressing opens the form blank, and nothing is sent', async () => {
+describe('12. committing is a step: an icon in the panel\'s top row, and "Use as my action"', () => {
+  it('P5: the panel\'s top row holds a "Record what you will do" icon (its words are the hover and name); pressing opens the form blank, and nothing is sent', async () => {
     const c = mount(session('after-find-first'))
-    const card = q(c, 'view-next-step')!
-    const b = q(card, 'view-next-record')!
-    expect(b).toHaveTextContent('Record what you will do')
+    const row = q(c, 'view-chat-top-row')!
+    const b = q(row, 'view-next-record')!
+    expect(b.getAttribute('aria-label')).toBe('Record what you will do')
+    expect(b.title).toBe('Record what you will do')
+    expect(b.querySelector('svg'), 'an icon, no visible words').not.toBeNull()
+    expect(b.textContent).toBe('')
+    expect(q(c, 'view-next-step')).toBeNull() // it is no longer the Next step card's button
     expect(q(c, 'commit-form-action')).toBeNull()
     await press(b)
     expect((q(c, 'commit-form-action') as HTMLTextAreaElement).value).toBe('')

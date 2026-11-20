@@ -10,7 +10,7 @@ import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import type { View } from '../client'
-import { stepTurnOf, ViewConversation } from '../ViewChat'
+import { ViewConversation } from '../ViewChat'
 import { useViewStore } from '../store'
 
 const read = (p: string): View => JSON.parse(readFileSync(path.resolve(p), 'utf8'))
@@ -29,6 +29,8 @@ afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 const unfold = (root: HTMLElement) => {
   for (const t of root.querySelectorAll<HTMLElement>('[data-view-turn]')) if (t.querySelector('[data-view$=".answer.answer.0.text"]') !== null) expect(t.querySelector('[data-reply-opening]'), 'the opening is drawn at rest').not.toBeNull()
   root.querySelectorAll<HTMLElement>('[data-testid="view-reply-fold"]').forEach((b) => fireEvent.click(b))
+  // P4 (system spec): what a reply rests on and its Why lines are ONE disclosure behind the facts row's icon, pressed once, as the person does.
+  root.querySelectorAll<HTMLElement>('[data-testid="view-reply-rests"]').forEach((b) => fireEvent.click(b))
 }
 
 describe('a reply leads with its answer; the reasons are behind "Why"', () => {
@@ -37,14 +39,15 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
       const v = read(f)
       useViewStore.setState({ view: v })
       const { container } = render(<ViewConversation chat={v.chat} />)
+      expect(container.querySelector('[data-reply-more]'), 'closed at rest: no Why line is drawn until the facts icon is pressed').toBeNull()
       unfold(container)
       const withWhy = v.chat.map((t, i) => ({ t, i })).filter(({ t }) => t.answer !== null && t.answer.why.length > 0)
       expect(withWhy.length, 'precondition: a reply with Why lines').toBeGreaterThan(0)
       for (const { t, i } of withWhy) {
         const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
         const lead = turn.querySelector<HTMLElement>(`[data-reply-lead="chat.${i}"]`)!
-        const more = turn.querySelector<HTMLDetailsElement>(`[data-reply-more="chat.${i}"]`)!
-        expect([more.open, more.querySelector('summary')?.textContent]).toEqual([false, 'Why, and what moves it'])
+        const more = turn.querySelector<HTMLElement>(`[data-reply-more="chat.${i}"]`)!
+        expect(more.querySelector('section[aria-label="Why, and what moves it"]'), 'the Why lines are one section of the facts disclosure').not.toBeNull()
         // the whole answer is the lead: EVERY text piece of core's answer, at its own View path, with its exact words, is in the lead, none in the fold
         const pieces = piecesOf(t.answer!.answer, `chat.${i}.answer.answer`)
         expect(pieces.length, 'precondition: the answer has words').toBeGreaterThan(0)
@@ -62,11 +65,9 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
           }
         }
         // the lead comes before the next step, and the next step is outside "Why"
-        // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): when this reply's move IS the panel's Next step it is drawn once, in that card at the top,
-        // not under the reply. Every other reply keeps its next line here.
+        // CHANGED BY DESIGN (system spec P2): every reply keeps its next line here, at its end; the card at the top is gone.
         const next = turn.querySelector('[data-testid="view-chat-next"]')
-        if (stepTurnOf(v, null, null) === t.id) expect(next).toBeNull()
-        else expect([!!(lead.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING), more.contains(next)]).toEqual([true, false])
+        expect([!!(lead.compareDocumentPosition(next!) & Node.DOCUMENT_POSITION_FOLLOWING), more.contains(next)]).toEqual([true, false])
       }
     })
   }
@@ -89,7 +90,7 @@ describe('a reply leads with its answer; the reasons are behind "Why"', () => {
     const { container } = render(<ViewConversation chat={bare.chat} />)
     unfold(container)
     const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
-    expect([turn.querySelector('[data-reply-lead]'), turn.querySelector('[data-reply-more]')]).toEqual([null, null])
+    expect([turn.querySelector('[data-reply-lead]'), turn.querySelector('[aria-label="Why, and what moves it"]')]).toEqual([null, null])
     const pieces = piecesOf(bare.chat[i]!.answer!.answer, `chat.${i}.answer.answer`)
     expect(pieces.length).toBeGreaterThan(0)
     for (const { path: at, words } of pieces) {

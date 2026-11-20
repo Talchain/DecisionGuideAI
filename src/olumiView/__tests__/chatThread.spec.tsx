@@ -52,7 +52,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
       expect(answer.querySelector(`[data-view="chat.${i}.answer.answer.0.text"]`)?.textContent).toBe('text' in first ? first.text : null)
       follows(said, answer)
       const receipt = turn.querySelector('[data-testid="view-chat-version"]')!
-      expect(receipt.querySelector(`[data-view="chat.${i}.version"]`)?.textContent).toBe(fixture.chat[i]!.version)
+      // P4 (system spec): the version is the icon's hover and name, not text beside it.
+      expect(receipt.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain(fixture.chat[i]!.version)
       follows(answer, receipt)
     })
     expect(getByTestId('view-chat-latest')).toBe(turns.at(-1))
@@ -81,19 +82,18 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(queryByTestId('v10-method-chips')).toBeNull()
   })
 
-  it('CT4 a turn in flight follows the last saved turn, with thinking dots only while running', () => {
+  it('CT4 a turn in flight follows the last saved turn, with the brand loader only while running (P1: no pulsing dots)', () => {
     show({ ...fixture, turn: running })
     const { getByTestId, queryByTestId } = render(<ViewChat />)
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
     expect(getByTestId('view-chat-turn-words').textContent).toBe(running.words)
     expect(getByTestId('view-chat-turn-seconds').textContent).toMatch(/\d+ s/)
-    const dots = getByTestId('view-chat-dots')
-    expect(dots.getAttribute('aria-hidden')).toBe('true')
-    expect(dots).toHaveClass('motion-safe:animate-pulse')
-    expect(dots.children).toHaveLength(3)
-    expect(dots.textContent).toBe('')
+    const loader = getByTestId('view-chat-turn-loader')
+    expect(loader.getAttribute('aria-hidden')).toBe('true')
+    expect(loader.querySelector('[data-testid="thinking-indicator"]'), 'the brand loader, beside core\'s words').not.toBeNull()
+    expect(queryByTestId('view-chat-dots'), 'the pulsing dots are gone').toBeNull()
     act(() => show({ ...fixture, turn: failed.turn }))
-    expect(queryByTestId('view-chat-dots')).toBeNull()
+    expect(queryByTestId('view-chat-turn-loader')).toBeNull()
     expect(queryByTestId('view-chat-turn-seconds')).toBeNull()
     expect(getByTestId('view-chat-turn-words').textContent).toBe(failed.turn!.words)
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
@@ -308,7 +308,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     act(() => resize([], {} as ResizeObserver)) // the thread's content grew: the browser reports it, the thread rests again
     expect(scroll.scrollTop).toBe(984) // 1000 - 16; the comma query took the early reply: 700 - 16 = 684
   })
-  it('CT8g CATCH (contract 3 on the redesign, 15 Nov): a figure step below a long newest reply does not carry the thread past the reply\'s first line', () => {
+  it('CT8g CATCH (contract 3 on the redesign, 15 Nov): a figure the chances wait on, below a long newest reply, does not carry the thread past the reply\'s first line', () => {
     // A View whose next step is a figure the person can type (core's bakery golden) with a conversation in it.
     const bakery: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
     // DL order (16 Nov): a reply's real move leads; this row is about a figure step, so the newest reply offers only the filler move.
@@ -320,7 +320,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     const scroll = getByTestId('view-chat-scroll')
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
     act(() => show(asked))
-    expect(getByTestId('view-next-step').getAttribute('data-step'), 'precondition: the step is a figure, drawn in the thread').toBe('figure')
+    // CHANGED BY DESIGN (system spec P2): the figure step is gone (the figure stays on its card), so nothing but the reply sits below the newest reply's first line.
+    expect(document.querySelector('[data-testid="view-next-step"]'), 'no figure step is drawn').toBeNull()
     expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
     // CATCH: the step rule alone brings the step whole into view (900 + 150 + 16 - 200 = 866), the reply's first line above the thread.
     expect(scroll.scrollTop).toBe(584) // 600 - 16

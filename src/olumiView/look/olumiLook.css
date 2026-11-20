@@ -482,3 +482,16 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* Paul, 20 Nov ("the blue we're using isn't on brand"): a checkbox drew the browser's default blue, because no colour was ever set. Every tick
    box takes the action green (--success, the Approve button's own fill). An element selector, so a control that sets its own accent keeps it. */
 input[type='checkbox'] { accent-color: var(--success); }
+
+/* panel system */
+/* P6 spacing (system spec): a SECTION is a 1 px line in the border token with 12 px above its content; a STACK is 8 px between its children. Both from the
+   brand --space-* tokens. Applied to the panel sections the system rebuilds (the reply's facts), not scattered through nested groups. */
+.ok-section { border-top: 1px solid var(--border-default); padding-top: var(--space-3); }
+.ok-stack { display: grid; gap: var(--space-2); }
+/* P1 waiting: the brand loader stands above core's words and the seconds. The loader keeps its own reduced-motion rule (ThinkingIndicator). */
+.ok-waiting { display: grid; justify-items: center; gap: var(--space-1); }
+/* P4 reply facts: one compact grey icon row under a reply. */
+.ok-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); color: var(--text-light); }
+/* P5: the panel's top row (Record what you will do), right-aligned; empty when there is nothing to record against. */
+.ok-panel-top { display: flex; justify-content: flex-end; padding: var(--space-1) var(--space-3) 0; }
+.ok-panel-top:empty { display: none; }

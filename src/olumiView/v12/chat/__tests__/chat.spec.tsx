@@ -51,10 +51,13 @@ describe('composer and reply wording', () => {
     expect(render(<ViewComposer />).container.querySelector('#view-chat-text')).toHaveAttribute('placeholder', COMPOSER_PLACEHOLDER)
     expect(COMPOSER_PLACEHOLDER).toBe('Ask about your thinking…')
   })
-  it('a reply with reasons discloses them under "Why, and what moves it"', () => {
+  it('a reply with reasons discloses them under "Why, and what moves it", behind the facts row\'s one icon (P4)', () => {
     show(fixture('after-find-first'))
     const { container } = render(<ViewChat />)
-    expect(container.querySelector('[data-testid="view-chat-latest"] summary')).toHaveTextContent('Why, and what moves it')
+    const latest = container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!
+    expect(latest.querySelector('[data-testid="view-reply-rests-body"]'), 'closed at rest').toBeNull()
+    fireEvent.click(latest.querySelector('[data-testid="view-reply-rests"]')!)
+    expect(latest.querySelector('[data-testid="view-reply-rests-body"]')).toHaveTextContent('Why, and what moves it')
   })
 })
 

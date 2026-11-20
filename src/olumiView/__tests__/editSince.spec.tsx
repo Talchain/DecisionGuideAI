@@ -104,7 +104,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     expect(run(900, 250), 'CONTRAST: a receipt whose top is out of reach from the line keeps the old rule (its foot 16 under the thread foot)').toBe(866)
   })
 
-  it('S4 with a Next step card below it (core asks to bring in a colleague after the save), the receipt still comes into view, not the step', () => {
+  it('S4 with a team activity begun alone (the old invitation card is gone), the receipt still comes into view', () => {
     const top = vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 700 : this.dataset.testid === 'view-next-step' ? 1300 : 600 })
     const tall = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) { return this.dataset.testid === 'view-model-notice-block' ? 200 : this.dataset.testid === 'view-next-step' ? 150 : 0 })
     useUIStore.setState({ activeOutputTab: 'olumi' } as never)
@@ -114,7 +114,8 @@ describe('a saved figure says what it changed (journey 4)', () => {
     const edited = { ...RUN2, collab: { ...RUN2.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false }] }, chat: [...RUN2.chat, { ...RUN2.chat.at(-1)!, id: RUN2.chat.at(-1)!.id + 1, answer: null }] } as unknown as View
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: edited, status: 'ready', error: null, stale: false } as never)
     const el = render(<ViewChat />).container
-    expect(el.querySelector('[data-testid="view-next-step"]'), 'precondition: a Next step card below').not.toBeNull()
+    // CHANGED BY DESIGN (system spec P2): the invitation step is not chosen by the UI any more, so no Next step card is drawn; the receipt still comes into view.
+    expect(el.querySelector('[data-testid="view-next-step"]'), 'no Next step card is drawn').toBeNull()
     const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
     Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })

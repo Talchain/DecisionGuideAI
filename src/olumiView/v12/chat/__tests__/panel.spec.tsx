@@ -84,25 +84,22 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     expect(qa(c, 'view-approve')).toHaveLength(1)
   })
 
-  it('the newest reply\'s move is the step: drawn once, in the card at the top, filled, in core\'s words; the reply does not draw it again', () => {
+  it('P2: the newest reply\'s move is drawn once, at the end of that reply, filled, in core\'s words; there is no card at the top', () => {
     const view = session('after-find-first'), k = view.chat.length - 1, next = view.chat[k]!.answer!.next
     expect([view.proposal, next.newest, typeof next.move]).toEqual([null, true, 'string']) // the fixture's own state, bound here
     const c = show(view)
-    const top = q(c, 'view-chat-step')!, scroll = q(c, 'view-chat-scroll')!
-    expect(before(top, scroll)).toBe(true)
-    const step = q(top, 'view-next-step')!
-    expect(step.getAttribute('data-step')).toBe('move')
-    const tap = q(step, 'view-next-move')!
+    expect(q(c, 'view-chat-step')).toBeNull()
+    expect(q(c, 'view-next-step')).toBeNull()
+    const latest = q(c, 'view-chat-latest')!
+    const tap = q(latest, 'view-next-move')!
     expect(tap.getAttribute('data-move')).toBe(next.move)
     expect(tap.querySelector(`[data-view="chat.${k}.answer.next.label"]`)?.textContent).toBe(next.label)
-    expect(step.querySelector(`[data-view="chat.${k}.answer.next.text.0.text"]`)?.textContent).toBe(words(next.text).length > 0 ? (next.text[0] as { text: string }).text : null)
-    // Said once on the whole panel: one tap, one copy of the words, none of it under the newest reply.
+    expect(latest.querySelector(`[data-view="chat.${k}.answer.next.text.0.text"]`)?.textContent).toBe(words(next.text).length > 0 ? (next.text[0] as { text: string }).text : null)
+    // Said once on the whole panel: one tap, one copy of the words, and the tap follows the words.
     expect(qa(c, 'view-next-move')).toHaveLength(1)
     expect(c.querySelectorAll(`[data-view="chat.${k}.answer.next.text.0.text"]`)).toHaveLength(1)
-    const latest = q(c, 'view-chat-latest')!
-    expect(q(latest, 'view-chat-next')).toBeNull()
-    expect(q(latest, 'view-next-move')).toBeNull()
-    // CONTRAST: an older reply keeps its own next line, under it.
+    expect(before(q(latest, 'view-chat-next')!, tap)).toBe(true)
+    // An older reply keeps its own next line, under it, with no tap.
     expect(c.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')).not.toBeNull()
   })
 

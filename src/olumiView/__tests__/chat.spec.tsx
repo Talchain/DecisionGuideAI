@@ -363,7 +363,9 @@ describe('the writes go straight to core, and the View is read again', () => {
         const board = c.querySelector('[data-testid="view-drafting-board"] [role="status"]')!
         expect(board.getAttribute('aria-live')).toBe('polite')
         expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model') // core's words, verbatim
-        expect(board.textContent).toBe('Building the model5 s') // counted from core's `started`, not from this page
+        // P1 (system spec): the brand loader stands above core's words (it replaced the pulsing dot); the seconds are counted from core's `started`, not from this page.
+        expect(board.querySelector('[data-testid="view-drafting-loader"] [data-testid="thinking-indicator"]')).not.toBeNull()
+        expect([c.querySelector('[data-testid="view-drafting-words"]')?.textContent, c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent]).toEqual(['Building the model', '5 s'])
         await act(async () => { vi.advanceTimersByTime(3000) })
         expect(c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent).toBe('8 s')
         expect(c.querySelector('[data-testid="view-chat-working"]')).toBeNull() // said once, on the board

@@ -69,8 +69,9 @@ describe('1. one quiet footer row per reply', () => {
     expect(chip).toHaveTextContent(aboutCountWords(n)) // and its words for readers ("2 cards")
     expect(chip.title.length).toBeGreaterThan(0) // the hover lists the cards
   })
-  // CHANGED BY DESIGN (D1, independent review of 833c1609): core's version and status words are content, drawn visibly beside the icon (they were an sr-only span inside it).
-  it('D1: the version stamp is a small icon whose hover is core\'s version and status words, AND those words are drawn visibly beside it', () => {
+  // CHANGED BY DESIGN (P4, system spec): the version is its icon alone; core's version and status words are its hover and name (through Tip), no longer drawn beside it
+  // (D1 had drawn them visibly). Was: the words beside the icon.
+  it('P4: the version stamp is a small icon whose hover and name are core\'s version and status words; no version or status text is drawn beside it', () => {
     const view = session('after-find-first')
     const c = mount(view)
     const stamp = q(q(c, 'view-chat-latest')!, 'view-chat-version')!
@@ -78,19 +79,15 @@ describe('1. one quiet footer row per reply', () => {
     const t = view.chat[view.chat.length - 1]!
     expect(icon.title).toContain(t.version)
     expect(icon.getAttribute('aria-label')).toBe(icon.title)
-    const words = stamp.querySelector<HTMLElement>('[data-view$=".version"]')!
-    expect(words.textContent).toBe(t.version)
-    expect(words.closest('.sr-only')).toBeNull() // visible, not for readers only
-    expect(stamp.className).toContain('text-text-light') // small and light: viewPanelMeta
-    expect(stamp.className).toContain(typography.viewPanelMeta)
-    expect(icon.contains(words)).toBe(false) // beside the icon, not inside it
+    expect(stamp.textContent, 'no visible "version N" text').toBe('')
+    expect(stamp.querySelector('[data-view$=".version"], [data-view$=".status"]')).toBeNull()
     expect(t.status, 'this fixture has no status: the version is the one word').toBeNull()
-    // Paul, 19 Nov (one plain status line; DL GO 12:08Z): with a status, ONE word is drawn, core's status; the version is in the icon's hover only.
+    // With a status, the hover says both; still nothing drawn beside the icon.
     cleanup()
     const STATUS = 'An invented status from core.'
     const withStatus = { ...view, chat: view.chat.map((x, k) => (k === view.chat.length - 1 ? { ...x, status: STATUS } : x)) } as View
     const s2 = q(q(mount(withStatus), 'view-chat-latest')!, 'view-chat-version')!
-    expect([s2.querySelector('[data-view$=".status"]')?.textContent, s2.querySelector('[data-view$=".version"]')]).toEqual([STATUS, null])
+    expect(s2.textContent).toBe('')
     expect(s2.querySelector<HTMLElement>('[role="img"]')!.title).toBe(`${t.version} · ${STATUS}`)
   })
 })
