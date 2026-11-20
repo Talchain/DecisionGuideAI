@@ -18,8 +18,9 @@ const chanceRows = (v: View) => (v.model?.cards ?? []).filter((c) => c.family ==
   .flatMap((card) => card.rows.flatMap((row, i) => (row.kind === 'chance' && row.text ? [{ card, row, i }] : [])))
 
 describe('an option\'s chance definition is in its row\'s hover, never body text', () => {
-  it('the goldens carry definitions to test (a positive control: 13 rows across them)', () => {
-    expect(goldens.flatMap(([, v]) => chanceRows(v)).length).toBeGreaterThanOrEqual(13)
+  // Post-list 7: the control counts only rows in core's real words, so the "opens with" check below cannot pass on id placeholders alone.
+  it('the goldens carry definitions to test (a positive control: 13 rows in core\'s real words, placeholders not counted)', () => {
+    expect(goldens.flatMap(([, v]) => chanceRows(v)).filter(({ row }) => !/^⟦[^⟧]+⟧$/.test(row.text!)).length).toBeGreaterThanOrEqual(13)
   })
 
   for (const [name, view] of goldens) {

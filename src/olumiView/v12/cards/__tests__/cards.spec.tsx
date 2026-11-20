@@ -22,7 +22,7 @@ import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
 import { TIP_DELAY } from '../../../look/Tip'
 import { ICONS } from '../../../look/icons'
-import { AuthorMark, cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, WORTH_ICON, worthCheckingOf, worthMarksOf } from '../marks'
+import { AuthorMark, cardMarksOf, QuestionMark, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, WORTH_ICON, worthCheckingOf, worthMarksOf } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -827,5 +827,22 @@ describe('a mark inside a focusable card (Codex P1: the one labelled-icon machin
   it('alone it is its own tab stop', () => {
     const { container } = render(<AuthorMark card={olumis} />)
     expect(container.querySelector('[data-author-mark]')).toHaveAttribute('tabindex', '0')
+  })
+  // Post-list 14: the numbered-question mark (C4) takes the same path as the author mark; the question's words are its name and its tip.
+  it('the numbered-question mark: the card\'s focus opens the question\'s words; alone it is its own tab stop', () => {
+    const words = 'Roughly how much does the uplift bring?'
+    vi.useFakeTimers()
+    try {
+      const { container } = render(<div tabIndex={0} data-testid="host"><QuestionMark id={olumis.id} n={2} words={words} /></div>)
+      const host = container.querySelector<HTMLElement>('[data-testid="host"]')!, mark = container.querySelector<HTMLElement>('[data-question-n]')!
+      expect([[...container.querySelectorAll('[tabindex]')].length, mark.getAttribute('aria-label'), mark.hasAttribute('title')]).toEqual([1, words, false])
+      act(() => { host.focus() })
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(document.querySelector('[data-testid="lane-tip"]')?.textContent).toBe(words)
+      act(() => { host.blur() })
+      expect(document.querySelector('[data-testid="lane-tip"]')).toBeNull()
+    } finally { vi.useRealTimers() }
+    cleanup()
+    expect(render(<QuestionMark id={olumis.id} n={2} words={words} />).container.querySelector('[data-question-n]')).toHaveAttribute('tabindex', '0')
   })
 })
