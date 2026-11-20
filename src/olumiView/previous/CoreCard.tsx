@@ -30,7 +30,7 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, RowWords, SaidOnce, UnusedMark } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, RowWords, SaidOnce, UnusedMark, WorthMark } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -534,6 +534,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {shape?.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
             {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
             {card.unused == null || card.unused === '' ? null : <UnusedMark id={id} words={card.unused} />}
+            <WorthMark card={card} />
             {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}
             {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}
             {changeOn === 'foot' ? changeMark : null}

@@ -8,7 +8,7 @@
 import { useState, Fragment } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
-import { OlumiMark } from '../cards/marks'
+import { cardMarksOf, OlumiMark } from '../cards/marks'
 import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
@@ -42,6 +42,13 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
 export const UnusedMark = ({ id, words }: { id: string; words: string }): JSX.Element => (
   <span className="ok-dt-icon" data-view={`${id}.unused`} data-unused={id}><OkIcon id="feeds-no-result" size={ICON} words={words} decorative={false} /></span>
 )
+
+/** Olumi's own observations on this card (core's `worth_checking`): the Simple foot's ONE worth-checking mark, the same icon and words (cardMarksOf), so
+ *  a switch to Detailed never drops what Olumi said is worth checking. */
+export const WorthMark = ({ card }: { card: ViewCard }): JSX.Element | null => {
+  const m = cardMarksOf(card).find((x) => x.id === 'worth-checking')
+  return m === undefined ? null : <span className="ok-dt-icon" data-view={`${card.id}.worth_checking`} data-card-mark="worth-checking"><OkIcon id={m.icon} size={ICON} words={m.words} decorative={false} /></span>
+}
 
 /** The question's date (core's `decide_by`): a calendar mark and core's words; Olumi's blue where Olumi set it. */
 export const DecideBy = ({ d }: { d: { text: string; title: string; olumi: boolean } }): JSX.Element => (
