@@ -9,6 +9,7 @@ import { useLaneInspector } from '../edit/inspectorStore'
 import { findingOf as modelFindingOf } from '../contract'
 import { FindingLine } from '../../FindingLine'
 import { useFindingSurface } from '../../findingSurface'
+import { withheldWords } from '../cards/words'
 
 /**
  * The Frame page (Paul, 19 Nov: "open on the question, with the aims beneath"; spec framing-20261119/mock/SPEC.md rows 1, 3, 4, 5, 8, 9 and "No model yet").
@@ -17,6 +18,13 @@ import { useFindingSurface } from '../../findingSurface'
  * Attribution is per field: the card's `olumi` marks the card Olumi's (dashed, blue); `bound.olumi` marks the bound alone; "yours" only where
  * neither is Olumi's, with core's `author.text` on hover. Two aims are two cards: they are never merged.
  */
+/** Investor audit #2 (20 Nov: the chances sat behind the Results tab): a route says its chance at rest, core's headline words as its option card says them
+ *  ("about 51% chance"), quiet beside its name. A withheld chance says nothing here: its reason is long and lives on the card. */
+function routeChance(c: ViewCard): JSX.Element | null {
+  const h = c.headline
+  return h == null || h.text === '' || withheldWords(h) !== null ? null : <span className="text-text-light" data-view={`${c.id}.headline.text`}> · {h.text}</span>
+}
+
 export const FRAME_WORDS = {
   question: 'Question', edit: 'Edit', askChange: 'Ask Olumi to change it', matters: 'What matters', aims: 'Aims', limits: 'Limits', routes: 'Routes you could take', fullGraph: 'Full graph',
   inWords: 'kept in words', noModel: 'No model yet', build: 'Build a model from this',
@@ -97,7 +105,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
             <section className="grid gap-1" aria-label={FRAME_WORDS.routes}>
               <h3 className={H}>{FRAME_WORDS.routes}</h3>
               <ul className="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="frame-routes">
-                {routes.map((c) => <li key={c.id} className={`${BODY} rounded-md border px-2 py-1 ${c.olumi != null ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-route-${c.id}`}>{c.olumi != null ? <><OlumiMark words={c.olumi.title} /> </> : null}{c.heading}</li>)}
+                {routes.map((c) => <li key={c.id} className={`${BODY} rounded-md border px-2 py-1 ${c.olumi != null ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-route-${c.id}`}>{c.olumi != null ? <><OlumiMark words={c.olumi.title} /> </> : null}{c.heading}{routeChance(c)}</li>)}
               </ul>
             </section>
           )}

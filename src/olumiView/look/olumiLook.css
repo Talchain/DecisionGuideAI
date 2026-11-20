@@ -242,6 +242,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
 /* A world action's basis (core's words): its own row, under the words and in line with them past the 14 px mark. */
 .ok-lead-action:has(.ok-lead-action-basis) { flex-wrap: wrap; }
+/* The words take the rest of the mark's row, so long words wrap within it and never drop below the mark (Codex, eea8f332). */
+.ok-lead-action:has(.ok-lead-action-basis) .ok-lead-action-words { flex: 1 1 0; }
 .ok-lead-action-basis { flex-basis: 100%; padding-left: calc(14px + var(--space-1)); }
 /* Olumi's proposal, pinned at the foot of the thread just above the composer (17 Nov, the calm panel): ONE line (Olumi's mark, core's heading, Review,
    Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the

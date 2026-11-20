@@ -44,6 +44,13 @@ describe('the Frame page', () => {
     fireEvent.click(screen.getByTestId('frame-edit-aim_mine'))
     expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: 'aim_mine' } })
   })
+  it('#2 each route says its chance at rest in core\'s headline words; a withheld chance says nothing on the route', () => {
+    const chance = { state: 'chance', text: 'about 51% chance', title: 'Chance of the aim', why: null, add: null, aim_id: null }
+    const withheld = { state: 'none', text: 'No chance yet', title: 'Every option waits on a figure.', why: 'It needs a size for one link.', add: null, aim_id: null }
+    page(viewOf([card({ id: 'opt_x', family: 'option', heading: 'Hire one', headline: chance }), card({ id: 'opt_y', family: 'option', heading: 'Hire two', headline: withheld })]))
+    expect(screen.getByTestId('frame-route-opt_x').querySelector('[data-view="opt_x.headline.text"]')?.textContent).toContain('about 51% chance')
+    expect([screen.getByTestId('frame-route-opt_y').querySelector('[data-view$=".headline.text"]'), screen.getByTestId('frame-route-opt_y').textContent]).toEqual([null, 'Hire two'])
+  })
   it('an Olumi bound on the person\'s own card is marked on the bound alone (not on the card, and no "yours")', () => {
     page(viewOf([limit]))
     const c = screen.getByTestId('frame-card-lim_cap')
