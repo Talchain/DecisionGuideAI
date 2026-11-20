@@ -1,7 +1,7 @@
 /**
  * DL 10 Nov, Codex at 900 x 704 with eight people: with every avatar already collapsed, the top bar's Summary control still covered the Team
  * panel's heading. The bar never reaches the dock: avatars collapse first (TeamPresence), then the other controls give way one step at a time
- * (useTopBarFit): the scenario name shortens, the version pill goes, Share keeps its icon alone. jsdom has no layout, so the bar's right
+ * (useTopBarFit): Share keeps its icon alone, the version pill goes, and last the scenario name shortens. jsdom has no layout, so the bar's right
  * edge is given as the sum of its parts (the discs and chip drawn, and what each step saves); what is asserted is what the code does with it.
  */
 import '@testing-library/jest-dom/vitest'
@@ -13,14 +13,14 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { TeamPresence } from '../TeamPresence'
-import { useTopBarFit } from '../../components/layout/useTopBarFit'
+import { useTopBarFit, TIGHT_STEPS } from '../../components/layout/useTopBarFit'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/v11', 'consulting-marks.view3.json'), 'utf8'))
 const eight: View = { ...real, members: Array.from({ length: 8 }, (_, i) => ({ ...real.members[i % real.members.length]!, id: `m${i}`, name: `Person ${i}` })), you_id: 'm7' }
 const rect = (o: Partial<DOMRect>): DOMRect => ({ left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...o })
 
-/** The saving of each step: Share's label, the name 250 -> 110 px, the version pill (and its gap). */
-const SAVES = [0, 45, 140, 155]
+/** The saving of each step, in the order the bar takes them: Share's label, the version pill (and its gap), the name 250 -> 110 px. */
+const SAVES = [0, 45, 155, 140]
 const REST = 700 // everything in the bar except the discs, at step 0 (name, version pill, controls, Share, avatar)
 
 function Bar() {
@@ -53,8 +53,18 @@ describe('the top bar never overlaps the dock (eight people)', () => {
     const bar = screen.getByRole('banner')
     expect(screen.getByTestId('team-presence-more').textContent).toBe('+7')
     expect(bar.querySelectorAll('[data-presence-disc]')).toHaveLength(0)
-    expect(Number(bar.dataset['tight']), 'Share keeps its icon, then the name shortens: two steps are enough').toBe(2)
+    expect(Number(bar.dataset['tight']), 'Share keeps its icon, then the version pill goes: two steps are enough, the name is never reached').toBe(TIGHT_STEPS.version)
     expect(bar.getBoundingClientRect().right, 'the bar ends before the dock (592) less its gap').toBeLessThanOrEqual(592 - 12)
+  })
+  it('the scenario name is the LAST to give way: only when Share and the version pill are not enough does the name step come (and the stylesheet clips the name at that step alone)', () => {
+    window.innerWidth = 700; openDock(500) // 488 for the bar: 748 - 45 - 155 = 548 still runs past it
+    render(<Bar />)
+    expect(Number(screen.getByRole('banner').dataset['tight'])).toBe(TIGHT_STEPS.name)
+    const css = readFileSync(path.resolve('src/components/layout/TopBar.module.css'), 'utf8')
+    const clipped = [...css.matchAll(/([^{}]*)\{[^{}]*max-width:\s*110px/g)].map((m) => m[1]!)
+    expect(clipped.length, 'the name has one clip rule').toBe(1)
+    expect(clipped[0], 'CONTRAST: it applies at the last step only, never at Share (1) or the version pill (2)').toMatch(new RegExp(`data-tight="${TIGHT_STEPS.name}"`))
+    expect(clipped[0]).not.toMatch(/:not\(/)
   })
   it('CONTRAST: 1232 wide with the dock open, everything fits: all seven discs, no chip, no step', () => {
     window.innerWidth = 1232; openDock(924)

@@ -484,10 +484,10 @@
   transform: translate(-50%, -50%);
 }
 
-/* Never past the dock (useTopBarFit): step 1 keeps Share's icon alone, step 2 shortens the scenario name, step 3 drops the version pill (TopBar.tsx).
-   Share goes first: the name is the person's own words and was clipped at 1232 while a label with an icon beside it stayed whole (audit 19 Nov, item 12). */
-.topBar[data-tight]:not([data-tight="1"]) :global([data-testid="scenario-name-text"]),
-.topBar[data-tight]:not([data-tight="1"]) :global([data-testid="scenario-name-button"]) {
+/* Never past the dock (useTopBarFit, TIGHT_STEPS): step 1 keeps Share's icon alone, step 2 drops the version pill (TopBar.tsx), and only step 3 shortens the
+   scenario name: it is the person's own words, so it is the last thing to give way (audit 19 Nov, item 12: it was clipped at 1232 by a step that saved 7 px). */
+.topBar[data-tight="3"] :global([data-testid="scenario-name-text"]),
+.topBar[data-tight="3"] :global([data-testid="scenario-name-button"]) {
   max-width: 110px;
 }
 .topBar[data-tight] .coreShare {
