@@ -377,6 +377,11 @@ export function barsOf(model: ViewModel): ReadonlyMap<string, string> {
   const ids = new Set(model.cards.map((c) => c.id))
   return new Map(model.cards.flatMap((c) => (c.bar_of != null && ids.has(c.bar_of) ? [[c.id, c.bar_of] as const] : [])))
 }
+/** The figure that is this aim's bar, from the same `barsOf` map the board uses (one source): null where core marks none. */
+export function barCardOf(model: ViewModel, aimId: string): ViewCard | null {
+  const barId = [...barsOf(model)].find(([, aim]) => aim === aimId)?.[0]
+  return barId === undefined ? null : model.cards.find((c) => c.id === barId) ?? null
+}
 /**
  * J1 step 3 (nothing repeated): while no option has a chance yet (every option card's rows are core's "none" kind), each option card leaves
  * that row to the panel, which says what is not yet there once. Keyed by the rows' kind, never their words. False when any option has a

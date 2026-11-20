@@ -72,4 +72,14 @@ describe('the aim card says the bar once, with the bar\'s author mark', () => {
     pill(WITH).querySelector<HTMLElement>(`[data-testid="view-aim-edit-${BAR}"]`)!.click()
     expect(detailsOf(useLaneInspector.getState())).toMatchObject({ kind: 'card', id: BAR })
   })
+  it('R7 a bar with no author keeps the aim\'s own bound.olumi mark (decided on data, not on an element); CONTRAST: a bar with an author shows the bar\'s mark; the pill opens the same card that is the bar', () => {
+    const withBoundOlumi = { ...aim, bound: { ...aim.bound!, olumi: { title: 'Olumi set this bar' } } } as unknown as ViewCard
+    const noAuthor = (m: ViewModel): ViewModel => ({ ...m, cards: m.cards.map((c) => (c.id === BAR ? { ...c, author: undefined, olumi: null } as unknown as ViewCard : c)) })
+    const mark = (m: ViewModel) => render(<SimpleFace card={withBoundOlumi} model={m} noted={false} />).container.querySelector<HTMLElement>('.ok-bound [data-olumi-mark]')
+    expect(mark(noAuthor(WITH))).not.toBeNull()
+    cleanup()
+    expect(render(<SimpleFace card={withBoundOlumi} model={noAuthor(WITH)} noted={false} />).container.querySelector('.ok-bound [data-simple-author]')).toBeNull()
+    cleanup()
+    expect(render(<SimpleFace card={withBoundOlumi} model={WITH} noted={false} />).container.querySelector('.ok-bound [data-simple-author]')).not.toBeNull()
+  })
 })

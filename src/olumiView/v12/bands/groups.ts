@@ -125,10 +125,11 @@ export type GroupLink = { readonly from: string; readonly to: string; readonly c
 export function groupLinksOf(model: ViewModel, groups: readonly CardGroup[], drawn: ReadonlySet<string>, bars: ReadonlyMap<string, string> = new Map()): GroupLink[] {
   const into = new Map([...groups.flatMap((g) => g.cards.map((c) => [c, g.id] as const)), ...bars])
   const out = new Map<string, GroupLink>()
+  const have = new Set(model.links.map((k) => `${k.from}>${k.to}`))
   for (const link of model.links) {
     const from = into.get(link.from) ?? link.from, to = into.get(link.to) ?? link.to
     if (from === link.from && to === link.to) continue
-    if (from === to || !drawn.has(from) || !drawn.has(to) || model.links.some((k) => k.from === from && k.to === to)) continue
+    if (from === to || !drawn.has(from) || !drawn.has(to) || have.has(`${from}>${to}`)) continue
     const key = `${from}>${to}`
     out.set(key, { from, to, count: (out.get(key)?.count ?? 0) + 1 })
   }

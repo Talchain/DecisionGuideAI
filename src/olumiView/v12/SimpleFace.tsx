@@ -22,10 +22,11 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
+import { barCardOf } from '../layout'
 import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
 import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
@@ -192,10 +193,11 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const olumi = card.bound.olumi != null
     // The aim's bar (core's `bar_of`, layout.ts barsOf) has no card of its own on this face: the bound is its place, and the author mark beside it is the bar figure's
     // (core's author words), not the aim's own.
-    const bar = model?.cards.find((c) => c.bar_of === id)
-    const barMark = bar === undefined ? null : <AuthorGlyph card={bar} />
-    // The aim's question opens its target figure's own editor, as the Detailed face does (core's `target`, targets.ts); none where core offers none.
-    const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
+    // One source: the bar is the card layout.ts barsOf names for this aim; its editor and its author mark are that card's. Where core names no bar, the
+    // aim's target line (targets.ts) is the editor and the mark is bound.olumi's. The mark is decided on data (whoseOf), never on an element existing.
+    const bar = model === null ? null : barCardOf(model, id)
+    const target = model === null || model.edit_base === null ? null : bar !== null ? (bar.figure?.edit != null ? bar : null) : targetCardOf(model, card)
+    const mark = bar !== null && whoseOf(bar) !== null ? <AuthorGlyph card={bar} /> : olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
     const quietBound = <span className="min-w-0 break-words">{card.bound.text}</span>
     visual = (
@@ -206,13 +208,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: GOAL }}>
           <span className="ok-pill ok-bound min-w-0">
             {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
-            {barMark ?? (olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null)}
+            {mark}
           </span>
         </p>
       ) : (
         <p className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id} title={card.bound.title !== '' ? card.bound.title : card.bound.text}>
           {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
-          {barMark ?? (olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null)}
+          {mark}
         </p>
       )
     )
