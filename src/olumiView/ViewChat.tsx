@@ -408,7 +408,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
       {said}
       {/* K1/K6 (core d903f2af, `chat[].receipt`): why code filled nothing in from this person's answer, served on their own turn only; one quiet line under their words, core's words verbatim. */}
-      {t.receipt === undefined ? null : <p className="ok-quiet" data-testid="view-receipt" data-receipt={t.receipt.why} data-view={`${at}.receipt`}>{t.receipt.words}</p>}
+      {t.receipt === undefined ? null : <p className={`${typography.viewPanelMeta} text-text-light m-0`} data-testid="view-receipt" data-receipt={t.receipt.why} data-view={`${at}.receipt`}>{t.receipt.words}</p>}
       {lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}{tools}

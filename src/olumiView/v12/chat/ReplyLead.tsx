@@ -27,7 +27,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
     return (
       <li className="ok-lead-action" data-lead-action="world">
         <OkIcon id="olumi-contributes" size={14} decorative /><span className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</span>
-        <p className="ok-quiet ok-lead-action-basis" data-view={`${at}.basis`}>{a.basis}</p>
+        <p className={`${typography.viewPanelMeta} text-text-light m-0 ok-lead-action-basis`} data-view={`${at}.basis`}>{a.basis}</p>
       </li>
     )
   }

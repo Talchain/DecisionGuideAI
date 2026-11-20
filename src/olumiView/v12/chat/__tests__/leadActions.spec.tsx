@@ -110,7 +110,7 @@ describe('a reply lead\'s actions', () => {
     const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true }, BASIS)])
     const [linked, world] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
     const line = world!.querySelector<HTMLElement>('[data-view$=".basis"]')
-    expect([line?.textContent, line?.classList.contains('ok-quiet'), world!.querySelector('svg') !== null]).toEqual([BASIS, true, true])
+    expect([line?.textContent, line?.classList.contains('text-text-light'), world!.querySelector('svg') !== null]).toEqual([BASIS, true, true])
     expect([linked!.querySelector('svg'), linked!.querySelector('[data-view$=".basis"]')]).toEqual([null, null])
   })
 

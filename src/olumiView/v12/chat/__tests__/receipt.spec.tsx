@@ -33,7 +33,7 @@ describe('chat[].receipt', () => {
     const lines = latest.querySelectorAll('[data-testid="view-receipt"]')
     expect(lines).toHaveLength(1)
     const line = lines[0] as HTMLElement
-    expect([line.textContent, line.getAttribute('data-receipt'), line.className.includes('ok-quiet'), line.hasAttribute('title')]).toEqual([STALE.words, 'stale', true, false])
+    expect([line.textContent, line.getAttribute('data-receipt'), line.classList.contains('text-text-light'), line.hasAttribute('title')]).toEqual([STALE.words, 'stale', true, false])
     const said = latest.querySelector('[data-view$=".said"]')!, answer = q(latest, 'view-chat-answer')
     expect(said.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     if (answer !== null) expect(line.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
