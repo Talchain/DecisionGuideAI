@@ -37,4 +37,18 @@ describe('Compare\'s "Changed since version N" on BaseNode', () => {
     named.unmount()
     expect(marks(renderFactorCard('donations', 'Donations a month').container)).toEqual([])
   })
+  it('the mark sits inside the card\'s bottom band (which BaseNode insets clear of the action rail) as ONE line that truncates; it never wraps, so the band cannot grow over the card', () => {
+    useViewStore.setState({ sid: 's_000000000001', view: { id: 's_000000000001', version: { n: 3 } } } as never)
+    useCompareMarks.getState().show({ sid: 's_000000000001', from: 1, to: 3, byId: { fig_hire: [{ text: '↻ figure: Hall hire', detail: 'figure £600 → £550' }] } })
+    const { container } = renderFactorCard('fig_hire', 'Hall hire')
+    const chip = container.querySelector<HTMLElement>('[data-compare-mark]')!
+    const band = chip.closest<HTMLElement>('[data-card-bottom-band]')
+    expect(band, 'drawn in the band, not loose on the card').not.toBeNull()
+    expect(band!.style.right, 'the band stops short of the rail').toMatch(/calc\(/)
+    expect(chip.className).toMatch(/\bmax-w-full\b/)
+    expect(chip.className).not.toMatch(/whitespace-normal|flex-wrap/)
+    const words = [...chip.children].find((e) => e.textContent === changedSince(1))!
+    expect(words.className, 'the words truncate on one line').toMatch(/\btruncate\b/)
+    expect(chip.className, 'a pill, as on every other mark').toMatch(/\brounded-full\b/)
+  })
 })
