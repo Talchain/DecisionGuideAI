@@ -36,8 +36,10 @@
   box-shadow: 0 0 0 2px var(--focus-color, var(--text-light)) !important;
 }
 /* C1: a card's ACTION controls (add, edit, add-figure, fold) show on hover, keyboard focus and selection only. Information marks never carry
-   the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest. */
-.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action] { visibility: hidden; }
+   the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest.
+   C7 (20 Nov): the figure's pencil (`data-card-edit-cue`, CoreCard editCue, only where the View carries an edit) is the exception: it is drawn at rest, so a
+   card that can be changed says so; the pinned-box rule below still hides it while the card's box is open. */
+.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *) { visibility: hidden; }
 /* One surface at a time (Paul, 19 Nov): while a card's pop-over is pinned (LaneInspector, `data-state='pinned'`), the selected card's own action rows (the figure's pen and the hover rail of ask / more / Olumi) are not drawn beside it. */
 body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) .olumi-look .react-flow__node.selected :is([data-card-action], [data-testid^='node-card-rail-']) { visibility: hidden; }
 

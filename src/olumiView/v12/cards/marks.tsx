@@ -1,7 +1,7 @@
 /**
  * The V12 card marks, shared by the Simple and Detailed faces (previous/CoreCard.tsx, v12/SimpleFace.tsx). Shapes and marks only: every
- * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter, "baseline",
- * "assumption" and the name of Olumi's question mark. Look: look/olumiLook.css (.ok-*).
+ * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter and the name of Olumi's
+ * question mark; since 20 Nov "baseline", "assumption", "limit" and "condition" are registry icons (C2, C5), core's words on their hover. Look: look/olumiLook.css (.ok-*).
  */
 import { useEffect, useState } from 'react'
 import type { ViewCard } from '../../client'
@@ -56,17 +56,25 @@ export const LetterChip = ({ letter, words }: { letter: string; words?: string |
   <span className="ok-letter" data-letter-chip={letter} title={words ?? undefined}>{letter}</span>
 )
 
-/** "baseline": the option the person already has, only where core marks it (contract.ts isBaseline). */
-export const BaselinePill = ({ id }: { id: string }): JSX.Element => <span className="ok-pill ok-baseline" data-option-baseline={id}>baseline</span>
+/** The typed-state marks beside a card's name (C2, 20 Nov: text that just sits there becomes an icon with its words on hover). Registry icons, grey; the
+ *  data marks the card's readers bind by are kept on the wrapper. */
+const KindMark = ({ attrs, children }: { attrs: Readonly<Record<string, string>>; children: JSX.Element }): JSX.Element => <span className="ok-am ok-kind-mark" {...attrs}>{children}</span>
 
-/** A kind's tag on the card ("assumption"). */
-export const KindTag = ({ id, tag }: { id: string; tag: string }): JSX.Element => <span className="ok-tag" data-kind-tag={tag} data-kind-tag-of={id}>{tag}</span>
-/** What a limit is, said on its card's tag (DL from Paul's test, 17 Nov: three turns asking why a limit looked like a goal). Page chrome. */
+/** "baseline": the option the person already has, only where core marks it (contract.ts isBaseline). Registry flag; its words the hover and the name. */
+export const BaselinePill = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-option-baseline': id }}><OkIcon id="baseline-tag" size={MARK} decorative={false} /></KindMark>
+
+/** A card's assumption mark (core's `assumption` family: a premise taken as given). */
+export const KindTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'assumption', 'data-kind-tag-of': id }}><OkIcon id="assumption-tag" size={MARK} decorative={false} /></KindMark>
+
+/** A condition card's own mark (C5): neutral, the registry's, drawn for the `condition` family only. */
+export const ConditionTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'condition', 'data-kind-tag-of': id }}><OkIcon id="condition-tag" size={MARK} decorative={false} /></KindMark>
+
+/** What a limit is, said on its mark's hover (DL from Paul's test, 17 Nov: three turns asking why a limit looked like a goal). Page chrome. */
 export const LIMIT_MEANS = 'A line to stay within, not a goal to reach'
-/** A limit's tag: the key's own word for a limit (core's `model.key` item `limit`, else "limit"), its meaning the hover. */
+/** A limit's mark: the registry's limit shape; its words are the key's own word for a limit (core's `model.key` item `limit`, else "limit"), then what a limit means. */
 export const LimitTag = ({ id, model }: { id: string; model: { key?: readonly { id: string; text: string }[] } | null }): JSX.Element => {
   const word = model?.key?.find((k) => k.id === 'limit')?.text ?? 'limit'
-  return <span className="ok-tag" data-kind-tag="limit" data-kind-tag-of={id} title={LIMIT_MEANS}>{word}</span>
+  return <KindMark attrs={{ 'data-kind-tag': 'limit', 'data-kind-tag-of': id }}><OkIcon id="limit-tag" size={MARK} words={`${word}\n${LIMIT_MEANS}`} decorative={false} /></KindMark>
 }
 
 /** Fixed UI chrome: the name of Olumi's question mark where core sends no label for its next step. */
@@ -85,9 +93,10 @@ export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null
  * A mark is made only for what the card does not already say at rest. So there is none for: a figure that waits (its quiet line says "waits
  * on: …" in core's words), a provisional card (its dashed frame), a worked-out figure (its kind's shape), the baseline (its word) or an
  * option's driver (the corner badge, which takes one of the three places). Olumi's own observations (core's `worth_checking`) take the
- * place after "challenged": one mark however many there are, so a card is not crowded by its own caveats; none is made up here.
+ * place after "challenged": ONE MARK PER DISTINCT CODE (C3, 20 Nov), each its own neutral registry icon, core's title and sentence its hover, so a card
+ * with two different observations shows two different marks and not one that says both; none is made up here.
  */
-export type CardMark = { readonly id: 'set-aside' | 'challenged' | 'worth-checking' | 'unused'; readonly icon: IconId; readonly words: string }
+export type CardMark = { readonly id: 'set-aside' | 'challenged' | 'worth-checking' | 'unused'; readonly icon: IconId; readonly words: string; /** Core's own code, on a worth-checking mark. */ readonly code?: string }
 
 /** One of Olumi's own provisional observations about a card: core's short title and its sentence. */
 export type WorthChecking = { readonly code: string; readonly title: string; readonly text: string }
@@ -104,18 +113,47 @@ export function worthCheckingOf(card: ViewCard): readonly WorthChecking[] {
   return raw.flatMap((x) => (x.olumi === true && x.title !== '' && x.text !== '' ? [{ code: x.code, title: x.title, text: x.text }] : []))
 }
 
+/**
+ * Core's nine `worth_checking` codes (olumi-core src/view/schema.ts, the schema's enum) and the neutral registry icon each draws. The icons name no family
+ * ("bias", "evidence", "range" ...) core does not give: they are shapes, and the mark's name is core's own title and sentence. A code this page does not know
+ * (a newer core) falls back to the one generic mark, so no observation is dropped.
+ */
+export const WORTH_ICON: Readonly<Record<string, IconId>> = {
+  olumi_estimate_under_every_aim: 'check-estimate-under-aims',
+  result_rests_on_olumi_range: 'check-result-rests-on-range',
+  estimate_held_as_one_figure: 'check-one-figure',
+  only_supporting_evidence: 'check-only-supporting',
+  one_evidence_for_several_figures: 'check-shared-evidence',
+  narrow_range: 'check-narrow-range',
+  view_without_evidence: 'check-no-evidence',
+  assumption_without_test: 'check-untested-assumption',
+  olumi_range_turns: 'check-range-turns',
+}
+
+/** Olumi's observations on this card as marks: one per distinct code, in core's order of first appearance; two items with one code share a mark, named by both. */
+export function worthMarksOf(card: ViewCard): readonly CardMark[] {
+  const byCode = new Map<string, WorthChecking[]>()
+  for (const w of worthCheckingOf(card)) byCode.set(w.code, [...(byCode.get(w.code) ?? []), w])
+  return [...byCode].map(([code, items]) => ({ id: 'worth-checking' as const, code, icon: WORTH_ICON[code] ?? 'worth-checking', words: items.map((w) => `${w.title}\n${w.text}`).join('\n\n') }))
+}
+
 export function cardMarksOf(card: ViewCard): readonly CardMark[] {
   const marks: CardMark[] = []
   // Core's own word for a card that is no longer live (`status`, e.g. "ruled out"; null while it is live).
   if (card.status != null && card.status !== '') marks.push({ id: 'set-aside', icon: 'set-aside', words: card.status })
   // Named by its kind, then core's reason: a reason alone ("Two sources disagree…") does not say it is a challenge (line review, 18 Nov).
   if (card.challenged) marks.push({ id: 'challenged', icon: 'challenged', words: card.reason != null && card.reason !== '' ? `${ICONS.challenged.hover}: ${card.reason}` : ICONS.challenged.hover })
-  // Olumi's observations on this card: ONE mark, in Olumi's blue, named by every observation in core's order (its title, then its sentence).
-  const worth = worthCheckingOf(card)
-  if (worth.length > 0) marks.push({ id: 'worth-checking', icon: 'worth-checking', words: worth.map((w) => `${w.title}\n${w.text}`).join('\n\n') })
+  marks.push(...worthMarksOf(card))
   if (card.unused != null && card.unused !== '') marks.push({ id: 'unused', icon: 'feeds-no-result', words: card.unused })
   return marks
 }
+
+/** One state mark: the registry icon named by core's words, on the data marks its readers bind by (`data-card-mark` is the kind of mark, `data-worth-code` core's code). */
+export const StateMark = ({ m, card, size = MARK }: { m: CardMark; card: ViewCard; size?: number }): JSX.Element => (
+  <span className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.code === undefined ? {} : { 'data-worth-code': m.code })} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
+    <OkIcon id={m.icon} size={size} words={m.words} decorative={false} />
+  </span>
+)
 
 /** At most this many marks beside the author mark at rest. */
 export const MARK_CAP = 3
@@ -138,11 +176,7 @@ export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number 
   const shown = open ? all : all.slice(0, all.length - over.length)
   return (
     <>
-      {shown.map((m) => (
-        <span key={m.id} className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
-          <OkIcon id={m.icon} size={MARK} words={m.words} decorative={false} />
-        </span>
-      ))}
+      {shown.map((m) => <StateMark key={`${m.id}${m.code ?? ''}`} m={m} card={card} />)}
       {over.length === 0 ? null : (
         <button type="button" className="ok-more nodrag nopan" aria-expanded={open} data-card-more={over.length}
           aria-label={open ? MORE_MARKS.fewer : `${MORE_MARKS.lead}: ${words.join('; ')}`} title={open ? MORE_MARKS.fewer : [`${MORE_MARKS.lead}:`, ...words].join('\n')}
