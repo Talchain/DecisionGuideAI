@@ -78,19 +78,97 @@ describe('icons carry no hue (Paul, 17 Nov: "so far, we\'ve only had non-coloure
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('OkIcon and OkIconButton', () => {
-  it('a button\'s words open the one Tip on keyboard focus after 150 ms, close on Escape, and a press closes it', () => {
+  it('a button\'s words open the one Tip on REAL keyboard focus after 150 ms, close on Escape, and a press closes it', () => {
     vi.useFakeTimers()
     render(<OkIconButton id="set-aside" testid="kb" onClick={() => {}} />)
     const btn = screen.getByTestId('kb')
-    fireEvent.focus(btn)
-    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    act(() => { btn.focus() })
+    expect(document.activeElement).toBe(btn)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY - 1) })
+    expect(screen.queryByRole('tooltip'), 'not before 150 ms').toBeNull()
+    act(() => { vi.advanceTimersByTime(1) })
     expect(screen.getByRole('tooltip').textContent).toBe(ICONS['set-aside'].hover)
     fireEvent.keyDown(btn, { key: 'Escape' })
     expect(screen.queryByRole('tooltip')).toBeNull()
-    fireEvent.focus(btn)
+    act(() => { btn.blur(); btn.focus() })
     act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip')).not.toBeNull()
     fireEvent.click(btn)
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('pointer and focus are tracked apart: leaving while focused keeps the tip, blurring while hovered keeps it, and it closes when neither is left', () => {
+    vi.useFakeTimers()
+    render(<OkIconButton id="set-aside" testid="both" onClick={() => {}} />)
+    const btn = screen.getByTestId('both')
+    fireEvent.pointerEnter(btn)
+    act(() => { btn.focus() })
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip')).not.toBeNull()
+    fireEvent.pointerLeave(btn)
+    expect(screen.queryByRole('tooltip'), 'focus still holds it').not.toBeNull()
+    act(() => { btn.blur() })
+    expect(screen.queryByRole('tooltip'), 'neither left: gone').toBeNull()
+    fireEvent.pointerEnter(btn)
+    act(() => { btn.focus(); vi.advanceTimersByTime(TIP_DELAY) })
+    act(() => { btn.blur() })
+    expect(screen.queryByRole('tooltip'), 'the pointer still holds it').not.toBeNull()
+    fireEvent.pointerLeave(btn)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('an open tip is dismissed by a scroll or a resize (its anchor moved), and a touch pointer opens none', () => {
+    vi.useFakeTimers()
+    render(<OkIconButton id="set-aside" testid="sc" onClick={() => {}} />)
+    const btn = screen.getByTestId('sc')
+    for (const fire of [() => window.dispatchEvent(new Event('scroll')), () => window.dispatchEvent(new Event('resize'))]) {
+      fireEvent.pointerEnter(btn)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(screen.getByRole('tooltip')).not.toBeNull()
+      act(() => { fire() })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+      fireEvent.pointerLeave(btn)
+    }
+    fireEvent.pointerEnter(btn, { pointerType: 'touch' })
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('a hover that differs from the name is the tip and its description; the name stays the aria-label', () => {
+    vi.useFakeTimers()
+    render(<OkIconButton id="popout" words="Open Olumi" hover="Open in floating window" testid="d" onClick={() => {}} />)
+    const btn = screen.getByTestId('d')
+    expect([btn.getAttribute('aria-label'), btn.getAttribute('title'), btn.getAttribute('aria-describedby')]).toEqual(['Open Olumi', null, null])
+    fireEvent.pointerEnter(btn)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const tip = screen.getByRole('tooltip')
+    expect([tip.textContent, btn.getAttribute('aria-describedby')]).toEqual(['Open in floating window', tip.id])
+  })
+
+  it('a held button is aria-disabled, stays a keyboard stop, shows its reason, and a press does nothing', () => {
+    vi.useFakeTimers()
+    const onClick = vi.fn()
+    render(<OkIconButton id="approve" words="Approve these changes" hover="Waiting for Olumi to finish" disabled testid="h" onClick={onClick} />)
+    const btn = screen.getByTestId('h')
+    expect([btn.getAttribute('aria-disabled'), btn.hasAttribute('disabled')]).toEqual(['true', false])
+    act(() => { btn.focus() })
+    expect(document.activeElement).toBe(btn)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip').textContent).toBe('Waiting for Olumi to finish')
+    fireEvent.click(btn)
+    expect(onClick).not.toHaveBeenCalled()
+  })
+
+  it('a standalone icon is a keyboard stop that shows its words on focus; inside a control it is not (no nested focus targets), and focusable={false} drops it', () => {
+    vi.useFakeTimers()
+    const { container } = render(<><OkIcon id="delete" testid="solo" /><button type="button"><OkIcon id="delete" testid="inside" /></button><OkIcon id="delete" focusable={false} testid="off" /></>)
+    const get = (t: string) => container.querySelector<HTMLElement>(`[data-testid="${t}"]`)!
+    expect([get('solo').getAttribute('tabindex'), get('inside').getAttribute('tabindex'), get('off').getAttribute('tabindex')]).toEqual(['0', null, null])
+    act(() => { get('solo').focus() })
+    expect(document.activeElement).toBe(get('solo'))
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const tip = screen.getByRole('tooltip')
+    expect([tip.textContent, get('solo').getAttribute('aria-describedby')]).toEqual([ICONS.delete.hover, tip.id])
   })
 
   it('an icon-only OkIcon is an image named by the hover words (aria-label, no native title), in its token colour; its words show through the one Tip', () => {
@@ -145,7 +223,7 @@ describe('OkIcon and OkIconButton', () => {
     for (const tone of ['ghost', undefined] as const) {
       const { container, unmount } = render(<OkIconButton id="cancel-close" tone={tone} words="Set aside" onClick={() => undefined} disabled testid="d" />)
       const btn = container.querySelector<HTMLButtonElement>('[data-testid="d"]')!
-      expect(btn.disabled).toBe(true)
+      expect(btn.getAttribute('aria-disabled')).toBe('true')
       expect(btn.className.split(/\s+/), `tone ${String(tone)}`).toContain('disabled:text-text-light')
       expect(btn.getAttribute('style'), 'no inline colour').toBeNull()
       unmount()

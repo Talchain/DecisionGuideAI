@@ -36,7 +36,7 @@
  *  - core's words kept (`keepWords`): the info status line while waiting, core's olumi.text on the mark, GOAL_QUESTION (so Goal is icon plus
  *    word), the EarlyAnswer caveat, the story headings, and lens and next-step labels (icon plus word).
  */
-import type { ComponentType, CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
@@ -294,6 +294,8 @@ interface OkIconProps {
   testid?: string
   /** Beside visible words: hidden from assistive tech. Default: true for icon-plus-word entries. */
   decorative?: boolean
+  /** Alone (not decorative): a keyboard stop that shows its words on focus. Default true; it is dropped on its own when the icon sits inside an interactive control (never nested focus targets). */
+  focusable?: boolean
   className?: string
 }
 
@@ -320,7 +322,7 @@ function Glyph({ id, size, variant, className }: { id: IconId; size: number; var
 }
 
 /** The icon in its token colour. Beside words it is decorative; alone it is an image labelled and titled with the hover (or core's words). */
-export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, className }: OkIconProps) {
+export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, focusable = true, className }: OkIconProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
@@ -333,15 +335,21 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inheri
       </span>
     )
   }
-  return <LabelledIcon label={label} cls={cls} testid={testid}><Glyph id={id} size={size} variant={variant} /></LabelledIcon>
+  return <LabelledIcon label={label} cls={cls} testid={testid} focusable={focusable}><Glyph id={id} size={size} variant={variant} /></LabelledIcon>
 }
 
-/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. */
-function LabelledIcon({ label, cls, testid, children }: { label: string; cls: string; testid?: string; children: ReactNode }) {
-  const { handlers, tip } = useAnchoredTip(label)
+const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="checkbox"], [role="switch"]'
+
+/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable, unless an interactive ancestor already is the focus target. */
+function LabelledIcon({ label, cls, testid, focusable, children }: { label: string; cls: string; testid?: string; focusable: boolean; children: ReactNode }) {
+  const { handlers, tip, describedBy } = useAnchoredTip(label)
+  const el = useRef<HTMLSpanElement>(null)
+  const [nested, setNested] = useState(false)
+  useLayoutEffect(() => { setNested(el.current?.parentElement?.closest(INTERACTIVE) != null) }, [])
+  const stop = focusable && !nested
   return (
     <>
-      <span role="img" aria-label={label} className={cls} data-testid={testid} {...handlers}>{children}</span>
+      <span ref={el} role="img" aria-label={label} tabIndex={stop ? 0 : undefined} aria-describedby={describedBy} className={cls} data-testid={testid} {...handlers}>{children}</span>
       {tip}
     </>
   )
@@ -367,7 +375,7 @@ interface OkIconButtonProps {
   count?: number
 }
 
-/** An icon-only press: a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
+/** An icon-only press (held = aria-disabled, still focusable, so its reason shows; the press is a no-op): a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
 export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
@@ -378,14 +386,14 @@ export function OkIconButton({ id, onClick, words, hover, variant, active, press
     <>
     <button
       type="button"
-      onClick={() => { dismiss(); onClick() }}
+      onClick={() => { dismiss(); if (!disabled) onClick() }}
       {...handlers}
       aria-describedby={shown !== label ? describedBy : undefined}
-      disabled={disabled}
+      aria-disabled={disabled === true ? true : undefined}
       aria-label={label}
       aria-pressed={pressed}
       data-testid={testid}
-      className={`${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
+      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >
       <Glyph id={id} size={size} variant={variant} />
       {count === undefined ? null : <span className={`${typography.caption} tabular-nums`} data-testid={testid === undefined ? undefined : `${testid}-count`} aria-hidden="true">{count}</span>}

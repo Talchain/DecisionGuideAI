@@ -18,7 +18,7 @@ import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 export const TIP_GAP = 8
 /** The one open delay for every hover (ms). */
 export const TIP_DELAY = 150
-export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-[var(--tip-y,0px)] ${CANVAS_LAYER_CLASS.menuTooltip} max-w-[240px] whitespace-pre-line break-words rounded-sm border border-panel-border bg-panel px-2 py-1 shadow-1 ${typography.viewPanelMeta} text-text-body`
+export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-[var(--tip-y,0px)] ${CANVAS_LAYER_CLASS.menuTooltip} ok-tip whitespace-pre-line break-words rounded-sm border border-panel-border bg-panel px-2 py-1 shadow-1 ${typography.viewPanelMeta} text-text-body`
 
 export function Tip({ id, text, anchorRect }: { id?: string; text: string; anchorRect: DOMRect | null }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
@@ -30,6 +30,7 @@ export function Tip({ id, text, anchorRect }: { id?: string; text: string; ancho
     if (left + r.width > window.innerWidth) left = anchorRect.left - r.width - TIP_GAP
     // Neither side has room (a narrow window, a wide tip): stay inside the window rather than off its edge.
     left = Math.min(left, window.innerWidth - r.width - TIP_GAP)
+    // The box itself is capped to the window (olumiLook.css `.ok-tip`: max-width, max-height, overflow auto), so this clamp always has room.
     if (top + r.height > window.innerHeight) top = window.innerHeight - r.height - TIP_GAP
     t.style.setProperty('--tip-x', `${Math.max(TIP_GAP, left)}px`)
     t.style.setProperty('--tip-y', `${Math.max(TIP_GAP, top)}px`)
@@ -40,13 +41,11 @@ export function Tip({ id, text, anchorRect }: { id?: string; text: string; ancho
   // Inline spans with the newline kept between them: the words read the same as one string, and the pre-line break is the only line break.
   return (
     <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={TIP_CLASS}>
-      <span data-tip-title="" className={body === '' ? '' : TIP_TITLE_CLASS}>{head}</span>
+      <span data-tip-title="" className={body === '' ? '' : 'ok-tip-title'}>{head}</span>
       {body === '' ? null : <>{'\n'}<span data-tip-body="">{body}</span></>}
     </div>
   )
 }
-/** With a body under it, the title line is the heavier one. A lone line is plain. */
-export const TIP_TITLE_CLASS = 'font-medium text-text-header'
 
 /** The tip's delay (default TIP_DELAY, 150 ms): shown that long after the pointer comes to rest on a row, gone at once when it leaves. */
 export function useTipDelay(delay = TIP_DELAY) {
@@ -77,18 +76,29 @@ const focusRing = (e: SyntheticEvent<HTMLElement>): boolean => {
 export function useAnchoredTip(words: string | undefined) {
   const id = useId()
   const { activeTooltip, showTooltip, hideTooltip } = useTipDelay()
+  // Two ways to be active, tracked apart: the tip closes only when neither is left (or on Escape / press / scroll / resize).
+  const sources = useRef({ pointer: false, focus: false })
   const text = words ?? ''
   const open = (e: SyntheticEvent<HTMLElement>) => { if (text !== '') showTooltip(text, e.currentTarget) }
+  const release = (source: 'pointer' | 'focus') => { sources.current[source] = false; if (!sources.current.pointer && !sources.current.focus) hideTooltip() }
+  const dismiss = () => { sources.current.pointer = false; sources.current.focus = false; hideTooltip() }
   const handlers = {
-    onPointerEnter: (e: SyntheticEvent<HTMLElement> & { pointerType?: string }) => { if (e.pointerType !== 'touch') open(e) },
-    onPointerLeave: hideTooltip,
-    onFocus: (e: SyntheticEvent<HTMLElement>) => { if (focusRing(e)) open(e) },
-    onBlur: hideTooltip,
+    onPointerEnter: (e: SyntheticEvent<HTMLElement> & { pointerType?: string }) => { if (e.pointerType !== 'touch') { sources.current.pointer = true; open(e) } },
+    onPointerLeave: () => release('pointer'),
+    onFocus: (e: SyntheticEvent<HTMLElement>) => { if (focusRing(e)) { sources.current.focus = true; open(e) } },
+    onBlur: () => release('focus'),
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => { if (e.key === 'Escape') hideTooltip() },
   }
   const shown = activeTooltip !== null && text !== ''
+  // The anchor moves under a scroll or a resize and the tip keeps its first measure: close it rather than leave it detached.
+  useEffect(() => {
+    if (!shown) return
+    window.addEventListener('scroll', hideTooltip, true)
+    window.addEventListener('resize', hideTooltip)
+    return () => { window.removeEventListener('scroll', hideTooltip, true); window.removeEventListener('resize', hideTooltip) }
+  }, [shown])  // eslint-disable-line react-hooks/exhaustive-deps -- hideTooltip only clears a ref'd timer and sets state to null
   const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} />, document.body) : null
-  return { handlers, tip, describedBy: shown ? id : undefined, dismiss: hideTooltip }
+  return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }
 
 /** What a menu row's tip says: its label WHOLE when the row cut it (one line per row), then its own note; just the note when the label fits. */
