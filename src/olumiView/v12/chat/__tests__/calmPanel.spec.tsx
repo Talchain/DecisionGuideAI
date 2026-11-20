@@ -531,7 +531,7 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
 })
 
 describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold', () => {
-  it('D. opening the record form from outside brings the mounted thread\'s newest reply to its top and never scrolls the form over it (focus does not scroll)', async () => {
+  it('D. the record form opened from outside is docked under the thread, never inside its scroll, and never scrolls itself: the thread rests on its newest reply (DL 20 Nov: at 1232 and 1.33 the form in the thread scrolled that reply out of view; the browser numbers are the gate)', async () => {
     const { openCommitDraft } = await import('../../team/CommitForm')
     const view = golden('proposal'), c = mount(view)
     const calls: string[] = []
@@ -542,7 +542,10 @@ describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold
       act(() => openCommitDraft(view.id, view))
       act(() => { vi.runAllTimers() })
     } finally { vi.useRealTimers(); HTMLElement.prototype.scrollIntoView = real }
-    expect([q(c, 'view-chat-latest') !== null, calls.includes('view-chat-latest'), calls.includes('commit-form')]).toEqual([true, true, false])
+    const form = q(c, 'commit-form')!, scroller = q(c, 'view-chat-scroll')!, foot = q(c, 'view-chat-form')!
+    expect([form.getAttribute('data-open'), scroller.contains(form), foot.contains(form), q(c, 'view-chat-latest') !== null && scroller.contains(q(c, 'view-chat-latest')), calls.includes('commit-form')]).toEqual(['true', false, true, true, false])
+    // The dock is the thread's sibling under it (after the thread's wrap), so the thread's own scroll is untouched by the form's height.
+    expect(scroller.closest('[data-thread-wrap]')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
   const youOf = (v: View) => v.you_id
   /** The proposal fixture with core's typed conversation entry for its second turn saying how that turn was asked. */

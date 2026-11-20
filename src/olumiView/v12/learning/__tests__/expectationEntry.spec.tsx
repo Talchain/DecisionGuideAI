@@ -16,7 +16,7 @@ import { resetWrites } from '../../../../olumiCore/team/writes'
 import { TeamTab } from '../../../../olumiCore/team/TeamTab'
 import { useMe } from '../../../../olumiCore/me'
 import { EXPECTATION_WORDS, ExpectationEntry } from '../ExpectationEntry'
-import { CommitFormSlot } from '../../team/CommitForm'
+import { CommitFormFoot, CommitFormSlot } from '../../team/CommitForm'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -175,11 +175,12 @@ describe('the saved-expectation card: its button opens the existing outcome form
 describe('the saved-expectation card: mounted in the Olumi tab\'s commit slot', () => {
   const slot = (v: View) => { served = v; useViewStore.setState({ view: v }); return render(<CommitFormSlot />) }
 
-  it('stands directly above the folded commitment form (its entry is the composer icon, not a line here)', () => {
-    slot(viewOf([mine()]))
-    const card = screen.getByTestId('expectation-entry'), form = screen.getByTestId('commit-form')
-    expect(card.nextElementSibling).toBe(form)
-    expect(form.textContent).toBe('')
+  it('stands in the thread alone: the commitment form is docked under the thread (CommitFormFoot, DL 20 Nov), and folded it draws nothing (its entry is the composer icon)', () => {
+    const a = slot(viewOf([mine()]))
+    expect([screen.queryByTestId('expectation-entry') !== null, screen.queryByTestId('commit-form')]).toEqual([true, null])
+    a.unmount()
+    render(<CommitFormFoot />)
+    expect([screen.queryByTestId('expectation-entry'), screen.getByTestId('commit-form').textContent]).toEqual([null, ''])
   })
 
   it('is not drawn on an earlier version, or on a page that is not the reader\'s (the slot\'s own gate)', () => {

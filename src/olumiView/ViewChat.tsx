@@ -60,7 +60,7 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type NextStep as V12NextStep, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
+import { CommitFormFoot, CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
 import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
@@ -1990,6 +1990,10 @@ export function ViewChat() {
           conversation: the thread above it keeps its own scroll. Opened, its list grows upward inside this box (its own scroll). */}
       {view === null || step === null || !pinned ? null
         : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
+      {/* "Record what you will do" (DL 20 Nov, the 1232 and 1.33 limit): docked here, just above the composer whose icon opens it, never in the
+          thread. Inside the thread the open form scrolled Olumi's newest reply out of view; here the thread shrinks above it, keeps its floor
+          and rests on that reply's first line (followNewest), and the form, capped, scrolls in its own box (olumiLook.css .ok-form-foot). */}
+      <div className="ok-form-foot shrink-0" data-testid="view-chat-form"><CommitFormFoot /></div>
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).

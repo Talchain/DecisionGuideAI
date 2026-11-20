@@ -14,7 +14,7 @@ import { CommitForm, RecordStepButton, openCommitDraft } from '../CommitForm'
 import { useEscapeFloor, useEscapeLayer } from '../../edit/escapeLayers'
 import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
-import { CommitFormSlot } from '../CommitForm'
+import { CommitFormFoot } from '../CommitForm'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { useCanvasStore } from '../../../../canvas/store'
 import { install, uninstall } from '../../edit/__tests__/harness'
@@ -162,7 +162,7 @@ describe('esc3 task 2 and 3: the canvas\'s surface and the Record form share one
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); install() })
   afterEach(() => { uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }); useCanvasStore.getState().clearSelection() })
   it('a Record form with a draft is open, then a card is pressed: the first Escape closes the details box AND clears the selection (the form, older, stays with its draft); the second folds the form and keeps the draft', async () => {
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /><RecordStepButton /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /><RecordStepButton /></ToastProvider>)
     fireEvent.click(await screen.findByTestId('view-next-record'))
     fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Open one market first' } })
     act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([OPT]), edgeIds: new Set<string>(), anchorPosition: null } }); useLaneInspector.getState().open({ kind: 'card', id: OPT }) })
@@ -174,7 +174,7 @@ describe('esc3 task 2 and 3: the canvas\'s surface and the Record form share one
   })
   it('CONTRAST: the details box opened FIRST and the form after it: the form closes first, then the box', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: OPT })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /><RecordStepButton /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /><RecordStepButton /></ToastProvider>)
     await screen.findByTestId('lane-inspector')
     fireEvent.click(await screen.findByTestId('view-next-record'))
     esc()

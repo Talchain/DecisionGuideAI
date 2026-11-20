@@ -108,7 +108,9 @@ export function UseAsActionButton({ text }: { text: string }): JSX.Element | nul
  *  remounts the textarea and the person loses focus after one character (Codex's UI chat, 16 Nov). */
 const L = ({ id, t, children }: { id: string; t: string; children: JSX.Element }) => <div className="grid gap-1"><label htmlFor={id} className={LABEL}>{t}</label>{children}</div>
 
-export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element | null {
+/** `docked`: the chat's mount, where the form stands in its own box at the thread's foot (ViewChat), outside the thread's scroll, so it is
+ *  always in view and never scrolls the conversation; the Team tab's mount sits in its tab's flow and brings itself into view on open. */
+export function CommitForm({ sid, view, onWrote, docked = false }: { sid: string; view: View; onWrote: () => Promise<boolean>; docked?: boolean }): JSX.Element | null {
   const key = `${sid}:commitment`
   const [d, setD, drop] = useDraft<Draft>(key, { ...EMPTY, owner: view.you_id })
   const [mine, setBusy] = useState(false)
@@ -169,10 +171,11 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const discard = () => { drop(); setError(null); setTried(false) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
-  // Opening, from its own button or from outside, brings the form just far enough into the panel's scroll area.
-  // Focus never scrolls. jsdom draws no layout and has no scrollIntoView.
+  // Opening, from its own button or from outside, brings the form just far enough into its tab's scroll area (the Team tab). Docked in the
+  // chat it is already in view, and the thread rests on its newest reply as it shrinks (ViewChat followNewest). Focus never scrolls.
+  // jsdom draws no layout and has no scrollIntoView.
   const form = useRef<HTMLElement>(null)
-  useEffect(() => { if (d.open) form.current?.scrollIntoView?.({ block: 'nearest' }) }, [d.open])
+  useEffect(() => { if (d.open && !docked) form.current?.scrollIntoView?.({ block: 'nearest' }) }, [d.open, docked])
   if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
@@ -221,11 +224,16 @@ export function closeUntouchedCommit(sid: string): void {
   putDraft<Draft>(`${sid}:commitment`, (prev) => prev !== undefined && prev.open && !prev.option && [prev.action, prev.expect, prev.reconsider].every((t) => t.trim() === '') ? { ...prev, open: false } : (prev as Draft))
 }
 
-/** The Olumi tab's mount: reads the page's own View, never past versions, and only for the person this page is for. */
+/** The Olumi tab's thread mount: the person's saved expectation with no outcome yet (v12/learning), read from the page's own View, never past
+ *  versions, and only for the person this page is for. The form that records the next one is docked under the thread (CommitFormFoot). */
 export function CommitFormSlot(): JSX.Element | null {
-  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), refresh = useViewStore((s) => s.refresh)
-  const me = useMe((s) => s.me)
-  if (view === null || !sid || at !== null || !isForThisPage(view, me)) return null
-  // The person's saved expectation with no outcome yet stands above the line that records the next one (v12/learning).
-  return <><ExpectationEntry sid={sid} view={view} /><CommitForm sid={sid} view={view} onWrote={refresh} /></>
+  const reach = useCommitReach()
+  return reach === null ? null : <ExpectationEntry sid={reach.sid} view={reach.view} />
+}
+
+/** The Olumi tab's form mount, docked at the thread's foot above the composer (DL 20 Nov, the 1232 and 1.33 limit: inside the thread, the open
+ *  form scrolled Olumi's newest reply out of view). Folded, it is only its in-flight or kept line. */
+export function CommitFormFoot(): JSX.Element | null {
+  const reach = useCommitReach(), refresh = useViewStore((s) => s.refresh)
+  return reach === null ? null : <CommitForm sid={reach.sid} view={reach.view} onWrote={refresh} docked />
 }

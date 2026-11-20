@@ -7,7 +7,7 @@ import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { useViewStore } from '../../../store'
 import { resetDrafts, draftOf } from '../../../../olumiCore/team/drafts'
-import { CommitFormSlot } from '../CommitForm'
+import { CommitFormFoot } from '../CommitForm'
 import { CommittedMark } from '../CommittedMark'
 import { SID, approved, install, uninstall, type Stub } from '../../edit/__tests__/harness'
 import type { View } from '../../../client'
@@ -26,7 +26,7 @@ const withCommitments = (list: unknown[]): View => { const v = approved(); retur
 describe('Commit to this', () => {
   it('on an option opens the form bound to that option, and keeping it posts the option id and the approved version', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: OPT })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /></ToastProvider>)
     fireEvent.click(await screen.findByTestId('lane-inspector-commit'))
     expect(await screen.findByTestId('commit-form-option')).toHaveAttribute('data-option', OPT)
     fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Open one market first' } })
@@ -41,7 +41,7 @@ describe('Commit to this', () => {
   })
   it('an option set aside after "Commit to this" is never written unseen: the form names no option and the POST carries option null', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: OPT })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /></ToastProvider>)
     fireEvent.click(await screen.findByTestId('lane-inspector-commit'))
     await screen.findByTestId('commit-form-option')
     const v = useViewStore.getState().view!
@@ -57,13 +57,13 @@ describe('Commit to this', () => {
   })
   it('surfaces step A: it is the FIRST control of the box\'s one action row and the row\'s only filled (green) one; a preview of the same option has no such control', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: OPT })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /></ToastProvider>)
     const commit = await screen.findByTestId('lane-inspector-commit')
     const controls = [...screen.getByTestId('lane-inspector-actions').querySelectorAll('button')]
     expect(controls[0]).toBe(commit)
     expect(controls.filter((b) => /(^|\s)bg-success(\s|$)/.test(b.className))).toEqual([commit])
     cleanup(); useLaneInspector.setState({ current: null, peek: { kind: 'card', id: OPT } })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormFoot /></ToastProvider>)
     expect(await screen.findByTestId('lane-peek')).toHaveAttribute('data-box-card', OPT)
     expect(screen.queryByTestId('lane-inspector-commit')).toBeNull()
   })
