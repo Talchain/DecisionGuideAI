@@ -273,6 +273,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 [data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
 [data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }
 .ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }
+/* The review open AND the Record form open (Codex on 6fb97f42): the thread still keeps its floor, so Olumi's newest reply never collapses; the
+   review's box (its actions on their sticky foot) and the form's box share the rest, each scrolling on its own. */
+[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]):has(.ok-form-foot [data-open='true']) > [data-thread-wrap] { min-height: min(18vh, 128px); }
 /* The one-row review (ViewChat ProposalReview): its wrapper and, while open, its body are display: contents, so the row, the step's words,
    the change list and the actions are the pinned column's own items (the list keeps its bounded scroll, the actions their sticky foot). */
 .ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden]) { display: contents; }

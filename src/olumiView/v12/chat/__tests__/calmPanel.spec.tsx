@@ -547,6 +547,14 @@ describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold
     // The dock is the thread's sibling under it (after the thread's wrap), so the thread's own scroll is untouched by the form's height.
     expect(scroller.closest('[data-thread-wrap]')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
+  it('D. with the form open the thread keeps its floor, also when the proposal\'s review is open (its rule drops the floor to 0; Codex on 6fb97f42): the both-open rule restores it and comes after', () => {
+    const css = readFileSync(path.join(DIR, 'look/olumiLook.css'), 'utf8')
+    const FLOOR = /min-height:\s*min\(18vh,\s*128px\)/
+    const reviewOpen = css.indexOf("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0")
+    const both = /\[data-testid='view-chat'\]:has\(\.ok-pinned \[data-review-body\]:not\(\[hidden\]\) \[data-reading-row\]\):has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
+    const formOnly = /\[data-testid='view-chat'\]:has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
+    expect([reviewOpen > -1, both !== null && FLOOR.test(both[1]!), both !== null && both.index > reviewOpen, formOnly !== null && FLOOR.test(formOnly[1]!)]).toEqual([true, true, true, true])
+  })
   const youOf = (v: View) => v.you_id
   /** The proposal fixture with core's typed conversation entry for its second turn saying how that turn was asked. */
   const asking = (ask: string): View => {
