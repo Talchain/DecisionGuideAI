@@ -17,7 +17,8 @@ import { openStep, type StepId } from '../../../olumiCore/team/flow'
 import { useViewStore } from '../../store'
 import { useReveal } from '../../reveal'
 import { forgetLanded } from '../../revealReturn'
-import { moveKey, nextStepOf, useViewChat } from '../../ViewChat'
+import { moveKey, useViewChat } from '../../ViewChat'
+import { replyMoveFor } from '../actions'
 import { keptIdeasOf } from '../ideas'
 import { IDEA_PREFIX } from '../bands/bands'
 import type { View } from '../../types'
@@ -178,9 +179,8 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
     // The chat's own exclusion (ViewChat's NextStep and stepTurnOf): a move the chat refused as stale is no next step here either, so the
     // press never opens a chat with no Next step in it. The key is ViewChat's own `moveKey`.
     const isGone = (turn: number, move: string) => sid !== null && gone === moveKey(sid, turn, move)
-    // The approve step is the proposal row already listed (both go to the chat's proposal), so it is not offered twice.
-    const step = nextStepOf(view, isGone)
-    return journeyOf(view, { at, keptNode, hasNext: step !== null && step.kind !== 'approve' })
+    // The approve step is the proposal row already listed (both go to the chat's proposal), so it is not offered twice: only the newest reply's own move counts.
+    return journeyOf(view, { at, keptNode, hasNext: replyMoveFor(view, isGone) !== null })
   }, [view, at, sid, gone])
   const [history, setHistory] = useState(false)
   if (isEmpty(j)) return null

@@ -232,33 +232,29 @@ describe('the ⋯ menu in the composer', () => {
   })
 })
 
-describe('the next step card', () => {
-  it('a reply with the filler move: the goal\'s first question is the one Next step, as a button that asks it (and the card carries no second step)', async () => {
+describe('the reply\'s next step (system spec P2: no card at the top)', () => {
+  it('a reply with the filler move draws no tap and no step: the goal\'s first question stays in the ⋯ list, where it asks', async () => {
     const v = fixture('goal-understand')
     const t = v.chat.at(-1)!
     const view: View = { ...v, chat: v.chat.map((x) => (x === t ? { ...x, answer: { ...x.answer!, next: { ...x.answer!.next, move: 'other_method' } } } : x)) }
     core(() => view)
     show(view)
     const c = render(<ViewChat />).container
-    const step = c.querySelector('[data-testid="view-next-step"]')!
-    expect(step.getAttribute('data-step')).toBe('method')
-    expect(c.querySelectorAll('[data-testid="view-next-step"]')).toHaveLength(1)
+    expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull() // CHANGED BY DESIGN: was the goal's first question as a card at the top
     expect(c.querySelector('[data-testid="view-next-move"]')).toBeNull() // the filler draws no move tap
-    await press(step.querySelector('[data-testid="view-next-method"]')!)
+    await press(c.querySelector('[data-testid="view-actions-button"]')!)
+    await press(c.querySelector('[data-testid="view-session-method"][data-method="right_question"]')!)
     expect(posts.map((p) => p.body['method'])).toEqual(['right_question'])
   })
-  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the reply's real move IS the one Next step, so the card at the top draws it (its one tap, filled)
-  // and the reply does not draw it again. Was: the tap under the reply and no card. Still one tap on the panel.
-  it('a real move is the one Next step card\'s tap, drawn once; the reply does not repeat it', () => {
+  // CHANGED BY DESIGN (system spec P2): the reply's real move is drawn once, at the end of the reply, filled. Was: the one Next step card's tap at the top.
+  it('a real move is one tap at the end of the reply, drawn once', () => {
     const v = fixture('goal-understand')
     core(() => v)
     show(v)
     const c = render(<ViewChat />).container
     expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
-    const step = c.querySelector('[data-testid="view-next-step"]')!
-    expect(step.getAttribute('data-step')).toBe('move')
-    expect(step.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
-    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull()
+    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')).toHaveLength(1)
   })
 })
 

@@ -210,9 +210,12 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     answer = (url) => (url.endsWith('/method') ? new Response(JSON.stringify({ proposal: null, discussion: true, job: 21 }), { status: 202 }) : new Response(JSON.stringify({ kept: 50 + posts.length }), { status: 201 }))
     const c = show(inWords())
     expect(q(c, 'view-actions-button')).not.toBeNull()
-    expect(q(c, 'view-thinking-else_do')).toHaveTextContent(said)
-    expect(q(c, 'view-thinking-else_do')!.className.split(/\s+/), 'an outlined secondary chip, not ghost heading text').toEqual(expect.arrayContaining(['border', 'border-field']))
-    await press(q(c, 'view-thinking-else_do'))
+    // CHANGED BY DESIGN (P3, system spec): the static thinking chips above the box are gone; the same question is asked from the ⋯ list, in core's words.
+    expect(q(c, 'view-thinking-else_do')).toBeNull()
+    await press(q(c, 'view-actions-button'))
+    const item = c.querySelector<HTMLElement>('[data-testid="view-session-method"][data-method="else_do"]')!
+    expect(item).toHaveTextContent(said)
+    await press(item)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]!.url).toBe(`/api/scenarios/${SID}/method`)
     expect(posts[0]!.body['method']).toBe('else_do')
@@ -229,24 +232,28 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(posts).toEqual([{ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_A } }, { url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: IDEA_B } }])
   })
 
-  it('the thinking chips show on the Olumi tab with an empty box; hidden on another tab; hidden once text is typed', () => {
+  it('P3: no static thinking chips are drawn above the box, on any tab, with or without text; the ⋯ list holds core\'s remaining methods', () => {
     const c = show(inWords())
-    expect(q(c, 'view-thinking-else_do')).not.toBeNull()
+    expect(q(c, 'view-thinking-methods')).toBeNull()
+    expect(q(c, 'view-thinking-else_do')).toBeNull()
+    expect(q(c, 'view-thinking-right_question')).toBeNull()
     type(c, 'a few words')
-    expect(q(c, 'view-thinking-methods'), 'typing folds them away').toBeNull()
-    type(c, '')
-    expect(q(c, 'view-thinking-else_do')).not.toBeNull()
-    act(() => useUIStore.setState({ activeOutputTab: 'results' } as never))
-    expect(q(c, 'view-thinking-methods'), 'another tab').toBeNull()
+    expect(q(c, 'view-thinking-methods')).toBeNull()
+    expect(q(c, 'view-actions-button')).not.toBeNull()
   })
 
-  it('shows only the thinking methods offered by core and disables them on an earlier version', () => {
+  it('P3 (the earlier-version check, kept): the ⋯ list offers only the questions core sends and disables each on an earlier version', async () => {
     const v = inWords()
     const c = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
-    expect(q(c, 'view-thinking-else_do')).toBeEnabled()
-    expect(q(c, 'view-thinking-right_question')).toBeNull()
+    await press(q(c, 'view-actions-button'))
+    const items = [...c.querySelectorAll<HTMLButtonElement>('[data-testid="view-session-method"]')]
+    expect(items.map((i) => i.dataset['method'])).toEqual(['else_do'])
+    expect(items[0]).toBeEnabled()
+    cleanup()
+    const c2 = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
     act(() => useViewStore.setState({ at: 2 }))
-    expect(q(c, 'view-thinking-else_do')).toBeDisabled()
+    await press(q(c2, 'view-actions-button'))
+    expect(c2.querySelector<HTMLButtonElement>('[data-testid="view-session-method"][data-method="else_do"]')).toBeDisabled()
   })
 
   it('CONTRAST: the same reply WITHOUT prose (legacy, untyped, or a first draft\'s) offers no Keep at all', () => {

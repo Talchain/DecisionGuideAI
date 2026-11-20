@@ -5,6 +5,7 @@
  * draw names nothing, and a reply with no pointer draws no chip. "About" and "on the canvas" are the board's fixed chrome.
  */
 import { OkIcon } from '../../look/icons'
+import { useAnchoredTip } from '../../look/Tip'
 import { typography } from '../../../styles/typography'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import type { View, ViewTurn } from '../../client'
@@ -29,15 +30,20 @@ export const aboutCountWords = (n: number): string => `${n} ${n === 1 ? 'card' :
 /** v10 review item 6: ONE chip in the reply's icon row, not a wrapped chip per card. Hover or focus rings the cards (the same ring the next step
  *  lights); a press focuses the first and selects it on the canvas. The titles are on the hover, one per line. */
 export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Element | null {
+  const words = cards.map((c) => aboutWords(c.title)).join('\n')
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(words)
   if (cards.length === 0) return null
   const ids = cards.map((c) => c.id)
   return (
     <div className="flex" data-testid="view-about-chips">
-      <button type="button" onClick={() => focusNodeById(ids[0]!)} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }} onFocus={() => pointRing(ids)} onBlur={() => endRing()}
-        title={cards.map((c) => aboutWords(c.title)).join('\n')} data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
+      {/* The hover is the one Tip (pointer after its delay, and keyboard focus), never a native title. */}
+      <button type="button" onClick={() => { dismiss(); focusNodeById(ids[0]!) }} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }}
+        {...handlers} onFocus={(e) => { pointRing(ids); handlers.onFocus(e) }} onBlur={() => { endRing(); handlers.onBlur() }} aria-describedby={describedBy}
+        data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="on-canvas" size={14} decorative /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
       </button>
+      {tip}
     </div>
   )
 }

@@ -375,10 +375,12 @@ describe('the writes go straight to core, and the View is read again', () => {
         const board = c.querySelector('[data-testid="view-drafting-board"] [role="status"]')!
         expect(board.getAttribute('aria-live')).toBe('polite')
         expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model') // core's words, verbatim
-        expect(board.textContent).toBe('Building the model5 s') // counted from core's `started`, not from this page
+        // P1 (system spec): the brand loader stands above core's words (it replaced the pulsing dot); the seconds are counted from core's `started`, not from this page.
+        expect(board.querySelector('[data-testid="view-drafting-loader"] [data-testid="thinking-indicator"]')).not.toBeNull()
+        expect([c.querySelector('[data-testid="view-drafting-words"]')?.textContent, c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent]).toEqual(['Building the model', '5 s'])
         await act(async () => { vi.advanceTimersByTime(3000) })
         expect(c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent).toBe('8 s')
-        expect(c.querySelector('[data-testid="view-chat-working"]')).toBeNull() // said once, on the board
+        expect(c.querySelector('[data-testid="view-chat-turn-wait"]')).toBeNull() // said once, on the board
         expect(c.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
         expect(c.querySelector('#view-chat-text')?.hasAttribute('aria-describedby')).toBe(false)
         // 14 Nov (supersedes "takes no second Send"): the composer stays usable while the first model builds; a Send is a message to THIS scenario, never a second one (floorChat.spec).
@@ -387,8 +389,11 @@ describe('the writes go straight to core, and the View is read again', () => {
         c.remove()
         useViewChat.setState({ text: '', busy: true })
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
-        const m = render(<><DraftingBoard /><ViewComposer /></>).container
-        expect(m.querySelector('[data-testid="view-chat-working"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+        const m = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>).container
+        // P1: a write in flight with no brief is said by the thread's one waiting line: the loader, the words and the seconds, side by side.
+        expect(m.querySelector('[data-testid="view-chat-turn-wait"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+        expect(m.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
+        expect(m.querySelector('[data-testid="view-composer"] [data-testid="thinking-indicator"]')).toBeNull() // not a second one in the composer
         expect(m.querySelector('[data-testid="view-drafting-board"]')).toBeNull()
       } finally { vi.useRealTimers(); useViewChat.setState({ busy: false, text: '' }) }
     })

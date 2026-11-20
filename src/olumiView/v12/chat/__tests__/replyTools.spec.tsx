@@ -3,13 +3,13 @@
  * 6.  A reply's bookkeeping is ONE icon row: one "N on the canvas" chip, icon buttons whose words stay in the page, core's status line behind an icon.
  * 10. No strip above the thread; the popout lives in the composer's icon row; the thread's top edge fades.
  * 11. "Ask this again" on an unanswered floor entry and on an unanswered chat turn copies that message's words into the composer draft; sends nothing.
- * 12. "Record what you will do" is a secondary button in the Next step card; "Use as my action" puts a kept idea's words verbatim into the first box.
+ * 12. "Record what you will do" is an icon in the panel's top row; "Use as my action" puts a kept idea's words verbatim into the first box.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useUIStore } from '../../../../stores/uiStore'
@@ -17,6 +17,9 @@ import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { aboutCountWords } from '../AboutChip'
+
+// Show in the workspace needs a canvas camera this scene has none of; the row's ORDER is what is bound here, so its control stands in as a button.
+vi.mock('../../showInWorkspace/ShowInWorkspace', () => ({ ShowInWorkspace: () => <button type="button" data-testid="show-in-workspace-button">Show</button> }))
 
 const session = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
 const q = (c: ParentNode, id: string) => c.querySelector<HTMLElement>(`[data-testid="${id}"]`)
@@ -49,6 +52,15 @@ describe('6. reply bookkeeping is one icon row', () => {
     const show = q(latest, 'show-in-workspace-button')
     if (show !== null) expect(row.contains(show)).toBe(true)
     expect(latest.textContent).not.toMatch(/About .* on the canvas/)
+  })
+  it('P4: the row runs cards, rests-on, Keep, then Show in the workspace, then the version (Keep before Show)', () => {
+    const c = mount(session('after-find-first'))
+    const row = q(q(c, 'view-chat-latest')!, 'view-reply-tools')!
+    const at = (id: string) => [...row.querySelectorAll('[data-testid]')].findIndex((e) => e.getAttribute('data-testid') === id)
+    const keep = at('view-keep-idea-button'), show = at('show-in-workspace-button'), version = at('view-chat-version')
+    expect([keep, show, version].every((i) => i >= 0), 'all three are drawn in this fixture').toBe(true)
+    expect(keep).toBeLessThan(show)
+    expect(show).toBeLessThan(version)
   })
   it('core\'s "A next step" label is kept for readers but not drawn when the pointer line is the whole step', () => {
     const v = session('after-find-first')
@@ -96,12 +108,24 @@ describe('11. "Ask this again" copies the words into the composer and sends noth
   })
 })
 
-describe('12. committing is a step: a secondary button in the Next step card, and "Use as my action"', () => {
-  it('the Next step card holds a secondary "Record what you will do"; pressing opens the form blank, and nothing is sent', async () => {
+describe('12. committing is a step: an icon in the panel\'s top row, and "Use as my action"', () => {
+  it('P5: the panel\'s top row holds a "Record what you will do" icon (its words are the hover and name); pressing opens the form blank, and nothing is sent', async () => {
     const c = mount(session('after-find-first'))
-    const card = q(c, 'view-next-step')!
-    const b = q(card, 'view-next-record')!
-    expect(b).toHaveTextContent('Record what you will do')
+    const row = q(c, 'view-chat-top-row')!
+    const b = q(row, 'view-next-record')!
+    expect(b.getAttribute('aria-label')).toBe('Record what you will do')
+    expect(b.hasAttribute('title'), 'no native title: the hover is the one Tip').toBe(false)
+    // pointer: the Tip opens after its rest; keyboard: it opens on focus, so the words are reachable without a mouse
+    fireEvent.pointerEnter(b)
+    await waitFor(() => expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Record what you will do'))
+    fireEvent.pointerLeave(b)
+    await waitFor(() => expect(document.querySelector('[role="tooltip"]')).toBeNull())
+    act(() => { b.focus() })
+    await waitFor(() => expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Record what you will do'))
+    act(() => { b.blur() })
+    expect(b.querySelector('svg'), 'an icon, no visible words').not.toBeNull()
+    expect(b.textContent).toBe('')
+    expect(q(c, 'view-next-step')).toBeNull() // it is no longer the Next step card's button
     expect(q(c, 'commit-form-action')).toBeNull()
     await press(b)
     expect((q(c, 'commit-form-action') as HTMLTextAreaElement).value).toBe('')

@@ -55,7 +55,7 @@ describe('1. the Olumi tab at rest says the one fact once', () => {
     ready(w); const b = render(<ViewChat />).container
     expect([b.querySelector('[data-testid="view-chat-finding"]'), b.querySelectorAll('[data-reply-opening]').length > 0]).toEqual([null, true])
   })
-  it('S2 while a proposal waits, the newest reply\'s status is not drawn beside its foot (still in the icon\'s hover); CONTRAST: no proposal, the status is drawn', () => {
+  it('S2 the reply\'s status is core\'s words in the version icon\'s hover, with or without a waiting proposal; it is never drawn as text beside the foot (P4, system spec)', () => {
     const STATUS = 'An invented status from core.'
     const held = golden('proposal')
     const stamped = (v: View, proposal: View['proposal']): View => ({ ...v, proposal, chat: v.chat.map((x, k) => (k === v.chat.length - 1 ? { ...x, status: STATUS } : x)) } as View)
@@ -64,7 +64,8 @@ describe('1. the Olumi tab at rest says the one fact once', () => {
     expect([latest.querySelector('[data-view$=".status"]'), latest.querySelector<HTMLElement>('[data-testid="view-chat-version"] [role="img"]')!.title.includes(STATUS)]).toEqual([null, true])
     cleanup()
     ready(stamped(held, null)); const b = render(<ViewChat />).container
-    expect(b.querySelector('[data-testid="view-chat-latest"] [data-view$=".status"]')?.textContent).toBe(STATUS)
+    // CHANGED BY DESIGN (P4): no proposal: the status is still not drawn as text; it is in the icon's hover (it was a visible line).
+    expect([b.querySelector('[data-testid="view-chat-latest"] [data-view$=".status"]'), b.querySelector<HTMLElement>('[data-testid="view-chat-latest"] [data-testid="view-chat-version"] [role="img"]')!.title.includes(STATUS)]).toEqual([null, true])
   })
   it('S3 the dashed proposal strip is on Analysis only: Reasoning does not repeat it', () => {
     const held = golden('proposal')

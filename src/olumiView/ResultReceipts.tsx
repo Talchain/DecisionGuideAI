@@ -14,12 +14,17 @@ function assumptionWords(value: AssumptionValue): string {
 
 const statuses = { saved: 'Saved model', proposed: 'Proposed model', 'what-if': 'What-if' } as const
 
-/** The details belong to the answer that used the figure, including after another version is saved. */
+/** The heading of the receipts, in the reply's one facts disclosure (ReplyFacts); it was the fold's summary. */
+export const RESULTS_REST_ON = 'What these results rest on'
+
+/** Whether the reply has receipts to draw. */
+export const hasReceipts = (claims: Claims): boolean => (claims?.length ?? 0) > 0
+
+/** The details belong to the answer that used the figure, including after another version is saved. Drawn inside ReplyFacts' disclosure (P4): the list only. */
 export function ResultReceipts({ claims }: { claims: Claims }) {
   if (!claims?.length) return null
-  return <details className="text-text-body">
-    <summary className={typography.viewPanelBody + ' cursor-pointer py-2'}>What these results rest on</summary>
-    <ul className="list-none space-y-3">
+  return <div className="text-text-body">
+    <ul className="list-none ok-stack">
       {claims.map((claim, i) => <li key={claim.cite + '/' + i} className="space-y-1">
         {/* The option's name at the scale's 500 weight (Paul, 7 Nov: 400/500 only; a bare <strong> drew 700). */}
         <p><strong className="font-medium">{claim.optionName}</strong> · {claim.aimName} · {claim.figure}</p>
@@ -31,5 +36,5 @@ export function ResultReceipts({ claims }: { claims: Claims }) {
         </ul>}
       </li>)}
     </ul>
-  </details>
+  </div>
 }

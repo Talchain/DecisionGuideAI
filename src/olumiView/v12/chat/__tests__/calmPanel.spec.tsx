@@ -12,7 +12,7 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { useUIStore } from '../../../../stores/uiStore'
@@ -49,6 +49,14 @@ const DIR = path.resolve('src/olumiView')
 // The fixture predates `by_id` on turns; core now serves it, so it is added here as the viewer's own id.
 const session = (n: string): View => { const v = JSON.parse(readFileSync(path.join(DIR, 'fixtures/session', `${n}.view3.json`), 'utf8')) as View; return { ...v, chat: v.chat.map((t) => ({ ...t, by_id: v.you_id })) } as View }
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
+/** The one Tip's words for an element: pointer rest (after its delay) shows it; leaving closes it. Native `title` is no longer the hover. */
+const tipOf = async (el: HTMLElement): Promise<string | null> => {
+  fireEvent.pointerEnter(el)
+  await waitFor(() => expect(document.querySelector('[role="tooltip"]')).not.toBeNull())
+  const words = document.querySelector('[role="tooltip"]')!.textContent
+  fireEvent.pointerLeave(el)
+  return words
+}
 const q = (c: ParentNode, id: string) => c.querySelector<HTMLElement>(`[data-testid="${id}"]`)
 const qa = (c: ParentNode, id: string) => [...c.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)]
 const mount = (view: View) => {
@@ -64,7 +72,7 @@ afterEach(() => {
 })
 
 describe('1. one quiet footer row per reply', () => {
-  it('each answered turn has exactly ONE tools row, beside (not inside) the answer, holding the cards icon with a count and the version stamp', () => {
+  it('each answered turn has exactly ONE tools row, beside (not inside) the answer, holding the cards icon with a count and the version stamp', async () => {
     const c = mount(session('after-find-first'))
     for (const li of qa(c, 'view-chat-turns')[0]!.querySelectorAll<HTMLElement>(':scope > li')) {
       const rows = qa(li, 'view-reply-tools')
@@ -80,31 +88,30 @@ describe('1. one quiet footer row per reply', () => {
     const count = Array.from(chip.children).find((c) => c.tagName === 'SPAN' && c.getAttribute('aria-hidden') === 'true' && c.querySelector('svg') === null)!
     expect(count.textContent).toBe(String(n)) // with its count (the icon's own span is decorative too, so the count is the one without an svg)
     expect(chip).toHaveTextContent(aboutCountWords(n)) // and its words for readers ("2 cards")
-    expect(chip.title.length).toBeGreaterThan(0) // the hover lists the cards
+    expect(chip.hasAttribute('title'), 'no native title').toBe(false)
+    expect((await tipOf(chip))!.length, 'the hover (the one Tip) lists the cards').toBeGreaterThan(0)
   })
-  // CHANGED BY DESIGN (D1, independent review of 833c1609): core's version and status words are content, drawn visibly beside the icon (they were an sr-only span inside it).
-  it('D1: the version stamp is a small icon whose hover is core\'s version and status words, AND those words are drawn visibly beside it', () => {
+  // CHANGED BY DESIGN (P4, system spec): the version is its icon alone; core's version and status words are its hover and name (through Tip), no longer drawn beside it
+  // (D1 had drawn them visibly). Was: the words beside the icon.
+  it('P4: the version stamp is a small icon whose hover and name are core\'s version and status words; no version or status text is drawn beside it', async () => {
     const view = session('after-find-first')
     const c = mount(view)
     const stamp = q(q(c, 'view-chat-latest')!, 'view-chat-version')!
     const icon = stamp.querySelector<HTMLElement>('[role="img"]')!
     const t = view.chat[view.chat.length - 1]!
-    expect(icon.title).toContain(t.version)
-    expect(icon.getAttribute('aria-label')).toBe(icon.title)
-    const words = stamp.querySelector<HTMLElement>('[data-view$=".version"]')!
-    expect(words.textContent).toBe(t.version)
-    expect(words.closest('.sr-only')).toBeNull() // visible, not for readers only
-    expect(stamp.className).toContain('text-text-light') // small and light: viewPanelMeta
-    expect(stamp.className).toContain(typography.viewPanelMeta)
-    expect(icon.contains(words)).toBe(false) // beside the icon, not inside it
+    expect(icon.getAttribute('aria-label')).toContain(t.version)
+    expect(icon.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await tipOf(icon)).toContain(t.version)
+    expect(stamp.textContent, 'no visible "version N" text').toBe('')
+    expect(stamp.querySelector('[data-view$=".version"], [data-view$=".status"]')).toBeNull()
     expect(t.status, 'this fixture has no status: the version is the one word').toBeNull()
-    // Paul, 19 Nov (one plain status line; DL GO 12:08Z): with a status, ONE word is drawn, core's status; the version is in the icon's hover only.
+    // With a status, the hover says both; still nothing drawn beside the icon.
     cleanup()
     const STATUS = 'An invented status from core.'
     const withStatus = { ...view, chat: view.chat.map((x, k) => (k === view.chat.length - 1 ? { ...x, status: STATUS } : x)) } as View
     const s2 = q(q(mount(withStatus), 'view-chat-latest')!, 'view-chat-version')!
-    expect([s2.querySelector('[data-view$=".status"]')?.textContent, s2.querySelector('[data-view$=".version"]')]).toEqual([STATUS, null])
-    expect(s2.querySelector<HTMLElement>('[role="img"]')!.title).toBe(`${t.version} · ${STATUS}`)
+    expect(s2.textContent).toBe('')
+    expect(await tipOf(s2.querySelector<HTMLElement>('[role="img"]')!)).toBe(`${t.version} · ${STATUS}`)
   })
 })
 

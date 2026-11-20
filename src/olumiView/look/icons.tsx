@@ -363,6 +363,9 @@ interface OkIconButtonProps {
   active?: boolean
   /** A toggle that is on (a challenge waiting for its card): said to assistive technology as pressed. Omitted for a plain press. */
   pressed?: boolean
+  /** A disclosure's trigger (panel P4, additive for the reply-facts row): said as expanded or collapsed, and `controls` names the body it opens (its id). Not for a toggle: that is `pressed`. */
+  expanded?: boolean
+  controls?: string
   disabled?: boolean
   testid?: string
   size?: number
@@ -376,7 +379,7 @@ interface OkIconButtonProps {
 }
 
 /** An icon-only press (held = aria-disabled, still focusable, so its reason shows; the press is a no-op): a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, expanded, controls, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const shown = hover ?? label
@@ -392,6 +395,8 @@ export function OkIconButton({ id, onClick, words, hover, variant, active, press
       aria-disabled={disabled === true ? true : undefined}
       aria-label={label}
       aria-pressed={pressed}
+      aria-expanded={expanded}
+      aria-controls={expanded === undefined ? undefined : controls}
       data-testid={testid}
       className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >

@@ -1,6 +1,6 @@
 /**
- * Lane C (Paul 3 Nov: a first-time person knows what they are looking at and what to do next within a minute). The one next step,
- * chosen from what the View already states. Keep the thread's context (UI recovery witness row 11, DL 10 Nov). Core's goldens.
+ * Lane C (Paul 3 Nov: a first-time person knows what they are looking at and what to do next within a minute). The one pinned step (a held
+ * proposal) and the reply's own next move, drawn once at that reply's end (system spec P2). Keep the thread's context (UI recovery witness row 11, DL 10 Nov). Core's goldens.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -111,89 +111,46 @@ describe('the next step', () => {
     expect(isOpen(review)).toBe(true)
     expect(review).toHaveTextContent(NEXT_STEP_WORDS.approve)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
-    // CONTRAST: the other kinds are named "Next step" and have no review row (V12: the goal's first question).
+    // CONTRAST (system spec P2): with no proposal held there is no pinned step at all; every other next step is the newest reply's own, drawn at its end.
     cleanup()
-    const f = step(show(golden('bakery')))!
-    expect(f.getAttribute('data-step')).toBe('figure')
-    expect(f.querySelector('[data-testid="view-next-step-toggle"]')!.textContent).toContain('Next step')
-    expect(f.querySelector('[data-testid="view-proposal-review"]')).toBeNull()
+    expect(step(show(golden('bakery')))).toBeNull()
   })
 
-  it('Paul, 18 Nov: at rest the step is ONE closed row (its body hidden, so it no longer covers the conversation); a press opens it in place and a second press closes it', () => {
-    const f = step(show(golden('bakery')))!
-    const toggle = f.querySelector<HTMLButtonElement>('[data-testid="view-next-step-toggle"]')!, body = f.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!
-    expect([toggle.tagName, toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls'), body.id, body.hidden, f.getAttribute('data-open')]).toEqual(['BUTTON', 'false', 'view-next-step-body', 'view-next-step-body', true, 'false'])
-    fireEvent.click(toggle)
-    expect([toggle.getAttribute('aria-expanded'), body.hidden, f.getAttribute('data-open')]).toEqual(['true', false, 'true'])
-    // The step's own content is inside the body it opens: nothing of it is drawn outside.
-    expect(body.querySelector('[data-testid="view-next-figure-waits"]')).not.toBeNull()
-    fireEvent.click(toggle)
-    expect([toggle.getAttribute('aria-expanded'), body.hidden]).toEqual(['false', true])
+  it('system spec P2: the top "Next step" card and its fallbacks are gone: no toggle row, no figure, method or invitation step is drawn above the thread', () => {
+    // CHANGED BY DESIGN (P2): was a closed "Next step" row (figure, method, invite or the reply's move) under the tabs. Now only a held proposal is pinned.
+    for (const n of ['bakery', 'pricing', 'studio']) {
+      cleanup()
+      const c = show(golden(n))
+      expect(c.querySelector('[data-testid="view-next-step-toggle"]'), n).toBeNull()
+      expect(c.querySelector('[data-testid="view-next-figure-waits"]'), n).toBeNull()
+      expect(c.querySelector('[data-testid="view-next-method"]'), n).toBeNull()
+      expect(c.querySelector('[data-testid="view-next-invite"]'), n).toBeNull()
+      expect(c.querySelector('[data-testid="view-chat-step"]'), n).toBeNull()
+    }
   })
 
-  it('no proposal and the chances wait on a figure the person can type: that figure, in core\'s words, with its editor', () => {
-    vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
-    const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
-    const c = show(view)
-    const w = view.model!.run!.waits_on!, k = w.items.indexOf(item)
-    expect(step(c)?.getAttribute('data-step')).toBe('figure')
-    // Core's words only: its label and the figure's name at their paths, core's hover; no sentence of the UI's own.
-    const waits = step(c)!.querySelector('[data-testid="view-next-figure-waits"]')!
-    expect(waits.querySelector('[data-view="run.waits_on.label"]')?.textContent).toBe(w.label)
-    expect(waits.querySelector(`[data-view="run.waits_on.items.${k}.text"]`)?.textContent).toBe(item.text)
-    expect(waits.getAttribute('title')).toBe(item.title)
-    expect(waits.textContent).toBe(`${w.label} ${item.text}${item.unknown ?? ''}`)
-    fireEvent.click(step(c)!.querySelector(`[data-testid="next-figure-edit-${item.id}"]`)!)
-    expect(step(c)!.querySelector(`label[for="next-figure-${item.id}"]`)?.textContent).toBe(item.edit!.prompt)
+  it('the chances waiting on a figure someone can type, a goal with a first question, or a person alone with a view begun, choose no step: the figure stays on its card', () => {
+    const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null && i.unknown == null)!
+    expect(item, 'precondition: a figure someone can give (this chose the figure step before)').toBeDefined()
+    expect(nextStepOf(view)).toBeNull()
+    const pricing = golden('pricing')
+    const begun: View = { ...pricing, chat: [], collab: { ...pricing.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false } as never] } }
+    expect(nextStepOf(begun)).toBeNull() // the invitation the card made up is gone
+    expect(step(show(begun))).toBeNull()
   })
 
-  it('DL ruling (17 Nov; was strategy witness 8): a figure no one can size yet is never the step; an askable figure behind it is', () => {
-    const view = golden('studio'), w = view.model!.run!.waits_on!, item = w.items.find((i) => i.edit !== null)!
-    expect([item.answer, typeof item.unknown], 'precondition: the only editable figure is one no one can size').toEqual([false, 'string'])
-    expect(w.items.some((i) => i.edit !== null && i.unknown == null), 'precondition: no figure someone can give').toBe(false)
-    const c = show(view)
-    expect(nextStepOf(view)?.kind).not.toBe('figure')
-    expect(c.querySelector('[data-testid="view-next-figure-waits"]'), 'no step asks for it').toBeNull()
-    // An askable figure behind it is the step instead (core's order otherwise kept).
-    const asked = golden('bakery').model!.run!.waits_on!.items.find((i) => i.edit !== null && i.unknown == null)!
-    const both = { ...view, model: { ...view.model!, run: { ...view.model!.run!, waits_on: { ...w, items: [item, asked] } } } } as View
-    const s2 = nextStepOf(both)
-    expect(s2?.kind).toBe('figure')
-    expect(s2?.kind === 'figure' && s2.item.id).toBe(asked.id)
-    // Contrast: an asked figure (bakery) carries no unknown clause.
-    cleanup()
-    const b = golden('bakery'), bi = b.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
-    expect([bi.answer, bi.unknown]).toEqual([true, null])
-    const bc = show(b)
-    expect(step(bc)!.querySelectorAll('[data-view$=".unknown"]')).toHaveLength(0)
-  })
-
-  it('nothing to approve, no question for a goal, and they are alone with a view of their own begun: bring a colleague in, which opens Team', () => {
-    const view = golden('pricing')
-    expect(view.model!.run!.waits_on).toBeNull()
-    const begun: View = { ...view, chat: [], collab: { ...view.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false } as never] } }
-    expect(nextStepOf(view)?.kind).not.toBe('invite') // contrast: alone, but nothing of theirs begun
-    const c = show(begun)
-    expect(step(c)?.getAttribute('data-step')).toBe('invite')
-    expect(step(c)).toHaveTextContent(NEXT_STEP_WORDS.invite)
-    fireEvent.click(c.querySelector('[data-testid="view-next-invite"]')!)
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
-  })
-
-  it('catch (acceptance step 4): the newest reply ends in core\'s own next step, so the UI adds none; a held proposal still asks to approve', () => {
+  it('catch (acceptance step 4): the newest reply ends in core\'s own next step, drawn once at that reply\'s end, so the UI adds none; a held proposal still asks to approve', () => {
     const view = golden('s_ce285b3617bb'), next = view.chat.at(-1)!.answer!.next
     expect([view.proposal, view.collab.alone, next.text.length > 0]).toEqual([null, true, true])
     const c = show(view)
-    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and 3): the reply's own step is drawn ONCE, as the one Next step card at the top (its words and its
-    // tap, in core's label), not under the reply and not as a "From my last reply" card above the box (that card is gone). Was: no step card,
-    // the words in the composer's card. The UI still adds no step of its own: the card is core's move, in core's words.
-    expect(step(c)?.getAttribute('data-step')).toBe('move')
-    expect(step(c)?.querySelector('[data-testid="view-next-move"]')?.textContent).toBe(next.label)
-    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(0)
+    // CHANGED BY DESIGN (system spec P2): the reply's own step is drawn ONCE, at the end of that reply (its words, then its tap in core's label); the card at the
+    // top is gone. Was: the one Next step card at the top (and not under the reply).
+    expect(step(c)).toBeNull()
+    expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')?.textContent).toBe(next.label)
+    expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
+    expect(c.querySelectorAll('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toHaveLength(1)
     expect(render(<ViewComposer />).container.querySelectorAll('[data-testid="view-last-reply-text"]')).toHaveLength(0)
     expect(nextStepOf({ ...view, proposal: golden('proposal').proposal })?.kind).toBe('approve')
-    // Contrast: with no reply yet and nothing of theirs begun, no invitation is made up (V12: only a team activity begun alone invites).
-    expect(nextStepOf({ ...view, chat: [] })?.kind).not.toBe('invite')
   })
 
   it('a team already, with nothing to approve or type: no step (the conversation is the next step)', () => {
@@ -202,26 +159,13 @@ describe('the next step', () => {
     expect(step(c)).toBeNull()
   })
 
-  it('the order: a held proposal first, then the reply\'s real move, then the goal\'s first question; a filler move gives way to the question', () => {
+  it('the order: a held proposal is the one pinned step, whatever the reply\'s move or the figures; without one there is none', () => {
     const bakery = golden('bakery'), proposal = golden('proposal')
     expect(nextStepOf({ ...bakery, proposal: proposal.proposal })?.kind).toBe('approve')
     const sv = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', 'goal-understand.view3.json'), 'utf8')) as View
     const withMove = (move: string): View => ({ ...sv, chat: sv.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move } } })) })
-    // Proposed order (Codex 006; DL ruling pending): the reply's real move comes before a figure the chances wait on, which comes before a question.
-    // Bakery's golden has no chat: it is given one answered turn (the session fixture's), whose next step points nowhere in bakery.
-    const answered = sv.chat.filter((t) => t.answer !== null).at(-1)!
-    const talked = { ...bakery, chat: [{ ...answered, answer: { ...answered.answer!, next: { ...answered.answer!.next, about: [], at: null } } }] } as View
-    const moved = (v: View, move: string): View => ({ ...v, chat: v.chat.map((t, i) => (i !== v.chat.length - 1 || t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move, newest: true } } })) })
-    expect(talked.chat.at(-1)?.answer, 'precondition: an answered turn').toBeTruthy()
-    expect(nextStepOf(moved(talked, 'pre_mortem'))?.kind, 'a real move leads, before the figure').toBe('move')
-    expect(nextStepOf(moved(talked, 'other_method'))?.kind, 'CONTRAST: a filler move gives way to the figure').toBe('figure')
-    expect(nextStepOf(bakery)?.kind, 'no reply at all: the figure').toBe('figure')
-    const run = bakery.model!.run!, waits = run.waits_on!
-    const untypeable = { ...bakery, model: { ...bakery.model!, run: { ...run, waits_on: { ...waits, items: waits.items.map((i) => ({ ...i, edit: null })) } } } }
-    expect(nextStepOf(untypeable)?.kind).not.toBe('figure') // a figure core does not let them type is never their step
-    expect(nextStepOf({ ...bakery, model: { ...bakery.model!, edit_base: null } })?.kind).not.toBe('figure') // no version to edit: no figure step
-    expect(nextStepOf(withMove('pre_mortem'))?.kind).toBe('move')
-    expect(nextStepOf(withMove('other_method'))?.kind).toBe('method')
+    for (const v of [withMove('pre_mortem'), withMove('other_method'), bakery]) expect(nextStepOf(v)).toBeNull()
+    expect(nextStepOf({ ...withMove('pre_mortem'), proposal: proposal.proposal })?.kind).toBe('approve')
   })
 })
 
@@ -247,7 +191,7 @@ describe('Olumi\'s chronological conversation', () => {
   })
 })
 
-describe('the reply\'s next move is under the reply, not tucked behind More ways (Paul 14 Nov); filled primary only when no Approve / Set aside is pinned beside it', () => {
+describe('the reply\'s next move is drawn once, at the end of the reply (system spec P2); filled primary only when no Approve / Set aside is pinned beside it', () => {
   const moves = (el: Element | null) => (el === null ? [] : [...el.querySelectorAll('[data-testid="view-next-move"]')])
   it('catch: beside a pinned Approve / Set aside, the reply\'s move is one SECONDARY button under the reply, in core\'s label; More ways holds no move', () => {
     const view = golden('proposal'), next = view.chat[view.chat.length - 1]!.answer!.next
@@ -265,44 +209,43 @@ describe('the reply\'s next move is under the reply, not tucked behind More ways
     expect(under[0]!.className.split(/\s+/)).not.toContain('bg-success') // so the move is not a second filled button
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     expect(moves(c)).toHaveLength(1)
-    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 3): core's words for the move are drawn once, under the reply with its button; the "From my last
-    // reply" copy above the box is gone. Was: the reply dropped its line and the composer's card held it.
     // S4 (19 Nov, said once): the press carries core's label, so the bold label is not drawn beside it.
     expect(c.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"] [data-view$=".answer.next.label"]')).toBeNull()
     expect(render(<ViewComposer />).container.querySelector('[data-testid="view-last-reply-text"]')).toBeNull()
   })
-  it('contrast (DL order, 16 Nov): with a figure waiting, the reply\'s move leads and stays under the reply, for someone else\'s page and the owner\'s alike', () => {
+  it('with a figure waiting, the reply\'s move is still drawn under the reply, for someone else\'s page and the owner\'s alike', () => {
     const p = golden('proposal'), b = golden('bakery')
-    // A figure the chances wait on, and a reply with a real move: under the DL's order the move leads; the figure stays on its card.
     const view: View = { ...p, proposal: null, model: { ...p.model!, edit_base: p.model!.edit_base ?? 1, run: { ...(p.model!.run ?? b.model!.run!), waits_on: b.model!.run!.waits_on } } }
     expect(view.model!.run!.waits_on!.items.some((i) => i.edit !== null), 'precondition: a figure the chances wait on').toBe(true)
-    expect(nextStepOf(view)?.kind).toBe('move')
     try {
       useMe.setState({ me: { id: 'someone-else', name: 'Someone else' }, status: 'ready' } as never)
-      // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): the move that leads is the ONE Next step card at the top, filled; not under the reply.
-      // Was: under the reply. Still for someone else's page and the owner's alike.
       const c = show(view)
-      expect(moves(step(c))).toHaveLength(1)
-      expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
+      expect(step(c)).toBeNull()
+      expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
       cleanup()
       useMe.setState({ me: { id: view.you_id!, name: view.you }, status: 'ready' } as never)
       const own = show(view)
-      expect(moves(step(own))).toHaveLength(1)
-      expect(moves(step(own))[0]!.className.split(/\s+/)).toContain('bg-success') // nothing pinned: the filled green action
+      expect(moves(own.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+      expect(moves(own)[0]!.className.split(/\s+/)).toContain('bg-success') // nothing pinned: the filled green action
       expect(moves(own.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
     } finally { useMe.setState({ me: null } as never) }
   })
-  // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): was "with no Next step card, the move stays under the reply". The reply's own move IS the step,
-  // so it is drawn as the one Next step card at the top, filled, and once: not again under the reply.
-  it('the reply\'s own move is the one Next step card, at the top and filled; not again under the reply; More ways holds no move', () => {
+  it('the reply\'s own move is drawn once, under the reply, filled; there is no card at the top; More ways holds no move', () => {
     const p = golden('proposal'), view: View = { ...p, proposal: null, collab: { ...p.collab, alone: false }, model: { ...p.model!, run: p.model!.run === null ? null : { ...p.model!.run, waits_on: null } } }
-    expect(nextStepOf(view)?.kind).toBe('move')
     const c = show(view)
-    expect(step(c)?.getAttribute('data-step')).toBe('move')
-    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(0)
-    expect(moves(step(c))).toHaveLength(1)
-    expect(moves(step(c))[0]!.className.split(/\s+/)).toContain('bg-success')
+    expect(step(c)).toBeNull()
+    expect(moves(c.querySelector('[data-testid="view-chat-latest"]'))).toHaveLength(1)
+    expect(moves(c)).toHaveLength(1)
+    expect(moves(c)[0]!.className.split(/\s+/)).toContain('bg-success')
     expect(moves(c.querySelector('[data-testid="view-more-ways"]'))).toHaveLength(0)
+  })
+  it('an empty or filler move draws no action under the reply (core\'s words stay)', () => {
+    const p = golden('proposal'), view: View = { ...p, proposal: null }
+    const filler: View = { ...view, chat: view.chat.map((t, i) => (i === view.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: 'other_method' } } } : t)) }
+    expect(show(filler).querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(0)
+    cleanup()
+    const empty: View = { ...view, chat: view.chat.map((t, i) => (i === view.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: '' } } } : t)) }
+    expect(show(empty).querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(0)
   })
 })
 
@@ -421,59 +364,23 @@ describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
     expect(d.querySelector(`[data-view="chat.${k}.answer.next.label"]`)?.textContent, 'the label stays where there is no press').toBe(next.label)
   })
 
-  it('SY3 where core offers a next move with no proposal, the filled press is in view at rest under the closed Next step row (not inside its folded body), once; the fold keeps only its words', () => {
+  it('SY3 where core offers a next move with no proposal, the filled press is under the reply, once, and there is no Next step row above it', () => {
     const view = sessionView('after-find-first'), k = view.chat.length - 1, next = view.chat[k]!.answer!.next
     expect([view.proposal, next.newest]).toEqual([null, true])
-    const c = show(view), s = step(c)!, body = s.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!
-    const tap = s.querySelector<HTMLElement>('[data-testid="view-next-move"]')!
-    expect([body.hidden, body.contains(tap), c.querySelectorAll('[data-testid="view-next-move"]').length]).toEqual([true, false, 1])
-    expect(tap.closest('[hidden]'), 'nothing hides the press at rest').toBeNull()
-    expect(tap.className.split(/\s+/), 'filled').toContain('bg-success')
-    expect(tap.textContent).toBe(next.label)
-    // CONTRAST: a step that is not a move draws no press under the row.
+    const c = show(view)
+    expect(step(c)).toBeNull()
+    const taps = c.querySelectorAll<HTMLElement>('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')
+    expect([taps.length, c.querySelectorAll('[data-testid="view-next-move"]').length]).toEqual([1, 1])
+    expect(taps[0]!.closest('[hidden]'), 'nothing hides the press at rest').toBeNull()
+    expect(taps[0]!.className.split(/\s+/), 'filled').toContain('bg-success')
+    expect(taps[0]!.textContent).toBe(next.label)
+    // CONTRAST: a View whose reply names no move draws no press, and no step.
     cleanup()
-    expect(step(show(golden('bakery')))!.querySelector('[data-testid="view-next-move"]')).toBeNull()
+    const none = show(golden('bakery'))
+    expect([step(none), none.querySelector('[data-testid="view-next-move"]')]).toEqual([null, null])
   })
-  // S4 ruling (19 Nov): exactly one filled action at rest wherever core offers a next step, of every kind. Filled = the lane's solid green (controls.actColours: bg-success)
-  // on a visible, enabled button inside the panel; the Next step's own press sits under the closed row, never in the folded body.
   const filled = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-testid="view-chat"] button')].filter((b) => b.className.split(/\s+/).includes('bg-success') && !b.closest('[hidden]'))
-  const pressUnderRow = (c: HTMLElement, id: string) => {
-    const s = step(c)!, body = s.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!, press = s.querySelector<HTMLElement>(`[data-testid="${id}"]`)!
-    expect([body.hidden, press === null, body.contains(press), press.closest('[hidden]')]).toEqual([true, false, false, null])
-    expect(press.className.split(/\s+/), 'filled').toContain('bg-success')
-    return press
-  }
-  it('NS1 a METHOD step: its filled press is under the closed row, once, in core\'s words; its prerequisite stays in the fold; the one filled action in the panel', () => {
-    const sv = sessionView('goal-understand')
-    const view: View = { ...sv, chat: sv.chat.map((t) => (t.answer === null ? t : { ...t, answer: { ...t.answer, next: { ...t.answer.next, move: 'other_method' } } })) }
-    const st = nextStepOf(view)!
-    expect(st.kind).toBe('method')
-    const c = show(view), press = pressUnderRow(c, 'view-next-method')
-    expect(press.textContent).toBe(st.kind === 'method' ? st.method.text : '')
-    expect(filled(c)).toHaveLength(1)
-    expect(c.querySelectorAll('[data-testid="view-next-method"]')).toHaveLength(1)
-    expect(step(c)!.querySelector('[data-testid="view-next-step-label"]'), 'the row does not say the press\'s words again').toBeNull()
-  })
-  it('NS2 an INVITE step: its filled press is under the closed row, the sentence stays in the fold, and it opens Team', () => {
-    const view = golden('pricing'), begun: View = { ...view, chat: [], collab: { ...view.collab, alone: true, mine: [{ id: 1, figures: [], can_share: true, earlier: false } as never] } }
-    const c = show(begun), press = pressUnderRow(c, 'view-next-invite')
-    expect(step(c)!.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')).toHaveTextContent(NEXT_STEP_WORDS.invite)
-    expect(filled(c)).toHaveLength(1)
-    fireEvent.click(press)
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
-  })
-  it('NS3 a FIGURE step: the opener is a filled press under the closed row (both the older look and the lane), the waits words stay in the fold; opening it leaves one filled control', () => {
-    for (const core of ['0', '1']) {
-      vi.stubEnv('VITE_OLUMI_CORE', core)
-      const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null && i.unknown == null)!
-      const c = show(view), press = pressUnderRow(c, `next-figure-edit-${item.id}`)
-      expect(press.textContent).toBe('Add the figure')
-      expect(step(c)!.querySelector<HTMLElement>('[data-testid="view-next-step-body"]')!.querySelector('[data-testid="view-next-figure-waits"]')).not.toBeNull()
-      expect(filled(c)).toHaveLength(1)
-      cleanup()
-    }
-  })
-  it('NS4 never two filled at once: a held proposal is the step (Approve filled), the reply\'s move is secondary and no step press is drawn; the approved after-find-first state has exactly one', () => {
+  it('NS4 never two filled at once: a held proposal is the pinned step (Approve filled), the reply\'s move is secondary; the approved after-find-first state has exactly one, the reply\'s own move', () => {
     const c = show(golden('proposal'))
     expect(step(c)!.getAttribute('data-step')).toBe('approve')
     expect(step(c)!.querySelector('[data-testid="view-next-move"], [data-testid="view-next-method"], [data-testid="view-next-invite"]')).toBeNull()

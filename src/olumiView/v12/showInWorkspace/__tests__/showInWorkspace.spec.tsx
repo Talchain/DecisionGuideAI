@@ -249,6 +249,16 @@ afterEach(() => {
 // ── S1 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S1 show, nothing folded (golden turn 14)', () => {
   const next = nextOf(golden, 14)
+  it('P4: the hover is the one Tip (the control\'s words on pointer rest and on focus), with no native title; the words follow the state (show, then return)', async () => {
+    install(golden)
+    const c = mount(14, next), button = c.button()!
+    expect(button.hasAttribute('title')).toBe(false)
+    fireEvent.pointerEnter(button)
+    await run(150)
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(SHOW_IN_WORKSPACE)
+    fireEvent.pointerLeave(button)
+    expect(document.querySelector('[role="tooltip"]')).toBeNull()
+  })
   const THREE = ['reported_cash_and_spend_basis', 'opening_cash', 'monthly_burn']
   it('asks for no read, moves nothing until the board is laid out, then moves once to exactly those three cards as the person\'s own move; the same focused button reads Return', async () => {
     expect(next.about).toStrictEqual(THREE)
