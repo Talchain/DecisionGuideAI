@@ -50,10 +50,14 @@ const panelOnly = (card: ViewModel['cards'][number]): string[] => card.headline 
 // (reasoning/Rack.tsx), not again on the canvas card: optionReasoning.spec SCI-10 binds each by path. A chance row's `state` is a machine
 // key (no words); a withheld row's `question` is said in the Analysis option row (HeroOptionRow, DL 11 Nov), not again on the small
 // canvas card. Both are skipped by key name at any depth: today only chance rows carry them (a headline's `state` is panelOnly above).
-const SKIP = new Set(['state', 'question', 'id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author', 'sets'])
+// A face line's or title's `words` (core's enum of whose words they are: theirs, olumi, name; schema24) is a code, not words; a badge's `words` stays checked.
+// `worked` (core's working of a worked-out figure, in the proposal golden since schema24 8cb7d3ad): drawn by look/WorkedSteps.tsx on the V12 card's foot, the
+// selected card's explanation and Detailed (olumiLook, selectedExplain, workedAuthor, detailed specs bind its words). This older-look canvas card has no slot
+// for it, as for `author`, so it is exempt from this surface's "every word drawn" set and from nothing else.
+const SKIP = new Set(['worked', 'state', 'question', 'id', 'family', 'title', 'detail', 'label', 'kind', 'aim_id', 'records', 'edit', 'driver', 'outcome', 'values', 'rests_on', 'rests_on_text', 'author', 'sets'])
 const shown = (x: unknown, p: string): string[] => typeof x === 'string' ? (x !== '' ? [p] : [])
   : Array.isArray(x) ? x.flatMap((y, i) => shown(y, `${p}.${i}`))
-  : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') || (k === 'text' && (x as { kind?: unknown }).kind === 'chance') ? [] : shown(y, `${p}.${k}`))) : []
+  : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (SKIP.has(k) || (k === 'change' && typeof y === 'string') || (k === 'words' && /\.face\.(line|title)$/.test(p)) || (k === 'text' && (x as { kind?: unknown }).kind === 'chance') ? [] : shown(y, `${p}.${k}`))) : []
 
 /** The badge's own button, whichever way core words it (named: icon and words; else its text). */
 const badgeButton = (c: Element, id: string) => c.querySelector(`[data-view="${id}.badge.face"], [data-view="${id}.badge.words"], [data-view="${id}.badge.text"]`)?.closest('button') ?? null
