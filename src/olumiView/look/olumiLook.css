@@ -484,3 +484,11 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* Paul, 20 Nov ("the blue we're using isn't on brand"): a checkbox drew the browser's default blue, because no colour was ever set. Every tick
    box takes the action green (--success, the Approve button's own fill). An element selector, so a control that sets its own accent keeps it. */
 input[type='checkbox'] { accent-color: var(--success); }
+
+/* ── The one hover (Tip, panel-and-visual system rule 4) ───────────────────────────────────────────── */
+/* Global, not under .olumi-look: the Tip is portalled to the body. The box never outgrows the window (Tip.tsx clamps its place inside the same 8px margin); the title line, when a body follows, is the heavier ink. */
+.ok-tip { max-width: min(240px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; }
+.ok-tip-title { font-weight: 500; color: var(--text-header); }
+/* A held icon button stays focusable (aria-disabled, so its reason shows on focus) and reads as held by token: a light label, a neutral fill for the green one, never faded. */
+button.ok-icon-btn[aria-disabled='true'] { color: var(--text-light); background-color: transparent; cursor: not-allowed; }
+button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--border-default); }

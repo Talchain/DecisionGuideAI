@@ -47,7 +47,7 @@ describe('partial approval', () => {
       expect(c.querySelector(`[data-view="proposal.changes.${i}.detail"]`)?.textContent).toBe(ch.detail)
       expect(screen.getByTestId(`view-change-tick-${i}`).getAttribute('aria-label')).toBe(`Choose ${ch.text}`)
     })
-    expect(screen.getByTestId('view-approve-ticked')).toBeDisabled()
+    expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-disabled', 'true')
     fireEvent.click(screen.getByTestId('view-change-tick-1'))
     expect(screen.getByTestId('view-approve-ticked')).toHaveAttribute('aria-label', 'Approve ticked · 1')
     // 18 Nov: the count stays visible beside the double tick, inside the one control, and follows the ticks

@@ -13,7 +13,7 @@ import { useShowToast } from '../ToastContext'
 import { useMenuItems } from './useMenuItems'
 import { Submenu } from './Submenu'
 import { MenuTooltip } from './MenuTooltip'
-import { Tip, rowTipOf, useTipDelay } from '../../olumiView/look/Tip'
+import { Tip, TIP_DELAY, rowTipOf, useTipDelay } from '../../olumiView/look/Tip'
 import { menuLook } from '../../olumiView/look/menu'
 import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from './types'
 import { SetValuePopover } from './SetValuePopover'
@@ -76,9 +76,10 @@ export function CanvasContextMenuBase({
   const closeSubmenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [customValueNodeId, setCustomValueNodeId] = useState<string | null>(null)
 
-  const { activeTooltip, showTooltip, hideTooltip } = useTipDelay(300)
   // The lane wears the one menu shell and the one Tip (surfaces step B); the older look keeps its own box, row and tooltip.
   const lane = isOlumiCoreLane(), look = menuLook(lane)
+  // The lane's hover is the one 150 ms hover; the older look keeps its own 300 ms.
+  const { activeTooltip, showTooltip, hideTooltip } = useTipDelay(lane ? TIP_DELAY : 300)
 
   /**
    * ⭐⭐ THE CARD'S WRITER, KEYED TO THIS MENU'S NODE — the one path a value set
@@ -340,10 +341,11 @@ export function CanvasContextMenuBase({
               }}
               onMouseEnter={(e) => {
                 setFocusedIndex(currentIdx)
-                // Always start tooltip timer — submenu open (150ms) cancels it before it fires (300ms)
+                // Older look: start the tooltip timer — submenu open (150ms) cancels it before it fires (300ms)
                 // (Surfaces step B, the lane: a label the row cut is said whole in the same tip, before the row's own note.)
                 const tip = lane ? rowTipOf(e.currentTarget, item.label, item.tooltip) : item.tooltip || null
-                if (tip !== null) showTooltip(tip, e.currentTarget, item.id)
+                // On the lane the tip and the submenu both open at 150 ms, so an enabled submenu row starts no tip (the submenu would cancel it a moment after it showed).
+                if (tip !== null && !(lane && item.hasSubmenu && item.enabled)) showTooltip(tip, e.currentTarget, item.id)
                 if (item.hasSubmenu && item.enabled) {
                   handleSubmenuHoverEnter(item.id, e.currentTarget)
                 } else {
