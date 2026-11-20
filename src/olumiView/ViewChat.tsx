@@ -50,7 +50,7 @@ import { noteSaved, noticeWords, useModelNotice } from './notice'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import styles from '../canvas/conversation/Conversation.module.css'
 import './look/olumiLook.css'
-import { earlyOf, drawnLeadOf, floorShown, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
+import { earlyOf, drawnLeadOf, floorShown, leadNotHeldOf, onFloor, entriesOf, pressOf, threadRows, type FloorTurn } from './early'
 import { askFieldOf, pressFieldOf, pressHeading, pressKindFor, type PressKind, type TurnPress } from './press'
 import { ReplyLead } from './v12/chat/ReplyLead'
 import { KeepChooser } from './v12/chat/KeepChooser'
@@ -411,7 +411,10 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {t.receipt === undefined ? null : <p className={`${typography.viewPanelMeta} text-text-light m-0`} data-testid="view-receipt" data-receipt={t.receipt.why} data-view={`${at}.receipt`}>{t.receipt.words}</p>}
       {lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
-      {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}{tools}
+      {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
+      {/* K1: a lead that is not drawn (it repeats the answer) still says core's `lead.not_held`, under the whole answer, as the lead would have. */}
+      {lead !== null || t.answer === null || leadNotHeldOf(t.answer) === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.answer.lead.not_held`}>{leadNotHeldOf(t.answer)}</p>}
+      {tools}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.answer === null && t.problem !== null && t.said !== '' ? <AskAgain words={t.said} /> : null}

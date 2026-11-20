@@ -64,6 +64,8 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
             {lead.actions.map((a, i) => <ActionLine key={i} a={a} at={`${at}.lead.actions.${i}`} />)}
           </ul>
         )}
+        {/* K1 (core c918fe31): what the reply mentions that the model does not hold, one quiet line after the actions, core's words verbatim (never a point). */}
+        {lead.not_held === undefined ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.lead.not_held`}>{lead.not_held}</p>}
         {keep}
       </div>
       {children == null ? null : (

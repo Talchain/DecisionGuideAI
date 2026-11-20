@@ -52,6 +52,22 @@ afterEach(() => {
 const turn = (actions: unknown, lead: Record<string, unknown> = LEAD) => show(withTurn(base, 0, { answer: [{ text: FULL }], lead: { ...lead, ...(actions === undefined ? {} : { actions }) } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
 const act = (text: string, on: unknown, basis = 'Because it was said.') => ({ text, on, basis })
 
+describe('K1 lead.not_held (core c918fe31)', () => {
+  const NH = 'Not in your model: 210 pupils, 120 seats.'
+  it('one quiet line in core\'s words, after the actions and before the closed "Full answer", never among the points', () => {
+    const t = turn([act('Count the walkers.', { record: card })], { ...LEAD, not_held: NH })
+    const line = q(t, 'view-lead-not-held')!
+    expect([line.textContent, line.classList.contains('text-text-light'), t.querySelectorAll('[data-testid="view-lead-not-held"]').length]).toEqual([NH, true, 1])
+    expect([before(q(t, 'view-reply-lead-actions')!, line), before(line, q(t, 'view-reply-full')!), q(t, 'view-reply-lead-points')?.textContent?.includes(NH) ?? false]).toEqual([true, true, false])
+  })
+  it('a lead that is not drawn (it says the whole answer) still says it, once, under the answer; CONTRAST: absent or empty, nothing', () => {
+    const same = show(withTurn(base, 0, { answer: [{ text: LEAD.opening as string }, ...((LEAD.points as string[]).map((p) => ({ text: p })))], lead: { ...LEAD, not_held: NH } } as Partial<Answer>))
+    expect([...same.querySelectorAll('[data-testid="view-lead-not-held"]')].map((e) => e.textContent)).toEqual([NH])
+    cleanup()
+    for (const nh of [undefined, '', '  ']) { const t = turn(undefined, { ...LEAD, ...(nh === undefined ? {} : { not_held: nh }) }); expect(q(t, 'view-lead-not-held')).toBeNull(); cleanup() }
+  })
+})
+
 describe('a reply lead\'s actions', () => {
   it('draws the opening, then the points, then the actions, then the closed "Full answer"; each action is one line bound by its data-view path, in core\'s words', () => {
     const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true })])
