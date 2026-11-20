@@ -108,7 +108,8 @@ describe('1. one next step, at the top, with its button in view at rest', () => 
     const c = show(view)
     const latest = q(c, 'view-chat-latest')!
     // S4 (19 Nov, said once): the quiet tap carries core's label; the bold label is not drawn beside it.
-    expect(latest.querySelector(`[data-view="chat.${k}.answer.next.label"]`)).toBeNull()
+    // The label is drawn once, INSIDE the tap (bound to core's path), never as a second bold line beside it.
+    expect([...latest.querySelectorAll(`[data-view="chat.${k}.answer.next.label"]`)].map((e) => e.closest('[data-testid="view-next-move"]') !== null)).toEqual([true])
     expect(q(latest, 'view-next-move')?.textContent).toBe(view.chat[k]!.answer!.next.label)
     expect(q(q(c, 'view-chat-pinned')!, 'view-next-move')).toBeNull() // the move is not the step here
     expect(q(c, 'view-chat-step')).toBeNull()

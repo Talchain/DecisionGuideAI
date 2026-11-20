@@ -36,6 +36,8 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
   const view = golden(name)
   it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', async () => {
     const { container } = render(<ViewTurns chat={view.chat} />)
+    // P4: the Why lines live in each reply's one facts disclosure, closed at rest; open every one so all of core's words can be read back.
+    for (const b of container.querySelectorAll<HTMLElement>('[data-testid="view-reply-rests"]')) if (b.getAttribute('aria-expanded') !== 'true') fireEvent.click(b)
     for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
     // Not words: hovers, the records a turn is about or cites, the one card it is beside (`at`) and the coach's move id (`move`, olumi.view/3).
     const strings = (x: unknown, p: string): string[] => typeof x === 'string' ? (x === '' ? [] : [p])

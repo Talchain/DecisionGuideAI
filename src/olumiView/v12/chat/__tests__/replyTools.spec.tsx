@@ -66,7 +66,8 @@ describe('6. reply bookkeeping is one icon row', () => {
     const v = session('after-find-first')
     const c = mount(v)
     const label = q(c, 'view-chat-latest')!.querySelector('[data-view$=".answer.next.label"]')
-    if (label !== null) expect(label.className).toContain('sr-only')
+    // Drawn only as the tap's own words (inside view-next-move) or kept for readers (sr-only); never a second visible label beside the step.
+    if (label !== null) expect(label.closest('[data-testid="view-next-move"]') !== null || label.className.includes('sr-only')).toBe(true)
   })
 })
 
