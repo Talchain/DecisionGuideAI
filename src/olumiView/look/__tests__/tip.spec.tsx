@@ -4,9 +4,9 @@
  * left/top. The menu's use of it (hover a row, 300 ms) is in canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { Tip, TIP_GAP, rowTipOf } from '../Tip'
+import { Tip, TIP_GAP, TIP_DELAY, rowTipOf } from '../Tip'
 
 afterEach(() => { cleanup() })
 
@@ -47,6 +47,23 @@ describe('the one Tip', () => {
     expect([...tip.classList].filter((c) => /^rounded(-|$)/.test(c)), 'one radius').toEqual(['rounded-sm'])
     expect([tip.style.left, tip.style.top], 'no inline position').toEqual(['', ''])
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')], 'right of its row, level with it').toEqual([`${100 + 220 + TIP_GAP}px`, '200px'])
+  })
+  it('one layout: the first line is the title, the rest the body, and the words still read as one string; a lone line is plain', () => {
+    const { unmount } = render(<Tip text={'Title\nBody line'} anchorRect={rect(0, 0, 10, 10)} />)
+    expect([screen.getByRole('tooltip').querySelector('[data-tip-title]')!.textContent, screen.getByRole('tooltip').querySelector('[data-tip-body]')!.textContent]).toEqual(['Title', 'Body line'])
+    expect(screen.getByRole('tooltip').querySelector('[data-tip-title]')!.className).toContain('font-medium')
+    unmount()
+    render(<Tip text="Just words" anchorRect={rect(0, 0, 10, 10)} />)
+    expect([screen.getByRole('tooltip').querySelector('[data-tip-body]'), screen.getByRole('tooltip').querySelector('[data-tip-title]')!.className]).toEqual([null, ''])
+  })
+  it('the delay is 150 ms, and the tip stays inside the window: left of its anchor at the right edge, and up from the foot', () => {
+    expect(TIP_DELAY).toBe(150)
+    Object.defineProperty(window, 'innerWidth', { value: 1000, configurable: true }); Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 200, 60))
+    render(<Tip text="Edge" anchorRect={rect(900, 790, 80, 30)} />)
+    const tip = screen.getByRole('tooltip')
+    expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')]).toEqual([`${900 - 200 - TIP_GAP}px`, `${800 - 60 - TIP_GAP}px`])
+    spy.mockRestore()
   })
   it('nothing is drawn with no words or no row to stand beside', () => {
     render(<><Tip text="" anchorRect={rect(0, 0, 10, 10)} /><Tip text="words" anchorRect={null} /></>)

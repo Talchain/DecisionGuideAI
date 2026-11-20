@@ -2,11 +2,12 @@
  * The icon registry (Paul, 17 Nov): colours only from brand.css, one Lucide icon per meaning, every icon-only entry has hover words, and
  * the press is labelled and titled with them.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { Check, Plus, Trash2 } from 'lucide-react'
+import { TIP_DELAY } from '../Tip'
 import { ICONS, OkIcon, OkIconButton, duplicateIconIds, type IconEntry, type IconId } from '../icons'
 
 const brand = readFileSync(path.resolve('src/styles/brand.css'), 'utf8')
@@ -74,17 +75,44 @@ describe('icons carry no hue (Paul, 17 Nov: "so far, we\'ve only had non-coloure
   })
 })
 
+afterEach(() => { cleanup(); vi.useRealTimers() })
+
 describe('OkIcon and OkIconButton', () => {
-  it('an icon-only OkIcon is an image labelled and titled with the hover words, in its token colour', () => {
+  it('a button\'s words open the one Tip on keyboard focus after 150 ms, close on Escape, and a press closes it', () => {
+    vi.useFakeTimers()
+    render(<OkIconButton id="set-aside" testid="kb" onClick={() => {}} />)
+    const btn = screen.getByTestId('kb')
+    fireEvent.focus(btn)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip').textContent).toBe(ICONS['set-aside'].hover)
+    fireEvent.keyDown(btn, { key: 'Escape' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.focus(btn)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    fireEvent.click(btn)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('an icon-only OkIcon is an image named by the hover words (aria-label, no native title), in its token colour; its words show through the one Tip', () => {
+    vi.useFakeTimers()
     render(<OkIcon id="delete" />)
     const img = screen.getByRole('img', { name: ICONS.delete.hover })
-    expect(img.getAttribute('title')).toBe(ICONS.delete.hover)
+    expect(img.getAttribute('title')).toBeNull()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.pointerEnter(img)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY - 1) })
+    expect(screen.queryByRole('tooltip'), 'not before 150 ms').toBeNull()
+    act(() => { vi.advanceTimersByTime(1) })
+    expect(screen.getByRole('tooltip').textContent).toBe(ICONS.delete.hover)
+    fireEvent.pointerLeave(img)
+    expect(screen.queryByRole('tooltip'), 'gone at once on leave').toBeNull()
+    vi.useRealTimers()
     expect(img.className.split(/\s+/)).toContain('text-danger')
   })
 
   it("core's own words win over the registry's hover", () => {
     render(<OkIcon id="olumi-mark" words="Olumi, from core" />)
-    expect(screen.getByRole('img', { name: 'Olumi, from core' }).getAttribute('title')).toBe('Olumi, from core')
+    expect(screen.getByRole('img', { name: 'Olumi, from core' }).getAttribute('title')).toBeNull()
   })
 
   it('beside words an icon is hidden from assistive tech', () => {
@@ -102,12 +130,12 @@ describe('OkIcon and OkIconButton', () => {
     expect([ICONS['set-aside'].alt, ICONS.popout.alt === ICONS['set-aside'].Icon]).toEqual([undefined, false])
   })
 
-  it('OkIconButton renders aria-label and title with the hover words, a 44 px hit area, and presses', () => {
+  it('OkIconButton renders its hover words as aria-label (no native title), a 44 px hit area, shows them through the Tip on keyboard focus, and presses', () => {
     const onClick = vi.fn()
     render(<OkIconButton id="set-aside" onClick={onClick} testid="aside" />)
     const btn = screen.getByTestId('aside')
     expect(btn.getAttribute('aria-label')).toBe(ICONS['set-aside'].hover)
-    expect(btn.getAttribute('title')).toBe(ICONS['set-aside'].hover)
+    expect(btn.getAttribute('title')).toBeNull()
     expect(btn.className).toContain('after:h-11')
     fireEvent.click(btn)
     expect(onClick).toHaveBeenCalledTimes(1)
@@ -142,7 +170,7 @@ describe('OkIcon and OkIconButton', () => {
     const onClick = vi.fn()
     render(<OkIconButton id="send" onClick={onClick} words="Send it" disabled />)
     const btn = screen.getByRole('button', { name: 'Send it' })
-    expect(btn.getAttribute('title')).toBe('Send it')
+    expect(btn.getAttribute('title')).toBeNull()
     fireEvent.click(btn)
     expect(onClick).not.toHaveBeenCalled()
   })
