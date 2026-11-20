@@ -370,21 +370,21 @@ describe('modifier channels (panel-visual system L4)', () => {
     expect(g(c).getAttribute('data-link-halo')).toBe('alert')
   })
   it('L4b proposal is a blue halo under a directional line in an approved model, the direction colour kept; on a first draft it marks nothing (R3)', () => {
-    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as View })
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const c = draw(both({ proposed: true }))
     expect([line(c).style.stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
     expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
     cleanup()
-    useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as View })
+    useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
     expect(g(draw(both({ proposed: true }))).hasAttribute('data-link-halo')).toBe(false)
   })
   it('L4c the four channels coexist on one line: direction colour, doubt dash, alert halo and proposal halo', () => {
-    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as View })
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const c = draw(both({ doubt: true, alert: true, proposed: true }))
     expect([line(c).style.stroke, line(c).style.strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
   })
   it('L4d alert and proposal survive together on a neutral line and on a reason line, as two separate halos; the line keeps its neutral stroke (it was orange only, and the proposal vanished)', () => {
-    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as View })
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const plain = (extra: object) => ({ ...first, causal: null, role: null, kind: 'relation', doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
     for (const l of [plain({ alert: true, proposed: true }), plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' })]) {
       const c = draw(l)
@@ -395,7 +395,7 @@ describe('modifier channels (panel-visual system L4)', () => {
     }
     // One channel alone is still one halo; a first draft still marks no proposal (R3).
     const a = draw(plain({ alert: true })); expect(g(a).getAttribute('data-link-halo')).toBe('alert'); cleanup()
-    useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as View })
+    useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
     expect(g(draw(plain({ alert: true, proposed: true }))).getAttribute('data-link-halo')).toBe('alert')
   })
 })

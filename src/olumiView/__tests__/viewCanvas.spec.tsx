@@ -194,7 +194,7 @@ describe('every link is drawn at rest, the reason links included (panel-visual s
     expect(reasons.length).toBeGreaterThan(0)
     await layViewCanvas(model)
     const edges = useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK)
-    const held = new Set(edges.map((e) => (e.data as { i: number }).i))
+    const held = new Set(edges.map((e) => (e.data as unknown as { i: number }).i))
     for (const { link: l, i } of reasons) {
       expect(held.has(i), `reason link links.${i} is a canvas edge at rest`).toBe(true)
       expect(restingEdge(drawLinkEdge(l, i)), `links.${i}`).toMatchObject({ drawn: true, faded: false }); cleanup()

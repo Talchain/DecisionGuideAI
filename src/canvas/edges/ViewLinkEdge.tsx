@@ -21,7 +21,7 @@ import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
-import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
+import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
 import { TIP_DELAY, Tip, useAnchoredTip } from '../../olumiView/look/Tip'
@@ -89,7 +89,6 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
   const driver = useDriverLink(i)
-  const marked = useLineMarked(i, link)
   const active = new Set<string>()
   if (hovered !== null) active.add(hovered)
   if (fromSelected) active.add(source)
