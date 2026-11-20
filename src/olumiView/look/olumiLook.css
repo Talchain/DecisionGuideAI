@@ -36,8 +36,10 @@
   box-shadow: 0 0 0 2px var(--focus-color, var(--text-light)) !important;
 }
 /* C1: a card's ACTION controls (add, edit, add-figure, fold) show on hover, keyboard focus and selection only. Information marks never carry
-   the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest. */
-.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action] { visibility: hidden; }
+   the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest.
+   C7 (20 Nov): the figure's pencil (`data-card-edit-cue`, CoreCard editCue, only where the View carries an edit) is the exception: it is drawn at rest, so a
+   card that can be changed says so; the pinned-box rule below still hides it while the card's box is open. */
+.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *) { visibility: hidden; }
 /* One surface at a time (Paul, 19 Nov): while a card's pop-over is pinned (LaneInspector, `data-state='pinned'`), the selected card's own action rows (the figure's pen and the hover rail of ask / more / Olumi) are not drawn beside it. */
 body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) .olumi-look .react-flow__node.selected :is([data-card-action], [data-testid^='node-card-rail-']) { visibility: hidden; }
 
@@ -58,7 +60,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-face [data-stated-figure] { color: var(--text-light); }
 /* THE CARD'S SMALL TEXT, ONE RECIPE (V12 spec §1: canvas detail and meta 12 / 400 / 1.4). Every quiet line of a card takes its size and line
    height here and nowhere else; what a line is for is its colour alone (light: meta, body: reading, ink: emphasis), set on its own rule. */
-.olumi-look .ok-face [data-stated-figure], .olumi-look .ok-qual, .olumi-look .ok-status, .olumi-look .ok-count, .olumi-look .ok-tag,
+.olumi-look .ok-face [data-stated-figure], .olumi-look .ok-qual, .olumi-look .ok-status, .olumi-look .ok-count,
 .olumi-look .ok-caption, .olumi-look .ok-by, .olumi-look .ok-limit, .olumi-look .ok-next, .olumi-look .ok-steps li, .olumi-look .ok-quiet,
 .olumi-look .ok-pop { font-size: calc(12px * var(--o-s)); line-height: 1.4; }
 /* The one headline: an option's chance. */
@@ -317,6 +319,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .react-flow__node:has([data-ok-kind='outcome']) { --ok-kc: var(--success); }
 /* A limit (17 Nov): the constraint kind's grey frame and outlined-square marker, never the goal's yellow diamond. */
 .olumi-look .react-flow__node:has([data-ok-kind='constraint']) { --ok-kc: var(--text-light); }
+/* A condition (C5, 20 Nov; core's `condition` family): neutral, the constraint's grey, never a risk's or a challenge's orange. Orange stays core's own `challenged` field (the card's own
+   class below wins). It follows the kind rules so it overrides the factor hue the board draws it as. */
+.olumi-look .react-flow__node:has([data-ok-condition]) { --ok-kc: var(--text-light); }
 /* The frame is the kind's full hue, 1 px, solid (R2); where the frame says something else (Olumi's blue, challenge orange) the card's own class wins. */
 .olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc) !important; }
 
@@ -342,11 +347,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* The qualifier under a Simple chance: core's words after the number, on their own line. */
 .olumi-look .ok-simple-qual { font-weight: 400; color: var(--text-light); }
 .olumi-look .ok-letter { display: inline-flex; flex: none; align-items: center; line-height: 1; }
-/* A kind's tag ("assumption") and the aim's bound in Simple (a quiet outlined pill that may shrink). */
-.olumi-look .ok-tag { flex: none; color: var(--text-light); }
+/* The aim's bound in Simple (a quiet outlined pill that may shrink). Assumption, baseline, limit and condition are registry icons (.ok-kind-mark), no longer words. */
 .olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
-/* "baseline": the same quiet outlined pill, level with the marks beside it. */
-.olumi-look .ok-pill.ok-baseline { align-self: center; }
 .olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
 /* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
 .olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }
@@ -387,9 +389,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .react-flow__node:not(.react-flow__node-viewQuestion):has([data-ok-detailed]) [role='group'][aria-label] {
   width: fit-content !important; min-width: min(calc(208px * var(--o-s)), var(--ok-slot, calc(208px * var(--o-s)))) !important;
 }
-/* The foot: one row of marks, whose it is at the right. */
+/* The foot (C1, 20 Nov): one compact row at the bottom right on both faces (Simple's is `[data-simple-foot]`, `ml-auto`): state marks, count badges, whose it is last. */
 .olumi-look .ok-dt-foot {
-  display: flex; flex-wrap: wrap; align-items: center; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s));
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s));
   color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
 .olumi-look .ok-dt-foot:empty { display: none; }

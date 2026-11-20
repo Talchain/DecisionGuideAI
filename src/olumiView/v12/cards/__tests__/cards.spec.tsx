@@ -10,7 +10,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
@@ -20,7 +20,9 @@ import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
-import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, worthCheckingOf } from '../marks'
+import { TIP_DELAY } from '../../../look/Tip'
+import { ICONS } from '../../../look/icons'
+import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, WORTH_ICON, worthCheckingOf, worthMarksOf } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -40,6 +42,16 @@ const draw = (view: View, id: string, level: Level = 'working'): HTMLElement => 
   return render(<ReactFlowProvider><Node {...({ id, type: 'viewCard', data: { card: cardOf(view, id) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 }
+/** What the one Tip says for a mark: the pointer comes to rest on it and the delay passes. A mark's hover is this, never a native `title` (system rule 3, 20 Nov). */
+const hover = (mark: HTMLElement): string | null => {
+  vi.useFakeTimers()
+  try {
+    fireEvent.pointerEnter(mark)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    return document.querySelector('[data-testid="lane-tip"]')?.textContent ?? null
+  } finally { fireEvent.pointerLeave(mark); vi.useRealTimers() }
+}
+const imgOf = (mark: HTMLElement): HTMLElement => (mark.getAttribute('role') === 'img' ? mark : mark.querySelector<HTMLElement>('[role="img"]'))!
 const faceOf = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`[data-core-card="${id}"]`)!
 
 beforeEach(() => { window.localStorage.clear(); useSimpleLevel.setState({ levels: {} }) })
@@ -49,8 +61,10 @@ describe('a limit is drawn as a limit, never as a goal (DL from Paul\'s test, 17
   it('L1 at both levels a limit card carries the limit kind (outlined square marker, grey frame) and the key\'s word "limit" with its meaning as the hover; CONTRAST: the goal on the same board keeps the goal kind and no tag', () => {
     for (const level of ['simple', 'working'] as const) {
       const lim = faceOf(draw(ASKED, 'within_budget', level), 'within_budget')
-      const tag = lim.querySelector<HTMLElement>('[data-kind-tag="limit"]')
-      expect([level, lim.getAttribute('data-ok-kind'), tag?.textContent, tag?.title]).toEqual([level, 'constraint', ASKED.model!.key.find((k) => k.id === 'limit')!.text, LIMIT_MEANS])
+      const tag = lim.querySelector<HTMLElement>('[data-kind-tag="limit"]')!
+      // C2 (20 Nov): the limit is a registry icon (no word drawn); the key's word for it and what a limit means are its name and its Tip.
+      const words = `${ASKED.model!.key.find((k) => k.id === 'limit')!.text}\n${LIMIT_MEANS}`
+      expect([level, lim.getAttribute('data-ok-kind'), tag.textContent, imgOf(tag).getAttribute('aria-label'), imgOf(tag).hasAttribute('title'), hover(imgOf(tag))]).toEqual([level, 'constraint', '', words, false, words])
       cleanup()
       const goal = faceOf(draw(ASKED, 'sell_360', level), 'sell_360')
       expect([level, goal.getAttribute('data-ok-kind'), goal.querySelector('[data-kind-tag="limit"]')]).toEqual([level, 'goal', null])
@@ -159,7 +173,9 @@ describe('an option card: its letter, and "baseline" only where core marks it', 
   it('O2 "baseline" is drawn only on the option core marks as the one the person already has, at both levels', () => {
     const marked = withCard(ASKED, { ...cardOf(ASKED, 'carry_on'), baseline: true } as ViewCard)
     for (const level of ['working', 'simple'] as const) {
-      expect(draw(marked, 'carry_on', level).querySelector('[data-option-baseline="carry_on"]')?.textContent, level).toBe('baseline'); cleanup()
+      // C2: the baseline is a registry icon, not the word; core sends no words for it, so the registry's name is its name and its Tip.
+      const base = draw(marked, 'carry_on', level).querySelector<HTMLElement>('[data-option-baseline="carry_on"]')!
+      expect([level, base.textContent, imgOf(base).getAttribute('aria-label'), imgOf(base).hasAttribute('title'), hover(imgOf(base))], level).toEqual([level, '', ICONS['baseline-tag'].hover, false, ICONS['baseline-tag'].hover]); cleanup()
       expect(draw(marked, 'second_oven', level).querySelector('[data-option-baseline]'), `${level} CONTRAST: another option of the same View`).toBeNull(); cleanup()
       expect(draw(ASKED, 'carry_on', level).querySelector('[data-option-baseline]'), `${level} CONTRAST: core marks none, so none is guessed from the name`).toBeNull(); cleanup()
     }
@@ -310,7 +326,7 @@ describe('"Olumi has a question about this" is Olumi\'s mark, named by core\'s o
   it('A1 Simple: the card core puts its step beside wears Olumi\'s mark in a ring, named by core\'s label; never a speech bubble', () => {
     expect([next.at !== null, next.label !== ''], 'precondition: core names a card and a label').toEqual([true, true])
     const mark = draw(CAPACITY, next.at!, 'simple').querySelector<HTMLElement>(`[data-olumi-asks="${next.at}"]`)!
-    expect([mark.getAttribute('aria-label'), mark.getAttribute('title'), mark.getAttribute('data-simple-note')]).toEqual([next.label, next.label, next.at])
+    expect([mark.getAttribute('aria-label'), mark.hasAttribute('title'), hover(mark), mark.getAttribute('data-simple-note')]).toEqual([next.label, false, next.label, next.at])
     expect(mark.querySelector('[data-icon="olumi-ai"]')).not.toBeNull()
     expect(mark.querySelector('.lucide-message-circle')).toBeNull()
   })
@@ -330,9 +346,9 @@ describe('authorship: Olumi\'s mark and a person\'s are distinct on the card, co
   it('M1 Simple: Olumi\'s card wears Olumi\'s mark and no person, a person\'s card the person\'s and no Olumi; each named by core\'s author words', () => {
     expect([olumis.author!.by, theirs.author!.by]).toEqual(['olumi', 'person'])
     const a = draw(EU, olumis.id, 'simple').querySelector<HTMLElement>('[data-simple-author]')!
-    expect([a.getAttribute('data-simple-author'), a.querySelector('[data-olumi-mark] [data-icon="olumi-ai"]') !== null, a.querySelector('[data-person-mark]'), a.getAttribute('title')]).toEqual(['olumi', true, null, said(olumis)]); cleanup()
+    expect([a.getAttribute('data-simple-author'), a.querySelector('[data-olumi-mark] [data-icon="olumi-ai"]') !== null, a.querySelector('[data-person-mark]'), a.getAttribute('aria-label'), hover(a)]).toEqual(['olumi', true, null, said(olumis), said(olumis)]); cleanup()
     const b = draw(EU, theirs.id, 'simple').querySelector<HTMLElement>('[data-simple-author]')!
-    expect([b.getAttribute('data-simple-author'), b.querySelector('[data-person-mark]') !== null, b.querySelector('[data-olumi-mark]'), b.getAttribute('title')]).toEqual(['person', true, null, said(theirs)])
+    expect([b.getAttribute('data-simple-author'), b.querySelector('[data-person-mark]') !== null, b.querySelector('[data-olumi-mark]'), b.getAttribute('aria-label'), hover(b)]).toEqual(['person', true, null, said(theirs), said(theirs)])
   })
 
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once on the board, whose it is a mark; v12/detailed): the author line is the mark alone, core's author
@@ -354,9 +370,12 @@ describe('authorship: Olumi\'s mark and a person\'s are distinct on the card, co
 })
 
 describe('an assumption wears its tag', () => {
-  it('G1 "assumption" on an assumption card at both levels; CONTRAST: a figure wears none', () => {
+  it('G1 the assumption icon on an assumption card at both levels (C2: an icon, its words the Tip, no word drawn); CONTRAST: a figure wears none', () => {
     for (const level of ['working', 'simple'] as const) {
-      expect(draw(EU, 'customer_flow_assumptions', level).querySelector('[data-kind-tag-of="customer_flow_assumptions"]')?.textContent, level).toBe('assumption'); cleanup()
+      const tag = draw(EU, 'customer_flow_assumptions', level).querySelector<HTMLElement>('[data-kind-tag-of="customer_flow_assumptions"]')!
+      // Core's own word for it is the key's `assumption` item (core's model.key); the registry's words are only the fallback.
+      const words = EU.model!.key.find((k) => k.id === 'assumption')!.text
+      expect([level, tag.textContent, imgOf(tag).getAttribute('aria-label'), hover(imgOf(tag))]).toEqual([level, '', words, words]); cleanup()
       expect(draw(EU, 'starting_customers', level).querySelector('[data-kind-tag]'), level).toBeNull(); cleanup()
     }
   })
@@ -577,7 +596,7 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
   it('K1 a challenged card draws core\'s reason as the mark\'s name and hover, on the id its readers bind; CONTRAST: an unchallenged card draws none', () => {
     expect([challenged.challenged, challenged.reason !== null && challenged.reason !== '']).toEqual([true, true])
     const marks = marksIn(draw(CAPACITY, challenged.id, 'simple'))
-    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-simple-challenged'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['challenged', challenged.id, `Challenged: ${challenged.reason}`, `Challenged: ${challenged.reason}`]])
+    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-simple-challenged'), named(m).getAttribute('aria-label'), hover(named(m))])).toEqual([['challenged', challenged.id, `Challenged: ${challenged.reason}`, `Challenged: ${challenged.reason}`]])
     cleanup()
     expect(idsIn(draw(withCard(CAPACITY, { ...challenged, challenged: false } as ViewCard), challenged.id, 'simple'))).toEqual([])
   })
@@ -586,14 +605,14 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     expect(idsIn(draw(CAPACITY, fig.id, 'simple'))).toEqual([])
     cleanup()
     const mark = marksIn(draw(withCard(CAPACITY, { ...fig, unused: UNUSED } as ViewCard), fig.id, 'simple'))
-    expect(mark.map((m) => [m.getAttribute('data-card-mark'), named(m).getAttribute('aria-label'), named(m).title])).toEqual([['unused', UNUSED, UNUSED]])
+    expect(mark.map((m) => [m.getAttribute('data-card-mark'), named(m).getAttribute('aria-label'), hover(named(m))])).toEqual([['unused', UNUSED, UNUSED]])
   })
   it('K3 the cap: the corner driver badge takes one of the three places, so three states draw two marks and "+1" naming the third', () => {
     expect([driven.driver != null, cardMarksOf(crowded).map((m) => m.id), MARK_CAP]).toEqual([true, ['set-aside', 'challenged', 'unused'], 3])
     const el = draw(withCard(CAPACITY, crowded), crowded.id, 'simple'), more = el.querySelector<HTMLButtonElement>('[data-card-more]')!
     expect(idsIn(el)).toEqual(['set-aside', 'challenged'])
-    expect([more.getAttribute('data-card-more'), more.textContent, more.getAttribute('aria-expanded'), more.title, more.getAttribute('aria-label')])
-      .toEqual(['1', '+1', 'false', `${MORE_MARKS.lead}:\n${UNUSED}`, `${MORE_MARKS.lead}: ${UNUSED}`])
+    expect([more.getAttribute('data-card-more'), more.textContent, more.getAttribute('aria-expanded'), more.hasAttribute('title'), hover(more), more.getAttribute('aria-label')])
+      .toEqual(['1', '+1', 'false', false, `${MORE_MARKS.lead}:\n${UNUSED}`, `${MORE_MARKS.lead}: ${UNUSED}`])
   })
   it('K3b CONTRAST: the same three states on a card with no driver badge all draw, and there is no "+N"', () => {
     const el = draw(withCard(CAPACITY, { ...crowded, driver: null } as unknown as ViewCard), crowded.id, 'simple')
@@ -614,7 +633,7 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     expect(live.status).toBeNull()
     const out = draw(withCard(CAPACITY, { ...live, status: 'ruled out' } as ViewCard), live.id, 'simple')
     const first = marksIn(out)[0]!
-    expect([out.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), first.getAttribute('data-card-mark'), named(first).getAttribute('aria-label'), named(first).title]).toEqual([true, 'set-aside', 'ruled out', 'ruled out'])
+    expect([out.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), first.getAttribute('data-card-mark'), named(first).getAttribute('aria-label'), hover(named(first))]).toEqual([true, 'set-aside', 'ruled out', 'ruled out'])
     cleanup()
     const on = draw(withCard(CAPACITY, live), live.id, 'simple')
     expect([on.querySelector(`[data-simple-card="${live.id}"]`)!.hasAttribute('data-simple-set-aside'), idsIn(on)]).toEqual([false, []])
@@ -625,13 +644,31 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     { code: 'only_supporting_evidence', title: 'No challenging evidence recorded', text: 'One piece of evidence recorded on ‘Monthly rider bill’ supports it, and none challenges it. What would you expect to see if it were wrong, and has anyone looked?', rests_on: ['ev_1'], olumi: true },
   ]
   const figure = cardOf(CAPACITY, CAPACITY.model!.cards.find((c) => c.family === 'quantity' && !c.challenged)!.id)
-  it('K6 Olumi\'s observations on a card are ONE mark in the registry\'s "worth checking" icon, named by each one\'s title and sentence in core\'s order', () => {
+  it('K6 (C3) Olumi\'s observations are ONE mark per distinct core code, each its own registry icon, named by that observation\'s title and sentence; two different observations are two different marks', () => {
     const card = { ...figure, worth_checking: WORTH } as unknown as ViewCard
     expect(worthCheckingOf(card).map((w) => w.code)).toEqual(['estimate_held_as_one_figure', 'only_supporting_evidence'])
     const marks = marksIn(draw(withCard(CAPACITY, card), figure.id, 'simple'))
-    expect(marks.map((m) => m.getAttribute('data-card-mark'))).toEqual(['worth-checking'])
-    expect(named(marks[0]!).getAttribute('aria-label')).toBe(`${WORTH[0]!.title}\n${WORTH[0]!.text}\n\n${WORTH[1]!.title}\n${WORTH[1]!.text}`)
-    expect(named(marks[0]!).title).toBe(named(marks[0]!).getAttribute('aria-label'))
+    expect(marks.map((m) => [m.getAttribute('data-card-mark'), m.getAttribute('data-worth-code')])).toEqual([['worth-checking', 'estimate_held_as_one_figure'], ['worth-checking', 'only_supporting_evidence']])
+    expect(marks.map((m) => named(m).getAttribute('aria-label'))).toEqual(WORTH.map((w) => `${w.title}\n${w.text}`))
+    expect(marks.map((m) => hover(named(m)))).toEqual(WORTH.map((w) => `${w.title}\n${w.text}`))
+    expect(marks.map((m) => m.querySelector('svg')!.getAttribute('class')).every((c) => c !== null)).toBe(true)
+  })
+  it('K6a every one of core\'s nine codes has its own neutral registry icon, no two alike and none borrowing a family name; a code this page does not know still draws, as the generic mark', () => {
+    const NINE = ['olumi_estimate_under_every_aim', 'result_rests_on_olumi_range', 'estimate_held_as_one_figure', 'only_supporting_evidence', 'one_evidence_for_several_figures', 'narrow_range', 'view_without_evidence', 'assumption_without_test', 'olumi_range_turns']
+    expect(Object.keys(WORTH_ICON).sort()).toEqual([...NINE].sort())
+    expect(new Set(Object.values(WORTH_ICON)).size, 'one icon per code').toBe(NINE.length)
+    for (const code of NINE) {
+      const icon = ICONS[WORTH_ICON[code]!]
+      expect([code, icon.colour, icon.group]).toEqual([code, '--text-light', 'state'])
+      expect(icon.hover, `${code}: the registry names no family; core's words are the mark's name`).toBe('Olumi suggests checking this')
+    }
+    const newer = { ...figure, worth_checking: [{ ...WORTH[0]!, code: 'a_code_from_a_newer_core' }] } as unknown as ViewCard
+    expect(worthMarksOf(newer).map((m) => [m.code, m.icon])).toEqual([['a_code_from_a_newer_core', 'worth-checking']])
+  })
+  it('K6c two items sharing one code are one mark named by both', () => {
+    const twice = { ...figure, worth_checking: [WORTH[0]!, { ...WORTH[0]!, title: 'Another figure', text: 'Another sentence.' }] } as unknown as ViewCard
+    const marks = worthMarksOf(twice)
+    expect([marks.length, marks[0]!.words]).toEqual([1, `${WORTH[0]!.title}\n${WORTH[0]!.text}\n\nAnother figure\nAnother sentence.`])
   })
   it('K6b CONTRAST: no field, an empty list, an item core does not mark as Olumi\'s, or one with no sentence draws no mark; nothing is made up', () => {
     const none = [undefined, [], [{ ...WORTH[0]!, olumi: false }], [{ ...WORTH[0]!, text: '' }], 'A single figure with no range']
@@ -642,11 +679,12 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     const mixed = { ...figure, worth_checking: [{ ...WORTH[0]!, olumi: false }, WORTH[1]!] } as unknown as ViewCard
     expect(worthCheckingOf(mixed).map((w) => w.code)).toEqual(['only_supporting_evidence'])
   })
-  it('K7 four states on a card with no driver badge: three marks in priority order and "+1" naming the fourth', () => {
+  it('K7 five states on a card with no driver badge: three marks in priority order and "+2" naming the others', () => {
     const four = { ...crowded, driver: null, worth_checking: WORTH } as unknown as ViewCard
-    expect(cardMarksOf(four).map((m) => m.id)).toEqual(['set-aside', 'challenged', 'worth-checking', 'unused'])
+    // Two different worth-checking codes are two marks (C3), so this card has five states: three drawn and "+2" naming the other two.
+    expect(cardMarksOf(four).map((m) => m.id)).toEqual(['set-aside', 'challenged', 'worth-checking', 'worth-checking', 'unused'])
     const el = draw(withCard(CAPACITY, four), four.id, 'simple'), more = el.querySelector<HTMLButtonElement>('[data-card-more]')!
-    expect([idsIn(el), more.textContent, more.getAttribute('aria-label')]).toEqual([['set-aside', 'challenged', 'worth-checking'], '+1', `${MORE_MARKS.lead}: ${UNUSED}`])
+    expect([idsIn(el), more.textContent, more.getAttribute('aria-label')]).toEqual([['set-aside', 'challenged', 'worth-checking'], '+2', `${MORE_MARKS.lead}: ${WORTH[1]!.title}\n${WORTH[1]!.text}; ${UNUSED}`])
   })
   it('K4 "+N" is a button: a press draws the hidden mark in the row and a second press folds it; the press never reaches the card', () => {
     const onCard = vi.fn()
@@ -658,5 +696,63 @@ describe('the Simple foot\'s state marks (Paul, 17 Nov: the author mark, at most
     fireEvent.click(more())
     expect([idsIn(container), more().getAttribute('aria-expanded')]).toEqual([['set-aside', 'challenged'], 'false'])
     expect(onCard).not.toHaveBeenCalled()
+  })
+})
+
+describe('C1 the card foot has one order on both faces: state marks, then count badges, then whose it is LAST', () => {
+  const UNUSED = "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance."
+  const WORTH = [{ code: 'estimate_held_as_one_figure', title: 'A single figure', text: 'Held as one number.', rests_on: [], olumi: true }]
+  const kindOf = (e: Element): string => (e.hasAttribute('data-option-baseline') ? 'baseline' : e.hasAttribute('data-card-more') ? 'more' : e.hasAttribute('data-card-mark') ? 'state' : e.hasAttribute('data-count') ? 'count' : e.hasAttribute('data-author-mark') ? 'author' : '?')
+  const rank = { baseline: 0, state: 1, more: 2, count: 3, author: 4, '?': 9 } as const
+  it('F1 Simple: baseline and the state marks (with "+N") come first, the count badge after them, the author mark last; CONTRAST: the author mark is not first', () => {
+    expect(cardOf(ASKED, 'carry_on').author?.by, 'precondition: the card has an author, so its mark is drawn').toBe('person')
+    const base = { ...cardOf(ASKED, 'carry_on'), baseline: true, driver: null, status: 'ruled out', challenged: true, reason: 'Two sources disagree', unused: UNUSED, worth_checking: WORTH } as unknown as ViewCard
+    const count = <p className="ok-count" data-count="">2 folded</p>
+    const { container } = render(<SimpleFace card={base} model={withCard(ASKED, base).model} noted={false} extra={count} />)
+    const foot = container.querySelector(`[data-simple-foot="${base.id}"]`)!
+    const order = [...foot.querySelectorAll('[data-option-baseline], [data-card-mark], [data-card-more], [data-count], [data-author-mark]')].map(kindOf)
+    expect(order.every((k) => k !== '?')).toBe(true)
+    expect(order, 'a fixed order: nothing of a later kind before an earlier one').toEqual([...order].sort((a, b) => rank[a as keyof typeof rank] - rank[b as keyof typeof rank]))
+    expect([order[0], order.at(-1), order.includes('more'), order.includes('count')]).toEqual(['baseline', 'author', true, true])
+  })
+  it('F2 Detailed: the kind and state marks come first and whose it is is the last thing in the foot', () => {
+    const base = { ...cardOf(ASKED, 'carry_on'), baseline: true, unused: UNUSED, worth_checking: WORTH } as unknown as ViewCard
+    const foot = draw(withCard(ASKED, base), base.id, 'working').querySelector(`[data-core-card="${base.id}"] .ok-dt-foot`)!
+    const kids = [...foot.children]
+    expect(kids.at(-1)!.getAttribute('data-core-author')).toBe(base.id)
+    const first = kids.findIndex((k) => k.querySelector('[data-option-baseline]') !== null || k.hasAttribute('data-option-baseline'))
+    const worth = kids.findIndex((k) => k.querySelector('[data-card-mark="worth-checking"]') !== null || k.getAttribute('data-card-mark') === 'worth-checking')
+    expect([first >= 0, worth >= 0, first < worth, worth < kids.length - 1]).toEqual([true, true, true, true])
+  })
+})
+
+describe('C5 a condition is neutral and has its own icon; orange only from core\'s own challenge field', () => {
+  // A real condition card of the served European View (core's `condition` family); `challenged` is core's own field, set here only to contrast it.
+  const cond = (extra: Partial<ViewCard> = {}) => ({ ...cardOf(EU, 'country_readiness'), challenged: false, ...extra }) as unknown as ViewCard
+  it('N0 precondition: the served card is of the condition family', () => { expect(cardOf(EU, 'country_readiness').family).toBe('condition') })
+  it('N1 at both levels the condition card wears the condition icon, named by the registry, and the neutral hook; a challenge draws core\'s own mark, never the family', () => {
+    for (const level of ['simple', 'working'] as const) {
+      const c = cond(), face = faceOf(draw(withCard(EU, c), c.id, level), c.id)
+      const tag = face.querySelector<HTMLElement>('[data-kind-tag="condition"]')!
+      expect([level, tag.textContent, imgOf(tag).getAttribute('aria-label'), face.hasAttribute('data-ok-condition'), face.querySelector('[data-card-mark="challenged"]')]).toEqual([level, '', ICONS['condition-tag'].hover, true, null]); cleanup()
+      const ch = cond({ challenged: true, reason: 'Two sources disagree' } as Partial<ViewCard>)
+      // core's `challenged` field (and only it) is what makes the orange mark; the Simple foot draws it as a state mark.
+      expect([level, cardMarksOf(ch).some((m) => m.id === 'challenged'), cardMarksOf(c).some((m) => m.id === 'challenged')]).toEqual([level, true, false])
+      if (level === 'simple') expect(draw(withCard(EU, ch), ch.id, level).querySelector('[data-card-mark="challenged"]')).not.toBeNull()
+      cleanup()
+    }
+  })
+  it('N2 CONTRAST: a figure card and an assumption wear no condition icon', () => {
+    for (const id of ['starting_customers', 'customer_flow_assumptions']) { expect(draw(EU, id, 'simple').querySelector('[data-kind-tag="condition"]'), id).toBeNull(); cleanup() }
+  })
+})
+
+describe('C7 the figure\'s pencil is drawn at rest where the View carries an edit', () => {
+  it('E1 a card whose figure carries an edit has the pencil hook; a card whose figure has none draws no pencil hook (an offer to hold one stays a hover action)', () => {
+    const editable = EU.model!.cards.find((c) => c.figure?.edit != null)
+    expect(editable, 'precondition: the served View carries an edit on a figure').toBeDefined()
+    expect(draw(EU, editable!.id, 'simple').querySelector('[data-card-edit-cue]')).not.toBeNull(); cleanup()
+    const none = { ...editable!, figure: { ...editable!.figure!, edit: null } } as unknown as ViewCard
+    expect(draw(withCard(EU, none), none.id, 'simple').querySelector('[data-card-edit-cue]')).toBeNull()
   })
 })

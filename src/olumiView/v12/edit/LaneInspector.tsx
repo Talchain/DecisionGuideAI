@@ -178,8 +178,11 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const perOption = optionValuesOf(c, model)
   // The card's author line is the value's own source on a quantity (core says so): it is then drawn once, beside the value, and not in the header too.
   const authorAtValue = value !== null && value.source !== null && value.source === c.author?.text
-  // Olumi's mark in words is not said a second time where the value's source or the author line already says it.
-  const said = new Set([value?.source, c.author?.text])
+  // Olumi's mark in words is not said a second time where the value's source or the author line already says it. PINNED, a source that is Olumi's own
+  // account of the card (`olumi.title`) is not drawn beside the value: the fold says it once (below); the preview has no fold, so it keeps it there.
+  const sourceIsOlumis = c.olumi !== null && value?.source === c.olumi.title
+  const sourceBesideValue = value?.source != null && !(pinned && sourceIsOlumis)
+  const said = new Set([sourceBesideValue ? value?.source : null, c.author?.text])
   const option = c.family === 'option'
   const r = c.figure === null ? null : figureRange(c)
   // The card's own ask action (the right-click menu's "Explain"), pointed at this card's canvas node.
@@ -187,14 +190,16 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const ask = node === undefined ? null : () => ctx.act.ask({ kind: 'node', nodeId: node.id, nodeType: node.type as NodeTarget['nodeType'], node, screenPos: { x: 0, y: 0 } }, 'explain_element')
   const canTry = model !== null && c.figure !== null && triableCards(model).some((x) => x.id === c.id)
   // What the fold holds: core's own account of the card (its detail, the figure's own explanation) and, for an option, what it changes, rests on and how it is worked out.
-  const figureSaid = c.figure !== null && c.figure.title !== '' && c.figure.title !== c.figure.text ? c.figure.title : null
+  // C6 (20 Nov, said once): a sentence core's `detail` already holds is the detail's, drawn once there, never again as its own line.
+  const inDetail = (s: string | null | undefined): boolean => s != null && s !== '' && c.detail.includes(s)
+  const figureSaid = c.figure !== null && c.figure.title !== '' && c.figure.title !== c.figure.text && !inDetail(c.figure.title) ? c.figure.title : null
   const explain = option && view !== null && ((c.sets ?? []).length > 0 || (c.premises ?? []).length > 0 || movedBy(view, c).length > 0)
   // The rest of what the card's old pop-up said, in core's words, each once: an option's own line, the reason, and (lens on) what it drives.
   // (A person's author line carries core's account of it, their own words quoted: drawn here, not left to a browser tip.)
   const also = [c.author != null && c.author.by !== 'olumi' && c.author.title !== c.author.text ? c.author.title : null, option ? c.face?.line?.text ?? null : null, c.figure === null && c.rows.length === 0 ? null : c.reason ?? null, ...(drives ?? []).map((o) => o.driver?.title ?? null)]
     // Said once: core's `detail` (drawn first in the fold) usually ends with the author's account whole; a line the detail already holds is not drawn again.
     .filter((x, i, a): x is string => x != null && x !== '' && x !== value?.text && x !== c.headline?.title && !c.detail.includes(x) && a.indexOf(x) === i)
-  const olumiSaid = c.olumi === null || said.has(c.olumi.title) ? null : c.olumi.title
+  const olumiSaid = c.olumi === null || said.has(c.olumi.title) || inDetail(c.olumi.title) ? null : c.olumi.title
   const hasFrom = olumiSaid !== null || c.detail !== '' || figureSaid !== null || explain || also.length > 0
   return (
     <aside ref={box} role={pinned ? 'complementary' : 'tooltip'} aria-label="Details" data-testid={pinned ? 'lane-inspector' : 'lane-peek'} data-state={pinned ? 'pinned' : 'peek'} data-kind="card" data-box-card={c.id}
@@ -232,7 +237,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
                 </ul>
               )}{' '}
               {authorAtValue ? <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />
-                : value.source === null ? null : <span className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-value-source">{value.source}</span>}
+                : !sourceBesideValue ? null : <span className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-value-source">{value.source}</span>}
             </div>
           </div>
         )}

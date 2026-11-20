@@ -9,7 +9,7 @@ import path from 'node:path'
 const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selectors: m[1]!.split(',').map((s) => s.trim()), body: m[2]! }))
 // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov): the question's rail names options by letter (v12/detailed/charts.tsx); its label and rest lines are gone.
-const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-tag', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next']
+const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next']
 
 describe("the look's recipes, each written once", () => {
   it("a card's small text takes its size and line height from one rule (the compact card draws at the board's scale like every card, R4, 16 Nov)", () => {
@@ -50,5 +50,16 @@ describe("the look's recipes, each written once", () => {
   it("names the design system's tokens directly: no alias layer but the canvas label scale, and no colour literal", () => {
     expect([...new Set(css.match(/--o-[a-z-]+/g) ?? [])]).toEqual(['--o-s'])
     expect(css.match(/rgba?\(|#[0-9a-fA-F]{3,8}\b/g)).toBeNull()
+  })
+  it('C5 a condition card\'s frame hue is the neutral grey, set after the kind rules so it wins, and never an orange; C7 the pencil is hidden at rest only for the other actions, and a pinned box still hides it', () => {
+    const order = rules.map((r) => r.selectors.join(','))
+    const cond = rules.find((r) => r.selectors.some((x) => x.includes('[data-ok-condition]')))!
+    expect(cond.body.trim()).toBe('--ok-kc: var(--text-light);')
+    expect(order.indexOf(cond.selectors.join(','))).toBeGreaterThan(order.findIndex((x) => x.includes("[data-ok-kind='constraint']")))
+    const hide = rules.find((r) => r.selectors.some((x) => x.includes('[data-card-action]:not(')))!
+    expect(hide.selectors.some((x) => x.includes('[data-card-edit-cue]'))).toBe(true)
+    const pinned = rules.find((r) => r.selectors.some((x) => x.includes("data-state='pinned'") && x.includes('[data-card-action]')))!
+    expect(pinned.body).toMatch(/visibility: hidden/)
+    expect(pinned.selectors.join(',').includes('[data-card-edit-cue]'), 'the pinned rule names the action hook whole, pencil included').toBe(false)
   })
 })

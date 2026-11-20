@@ -46,6 +46,7 @@ import {
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   Brackets, EqualNot, Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
+  Columns2, Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   type LucideIcon,
 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
@@ -259,7 +260,7 @@ export const ICONS = {
   cut: e(Scissors, 'Cut', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
   /* analysis ids */
-  'scope-compared': e(Scale, 'Compared', '--text-light', 'icon-only', 'chrome'),
+  'scope-compared': e(Columns2, 'Compared', '--text-light', 'icon-only', 'chrome'),
   'scope-not-compared': e(EqualNot, 'Not compared', '--text-light', 'icon-only', 'chrome'),
   'scope-within': e(Brackets, 'Held within', '--text-light', 'icon-only', 'chrome'),
   /* links ids */
@@ -270,6 +271,20 @@ export const ICONS = {
   'link-disputed': e(MessagesSquare, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
   'link-unknown': e(BadgeHelp, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
   'link-none': e(Equal, 'No effect', '--text-light', 'icon-only', 'kind'),
+  /* cards ids */
+  // C5 (20 Nov): a condition card is neutral; this is its own mark (never a risk's, never inferred as an alert).
+  'condition-tag': e(ToggleRight, 'Condition', '--text-light', 'icon-only', 'kind'),
+  // CARDS (C3, 20 Nov): one grey mark per code of Olumi's `worth_checking` (core's nine-value enum), so each observation is its own mark; the hover is core's title and
+  // sentence, passed as `words`, and the registry's words are only the generic ones. No family name core does not give (bias, evidence, range...) labels a mark.
+  'check-estimate-under-aims': e(Anchor, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-result-rests-on-range': e(Ruler, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-one-figure': e(CircleDot, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-only-supporting': e(Scale, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-shared-evidence': e(Combine, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-narrow-range': e(FoldHorizontal, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-untested-assumption': e(FlaskConical, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-range-turns': e(Repeat2, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS

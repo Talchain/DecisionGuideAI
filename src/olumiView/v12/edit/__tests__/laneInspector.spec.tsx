@@ -12,7 +12,7 @@ import { SID, approved, install, uninstall, type Stub } from './harness'
 let stub: Stub
 // Surfaces step 5: the lane's panel (a figure, a risk's size and a link's strength are changed in its Value row); the older look's panel keeps its buttons (oneFigureEditor.spec.tsx S5-C2).
 beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); stub = install() })
-afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }) })
+afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }) })
 // The layer draws the details panel and the one small form its buttons open (in the panel's place: one thing open at a time).
 const mount = () => render(<ToastProvider><LaneEditingLayer /></ToastProvider>)
 
@@ -50,6 +50,48 @@ describe('details panel', () => {
     fireEvent.click(screen.getByTestId('inspector-figure-set'))
     expect(screen.queryByTestId('lane-edit-form')).toBeNull()
     expect(stub.posts()).toHaveLength(0)
+  })
+  // C6 (20 Nov): the provenance sentence is said once. A figure Olumi estimated on a card that is not Olumi's: core's `olumi.title` is the Value row's source.
+  describe('C6 core\'s provenance sentence prints once', () => {
+    const SAID = 'Olumi estimated this from the two sources you gave'
+    const withCard = (over: Record<string, unknown>) => {
+      const v = approved(), m = v.model!
+      const q = { ...m.cards.find((c) => c.family === 'quantity')!, id: 'est', heading: 'Estimate', olumi: { glyph: 'O', title: SAID }, author: { by: 'person', text: 'Yours', title: 'Yours' },
+        figure: { text: '5,000', title: 'A figure', edit: null }, ...over }
+      useViewStore.setState({ view: { ...v, model: { ...m, cards: [...m.cards, q] } } as never })
+    }
+    const times = (el: Element, w: string): number => el.textContent!.split(w).length - 1
+    it('pinned: the sentence is in the fold, not also beside the value; where the card\'s detail holds it, the detail is its one place', () => {
+      withCard({ detail: 'A card with its own account.' })
+      useLaneInspector.getState().open({ kind: 'card', id: 'est' })
+      mount()
+      const box = screen.getByTestId('lane-inspector')
+      expect(screen.queryByTestId('lane-inspector-value-source'), 'not beside the value').toBeNull()
+      expect([times(box, SAID), screen.getByTestId('lane-inspector-source').textContent]).toEqual([1, SAID])
+      cleanup(); useLaneInspector.setState({ current: null })
+      withCard({ detail: `${SAID}. More.`, figure: { text: '5,000', title: 'A figure', edit: null } })
+      useLaneInspector.getState().open({ kind: 'card', id: 'est' })
+      mount()
+      expect([times(screen.getByTestId('lane-inspector'), SAID), screen.queryByTestId('lane-inspector-source')], 'the detail says it; no second line').toEqual([1, null])
+    })
+    it('pinned: the figure\'s own sentence is not printed again when the detail already holds it', () => {
+      withCard({ detail: 'It is A figure, as given.' })
+      useLaneInspector.getState().open({ kind: 'card', id: 'est' })
+      mount()
+      expect(screen.queryByTestId('lane-inspector-figure-said'), 'the detail holds it').toBeNull()
+      cleanup(); useLaneInspector.setState({ current: null })
+      withCard({ detail: 'Something else.' })
+      useLaneInspector.getState().open({ kind: 'card', id: 'est' })
+      mount()
+      expect(screen.getByTestId('lane-inspector-figure-said'), 'CONTRAST: a sentence the detail does not hold is drawn').toHaveTextContent('A figure')
+    })
+    it('the preview has no fold, so it keeps the source beside the value', () => {
+      withCard({})
+      useLaneInspector.setState({ current: null, peek: { kind: 'card', id: 'est' } })
+      mount()
+      expect(screen.getByTestId('lane-peek')).toBeInTheDocument()
+      expect(screen.getByTestId('lane-inspector-value-source')).toHaveTextContent(SAID)
+    })
   })
   it('closes when the item is no longer in the model', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: 'gone' })

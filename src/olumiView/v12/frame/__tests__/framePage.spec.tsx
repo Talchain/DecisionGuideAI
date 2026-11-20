@@ -61,7 +61,7 @@ describe('the Frame page', () => {
     expect(a.querySelector('[data-person-mark]')).not.toBeNull(); expect(a.querySelector('[data-olumi-mark]')).toBeNull()
     expect(a.querySelector('[data-frame="bound"]')!.textContent).toBe('kept in words')
     expect(o).toHaveAttribute('data-olumi-card'); expect(o.querySelector('[data-olumi-mark]')).not.toBeNull(); expect(o.querySelector('[data-person-mark]')).toBeNull()
-    expect(a.querySelector('[data-person-mark]')!.getAttribute('title')).toBe('Your words')
+    expect(a.querySelector('[data-person-mark]')!.getAttribute('aria-label')).toBe('Your words')
   })
   it('the finding is core\'s own words: most_likely.text, else the waits_on head, label and text', () => {
     const run = fx.model!.run

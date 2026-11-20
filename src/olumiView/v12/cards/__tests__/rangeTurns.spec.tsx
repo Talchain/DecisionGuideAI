@@ -8,7 +8,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
@@ -38,13 +38,17 @@ describe('core d4729b77: "Where the result turns in Olumi\'s range" is drawn on 
     expect([item?.olumi, item?.title]).toEqual([true, 'Where the result turns in Olumi’s range'])
     expect(worthCheckingOf(card).find((w) => (w.code as string) === 'olumi_range_turns')).toEqual({ code: 'olumi_range_turns', title: item.title, text: item.text })
   })
-  it('RT2 at both levels the card draws ONE worth-checking mark whose name includes the entry\'s title and sentence exactly', () => {
+  it('RT2 at both levels the card draws ONE worth-checking mark per distinct code (C3), and the olumi_range_turns mark is named by the entry\'s title and sentence exactly', () => {
+    const codes = [...new Set((card.worth_checking ?? []).map((w) => w.code as string))]
     for (const level of ['simple', 'working'] as const) {
       const el = draw(PRICING, 'cups_change', level)
+      // The Simple foot folds marks past three behind "+N": a press draws them all.
+      const more = el.querySelector<HTMLElement>('[data-card-more]'); if (more !== null) fireEvent.click(more)
       const marks = [...el.querySelectorAll<HTMLElement>('[data-card-mark="worth-checking"]')]
-      const named = marks.map((m) => (m.getAttribute('aria-label') ? m : m.querySelector<HTMLElement>('[aria-label]'))?.getAttribute('aria-label') ?? '')
-      expect([level, marks.length, named.some((n) => n.includes(`${item.title}\n${item.text}`))]).toEqual([level, 1, true])
-      expect(cardMarksOf(card).find((m) => m.id === 'worth-checking')!.words).toContain(item.text)
+      const turns = marks.find((m) => m.getAttribute('data-worth-code') === 'olumi_range_turns')
+      const name = (turns?.getAttribute('aria-label') ? turns : turns?.querySelector<HTMLElement>('[aria-label]'))?.getAttribute('aria-label') ?? ''
+      expect([level, marks.length, name.includes(`${item.title}\n${item.text}`)]).toEqual([level, codes.length, true])
+      expect(cardMarksOf(card).find((m) => m.code === 'olumi_range_turns')!.words).toContain(item.text)
       cleanup()
     }
   })
