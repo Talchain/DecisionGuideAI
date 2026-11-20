@@ -12,7 +12,9 @@ import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
 import { setDefaultLevel } from '../v12/simpleStore'
 import { causalInputs, drawViewCanvas, layViewCanvas, useViewCanvas, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION } from '../canvas'
-import { askKindOf, CARD_WIDTH, causalPlaces, linkDrawn, QUESTION, questionPlace } from '../layout'
+import { cleanup } from '@testing-library/react'
+import { drawLinkEdge, restingEdge } from '../v12/links/__tests__/drawEdge'
+import { askKindOf, CARD_WIDTH, cardLinks, causalPlaces, QUESTION, questionPlace } from '../layout'
 
 const lane = vi.hoisted(() => ({ on: true }))
 vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
@@ -185,24 +187,20 @@ describe('a click on a View card opens no inspector (4 Nov drive: "This element 
   })
 })
 
-describe('the reason links fold away (DL 4 Nov: "the dashed premise and assumption links cross the whole board")', () => {
+describe('every link is drawn at rest, the reason links included (panel-visual system L1; was: the reason links fold away, DL 4 Nov)', () => {
   const model = golden('european').model!
-  const reasons = model.links.filter((l) => l.kind === 'reason'), causal = model.links.filter((l) => l.kind !== 'reason')
-  it('at open, with nothing hovered or selected, no reason link is drawn; every causal link is', () => {
+  const reasons = cardLinks(model).filter(({ link }) => link.kind === 'reason')
+  it('with nothing hovered or selected the canvas holds an edge for every reason link, and the lane\'s edge renders each one (none is folded away until a card is active)', async () => {
     expect(reasons.length).toBeGreaterThan(0)
-    expect(reasons.filter((l) => !l.alert && !l.proposed).some((l) => linkDrawn(l, new Set()))).toBe(false)
-    expect(causal.every((l) => linkDrawn(l, new Set()))).toBe(true)
+    await layViewCanvas(model)
+    const edges = useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK)
+    const held = new Set(edges.map((e) => (e.data as { i: number }).i))
+    for (const { link: l, i } of reasons) {
+      expect(held.has(i), `reason link links.${i} is a canvas edge at rest`).toBe(true)
+      expect(restingEdge(drawLinkEdge(l, i)), `links.${i}`).toMatchObject({ drawn: true, faded: false }); cleanup()
+    }
   })
-  it('an option selected or hovered draws the reason links on it, and only those', () => {
-    const option = model.cards.find((c) => c.family === 'option' && reasons.some((l) => l.to === c.id))!
-    const on = reasons.filter((l) => linkDrawn(l, new Set([option.id])))
-    expect(on.length).toBeGreaterThan(0)
-    expect(on.every((l) => l.from === option.id || l.to === option.id)).toBe(true)
-  })
-  it('must not change: a reason link core marks challenged or proposed is always drawn', () => {
-    const r = reasons[0]!
-    expect([linkDrawn({ ...r, alert: true }, new Set()), linkDrawn({ ...r, proposed: true }, new Set())]).toEqual([true, true])
-  })
+})
 })
 
 describe('the cards as the original canvas numbers and draws them', () => {

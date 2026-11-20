@@ -38,7 +38,7 @@
  */
 import { useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
+  AlertOctagon, AlertTriangle, AlignLeft, ArrowDownRight, ArrowUpRight, BadgeHelp, Equal, MessagesSquare, Shuffle, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
@@ -262,6 +262,14 @@ export const ICONS = {
   'scope-compared': e(Scale, 'Compared', '--text-light', 'icon-only', 'chrome'),
   'scope-not-compared': e(EqualNot, 'Not compared', '--text-light', 'icon-only', 'chrome'),
   'scope-within': e(Brackets, 'Held within', '--text-light', 'icon-only', 'chrome'),
+  /* links ids */
+  // A link's midpoint mark: its typed direction (panel-visual §4, L2). The hover is the fallback only: core's causal.text, effect.text and effect.title are passed as `words`.
+  'link-raises': e(ArrowUpRight, 'Increases', '--text-light', 'icon-only', 'kind'),
+  'link-lowers': e(ArrowDownRight, 'Decreases', '--text-light', 'icon-only', 'kind'),
+  'link-depends': e(Shuffle, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
+  'link-disputed': e(MessagesSquare, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
+  'link-unknown': e(BadgeHelp, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
+  'link-none': e(Equal, 'No effect', '--text-light', 'icon-only', 'kind'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS

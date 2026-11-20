@@ -7,7 +7,6 @@
  * `reason` and an unknown role are not here: they are drawn as before (`linkStyle` returns null).
  */
 import { linkRole, type LinkRole } from '../contract'
-import { getCanvasStrengthBand } from '../../../canvas/domain/vocabulary'
 import { EDGE_STROKE_WIDTH_BANDS } from '../../../canvas/utils/graphDisplayCalculations'
 
 export type LineEnd = 'arrow' | 'dot' | 'none'
@@ -27,20 +26,14 @@ export const effectStroke = (sign: string | null | undefined, isDark = false): s
   const t = isDark ? EFFECT_STROKES_DARK : EFFECT_STROKES
   return sign === 'increases' ? t.increases : sign === 'decreases' ? t.decreases : t.neutral
 }
-/** Every line that is not a sized effect: 2 px (production's thinnest rung, Paul 16 Nov, R5). */
-export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
 /**
- * Production's width ladder, 2 / 3 / 4 / 5 (canvas/utils/graphDisplayCalculations EDGE_STROKE_WIDTH_BANDS, keyed on its strength bands, canvas/domain/vocabulary),
- * for an effect the engine gives a `strength.share` (a unit-free share, 0 to 1; raw low/likely/high are in the link's own units, so never compared
- * across links, SCI-16). With no share the line is the thinnest rung: a size is not a certainty. Screen px: the line does not scale with the camera.
+ * EVERY link is this one width, 2 px (production's thinnest rung; panel-visual L3). Core reserves `causal.strength.share` as null and the raw
+ * low / likely / high are in each link's own units, so no width may imply a strength: the old 2 / 3 / 4 / 5 ladder and the driver minimum are gone.
  */
-export const effectWidth = (share: number | null | undefined): number =>
-  typeof share === 'number' && Number.isFinite(share) ? EDGE_STROKE_WIDTH_BANDS[getCanvasStrengthBand(Math.abs(share)).id] : PLAIN_WIDTH
-/** A driver link (what would change, the lens): the ladder's 4 px rung at least. */
-export const DRIVER_WIDTH = EDGE_STROKE_WIDTH_BANDS.strong
+export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
-/** The one dash: a doubted link. */
+/** The one dash: a doubted link. A reason link is never dashed for being one: it is dotted (olumiLook.css `.ok-link-dotted`), so a dash still means doubt only. */
 export const DOUBT_DASH = '5 4'
 
 export const LINK_STYLES: Readonly<Record<StyledRole, LinkStyle>> = {

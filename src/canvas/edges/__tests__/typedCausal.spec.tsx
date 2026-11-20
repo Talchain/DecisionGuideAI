@@ -75,13 +75,14 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     expect(got.r.querySelector('[data-view-link-olumi-mark="links.0"]')).not.toBeNull()
     expect(got.r.querySelector('[data-view-link-sign]')).toBeNull()
   })
-  it('a noncausal line is plain (R5, 16 Nov): 2 px and neutral, its "+" label colours nothing and only doubt dashes it; an alert retains its priority', () => {
+  it('a noncausal line is plain (R5, 16 Nov): 2 px and neutral, its "+" label colours nothing and only doubt dashes it; an alert is a halo, never the line\'s colour (panel-visual L4)', () => {
     const plain = draw(null, { label: '+', doubt: true })
     expect([plain.p.style.stroke, plain.p.style.strokeWidth, plain.p.style.strokeDasharray]).toEqual(['var(--edge-neutral)', '2', DOUBT_DASH])
     cleanup()
     expect(draw(null, { label: '+' }).p.style.stroke, 'an effect\'s colour is never borrowed for a line with no typed causal').toBe('var(--edge-neutral)')
     cleanup()
-    expect(draw(causal('decreases'), { alert: true }).p.style.stroke).toBe('var(--olumi-mark-orange)')
+    const alerted = draw(causal('decreases'), { alert: true })
+    expect([alerted.p.style.stroke, alerted.r.querySelector('g[data-view-link]')?.getAttribute('data-link-halo')]).toEqual([effectStroke('decreases'), 'alert'])
   })
   it('the challenge glyph is hoverable and named with core\'s own legend word', () => {
     useViewStore.setState({ view: proposal as unknown as NonNullable<ReturnType<typeof useViewStore.getState>['view']> })

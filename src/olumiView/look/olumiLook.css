@@ -512,3 +512,23 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .ok-an-scope-note { margin-left: calc(4px * var(--o-s)); }
 .olumi-look .ok-an-detail { display: block; color: var(--text-light); }
 .olumi-look .ok-an-detail-lines { white-space: pre-line; }
+
+/* LINKS (panel-visual system §4, L1 L2 L4). A reason link (a premise or an assumption, always drawn at rest) is round dots, never a dash: a dash is doubt. */
+.olumi-look .ok-link-line { vector-effect: non-scaling-stroke; }
+.olumi-look .ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
+/* Focus path (focusPath.ts, production's 0.18): a link off the lit path fades, and only then. The fade is a transition only where motion is allowed. */
+.olumi-look .ok-link-off-path { opacity: 0.18; }
+@media (prefers-reduced-motion: no-preference) { .olumi-look .ok-link { transition: opacity 300ms ease; } }
+/* A link's words and mark sit in the label layer on the board's ground; only the mark and the sign take the pointer. */
+.olumi-look .ok-link-words { position: absolute; background: var(--bg-canvas); pointer-events: none; }
+/* Alert (orange) and proposal (Olumi's blue) are a halo under a line that has its own direction colour, so neither overwrites the direction. */
+.olumi-look .ok-link-halo { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.35; pointer-events: none; }
+.olumi-look .ok-link-halo-alert { stroke: var(--olumi-mark-orange); }
+.olumi-look .ok-link-halo-proposed { stroke: var(--semantic-info); }
+/* The midpoint mark: one small grey icon from the typed direction, counter-scaled to the board. Hover and focus are the Tip's. */
+.olumi-look .ok-link-mark { color: var(--edge-neutral); pointer-events: auto; }
+.olumi-look .ok-link-mark svg { width: calc(12px * var(--canvas-label-scale, 1)); height: calc(12px * var(--canvas-label-scale, 1)); }
+
+/* LINKS, the parts that take the pointer (the label layer is pointer-less): the sign and the effect words, which carry a Tip, and the remove control's box. */
+.olumi-look .ok-link-hit { pointer-events: auto; }
+.olumi-look .ok-link-ctl { position: absolute; }
