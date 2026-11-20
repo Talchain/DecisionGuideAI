@@ -11,6 +11,7 @@ import { useViewStore } from '../olumiView/store'
 import { typography } from '../styles/typography'
 import { OkIcon } from '../olumiView/look/icons'
 import { BottomCardMark } from '../canvas/nodes/shared/CardMark'
+import { Hover } from '../olumiView/v12/chat/Hover'
 
 /** One of core's change lines, as the mark's hover says it. */
 export type MarkedLine = { text: string; detail: string }
@@ -53,8 +54,9 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
     // reserves one line (6 + 27 * scale) and a second would grow upward over the card. The full words stay in the hover.
     // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
     <BottomCardMark>
-      <span className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
-        title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><span className="inline-flex shrink-0"><OkIcon id="version-tag" size={12} decorative /></span><span className="truncate">{changedSince(m.from)}</span></span>
+      {/* The hover is the one Tip (core's lines, verbatim). The card around it is already the keyboard stop and the same lines are in the tab's list, so the mark takes no focus of its own. */}
+      <Hover words={hover} focusable={false} className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+        data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><span className="inline-flex shrink-0"><OkIcon id="version-tag" size={12} decorative /></span><span className="truncate">{changedSince(m.from)}</span></Hover>
     </BottomCardMark>
   )
 }

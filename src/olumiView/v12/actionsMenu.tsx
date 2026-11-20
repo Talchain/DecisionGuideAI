@@ -7,6 +7,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { OkIcon } from '../look/icons'
+import { HoverButton } from './chat/Hover'
 import { TOOL_WORDS, type Menu, type ToolId } from './actions'
 
 /** The menu's name for assistive technology (the same words the question menu always had). */
@@ -57,13 +58,13 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
   // One gated sentence shared by two or more questions is said once (see the questions' head); a single gated question, or differing sentences, keep their own line.
   const gatedWords = [...new Set(menu.methods.flatMap((m) => (m.prerequisite === null ? [] : [m.prerequisite])))]
   const onceWords = gatedWords.length === 1 && menu.methods.filter((m) => m.prerequisite !== null).length > 1 ? gatedWords[0]! : null
-  const item = 'flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed'
+  const item = 'flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed aria-disabled:text-text-light aria-disabled:cursor-not-allowed'
   return (
     <span ref={root} className="relative inline-flex" data-testid="view-actions">
-      <button type="button" aria-label={MORE_ACTIONS} title={MORE_ACTIONS} aria-haspopup="true" aria-expanded={open} data-testid="view-actions-button" onClick={() => setOpen((o) => !o)}
+      <HoverButton type="button" words={MORE_ACTIONS} aria-label={MORE_ACTIONS} aria-haspopup="true" aria-expanded={open} data-testid="view-actions-button" onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
         <OkIcon id="more" decorative inherit />
-      </button>
+      </HoverButton>
       {!open ? null : (
         <div role="group" aria-label={ACTIONS_MENU_NAME} data-testid="view-actions-menu"
           style={place === null ? undefined : { left: place.left, right: 'auto', width: place.width, maxHeight: place.maxHeight }}
@@ -72,11 +73,11 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
               and 2000): the one press that changes what the scenario is, in view on opening, above what the person came for and core's questions. */}
           {build === undefined ? null : (
             <div className="border-b border-panel-border pb-2" data-testid="view-build-model-row">
-              <button type="button" disabled={held} title={build.title} onClick={() => { setOpen(false); build.onPress() }} className={item} data-testid="view-build-model">
+              <HoverButton type="button" words={build.title} disabled={held} onClick={() => { setOpen(false); build.onPress() }} className={item} data-testid="view-build-model">
                 {/* The row shape every press below it has (DL, 08:5xZ): core's label, then core's own one line for it (`build_model.title`), quiet. */}
                 <span className="font-medium text-text-header" data-testid="view-build-model-label">{build.label}</span>
                 <span className={`${typography.viewPanelMeta} font-normal text-text-light`} data-testid="view-build-model-title">{build.title}</span>
-              </button>
+              </HoverButton>
             </div>
           )}
           {goal}
@@ -89,20 +90,18 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
               </p>
             )}
             {menu.methods.map((m) => (
-              <button key={m.id} type="button" disabled={held} onClick={() => { setOpen(false); onMethod(m.id) }} title={m.first ? FIRST_FOR_YOUR_GOAL : undefined}
+              <HoverButton key={m.id} type="button" disabled={held} onClick={() => { setOpen(false); onMethod(m.id) }} words={m.first ? FIRST_FOR_YOUR_GOAL : undefined}
                 className={`${item}${m.first ? ' font-medium' : ''}`} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
                 <span className="flex items-start gap-1.5">
                   {m.first ? <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-info" aria-hidden="true" data-testid="view-session-method-first" /> : null}
                   <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
                   {m.prerequisite === null || onceWords === null ? null : (
-                    <span role="img" aria-label={m.prerequisite} title={m.prerequisite} className="mt-0.5 inline-flex flex-none text-text-light" data-testid="view-method-prerequisite">
-                      <OkIcon id="needs-analysis" size={14} decorative />
-                    </span>
+                    <OkIcon id="needs-analysis" size={14} words={m.prerequisite} testid="view-method-prerequisite" className="mt-0.5" />
                   )}
                   {m.first ? <span className="sr-only"> ({FIRST_FOR_YOUR_GOAL})</span> : null}
                 </span>
                 {m.prerequisite === null || onceWords !== null ? null : <span className={`${typography.viewPanelMeta} font-normal text-text-light`} data-testid="view-method-prerequisite">{m.prerequisite}</span>}
-              </button>
+              </HoverButton>
             ))}
           </div>
           {menu.tools.length === 0 ? null : (

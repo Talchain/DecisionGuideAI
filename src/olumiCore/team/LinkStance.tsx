@@ -6,6 +6,7 @@ import { differencesKey, readDifferences, useDifferences } from './differences'
 import { runWrite } from './writes'
 import { offeredOf } from './ViewDoubts'
 import { useTakeLinkPick } from './linkPick'
+import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META } from './ui'
 
 /**
@@ -47,6 +48,8 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
   const cards = view.model?.cards ?? []
   const heading = (id: string) => cards.find((c) => c.id === id)?.heading ?? id
   const shownIsProposal = view.proposal !== null && view.model?.edit_base === null
+  // The picked link's own words (core's `title`) are the picker's hover, through the one Tip (on the select's own focus stop); a native option title is not reachable.
+  const linkTip = useAnchoredTip(view.model?.holdable == null ? undefined : offeredOf(view, heading).find((l) => keyOf(l.link) === pick)?.title)
   // A link's chip asks for its link (linkPick.ts, Paul's step 6): picked here once this form offers it.
   useTakeLinkPick(view.model?.holdable == null ? [] : offeredOf(view, heading).map((l) => keyOf(l.link)), (k) => { setPick(k); setError(null); setChanging(true) })
   // Only a core that holds `model.holdable` takes a stance (it checks the link against it). One place at a time (DL 9 Nov): core's
@@ -97,10 +100,11 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
       ) : <>
       <label className={`${META} grid gap-1`}>
         <span className="font-medium text-text-header">{words.link}</span>
-        <select data-testid={`${at}-link`} className={FIELD} value={pick} disabled={busy} onChange={(e) => { setPick(e.target.value); setError(null) }}>
+        <select data-testid={`${at}-link`} className={FIELD} value={pick} disabled={busy} {...linkTip.handlers} aria-describedby={linkTip.describedBy} onChange={(e) => { setPick(e.target.value); setError(null) }}>
           <option value="">{words.pick ?? ''}</option>
-          {links.map((l) => <option key={keyOf(l.link)} value={keyOf(l.link)} title={l.title}>{l.text}</option>)}
+          {links.map((l) => <option key={keyOf(l.link)} value={keyOf(l.link)}>{l.text}</option>)}
         </select>
+        {linkTip.tip}
       </label>
       <fieldset className="m-0 grid gap-1 border-0 p-0" data-testid={`${at}-stance`} aria-labelledby={headingId}>
         {(['doubt', 'keep'] as const).map((s) => (
@@ -115,7 +119,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
         <textarea data-testid={`${at}-words`} className={`${FIELD} min-h-[56px]`} maxLength={words.limit} value={said} disabled={busy} onChange={(e) => { setSaid(e.target.value); setError(null) }} />
       </label>
       {/* A person's own stance, not Olumi's: ink, never blue (blue is only for what is Olumi's). */}
-      <div><Button size="sm" variant="secondary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
+      <div><Button size="sm" variant="primary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
       </>}
       {error ? <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p> : null}
     </section>

@@ -13,7 +13,8 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer } from '../../../ViewChat'
-import { IN_MODEL, NOT_IN_MODEL, resetRemovedIntake, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
+import { CLOSE_INTAKE, IN_MODEL, NOT_IN_MODEL, OPEN_INTAKE, resetRemovedIntake, SHOW_RECORD, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
+import { tipOnFocus } from '../../../__tests__/tipHelpers'
 
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => null }))
 const pressed = vi.hoisted(() => ({ ids: [] as string[] }))
@@ -99,5 +100,22 @@ describe('E4 What you said (view.intake)', () => {
     expect(lis[0]!.querySelectorAll('[data-intake-show]')).toHaveLength(1)
     act(() => { fireEvent.click(lis[0]!.querySelector<HTMLElement>(`[data-intake-show="${id}"]`)!) })
     expect(pressed.ids).toEqual([id])
+  })
+})
+
+describe('E4 hover and disclosure (panel system: one Tip, a fold that names its region)', () => {
+  it('the fold toggle and each "in your model" press say their words through the one Tip on REAL keyboard focus, never a native title; the toggle names its rows by a unique id only while they are drawn', async () => {
+    const v = base(), card = v.model!.cards[0]!, c = mount(withIntake(v, FIGS(v)))
+    const toggle = q(c, 'view-intake-toggle')!
+    expect([toggle.hasAttribute('title'), toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')], 'closed: expanded false, nothing named').toEqual([false, 'false', null])
+    expect(await tipOnFocus(toggle)).toBe(OPEN_INTAKE)
+    open(c)
+    const rows = q(c, 'view-intake-rows')!
+    expect(rows.id, 'a unique id, not a fixed one').not.toBe('view-intake-rows')
+    expect([toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')]).toEqual(['true', rows.id])
+    expect(await tipOnFocus(toggle)).toBe(CLOSE_INTAKE)
+    const present = c.querySelector<HTMLElement>(`[data-intake-show="${card.id}"]`)!
+    expect(present.hasAttribute('title')).toBe(false)
+    expect(await tipOnFocus(present)).toBe(`${SHOW_RECORD}: ${card.heading}`)
   })
 })

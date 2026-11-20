@@ -16,11 +16,14 @@
  * card in front on the canvas. One editor and one detail at a time (`./state.ts`). Plain shows the model; Expert adds the science.
  */
 import { useId, useMemo, useState } from 'react'
-import { ChevronRight, FileText, Pencil, User } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
+import { OkIcon } from '../look/icons'
+import { FoldChevron } from '../look/FoldChevron'
+import { useAnchoredTip } from '../look/Tip'
+import { Hover, HoverButton } from '../v12/chat/Hover'
 import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { authorOf } from './author'
 import { premiseGroupsOf } from './premises'
@@ -37,27 +40,27 @@ export const MODEL_ROW_LABELS = { restsOn: 'Rests on' } as const
 
 type Mark = { glyph: string; title: string }
 
-/** Core's mark (◆, ◐, ↻ …) with core's hover, as the canvas card draws it. It follows the last word after a no-break space (R5). */
-export function CoreMark({ at, mark }: { at: string; mark: Mark | null }) {
+/** Core's mark (◆, ◐, ↻ …) with core's hover, as the canvas card draws it. It follows the last word after a no-break space (R5). The hover is the one Tip and the
+ *  mark a keyboard stop; inside a control (`focusable` false) the control is the stop, so a mark is never a nested one. */
+export function CoreMark({ at, mark, focusable = true }: { at: string; mark: Mark | null; focusable?: boolean }) {
   if (mark === null) return null
-  return <>{NBSP}<span role="img" aria-label={mark.title} title={mark.title} className="text-text-light" data-view={`${at}.glyph`}>{mark.glyph}</span></>
+  return <>{NBSP}<Hover words={mark.title} role="img" aria-label={mark.title} focusable={focusable} className="text-text-light" data-view={`${at}.glyph`}>{mark.glyph}</Hover></>
 }
 
 /** A person's or the brief's card (core's `cards[].author`): an icon with core's words as its name, and its words then its quote on hover. */
-function AuthorMark({ card }: { card: ViewCard }) {
+function AuthorMark({ card, focusable = true }: { card: ViewCard; focusable?: boolean }) {
   const a = authorOf(card)
   if (a === null) return null
-  const Icon = a.by === 'brief' ? FileText : User
   return (
-    <>{NBSP}<span role="img" aria-label={a.text} title={a.title === '' ? a.text : `${a.text}\n${a.title}`} data-view-author={card.id} data-author-by={a.by}
-      className="inline-flex align-middle text-text-light"><Icon aria-hidden="true" className="h-3.5 w-3.5" /></span></>
+    <>{NBSP}<Hover words={a.title === '' ? a.text : `${a.text}\n${a.title}`} role="img" aria-label={a.text} focusable={focusable} data-view-author={card.id} data-author-by={a.by}
+      className="inline-flex align-middle text-text-light"><OkIcon id={a.by === 'brief' ? 'brief' : 'person-mark'} size={14} decorative inherit /></Hover></>
   )
 }
 
 /** ✎, the cue that a figure can be changed: shown on the row's hover, on focus, and while its row is open, in the quiet grey of the row's
  *  other marks (the crafted tab showed no pencils at rest; Paul 7 Nov: "the previous model tab was better looking"). */
 const EditCue = ({ open }: { open: boolean }) => (
-  <Pencil aria-hidden="true" data-model-edit-cue="" className={`ml-1.5 inline h-3.5 w-3.5 flex-none align-middle text-text-light transition-opacity duration-fast ${open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`} />
+  <span aria-hidden="true" data-model-edit-cue="" className={`ml-1.5 inline-flex flex-none align-middle text-text-light transition-opacity duration-fast ${open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100'}`}><OkIcon id="edit" size={14} decorative inherit /></span>
 )
 
 /** An option's line for one aim, compact: the aim on the left, core's value and its marks on the right (the crafted value column); the
@@ -69,16 +72,17 @@ function OptionLine({ card, row, i, expert }: { card: ViewCard; row: ViewRow; i:
   if (row.kind === 'none') {
     const words = row.text ?? row.title
     return (
-      <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.title === words ? undefined : row.title} data-view-row={at}>
+      <span className={`${typography.viewPanelMeta} block text-text-light`} data-view-row={at}>
         {/* R25 (Paul's finish line, no cut text): core's words whole, wrapping, never clamped with the rest on hover only. */}
-        <span data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</span>
+        <Hover words={row.title === words ? undefined : row.title} data-view={row.text == null ? `${at}.title` : `${at}.text`}>{words}</Hover>
       </span>
     )
   }
   return (
-    <span className="block" title={row.title} data-view-row={at}>
+    <span className="block" data-view-row={at}>
       <span className="flex items-baseline justify-between gap-3">
-        <span className={`${typography.viewPanelMeta} min-w-0 text-text-light`} data-view={`${at}.aim`}>{row.aim}</span>
+        {/* The line's whole sentence (core's `title`) is the hover of its aim; the marks beside the value keep their own, so no hover sits inside another. */}
+        <Hover words={row.title} className={`${typography.viewPanelMeta} min-w-0 text-text-light`} data-view={`${at}.aim`}>{row.aim}</Hover>
         <span className={`${typography.viewPanelTabular} flex-none text-text-body`}>
           {row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}
           <span data-view={`${at}.value`}>{row.value}</span>
@@ -87,8 +91,8 @@ function OptionLine({ card, row, i, expert }: { card: ViewCard; row: ViewRow; i:
           {row.kind === 'chance' && row.if_approved != null ? <CoreMark at={`${at}.if_approved`} mark={row.if_approved} /> : null}
         </span>
       </span>
-      {row.kind === 'chance' && row.companion != null ? <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.companion_title ?? row.companion} data-view={`${at}.companion`}>{row.companion}</span> : null}
-      {expert && row.kind === 'chance' && row.timing != null ? <span className={`${typography.viewPanelMeta} block text-text-light`} title={row.timing_title ?? row.timing} data-view={`${at}.timing`}>{row.timing}</span> : null}
+      {row.kind === 'chance' && row.companion != null ? <Hover words={row.companion_title ?? row.companion} className={`${typography.viewPanelMeta} block text-text-light`} data-view={`${at}.companion`}>{row.companion}</Hover> : null}
+      {expert && row.kind === 'chance' && row.timing != null ? <Hover words={row.timing_title ?? row.timing} className={`${typography.viewPanelMeta} block text-text-light`} data-view={`${at}.timing`}>{row.timing}</Hover> : null}
     </span>
   )
 }
@@ -102,18 +106,19 @@ function Premises({ card, keyEntries, expert }: { card: ViewCard; keyEntries: Vi
   if (card.premises.length === 0) return null
   const kindOf = (glyph: string) => keyEntries.find((k) => k.glyph === glyph)?.text ?? null
   const item = (premise: ViewCard['premises'][number], i: number, glyph: boolean) => (
-    <li key={i} className="flex gap-1.5 text-text-body" title={premise.title === premise.text ? undefined : premise.title} data-view-premise={`${card.id}.premises.${i}`}>
+    <li key={i} className="flex gap-1.5 text-text-body" data-view-premise={`${card.id}.premises.${i}`}>
       {!glyph ? null : kindOf(premise.glyph) === null
         ? <span aria-hidden="true" className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>
-        : <span role="img" aria-label={kindOf(premise.glyph)!} title={kindOf(premise.glyph)!} className="w-3 flex-none text-center text-text-light">{premise.glyph}</span>}
-      <span className="min-w-0"><span data-view={`${card.id}.premises.${i}.text`}>{premise.text}</span>{(premise.olumi ?? null) === null ? null : <>{' '}<span title={premise.olumi!.title} aria-label={premise.olumi!.title} data-view={`${card.id}.premises.${i}.olumi.glyph`}>{premise.olumi!.glyph}</span></>}</span>
+        : <Hover words={kindOf(premise.glyph)!} role="img" aria-label={kindOf(premise.glyph)!} className="w-3 flex-none text-center text-text-light">{premise.glyph}</Hover>}
+      {/* The premise's own hover (core's `title`) is on its words; its Olumi mark, beside them, keeps its own. */}
+      <span className="min-w-0"><Hover words={premise.title === premise.text ? undefined : premise.title} data-view={`${card.id}.premises.${i}.text`}>{premise.text}</Hover>{(premise.olumi ?? null) === null ? null : <>{' '}<Hover words={premise.olumi!.title} aria-label={premise.olumi!.title} data-view={`${card.id}.premises.${i}.olumi.glyph`}>{premise.olumi!.glyph}</Hover></>}</span>
     </li>
   )
   return (
     <div className="pb-1 pl-8 pr-2" data-model-premises={card.id}>
       <button type="button" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)} data-model-premises-toggle={card.id}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
-        <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 flex-none transition-transform ${open ? 'rotate-90' : ''}`} />
+        <FoldChevron open={open} />
         <span>{MODEL_ROW_LABELS.restsOn}</span>
         <span className="tabular-nums" data-model-premises-count={card.id}>{card.premises.length}</span>
       </button>
@@ -152,6 +157,8 @@ export function ModelCardRow({ card, number, kind, model }: {
   const editingFigure = editing?.what === 'figure' ? model.cards.find((c) => c.id === editing.quantity)?.figure?.edit ?? null : null
   const select = () => { useModelTab.getState().toggle(card.id); focusNodeById(card.id) }
   const editFigure = (quantity: string) => openEditor({ row: card.id, what: 'figure', quantity })
+  // The heading is the row's one keyboard stop; core's `detail` is its hover (the one Tip, on the pointer's rest and on focus).
+  const headTip = useAnchoredTip(card.detail === '' ? undefined : card.detail)
   // Whose the figure is sits beside the figure (the crafted value cell's mark); a card with no figure carries it beside its name.
   const onFigure = card.figure !== null
   const reading = expert && card.figure !== null && card.figure.title !== '' && card.figure.title !== card.figure.text ? card.figure.title : null
@@ -168,12 +175,15 @@ export function ModelCardRow({ card, number, kind, model }: {
                 {/* A real inline control (role=button, Enter and Space), not a <button>: a browser lays a <button> out as inline-block, so a long
                     name wrapped as one block and its number dropped to the name's last line. */}
                 <span role="button" tabIndex={0} aria-expanded={open} aria-controls={open ? `model-detail-${card.id}` : undefined} data-model-select={card.id}
-                  onClick={(e) => { e.stopPropagation(); select() }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select() } }}
+                  aria-describedby={headTip.describedBy} onPointerEnter={headTip.handlers.onPointerEnter} onPointerLeave={headTip.handlers.onPointerLeave}
+                  onFocus={headTip.handlers.onFocus} onBlur={headTip.handlers.onBlur}
+                  onClick={(e) => { e.stopPropagation(); headTip.dismiss(); select() }}
+                  onKeyDown={(e) => { headTip.handlers.onKeyDown(e); if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select() } }}
                   onDoubleClick={canEdit ? (e) => { e.stopPropagation(); openEditor({ row: card.id, what: 'rename' }, card.heading) } : undefined}
                   className={`cursor-pointer rounded-sm ${ACTION_FOCUS}`}>
-                  <span title={card.detail === '' ? undefined : card.detail} data-view={`${card.id}.heading`}>{card.heading}</span>
+                  <span data-view={`${card.id}.heading`}>{card.heading}</span>
                 </span>
+                {headTip.tip}
                 {onFigure ? null : <><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /></>}
                 <CoreMark at={`${card.id}.change`} mark={card.change} />
               </span>
@@ -182,24 +192,24 @@ export function ModelCardRow({ card, number, kind, model }: {
           {/* An aim's or limit's target, as its card on the canvas says it (core's `bound`, Olumi's mark where Olumi gave it). Where core
               offers an edit on the figure it reads (`./targets.ts`), the target itself opens that figure's editor. */}
           {card.bound === null ? null : target === null ? (
-            <span className={`${typography.viewPanelTabular} mt-0.5 block text-text-body`} title={card.bound.title}>
-              <span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} />
+            <span className={`${typography.viewPanelTabular} mt-0.5 block text-text-body`}>
+              <Hover words={card.bound.title} data-view={`${card.id}.bound.text`}>{card.bound.text}</Hover><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} />
             </span>
           ) : (
-            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} title={card.bound.title} data-model-value-edit={card.id}
+            <HoverButton words={card.bound.title} type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} data-model-value-edit={card.id}
               className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} /><EditCue open={open} />
-            </button>
+              <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} focusable={false} /><EditCue open={open} />
+            </HoverButton>
           )}
           {card.figure === null ? null : figureEdit === null ? (
-            <span className={`${typography.viewPanelTabular} mt-0.5 block break-words text-text-body`} title={card.figure.title}>
-              <span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} />
+            <span className={`${typography.viewPanelTabular} mt-0.5 block break-words text-text-body`}>
+              <Hover words={card.figure.title} data-view={`${card.id}.figure.text`}>{card.figure.text}</Hover><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} />
             </span>
           ) : (
-            <button type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} title={card.figure.title} data-model-value-edit={card.id}
+            <HoverButton words={card.figure.title} type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} data-model-value-edit={card.id}
               className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer break-words rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
-              <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} /><AuthorMark card={card} /><EditCue open={open} />
-            </button>
+              <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} focusable={false} /><AuthorMark card={card} focusable={false} /><EditCue open={open} />
+            </HoverButton>
           )}
           {reading === null ? null : <span className={`${typography.viewPanelMeta} mt-0.5 block break-words text-text-light`} data-view={`${card.id}.figure.title`}>{reading}</span>}
           {card.rows.length === 0 ? null : (

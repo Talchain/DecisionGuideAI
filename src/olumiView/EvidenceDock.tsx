@@ -7,8 +7,8 @@
  * that card's figure and the person's stance; and Olumi's reply when asked to consider it (`considered.why`), or the proposal it led to.
  */
 import { useEffect, useRef, type ReactNode } from 'react'
-import { X } from 'lucide-react'
-import { OkIcon } from './look/icons'
+import { OkIcon, OkIconButton } from './look/icons'
+import { Hover } from './v12/chat/Hover'
 import { linkOf } from '../olumiCore/team/EvidencePanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
@@ -107,7 +107,7 @@ function BearsOn({ view, e }: { view: View; e: Evidence }): JSX.Element | null {
         <div key={id} className="grid gap-0.5" data-evidence-record={id} data-evidence-card={card?.id}>
           <p className={`${BODY} font-medium text-text-header`}>{label}</p>
           {card === null ? null : card.id === id
-            ? (card.figure === null ? null : <p className={META} title={card.figure.title}>{card.figure.text}</p>)
+            ? (card.figure === null ? null : <Hover as="p" words={card.figure.title} className={META}>{card.figure.text}</Hover>)
             : <p className={META}>{card.heading}</p>}
         </div>
       ))}
@@ -124,10 +124,10 @@ function Considered({ view, e }: { view: View; e: Evidence }): JSX.Element | nul
   const text = c.why?.text ?? proposal?.heading ?? null
   if (text === null) return null
   return (
-    <p className={`${BODY} flex items-start gap-2`} title={c.why?.title} data-testid="evidence-dock-considered">
+    <Hover as="p" words={c.why?.title} className={`${BODY} flex items-start gap-2`} data-testid="evidence-dock-considered">
       <OkIcon id="olumi-mark" decorative className="mt-[3px]" />
       <span className="whitespace-pre-wrap break-words">{text}</span>
-    </p>
+    </Hover>
   )
 }
 
@@ -163,10 +163,7 @@ export function EvidenceDock({ view }: { view: View }): JSX.Element | null {
     <section data-testid="evidence-dock" aria-label={view.evidence_words.heading} className="grid min-h-full content-start gap-5">
       <div className="flex items-center justify-between gap-2">
         <h2 ref={head} tabIndex={-1} className={`${H} outline-none`} data-testid="evidence-dock-heading">{view.evidence_words.heading}</h2>
-        <button type="button" aria-label={view.evidence_words.close} data-testid="evidence-dock-close" onClick={close}
-          className="inline-grid h-7 w-7 cursor-pointer place-items-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-header">
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        <OkIconButton id="cancel-close" tone="ghost" words={view.evidence_words.close} testid="evidence-dock-close" onClick={close} />
       </div>
       {steps !== null ? <Chain view={view} e={e} steps={steps} /> : (
         <ol className="m-0 grid list-none gap-4 p-0" data-testid="evidence-dock-plain">

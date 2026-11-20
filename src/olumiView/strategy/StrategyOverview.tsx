@@ -4,8 +4,9 @@
  * word with core's state pill and its holders' initials; a section with nothing shows core's own sentence for that. Under the aim, core's definitional gate in
  * words. First in the Team tab's panel list (TeamTab.tsx, by agreement with the V11 build, 7 Nov), folded until opened; null without the key.
  */
-import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { useId, useState } from 'react'
+import { FoldChevron } from '../look/FoldChevron'
+import { Hover } from '../v12/chat/Hover'
 import { AVATAR, BODY, CARD, H, META } from '../../olumiCore/team/ui'
 import type { View } from '../client'
 import { strategyOf } from './strategy'
@@ -14,17 +15,17 @@ const initial = (by: string) => by.slice(0, 1).toUpperCase()
 
 export function StrategyOverviewSection({ view }: { view: View | null }): JSX.Element | null {
   const [open, setOpen] = useState(false)
+  const body = useId()
   const s = strategyOf(view)
   if (s === null) return null
-  const Chevron = open ? ChevronDown : ChevronRight
   return (
     <section className={CARD} data-testid="strategy-overview" aria-label={s.overview.heading}>
-      <button type="button" aria-expanded={open} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${H} flex min-h-[44px] w-full cursor-pointer items-center gap-1.5 text-left`}>
-        <Chevron aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
+      <button type="button" aria-expanded={open} aria-controls={open ? body : undefined} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${H} flex min-h-[44px] w-full cursor-pointer items-center gap-1.5 text-left`}>
+        <FoldChevron open={open} />
         {s.overview.heading}
       </button>
       {!open ? null : (
-        <div className="grid gap-3" data-testid="strategy-overview-body">
+        <div id={body} className="grid gap-3" data-testid="strategy-overview-body">
           {s.overview.sections.map((sec) => (
             <section key={sec.id} className="grid gap-1" data-testid={`strategy-overview-${sec.id}`} aria-label={sec.heading}>
               <h3 className={`${META} m-0 font-medium text-text-header`}>{sec.heading}</h3>
@@ -37,7 +38,7 @@ export function StrategyOverviewSection({ view }: { view: View | null }): JSX.El
                         {l.pill === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-strategy-pill="">{l.pill}</span>}
                       </p>
                       <span className="inline-flex flex-none" aria-label={l.people.map((p) => p.name).join(', ')}>
-                        {l.people.slice(0, 3).map((p, i) => <span key={p.id} aria-hidden="true" className={`${AVATAR} ${i > 0 ? '-ml-1.5' : ''}`} title={p.name}>{initial(p.name)}</span>)}
+                        {l.people.slice(0, 3).map((p, i) => <Hover key={p.id} as="span" words={p.name} role="img" aria-label={p.name} className={`${AVATAR} ${i > 0 ? '-ml-1.5' : ''}`}>{initial(p.name)}</Hover>)}
                       </span>
                     </li>
                   ))}

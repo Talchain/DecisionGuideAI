@@ -327,7 +327,8 @@ describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under s
     expect(menu.textContent!.split(SAID).length - 1).toBe(1)
     const marks = [...menu.querySelectorAll<HTMLElement>('[data-testid="view-method-prerequisite"]')]
     expect(marks.map((e) => e.closest<HTMLElement>('[data-method]')?.dataset['method'])).toEqual(['a', 'c', 'd'])
-    for (const e of marks) expect([e.getAttribute('aria-label'), e.title]).toEqual([SAID, SAID])
+    // The mark's hover is the one Tip (the icon inside its question's button), never a native title.
+    for (const e of marks) expect([e.getAttribute('aria-label'), e.hasAttribute('title'), await tipOf(e)]).toEqual([SAID, false, SAID])
   })
   it('contrast: one gated question keeps its own line, and no shared line is drawn', async () => {
     const menu = await draw([m('a', 0, SAID), m('b', 1, null)])

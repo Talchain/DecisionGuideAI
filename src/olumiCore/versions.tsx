@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { HoverButton } from '../olumiView/v12/chat/Hover'
 import { useViewStore } from '../olumiView/store'
 import { ChangeItem, ComparedLists, CoreCompare, SideText, what, whoOf, type Compared } from './compare'
 import { call, TeamApiError } from './team/api'
@@ -28,7 +29,7 @@ const when = (iso: string) => {
  * Draw puts the model as it stood at this version on the canvas: the View store reads that version's own View (core API v1.10,
  * `view?at=n`) and the canvas follows it, until the person goes back to the latest. Nothing is written either way.
  */
-function VersionRecord({ sid, v, versions, drawn }: { sid: string; v: Version; versions: Version[]; drawn: boolean }): JSX.Element {
+function VersionRecord({ sid, v, versions, drawn, domId }: { sid: string; v: Version; versions: Version[]; drawn: boolean; domId: string }): JSX.Element {
   const over = v.base === null ? null : versions.find((x) => x.id === v.base)?.n ?? null
   const next = over === null ? versions.find((x) => x.n > v.n)?.n ?? null : null
   const [c, setC] = useState<Compared | null>(null)
@@ -49,7 +50,7 @@ function VersionRecord({ sid, v, versions, drawn }: { sid: string; v: Version; v
   const mine = c?.versions.find((x) => x.n === v.n) ?? null
   const said = mine ? whoOf(mine) : `approved by ${v.by}`
   return (
-    <div className="grid gap-2 pb-2 pl-3" data-testid={`${id}-record`}>
+    <div id={domId} className="grid gap-2 pb-2 pl-3" data-testid={`${id}-record`}>
       {error && <p role="alert" className={ERR} data-testid={`${id}-error`}>{error}</p>}
       {!drawn && <div><Button size="sm" variant="secondary" data-testid={`${id}-draw`} onClick={() => void draw()}>Draw on the canvas</Button></div>}
       {refused && <p role="alert" className={ERR} data-testid={`${id}-draw-error`}>{refused}</p>}
@@ -85,6 +86,7 @@ export function CoreVersions(): JSX.Element {
   const [versions, setVersions] = useState<Version[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState<Set<number>>(new Set())
+  const recordIds = useId()
   useEffect(() => {
     if (!sid) return
     let live = true
@@ -111,11 +113,11 @@ export function CoreVersions(): JSX.Element {
           return (
             <li key={v.id} data-testid="core-version-row" data-version={v.n} aria-current={inUse ? 'true' : undefined}>
               {/* The version the canvas draws (the latest, or the one the person drew): core's label for it, set in the heavier weight. */}
-              <button type="button" data-testid={`core-version-open-${v.n}`} aria-expanded={open.has(v.n)} title={inUse ? current?.label : undefined}
+              <HoverButton type="button" data-testid={`core-version-open-${v.n}`} aria-expanded={open.has(v.n)} aria-controls={open.has(v.n) ? `${recordIds}-${v.n}` : undefined} words={inUse ? current?.label : undefined}
                 className={`${BODY} w-full rounded px-1 py-0.5 text-left hover:bg-panel-hover ${inUse ? 'font-semibold text-text-header' : ''}`} onClick={() => toggle(v.n)}>
                 Version {v.n} <span className="font-normal text-text-light">· {when(v.at)} · approved by {v.by}</span>
-              </button>
-              {open.has(v.n) && <VersionRecord sid={sid} v={v} versions={versions} drawn={inUse} />}
+              </HoverButton>
+              {open.has(v.n) && <VersionRecord sid={sid} v={v} versions={versions} drawn={inUse} domId={`${recordIds}-${v.n}`} />}
             </li>
           )
         })}

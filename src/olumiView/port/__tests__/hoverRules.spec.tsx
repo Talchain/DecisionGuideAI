@@ -1,6 +1,6 @@
 /**
  * Rules the analysis lane's files keep, bound by what the person gets (S4 round 3, Codex review-analysis-2):
- *  - hover is the one Tip: no native `title` is drawn on the Analysis or Reasoning tabs (the figure editor's own controls are another file's), and each hover
+ *  - hover is the one Tip: no native `title` is drawn on the Analysis or Reasoning tabs (the figure editor's pencil included), and each hover
  *    is reachable by REAL keyboard focus, not only a pointer;
  *  - every disclosure button names the region it opens (`aria-controls` resolves to a drawn element while it is open);
  *  - the analysis recipes reach the OUTPUTS DOCK: `.olumi-look` is the canvas's (ReactFlow) class and the dock is its sibling, so no analysis rule sits behind it.
@@ -24,8 +24,8 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
-/** The figure editor draws its own pencil (another file's, with its own rule); everything else on these tabs says its longer words through the Tip. */
-const NATIVE = '[title]:not([data-testid*="-edit-"]):not([data-testid*="-aside-edit-"])'
+/** Nothing on these tabs is exempt: the figure editor's pencil (FigureEdit) says its words through the Tip too, so a native title anywhere is an offender. */
+const NATIVE = '[title]'
 const offenders = (root: ParentNode) => [...root.querySelectorAll<HTMLElement>(NATIVE)].map((e) => `${e.tagName.toLowerCase()}[${e.getAttribute('data-view') ?? e.getAttribute('data-testid') ?? ''}] title="${(e.getAttribute('title') ?? '').slice(0, 40)}"`)
 
 describe('hover is the one Tip: no native title on the analysis lane', () => {

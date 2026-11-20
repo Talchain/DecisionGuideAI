@@ -9,6 +9,8 @@ import { dissentHolderName, dissentLine } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
+import { Hover } from '../../olumiView/v12/chat/Hover'
+import { OkIcon } from '../../olumiView/look/icons'
 import { CommitForm } from '../../olumiView/v12/team/CommitForm'
 
 interface CommitmentDraft { open: boolean; action: string; owner: string; expect: string; reconsider: string; keeps: string[]; option?: string; reviewOn?: string; trigger?: string }
@@ -136,7 +138,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
           {chosen !== null && expect.trim() !== '' && chosen.rows.some((r) => r.kind === 'chance' && r.outcome !== null) && (
             <div className={META} data-testid="team-c-band">
               <p className="m-0">The model's band for {chosen.heading}, in version {view.version?.n}:</p>
-              {chosen.rows.map((r, i) => r.kind === 'chance' && r.outcome !== null ? <p key={i} className={`${BODY} m-0`} title={r.outcome.title}>{r.aim}: {r.outcome.text}</p> : null)}
+              {chosen.rows.map((r, i) => r.kind === 'chance' && r.outcome !== null ? <Hover key={i} as="p" words={r.outcome.title} className={`${BODY} m-0`}>{r.aim}: {r.outcome.text}</Hover> : null)}
             </div>
           )}
           <label htmlFor="team-c-reconsider" className={LABEL}>What would make us reconsider</label>
@@ -150,7 +152,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
                   <button key={t.fact} type="button" aria-pressed={on} data-testid={`team-c-trigger-${t.fact}`} disabled={busy}
                     onClick={() => put({ trigger: on ? '' : t.fact })}
                     className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left break-words ${on ? 'border-info bg-panel-hover' : 'border-panel-border bg-panel'}`}>
-                    <span aria-hidden="true" className="flex-none">{on ? '✓' : '+'}</span><span>{t.text}</span>
+                    <span className="mt-0.5 flex-none"><OkIcon id={on ? 'trigger-taken' : 'add'} size={14} decorative /></span><span>{t.text}</span>
                   </button>
                 )
               })}

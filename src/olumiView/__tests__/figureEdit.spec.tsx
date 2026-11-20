@@ -50,13 +50,14 @@ const posts = () => calls.filter((c) => c.method === 'POST')
 describe('lane C: a card reads heading and figure first', () => {
   // R25 (Paul's 6 Nov test: "I can't find manual editing"): the figure's ✎ is its at-rest cue. DL ruling 9 Nov (the face never changes height
   // on hover, focus or opening): its words are its label and hover, never a line that appears.
-  it('core\'s detail is the heading\'s hover, never a line; the figure\'s ✎ shows at rest, its words its label and hover, the same opened', () => {
+  it('core\'s detail is the heading\'s hover, never a line; the figure\'s ✎ shows at rest, its words its label and hover, the same opened', async () => {
     const detailed = view.model!.cards.find((c) => c.detail !== '')!
     for (const selected of [false, true]) {
       const c = render(<ViewCard card={card} selected={selected} />).container
       expect(c.querySelector(`[data-testid="view-figure-glyph-${card.id}"]`)?.className ?? '').not.toContain('opacity-0')
       const pen = c.querySelector(`[data-testid="view-figure-edit-${card.id}"]`)!
-      expect([pen.getAttribute('aria-label'), pen.getAttribute('title')]).toEqual(['Change figure', card.figure!.edit!.ask])
+      // The pencil's hover is the one Tip (core's ask), never a native title.
+      expect([pen.getAttribute('aria-label'), pen.hasAttribute('title'), await tipOf(pen as HTMLElement)]).toEqual(['Change figure', false, card.figure!.edit!.ask])
       expect(c.querySelector(`[data-testid="view-figure-words-${card.id}"]`), `selected ${selected}: no words line`).toBeNull()
       c.remove()
     }
@@ -199,7 +200,7 @@ describe('worth checking first: the line\'s figure given with its ✎, as core\'
     expect(give.querySelector('[data-icon="edit"]')).not.toBeNull()
     const btn = screen.getByTestId(`worth-edit-${fig.id}`)
     expect(btn.getAttribute('aria-label')).toBe(`Change ${fig.label}`)
-    expect(btn.getAttribute('title')).toBe(fig.give!.edit.ask)
+    expect([btn.hasAttribute('title'), await tipOf(btn)]).toEqual([false, fig.give!.edit.ask])
     fireEvent.click(btn)
     expect(screen.getByLabelText(fig.give!.edit.prompt)).toBeInTheDocument()
     fireEvent.change(screen.getByTestId(`worth-typed-${fig.id}`), { target: { value: '150' } })

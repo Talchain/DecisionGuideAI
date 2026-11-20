@@ -169,7 +169,7 @@ describe('the menu: every question in the View\'s order, the goal\'s first quiet
     const drawn = methods(c)
     expect(drawn.map((b) => b.hasAttribute('data-first'))).toEqual(s.methods.map((m) => m.first))
     expect(drawn.map((b) => b.querySelector('[data-testid="view-session-method-first"]') !== null)).toEqual(s.methods.map((m) => m.first))
-    for (const b of drawn) expect(b.disabled, b.dataset['method']).toBe(false)
+    for (const b of drawn) expect(b.getAttribute('aria-disabled'), b.dataset['method']).toBeNull()
   })
 
   it('with no goal, no question is emphasised', () => {
@@ -216,7 +216,8 @@ describe('a press asks that question as a discussion-only turn', () => {
     expect(posts).toHaveLength(1)
     openMenu(c)
     expect(methods(c)).toHaveLength(11)
-    for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(true)
+    // Held as the Tip's HoverButton holds a control: aria-disabled and still focusable, never a native disabled.
+    for (const b of methods(c)) expect(b.getAttribute('aria-disabled'), b.dataset['method']).toBe('true')
     // The goal chip's buttons are held as the Tip's HoverButton holds them: aria-disabled (still focusable, so the hover can say why), and a press does nothing.
     expect(c.querySelector('[data-testid="view-session-goal-clear"]')!.getAttribute('aria-disabled')).toBe('true')
     expect(c.querySelector('[data-testid="view-session-goal-change"]')!.getAttribute('aria-disabled')).toBe('true')
@@ -225,7 +226,7 @@ describe('a press asks that question as a discussion-only turn', () => {
     await act(async () => { release(new Response(JSON.stringify({ proposal: 6, discussion: true }), { status: 201 })) })
     await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
     openMenu(c)
-    for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(false)
+    for (const b of methods(c)) expect(b.getAttribute('aria-disabled'), b.dataset['method']).toBeNull()
   })
 
   it('R17 D5: "What could go wrong?" sends the option the person has selected (only then); every other press sends none', async () => {

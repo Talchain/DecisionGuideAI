@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
+import { OkIcon } from '../olumiView/look/icons'
+import { useAnchoredTip } from '../olumiView/look/Tip'
+import { Hover } from '../olumiView/v12/chat/Hover'
 import { call, newOp, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, FIELD, H, META } from './team/ui'
 import { typography } from '../styles/typography'
 import { shownModel, useViewStore } from '../olumiView/store'
-import { markOf, ShiftTrack, TrackKey } from './compareTrack'
+import { markOf, ShiftTrack, trackDiffers, TrackKey } from './compareTrack'
 
 /**
  * SIDE BY SIDE (olumi-core `GET /api/compare?a=&b=`, `olumi.compare/1`; core wip/compare 7 Nov, src/app/compare-pair.ts): this scenario as
@@ -42,13 +45,13 @@ export const SAME_DRAWS = {
   title: 'Olumi checked that this what-if was worked out from the other side, its exact base, on the same draws, so the two marks read as one chance moving.',
 } as const
 export function SameDraws(): JSX.Element {
-  return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-panel-border px-2 font-normal text-text-body`} title={SAME_DRAWS.title} data-compare-runs="same-draws">{SAME_DRAWS.label}</span>
+  return <Hover words={SAME_DRAWS.title} className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-panel-border px-2 font-normal text-text-body`} data-compare-runs="same-draws">{SAME_DRAWS.label}</Hover>
 }
 /** Core proves this comparison paired: `paired` is set on the what-if's side, so either side carrying true is the pair (DL ruling). */
 export const pairedOf = (c: { a: Side | null; b: Side | null }): boolean => c.a?.paired === true || c.b?.paired === true
 
 export function SeparateRuns(): JSX.Element {
-  return <span className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} title={SEPARATE_RUNS.title} data-compare-runs="separate">{SEPARATE_RUNS.label}</span>
+  return <Hover words={SEPARATE_RUNS.title} className={`${META} inline-flex min-h-[20px] items-center rounded-full border border-dashed border-panel-border px-2 font-normal text-text-body`} data-compare-runs="separate">{SEPARATE_RUNS.label}</Hover>
 }
 
 type Mark = { glyph: string; title: string }
@@ -78,25 +81,26 @@ const arr = <T,>(x: T[] | undefined | null): T[] => (Array.isArray(x) ? x : [])
 const words = (s: string | null | undefined): s is string => typeof s === 'string' && s.trim() !== ''
 
 function MarkSpan({ m }: { m: Mark | null }): JSX.Element | null {
-  return m === null ? null : <><span title={m.title} aria-label={m.title}>{m.glyph}</span>{' '}</>
+  // Olumi's mark from the one registry (grey-blue `olumi-mark`), with core's own words as its name and hover; never core's text glyph.
+  return m === null ? null : <><OkIcon id="olumi-mark" size={14} words={m.title} />{' '}</>
 }
 
 function Cells({ side }: { side: OptionSide | null }): JSX.Element {
   return (
     <div className="grid content-start gap-1 break-words" data-compare-cells="">
       {arr(side?.cells).map((c, i) => (
-        <p key={i} className={`${BODY} grid gap-0.5`} title={c.title} data-compare-cell="">
-          {/* Core's headline reads as the cell's headline; an older core's whole value keeps today's look (UI audit item 4). */}
-          <span><MarkSpan m={c.olumi} /><span className={words(c.headline) ? 'font-semibold text-text-header' : undefined} data-compare-value="">{words(c.headline) ? c.headline : c.value}</span></span>
-          {words(c.headline) && c.companion && words(c.companion.text) ? <span className={META} title={c.companion.title} data-compare-companion="">{c.companion.text}</span> : null}
+        <p key={i} className={`${BODY} grid gap-0.5`} data-compare-cell="">
+          {/* Core's headline reads as the cell's headline; an older core's whole value keeps today's look (UI audit item 4). The cell's own sentence is the value's hover (a sibling of the mark, never around it: the mark has its own words). */}
+          <span><MarkSpan m={c.olumi} /><Hover words={c.title} className={words(c.headline) ? 'font-semibold text-text-header' : undefined} data-compare-value="">{words(c.headline) ? c.headline : c.value}</Hover></span>
+          {words(c.headline) && c.companion && words(c.companion.text) ? <Hover words={c.companion.title} className={META} data-compare-companion="">{c.companion.text}</Hover> : null}
           {c.olumi !== null && words(c.lead) ? <span className={META} data-compare-lead="">{c.lead}</span> : null}
           {words(c.condition) ? <span className={META} data-compare-condition="">{c.condition}</span> : null}
         </p>
       ))}
       {/* Core's own range for what the aim measures under this option (its uncertainty), and the figure its chance moves most with. */}
-      {side?.uncertainty && words(side.uncertainty.text) ? <p className={META} title={side.uncertainty.title} data-compare-uncertainty="">{side.uncertainty.text}</p> : null}
-      {side?.driver && words(side.driver.text) ? <p className={META} title={side.driver.title} data-compare-driver={side.driver.figure}>{side.driver.text}</p> : null}
-      {side?.moves_most && words(side.moves_most.text) ? <p className={`${BODY} break-words`} title={side.moves_most.title} data-compare-moves={side.moves_most.figure}>{side.moves_most.text}</p> : null}
+      {side?.uncertainty && words(side.uncertainty.text) ? <Hover as="p" words={side.uncertainty.title} className={META} data-compare-uncertainty="">{side.uncertainty.text}</Hover> : null}
+      {side?.driver && words(side.driver.text) ? <Hover as="p" words={side.driver.title} className={META} data-compare-driver={side.driver.figure}>{side.driver.text}</Hover> : null}
+      {side?.moves_most && words(side.moves_most.text) ? <Hover as="p" words={side.moves_most.title} className={`${BODY} break-words`} data-compare-moves={side.moves_most.figure}>{side.moves_most.text}</Hover> : null}
     </div>
   )
 }
@@ -111,7 +115,7 @@ function AimSideWords({ s, target }: { s: AimSide | null; target: boolean }): JS
 }
 
 function Lead({ c }: { c: Cell | null | undefined }): JSX.Element {
-  return <p className={`${BODY} break-words`} title={c?.title} data-compare-most-likely="">{c ? <><MarkSpan m={c.olumi} />{c.value}</> : null}</p>
+  return <p className={`${BODY} break-words`} data-compare-most-likely="">{c ? <><MarkSpan m={c.olumi} /><Hover words={c.title}>{c.value}</Hover></> : null}</p>
 }
 
 /**
@@ -206,7 +210,7 @@ export function ScenarioComparisonView({ c }: { c: ScenarioComparison }): JSX.El
       {c.a?.has_run === true && c.b?.has_run === true ? <div>{paired ? <SameDraws /> : <SeparateRuns />}</div> : null}
       {firstWhereGoalsDiffer(aims).map((a, i) => <Aim key={`${a.label}-${i}`} aim={a} proven={paired} names={names} />)}
       {/* The key to the marks, once, only where a track is drawn (a proven pair, a comparable aim). */}
-      {paired && aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && (sideMark(o.a) || sideMark(o.b))))
+      {paired && aims.some((a) => a.status === 'comparable' && arr(a.options).some((o) => o.only_in === null && trackDiffers(sideMark(o.a), sideMark(o.b))))
         ? <TrackKey first={names.first} second={names.second} /> : null}
       {options.length === 0 && !showFigures ? null : (
         <section className={CARD} data-testid="scenario-compare-differences" aria-label="Differences">
@@ -264,15 +268,23 @@ export function useOwnSides(sid: string): { whatifs: SavedWhatIf[]; versions: nu
 
 export type Choice = { value: string; label: string; title: string }
 export type Group = { label: string; choices: Choice[] }
-/** A grouped select: one group draws its choices alone; several draw each under its own heading. */
+/**
+ * A grouped select: one group draws its choices alone; several draw each under its own heading. An option cannot carry a hover, so the choice
+ * made (its `title`, core's own words for it) is the select's one Tip, on the pointer's rest and on keyboard focus.
+ */
 export function Pick({ id, label, groups, value, disabled, onChange }: { id: string; label: string; groups: Group[]; value: string; disabled: boolean; onChange: (v: string) => void }): JSX.Element {
   const shown = groups.filter((g) => g.choices.length > 0)
+  const chosen = shown.flatMap((g) => g.choices).find((c) => c.value === value)
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(chosen?.title)
   return (
-    <select aria-label={label} data-testid={id} className={PICK} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-      {shown.length === 1
-        ? shown[0]!.choices.map((c) => <option key={c.value} value={c.value} title={c.title}>{c.label}</option>)
-        : shown.map((g) => <optgroup key={g.label} label={g.label}>{g.choices.map((c) => <option key={c.value} value={c.value} title={c.title}>{c.label}</option>)}</optgroup>)}
-    </select>
+    <>
+      <select aria-label={label} data-testid={id} className={PICK} value={value} disabled={disabled} {...handlers} aria-describedby={describedBy} onPointerDown={dismiss} onChange={(e) => { dismiss(); onChange(e.target.value) }}>
+        {shown.length === 1
+          ? shown[0]!.choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)
+          : shown.map((g) => <optgroup key={g.label} label={g.label}>{g.choices.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</optgroup>)}
+      </select>
+      {tip}
+    </>
   )
 }
 
@@ -362,12 +374,10 @@ export function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string
           <div key={i} className="grid gap-2" data-whatif-row={i}>
             <label className="grid content-start gap-1">
               <span className={META}>Figure</span>
-              <select aria-label="Figure to try" data-testid="whatif-save-figure" className={PICK} value={picks[i]} disabled={busy} onChange={(e) => set(i, { quantity: e.target.value })}>
-                {figures.map((c) => <option key={c.id} value={c.id} title={c.figure!.title}>{c.heading}</option>)}
-              </select>
+              <Pick id="whatif-save-figure" label="Figure to try" groups={[{ label: 'Figure', choices: figures.map((c) => ({ value: c.id, label: c.heading, title: c.figure!.title })) }]} value={picks[i]!} disabled={busy} onChange={(q) => set(i, { quantity: q })} />
             </label>
             <label className="grid content-start gap-1">
-              <span className={META} title={card.figure!.edit!.ask}>{card.figure!.edit!.prompt}</span>
+              <Hover words={card.figure!.edit!.ask} className={META}>{card.figure!.edit!.prompt}</Hover>
               <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
             </label>
             {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed(rs).filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
@@ -381,7 +391,7 @@ export function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string
         <span className={META}>Name this what-if</span>
         <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { begin(); setRows(fixed); setName(e.target.value); setError(null) }} />
       </label>
-      <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="secondary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button>
+      <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="primary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button>
         {/* Why it waits (DL ruling 9 Nov: a disabled button says why). */}
         {ready || busy ? null : <span className={META} data-testid="whatif-save-why">{twice ? 'Each figure once' : rows.some((r) => r.typed.trim() === '') ? 'Type a figure to try' : 'Name this what-if'}</span>}</div>
       {error && <p role="alert" className={ERR} data-testid="whatif-save-error">{error}</p>}

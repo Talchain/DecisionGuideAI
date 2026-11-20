@@ -6,7 +6,6 @@
  * "All tabs" goes back to the dock as it was; the dock's own composer stays below it for a reply, and a reply sent from it shows here.
  */
 import { useEffect, useRef } from 'react'
-import { FileText } from 'lucide-react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
 import { OkIcon } from './look/icons'
@@ -55,7 +54,7 @@ export function BriefPanel(): JSX.Element | null {
       <div className="space-y-2.5 px-3.5 pb-2 pt-3.5">
         <header className="space-y-0.5">
           <div className="flex items-start justify-between gap-2">
-            <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-medium text-text-header`}><FileText aria-hidden="true" className="h-4 w-4" />Original brief</h2>
+            <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-medium text-text-header`}><OkIcon id="brief" decorative />Original brief</h2>
             <button type="button" className={`${typography.viewPanelMeta} inline-flex min-h-[24px] flex-none cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
           </div>
           {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version === null || a.versionAt === null ? null : <> · <span data-view="version.at_text">{a.versionAt}</span></>}{a.version !== null && a.by !== null ? ' · ' : null}{a.by === null ? null : <span data-view="brief_by">{a.by}</span>}</p>}

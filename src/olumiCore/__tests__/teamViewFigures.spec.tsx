@@ -95,14 +95,15 @@ describe('a view carries the member\'s own figures, as typed', () => {
     show({ ...view, proposal: { ...(base.proposal ?? {}), id: 9 } as View['proposal'], model: { ...view.model!, edit_base: null } })
     expect(document.querySelectorAll('[data-testid^="team-view-figure-"]').length).toBe(0)
   })
-  it('CATCH: no field shows the card\'s current figure (Olumi\'s) before the member enters their own; core\'s neutral words are its label\'s hover', () => {
+  it('CATCH: no field shows the card\'s current figure (Olumi\'s) before the member enters their own; core\'s neutral words are drawn whole beside the field (never only a native title)', () => {
     showOpen()
     const shown = givable.filter((c) => c.figure!.text !== c.figure!.edit!.prompt)
     expect(shown.length).toBeGreaterThan(0)
     for (const c of givable) {
       const input = field(c.id) as HTMLInputElement
       expect(input.placeholder).toBe('')
-      expect(input.closest('label')!.title).toBe(c.figure!.edit!.prompt)
+      expect(input.closest('label')!.hasAttribute('title')).toBe(false)
+      expect(screen.getByTestId(`team-view-figprompt-${c.id}`).textContent).toBe(c.figure!.edit!.prompt)
       expect(input.closest('label')!.textContent).not.toContain(c.figure!.text)
       expect(input.value).toBe('')
     }

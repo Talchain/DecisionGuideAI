@@ -215,13 +215,14 @@ describe('4. the selected card is a chip inside the composer', () => {
     detail.open = false; fireEvent(detail, new Event('toggle'))
     expect(q(detail, 'selection-detail-toggle')!.getAttribute('aria-label')).toBe(SELECTION_DETAIL_WORDS.show)
   })
-  it('a selection core\'s model holds no card for (the question) draws the chip and NO detail box (it was an empty box once the detail opened by default)', () => {
+  it('a selection core\'s model holds no card for (the question) draws the chip and NO detail box (it was an empty box once the detail opened by default)', async () => {
     const view = golden('bakery')
     selection.value = { id: 'page:question', label: view.model!.question.text, kind: 'node' }
     const c = mount(view)
     const composer = q(c, 'view-composer')!
     expect(q(composer, 'selection-chip-label')!.textContent).toBe(`About: ${view.model!.question.text}`)
-    expect(q(composer, 'selection-chip-label')!.getAttribute('title')).toBe(view.model!.question.text)
+    expect(q(composer, 'selection-chip-label')!.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await tipOnFocus(q(composer, 'selection-chip-label')!)).toBe(view.model!.question.text)
     expect(q(composer, 'selection-detail')).toBeNull()
   })
   it('D2 + UI-D (18 Nov): the ask control (data-testid="selection-ask-chip", hover "Ask about <label>") is drawn with NO legacy sender registered, as this lane is deployed; a press starts the person\'s own question about that card in the box and sends nothing (the legacy sender, even if present, is not called); the card\'s own kind shape leads', () => {

@@ -96,3 +96,19 @@ export const stepDifference = (sid: string, record: string, step: 'dissent' | 'r
 
 /** For specs. */
 export function resetDifferences(): void { inFlight.clear(); useDifferences.setState({ sid: null, key: null, read: null, data: null, error: null }) }
+
+/**
+ * A chance track says something only where the options' chances differ (Paul: a chart only when it shows a difference). A single option has nothing to
+ * set it against, and chances that are all equal show no difference; in both a track is not drawn and core's own words for each chance stay. A chance
+ * a version withholds (`null`) is not a value to compare. Nothing here is computed for display: it only decides whether the drawing earns its place.
+ */
+export function chancesDiffer(d: Pick<Difference, 'options'>): boolean {
+  if (d.options.length < 2) return false
+  const values = d.options.flatMap((o) => o.chances.flatMap((c) => (c.chance === null ? [] : [c.chance])))
+  return values.some((v) => Math.abs(v - values[0]!) > 1e-9)
+}
+
+/** The same difference with every chance's track left out (each chance null), so a drawing that gives a null chance only core's words draws exactly those. */
+export function withoutTracks(d: Difference): Difference {
+  return { ...d, options: d.options.map((o) => ({ ...o, chances: o.chances.map((c) => ({ ...c, chance: null })) })) }
+}

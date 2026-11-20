@@ -18,6 +18,7 @@ import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { CoreCard } from '../../olumiView/previous/CoreCard'
 import { setLevel, useSimpleLevel } from '../../olumiView/v12/simpleStore'
 import { setTeamFetch } from '../team/api'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { resetDifferences, type Differences } from '../team/differences'
 
 const FX = path.resolve('src/olumiView/fixtures/debate')
@@ -72,7 +73,8 @@ describe('a revealed difference on the card it is about', () => {
     const mark = await waitFor(() => { const m = c.container.querySelector(`[data-differ-mark="${CARD}"]`); expect(m).not.toBeNull(); return m as HTMLElement })
     expect(figure.status_text.length).toBeGreaterThan(20)
     expect(mark.getAttribute('aria-label')).toBe(figure.status_text)
-    expect(mark.getAttribute('title')).toBe(figure.status_text)
+    expect(mark.hasAttribute('title')).toBe(false) // the hover is the one Tip
+    expect(await tipOf(mark)).toBe(figure.status_text)
     fireEvent.click(mark)
     expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD }, section: 'differ' })
   })

@@ -1,11 +1,13 @@
 import { useId, useState } from 'react'
+import { useAnchoredTip } from '../../look/Tip'
+import { Hover } from '../chat/Hover'
 import type { View } from '../../client'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { ringCards } from '../../ring'
 import { OkIcon } from '../../look/icons'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { putDraft } from '../../../olumiCore/team/drafts'
-import { readDifferences, stepDifference, differencesKey, useDifferences, type Difference, type Differences as DifferencesData } from '../../../olumiCore/team/differences'
+import { chancesDiffer, readDifferences, stepDifference, differencesKey, withoutTracks, useDifferences, type Difference, type Differences as DifferencesData } from '../../../olumiCore/team/differences'
 import { runWrite } from '../../../olumiCore/team/writes'
 import { openStep, revealed, STEP_WORDS } from '../../../olumiCore/team/flow'
 import { AVATAR, BODY, ERR, FIELD, GO, LABEL, META, QUIET } from '../../../olumiCore/team/ui'
@@ -121,6 +123,8 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
   const cards = d.cards ?? [d.record]
   const drawn = sideSpans(view, d) !== null
   const reading = readingOf(view, d.record)
+  // The card's name is a press to the canvas: its words are the one Tip, on the press's own focus stop, beside the ring it lights on the cards.
+  const toCanvas = useAnchoredTip(cards.length > 0 ? COMPARE_WORDS.toCanvas : undefined)
   const step = async (s: 'dissent' | 'research') => {
     setBusy(true); setError(null)
     try { await runWrite(`${sid}:difference:${d.record}:${s}`, { op: true }, { record: d.record, step: s }, () => stepDifference(sid, d.record, s)); await onWrote() } catch (e) {
@@ -131,19 +135,21 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
     <article className="grid content-start gap-2.5" data-testid={at} data-difference-status={d.status}>
       <div className="grid gap-0.5">
         {cards.length > 0
-          ? <button type="button" data-testid={`${at}-focus`} title={COMPARE_WORDS.toCanvas} onClick={() => { ringCards([]); onFocusCard?.(); focusNodeById(cards[0]!) }}
-              onMouseEnter={() => ringCards(cards)} onMouseLeave={() => ringCards([])} onFocus={() => ringCards(cards)} onBlur={() => ringCards([])}
+          ? <><button type="button" data-testid={`${at}-focus`} onClick={() => { toCanvas.dismiss(); ringCards([]); onFocusCard?.(); focusNodeById(cards[0]!) }}
+              {...toCanvas.handlers} aria-describedby={toCanvas.describedBy}
+              onMouseEnter={() => ringCards(cards)} onMouseLeave={() => ringCards([])} onFocus={(e) => { ringCards(cards); toCanvas.handlers.onFocus(e) }} onBlur={() => { ringCards([]); toCanvas.handlers.onBlur() }}
               className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
               <span className="min-w-0 break-words">{d.label}{d.goal_label ? <span className="font-normal text-text-light"> · {d.goal_label}</span> : null}</span>
               <span className="mt-0.5 flex-none text-text-light"><OkIcon id="on-canvas" size={14} decorative /></span>
-            </button>
+            </button>{toCanvas.tip}</>
           : <p className={`${BODY} font-medium text-text-header`}>{d.label}</p>}
       </div>
       {/* Crux first (Paul, 18 Nov): core's own sentence for this difference, at rest; then what would tell the views apart. */}
       <p className={`${BODY} break-words`} data-testid={`${at}-status`}>{d.status_text}</p>
       {/* Each option's chance of meeting the aim with each person's figure, beside the sentence it supports (Paul's go, 19 Nov, track C1: the
           product's headline is each option's chance; at the card's foot it sat below the fold). The figures' own marks stay in the drawing below. */}
-      <ChanceBars d={d} heading={h.options} modelHeading={h.model} at={at} />
+      {/* A track is drawn only where the options' chances differ: one option, or equal chances, keep core's words for each chance and no bar. */}
+      <ChanceBars d={chancesDiffer(d) ? d : withoutTracks(d)} heading={h.options} modelHeading={h.model} at={at} />
       {/* Olumi's reading of this card (core's `marks[].reading`, bound by the mark's own card id), with core's note naming who can say whether
           it fits: promoted from the canvas-marks fold (Codex ROOT 23:48:16Z). */}
       {reading !== null && (
@@ -171,9 +177,11 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
         {drawn ? <FigureSides view={view} d={d} at={at} /> : (
           <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-sides`}>
             {d.sides.map((s) => (
-              <li key={s.holder_id} className={`${BODY} flex items-start gap-1.5 break-words`} data-difference-side={s.holder_id} title={s.title}>
-                <span aria-hidden="true" className={AVATAR}>{s.holder.slice(0, 1).toUpperCase()}</span>
-                <span><span className="text-text-header">{s.holder}</span>: {s.figure ? s.figure : s.text}</span>
+              <li key={s.holder_id} className={`${BODY} break-words`} data-difference-side={s.holder_id}>
+                <Hover as="span" words={s.title} className="flex items-start gap-1.5">
+                  <span aria-hidden="true" className={AVATAR}>{s.holder.slice(0, 1).toUpperCase()}</span>
+                  <span><span className="text-text-header">{s.holder}</span>: {s.figure ? s.figure : s.text}</span>
+                </Hover>
               </li>
             ))}
           </ul>

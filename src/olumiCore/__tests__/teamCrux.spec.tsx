@@ -17,6 +17,7 @@ import { setLevel, useSimpleLevel } from '../../olumiView/v12/simpleStore'
 import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { countDifferences, issueOf } from '../../olumiView/v12/views/differGroups'
 import { setTeamFetch } from '../team/api'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { resetDifferences, type Differences } from '../team/differences'
 import { CardSplit, type CardPerson } from '../team/CardDispute'
 
@@ -82,7 +83,10 @@ describe('the canvas shows the split', () => {
       setLevel(level, view.id)
       const mine = drawCard(CARD)
       const rows = await waitFor(() => { const r = mine.querySelectorAll(`[data-core-card="${CARD}"] [data-card-split="${CARD}"] [data-card-person]`); expect(r.length, level).toBe(2); return [...r] as HTMLElement[] })
-      expect(rows.map((r) => ({ id: r.dataset.cardPerson, title: r.title, lo: r.dataset.rangeLo, hi: r.dataset.rangeHi })), level).toEqual(want)
+      expect(rows.some((r) => r.title !== '' || r.querySelector('[title]') !== null), 'never a native title').toBe(false)
+      const said: { id: string | undefined; title: string; lo: string | undefined; hi: string | undefined }[] = []
+      for (const r of rows) said.push({ id: r.dataset.cardPerson, title: await tipOf(r.querySelector<HTMLElement>('[tabindex]')!), lo: r.dataset.rangeLo, hi: r.dataset.rangeHi })
+      expect(said, level).toEqual(want)
       cleanup()
     }
     setLevel('simple', view.id)

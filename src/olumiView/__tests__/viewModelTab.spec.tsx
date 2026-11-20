@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
+import { tipOf, tipOnFocus } from './tipHelpers'
+import { ICONS, duplicateIconIds } from '../look/icons'
 import type { View } from '../client'
 import { drawKindOf, linkEndHeading, modelGroupsOf } from '../layout'
 import { MODEL_OUTLINE_LABELS } from '../ViewModelTab'
@@ -187,7 +189,7 @@ describe('the crafted Model tab, from the View', () => {
   // The wire: core's own re-pinned golden at wip/summary a62f0899 (src/view/__tests__/golden/bakery.view3.json), which serves
   // `cards[].author`. Every card in the tab is checked by its id: a person's carries the icon named in core's words; Olumi's carries
   // core's ◆ alone; a card core gives no author carries nothing.
-  it('wire (core a62f0899): each card says whose it is in core\'s words, a person\'s by its icon, Olumi\'s by core\'s ◆; none, none', () => {
+  it('wire (core a62f0899): each card says whose it is in core\'s words, a person\'s by its icon, Olumi\'s by core\'s ◆; none, none', async () => {
     const bakery = (JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View).model!
     const c = render(<ViewModelTab model={bakery} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
@@ -200,7 +202,9 @@ describe('the crafted Model tab, from the View', () => {
       const a = authorOf(id), icon = c.querySelector(`[data-view-author="${id}"]`)
       seen.add(a == null ? 'none' : a.by)
       if (a != null && a.by === 'person') {
-        expect([icon?.getAttribute('aria-label'), icon?.getAttribute('title'), icon?.getAttribute('data-author-by')], id).toEqual([a.text, `${a.text}\n${a.title}`, 'person'])
+        // The hover is the one Tip (core's words, then its quote), never a native title.
+        expect([icon?.getAttribute('aria-label'), icon?.hasAttribute('title'), icon?.getAttribute('data-author-by')], id).toEqual([a.text, false, 'person'])
+        expect(await tipOf(icon as HTMLElement), id).toBe(`${a.text}\n${a.title}`)
       } else {
         expect(icon, id).toBeNull()
         if (a?.by === 'olumi') expect(c.querySelectorAll(`[data-view="${id}.olumi.glyph"]`).length, id).toBe(1)
@@ -214,7 +218,7 @@ describe('the crafted Model tab, from the View', () => {
   // ⚠ LABELLED FIXTURE, NOT THE WIRE: core reserves `by: 'brief'` but does not emit it yet (a figure from the brief and one a member typed
   // share one stored origin until the write side records the split). Its words here are invented for the test; replace with a wire View
   // once core emits it. A shape core never sends reads as absent.
-  it('FIXTURE (core reserves `brief`): the brief\'s figure carries its own icon in core\'s words; an unreadable author draws nothing', () => {
+  it('FIXTURE (core reserves `brief`): the brief\'s figure carries its own icon in core\'s words; an unreadable author draws nothing', async () => {
     const withAuthor = structuredClone(model)
     const set = (id: string, author: unknown) => { (withAuthor.cards.find((k) => k.id === id) as unknown as { author: unknown }).author = author }
     set('starting_customers', { by: 'brief', text: 'From your brief', title: 'Theirs: “we have about 400 customers today”' })
@@ -223,7 +227,8 @@ describe('the crafted Model tab, from the View', () => {
     const c = render(<ViewModelTab model={withAuthor} />).container
     fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
     const brief = c.querySelector('[data-view-author="starting_customers"]')!
-    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.getAttribute('title')]).toEqual(['brief', 'From your brief', 'From your brief\nTheirs: “we have about 400 customers today”'])
+    expect([brief.getAttribute('data-author-by'), brief.getAttribute('aria-label'), brief.hasAttribute('title')]).toEqual(['brief', 'From your brief', false])
+    expect(await tipOf(brief as HTMLElement)).toBe('From your brief\nTheirs: “we have about 400 customers today”')
     expect(c.querySelector('[data-view-author="investment_cap"]')).toBeNull() // a shape core never sends: nothing
     expect(c.querySelector('[data-view-author="customers"]')).toBeNull() // Olumi's: core's ◆ alone, drawn once
     expect(c.querySelectorAll('[data-view="customers.olumi.glyph"]').length).toBe(1)
@@ -408,5 +413,81 @@ describe('the Model tab: every model word carries its View path', () => {
     fireEvent.click(arm('expert'))
     expect(arm('expert').className).toContain('border-text-header')
     expect(arm('plain').className).not.toContain('border-text-header')
+  })
+})
+
+// PANEL SYSTEM (20 Nov, model fixer): the Model tab's hover is the one Tip, its icons are the registry's, its disclosures name what they open, and its
+// filled action is the lane's green. Checked by meaning: what a hover says, who can reach it, what a toggle points at.
+describe('the Model tab on the panel system', () => {
+  const openAll = (expert = false) => {
+    if (expert) useModelTab.getState().setExpert(true)
+    const c = render(<ViewModelTab model={model} />).container
+    fireEvent.click(c.querySelector('[data-testid="view-model-toggle-all"]')!)
+    return c
+  }
+
+  it('no hover is a native title: every row, mark, premise, link and section, Plain and Expert, a row and a link open', () => {
+    for (const expert of [false, true]) {
+      const c = openAll(expert)
+      const pressed = c.querySelector<HTMLElement>(`[data-model-select="${model.cards.find((k) => k.family !== 'assumption' && k.premises.length > 0)!.id}"]`)
+      if (pressed !== null) fireEvent.click(pressed)
+      fireEvent.click(c.querySelector(`[data-model-select="${linkRowOf(model, 0)}"]`)!)
+      expect([...c.querySelectorAll('[title]')].map((e) => `${e.tagName} ${e.getAttribute('title')}`), `expert ${expert}`).toEqual([])
+      cleanup(); resetModelTab()
+    }
+  })
+
+  it('a card heading is its row\'s one keyboard stop and says core\'s `detail` on focus (CONTRAST: a card core gives no detail says nothing)', async () => {
+    const c = openAll()
+    const withDetail = model.cards.find((k) => k.detail !== '' && c.querySelector(`[data-model-select="${k.id}"]`) !== null)
+    expect(withDetail, 'precondition: the fixture has a card with a detail').toBeDefined()
+    const stop = c.querySelector<HTMLElement>(`[data-model-select="${withDetail!.id}"]`)!
+    expect(await tipOnFocus(stop)).toBe(withDetail!.detail)
+    expect(stop.querySelector('[tabindex]')).toBeNull() // no second stop inside it
+  })
+
+  it('a link row says core\'s `title` on its one stop, the line\'s button', async () => {
+    const c = openAll()
+    const l = model.links.findIndex((x) => x.title !== '')
+    expect(l, 'precondition: a link with a title').toBeGreaterThanOrEqual(0)
+    const line = c.querySelector<HTMLElement>(`[data-model-link-line="${linkRowOf(model, l)}"]`)!
+    expect(await tipOnFocus(line)).toBe(model.links[l]!.title)
+  })
+
+  it('core\'s marks are keyboard stops on their own, and not inside a control (the control is then the one stop and says its own words)', async () => {
+    const c = openAll()
+    const marks = [...c.querySelectorAll<HTMLElement>('[data-view$=".glyph"]')].filter((m) => (m.getAttribute('aria-label') ?? '') !== '')
+    expect(marks.length).toBeGreaterThan(0)
+    for (const m of marks) {
+      const inControl = m.closest('button, [role="button"]') !== null
+      expect(m.getAttribute('tabindex') !== null, `${m.getAttribute('data-view')} inside a control: ${inControl}`).toBe(!inControl)
+    }
+    // Inside the figure's edit button, the pointer's rest on a mark still says core's words for the mark.
+    const inButton = marks.find((m) => m.closest('[data-model-value-edit]') !== null)
+    if (inButton !== undefined) expect(await tipOf(inButton)).toBe(inButton.getAttribute('aria-label'))
+  })
+
+  it('every open group\'s toggle names the list it opens, once and uniquely; a closed one names none; Expand all says whether all are open', () => {
+    const c = render(<ViewModelTab model={model} />).container
+    const toggles = [...c.querySelectorAll<HTMLElement>('[data-model-group-toggle]')]
+    const all = c.querySelector<HTMLElement>('[data-testid="view-model-toggle-all"]')!
+    expect(toggles.every((t) => t.getAttribute('aria-controls') === null && t.getAttribute('aria-expanded') === 'false')).toBe(true)
+    expect([all.getAttribute('aria-expanded'), all.getAttribute('aria-controls')]).toEqual(['false', null])
+    fireEvent.click(toggles[0]!)
+    const first = toggles[0]!.getAttribute('aria-controls')!
+    expect(first).toBeTruthy()
+    expect(c.querySelector(`ul[id="${first}"]`)?.closest('section')?.getAttribute('data-model-group')).toBe(toggles[0]!.getAttribute('data-model-group-toggle'))
+    expect(all.getAttribute('aria-expanded')).toBe('false') // one of several is not all
+    fireEvent.click(all)
+    expect(all.getAttribute('aria-expanded')).toBe('true')
+    const ids = [...c.querySelectorAll<HTMLElement>('[data-model-group-toggle]')].map((t) => t.getAttribute('aria-controls')!)
+    expect(new Set(ids).size, 'each group its own list').toBe(ids.length)
+    for (const id of ids) expect(c.querySelector(`ul[id="${id}"]`), id).not.toBeNull()
+    expect(all.getAttribute('aria-controls')!.split(' ').sort()).toEqual([...ids].sort())
+  })
+
+  it('the registry holds one glyph per meaning with the Model tab\'s ids in it', () => {
+    for (const id of ['model-relationship', 'model-link-from', 'model-link-to', 'model-rename'] as const) expect(ICONS[id], id).toBeDefined()
+    expect(duplicateIconIds(ICONS)).toEqual([])
   })
 })

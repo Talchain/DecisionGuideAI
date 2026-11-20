@@ -5,7 +5,7 @@
  * blue), the scenario name's words and size are untouched, and the target is at least 24px. Nothing renders without core's key.
  */
 import { useEffect, useRef } from 'react'
-import { LayoutList } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 import { useViewStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { useOverview } from './useOverview'
@@ -22,7 +22,7 @@ export function StrategyOverviewOpener(): JSX.Element | null {
       onClick={() => (open ? useOverview.getState().hide() : (useCompare.getState().hide(), useOverview.getState().show()))}
       className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}
     >
-      <LayoutList aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
+      <OkIcon id="strategy-overview" size={14} decorative />
       {words}
     </button>
   )

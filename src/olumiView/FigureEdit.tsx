@@ -23,6 +23,7 @@ import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
 import { editGateNow } from './v12/edit/editGate'
 import { useShowToastSafe } from '../canvas/ToastContext'
 import { SizeEditButton } from './v12/edit/SizeEditButton'
+import { useAnchoredTip } from './look/Tip'
 
 /**
  * `id`: the quantity (a card's id, or a waits-on item's); `edit`: core's words for changing it; `label`: the button's words; `place`: where
@@ -63,6 +64,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const tip = useAnchoredTip(ASIDE_WORDS.offer)
   const p = view?.proposal ?? null
   if (p === null || view === null || sid === null || at !== null || p.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
   const aside = async () => {
@@ -79,8 +81,11 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     } finally { setBusy(false) }
   }
   if (!open) return (
-    <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => setOpen(true)} aria-label={`${label}: ${ASIDE_WORDS.offer}`} title={ASIDE_WORDS.offer}
-      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
+    <>
+      <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
+        className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
+      {tip.tip}
+    </>
   )
   return (
     <div className="nodrag nopan grid gap-1" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
@@ -120,6 +125,8 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
+  // The pencil's and the opener's hover is core's own ask, through the one Tip (never a native title).
+  const tip = useAnchoredTip(edit?.ask)
   // Opened by a set-aside on this card (R25): open at once, with the set-aside said until the editor closes.
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   // The editor on a card (and the aim's, which opens its target's) is one of the five surfaces the one surface store holds (surfaces step 2): opening it
@@ -188,19 +195,19 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   // DL 06:57Z (1): another card's own words open this figure's editor (the aim's question opens its target's), the words as the button.
   const panel = place === 'view-figure' || opener !== undefined
   if (!open && opener !== undefined) {
-    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow} title={edit.ask} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>
+    return <><button type="button" data-testid={`${place}-edit-${id}`} onClick={() => { tip.dismiss(); openNow() }} {...tip.handlers} aria-describedby={tip.describedBy} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>{tip.tip}</>
   }
   if (!open) {
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
           className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={openNow} aria-label={label} title={edit.ask}
+        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         {/* S1 (Paul's "do now", 11 Nov): core's lead ends on the control ("Give your figure with ✎"); no stop of the UI's after it. */}
-        </button></span>
+        </button>{tip.tip}</span>
     )
   }
   return (
@@ -255,31 +262,33 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
   const showToast = useShowToastSafe()
+  // The gate and what it says are read before any early return so the hover (the one Tip) is one hook per render: a held pencil says why in the gate's own words, as the title did.
+  const live = view?.model?.edit_base ?? null
+  const size = edit ? isSizeEdit(edit) : false
+  const gate = editGateNow()
+  const off = size ? !gate.ok : live === null
+  const why = off && !gate.ok ? gate.why : undefined
+  const tip = useAnchoredTip(!edit ? undefined : opener !== undefined || glyph !== undefined ? why ?? edit.ask : why)
   // Set aside and edit (R25): the card this was set aside for opens its Value row at once, with the set-aside said there.
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); useLaneInspector.getState().openFigure({ kind: 'card', id }, 'aside', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) } }, [asideFor, id])
   // DL 09:50Z (1): another card's words that open this figure's editor (`opener`) are drawn as plain words where no editor is offered here, never dropped.
   if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
-  const live = view.model?.edit_base ?? null
-  const size = isSizeEdit(edit)
   // No version to edit (a proposal is held): a plain figure offers nothing; a risk's size or a link's strength keeps its pencil, said not to act, as before.
   if (live === null && !size) return opener ?? null
-  const gate = editGateNow()
-  const off = size ? !gate.ok : live === null
-  const why = off && !gate.ok ? gate.why : undefined
   // A press the gate refuses says why, in the gate's own words (core's, or the existing sentence for a past version or another person's page), as the hover already did.
-  const press = (): void => { if (off) { if (why !== undefined) showToast(why, 'warning'); return } useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
+  const press = (): void => { tip.dismiss(); if (off) { if (why !== undefined) showToast(why, 'warning'); return } useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
   if (opener !== undefined) {
-    return <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why ?? edit.ask} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>
+    return <><button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy} className={`nodrag ${typography.viewValue} cursor-pointer text-left underline decoration-dotted underline-offset-2 hover:text-text-header`}>{opener}</button>{tip.tip}</>
   }
   return glyph === undefined
-    ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} title={why}
-      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-    : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} title={why ?? edit.ask}
+    ? <><button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
+      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
+    : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
       className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
       <EditIcon testid={`${place}-glyph-${id}`} />
       {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
-    </button></span>
+    </button>{tip.tip}</span>
 }
 
 /**

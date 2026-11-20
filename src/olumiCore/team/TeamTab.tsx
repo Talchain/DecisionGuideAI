@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAnchoredTip } from '../../olumiView/look/Tip'
+import { Hover } from '../../olumiView/v12/chat/Hover'
 import { Button } from '../../components/ui/Button'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
@@ -79,10 +81,13 @@ export function Members({ view }: { view: View }): JSX.Element {
       {view.team_presence.members.map((m) => {
         const inWords = m.id === view.you_id ? (viewIn(view) ? VIEW_IN_WORDS.yours : null) : shownBy.has(m.id) ? VIEW_IN_WORDS.theirs : null
         return (
-          <li key={m.id} data-testid={`team-member-${m.id}`} data-view-in={inWords === null ? undefined : ''} title={inWords ?? undefined} className={`${META} inline-flex items-center gap-1.5 text-text-body`}>
-            <span aria-hidden="true" className={`${AVATAR} ${inWords === null ? '' : 'border-success'}`}>{(Array.from(m.text)[0] ?? '').toUpperCase()}</span>
-            <span data-member-text="">{m.text}</span>
-            {inWords !== null && <span className="sr-only">{inWords}</span>}
+          <li key={m.id} data-testid={`team-member-${m.id}`} data-view-in={inWords === null ? undefined : ''} className={`${META} text-text-body`}>
+            {/* Whose view is in is said through the one Tip (a keyboard stop), and again in words for a reader. */}
+            <Hover as="span" words={inWords} className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true" className={`${AVATAR} ${inWords === null ? '' : 'border-success'}`}>{(Array.from(m.text)[0] ?? '').toUpperCase()}</span>
+              <span data-member-text="">{m.text}</span>
+              {inWords !== null && <span className="sr-only">{inWords}</span>}
+            </Hover>
           </li>
         )
       })}
@@ -100,27 +105,31 @@ const STATE_WORDS: Record<StepState, string> = { done: 'Done', now: 'Now', later
 
 function Step({ id, n, state, open, summary, onToggle, compact = false, children }: { id: StepId; n: number; state: StepState; open: boolean; summary: string; onToggle: () => void; compact?: boolean; children: JSX.Element | (JSX.Element | null | false)[] }): JSX.Element {
   const body = `team-step-${id}-body`
+  // The step's summary is its hover: a finished step shrunk to a name says it there, a step at rest says it in a line (the Tip, on the row's one focus stop).
+  const tip = useAnchoredTip(compact || !open ? summary : undefined)
   // After the reveal the finished steps before it shrink to one line of names (Paul's critique, 18 Nov): the difference leads the panel.
   // Each stays a row the person can press to open, its body mounted and hidden, its summary in the title.
   if (compact) return (
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-compact="" aria-label={STEP_WORDS[id]} className="inline-flex">
-      <button type="button" aria-expanded={false} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={onToggle} title={summary}
+      <button type="button" aria-expanded={false} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={() => { tip.dismiss(); onToggle() }} {...tip.handlers} aria-describedby={tip.describedBy}
         className={`${META} inline-flex min-h-[24px] items-center gap-1.5 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>{STEP_WORDS[id]}
       </button>
+      {tip.tip}
       <div id={body} hidden className="hidden" data-testid={body}>{children}</div>
     </section>
   )
   return (
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-open={open ? '' : undefined} aria-label={STEP_WORDS[id]} className="grid">
-      <button type="button" aria-expanded={open} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={onToggle}
+      <button type="button" aria-expanded={open} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={() => { tip.dismiss(); onToggle() }} {...tip.handlers} aria-describedby={tip.describedBy}
         className="flex min-h-[32px] w-full min-w-0 items-center gap-2 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>
         <span className={`${typography.viewPanelHeading} flex-none ${open || state === 'now' ? 'text-text-header' : 'text-text-body'}`}>{STEP_WORDS[id]}</span>
-        {!open && <span className={`${META} min-w-0 break-words py-0.5`} title={summary} data-testid={`team-step-${id}-summary`}>{summary}</span>}
+        {!open && <span className={`${META} min-w-0 break-words py-0.5`} data-testid={`team-step-${id}-summary`}>{summary}</span>}
       </button>
+      {tip.tip}
       <div id={body} hidden={!open} className={open ? 'grid gap-3 pb-3 pt-2' : 'hidden'} data-testid={body}>{children}</div>
     </section>
   )
@@ -136,6 +145,8 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   const [showLater, setShowLater] = useState(false)
   const folded = (id: StepId): boolean => !showLater && stepState(view, id) === 'later' && open !== id
   const foldedCount = STEP_ORDER.filter(folded).length
+  // What the "Where this goes" press shows: the later steps' list items (ids unique to this tab, one per step).
+  const laterIds = STEP_ORDER.filter((id) => stepState(view, id) === 'later' && open !== id).map((id) => `team-step-${id}-item`)
   // A step opened from elsewhere (an outcome form, the commitment form) is the person's choice under the current step.
   useEffect(() => { if (choice.pending !== null) takePending(sid, current) }, [choice.pending, sid, current])
   // The header's "Named in the brief but not matched" notice puts a name in the invite form (TeamPresence `inviteUnjoined`): open that step.
@@ -187,7 +198,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
           body, so the one-time invite link and every draft survive. Rows take the full width; shrunk names share one line. */}
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
         {STEP_ORDER.map((id) => (
-          <li key={id} hidden={folded(id)} className={done.includes(id) ? '' : 'basis-full'}>
+          <li key={id} id={`team-step-${id}-item`} hidden={folded(id)} className={done.includes(id) ? '' : 'basis-full'}>
             <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
               {bodies[id]}
             </Step>
@@ -195,7 +206,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
         ))}
         {(foldedCount > 0 || showLater) && (
           <li className="basis-full">
-            <button type="button" aria-expanded={showLater} data-testid="team-steps-later" onClick={() => setShowLater((x) => !x)}
+            <button type="button" aria-expanded={showLater} aria-controls={laterIds.length > 0 ? laterIds.join(' ') : undefined} data-testid="team-steps-later" onClick={() => setShowLater((x) => !x)}
               className={`${META} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
               {STEP_WORDS.whereThisGoes}
             </button>

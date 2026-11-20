@@ -11,9 +11,9 @@
  * own: one primary action and a quiet second one (approved v2.1).
  */
 import { useEffect, useRef, useState } from 'react'
-import { Eye, X } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { OkIcon } from './look/icons'
+import { OkIcon, OkIconButton } from './look/icons'
+import { Hover } from './v12/chat/Hover'
 import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
@@ -61,10 +61,10 @@ export function Figures({ v, at = 'reveal-dock' }: { v: Shared; at?: string }): 
   return (
     <dl className="m-0 grid gap-1" data-testid={`${at}-figures-${v.id}`}>
       {v.figures.map((f) => (
-        <div key={f.quantity} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3" title={f.title}>
+        <Hover key={f.quantity} as="div" words={f.title} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3">
           <dt className={META}>{f.label}</dt>
           <dd className={`${META} m-0 font-medium text-text-header tabular-nums`}>{f.text}</dd>
-        </div>
+        </Hover>
       ))}
     </dl>
   )
@@ -210,12 +210,9 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
             {shown === undefined || model == null || (chip?.record !== undefined && chip.record !== shown.id) ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} size={12} /></span>}
             {heading}
           </h2>
-          <p className={`${META} flex items-center gap-1.5`}><Eye aria-hidden="true" className="h-3 w-3" />{view.reveal_words.revealedTogether}</p>
+          <p className={`${META} flex items-center gap-1.5`}><OkIcon id="views" size={14} decorative />{view.reveal_words.revealedTogether}</p>
         </div>
-        <button type="button" aria-label={view.reveal_words.close} data-testid="reveal-dock-close" onClick={close}
-          className="inline-grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-header">
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        <OkIconButton id="cancel-close" tone="ghost" words={view.reveal_words.close} testid="reveal-dock-close" onClick={close} />
       </div>
 
       <div className="grid gap-4">{lead.map((x) => <Person key={x.id} v={x} card={chip?.card ?? null} />)}</div>

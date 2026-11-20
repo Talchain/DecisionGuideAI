@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
+import { VIEW_CHIP_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { useUIStore } from '../../stores/uiStore'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
@@ -38,8 +39,8 @@ import { useLaneInspector } from '../v12/edit/inspectorStore'
  * cannot act keeps its full weight, and a line says why ("Saving…", "Another change is saving…").
  */
 export const RECIPE = {
-  // The person's commit is an ink pill: `bg-primary` is Olumi's info blue by token (brand.css: --primary-rgb is --info-rgb).
-  primary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-full bg-text-header px-3 text-text-on-color hover:bg-text-header/90 disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  // The person's commit is the lane's one green action (`bg-success`, ink text; chipClass), the chat's own recipe, never black and never Olumi's blue. A held one reads as held by token.
+  primary: `${VIEW_CHIP_PRIMARY_CLASS} aria-disabled:cursor-default aria-disabled:bg-panel-border aria-disabled:text-text-light`,
   secondary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1.5 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
   action: `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 rounded-sm text-text-light hover:text-text-body hover:underline aria-disabled:cursor-default ${ACTION_FOCUS}`,
   quiet: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,

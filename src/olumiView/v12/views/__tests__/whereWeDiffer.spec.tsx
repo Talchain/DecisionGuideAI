@@ -9,7 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { View } from '../../../client'
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { resetWrites } from '../../../../olumiCore/team/writes'
-import { differencesShape, resetDifferences, type Differences } from '../../../../olumiCore/team/differences'
+import { chancesDiffer, differencesShape, resetDifferences, withoutTracks, type Difference, type Differences } from '../../../../olumiCore/team/differences'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { countDifferences, groupDifferences, groupOf, summaryLine } from '../differGroups'
 import { WhereWeDiffer } from '../WhereWeDiffer'
@@ -239,5 +239,42 @@ describe('the member\'s own entry stays whatever the differences do', () => {
     render(<WhereWeDiffer sid="s_x" view={revealed()} onWrote={async () => true} />)
     expect((await screen.findByTestId('differ-group-consequence-heading')).textContent).toBe('C')
     expect(screen.getByTestId('differ-group-reasoning-heading').textContent).toBe('R')
+  })
+})
+
+describe('a chance track only where the options differ (a chart only when it shows a difference)', () => {
+  const row = 'differ-row-per_specialist-capacity_goal'
+  type Opt = { option: string; chances: { chance: number | null; text: string }[] }
+  const allAt = (v: number): Difference => ({ ...figure, options: figure.options.map((o: Opt) => ({ ...o, chances: o.chances.map((c) => ({ ...c, chance: v, text: `about ${Math.round(v * 100)}%` })) })) }) as Difference
+  const drawnOptions = async (d: unknown): Promise<HTMLElement> => {
+    serve(() => ({ status: 200, body: payload([d]) }))
+    render(<WhereWeDiffer sid="s_x" view={view()} onWrote={async () => true} />)
+    return screen.findByTestId(`${row}-options`)
+  }
+  const words = (el: HTMLElement) => [...el.querySelectorAll('[data-difference-chance]')].map((c) => c.lastElementChild!.textContent)
+  it('contrast: two options whose chances differ draw a track for each chance, with core\'s words beside it', async () => {
+    const opts = await drawnOptions(figure)
+    expect(opts.querySelectorAll('svg[data-chance]')).toHaveLength(4)
+    expect(words(opts)).toEqual(['0%', '0%', 'about 7%', 'about 94%'])
+  })
+  it('one option has nothing to differ from: no track, and core\'s words for each person\'s chance stay', async () => {
+    const one = { ...figure, options: figure.options.filter((o: Opt) => o.option === 'add_one') }
+    const opts = await drawnOptions(one)
+    expect(opts.querySelectorAll('svg')).toHaveLength(0)
+    expect(words(opts)).toEqual(['about 7%', 'about 94%'])
+  })
+  it('equal chances show no difference: no track, and core\'s words for each chance stay', async () => {
+    const opts = await drawnOptions(allAt(0.5))
+    expect(opts.querySelectorAll('svg')).toHaveLength(0)
+    expect(words(opts)).toEqual(['about 50%', 'about 50%', 'about 50%', 'about 50%'])
+  })
+  it('the decision is on the numbers core gave: a withheld chance is not a value to compare', () => {
+    expect(chancesDiffer(figure as Difference)).toBe(true)
+    expect(chancesDiffer({ options: [] })).toBe(false)
+    expect(chancesDiffer(allAt(0.5))).toBe(false)
+    const onlyOneGiven = { ...figure, options: figure.options.map((o: Opt, i: number) => ({ ...o, chances: o.chances.map((c) => ({ ...c, chance: i === 0 ? null : 0.4 })) })) } as Difference
+    expect(chancesDiffer(onlyOneGiven)).toBe(false)
+    expect(withoutTracks(figure as Difference).options.every((o) => o.chances.every((c) => c.chance === null))).toBe(true)
+    expect(withoutTracks(figure as Difference).options.flatMap((o) => o.chances.map((c) => c.text))).toEqual(figure.options.flatMap((o: Opt) => o.chances.map((c) => c.text)))
   })
 })

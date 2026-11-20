@@ -13,6 +13,7 @@ import { setTeamFetch } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { tipOf } from './tipHelpers'
 
 const DIR = path.resolve('src/olumiView/fixtures/figure-first')
 const json = <T,>(n: string): T => JSON.parse(readFileSync(path.join(DIR, n), 'utf8'))
@@ -108,7 +109,9 @@ describe('the entry: core\'s blind entry, opened from the menu', () => {
     show(RANGE)
     const drawer = q(renderTab(), '[data-testid="view-figure-first-given"]')!
     for (const w of [OLUMI.text, OLUMI.basis]) expect(drawer.textContent, w).toContain(w)
-    expect(q(drawer, '[data-ff="given.olumi.text"]')!.getAttribute('title')).toBe(OLUMI.title)
+    // The range is the figure's hover through the one Tip (a keyboard stop), never a native title.
+    const olumiText = q(drawer, '[data-ff="given.olumi.text"]')!
+    expect([olumiText.hasAttribute('title'), olumiText.tabIndex, await tipOf(olumiText)]).toEqual([false, 0, OLUMI.title])
   })
 })
 
@@ -146,10 +149,16 @@ describe('giving their figure first', () => {
     const c = renderTab()
     await openEntry(c)
     type(c, '2', '')
-    expect((q(c, '[data-testid="view-figure-first-send"]') as HTMLButtonElement).disabled).toBe(true)
+    // Held as the Tip's HoverButton holds a control: aria-disabled, still focusable, and a press sends nothing.
+    const send = () => q(c, '[data-testid="view-figure-first-send"]') as HTMLButtonElement
+    expect([send().getAttribute('aria-disabled'), send().hasAttribute('title')]).toEqual(['true', false])
+    expect(send().className, 'the person\'s action is the lane\'s green, not Olumi\'s blue').toContain('bg-success')
+    expect(send().className).not.toContain('bg-info')
+    await click(send())
     act(() => { useViewChat.setState({ busy: true }) })
     type(c, '2', 'because')
-    expect((q(c, '[data-testid="view-figure-first-send"]') as HTMLButtonElement).disabled).toBe(true)
+    expect(send().getAttribute('aria-disabled')).toBe('true')
+    await click(send())
     expect((q(c, '[data-testid="view-figure-first-show"]') as HTMLButtonElement).disabled).toBe(true)
     expect(posts).toEqual([])
   })

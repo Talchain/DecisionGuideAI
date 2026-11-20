@@ -15,6 +15,7 @@ import { strategyMarkOn, strategyOf, viewLinesOf } from '../strategy/strategy'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { StrategyViewLines, StrategyHerePill } from '../strategy/StrategyViewLines'
 import { StrategyOverviewSection } from '../strategy/StrategyOverview'
+import { tipOf } from './tipHelpers'
 import { CardViewChips } from '../RevealMarks'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
@@ -94,7 +95,7 @@ describe('a person’s qualitative views in the dock (real View)', () => {
 })
 
 describe('the strategy overview (real View)', () => {
-  it('folded until opened; then core’s sections in order, each line a stored word with its holder; an empty section says so in core’s words; the gate under the aim', () => {
+  it('folded until opened; then core’s sections in order, each line a stored word with its holder; an empty section says so in core’s words; the gate under the aim', async () => {
     render(<StrategyOverviewSection view={real} />)
     expect(screen.getByTestId('strategy-overview-toggle')).toHaveTextContent(S.overview.heading)
     expect(screen.queryByTestId('strategy-overview-body')).toBeNull()
@@ -107,7 +108,11 @@ describe('the strategy overview (real View)', () => {
     const assumptions = within(body).getByTestId('strategy-overview-assumptions')
     expect(within(assumptions).getByText(assumption.text)).toBeInTheDocument()
     expect(assumptions.querySelector(`[data-strategy-line="${assumption.id}"] [data-strategy-pill]`)).toHaveTextContent('Untested')
-    expect(assumptions.querySelector(`[data-strategy-line="${assumption.id}"] [title="Tom"]`)).toHaveTextContent('T')
+    const holder = assumptions.querySelector<HTMLElement>(`[data-strategy-line="${assumption.id}"] [tabindex][aria-label="Tom"]`)!
+    expect(holder).toHaveTextContent('T')
+    expect([holder.hasAttribute('title'), await tipOf(holder)]).toEqual([false, 'Tom']) // the one Tip, a keyboard stop, never a native title
+    // The disclosure names what it opens.
+    expect(screen.getByTestId('strategy-overview-toggle').getAttribute('aria-controls')).toBe(body.id)
     // A factor's pill is the reveal's mark sentence and its holders the mark's people, as core sends them.
     const factors = within(body).getByTestId('strategy-overview-factors')
     for (const m of S.marks) expect(factors.querySelector(`[data-strategy-line="${m.card}"] [data-strategy-pill]`)).toHaveTextContent(m.text)

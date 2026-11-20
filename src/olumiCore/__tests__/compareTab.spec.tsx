@@ -29,6 +29,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { useCompare } from '../../olumiView/v12/views/useCompare'
 import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { setTeamFetch } from '../team/api'
+import { tipOf, tipOnFocus } from '../../olumiView/__tests__/tipHelpers'
 import { ASK_WHICH, COMPARE_ONE, COMPARE_ONE_VERSIONS, CoreCompareTab, moreChanges, notMoved, type Compared, type Since } from '../compare'
 import { CompareCardMark, changedSince, useCompareMarks } from '../compareMarks'
 import { SEPARATE_RUNS } from '../scenarioCompare'
@@ -183,7 +184,13 @@ describe('honest attribution: core\'s line once, and one useful press where core
     // Core's line for every result, one press away, the largest move first; no one line stands for the rest, and none is drawn at rest.
     const readings = screen.getByTestId('core-compare-readings')
     expect([readings.hasAttribute('open'), readings.querySelector('summary')!.textContent]).toEqual([false, 'Olumi’s reading of each result (3)'])
+    // Each fold's summary says whether it is open and names its rows by a unique id inside that fold.
+    const sums = [...document.querySelectorAll<HTMLElement>('details > summary[aria-controls]')]
+    expect(sums.length).toBeGreaterThan(0)
+    expect(new Set(sums.map((x) => x.getAttribute('aria-controls'))).size, 'unique ids').toBe(sums.length)
+    for (const x of sums) expect([x.getAttribute('aria-expanded'), x.parentElement!.contains(document.getElementById(x.getAttribute('aria-controls')!))]).toEqual(['false', true])
     expect([...credit.querySelectorAll('[data-view^="run.since.lines."]')].map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([['run.since.lines.1.line', 'LINE-BIG'], ['run.since.lines.0.line', 'LINE-SAME'], ['run.since.lines.2.line', 'LINE-SMALL']])
+    expect(screen.getByTestId('core-compare-ask-go').className, 'the one useful press is the green action').toContain('bg-success')
     fireEvent.click(screen.getByTestId('core-compare-ask-go'))
     await waitFor(() => expect(screen.getByTestId('core-compare-ask-placed').textContent).toBe(ASK_WHICH.placed))
     expect(prefill.mock.calls).toEqual([[ASK_WHICH.request]])
@@ -283,6 +290,8 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     expect([press.textContent, press.getAttribute('aria-expanded'), screen.queryByTestId('whatif-save')]).toEqual(['Save a what-if to compare', 'false', null])
     fireEvent.click(press)
     expect([press.textContent, press.getAttribute('aria-expanded'), !!screen.queryByTestId('whatif-save')]).toEqual(['Close the what-if', 'true', true])
+    // The disclosure names the form it opens (a unique id on the form's own wrapper), and says nothing of a form that is not there.
+    expect(document.getElementById(press.getAttribute('aria-controls')!)?.contains(screen.getByTestId('whatif-save'))).toBe(true)
     fireEvent.click(press)
     expect(screen.queryByTestId('whatif-save')).toBeNull()
     cleanup()
@@ -312,10 +321,13 @@ describe('the canvas version diff (core lines typed with record_id, wip/x-compar
     const rows = [...screen.getByTestId('core-compare-lines').querySelectorAll('[data-compare-line]')]
     expect(rows.map((r) => [r.getAttribute('data-compare-line-record'), r.querySelector('[data-compare-card]')?.getAttribute('data-compare-card') ?? null]))
       .toEqual([[cardId, cardId], ['not_on_this_canvas', null], [null, null]])
+    // The press is one keyboard stop and its hover (the one Tip) says what it does, on focus as on the pointer; never a native title.
+    const press = rows[0]!.querySelector<HTMLElement>('[data-compare-card]')!
+    expect([press.getAttribute('title'), await tipOnFocus(press), await tipOf(press)]).toEqual([null, 'Show it on the canvas', 'Show it on the canvas'])
     const m = useCompareMarks.getState()
     expect([m.sid, m.from, m.to, Object.keys(m.byId)]).toEqual([view.id, 2, 3, [cardId, 'not_on_this_canvas']])
     const mark = render(<CompareCardMark id={cardId} />).container.querySelector(`[data-compare-mark="${cardId}"]`)!
-    expect([mark.textContent, mark.getAttribute('title')]).toEqual([changedSince(2), '↻ figure: hours\nfrom 20 to 25'])
+    expect([mark.textContent, mark.getAttribute('title'), await tipOf(mark as HTMLElement)]).toEqual([changedSince(2), null, '↻ figure: hours\nfrom 20 to 25'])
     expect(mark.querySelector('svg'), 'the registry\'s version icon beside the chrome words').not.toBeNull()
     expect(render(<CompareCardMark id="some_other_card" />).container.querySelector('[data-compare-mark]'), 'a card core does not name has no mark').toBeNull()
     tab.unmount()

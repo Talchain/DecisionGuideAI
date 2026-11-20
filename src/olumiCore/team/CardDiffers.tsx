@@ -16,7 +16,8 @@
  * canvas never read the same View twice.
  */
 import { Fragment, useEffect, type CSSProperties } from 'react'
-import { Unlink2 } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
+import { HoverButton } from '../../olumiView/v12/chat/Hover'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'
@@ -81,15 +82,15 @@ function openDiffer(d: Difference): void {
  */
 export function DifferChip({ d, card }: { d: Difference; card: string }): JSX.Element {
   return (
-    <button type="button" title={`${d.label}\n${d.status_text}`} data-differ-chip={d.record} data-differ-card={card}
+    <HoverButton words={`${d.label}\n${d.status_text}`} type="button" data-differ-chip={d.record} data-differ-card={card}
       onClick={(e) => { e.stopPropagation(); openDiffer(d) }}
       className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel py-0.5 pl-0.5 ${d.chip ? 'pr-2.5' : 'pr-0.5'} text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">
-        <Unlink2 strokeWidth={1.75} className="h-3 w-3" />
+        <OkIcon id="differ-link" size={12} decorative />
       </span>
       {d.chip ? <span data-differ-chip-text="">{d.chip}</span> : null}
       {' '}<span className="sr-only" data-differ-label="">{d.label}</span>
       {d.sides.map((s) => <Fragment key={s.holder_id}>{' '}<span className="sr-only" data-differ-side={s.holder_id}>{s.text}</span></Fragment>)}
-    </button>
+    </HoverButton>
   )
 }

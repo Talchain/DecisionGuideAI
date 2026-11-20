@@ -147,7 +147,9 @@ describe('sharing one\'s own view before the reveal', () => {
     fireEvent.click(screen.getByTestId('team-share-4'))
     await screen.findByTestId('team-views-error') // the answer was lost: said, and the write settled
     await waitFor(() => expect(posts()).toHaveLength(1))
-    expect((screen.getByTestId('team-share-4') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByTestId('team-share-4').getAttribute('aria-disabled')).toBe('true') // held, still focusable
+    fireEvent.click(screen.getByTestId('team-share-4'))
+    expect(posts()).toHaveLength(1) // a held press does nothing
   })
 })
 

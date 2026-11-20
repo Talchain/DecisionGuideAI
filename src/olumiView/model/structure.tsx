@@ -6,12 +6,12 @@
  * the person can change before sending (`requestAsk`, the inspector's hand-off), and says it goes there.
  */
 import { useEffect, useRef, useState } from 'react'
-import { MessageSquare, Plus } from 'lucide-react'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { requestAsk } from '../../canvas/ui/inspector-v2/askSemantic'
 import { focusWhenDrawn } from '../AddFigure'
+import { OkIcon } from '../look/icons'
 import type { ViewLink } from '../client'
 import { writes } from '../client'
 import { useViewStore } from '../store'
@@ -79,7 +79,7 @@ export function AddFigureRow(): JSX.Element | null {
   if (adding === null) return (
     <li className="px-2 pt-1">
       <button ref={opener} type="button" onClick={() => { if (live !== null) { useModelTab.getState().openAdding(sid, live); setError(null) } }} className={`${RECIPE.action} gap-1.5`} data-model-add-figure="open">
-        <Plus aria-hidden="true" className="h-3.5 w-3.5" /><span>{W.addFigure}</span>
+        <OkIcon id="add" size={14} decorative inherit /><span>{W.addFigure}</span>
       </button>
     </li>
   )
@@ -176,7 +176,7 @@ export function AskOlumi({ draft, label, at }: { draft: string; label: string; a
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); requestAsk({ text: draft, label, source: 'model-tab' }) }}
       className={RECIPE.olumi} data-model-ask={at}>
-      <MessageSquare aria-hidden="true" className="h-3.5 w-3.5 flex-none" /><span>{label}</span>
+      <OkIcon id="talk-first" size={14} decorative inherit className="flex-none" /><span>{label}</span>
     </button>
   )
 }

@@ -14,6 +14,7 @@ import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
 import { resetTeamFlow } from '../team/flow'
 import { useMe } from '../me'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -77,7 +78,7 @@ describe('what the tab shows is the View, word for word', () => {
     // CHANGED BY DESIGN (v10 review item 9): the placeholder is the scenario's own question text where the View carries it.
     expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe(base.model!.question.text)
   })
-  it('each view\'s figures under it, in core\'s words and order (the revealed one\'s, and your own while private); a view with none draws none', () => {
+  it('each view\'s figures under it, in core\'s words and order (the revealed one\'s, and your own while private); a view with none draws none', async () => {
     // Shaped exactly as core's view3-fields.test.ts (API v1.11): a range on a revealed view, a number on your private one.
     const range = { quantity: 'per_specialist', label: 'per specialist', text: '20 to 30 tickets/week/specialist', title: 'Hard bounds: 20 to 30 tickets/week/specialist', unit: 'ticket/week/specialist', version: 1, low: 20, high: 30, range_kind: 'bounds' as const }
     const point = { quantity: 'existing_capacity', label: 'existing capacity', text: '85 tickets/week', title: '85 tickets/week', unit: 'ticket/week', version: 1, value: 85 }
@@ -88,7 +89,8 @@ describe('what the tab shows is the View, word for word', () => {
     useViewStore.setState({ view: served })
     render(<TeamTab />)
     const fig = screen.getByTestId('team-revealed-3-figure-0')
-    expect([fig.textContent, fig.getAttribute('title')]).toEqual(['per specialist: 20 to 30 tickets/week/specialist', 'Hard bounds: 20 to 30 tickets/week/specialist'])
+    expect([fig.textContent, fig.querySelector('[title]')]).toEqual(['per specialist: 20 to 30 tickets/week/specialist', null]) // never a native title
+    expect(await tipOf(fig.querySelector<HTMLElement>('[tabindex]')!)).toBe('Hard bounds: 20 to 30 tickets/week/specialist')
     expect(screen.getByTestId('team-mine-4-figure-0').textContent).toBe('existing capacity: 85 tickets/week')
     expect(screen.getByTestId('team-revealed-3-figures').children.length).toBe(1)
     // CONTRAST: a view without figures draws no list
@@ -174,14 +176,15 @@ describe('every write goes to core\'s own route, and the View is read again afte
     expect(screen.queryByTestId('team-evidence-considered-by-5')).toBeNull()
     expect(screen.getByTestId('team-evidence-consider-5')).toBeTruthy()
   })
-  it('what Olumi made of it, as label: value over core\'s fields: who asked, and core\'s why verbatim when it changed nothing (none when it proposed)', () => {
+  it('what Olumi made of it, as label: value over core\'s fields: who asked, and core\'s why verbatim when it changed nothing (none when it proposed)', async () => {
     const t = twoPeople(), ev = t.evidence[0]!
     const why = { text: 'The model already allows churn this low.', title: 'Nothing to change: churn is already within the range.' }
     useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: null, why } }] } })
     render(<TeamTab />)
     expect(screen.getByTestId('team-evidence-considered-by-5').textContent).toBe('Considered, asked by: Ada')
     const w = screen.getByTestId('team-evidence-why-5')
-    expect([w.textContent, w.getAttribute('title')]).toEqual([why.text, why.title])
+    expect([w.textContent, w.hasAttribute('title')]).toEqual([why.text, false])
+    expect(await tipOf(w)).toBe(why.title)
     cleanup()
     useViewStore.setState({ view: { ...t, evidence: [{ ...ev, considered: { at: '2026-11-04T09:00:00Z', by: 'Ada', proposal: 12, why: null } }] } })
     render(<TeamTab />)

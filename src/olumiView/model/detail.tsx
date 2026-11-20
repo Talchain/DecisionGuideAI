@@ -6,11 +6,12 @@
  * Every model word is core's, drawn verbatim under its View path; headings and buttons are core’s `model_words`.
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, FileText, LocateFixed, Pencil, Type, User } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { TeamApiError } from '../../olumiCore/team/api'
+import { OkIcon, type IconId } from '../look/icons'
+import { Hover, HoverButton } from '../v12/chat/Hover'
 import type { ViewCard, ViewLink, ViewModel } from '../client'
 import { writes } from '../client'
 import { useViewStore } from '../store'
@@ -24,7 +25,8 @@ import { linkEndPath, linksOf, strengthCardOf, targetCardOf } from './targets'
 import { AskOlumi, RemoveLink, useMounted } from './structure'
 
 const SECTION = `${typography.viewPanelMeta} m-0 mb-1 text-text-light`
-const ICON = 'h-3.5 w-3.5 flex-none'
+/** A registry icon beside words, in the quiet grey (decorative: the words beside it are its name, and a button around it is the one keyboard stop). */
+const icon = (id: IconId): ReactNode => <OkIcon id={id} size={14} decorative inherit className="flex-none text-text-light" />
 
 function Section({ title, children, at }: { title: string; children: ReactNode; at: string }) {
   return <section aria-label={title} data-model-detail-section={at}><h4 className={SECTION}>{title}</h4>{children}</section>
@@ -49,13 +51,13 @@ function Whose({ card, expert, keyEntries }: { card: ViewCard; expert: boolean; 
   const a = authorAnyOf(card)
   if (a === null && card.olumi === null) return null
   const glyph = card.olumi?.glyph ?? (a === null ? null : keyEntries.find((k) => k.id === (a.by === 'mixed' ? 'partly_olumi' : 'olumi'))?.glyph ?? null)
-  const icon = a?.by === 'person' ? <User aria-hidden="true" className={`${ICON} text-text-light`} />
-    : a?.by === 'brief' ? <FileText aria-hidden="true" className={`${ICON} text-text-light`} />
+  const mark = a?.by === 'person' ? icon('person-mark')
+    : a?.by === 'brief' ? icon('brief')
       : glyph === null ? null : <span aria-hidden="true" className="w-3.5 flex-none text-center text-text-light">{glyph}</span>
   return (
     <Section title={W.whose} at="whose">
       <p className="m-0 flex items-baseline gap-1.5 text-text-body">
-        {icon}
+        {mark}
         {a === null ? <span data-view={`${card.id}.olumi.title`}>{card.olumi!.title}</span> : <span data-view={`${card.id}.author.text`}>{a.text}</span>}
       </p>
       {expert && a !== null && a.title !== '' ? <p className={`${typography.viewPanelMeta} m-0 mt-0.5 break-words pl-5 text-text-light`} data-view={`${card.id}.author.title`}>{a.title}</p> : null}
@@ -76,17 +78,17 @@ function Links({ model, card, expert }: { model: ViewModel; card: ViewCard; expe
           const out = l.from === card.id, other = out ? l.to : l.from
           return (
             <li key={i}>
-              <button type="button" onClick={(e) => { e.stopPropagation(); focusNodeById(other) }} title={l.title} data-model-detail-link={`links.${i}`}
+              <HoverButton words={l.title} type="button" onClick={(e) => { e.stopPropagation(); focusNodeById(other) }} data-model-detail-link={`links.${i}`}
                 className={`flex w-full items-start gap-1.5 rounded-sm py-1 text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
                 <span role="img" aria-label={out ? W.to : W.from} className="mt-1 flex-none text-text-light">
-                  {out ? <ArrowRight aria-hidden="true" className={ICON} /> : <ArrowLeft aria-hidden="true" className={ICON} />}
+                  {icon(out ? 'model-link-to' : 'model-link-from')}
                 </span>
                 <span className="min-w-0 flex-1 break-words">
                   <span data-view={linkEndPath(model, other)}>{linkEndHeading(model, other)}</span>
                   {l.label !== '' ? <span className="text-text-light">{' '}<span data-view={`links.${i}.label`}>{l.label}</span></span> : null}
-                  {expert && l.effect != null ? <span className={`${typography.viewPanelMeta} block tabular-nums text-text-light`} title={l.effect.title} data-view={`links.${i}.effect.text`}>{l.effect.text}</span> : null}
+                  {expert && l.effect != null ? <Hover words={l.effect.title} focusable={false} className={`${typography.viewPanelMeta} block tabular-nums text-text-light`} data-view={`links.${i}.effect.text`}>{l.effect.text}</Hover> : null}
                 </span>
-              </button>
+              </HoverButton>
             </li>
           )
         })}
@@ -101,7 +103,7 @@ function Science({ card }: { card: ViewCard }) {
   if (card.driver === null) return null
   return (
     <Section title={W.whatWouldChange} at="science">
-      <p className={`${typography.viewPanelMeta} m-0 break-words text-text-body`} title={card.driver.title} data-view={`${card.id}.driver.text`}>{card.driver.text}</p>
+      <Hover as="p" words={card.driver.title} className={`${typography.viewPanelMeta} m-0 break-words text-text-body`} data-view={`${card.id}.driver.text`}>{card.driver.text}</Hover>
     </Section>
   )
 }
@@ -116,10 +118,10 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
     <div id={`model-detail-${card.id}`} role="region" aria-label={card.heading} className="mb-2 ml-8 mr-2 mt-0.5 space-y-2.5" data-model-detail={card.id}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(card.id) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={card.id}>
-        {canEdit && card.figure?.edit != null ? <Action at="figure" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeFigure} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
-        {target === null ? null : <Action at="target" icon={<Pencil aria-hidden="true" className={ICON} />} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: target.id })} />}
-        {canEdit ? <Action at="rename" icon={<Type aria-hidden="true" className={ICON} />} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
-        <Action at="canvas" icon={<LocateFixed aria-hidden="true" className={ICON} />} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
+        {canEdit && card.figure?.edit != null ? <Action at="figure" icon={icon('edit')} label={W.changeFigure} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
+        {target === null ? null : <Action at="target" icon={icon('edit')} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: target.id })} />}
+        {canEdit ? <Action at="rename" icon={icon('model-rename')} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
+        <Action at="canvas" icon={icon('show-in-workspace')} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
       <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={W.askChangeDraft[card.id]!} />
       <Whose card={card} expert={expert} keyEntries={model.key} />
@@ -139,9 +141,9 @@ export function LinkDetail({ model, link, row }: { model: ViewModel; link: ViewL
     <div id={`model-detail-${row}`} role="region" aria-label={`${linkEndHeading(model, link.from)} → ${linkEndHeading(model, link.to)}`} className="mb-2 ml-8 mr-2 mt-1 space-y-3" data-model-detail={row}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); useModelTab.getState().close(row) } }}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={row}>
-        {strength === null ? null : <Action at="strength" icon={<Pencil aria-hidden="true" className={ICON} />} label={W.changeStrength} onPress={() => openEditor({ row, what: 'figure', quantity: strength.id })} />}
-        <Action at="from" icon={<ArrowLeft aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.from)} path={linkEndPath(model, link.from)} onPress={() => focusNodeById(link.from)} />
-        <Action at="to" icon={<ArrowRight aria-hidden="true" className={ICON} />} label={linkEndHeading(model, link.to)} path={linkEndPath(model, link.to)} onPress={() => focusNodeById(link.to)} />
+        {strength === null ? null : <Action at="strength" icon={icon('edit')} label={W.changeStrength} onPress={() => openEditor({ row, what: 'figure', quantity: strength.id })} />}
+        <Action at="from" icon={icon('model-link-from')} label={linkEndHeading(model, link.from)} path={linkEndPath(model, link.from)} onPress={() => focusNodeById(link.from)} />
+        <Action at="to" icon={icon('model-link-to')} label={linkEndHeading(model, link.to)} path={linkEndPath(model, link.to)} onPress={() => focusNodeById(link.to)} />
       </div>
       {base === null ? null : <RemoveLink link={link} row={row} />}
     </div>

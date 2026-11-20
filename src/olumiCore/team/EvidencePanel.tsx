@@ -5,6 +5,7 @@ import { teamApi, TeamApiError, type EvidenceInput } from './api'
 import { useDraft } from './drafts'
 import { runWrite, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META, PLAIN_LINK } from './ui'
+import { Hover } from '../../olumiView/v12/chat/Hover'
 
 type Stance = EvidenceInput['stance']
 const NONE = '__none__'
@@ -50,7 +51,7 @@ function Considered({ sid, e, onWrote, W }: { sid: string; e: View['evidence'][n
           {W.evidence.consideredBy} <span className="text-text-header">{c.by}</span>
         </p>
       )}
-      {c?.why != null && <p className={`${META} whitespace-pre-wrap break-words`} title={c.why.title} data-testid={`team-evidence-why-${e.id}`}>{c.why.text}</p>}
+      {c?.why != null && <Hover as="p" words={c.why.title} className={`${META} whitespace-pre-wrap break-words`} data-testid={`team-evidence-why-${e.id}`}>{c.why.text}</Hover>}
       <div>
         <Button size="sm" variant="secondary" data-testid={`team-evidence-consider-${e.id}`} disabled={mine || sending} onClick={() => void ask()}>{W.evidence.consider}</Button>
       </div>

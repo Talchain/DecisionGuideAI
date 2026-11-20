@@ -9,6 +9,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { ScenarioComparisonView, SideBySide, WhatIfSave, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
 import { useViewStore } from '../../olumiView/store'
+import { tipOf, tipOnFocus } from '../../olumiView/__tests__/tipHelpers'
 
 const MARK = { glyph: '◆', title: 'Rests on Olumi’s proposals' }
 const LEAD = "If Olumi's estimates hold"
@@ -81,20 +82,23 @@ describe('compare with another scenario: core\'s words, drawn as given', () => {
     for (const l of [A_NOTE, DIFF, NOTCOMP, FIG]) expect(container.textContent!.split(l).length - 1, l).toBe(1)
     expect([...screen.getByTestId('scenario-compare-notes').querySelectorAll('li')].map((e) => e.textContent)).toEqual(['A limit only the list carries'])
   })
-  it('comparable: each side\'s measure, option rows from each side\'s cells with the mark and lead only where core marks it; no target (the same on both)', () => {
+  it('comparable: each side\'s measure, option rows from each side\'s cells with the mark and lead only where core marks it; no target (the same on both)', async () => {
     const { container } = render(<ScenarioComparisonView c={CMP} />)
     const a = aim(container, 'Reach 100 a week')
     expect(a.getAttribute('data-compare-aim')).toBe('comparable')
     expect([...a.querySelectorAll('[data-compare-measure]')].map((e) => e.textContent)).toEqual([CMP.aims[0]!.a!.measure, CMP.aims[0]!.b!.measure])
     expect(a.querySelector('[data-compare-target]')).toBeNull()
     const rows = [...a.querySelectorAll('[data-compare-option]')]
-    const [first, second] = rows.map((r) => [...r.querySelectorAll('[data-compare-cell]')].map((c) => c.textContent))
-    expect(first).toEqual([`◆ about 61% chance${LEAD}`, 'about 58% chance'])
+    const [first, second] = rows.map((r) => [...r.querySelectorAll('[data-compare-cell]')].map((c) => c.textContent!.trim()))
+    // Core's ◆ is the registry's Olumi mark: the words read as before, and the mark is an image named in core's words, told on keyboard focus too.
+    expect(first).toEqual([`about 61% chance${LEAD}`, 'about 58% chance'])
     expect(second).toEqual(['about 75% chance'])
-    expect(rows[0]!.querySelector('[data-compare-cell] [aria-label]')?.getAttribute('title')).toBe(MARK.title)
+    const mark = rows[0]!.querySelector<HTMLElement>('[data-compare-cell] [role="img"]')!
+    expect([mark.getAttribute('aria-label'), await tipOnFocus(mark), rows[0]!.querySelectorAll('[data-compare-cell] [role="img"]').length]).toEqual([MARK.title, MARK.title, 1])
     expect(rows[1]!.textContent).toContain('Only in ‘Rota (first)’')
     expect(rows[0]!.querySelectorAll('[data-compare-lead]')).toHaveLength(1)
-    expect(rows[0]!.querySelector('[data-compare-cell]')!.getAttribute('title')).toBe("the Run's sentence for about 61% chance")
+    const value = rows[0]!.querySelector<HTMLElement>('[data-compare-cell] [data-compare-value]')!
+    expect([rows[0]!.querySelector('[data-compare-cell]')!.getAttribute('title'), await tipOf(value), await tipOnFocus(value)]).toEqual([null, "the Run's sentence for about 61% chance", "the Run's sentence for about 61% chance"])
   })
   it('different target: both targets in each side\'s own column with core\'s limitation line; not comparable: the limitation and unpaired options', () => {
     const { container } = render(<ScenarioComparisonView c={CMP} />)
@@ -125,7 +129,8 @@ describe('compare with another scenario: core\'s words, drawn as given', () => {
     const d = screen.getByTestId('scenario-compare-differences')
     expect([...d.querySelectorAll('[data-compare-diff-option]')].map((e) => e.textContent!.trim())).toEqual(['Pause hiring  Only in ‘Rota (second)’'])
     const f = d.querySelector('[data-compare-figure="differs"]')!
-    expect(f.textContent).toContain('◆ 2 to 10 tickets/week')
+    expect(f.textContent).toContain('2 to 10 tickets/week')
+    expect(f.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(MARK.title)
     expect(f.textContent).toContain('3 days')
     expect(f.querySelector('[data-compare-limitation]')?.textContent).toBe(FIG)
     expect(d.querySelector('[data-compare-figure="same"]')).toBeNull()
@@ -158,7 +163,7 @@ const routed = (over: Record<string, unknown> = {}) => setTeamFetch((async (u: u
 }) as unknown as typeof fetch)
 
 describe('compare side by side, and saving a what-if to compare', () => {
-  it("each option's chance with core's uncertainty and main driver under it, each aim's most-likely line, and who brought each differing figure in: all verbatim, nothing ranked", () => {
+  it("each option's chance with core's uncertainty and main driver under it, each aim's most-likely line, and who brought each differing figure in: all verbatim, nothing ranked", async () => {
     const { container } = render(<ScenarioComparisonView c={PAIR} />)
     expect([...container.querySelectorAll('[data-compare-side]')].map((e) => e.getAttribute('data-compare-kind'))).toEqual(['scenario', 'whatif'])
     expect(container.querySelector('[data-compare-side="b"] [data-compare-about]')!.textContent).toBe(WHATIF.about)
@@ -166,7 +171,8 @@ describe('compare side by side, and saving a what-if to compare', () => {
     const sides = [...row.querySelectorAll('[data-compare-cells]')]
     expect(sides.map((s) => [s.querySelector('[data-compare-value]')!.textContent, s.querySelector('[data-compare-uncertainty]')!.textContent, s.querySelector('[data-compare-driver]')!.textContent]))
       .toEqual([['about 50%', 'between 90 and 110 tickets/week (middle 100)', "about 10% if 'per specialist' is low, about 90% if it is high"], ['about 90%', 'between 100 and 120 tickets/week (middle 110)', "about 70% if 'per specialist' is low, about 100% if it is high"]])
-    expect([sides[0]!.querySelector('[data-compare-driver]')!.getAttribute('data-compare-driver'), sides[0]!.querySelector('[data-compare-driver]')!.getAttribute('title')]).toEqual(['per_specialist', 'D-a'])
+    const driver = sides[0]!.querySelector<HTMLElement>('[data-compare-driver]')!
+    expect([driver.getAttribute('data-compare-driver'), driver.getAttribute('title'), await tipOf(driver), await tipOnFocus(driver)]).toEqual(['per_specialist', null, 'D-a', 'D-a'])
     expect([...container.querySelectorAll('[data-compare-most-likely]')].map((e) => e.textContent)).toEqual(Array(2).fill("'Add one specialist' is the option most likely to achieve 'Reach 100 a week'"))
     expect([...container.querySelectorAll('[data-compare-figure="differs"] [data-compare-by]')].map((e) => e.textContent)).toEqual(['Ada', 'Ada, in this what-if'])
     expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
@@ -180,6 +186,9 @@ describe('compare side by side, and saving a what-if to compare', () => {
     render(<WhatIfSave sid="s_a" onSaved={saved} />)
     const form = await screen.findByTestId('whatif-save')
     expect([...(within(form).getByTestId('whatif-save-figure') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['today'])
+    // An option cannot hold a hover: the chosen figure's own words are the select's one Tip (pointer and keyboard focus), the prompt's ask is the prompt's; Save is the green action.
+    expect([await tipOf(within(form).getByTestId('whatif-save-figure')), await tipOnFocus(within(form).getByTestId('whatif-save-figure')), await tipOf(within(form).getByText('Tickets a week today'))]).toEqual(['T', 'T', 'Type a number of tickets a week'])
+    expect(within(form).getByTestId('whatif-save-go').className).toContain('bg-success')
     fireEvent.change(within(form).getByTestId('whatif-save-typed'), { target: { value: '70' } })
     fireEvent.change(within(form).getByTestId('whatif-save-name'), { target: { value: 'Quieter week' } })
     fireEvent.click(within(form).getByTestId('whatif-save-go'))
@@ -233,13 +242,13 @@ describe('a what-if of several figures, and the change that moves each chance mo
     expect((within(form).getByTestId('whatif-save-go') as HTMLButtonElement).disabled).toBe(true)
     useViewStore.setState({ view: null, sid: null })
   })
-  it("the what-if's side says, in core's words, which of its changes moves this chance most on its own", () => {
+  it("the what-if's side says, in core's words, which of its changes moves this chance most on its own", async () => {
     const c = JSON.parse(JSON.stringify(PAIR)) as ScenarioComparison
     const row = (c.aims[0]!.options as unknown as { b: Record<string, unknown> }[])[0]!
     row.b = { ...row.b, moves_most: { text: 'On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', title: 'Set "today" to 95.', figure: 'today' } }
     const { container } = render(<ScenarioComparisonView c={c} />)
-    const line = container.querySelector('[data-compare-moves]')!
-    expect([line.textContent, line.getAttribute('title'), line.getAttribute('data-compare-moves')]).toEqual(['On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', 'Set "today" to 95.', 'today'])
+    const line = container.querySelector<HTMLElement>('[data-compare-moves]')!
+    expect([line.textContent, await tipOf(line), line.getAttribute('data-compare-moves')]).toEqual(['On its own, ‘today’ takes this chance from about 50% to about 97%, more than any other change in this what-if.', 'Set "today" to 95.', 'today'])
   })
 })
 

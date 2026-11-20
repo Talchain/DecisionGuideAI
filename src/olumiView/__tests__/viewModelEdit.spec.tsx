@@ -1432,3 +1432,21 @@ describe('Codex review-ui blockers 3 and 6 (N2)', () => {
     expect(useModelTab.getState().editing?.typed).toBe('450')
   })
 })
+
+// PANEL SYSTEM (20 Nov, model fixer): the person's filled press is the lane's one green action (chipClass), never the black ink pill; the presses beside it are not filled.
+describe('the person\'s filled press is green', () => {
+  const classes = (e: Element) => e.className.toString().split(/\s+/)
+  it('Set figure and Add are bg-success and never bg-text-header; CONTRAST: Try it and Cancel are not filled', () => {
+    const c = draw()
+    fireEvent.click(c.querySelector(`[data-model-value-edit="${figure.id}"]`)!)
+    const save = c.querySelector(`[data-model-editor-save="${figure.id}"]`)!
+    expect(classes(save)).toContain('bg-success')
+    expect(classes(save)).not.toContain('bg-text-header')
+    for (const k of ['try', 'cancel']) expect(classes(c.querySelector(`[data-model-editor-${k}="${figure.id}"]`)!), k).not.toContain('bg-success')
+    fireEvent.click(c.querySelector('[data-model-add-figure="open"]')!)
+    const add = c.querySelector('[data-model-add-figure="add"]')!
+    expect(classes(add)).toContain('bg-success')
+    expect(classes(add)).not.toContain('bg-text-header')
+    expect(classes(c.querySelector('[data-model-add-figure="cancel"]')!)).not.toContain('bg-success')
+  })
+})

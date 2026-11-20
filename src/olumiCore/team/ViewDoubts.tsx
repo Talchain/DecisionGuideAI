@@ -5,6 +5,7 @@ import { call, TeamApiError } from './api'
 import { runWrite, useWrites, useWriteSending } from './writes'
 import { BODY, ERR, FIELD, LABEL, META } from './ui'
 import { useDifferences } from './differences'
+import { useAnchoredTip } from '../../olumiView/look/Tip'
 
 /**
  * A private view's links and factor (core `POST …/views/:id/doubts`, olumi-core wip/debate): the links of the model this member doubts (each
@@ -107,6 +108,21 @@ function Failure({ sid, view, p, onWrote }: { sid: string; view: number; p: Pend
   )
 }
 
+/** One doubted-link row: the label is the pointer's target and the checkbox the one keyboard stop, so core's words for the link (`title`) show through the one Tip on either. */
+function DoubtRow({ words, k, on, disabled, text, onChange }: { words: string; k: string; on: boolean; disabled: boolean; text: string; onChange: (checked: boolean) => void }): JSX.Element {
+  const { handlers, tip, describedBy } = useAnchoredTip(words)
+  return (
+    <>
+      <label className={`${BODY} flex min-h-[28px] cursor-pointer items-start gap-2 break-words`} onPointerEnter={handlers.onPointerEnter} onPointerLeave={handlers.onPointerLeave}>
+        <input type="checkbox" className="mt-1" data-testid={`team-view-doubt-${k}`} checked={on} disabled={disabled} aria-describedby={describedBy}
+          onFocus={handlers.onFocus} onBlur={handlers.onBlur} onKeyDown={handlers.onKeyDown} onChange={(e) => onChange(e.target.checked)} />
+        <span data-view="holdable.text">{text}</span>
+      </label>
+      {tip}
+    </>
+  )
+}
+
 export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; disabled: boolean }): JSX.Element | null {
   const d = useDoubts((s) => s[sid] ?? EMPTY)
   // Offered only on a core that has the debate routes: its differences read answered (DifferencesPanel reads it; a core without the route
@@ -131,11 +147,8 @@ export function ViewDoubts({ sid, view, disabled }: { sid: string; view: View; d
           {links.map((l) => {
             const k = keyOf(l.link), on = d.picked[k] !== undefined
             return (
-              <label key={k} className={`${BODY} flex min-h-[28px] cursor-pointer items-start gap-2 break-words`} title={l.title}>
-                <input type="checkbox" className="mt-1" data-testid={`team-view-doubt-${k}`} checked={on} disabled={disabled}
-                  onChange={(e) => { const { [k]: _gone, ...rest } = d.picked; put({ picked: e.target.checked ? { ...rest, [k]: l.link } : rest, error: null }) }} />
-                <span data-view="holdable.text">{l.text}</span>
-              </label>
+              <DoubtRow key={k} words={l.title} k={k} on={on} disabled={disabled} text={l.text}
+                onChange={(checked) => { const { [k]: _gone, ...rest } = d.picked; put({ picked: checked ? { ...rest, [k]: l.link } : rest, error: null }) }} />
             )
           })}
         </fieldset>

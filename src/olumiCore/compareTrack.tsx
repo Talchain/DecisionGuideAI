@@ -19,11 +19,19 @@ export function markOf(chance: number | null | undefined, words: string): PairCh
 }
 
 /**
- * One option's two marks: hollow for the first side, filled for the second. Nothing when neither side has a number. `names`: the two sides
+ * A track shows a DIFFERENCE (Paul, 18 Nov: a chart only where it changes what he reads): it needs a mark for each side, and the two marks must sit at
+ * different whole percents (the figures core's words give). One side's mark alone (a single option) or two equal chances draw no track; core's words
+ * beside it say it. The one rule for the track and for its key.
+ */
+export const trackDiffers = (first: PairChanceSide | null, second: PairChanceSide | null): boolean =>
+  first?.kind === 'point' && second?.kind === 'point' && Math.round(first.scaleAt) !== Math.round(second.scaleAt)
+
+/**
+ * One option's two marks: hollow for the first side, filled for the second. Nothing unless the two marks differ (`trackDiffers`). `names`: the two sides
  * as the page names them, so the track says, to anyone who cannot see it, which side each figure is (UI audit of e646e3a8, item 4).
  */
 export function ShiftTrack({ first, second, names }: { first: PairChanceSide | null; second: PairChanceSide | null; names: { first: string; second: string } }): JSX.Element | null {
-  if (first === null && second === null) return null
+  if (!trackDiffers(first, second)) return null
   const at = (s: PairChanceSide | null) => (s?.kind === 'point' ? String(Math.round(s.scaleAt)) : '')
   const label = `${names.first}: ${first?.words ?? 'no figure'}; ${names.second}: ${second?.words ?? 'no figure'}`
   return <div className="mt-1.5 mb-0.5" role="img" aria-label={label} data-compare-track="" data-first={at(first)} data-second={at(second)}><PairChanceTrack earlier={first} now={second} grid /></div>
@@ -36,9 +44,9 @@ export function ShiftTrack({ first, second, names }: { first: PairChanceSide | n
 export function TrackKey({ first, second }: { first: string; second: string }): JSX.Element {
   return (
     <p className={`${typography.viewPanelMeta} text-text-light m-0 flex flex-wrap items-center gap-x-3 gap-y-1`} data-compare-track-key="" aria-hidden="true">
-      {/* The names wrap, never cut (UI audit item 4); each track carries the same names for assistive tech itself. */}
-      <span className="inline-flex min-w-0 items-start gap-1"><span className="mt-1 inline-block h-2 w-2 flex-none rounded-full border-2 border-option/70 bg-panel" /><span className="break-words" title={first} data-compare-key="first">{first}</span></span>
-      <span className="inline-flex min-w-0 items-start gap-1"><span className="mt-1 inline-block h-2 w-2 flex-none rounded-full bg-option" /><span className="break-words" title={second} data-compare-key="second">{second}</span></span>
+      {/* The names wrap, never cut (UI audit item 4), so they need no hover; each track carries the same names for assistive tech itself. */}
+      <span className="inline-flex min-w-0 items-start gap-1"><span className="mt-1 inline-block h-2 w-2 flex-none rounded-full border-2 border-option/70 bg-panel" /><span className="break-words" data-compare-key="first">{first}</span></span>
+      <span className="inline-flex min-w-0 items-start gap-1"><span className="mt-1 inline-block h-2 w-2 flex-none rounded-full bg-option" /><span className="break-words" data-compare-key="second">{second}</span></span>
     </p>
   )
 }

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
@@ -179,7 +178,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
         <button type="button" data-testid="commit-form-open" onClick={() => put({ open: true })}
           className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
-          <Plus aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMMIT_WORDS.heading}
+          <OkIcon id="add" size={14} decorative inherit />{COMMIT_WORDS.heading}
           {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>
             : hasDraft ? <span className="font-normal" data-testid="commit-form-draft-kept">· {COMMIT_WORDS.draftKept}</span> : null}
         </button>

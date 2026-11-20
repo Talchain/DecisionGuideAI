@@ -30,6 +30,7 @@ const SURFACE_FILES = [
   'olumiView/v12/bands/BandNodes.tsx', 'olumiView/v12/bands/BandLayer.tsx', 'olumiView/v12/bands/KeyPill.tsx',
   'olumiView/v12/edit/LaneInspector.tsx', 'olumiView/port/ChanceChart.tsx', 'olumiView/look/FoldChevron.tsx',
   'canvas/contextMenu/CanvasContextMenu.tsx', 'canvas/contextMenu/Submenu.tsx', 'canvas/contextMenu/laneMenu.ts',
+  'olumiView/BriefPanel.tsx', 'olumiView/ViewFigureFirst.tsx', 'olumiView/reasoning/parts.tsx', 'olumiView/v12/team/CommitForm.tsx', 'olumiView/v12/chat/IntakeSheet.tsx',
 ] as const
 
 describe('every icon on the lane comes from the registry', () => {

@@ -19,6 +19,7 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import type { View, ViewModel } from '../client'
 import { cardsOfRecords } from '../layout'
 import { cardKind } from '../v12/fields/fields'
+import { Hover } from '../v12/chat/Hover'
 
 /** The previous tab's section headings (`GoalConstraintsSection` "Limits", `ModelHealthSection` "Model card"). UI words, not model words. */
 export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'History of this model', changed: 'Changed in this version', removed: 'Removed' } as const
@@ -49,9 +50,9 @@ function Limits({ model }: { model: ViewModel }) {
         {rows.map((c) => (
           <li key={c.id} data-model-limit={c.id}>
             <CardLink id={c.id}>{c.heading}</CardLink>
-            <p className={LINE} title={c.bound!.title} data-view={`model.cards.${c.id}.bound.text`}>
-              {c.bound!.olumi ? <span title={c.bound!.olumi.title} className="text-text-light" data-model-limit-olumi={c.id}>{c.bound!.olumi.glyph} </span> : null}
-              {c.bound!.text}
+            <p className={LINE}>
+              {c.bound!.olumi ? <Hover words={c.bound!.olumi.title} className="text-text-light" data-model-limit-olumi={c.id}>{c.bound!.olumi.glyph} </Hover> : null}
+              <Hover words={c.bound!.title} data-view={`model.cards.${c.id}.bound.text`}>{c.bound!.text}</Hover>
             </p>
           </li>
         ))}
@@ -81,7 +82,7 @@ function Structure({ model }: { model: ViewModel }) {
           <ul className="m-0 flex list-none flex-col gap-1 p-0 pt-1">
             {waits.items.map((it) => (
               <li key={it.id} data-model-waits={it.id}>
-                {isCard(it.id) ? <CardLink id={it.id}>{it.text}</CardLink> : <span className={LINE} title={it.title}>{it.text}</span>}
+                {isCard(it.id) ? <CardLink id={it.id}>{it.text}</CardLink> : <Hover words={it.title} className={LINE}>{it.text}</Hover>}
               </li>
             ))}
           </ul>

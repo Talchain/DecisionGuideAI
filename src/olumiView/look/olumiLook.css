@@ -570,3 +570,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .ok-link-mark svg { width: calc(12px * var(--canvas-label-scale, 1)); height: calc(12px * var(--canvas-label-scale, 1)); }
 /* The parts of the words that take the pointer (the label layer is pointer-less): the sign and the effect words, which the link's Tip stands for. */
 .olumi-look .ok-link-hit { pointer-events: auto; }
+/* team tab */
+/* A held Team button (aria-disabled, so it stays focusable and its reason shows through the one Tip) reads as held by token, never faded. The green action goes solid neutral with a light label; the quiet one loses its underline. */
+button.ok-team-go[aria-disabled='true'] { cursor: not-allowed; border-color: var(--border-default); background-color: var(--border-default); color: var(--text-light); }
+button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoration-line: none; color: var(--text-light); }

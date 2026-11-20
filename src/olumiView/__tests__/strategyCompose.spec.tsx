@@ -20,6 +20,7 @@ import { StrategyChips } from '../strategy/StrategyChips'
 import { useReveal } from '../reveal'
 import { resetDifferences, useDifferences } from '../../olumiCore/team/differences'
 import { resetDoubts } from '../../olumiCore/team/ViewDoubts'
+import { tipOf } from './tipHelpers'
 
 const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal.view3.json'), 'utf8'))
 const FORM = { about: 'On', stance: 'You', text: 'What you hold about it, in your words', source: 'Source, if you have one', source_example: 'Source, if you have one (two rollouts, a report…)', send: 'Add my view', private: 'Private until the team’s views are revealed.' }
@@ -111,7 +112,8 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
     expect.soft(item('implementation_effort')?.querySelector('[data-item-words]')?.textContent).toBe('Integration took a quarter each time.')
     expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.textContent).toBe('Observed, two rollouts')
-    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.hasAttribute('title')).toBe(false)
+    expect.soft(await tipOf(item('cross_team_adoption')!.querySelector<HTMLElement>('[data-item-pill]')!)).toBe('two rollouts')
     cleanup()
     const own: View = { ...real, strategy: { ...real.strategy!, views: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ ...l, mine: true })) },
       collab: { ...real.collab, shared: [], mine: [{ ...real.collab.shared[0]!, shared: false, can_share: false, earlier: false }] } }
@@ -126,7 +128,8 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
       items: real.strategy!.views.filter((l) => l.view === 12).map((l) => ({ about: l.about.id, text: l.text, stance: l.stance, source: l.source, pill: l.pill })) }] } } })
     c = render(<TeamTab />).container
     expect.soft(item('speed_to_value')?.querySelector('[data-item-words]')?.textContent).toBe('Pilots showed value within a month.')
-    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.getAttribute('title')).toBe('two rollouts')
+    expect.soft(item('cross_team_adoption')?.querySelector('[data-item-pill]')?.hasAttribute('title')).toBe(false)
+    expect.soft(await tipOf(item('cross_team_adoption')!.querySelector<HTMLElement>('[data-item-pill]')!)).toBe('two rollouts')
     cleanup()
     // Exact projection excerpt from consulting-stance.view3.json, core f3aedd9a; no dock or canvas-chip dependency.
     const debate: View = { ...plain, id: 's_a88ba245176e', collab: { ...real.collab,
@@ -244,12 +247,12 @@ describe('one view form: a view speaks to a card with a stance and a source, in 
     fireEvent.change(await screen.findByTestId('team-view-about'), { target: { value: CARD } })
     expect((screen.getByTestId('team-view-stance') as HTMLSelectElement).value).toBe('')
     type('team-view-text', 'Teams adopt once an owner is named.')
-    expect(screen.getByTestId('team-view-give')).toBeDisabled()
+    expect(screen.getByTestId('team-view-give')).toHaveAttribute('aria-disabled', 'true') // held, still focusable
     fireEvent.click(screen.getByTestId('team-view-give'))
     await new Promise((r) => setTimeout(r, 20))
     expect(posts).toEqual([])
     type('team-view-stance', 'unsure')
-    expect(screen.getByTestId('team-view-give')).not.toBeDisabled()
+    expect(screen.getByTestId('team-view-give')).not.toHaveAttribute('aria-disabled')
     fireEvent.click(screen.getByTestId('team-view-give'))
     await waitFor(() => expect(posts.length).toBeGreaterThan(0))
     expect((posts[0]!.body['items'] as { stance: string }[]).map((i) => i.stance)).toEqual(['unsure'])

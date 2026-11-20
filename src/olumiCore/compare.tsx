@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
@@ -13,6 +13,7 @@ import { setGroupOpen, setInputsOpen } from '../olumiView/v12/bands/foldStore'
 import { cardGroupsOf } from '../olumiView/v12/bands/groups'
 import { drawnModelOf } from '../olumiView/layout'
 import { OkIcon } from '../olumiView/look/icons'
+import { Hover, HoverButton } from '../olumiView/v12/chat/Hover'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
 import { isForThisPage, useMe } from './me'
 import { marksOf, useCompareMarks } from './compareMarks'
@@ -55,13 +56,17 @@ export const whoOf = (v: Compared['versions'][number]) => v.who ?? `proposed by 
 export function SideText({ s }: { s: Side | null }) {
   if (s === null) return <span className="text-text-light">none</span>
   const own = headOf(s) !== s.value && s.companion ? s.companion : null
-  return <><span title={s.title}>{headOf(s)}</span>{s.olumi ? <> <span title={s.olumi.title} aria-label={s.olumi.title}>{s.olumi.glyph}</span></> : null}{own ? <> <span className="text-text-light" title={own.title} data-compare-companion="">({own.text})</span></> : null}</>
+  // Core's sentence is the value's hover; Olumi's mark is the registry's own icon, named by core's words, a sibling of the value (never inside its hover).
+  return <><Hover words={s.title}>{headOf(s)}</Hover>{s.olumi ? <> <OkIcon id="olumi-mark" size={14} words={s.olumi.title} /></> : null}{own ? <> <Hover words={own.title} className="text-text-light" data-compare-companion="">({own.text})</Hover></> : null}</>
 }
 
 /** One change line as core's change card writes it: its text, how it moved, and Olumi's mark with core's hover. */
 export function ChangeItem({ l }: { l: Compared['changes'][number] }): JSX.Element {
-  return <li className={BODY}>{l.text}{l.detail ? <> <span className="text-text-light whitespace-pre-line">{l.detail}</span></> : null}{l.mark ? <> <span title={l.mark.title} aria-label={l.mark.title}>{l.mark.glyph}</span></> : null}</li>
+  const olumi = olumiLine(l)
+  return <li className={BODY}>{l.text}{l.detail ? <> <span className="text-text-light whitespace-pre-line">{l.detail}</span></> : null}{l.mark ? <> <Whose olumi={olumi} theirs={!olumi} words={l.mark.title} /></> : null}</li>
 }
+/** Whose a change line is: core's `olumi` flag (API v1.8), else its ◆ mark (Olumi's; ◐ is the person's figure Olumi read as a range, so the person's). */
+const olumiLine = (l: Compared['changes'][number]): boolean => l.olumi ?? l.mark?.glyph === '◆'
 
 /** The comparison as core read it, in three short lists. `id` prefixes each list's test id, one per surface; `who: false` leaves out the
  *  first list where the surface names the version's people itself (the version history's record). */
@@ -191,10 +196,9 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
           <>
             {live.length === 0 ? null : <ul className="m-0 grid list-none gap-2 p-0">{live.map(row)}</ul>}
             {still.length === 0 ? null : (
-              <details data-testid="core-compare-since-still" className="group">
-                <summary className={FOLD_ROW}><FoldChevron />{notMoved(still.length)}</summary>
-                <ul className="m-0 mt-1.5 grid list-none gap-2 p-0">{still.map(row)}</ul>
-              </details>
+              <Fold id="core-compare-since-still" summary={notMoved(still.length)}>
+                <ul className="m-0 grid list-none gap-2 p-0">{still.map(row)}</ul>
+              </Fold>
             )}
           </>
         )
@@ -278,6 +282,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const first = since !== null && since.to.n === base ? since.from.n : base - 1
   const [picked, setPicked] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const formId = useId()
   // The what-if press is offered only where it can act: a figure core lets the person set on the version shown (while a change waits, core
   // offers none, so no press), or the form already open, which stays so a started draft is kept (WhatIfSave says what it waits for).
   const settable = useViewStore((s) => s.at === null && s.sid === sid && (s.view?.model?.cards ?? []).some((c) => c.figure?.edit != null))
@@ -296,9 +301,9 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only); pressed again, the form closes.
   const whatIfPress = !canSave ? null : (
     <div className="grid gap-2">
-      <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} onClick={() => setSaving((x) => !x)}>
+      <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} aria-controls={saving ? formId : undefined} onClick={() => setSaving((x) => !x)}>
         <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}</button></div>
-      {saving ? <WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /> : null}
+      {saving ? <div id={formId}><WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /></div> : null}
     </div>
   )
   // One approved version and nothing else to compare it with: the one line, and the what-if press where a figure can be set.
@@ -321,13 +326,18 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
 /** A fold's summary line: the one chevron, then core's words in body ink (a control, not a caption). */
 const FOLD_ROW = `${FOLD_SUMMARY} ${typography.caption} min-h-[24px] cursor-pointer py-1 text-text-body`
 
-/** One press to more of core's own rows: a quiet summary line, the rows under it. */
+/**
+ * One press to more of core's own rows: a quiet summary line, the rows under it. The native `<details>` stays the source of truth (its `open`,
+ * the chevron's turn, the keyboard); its state is mirrored on the summary (`aria-expanded`) with `aria-controls` naming the rows' own unique id.
+ */
 function Fold({ id, summary, children }: { id: string; summary: string; children: ReactNode }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const rows = useId()
   return (
     // A plain block while closed (a closed grid still spaced its hidden rows); the rows sit under the summary once open.
-    <details data-testid={id} className="group">
-      <summary className={FOLD_ROW}><FoldChevron />{summary}</summary>
-      <div className="mt-1.5">{children}</div>
+    <details data-testid={id} className="group" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className={FOLD_ROW} aria-expanded={open} aria-controls={rows}><FoldChevron />{summary}</summary>
+      <div id={rows} className="mt-1.5">{children}</div>
     </details>
   )
 }
@@ -435,6 +445,8 @@ function Whose({ olumi, theirs, words }: { olumi: boolean; theirs: boolean; word
  * that card. Otherwise core's change lines between the two versions. Where both exist, core's full lines sit behind one press, counted at
  * rest, so one named figure never reads as the only change.
  */
+/** Fixed chrome (the press's one hover): what a change line's press does. */
+const SHOW_ON_CANVAS = 'Show it on the canvas'
 /** Core's change lines are drawn open at rest up to this many; more are counted behind one press. */
 const OPEN_LINES_UP_TO = 3
 function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Element {
@@ -452,7 +464,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
         const body = (
           <>
             <span className="mt-0.5 flex-none">{/* Core's mark, with its hover: ◆ is Olumi's; ◐ is the person's figure Olumi read as a range, so the person's. */}
-            <Whose olumi={l.olumi ?? l.mark?.glyph === '◆'} theirs={l.mark !== null && !(l.olumi ?? l.mark.glyph === '◆')} words={l.mark?.title} /></span>
+            <Whose olumi={olumiLine(l)} theirs={l.mark !== null && !olumiLine(l)} words={l.mark?.title} /></span>
             <span className="min-w-0 break-words">{l.text}{l.detail ? <> <span className="whitespace-pre-line text-text-light">{l.detail}</span></> : null}</span>
           </>
         )
@@ -460,7 +472,8 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
         return (
           <li key={i} className={`${BODY} flex min-w-0 items-start gap-1.5`} data-compare-line={i} data-compare-line-record={rid ?? undefined}>
             {rid !== null && onCanvas(rid)
-              ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={rid} title="Show it on the canvas" onClick={() => { if (sid !== null) showCard(sid, rid) }}>{body}</button>
+              // One tip for the one focus stop: what the press does, then core's own words for the mark inside it (the icon alone would be pointer-only here).
+              ? <HoverButton type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={rid} words={l.mark?.title ? `${SHOW_ON_CANVAS}\n${l.mark.title}` : SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, rid) }}>{body}</HoverButton>
               : body}
           </li>
         )
@@ -485,7 +498,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
                 return (
                   <li key={x.id} data-since-changed={x.id} data-since-whose={x.whose ?? ''}>
                     {onCanvas(x.id)
-                      ? <button type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} title="Show it on the canvas" onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</button>
+                      ? <HoverButton type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} words={SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</HoverButton>
                       : <p className={`${BODY} flex min-w-0 items-start gap-1.5`}>{body}</p>}
                   </li>
                 )
@@ -518,8 +531,8 @@ function AskWhich(): JSX.Element {
   const ask = () => { void import('../olumiView/ViewChat').then((m) => { m.prefillComposer(ASK_WHICH.request); setPlaced(true) }) }
   return (
     <div className="grid justify-items-start gap-1" data-testid="core-compare-ask">
-      <Button size="sm" variant="secondary" data-testid="core-compare-ask-go" onClick={ask}>
-        <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative />{ASK_WHICH.label}</span>
+      <Button size="sm" variant="primary" data-testid="core-compare-ask-go" onClick={ask}>
+        <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative inherit />{ASK_WHICH.label}</span>
       </Button>
       <p role="status" className={META} data-testid="core-compare-ask-placed">{placed ? ASK_WHICH.placed : ''}</p>
     </div>

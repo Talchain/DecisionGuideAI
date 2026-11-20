@@ -12,6 +12,7 @@ vi.mock('../reasoning/tabRing', async () => ({ ...(await vi.importActual<object>
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
+import { tipOf, tipOnFocus } from './tipHelpers'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { CoreCard } from '../previous/CoreCard'
@@ -67,9 +68,9 @@ describe('the one finding line', () => {
     const q = question(noResult(withFinding(F)), 'simple')
     expect([findingSurfaceOf(noResult(withFinding(F)), FRONTED), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual(['question', 1, 1])
   })
-  it('FL2 the top of the Olumi panel draws the same sentence once, above the next step, title on hover', () => {
+  it('FL2 the top of the Olumi panel draws the same sentence once, above the next step, title on hover (the one Tip, by pointer and by keyboard focus)', async () => {
     const c = panel(withFinding(F)), w = lines(c)
-    expect([w.length, w[0]?.textContent, w[0]?.title]).toEqual([1, F.text, F.title])
+    expect([w.length, w[0]?.textContent, w[0]?.hasAttribute('title'), await tipOf(w[0]!), await tipOnFocus(w[0]!)]).toEqual([1, F.text, false, F.title, F.title])
     expect(c.querySelector('[data-testid="view-chat-finding"]')).not.toBeNull()
   })
   it('FL2b where NO option has a calculated result the finding is a status the reply already says: not above the conversation, not on the question card either (the aim card says it). CONTRASTS: one option with a result (an incomplete comparison) keeps the row; a fixed result counts', () => {
@@ -94,11 +95,11 @@ describe('the one finding line', () => {
     const fixed = states(withFinding(STATUS), (i) => (i === 0 ? 'fixed' : 'none'))
     expect([hasAnyResult(fixed.model), panel(fixed).querySelector('[data-testid="view-chat-finding"]') !== null]).toEqual([true, true])
   })
-  it('FL3 the figure\'s heading presses to that card, on the question card (where the panel draws no finding) and in the panel', () => {
+  it('FL3 the figure\'s heading presses to that card, on the question card (where the panel draws no finding) and in the panel', async () => {
     const q = question(noResult(withFinding(F)), 'simple')
     const b = q.querySelector<HTMLElement>(`[data-finding-figure="${CARD.id}"]`)!
     // The figure is named (mark + hover and accessible name), never a bare card heading.
-    expect([b.title, b.getAttribute('aria-label'), b.querySelectorAll('svg').length, b.textContent]).toEqual([`${FINDING_FIGURE}: ${CARD.heading}`, `${FINDING_FIGURE}: ${CARD.heading}`, 1, CARD.heading])
+    expect([b.hasAttribute('title'), await tipOf(b), b.getAttribute('aria-label'), b.querySelectorAll('svg').length, b.textContent]).toEqual([false, `${FINDING_FIGURE}: ${CARD.heading}`, `${FINDING_FIGURE}: ${CARD.heading}`, 1, CARD.heading])
     expect(b.textContent).toBe(CARD.heading)
     fireEvent.click(b)
     expect(press).toHaveBeenCalledWith(CARD.id)

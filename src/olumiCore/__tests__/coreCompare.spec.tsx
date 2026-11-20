@@ -22,6 +22,7 @@ import { CoreCompare, CoreCompareTab } from '../compare'
 import { ComparePanel } from '../team/ComparePanel'
 import { CoreVersions } from '../versions'
 import { WhatChangedPanel } from '../../canvas/versions/WhatChangedPanel'
+import { tipOf, tipOnFocus } from '../../olumiView/__tests__/tipHelpers'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -66,7 +67,11 @@ describe('the catch row: Compare is on the lane and shows a two-version scenario
     expect(lines).toEqual(['+ figure: staff absence 2 to 10 ticket/week', '↻ figure: per specialist from 20 to 15'])
     expect(screen.getByLabelText('Proposed by Olumi: typical absence').closest('[data-compare-line]')!.getAttribute('data-compare-line')).toBe('0')
     expect(screen.getByTestId('core-compare-lines').querySelectorAll('[role="img"]').length).toBe(1) // CONTRAST: the person's line carries no mark
-    expect(screen.getByTestId('core-compare-moved').querySelector('[data-compare-result="0"]')!.textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’about 50% chance → about 40% chance ◆ (down)')
+    // Core's ◆ is the registry's Olumi mark now: the words alone read as before, and the mark is an image named (and, on keyboard focus, told) in core's own words.
+    const moved = screen.getByTestId('core-compare-moved').querySelector<HTMLElement>('[data-compare-result="0"]')!
+    expect(moved.textContent!.replace(/\s+/g, ' ')).toBe('‘Add one specialist’ on ‘At least 100 a week’about 50% chance → about 40% chance (down)')
+    const mark = moved.querySelector<HTMLElement>('[role="img"]')!
+    expect([mark.getAttribute('aria-label'), await tipOnFocus(mark)]).toEqual(['Rests on Olumi’s proposals', 'Rests on Olumi’s proposals'])
   }, 120_000)
 })
 
@@ -126,10 +131,14 @@ describe('Version history on the lane', () => {
     fireEvent.click(await screen.findByTestId('core-version-open-2'))
     await waitFor(() => expect(screen.getByTestId('core-version-2-changes')).toBeTruthy())
     expect(paths).toContain(`/api/scenarios/${SID}/compare?from=1&to=2`) // version 2's base is id 41, version 1
-    expect([...screen.getByTestId('core-version-2-changes').querySelectorAll('li')].map((l) => l.textContent))
-      .toEqual(['+ figure: staff absence 2 to 10 ticket/week ◆', '↻ figure: per specialist from 20 to 15'])
+    expect([...screen.getByTestId('core-version-2-changes').querySelectorAll('li')].map((l) => [l.textContent!.trim(), l.querySelector('[role="img"]')?.getAttribute('aria-label') ?? null]))
+      .toEqual([['+ figure: staff absence 2 to 10 ticket/week', 'Proposed by Olumi: typical absence'], ['↻ figure: per specialist from 20 to 15', null]])
+    // The row's disclosure names the record it opened (aria-controls is that record's own element).
+    const open = screen.getByTestId('core-version-open-2')
+    expect([open.getAttribute('aria-expanded'), document.getElementById(open.getAttribute('aria-controls')!)]).toEqual(['true', screen.getByTestId('core-version-2-record')])
     expect(screen.getByTestId('core-version-2-who').textContent).toBe('Proposed by Bea · approved by Ada')
-    expect(screen.getByTestId('core-version-2-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance ◆ (down)')
+    expect(screen.getByTestId('core-version-2-results').textContent!.replace(/\s+/g, ' ')).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance (down)')
+    expect(screen.getByTestId('core-version-2-results').querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Rests on Olumi’s proposals')
     expect(screen.queryByTestId('core-version-2-versions')).toBeNull()
   })
   it('a version\'s record is against the version it was approved over, read from core\'s `base`, not the number before it', async () => {
@@ -157,8 +166,8 @@ describe('Version history on the lane', () => {
     setTeamFetch((async (u: unknown) => { const p = String(u); paths.push(p); return new Response(JSON.stringify(p.includes('/compare') ? COMPARED : withLines), { status: 200 }) }) as unknown as typeof fetch)
     render(<CoreVersions />)
     fireEvent.click(await screen.findByTestId('core-version-open-1'))
-    expect([...(await screen.findByTestId('core-version-1-changes')).querySelectorAll('li')].map((l) => l.textContent))
-      .toEqual(['+ option: Add one specialist', '+ figure: per specialist 10 to 30 ticket/week ◆'])
+    expect([...(await screen.findByTestId('core-version-1-changes')).querySelectorAll('li')].map((l) => [l.textContent!.trim(), l.querySelector('[role="img"]')?.getAttribute('aria-label') ?? null]))
+      .toEqual([['+ option: Add one specialist', null], ['+ figure: per specialist 10 to 30 ticket/week', 'Proposed by Olumi: from the brief']])
     expect(screen.getByTestId('core-version-1-record-link').getAttribute('href')).toBe(`/s/${SID}/record#version-1`)
     // polish 11: the record links are neutral, never Olumi's blue
     for (const id of ['core-version-1-record-link', 'core-versions-record-link']) expect(screen.getByTestId(id).className, id).not.toContain('text-info')
@@ -185,7 +194,7 @@ describe('Version history on the lane', () => {
     await waitFor(() => expect(screen.getByTestId('core-version-2-changes')).toBeTruthy())
     const row = screen.getAllByTestId('core-version-row').find((r) => r.getAttribute('aria-current') === 'true')
     expect(row?.getAttribute('data-version')).toBe('2')
-    expect(screen.getByTestId('core-version-open-2').getAttribute('title')).toBe('version 2')
+    expect([screen.getByTestId('core-version-open-2').getAttribute('title'), await tipOf(screen.getByTestId('core-version-open-2'))]).toEqual([null, 'version 2'])
     expect(useViewStore.getState().view).toBe(before)
     expect(useViewStore.getState().view?.version?.n).toBe(2)
     expect(methods.every((m) => m === 'GET')).toBe(true)

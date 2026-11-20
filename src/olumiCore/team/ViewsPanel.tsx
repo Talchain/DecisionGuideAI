@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Lock, Share2 } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
 import { effectHeadingsOf, effectsOf, type EffectHeadings, type ViewEffect } from '../../olumiView/standin'
@@ -10,6 +9,7 @@ import { nonEmpty } from '../../olumiView/tipping'
 import { AVATAR, BODY, CARD, ERR, FIELD, GO, LABEL, META, QUIET } from './ui'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { OkIcon } from '../../olumiView/look/icons'
+import { Hover, HoverButton } from '../../olumiView/v12/chat/Hover'
 import { DoubtsFailure, sendDoubts, useDoubtsSending, ViewDoubts } from './ViewDoubts'
 import { viewFigureCardsOf } from './viewFigureCards'
 import { itemsOf, needsStance, NO_PICK, StrategyFields, useStrategyVocabulary, type StrategyPick } from '../../olumiView/strategy/StrategyCompose'
@@ -26,8 +26,8 @@ export function Figures({ at, figures }: { at: string; figures: Figure[] }): JSX
   return (
     <ul className="m-0 grid list-none gap-0.5 p-0" data-testid={`${at}-figures`}>
       {figures.map((f, i) => (
-        <li key={i} className={META} title={f.title} data-testid={`${at}-figure-${i}`}>
-          <span className="text-text-header">{f.label}</span>: {f.text}
+        <li key={i} className={META} data-testid={`${at}-figure-${i}`}>
+          <Hover as="span" words={f.title}><span className="text-text-header">{f.label}</span>: {f.text}</Hover>
         </li>
       ))}
     </ul>
@@ -94,7 +94,7 @@ function ItemLines({ view, v }: { view: View; v: { id: number; text: string; ite
     ?? view.strategy?.views.filter((l) => l.view === v.id) ?? []
   return lines.length === 0 ? null : <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`team-view-items-${v.id}`}>
     {lines.map((l) => <li key={l.about.id} data-item-about={l.about.id}>
-      <p className={META}><span className="text-text-header">{l.about.label}</span> <span data-item-pill="" title={l.source ?? undefined}>{l.pill}</span></p>
+      <p className={META}><span className="text-text-header">{l.about.label}</span> <Hover as="span" words={l.source} data-item-pill="">{l.pill}</Hover></p>
       {l.text === v.text ? null : <p className={`${BODY} whitespace-pre-wrap break-words`} data-item-words="">{l.text}</p>}
     </li>)}
   </ul>
@@ -165,7 +165,7 @@ export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onW
             // A field already holding a figure stays editable; an empty one is held once the cap is reached, so one more cannot be given.
             const held = atCap && (typed[card.id] ?? '').trim() === ''
             return (
-            <label key={card.id} className={`${META} grid gap-1`} title={card.prompt}>
+            <label key={card.id} className={`${META} grid gap-1`}>
               <span className="font-medium text-text-header">{card.label}</span>
               {/* D3: this card's own words for what to type (core's `figure.edit.prompt`), whole on a line of its own. */}
               <span className="text-text-body" data-testid={`team-view-figprompt-${card.id}`}>{card.prompt}</span>
@@ -182,9 +182,9 @@ export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onW
       {open ? <ViewDoubts sid={sid} view={view} disabled={busy || sending || viewLocked} /> : null}
       {nonEmpty(c.private_view_prompt) && <p className={META} data-testid="team-view-private-prompt">{c.private_view_prompt}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className={GO} data-testid="team-view-give" title={giveWhy} disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>
-          <Lock strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.give}
-        </button>
+        <HoverButton words={giveWhy} type="button" className={GO} data-testid="team-view-give" disabled={busy || sending || viewLocked || text.trim() === '' || figures.length > maxFigures || needsStance(pick, vocab)} onClick={() => void run(`${sid}:view`, (op) => teamApi.giveView(sid, text, figures, view.version?.n ?? null, { items, op }).then(async (r) => { await sendDoubts(sid, r.contribution, pick.stance || null); return r }), dropView, { text, figures, version: view.version?.n ?? null, items })}>
+          <OkIcon id="private-view" size={14} decorative />{view.team_words.views.give}
+        </HoverButton>
         <button type="button" data-testid="team-view-skip" disabled={busy || sending || viewLocked} className={QUIET} onClick={() => void run(`${sid}:view`, () => teamApi.skipView(sid))}>{view.team_words.views.skip}</button>
       </div>
       {viewLocked ? <p role="alert" data-testid="team-views-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="team-views-error" className={ERR}>{error}</p>}
@@ -198,7 +198,7 @@ export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onW
         <ul className="m-0 grid list-none gap-3 p-0" data-testid="team-mine">
           {c.mine.map((v) => (
             <li key={v.id} data-testid={`team-mine-${v.id}`} className={CARD}>
-              <p className={`${LABEL} flex items-center gap-1.5`}><Lock strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none" />{view.team_words.views.private}</p>
+              <p className={`${LABEL} flex items-center gap-1.5`}><OkIcon id="private-view" size={14} decorative />{view.team_words.views.private}</p>
               {v.skip ? <p className={META}>{view.team_words.views.mySkip}</p> : <p className={`${BODY} whitespace-pre-wrap break-words`}>{v.text}</p>}
               <ItemLines view={view} v={v} />
               <Figures at={`team-mine-${v.id}`} figures={v.figures} />
@@ -216,10 +216,10 @@ export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onW
               {/* `can_share` is core's rule whole (a second member, this round's view, not a skip): nothing here adds to it. */}
               {v.can_share && (
                 <div>
-                  <button type="button" className={QUIET} data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
-                    title={view.team_words.views.shareTitle} onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
-                    <Share2 strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5" />{view.team_words.views.share}
-                  </button>
+                  <HoverButton words={view.team_words.views.shareTitle} type="button" className={QUIET} data-testid={`team-share-${v.id}`} disabled={busy || sending || shareLocked(v.id)}
+                    onClick={() => void run(`${sid}:share:${v.id}`, () => teamApi.shareView(sid, v.id))}>
+                    <OkIcon id="share" size={14} decorative />{view.team_words.views.share}
+                  </HoverButton>
                 </div>
               )}
             </li>
@@ -272,11 +272,11 @@ export function RevealMarks({ view, promoted }: { view: View; /** Cards whose re
       {marks.map((m) => <li key={`${m.card}:${m.kind}`} className="grid gap-0.5" data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')} data-mark-kind={m.kind}>
         {/* DL round 5: the mark says which card it is about, by that card's heading (core's words), so "Only Sam raised it" is never an orphan. */}
         {markHeading(view, m.card) === null ? null : (
-          <button type="button" className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline`} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}
-            title="Show it on the canvas" onClick={() => focusNodeById(m.card)}>
+          <HoverButton words="Show it on the canvas" type="button" className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline`} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}
+            onClick={() => focusNodeById(m.card)}>
             <span className="min-w-0 break-words">{markHeading(view, m.card)}</span>
             <span className="mt-0.5 flex-none text-text-light"><OkIcon id="on-canvas" size={14} decorative /></span>
-          </button>
+          </HoverButton>
         )}
         <p className={META}>{m.text}</p>
         {m.reading === null || promoted?.has(m.card) ? null : <div data-testid={`team-reading-${m.card}-${m.kind}`}>

@@ -22,6 +22,7 @@ import { useReveal } from '../../olumiView/reveal'
 import { CardViewChips } from '../../olumiView/RevealMarks'
 import { StrategyChips } from '../../olumiView/strategy/StrategyChips'
 import { useUIStore } from '../../stores/uiStore'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { setTeamFetch } from '../team/api'
 import { differencesKey, resetDifferences, useDifferences, type Differences } from '../team/differences'
 
@@ -87,8 +88,9 @@ describe('TM-04: a doubted link on both of its cards, in the card\'s one rail, i
         expect(chips[0]!.querySelector('[data-differ-label]')?.textContent).toBe(d.label)
         expect([...chips[0]!.querySelectorAll('[data-differ-side]')].map((e) => e.textContent)).toEqual(d.sides.map((s) => s.text))
         expect(chips[0]!.textContent).toBe([d.chip, d.label, ...d.sides.map((s) => s.text)].join(' '))
-        // On hover: which link it is, then core's sentence, so two chips with the same words on one card are told apart.
-        expect(chips[0]!.getAttribute('title')).toBe(`${d.label}\n${d.status_text}`)
+        // On hover (the one Tip, never a native title): which link it is, then core's sentence, so two chips with the same words on one card are told apart.
+        expect(chips[0]!.hasAttribute('title')).toBe(false)
+        expect(await tipOf(chips[0] as HTMLElement)).toBe(`${d.label}\n${d.status_text}`)
       }
     }
     // Beside the reveal's own chip, in the same rail.

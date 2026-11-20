@@ -2,11 +2,11 @@
  * The Strategy Overview (board: overview-1232): the strategy read from the model as two columns of rows, in place of the canvas stage.
  * Each row is the item's shape, its title, one state pill and its holders. Every word comes from the View (see ./overview.ts).
  */
-import { X } from 'lucide-react'
 import type { View } from '../../client'
 import { typography } from '../../../styles/typography'
 import { META, BODY, H } from '../../../olumiCore/team/ui'
-import { OkIcon } from '../../look/icons'
+import { OkIcon, OkIconButton } from '../../look/icons'
+import { Hover } from '../../v12/chat/Hover'
 import { MAX_HOLDERS, overviewOf, type Family, type Group, type Holder, type Row } from './overview'
 
 const SHAPE: Record<Family, string> = {
@@ -24,9 +24,9 @@ function Holders({ holders }: { holders: Holder[] }): JSX.Element {
   return (
     <span className="flex justify-end">
       {holders.slice(0, MAX_HOLDERS).map((h, i) => (
-        <span key={`${h.id}-${i}`} data-testid="holder" data-holder={h.id} title={h.name} aria-label={h.name} className={`${AVATAR} ${i > 0 ? '-ml-[7px] shadow-[0_0_0_2px_rgb(var(--bg-panel-rgb))]' : ''}`}>
+        <Hover key={`${h.id}-${i}`} as="span" words={h.name} role="img" data-testid="holder" data-holder={h.id} aria-label={h.name} className={`${AVATAR} ${i > 0 ? '-ml-[7px] shadow-[0_0_0_2px_rgb(var(--bg-panel-rgb))]' : ''}`}>
           {h.id === 'olumi' ? <OkIcon id="olumi-mark" size={14} decorative /> : (Array.from(h.name)[0] ?? '').toUpperCase()}
-        </span>
+        </Hover>
       ))}
     </span>
   )
@@ -62,9 +62,7 @@ export function StrategyOverviewPage({ view, onClose }: { view: View; onClose: (
     <div className="relative h-full w-full overflow-auto bg-panel" data-testid="strategy-overview-page">
       <div className="relative flex h-14 items-center justify-between pl-[106px] pr-4">
         <h2 className={`${H} ${typography.viewPanelMeta} font-medium text-text-light`}>{view.strategy?.overview.heading}</h2>
-        <button type="button" aria-label={view.evidence_words.close} onClick={onClose} className="inline-grid h-9 w-9 place-items-center rounded-md text-text-body transition-colors duration-fast hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50">
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        <OkIconButton id="cancel-close" tone="ghost" words={view.evidence_words.close} testid="strategy-overview-close" onClick={onClose} />
       </div>
       <div className="grid grid-cols-[484px_484px] gap-x-[52px] pb-8 pl-[106px] pt-2">
         <div className="grid content-start gap-[22px]">{col(['question', 'aim', 'routes', 'assumptions']).map((g) => <Section key={g.id} group={g} />)}</div>

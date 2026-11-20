@@ -11,10 +11,11 @@
  * thread, so it never stands before the first model. Folded at rest to one row; removable like Olumi's questions (page and viewer only,
  * nothing written). Chrome words only.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { typography } from '../../../styles/typography'
 import { OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
+import { HoverButton } from './Hover'
 import { useViewStore } from '../../store'
 import type { View } from '../../client'
 import { pressCard } from '../../reasoning/tabRing'
@@ -84,6 +85,8 @@ export function IntakeSheet(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
   const [open, setOpen] = useState(false)
   const [, bump] = useState(0)
+  // The disclosure's own region id, unique per sheet; named by the toggle only while the rows are drawn (a closed fold names nothing).
+  const rowsId = useId()
   const rows = intakeOf(view)
   const key = JSON.stringify([view?.you_id ?? null, view?.id ?? null, ...rows.map((r, i) => [sourceKey(r, i), r.quote])])
   if (view?.model == null || rows.length === 0 || removed.has(key)) return null
@@ -97,14 +100,14 @@ export function IntakeSheet(): JSX.Element | null {
           {INTAKE_HEAD}
           {missing === 0 ? null : <span className={`${typography.viewPanelMeta} ml-2 text-text-light`} data-testid="view-intake-missing">{missing} {NOT_IN_MODEL}</span>}
         </p>
-        <button type="button" aria-expanded={open} aria-controls="view-intake-rows" aria-label={open ? CLOSE_INTAKE : OPEN_INTAKE} title={open ? CLOSE_INTAKE : OPEN_INTAKE} data-testid="view-intake-toggle" onClick={() => setOpen((o) => !o)}
+        <HoverButton type="button" words={open ? CLOSE_INTAKE : OPEN_INTAKE} aria-expanded={open} aria-controls={open ? rowsId : undefined} aria-label={open ? CLOSE_INTAKE : OPEN_INTAKE} data-testid="view-intake-toggle" onClick={() => setOpen((o) => !o)}
           className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
           <FoldChevron open={open} />
-        </button>
+        </HoverButton>
         <OkIconButton id="cancel-close" tone="ghost" testid="view-intake-remove" words={REMOVE_INTAKE} onClick={() => { removed.add(key); bump((x) => x + 1) }} />
       </div>
       {!open ? null : (
-        <ul id="view-intake-rows" className="m-0 list-none space-y-1 p-0" data-testid="view-intake-rows">
+        <ul id={rowsId} className="m-0 list-none space-y-1 p-0" data-testid="view-intake-rows">
           {groups.map((g) => (
             <li key={g.key} className="space-y-0.5" data-intake-source={g.key} data-intake-count={g.figures.length}>
               <span className="block text-text-body">“{g.quote}”</span>
@@ -112,9 +115,9 @@ export function IntakeSheet(): JSX.Element | null {
               {[...g.present].map(([id, n]) => {
                 const heading = headingOf(id)
                 return (
-                  <button key={id} type="button" data-intake-mark="present" data-intake-show={id} data-intake-n={n} onClick={() => show(id)}
-                    title={heading === null ? SHOW_RECORD : `${SHOW_RECORD}: ${heading}`} aria-label={heading === null ? `${IN_MODEL}. ${SHOW_RECORD}` : `${IN_MODEL}. ${SHOW_RECORD}: ${heading}`}
-                    className={`${typography.viewPanelMeta} mr-2 block rounded-sm text-text-light underline underline-offset-2 hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{IN_MODEL}{n > 1 ? ` · ${n}` : ''}</button>
+                  <HoverButton key={id} type="button" data-intake-mark="present" data-intake-show={id} data-intake-n={n} onClick={() => show(id)}
+                    words={heading === null ? SHOW_RECORD : `${SHOW_RECORD}: ${heading}`} aria-label={heading === null ? `${IN_MODEL}. ${SHOW_RECORD}` : `${IN_MODEL}. ${SHOW_RECORD}: ${heading}`}
+                    className={`${typography.viewPanelMeta} mr-2 block rounded-sm text-text-light underline underline-offset-2 hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{IN_MODEL}{n > 1 ? ` · ${n}` : ''}</HoverButton>
                 )
               })}
             </li>

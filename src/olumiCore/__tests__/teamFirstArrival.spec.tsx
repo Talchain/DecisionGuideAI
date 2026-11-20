@@ -5,7 +5,7 @@
  * (below the heading); a View with no question keeps core's placeholder. Bound by test id and by the View's own words.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
@@ -15,6 +15,7 @@ import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
 import { resetTeamFlow } from '../team/flow'
 import { useMe } from '../me'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -89,14 +90,18 @@ describe('Team first arrival (v10 review item 9)', () => {
     expect(screen.getByTestId('team-view-text').getAttribute('placeholder')).toBe('Your own view, private until revealed')
   })
 
-  it('"Add my view" says why it waits in its own title, with no second line; typed words clear the title', () => {
+  it('"Add my view" says why it waits in the one Tip, held (aria-disabled, still focusable) with no second line; typed words release it and clear the Tip', async () => {
     render(<TeamTab />)
     const give = screen.getByTestId('team-view-give') as HTMLButtonElement
-    expect(give.disabled).toBe(true)
-    expect(give.getAttribute('title')).toBe('Write your view first')
+    expect(give.getAttribute('aria-disabled')).toBe('true')
+    expect(give.hasAttribute('title')).toBe(false)
+    expect(await tipOf(give)).toBe('Write your view first')
     expect(screen.queryByTestId('team-view-give-why')).toBeNull()
     fireEvent.change(screen.getByTestId('team-view-text'), { target: { value: 'Wait for the pilot.' } })
-    expect(give.disabled).toBe(false)
-    expect(give.getAttribute('title')).toBeNull()
+    expect(give.getAttribute('aria-disabled')).toBeNull()
+    // Released: it has nothing to say on hover (the pointer rests longer than the Tip's delay and no tooltip opens).
+    fireEvent.pointerEnter(give)
+    await act(async () => { await new Promise((r) => setTimeout(r, 250)) })
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })

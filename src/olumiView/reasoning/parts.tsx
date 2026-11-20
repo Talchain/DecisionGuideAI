@@ -11,11 +11,11 @@
  * the tab's own (`REASONING_LABELS`), the counts are how many rows are drawn, and every row's words come in from the caller.
  */
 import { useId, useState, type ComponentType, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { TYPE } from '../port/type'
 import { Hov } from '../port/Hover'
+import { FoldChevron } from '../look/FoldChevron'
 
 type Glyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
 
@@ -49,7 +49,7 @@ export function SectionRow({ title, Icon, count, defaultOpen = false, testId, ch
           {Icon === undefined ? null : <span className="flex h-6 w-6 shrink-0 items-center justify-center"><Icon className={`${icon('row')} text-text-light`} aria-hidden={true} /></span>}
           <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{title}</span>
           <Count n={count} testId={`view-reasoning-${testId}-count`} />
-          <ChevronRight className={`${icon('section')} shrink-0 text-text-light transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} aria-hidden={true} />
+          <FoldChevron open={open} className="text-text-light" />
         </button>
       </h3>
       {open ? <div id={region} className="space-y-2 pb-2 pt-1" data-testid={`view-reasoning-${testId}-region`}>{children}</div> : null}
@@ -65,7 +65,7 @@ export function Door({ label, count, testId, children }: { label: string; count:
     <section aria-label={label} data-testid={`view-reasoning-${testId}`} data-disclosure={open ? 'open' : 'closed'}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
         className={`${TYPE.body} ${action('disclose')}`}>
-        <ChevronRight className={`${icon('row')} shrink-0 text-text-light transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} aria-hidden={true} />
+        <FoldChevron open={open} className="text-text-light" />
         <span>{label}</span>
         <Count n={count} />
       </button>

@@ -47,8 +47,10 @@ import {
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
+  MoveLeft, MoveRight, Spline, Type,
   type LucideIcon,
 } from 'lucide-react'
+import { CheckCircle2, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
 import { HIT_44 } from '../../styles/hitArea'
 import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
@@ -281,6 +283,18 @@ export const ICONS = {
   'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-untested-assumption': e(FlaskConical, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-range-turns': e(Repeat2, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  /* team ids */
+  // The Team tab's marks (one meaning each). Words drawn beside them are core's (a decorative mark); the hover is the registry's fallback only.
+  'differ-link': e(Unlink2, 'Where you differ', '--text-light', 'icon-plus-word', 'kind', { keepWords: "core's chip words (`chip`) and the link's label are drawn beside the mark" }),
+  'private-view': e(LockKeyhole, 'Private view', '--text-light', 'icon-plus-word', 'state', { keepWords: "core's `team_words.views.private`, `give` and `shareTitle` are drawn beside the mark" }),
+  'trigger-taken': e(CheckCircle2, 'Chosen', '--text-light', 'icon-plus-word', 'state', { keepWords: "core's suggested trigger sentence is drawn beside the mark" }),
+  'strategy-overview': e(LayoutList, 'Strategy overview', '--text-light', 'icon-plus-word', 'chrome', { keepWords: "core's `strategy.headings.overview` is drawn beside the mark" }),
+  /* model ids */
+  // The Model tab's marks: a relationship's own mark (group heading and row), the two ends of a link and the rename action. Drawn beside words (decorative); the hover is a fallback.
+  'model-relationship': e(Spline, 'Relationship', '--text-light', 'icon-plus-word', 'kind'),
+  'model-link-from': e(MoveLeft, 'From', '--text-light', 'icon-plus-word', 'kind'),
+  'model-link-to': e(MoveRight, 'To', '--text-light', 'icon-plus-word', 'kind'),
+  'model-rename': e(Type, 'Rename', '--text-light', 'icon-plus-word', 'person-action'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS

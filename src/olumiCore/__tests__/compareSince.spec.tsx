@@ -25,6 +25,7 @@ import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
 import { CoreCompareTab, SinceVersion, type Since } from '../compare'
 import { SEPARATE_RUNS } from '../scenarioCompare'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/port/__tests__/fixtures', `${n}.view3.json`), 'utf8'))
 const COMPARED = { versions: [], changes: [], results: [] }
@@ -69,7 +70,7 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
     expect(within(box).queryByTestId('core-compare-since-changed')).toBeNull()
   })
 
-  it('SI2: version 2, drawn from the history, says version 2 beside version 1, in its own words (the field of the version shown)', () => {
+  it('SI2: version 2, drawn from the history, says version 2 beside version 1, in its own words (the field of the version shown)', async () => {
     const view = fixture('ui9-a6-since-at2'), since = view.model!.run!.since!, latest = fixture('ui9-a6-since-v3').model!.run!.since!
     expect(since.lines[0]!.line).not.toBe(latest.lines[0]!.line) // control: the two versions say different things
     show(view)
@@ -80,7 +81,8 @@ describe('Since the version before, under a save\'s receipt in the chat (SinceVe
     const l = since.lines[0]!, row = box.querySelector<HTMLElement>(`[data-since-line="${l.option}:${l.aim}"]`)!
     expect([l.from_text, l.to_text]).toEqual(['about 48%', 'about 1%'])
     expect([row.textContent, row.querySelector('[data-compare-track]'), row.closest('details')]).toEqual([l.line, null, null])
-    expect([...box.querySelectorAll('[data-compare-runs]')].map((e) => [e.textContent, e.getAttribute('title')])).toEqual([[SEPARATE_RUNS.label, SEPARATE_RUNS.title]])
+    const labels = [...box.querySelectorAll<HTMLElement>('[data-compare-runs]')]
+    expect([labels.map((e) => e.textContent), await Promise.all(labels.map((e) => tipOf(e)))]).toEqual([[SEPARATE_RUNS.label], [SEPARATE_RUNS.title]])
   })
 
   it('SI3 (18 Nov redesign): the Compare tab no longer draws this card; it reads the same field into its own lists (compareTab.spec)', () => {
@@ -110,6 +112,9 @@ describe('where core credits no single change (sole null)', () => {
     const fold = screen.getByTestId('core-compare-since-still')
     expect([fold.tagName, fold.hasAttribute('open'), fold.querySelector('summary')!.textContent]).toEqual(['DETAILS', false, '1 result did not move.'])
     expect(fold.querySelector('summary [data-fold-chevron="details"]'), 'polish 13: a chevron, not the native marker').not.toBeNull()
+    // The disclosure says its state and names the rows it opens (aria-controls is an element inside this fold).
+    const press = fold.querySelector('summary')!
+    expect([press.getAttribute('aria-expanded'), fold.querySelector(`[id="${press.getAttribute('aria-controls')}"]`)?.contains(fold.querySelector('[data-view]'))]).toEqual(['false', true])
     expect([...fold.querySelectorAll('[data-view]')].map((e) => [e.getAttribute('data-view'), e.textContent])).toEqual([['run.since.lines.0.line', 'LINE-SAME']])
     expect(fold.contains(container.querySelector('[data-view="run.since.lines.1.line"]'))).toBe(false)
     unmount()

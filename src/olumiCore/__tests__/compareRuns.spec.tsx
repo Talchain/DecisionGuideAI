@@ -10,11 +10,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { ComparedLists, CoreCompare, type Compared } from '../compare'
 import { SAME_DRAWS, SEPARATE_RUNS, ScenarioComparisonView, type ScenarioComparison } from '../scenarioCompare'
 import { setTeamFetch } from '../team/api'
+import { tipOf, tipOnFocus } from '../../olumiView/__tests__/tipHelpers'
 
 afterEach(() => { cleanup(); setTeamFetch(null) })
 
 /** The one fixed label, by its own attribute and its exact words and hover; a contrast with no results draws none. */
-const runsLabels = (c: ParentNode) => [...c.querySelectorAll('[data-compare-runs]')].map((e) => [e.getAttribute('data-compare-runs'), e.textContent, e.getAttribute('title')])
+const runsLabels = async (c: ParentNode) => {
+  const out: (string | null)[][] = []
+  for (const e of c.querySelectorAll<HTMLElement>('[data-compare-runs]')) out.push([e.getAttribute('data-compare-runs'), e.textContent, await tipOf(e)])
+  return out
+}
 const ONE_LABEL = [['separate', SEPARATE_RUNS.label, SEPARATE_RUNS.title]]
 
 const CORE: Compared = {
@@ -29,7 +34,7 @@ const CORE: Compared = {
 }
 
 describe('the version compare: core says every word; two versions are separate runs, never one track', () => {
-  it("draws core's label, move and who verbatim, never the page's own sentence; no track, no key, and the one Separate runs label", () => {
+  it("draws core's label, move and who verbatim, never the page's own sentence; no track, no key, and the one Separate runs label", async () => {
     const { container } = render(<ComparedLists c={CORE} />)
     const text = container.textContent!
     for (const w of ['CORE-WHO-1', 'CORE-WHO-2', 'CORE-LABEL', 'CORE-MOVE', 'CORE-LEAD', 'CORE-SAME']) expect(text).toContain(w)
@@ -37,21 +42,21 @@ describe('the version compare: core says every word; two versions are separate r
     expect(text).not.toContain('approved by Ada')
     expect(container.querySelector('[data-testid="team-compare-results"] li')!.textContent).toContain('about 50% → about 90%')
     expect([container.querySelector('[data-compare-track]'), container.querySelector('[data-compare-track-key]'), container.querySelector('[data-mark]')]).toEqual([null, null, null])
-    expect(runsLabels(container)).toEqual(ONE_LABEL)
+    expect(await runsLabels(container)).toEqual(ONE_LABEL)
   })
-  it('contrast: with no results there is nothing to call separate, so no label', () => {
+  it('contrast: with no results there is nothing to call separate, so no label', async () => {
     const { container } = render(<ComparedLists c={{ ...CORE, results: [] }} />)
     expect(screen.getByTestId('team-compare-results-none')).toBeTruthy()
-    expect(runsLabels(container)).toEqual([])
+    expect(await runsLabels(container)).toEqual([])
   })
-  it("an older core without the words or numbers: the page's same words as before", () => {
+  it("an older core without the words or numbers: the page's same words as before", async () => {
     const old = { ...CORE, versions: CORE.versions.map(({ who: _w, ...v }) => v), results: [{ ...CORE.results[0]!, label: undefined, move_text: undefined,
       before: { value: 'about 50%', title: 't', olumi: null }, after: { value: 'about 90%', title: 't', olumi: null } }] } as Compared
     const { container } = render(<ComparedLists c={old} />)
     expect(container.textContent).toContain('‘Add one specialist’ on ‘At least 100 a week’')
     expect(container.textContent).toContain('(up)')
     expect(container.querySelector('[data-compare-track]')).toBeNull()
-    expect(runsLabels(container)).toEqual(ONE_LABEL)
+    expect(await runsLabels(container)).toEqual(ONE_LABEL)
   })
 })
 
@@ -69,45 +74,46 @@ const aimBox = (c: HTMLElement, label: string) => [...c.querySelectorAll<HTMLEle
 const optionRow = (c: HTMLElement, label: string) => [...c.querySelectorAll<HTMLElement>('[data-compare-option]')].find((r) => r.querySelector('p')?.textContent === label)!
 
 describe('two sides side by side: each its own saved run, both sides in core\'s words, said once as Separate runs', () => {
-  it("a comparable aim draws both sides' values in core's words and no track; the label is drawn once, above the aims", () => {
+  it("a comparable aim draws both sides' values in core's words and no track; the label is drawn once, above the aims", async () => {
     const { container } = render(<ScenarioComparisonView c={PAIR(0.5, 0.9)} />)
     const row = optionRow(aimBox(container, 'Reach 100'), 'Add one specialist')
     expect([...row.querySelectorAll('[data-compare-value]')].map((e) => e.textContent)).toEqual(['about 50%', 'about 90%'])
     expect([container.querySelector('[data-compare-track]'), container.querySelector('[data-compare-track-key]'), container.querySelector('[data-mark]')]).toEqual([null, null, null])
-    expect(runsLabels(container)).toEqual(ONE_LABEL)
+    expect(await runsLabels(container)).toEqual(ONE_LABEL)
     // The label sits before the first aim, not inside one.
     const label = container.querySelector('[data-compare-runs]')!, firstAim = container.querySelector('[data-compare-aim]')!
     expect(label.compareDocumentPosition(firstAim) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(aimBox(container, 'Reach 100').querySelector('[data-compare-runs]')).toBeNull()
     expect(container.textContent).not.toMatch(/\b(best|winner|recommend|better|worse|ahead|leads)\b/i)
   })
-  it('contrast: a comparison with no aims and no results has no label', () => {
+  it('contrast: a comparison with no aims and no results has no label', async () => {
     const c = PAIR(0.5, 0.9)
     const { container } = render(<ScenarioComparisonView c={{ ...c, aims: [], a: { ...c.a, has_run: false }, b: { ...c.b, has_run: false } }} />)
-    expect(runsLabels(container)).toEqual([])
+    expect(await runsLabels(container)).toEqual([])
   })
-  it("a side with no saved results (core's has_run false, its note kept) gets no label, though the other side's aims are drawn; an older core with no has_run gets none", () => {
+  it("a side with no saved results (core's has_run false, its note kept) gets no label, though the other side's aims are drawn; an older core with no has_run gets none", async () => {
     const c = PAIR(0.5, 0.9), NOTE = "‘Busier week (what-if)’ has no saved results yet: its latest model was not analysed."
     const one = render(<ScenarioComparisonView c={{ ...c, b: { ...c.b, has_run: false, note: NOTE } }} />)
-    expect([runsLabels(one.container), one.container.querySelectorAll('[data-compare-aim]').length > 0, one.container.querySelector('[data-compare-note]')?.textContent]).toEqual([[], true, NOTE])
+    expect([await runsLabels(one.container), one.container.querySelectorAll('[data-compare-aim]').length > 0, one.container.querySelector('[data-compare-note]')?.textContent]).toEqual([[], true, NOTE])
     one.unmount()
     const { has_run: _a, ...oldA } = c.a, { has_run: _b, ...oldB } = c.b
     const old = render(<ScenarioComparisonView c={{ ...c, a: oldA, b: oldB }} />)
-    expect(runsLabels(old.container)).toEqual([])
+    expect(await runsLabels(old.container)).toEqual([])
   })
 })
 
 describe("each chance as its option card draws it: core's headline, then the card's short companion line", () => {
   const LONG = "about 13% (about 16% without Olumi's suggested risk assumption 'Late payment')"
   const COMP = { text: "about 16% without Olumi's suggested risk", title: "about 16% without Olumi's suggested risk assumption 'Late payment'" }
-  it("side by side: the headline in the cell's value, the companion beneath it with its sentence as hover; never the whole long value", () => {
+  it("side by side: the headline in the cell's value, the companion beneath it with its sentence as hover; never the whole long value", async () => {
     const c = PAIR(0.13, 0.47)
     const opt = (c.aims[0]!.options as unknown as { a: { cells: Record<string, unknown>[] } }[])[0]!
     opt.a.cells[0] = { ...cell(LONG, 0.13), headline: 'about 13%', companion: COMP }
     const { container } = render(<ScenarioComparisonView c={c} />)
     const first = container.querySelector('[data-compare-cells]')!
     expect(first.querySelector('[data-compare-value]')!.textContent).toBe('about 13%')
-    expect([first.querySelector('[data-compare-companion]')!.textContent, first.querySelector('[data-compare-companion]')!.getAttribute('title')]).toEqual([COMP.text, COMP.title])
+    const companion = first.querySelector<HTMLElement>('[data-compare-companion]')!
+    expect([companion.textContent, await tipOf(companion), await tipOnFocus(companion)]).toEqual([COMP.text, COMP.title, COMP.title])
     expect(container.textContent).not.toContain(LONG)
   })
   it('version compare: the headline, then the companion in light words; an older core draws its value as before', () => {
@@ -141,7 +147,7 @@ describe('version compare: the pickers in reverse still put each version\'s word
     expect(paths).toEqual(['/api/scenarios/s_0123456789ab/compare?from=2&to=3'])
     expect(container.querySelector('[data-testid="rv-results"] li')!.textContent).toContain('V2-WORDS about 20% → V3-WORDS about 70%')
     expect(container.querySelector('[data-compare-track]')).toBeNull()
-    expect(runsLabels(container)).toEqual(ONE_LABEL)
+    expect(await runsLabels(container)).toEqual(ONE_LABEL)
   })
 })
 
@@ -163,19 +169,30 @@ describe('side by side: where the two sides answer different questions, that is 
 })
 
 describe('a pair core proves (SideInfo.paired, a what-if against its exact base): the track returns, said "Same draws"', () => {
-  it('the what-if side paired: one track per comparable option at core\'s numbers, "Same draws" in place of "Separate runs", the key once; the unpaired option gets none', () => {
+  it('the what-if side paired: one track per comparable option at core\'s numbers, "Same draws" in place of "Separate runs", the key once; the unpaired option gets none', async () => {
     const c = PAIR(0.5, 0.9)
     const { container } = render(<ScenarioComparisonView c={{ ...c, b: { ...c.b, paired: true } }} />)
     expect([...container.querySelectorAll('[data-compare-track]')].map((t) => [t.getAttribute('data-first'), t.getAttribute('data-second')])).toEqual([['50', '90']])
-    expect(runsLabels(container)).toEqual([['same-draws', SAME_DRAWS.label, SAME_DRAWS.title]])
+    expect(await runsLabels(container)).toEqual([['same-draws', SAME_DRAWS.label, SAME_DRAWS.title]])
     expect([...container.querySelectorAll('[data-compare-key]')].map((e) => e.textContent)).toEqual(['Rota', 'Busier week (what-if)'])
     expect(optionRow(aimBox(container, 'Reach 100'), 'Hire two').querySelector('[data-compare-track]')).toBeNull()
   })
-  it('CONTRASTS: paired false, or absent, on both sides draws no track and keeps "Separate runs"; a proven pair on a different_target aim draws no track', () => {
+  it('a track is drawn only where the sides DIFFER: one side with a number (a single option), or equal chances, draw no track and no key; core\'s words still stand', () => {
+    const proven = (c: ScenarioComparison): ScenarioComparison => ({ ...c, b: { ...c.b, paired: true } })
+    for (const [a, b] of [[0.5, null], [null, 0.9], [0.5, 0.5], [0.501, 0.504]] as const) {
+      const { container, unmount } = render(<ScenarioComparisonView c={proven(PAIR(a, b))} />)
+      expect([container.querySelectorAll('[data-compare-track]').length, container.querySelectorAll('[data-compare-track-key]').length, container.querySelectorAll('[data-compare-value]').length], `${a} / ${b}`).toEqual([0, 0, 3])
+      unmount()
+    }
+    // The contrast: two different chances on a proven pair still draw the one track and its key.
+    const { container } = render(<ScenarioComparisonView c={proven(PAIR(0.5, 0.9))} />)
+    expect([container.querySelectorAll('[data-compare-track]').length, container.querySelectorAll('[data-compare-track-key]').length]).toEqual([1, 1])
+  })
+  it('CONTRASTS: paired false, or absent, on both sides draws no track and keeps "Separate runs"; a proven pair on a different_target aim draws no track', async () => {
     const c = PAIR(0.5, 0.9)
     for (const sides of [{ a: { ...c.a, paired: false }, b: { ...c.b, paired: false } }, { a: c.a, b: c.b }]) {
       const { container, unmount } = render(<ScenarioComparisonView c={{ ...c, ...sides }} />)
-      expect([container.querySelectorAll('[data-compare-track]').length, runsLabels(container)]).toEqual([0, ONE_LABEL])
+      expect([container.querySelectorAll('[data-compare-track]').length, await runsLabels(container)]).toEqual([0, ONE_LABEL])
       unmount()
     }
     const diff = { ...c, b: { ...c.b, paired: true }, aims: [{ ...c.aims[0]!, status: 'different_target', limitation: 'WHY' }] }

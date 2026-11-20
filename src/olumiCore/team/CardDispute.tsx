@@ -13,6 +13,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
+import { Hover, HoverButton } from '../../olumiView/v12/chat/Hover'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
 import { FOLD_SUMMARY_TOP, FoldChevron } from '../../olumiView/look/FoldChevron'
@@ -86,7 +87,8 @@ export function CardSplit({ card, people }: { card: ViewCard; people: readonly C
         {people.map((p, i) => {
           const x0 = pctOf(axis, p.lo), x1 = pctOf(axis, p.hi)
           return (
-            <li key={p.id} className="grid grid-cols-[14px_minmax(0,1fr)] items-center gap-1" title={said[i]} data-card-person={p.id} data-range-lo={p.lo} data-range-hi={p.hi}>
+            <li key={p.id} data-card-person={p.id} data-range-lo={p.lo} data-range-hi={p.hi}>
+              <Hover as="div" words={said[i]} className="grid grid-cols-[14px_minmax(0,1fr)] items-center gap-1">
               <span aria-hidden="true" className={`${typography.viewLabel} text-center text-text-light`}>{(Array.from(p.holder)[0] ?? '').toUpperCase()}</span>
               <svg viewBox="0 0 100 6" preserveAspectRatio="none" className="block h-1.5 w-full" aria-hidden="true">
                 {ref === null
@@ -96,6 +98,7 @@ export function CardSplit({ card, people }: { card: ViewCard; people: readonly C
                   ? <rect x={Math.max(0, x0 - 0.8)} y="0" width="1.6" height="6" className="fill-current text-text-header" data-card-person-mark="point" />
                   : <rect x={x0} y="1" width={Math.max(1.6, x1 - x0)} height="4" rx="1" className="fill-current text-text-header" data-card-person-mark="span" />}
               </svg>
+              </Hover>
             </li>
           )
         })}
@@ -113,11 +116,11 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
   if (own.length === 0) return null
   const words = [...new Set(own.map((d) => d.status_text))].join('\n')
   return (
-    <button type="button" aria-label={words} title={words} data-differ-mark={card}
+    <HoverButton words={words} type="button" aria-label={words} data-differ-mark={card}
       onClick={(e) => { e.stopPropagation(); useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: card }, section: 'differ' }) }}
       className="nodrag pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-panel-border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header">
       <OkIcon id="revealed-difference" size={12} decorative />
-    </button>
+    </HoverButton>
   )
 }
 
@@ -146,15 +149,15 @@ export function WhereYouDiffer({ card, peek = false, open = false }: { card: str
             {sayOnly(d) ? null : (
               <>
                 <ul className="m-0 list-none space-y-0.5 p-0" data-differ-sides="">
-                  {d.sides.map((s) => <li key={s.holder_id} className="text-text-body" title={s.title} data-differ-side={s.holder_id}>{s.text}</li>)}
+                  {d.sides.map((s) => <li key={s.holder_id} className="text-text-body" data-differ-side={s.holder_id}><Hover as="span" words={s.title}>{s.text}</Hover></li>)}
                 </ul>
                 {d.options.map((o) => (
                   <div key={o.option} data-differ-option={o.option}>
                     <p className={`${typography.viewPanelMeta} text-text-light`}>{o.label}</p>
                     <ul className="m-0 list-none space-y-0.5 p-0">
                       {o.chances.map((c) => (
-                        <li key={c.holder_id} className="text-text-body" title={c.withheld?.reason} data-differ-chance={c.holder_id}>
-                          {whose(c.holder_id) === '' ? null : <>{whose(c.holder_id)}: </>}<span data-differ-chance-text="">{c.text}</span>
+                        <li key={c.holder_id} className="text-text-body" data-differ-chance={c.holder_id}>
+                          <Hover as="span" words={c.withheld?.reason}>{whose(c.holder_id) === '' ? null : <>{whose(c.holder_id)}: </>}<span data-differ-chance-text="">{c.text}</span></Hover>
                         </li>
                       ))}
                     </ul>

@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { tipOf } from '../../../__tests__/tipHelpers'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { setPagePerson, setTeamFetch } from '../../../../olumiCore/team/api'
 import { useMe } from '../../../../olumiCore/me'
@@ -253,7 +254,8 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     const c2 = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
     act(() => useViewStore.setState({ at: 2 }))
     await press(q(c2, 'view-actions-button'))
-    expect(c2.querySelector<HTMLButtonElement>('[data-testid="view-session-method"][data-method="else_do"]')).toBeDisabled()
+    // Held: aria-disabled, still focusable (never a native disabled), and the press does nothing.
+    expect(c2.querySelector<HTMLButtonElement>('[data-testid="view-session-method"][data-method="else_do"]')).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('CONTRAST: the same reply WITHOUT prose (legacy, untyped, or a first draft\'s) offers no Keep at all', () => {
@@ -349,7 +351,7 @@ describe('4. "Build a model from this": one plain item in the existing menu, onl
     await openMenu(c)
     const item = q(c, 'view-build-model')
     expect(item?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(OFFER.label) // the row's label (UI builder, 08:5xZ: the row also draws core's title)
-    expect(item?.getAttribute('title')).toBe(OFFER.title)
+    expect([item?.hasAttribute('title'), await tipOf(item!)]).toEqual([false, OFFER.title])
     expect(q(c, 'view-actions-menu')!.querySelectorAll('[data-testid="view-build-model"]')).toHaveLength(1)
     await press(item)
     await waitFor(() => expect(posts).toHaveLength(1))
@@ -378,11 +380,11 @@ describe('4. "Build a model from this": one plain item in the existing menu, onl
     const c = show(withOffer())
     useViewStore.setState({ at: 3 } as never)
     await openMenu(c)
-    expect((q(c, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(true)
+    expect(q(c, 'view-build-model')?.getAttribute('aria-disabled')).toBe('true')
     cleanup()
     const d = show(withOffer())
     await openMenu(d)
-    expect((q(d, 'view-build-model') as HTMLButtonElement | null)?.disabled).toBe(false)
+    expect(q(d, 'view-build-model')?.hasAttribute('aria-disabled')).toBe(false)
   })
 
   // 17 Nov (UI lead finding, DL GO 23:42:40Z): a words start left the canvas completely empty while the panel held the whole answer.

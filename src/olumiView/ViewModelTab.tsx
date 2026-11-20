@@ -14,13 +14,14 @@
  *   a link's kind or sign. A content switch only: no row moves.
  * Every write is the canvas editors' own (route, body, key, base rule); core's answer is the only verdict (`model/editors.tsx`).
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { MODEL_GROUP_TITLE } from '../canvas/domain/vocabulary'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
-import { KIND_GLYPH } from '../canvas/model-tab-v2/rowPresentation'
+import { OkIcon } from './look/icons'
+import { FoldChevron } from './look/FoldChevron'
+import { Hover } from './v12/chat/Hover'
 import type { ViewCard, ViewModel } from './client'
 import { cardNumbersOf, drawKindOf, modelOutlineOf, outcomeRiskKinds, type OutlineGroupId } from './layout'
 import { shownModel, useViewStore } from './store'
@@ -45,7 +46,7 @@ const SHAPE: Partial<Record<GroupId, 'goal' | 'option' | 'factor'>> = { goal: 'g
 
 /** A group's kind mark, the canvas's own shape in its family colour (the previous PoC's outline, `GroupKindMark`). */
 function KindMark({ id, cards, model }: { id: GroupId; cards: readonly ViewCard[]; model: ViewModel }) {
-  if (id === 'relationships') return <span aria-hidden="true" className="text-text-light">{KIND_GLYPH.relationship}</span>
+  if (id === 'relationships') return <span aria-hidden="true" className="inline-flex text-text-light"><OkIcon id="model-relationship" size={14} decorative inherit /></span>
   if (id === 'outcomes-risks') {
     const kinds = outcomeRiskKinds(model, cards)
     return kinds.length === 0 ? null : <span className="inline-flex items-center gap-0.5">{kinds.map((k) => <NodeShapeIndicator key={k} nodeKind={k} size={8} />)}</span>
@@ -56,18 +57,18 @@ function KindMark({ id, cards, model }: { id: GroupId; cards: readonly ViewCard[
 
 /** One group: a heading row that opens and closes it (chevron, kind mark, title, count), a note under it whether open or closed (what a
  *  change to the group came to), and its rows only while open. */
-function Group({ id, title, count, open, onToggle, mark, note, children }: { id: GroupId; title: string; count: number; open: boolean; onToggle: () => void; mark: ReactNode; note?: ReactNode; children: ReactNode }) {
+function Group({ id, listId, title, count, open, onToggle, mark, note, children }: { id: GroupId; listId: string; title: string; count: number; open: boolean; onToggle: () => void; mark: ReactNode; note?: ReactNode; children: ReactNode }) {
   return (
     <section aria-label={title} data-model-group={id} data-open={open}>
-      <button type="button" aria-expanded={open} aria-label={`${title}, ${count} ${count === 1 ? 'element' : 'elements'}`} onClick={onToggle}
+      <button type="button" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={`${title}, ${count} ${count === 1 ? 'element' : 'elements'}`} onClick={onToggle}
         data-model-group-toggle={id} className={`${typography.viewPanelBody} inline-flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}>
-        <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 flex-none text-text-light transition-transform ${open ? 'rotate-90' : ''}`} />
+        <FoldChevron open={open} className="text-text-light" />
         {mark}
         <span>{title}</span>
         <span className={`${typography.viewPanelMeta} ml-1 text-text-light`} data-model-group-count={id}>{count}</span>
       </button>
       {note}
-      {open ? <ul className="m-0 mb-2 ml-2 mt-0.5 list-none space-y-0.5 p-0">{children}</ul> : null}
+      {open ? <ul id={listId} className="m-0 mb-2 ml-2 mt-0.5 list-none space-y-0.5 p-0">{children}</ul> : null}
     </section>
   )
 }
@@ -171,6 +172,9 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
   const [opened, setOpened] = useState<ReadonlySet<GroupId>>(new Set())
   const [filter, setFilter] = useState('')
   const outline = useMemo(() => (model === null ? null : modelOutlineOf(model, filter)), [model, filter])
+  // Unique per tab: each open group's list is named by this and its id (the group's toggle, and Expand all, point at it).
+  const uid = useId()
+  const listId = (id: GroupId) => `${uid}-model-group-${id}`
   const groupSaid = useModelTab((s) => (s.receipt !== null && s.receipt.row.startsWith('group:') ? s.receipt : null))
   if (model === null || outline === null) return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
@@ -195,6 +199,8 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
   // Add a figure or Remove link refused after their form left the screen. Relationships stays drawn while it says so.
   const saidOn = (id: GroupId) => (groupSaid?.row === groupRow(id) ? groupSaid : null)
   const linksSaid = saidOn('relationships')
+  // The lists Expand all answers for: each open group's (Relationships' too, where it is drawn).
+  const openLists = [...groups.filter((x) => x.open).map((x) => listId(x.g.id)), ...(model.links.length === 0 && linksSaid === null || !isOpen('relationships', linkCount) ? [] : [listId('relationships')])]
   return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">
@@ -210,7 +216,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
       </p>
       <HeldNotice />
       <div className="flex justify-end">
-        <button type="button" data-testid="view-model-toggle-all" onClick={() => setOpened(allOpen ? new Set() : new Set(ids))}
+        <button type="button" data-testid="view-model-toggle-all" aria-expanded={allOpen} aria-controls={openLists.join(' ') || undefined} onClick={() => setOpened(allOpen ? new Set() : new Set(ids))}
           className={`${typography.viewPanelMeta} rounded-sm py-1 text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
           {allOpen ? MODEL_OUTLINE_LABELS.collapse : MODEL_OUTLINE_LABELS.expand}
         </button>
@@ -219,14 +225,14 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
       <div>
         {groups.map(({ g, count, open }) => {
           return (
-            <Group key={g.id} id={g.id} title={g.title} count={count} open={open} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
+            <Group key={g.id} id={g.id} listId={listId(g.id)} title={g.title} count={count} open={open} onToggle={() => toggle(g.id)} mark={<KindMark id={g.id} cards={g.cards} model={model} />}
               note={<GroupNote said={saidOn(g.id)} />}>
               {/* The question is said once, on its own line above the outline (SC-02); the Goal group keeps the aim it is measured by. */}
               {g.id === 'goal' && g.question && model.aim != null ? (
                 <li className="flex items-start gap-2 px-2 py-1.5">
                   <span aria-hidden="true" className="w-4 flex-none" />
                   <span className="min-w-0 flex-1">
-                    <span className={`${typography.viewPanelTabular} block text-text-body`} title={model.aim.title} data-view="model.aim.text">{model.aim.text}</span>
+                    <Hover words={model.aim.title} className={`${typography.viewPanelTabular} block text-text-body`} data-view="model.aim.text">{model.aim.text}</Hover>
                   </span>
                 </li>
               ) : null}
@@ -238,7 +244,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
           )
         })}
         {model.links.length === 0 && linksSaid === null ? null : (
-          <Group id="relationships" title={MODEL_GROUP_TITLE.relationships} count={linkCount}
+          <Group id="relationships" listId={listId('relationships')} title={MODEL_GROUP_TITLE.relationships} count={linkCount}
             open={isOpen('relationships', linkCount)} onToggle={() => toggle('relationships')} mark={<KindMark id="relationships" cards={[]} model={model} />}
             note={<GroupNote said={linksSaid} />}>
             {links.map(({ l, i, from, to }) => { const row = linkRowOf(model, i); return <LinkRow key={row} model={model} link={l} i={i} row={row} from={from} to={to} /> })}

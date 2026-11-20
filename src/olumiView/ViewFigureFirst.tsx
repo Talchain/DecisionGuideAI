@@ -8,9 +8,10 @@
  * and places the two on one axis by their numbers (layout.ts figureAxisOf); it writes no number, no distance and no "closer" of its own.
  */
 import { create } from 'zustand'
-import { ArrowUp, X } from 'lucide-react'
 import { typography } from '../styles/typography'
-import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import { OkIcon, OkIconButton } from './look/icons'
+import { Hover, HoverButton } from './v12/chat/Hover'
 import type { FigureFirstEntry, FigureFirstShown } from './client'
 import { figureAxisOf, type FigureFirstGiven, type FigureFirstHeadings } from './layout'
 
@@ -34,7 +35,6 @@ interface FigureFirstState {
 export const FIGURE_FIRST_CLOSED = { entry: null, said: null, reading: false, signature: null } as const
 export const useFigureFirst = create<FigureFirstState>()(() => ({ uuid: null, signature: null, entry: null, headings: null, shown: null, said: null, reading: false, typed: '', text: '' }))
 
-const CLOSE = 'inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
 const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 
 /**
@@ -49,7 +49,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
     <section aria-labelledby={entry === null ? undefined : 'view-ff-heading'} className={`${typography.viewPanelBody} rounded-lg border border-info/40 bg-panel p-3 space-y-2`} data-testid="view-figure-first-entry">
       <div className="flex items-start justify-between gap-2">
         {entry === null ? <span /> : <p id="view-ff-heading" className={typography.panelHeader} data-ff="heading">{entry.heading}</p>}
-        <button type="button" onClick={onClose} aria-label="Close" title="Close" className={CLOSE} data-testid="view-figure-first-close"><X className="h-3 w-3" aria-hidden="true" /></button>
+        <OkIconButton id="cancel-close" tone="ghost" words="Close" onClick={onClose} testid="view-figure-first-close" />
       </div>
       {entry === null ? null : (
         <>
@@ -62,10 +62,11 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
             <div className="flex items-end gap-2">
               <textarea aria-labelledby="view-ff-question" rows={2} value={text} disabled={busy} className={`${FIELD} resize-none`} data-testid="view-figure-first-text"
                 onChange={(e) => useFigureFirst.setState({ text: e.target.value, said: null })} />
-              <button type="submit" disabled={busy || typed.trim() === '' || text.trim() === ''} aria-label="Send" title="Send" data-testid="view-figure-first-send"
-                className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
-                <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
+              {/* The send is the person's action: the lane's green icon button (held = aria-disabled, still focusable; the form's own guard refuses the press), a submit so Enter in the figure box sends too. */}
+              <HoverButton type="submit" words="Send" disabled={busy || typed.trim() === '' || text.trim() === ''} aria-label="Send" data-testid="view-figure-first-send"
+                className={`ok-icon-btn ok-icon-btn-primary ${VIEW_ICON_BUTTON_PRIMARY_CLASS}`}>
+                <OkIcon id="send" size={16} decorative inherit />
+              </HoverButton>
             </div>
           </form>
         </>
@@ -91,7 +92,7 @@ export function FigureFirstShownPanel({ onClose }: { onClose: () => void }) {
     <section className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3 space-y-2`} data-testid="view-figure-first-shown">
       <div className="flex items-start justify-between gap-2">
         <p className={typography.panelHeader} data-ff="shown.label">{shown.label}</p>
-        <button type="button" onClick={onClose} aria-label="Close" title="Close" className={CLOSE} data-testid="view-figure-first-shown-close"><X className="h-3 w-3" aria-hidden="true" /></button>
+        <OkIconButton id="cancel-close" tone="ghost" words="Close" onClick={onClose} testid="view-figure-first-shown-close" />
       </div>
       <div className="space-y-0.5">
         {h === null ? null : <p className={`${typography.chatMeta} flex items-center gap-1.5 text-text-light`}><span className="h-2 w-2 rounded-full bg-info" aria-hidden="true" /><span data-ff="shown.headings.olumi">{h.olumi}</span></p>}
@@ -124,12 +125,12 @@ export function FigureFirstSideBySide({ given, headings }: { given: FigureFirstG
           <li className="flex items-baseline gap-2" data-ff-figure="theirs">
             <span className="h-2 w-2 flex-none rounded-full bg-text-body" aria-hidden="true" />
             <span className={`${typography.chatMeta} text-text-light`} data-ff="headings.theirs">{headings.theirs}</span>
-            <span title={given.theirs.title} data-ff="given.theirs.text">{given.theirs.text}</span>
+            <Hover words={given.theirs.title} data-ff="given.theirs.text">{given.theirs.text}</Hover>
           </li>
           <li className="flex items-baseline gap-2" data-ff-figure="olumi">
             <span className="h-2 w-2 flex-none rounded-full bg-info" aria-hidden="true" />
             <span className={`${typography.chatMeta} text-text-light`} data-ff="headings.olumi">{headings.olumi}</span>
-            <span title={given.olumi.title} data-ff="given.olumi.text">{given.olumi.text}</span>
+            <Hover words={given.olumi.title} data-ff="given.olumi.text">{given.olumi.text}</Hover>
           </li>
         </ul>
         {/* One axis for both (geometry only; the words above say the figures). */}
