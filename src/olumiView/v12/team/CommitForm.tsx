@@ -60,6 +60,22 @@ export function openCommitDraft(sid: string, view: View, action?: string): void 
 }
 
 /**
+ * Where an opened Record form sits (Paul's 19 Nov test, batch 2: the form never scrolls over the newest reply). Inside the panel's scroll area the
+ * thread's newest reply goes to the area's top, then the area moves only as far as the form needs to show whole, never past that reply's top. With
+ * no scroll area the form is brought just into view. jsdom draws no layout and has no scrollIntoView, so each call is guarded.
+ */
+function placeForm(form: HTMLElement): void {
+  const area = form.closest<HTMLElement>('[data-testid="view-chat-scroll"]')
+  if (area === null) { form.scrollIntoView?.({ block: 'nearest' }); return }
+  const edge = 8
+  area.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')?.scrollIntoView?.({ block: 'start' })
+  const a = area.getBoundingClientRect(), f = form.getBoundingClientRect()
+  const hidden = f.bottom + edge - a.bottom // px of the form below the area's foot
+  if (hidden > 0) area.scrollTop += Math.min(hidden, Math.max(0, f.top - a.top - edge))
+  else if (f.top < a.top) area.scrollTop -= a.top - f.top + edge
+}
+
+/**
  * "Commit to this", from an option's details panel: the same form, the same draft, with the option's id and nothing else set. The person's three
  * answers stay theirs; the version sent is the approved one on screen (`view.version`), as for any anchored commitment.
  */
@@ -169,10 +185,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   const discard = () => { drop(); setError(null); setTried(false) }
   // The save's own state, drawn the same folded or open: a save that may have landed (or that core refused) is never hidden by Close.
   const status = locked ? <p role="alert" data-testid="commit-form-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error ? <p role="alert" data-testid="commit-form-error" className={ERR}>{error}</p> : null
-  // Opening, from its own button or from outside, brings the form just far enough into the panel's scroll area.
-  // Focus never scrolls. jsdom draws no layout and has no scrollIntoView.
+  // Opening, from its own button or from outside, places the form once (placeForm). Focus never scrolls.
   const form = useRef<HTMLElement>(null)
-  useEffect(() => { if (d.open) form.current?.scrollIntoView?.({ block: 'nearest' }) }, [d.open])
+  useEffect(() => { if (d.open && form.current !== null) placeForm(form.current) }, [d.open])
   if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">

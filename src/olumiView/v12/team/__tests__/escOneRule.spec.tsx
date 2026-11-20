@@ -44,14 +44,18 @@ describe('esc3 task 1: Record what you will do', () => {
     fireEvent.click(screen.getByTestId('commit-form-open'))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics about hours')
   })
-  it('opening the form (its own button, or from outside) scrolls that form into view, just far enough; folded, nothing scrolls', () => {
+  it('opening the form in the panel brings the newest reply to the top and never scrolls the form over it (Paul 19 Nov, batch 2); with no panel area the form comes just into view; folded, nothing scrolls', () => {
     const scrolled: Array<[Element, unknown]> = [], was = Element.prototype.scrollIntoView
     Element.prototype.scrollIntoView = function (this: Element, o?: boolean | ScrollIntoViewOptions) { scrolled.push([this, o]) }
     try {
-      render(<div data-testid="view-chat-scroll"><CommitForm sid="s_esc1b" view={view()} onWrote={async () => true} /></div>)
+      render(<div data-testid="view-chat-scroll"><div data-testid="view-chat-latest" /><CommitForm sid="s_esc1b" view={view()} onWrote={async () => true} /></div>)
       expect(scrolled, 'CONTRAST: folded, nothing scrolls').toHaveLength(0)
       fireEvent.click(screen.getByTestId('commit-form-open'))
-      expect(scrolled).toEqual([[screen.getByTestId('commit-form'), { block: 'nearest' }]])
+      expect(scrolled).toEqual([[screen.getByTestId('view-chat-latest'), { block: 'start' }]])
+      cleanup(); scrolled.length = 0
+      render(<CommitForm sid="s_esc1c" view={view()} onWrote={async () => true} />)
+      fireEvent.click(screen.getByTestId('commit-form-open'))
+      expect(scrolled, 'CONTRAST: no panel area').toEqual([[screen.getByTestId('commit-form'), { block: 'nearest' }]])
     } finally { Element.prototype.scrollIntoView = was }
   })
 })
