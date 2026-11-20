@@ -189,8 +189,9 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(approve.className).not.toMatch(/rounded-(md|full|pill|lg)/)
     const aside = bar.querySelector<HTMLElement>('[data-testid="view-set-aside"]')!
     expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', 'Set aside'])
-    expect(aside.querySelector('svg.lucide-archive'), "the registry's set-aside (a plain archive box): the cross means Close, the box-with-cross was ambiguous").not.toBeNull()
+    expect(aside.querySelector('svg.lucide-ban'), "the registry's set-aside (a plain not-applied ban): the cross means Close, and the tray (archive) looked like the composer's floating-window icon").not.toBeNull()
     expect(aside.querySelector('svg.lucide-x')).toBeNull()
+    expect(aside.querySelector('svg.lucide-archive')).toBeNull()
     expect(aside.querySelector('svg.lucide-archive-x')).toBeNull()
   })
 
