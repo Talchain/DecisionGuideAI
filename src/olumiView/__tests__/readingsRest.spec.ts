@@ -90,7 +90,9 @@ describe('PL-1083 (1), new look, DL 12:5xZ (A), contract 3: what yields while th
 
 describe('contract 3: the pending review is one row at rest, and a withheld card says why (source bound by identity)', async () => {
   const { readFileSync } = await import('node:fs')
-  const chat = readFileSync('src/olumiView/ViewChat.tsx', 'utf8')
+  // ViewChat.tsx was split by domain (20 Nov, move-only): its source is read here as one text in the original order.
+  const chat = ['v12/chat/replyBlocks.tsx', 'v12/chat/Turns.tsx', 'v12/chat/ProposalCard.tsx', 'v12/chat/chatActions.tsx', 'v12/chat/nextStep.tsx', 'ViewChat.tsx', 'v12/chat/Composer.tsx']
+    .map((f) => readFileSync(`src/olumiView/${f}`, 'utf8')).join('\n')
   const card = readFileSync('src/olumiView/previous/CoreCard.tsx', 'utf8')
 const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
   const from = chat.indexOf('export function ProposalReview(')

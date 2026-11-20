@@ -48,7 +48,8 @@ describe('a control that cannot act yet is solid, not faded', () => {
   })
   it.each([
     'src/olumiView/AddFigure.tsx', 'src/olumiView/DraftingBoard.tsx', 'src/olumiView/FigureEdit.tsx', 'src/olumiView/Rename.tsx',
-    'src/olumiView/ViewChat.tsx', 'src/olumiView/ViewFigureFirst.tsx', 'src/olumiView/ViewPreMortemKey.tsx', 'src/olumiView/ViewWhatIfKey.tsx',
+    'src/olumiView/ViewChat.tsx', 'src/olumiView/v12/chat/replyBlocks.tsx', 'src/olumiView/v12/chat/Turns.tsx', 'src/olumiView/v12/chat/ProposalCard.tsx',
+    'src/olumiView/v12/chat/chatActions.tsx', 'src/olumiView/v12/chat/nextStep.tsx', 'src/olumiView/v12/chat/Composer.tsx', 'src/olumiView/ViewFigureFirst.tsx', 'src/olumiView/ViewPreMortemKey.tsx', 'src/olumiView/ViewWhatIfKey.tsx',
     'src/olumiCore/team/TeamTab.tsx', 'src/olumiCore/team/ViewsPanel.tsx', 'src/olumiCore/team/ui.ts',
   ])('NF4 %s draws no disabled control faded', (f) => {
     expect(readFileSync(path.resolve(f), 'utf8')).not.toMatch(DISABLED_FADE)
