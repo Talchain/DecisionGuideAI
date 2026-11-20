@@ -73,7 +73,9 @@ export default function Tooltip({ children, content, className = '', delay, asCh
     handleClose: asChild ? safePolygon() : undefined,
   });
   const focus = useFocus(context);
-  const dismiss = useDismiss(context);
+  // Escape closes this tooltip and CONTINUES: floating-ui stops the press at `document` by default, which swallowed the first Escape of any
+  // surface whose control showed a tooltip (More options needed two), and the one shared Escape rule (escapeLayers.ts) acts last, at `window`.
+  const dismiss = useDismiss(context, { bubbles: { escapeKey: true } });
   const role = useRole(context, { role: 'tooltip' });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([
