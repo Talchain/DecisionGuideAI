@@ -233,7 +233,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
    Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
    actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */
 .ok-pinned {
-  max-height: 50%; margin: 0; padding: 4px 16px 0; border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
+  max-height: 50%; margin: var(--space-3) 0 0; padding: 4px 16px 0; border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
 /* DL 06:57Z (2): the box is a column whose only shrinking part is the list of changes (it scrolls on its own); the step's words, the
@@ -503,9 +503,6 @@ input[type='checkbox'] { accent-color: var(--success); }
 .ok-waiting { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 /* P4 reply facts: one compact grey icon row under a reply. */
 .ok-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); color: var(--text-light); }
-/* P5: the panel's top row (Record what you will do), right-aligned; empty when there is nothing to record against. */
-.ok-panel-top { display: flex; justify-content: flex-end; padding: var(--space-1) var(--space-3) 0; }
-.ok-panel-top:empty { display: none; }
 /* The "Latest" control under the thread: the registry's ghost icon button on a panel surface with a border-token line. */
 .ok-to-latest { background-color: var(--bg-panel); border: 1px solid var(--border-default); }
 /* An inline Keep icon (beside one list item) shows on that item's hover or keyboard focus, and always where there is no hover or it has said something. */

@@ -86,7 +86,7 @@ function useCommitReach(): { view: View; sid: string } | null {
   return view === null || !sid || at !== null || !isForThisPage(view, me) ? null : { view, sid }
 }
 
-/** P5 (system spec): "Record what you will do" is an icon in the panel's top row, its words the hover (the registry's `commit-action`, through the one Tip). It only opens
+/** P5 (system spec): "Record what you will do" is an icon in the composer's icon row, its words the hover (the registry's `commit-action`, through the one Tip). It only opens
  *  the form below (the same form, draft and write route as ever); commitment stays a step, not a footnote. */
 export function RecordStepButton(): JSX.Element | null {
   const reach = useCommitReach()
@@ -176,12 +176,9 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
   if (!d.open) {
     return (
       <section data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="false" aria-label={COMMIT_WORDS.heading} className="grid">
-        <button type="button" data-testid="commit-form-open" onClick={() => put({ open: true })}
-          className={`${typography.viewPanelMeta} inline-flex min-h-[24px] w-fit cursor-pointer items-center gap-1.5 font-medium text-text-light hover:text-text-body`}>
-          <OkIcon id="add" size={14} decorative inherit />{COMMIT_WORDS.heading}
-          {busy ? <span className="font-normal" data-testid="commit-form-saving">· {COMMIT_WORDS.saving}</span>
-            : hasDraft ? <span className="font-normal" data-testid="commit-form-draft-kept">· {COMMIT_WORDS.draftKept}</span> : null}
-        </button>
+        {/* The entry is the composer's icon (RecordStepButton); this folded section says only what is in flight or kept, never a second button. */}
+        {busy ? <p className={`${META} font-normal`} data-testid="commit-form-saving">{COMMIT_WORDS.saving}</p>
+          : hasDraft ? <p className={`${META} font-normal`} data-testid="commit-form-draft-kept">{COMMIT_WORDS.draftKept}</p> : null}
         {status}
       </section>
     )

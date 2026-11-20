@@ -175,11 +175,11 @@ describe('the saved-expectation card: its button opens the existing outcome form
 describe('the saved-expectation card: mounted in the Olumi tab\'s commit slot', () => {
   const slot = (v: View) => { served = v; useViewStore.setState({ view: v }); return render(<CommitFormSlot />) }
 
-  it('stands directly above the "Record what you will do" line', () => {
+  it('stands directly above the folded commitment form (its entry is the composer icon, not a line here)', () => {
     slot(viewOf([mine()]))
     const card = screen.getByTestId('expectation-entry'), form = screen.getByTestId('commit-form')
     expect(card.nextElementSibling).toBe(form)
-    expect(form.textContent).toBe('Record what you will do')
+    expect(form.textContent).toBe('')
   })
 
   it('is not drawn on an earlier version, or on a page that is not the reader\'s (the slot\'s own gate)', () => {

@@ -1926,8 +1926,6 @@ export function ViewChat() {
       {/* Catch up (overnight/journey SYNTHESIS item 4): one quiet row of counts at the very top, one press to the scenario record in the
           history panel; drawn only when there is something to catch up on. It repeats nothing below it (no Next step, no conclusion words). */}
       <CatchUp />
-      {/* P5 (system spec): the panel's top row holds Record what you will do, as an icon (its words are the hover); the commitment form opens below, as ever. */}
-      <div className="ok-panel-top" data-testid="view-chat-top-row"><RecordStepButton /></div>
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
       {surface !== 'panel' ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
@@ -1985,7 +1983,7 @@ export function ViewChat() {
       {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
           conversation: the thread above it keeps its own scroll. Opened, its list grows upward inside this box (its own scroll). */}
       {view === null || step === null || !pinned ? null
-        : <div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
+        : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
@@ -2124,6 +2122,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           {popped ? null : (
             <OkIconButton id="popout" words={CHAT_POPOUT_LABEL} hover={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
           )}
+          {/* P5 (system spec): the ONE entry to Record what you will do, an icon beside the other right-side icons (its words are the hover); the form opens in the thread. */}
+          <RecordStepButton />
           {analysisAction === undefined ? null : (
             <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse"
               className={`h-7 w-7 rounded-md hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />

@@ -108,11 +108,13 @@ describe('11. "Ask this again" copies the words into the composer and sends noth
   })
 })
 
-describe('12. committing is a step: an icon in the panel\'s top row, and "Use as my action"', () => {
-  it('P5: the panel\'s top row holds a "Record what you will do" icon (its words are the hover and name); pressing opens the form blank, and nothing is sent', async () => {
+describe('12. committing is a step: ONE icon in the composer\'s row, and "Use as my action"', () => {
+  it('P5: the composer\'s icon row holds the one "Record what you will do" icon (its words are the hover and name); no top row, no foot text button; pressing opens the form blank, and nothing is sent', async () => {
     const c = mount(session('after-find-first'))
-    const row = q(c, 'view-chat-top-row')!
-    const b = q(row, 'view-next-record')!
+    expect(q(c, 'view-chat-top-row'), 'no empty top row').toBeNull()
+    expect(q(c, 'commit-form-open'), 'no foot text button').toBeNull()
+    expect(c.querySelectorAll('[data-testid="view-next-record"]')).toHaveLength(1)
+    const b = q(q(c, 'view-composer-actions')!, 'view-next-record')!
     expect(b.getAttribute('aria-label')).toBe('Record what you will do')
     expect(b.hasAttribute('title'), 'no native title: the hover is the one Tip').toBe(false)
     // pointer: the Tip opens after its rest; keyboard: it opens on focus, so the words are reachable without a mouse

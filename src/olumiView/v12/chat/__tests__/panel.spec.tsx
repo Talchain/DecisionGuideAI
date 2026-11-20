@@ -240,7 +240,8 @@ describe('5 and 6. no form unless asked; the composer keeps its tools', () => {
   it('at rest the panel holds no form field; the commitment form opens only on its own press', async () => {
     const c = show(session('after-find-first'))
     expect(c.querySelectorAll('textarea, input[type="text"]')).toHaveLength(0)
-    const open = q(c, 'commit-form-open')
+    expect(q(c, 'commit-form-open'), 'no foot text button').toBeNull()
+    const open = q(render(<ViewComposer />).container, 'view-next-record')
     expect(open).not.toBeNull()
     await act(async () => { fireEvent.click(open!) })
     expect(q(c, 'commit-form-action')).not.toBeNull() // CONTRAST: asked for, it opens

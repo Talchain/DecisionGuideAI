@@ -38,18 +38,19 @@ function serve(answer: (s: Sent) => { status: number; body: unknown }): Sent[] {
 }
 afterEach(() => { cleanup(); setTeamFetch(null); setPagePerson(null); resetWrites(); resetDifferences(); resetDrafts() })
 
-const openForm = () => { const b = screen.queryByTestId('commit-form-open'); if (b) fireEvent.click(b) }
+let lastSid = 's_x'
+const openForm = () => act(() => openCommitDraft(lastSid, view()))
 
 describe('Record what you will do', () => {
   it('is collapsed to one line until pressed (V12 refinement spec 6)', () => {
-    render(<CommitForm sid="s_c" view={view()} onWrote={async () => true} />)
+    lastSid = 's_c'; render(<CommitForm sid="s_c" view={view()} onWrote={async () => true} />)
     expect(screen.queryByTestId('commit-form-action')).toBeNull()
-    expect(screen.getByTestId('commit-form-open').textContent).toBe('Record what you will do')
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect(screen.queryByTestId('commit-form-open'), 'no foot text button: the entry is the composer icon').toBeNull()
+    act(() => openCommitDraft('s_c', view()))
     expect(screen.getByTestId('commit-form-action')).toBeTruthy()
   })
   it('typing keeps the same field and its focus: no field is remounted between keystrokes (Codex UI chat, 16 Nov)', () => {
-    render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
+    lastSid = 's_x'; render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
     openForm()
     for (const id of ['commit-form-action', 'commit-form-expect', 'commit-form-reconsider']) {
       const first = screen.getByTestId(id) as HTMLTextAreaElement
@@ -62,7 +63,7 @@ describe('Record what you will do', () => {
     }
   })
   it('draws the board\'s words: three questions, Keep it, and one quiet line that says what is still needed, then what keeping it is for', () => {
-    render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
+    lastSid = 's_x'; render(<CommitForm sid="s_x" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.getByTestId('commit-form-heading').textContent).toBe('Record what you will do')
     expect(screen.queryByTestId('commit-form-proposed')).toBeNull() // the unexplained "Proposed" tag is gone (Paul, 18 Nov)
@@ -73,23 +74,23 @@ describe('Record what you will do', () => {
     expect(COMMIT_WORDS.keep).toBe('Keep it')
   })
   it('Paul, 18 Nov ("no way to get rid of it"): Close folds the form and KEEPS the draft, which the folded line says; Discard draft empties it; CONTRAST: an empty form has no Discard', () => {
-    render(<CommitForm sid="s_close" view={view()} onWrote={async () => true} />)
+    lastSid = 's_close'; render(<CommitForm sid="s_close" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.queryByTestId('commit-form-discard')).toBeNull()
     fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Ask the two mechanics about hours' } })
     fireEvent.click(screen.getByTestId('commit-form-close'))
-    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-heading'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', null, '· Draft kept'])
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-heading'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', null, 'Draft kept'])
+    act(() => openCommitDraft('s_close', view()))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics about hours')
     fireEvent.click(screen.getByTestId('commit-form-discard'))
     expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('commit-form-draft-kept')]).toEqual(['false', null])
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    act(() => openCommitDraft('s_close', view()))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('')
   })
   const pick = (...ids: string[]) => act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(ids), edgeIds: new Set<string>(), anchorPosition: null } }) })
   it('Paul 19 Nov: a form with all three answers blank folds itself when the person selects another card, and when they send a message; CONTRAST: one with a word typed stays open with its draft', () => {
     pick('a')
-    render(<CommitForm sid="s_auto" view={view()} onWrote={async () => true} />)
+    lastSid = 's_auto'; render(<CommitForm sid="s_auto" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('true')
     pick('b')
@@ -107,7 +108,7 @@ describe('Record what you will do', () => {
   it('Paul 19 Nov: "Commit to this" from an option does not fold itself when its card is selected', () => {
     pick('a')
     const v = view()
-    render(<CommitForm sid="s_opt" view={v} onWrote={async () => true} />)
+    lastSid = 's_opt'; render(<CommitForm sid="s_opt" view={v} onWrote={async () => true} />)
     act(() => { openCommitTo('s_opt', v, 'second_oven') })
     pick('b')
     act(() => { closeUntouchedCommit('s_opt') })
@@ -120,16 +121,16 @@ describe('Record what you will do', () => {
     setTeamFetch(((_url: string, init?: RequestInit) => (init?.method ?? 'GET') === 'GET'
       ? Promise.resolve(new Response(JSON.stringify({ me: { id: '1' } }), { status: 200, headers: { 'content-type': 'application/json' } }))
       : new Promise<Response>((_, reject) => { posted = true; lose = reject })) as unknown as typeof fetch)
-    render(<CommitForm sid="s_fold" view={view()} onWrote={async () => true} />)
+    lastSid = 's_fold'; render(<CommitForm sid="s_fold" view={view()} onWrote={async () => true} />)
     openForm()
     for (const id of ['commit-form-action', 'commit-form-expect', 'commit-form-reconsider']) fireEvent.change(screen.getByTestId(id), { target: { value: 'x' } })
     const folded = () => ({ open: screen.getByTestId('commit-form').getAttribute('data-open'), kept: screen.queryByTestId('commit-form-draft-kept')?.textContent ?? null, saving: screen.queryByTestId('commit-form-saving')?.textContent ?? null, alert: screen.queryByTestId('commit-form-error')?.textContent ?? null })
     fireEvent.click(screen.getByTestId('commit-form-close'))
-    expect(folded()).toEqual({ open: 'false', kept: '· Draft kept', saving: null, alert: null })
+    expect(folded()).toEqual({ open: 'false', kept: 'Draft kept', saving: null, alert: null })
     openForm()
     fireEvent.click(screen.getByTestId('commit-form-keep'))
     fireEvent.click(screen.getByTestId('commit-form-close'))
-    expect(folded()).toEqual({ open: 'false', kept: null, saving: '· Saving', alert: null })
+    expect(folded()).toEqual({ open: 'false', kept: null, saving: 'Saving', alert: null })
     await waitFor(() => expect(posted).toBe(true))
     await act(async () => { lose(new TypeError('Failed to fetch')) })
     await waitFor(() => expect(folded().alert).toBe(MAY_HAVE_SAVED))
@@ -137,7 +138,7 @@ describe('Record what you will do', () => {
   })
   it('a kept idea opens the form with its words as plain text (no "## " in the box), and Close gets rid of it', () => {
     const v = view()
-    render(<CommitForm sid="s_idea" view={v} onWrote={async () => true} />)
+    lastSid = 's_idea'; render(<CommitForm sid="s_idea" view={v} onWrote={async () => true} />)
     act(() => openCommitDraft('s_idea', v, '## Find out first\nAsk whether the change caused the rise. **Then** decide.'))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Find out first\nAsk whether the change caused the rise. **Then** decide.') // lossless seed (Codex 008): only the heading mark goes
     fireEvent.click(screen.getByTestId('commit-form-close'))
@@ -146,7 +147,7 @@ describe('Record what you will do', () => {
   it('holds Keep it until all three are answered, then posts them to the existing commitments route as typed', async () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 3 } }))
     let wrote = 0
-    render(<CommitForm sid="s_x" view={view()} onWrote={async () => { wrote++; return true }} />)
+    lastSid = 's_x'; render(<CommitForm sid="s_x" view={view()} onWrote={async () => { wrote++; return true }} />)
     openForm()
     const keep = screen.getByTestId('commit-form-keep') as HTMLButtonElement
     const boxes = () => ['action', 'expect', 'reconsider'].map((k) => screen.getByTestId(`commit-form-${k}`).getAttribute('aria-invalid'))
@@ -170,14 +171,14 @@ describe('Record what you will do', () => {
     // CHANGED BY DESIGN (Codex root's native team journey, 17 Nov, item 5; review 008 point 4): once saved, the form folds back to its one
     // line. It used to stay open and empty; this row asserted the empty box.
     await waitFor(() => expect(screen.queryByTestId('commit-form-action')).toBeNull())
-    expect(screen.getByTestId('commit-form-open').textContent).toBe('Record what you will do')
+    expect(screen.queryByTestId('commit-form-open'), 'no foot text button: the entry is the composer icon').toBeNull()
     // It opens again, empty, for the next one.
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    act(() => openCommitDraft('s_x', view()))
     expect((screen.getByTestId('commit-form-action') as HTMLTextAreaElement).value).toBe('')
   })
   it('CONTRAST: a save core refuses leaves the form open with the person\'s words, never folded away', async () => {
     serve(() => ({ status: 400, body: { error: 'Core says no.' } }))
-    render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
+    lastSid = 's_y'; render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
     openForm()
     fireEvent.change(screen.getByTestId('commit-form-action'), { target: { value: 'Ring the funder' } })
     fireEvent.change(screen.getByTestId('commit-form-expect'), { target: { value: 'A yes by May' } })
@@ -196,7 +197,7 @@ describe('Record what you will do', () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 4 } }))
     let wrote = 0
     const pending = view({ version: null, proposal: { id: 9 } as unknown as View['proposal'] })
-    render(<CommitForm sid="s_x" view={pending} onWrote={async () => { wrote++; return true }} />)
+    lastSid = 's_x'; render(<CommitForm sid="s_x" view={pending} onWrote={async () => { wrote++; return true }} />)
     openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('false')
     expect(screen.getByTestId('commit-form-unanchored').textContent).toBe(COMMIT_WORDS.unanchored)
@@ -212,7 +213,7 @@ describe('Record what you will do', () => {
   it('contrast: an option stored in the shared draft is never sent without an approved version, and with one it still is', async () => {
     const sent = serve(() => ({ status: 201, body: { commitment: 5 } }))
     putDraft<Record<string, unknown>>('s_x:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: ['d1'], option: 'opt_a', reviewOn: '2027-01-01' }))
-    const { unmount } = render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
+    lastSid = 's_x'; const { unmount } = render(<CommitForm sid="s_x" view={view({ version: null })} onWrote={async () => true} />)
     openForm()
     fill()
     fireEvent.click(screen.getByTestId('commit-form-keep'))
@@ -221,7 +222,7 @@ describe('Record what you will do', () => {
     unmount(); resetWrites()
     const sent2 = serve(() => ({ status: 201, body: { commitment: 6 } }))
     putDraft<Record<string, unknown>>('s_y:commitment', () => ({ open: true, action: '', owner: '1', expect: '', reconsider: '', keeps: [], option: 'add_one' })) // a live option card: only those are sent (18 Nov review: never write an option unseen)
-    render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
+    lastSid = 's_y'; render(<CommitForm sid="s_y" view={view()} onWrote={async () => true} />)
     openForm()
     expect(screen.getByTestId('commit-form').getAttribute('data-anchored')).toBe('true')
     expect(screen.queryByTestId('commit-form-unanchored')).toBeNull()
@@ -340,7 +341,7 @@ describe('Record what you will do: one surface at a time, and the newest reply s
     const { useLaneInspector } = await import('../../edit/inspectorStore')
     const show = () => act(() => { useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: 'c1' } }) })
     const reset = () => act(() => { useLaneInspector.getState().close() })
-    render(<CommitForm sid="s_pop" view={view()} onWrote={async () => true} />)
+    lastSid = 's_pop'; render(<CommitForm sid="s_pop" view={view()} onWrote={async () => true} />)
     openForm()
     show()
     expect(screen.getByTestId('commit-form').getAttribute('data-open'), 'untouched form folds').toBe('false')

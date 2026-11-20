@@ -129,7 +129,7 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
   })
   it('CATCH: the pinned box lost its 112 px floor, so a one-row review does not reserve a taller box', () => {
     // CHANGED BY DESIGN (17 Nov, the calm panel): the pinned box sits at the thread's foot, just above the composer (was, sx-panel: at the top under the tabs); same classes.
-    expect(chat).toContain('<div className="ok-pinned mt-1 shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
+    expect(chat).toContain('<div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
     expect(chat).not.toContain('min-h-[112px]')
   })
   it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {

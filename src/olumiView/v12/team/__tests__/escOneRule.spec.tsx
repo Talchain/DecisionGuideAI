@@ -10,7 +10,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../../client'
 import { resetDrafts } from '../../../../olumiCore/team/drafts'
 import { resetWrites } from '../../../../olumiCore/team/writes'
-import { CommitForm } from '../CommitForm'
+import { CommitForm, RecordStepButton, openCommitDraft } from '../CommitForm'
 import { useEscapeFloor, useEscapeLayer } from '../../edit/escapeLayers'
 import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
@@ -35,13 +35,13 @@ const esc = (to: Element = document.body) => fireEvent.keyDown(to, { key: 'Escap
 describe('esc3 task 1: Record what you will do', () => {
   it('Escape folds the open form on the FIRST press and KEEPS the draft, as its X does; the folded line says "Draft kept"; CONTRAST: Discard is the only thing that empties it', () => {
     render(<CommitForm sid="s_esc1" view={view()} onWrote={async () => true} />)
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    act(() => openCommitDraft('s_esc1', view()))
     const box = screen.getByLabelText('What will you do?') as HTMLTextAreaElement
     fireEvent.change(box, { target: { value: 'Ask the two mechanics about hours' } })
     esc(box) // from inside the text field: the layer closes, the words are not discarded
     expect(screen.getByTestId('commit-form').getAttribute('data-open')).toBe('false')
-    expect(screen.getByTestId('commit-form-draft-kept').textContent).toBe('· Draft kept')
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect(screen.getByTestId('commit-form-draft-kept').textContent).toBe('Draft kept')
+    act(() => openCommitDraft('s_esc1', view()))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Ask the two mechanics about hours')
   })
   it('opening the form (its own button, or from outside) scrolls that form into view, just far enough; folded, nothing scrolls', () => {
@@ -50,7 +50,7 @@ describe('esc3 task 1: Record what you will do', () => {
     try {
       render(<div data-testid="view-chat-scroll"><CommitForm sid="s_esc1b" view={view()} onWrote={async () => true} /></div>)
       expect(scrolled, 'CONTRAST: folded, nothing scrolls').toHaveLength(0)
-      fireEvent.click(screen.getByTestId('commit-form-open'))
+      act(() => openCommitDraft('s_esc1b', view()))
       expect(scrolled).toEqual([[screen.getByTestId('commit-form'), { block: 'nearest' }]])
     } finally { Element.prototype.scrollIntoView = was }
   })
@@ -70,13 +70,13 @@ describe('esc3 task 2: one Escape closes one layer', () => {
   })
   it('a layer closes on the first press even with the Record form open beneath it, and the form (opened first) keeps its draft until its own press', () => {
     render(<><CommitForm sid="s_esc2" view={view()} onWrote={async () => true} /><Menu name="more" /></>)
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    act(() => openCommitDraft('s_esc2', view()))
     fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Keep this' } })
     fireEvent.click(screen.getByTestId('more-open'))
     esc(screen.getByLabelText('What will you do?'))
     expect([screen.queryByTestId('more-menu') !== null, screen.getByTestId('commit-form').getAttribute('data-open')]).toEqual([false, 'true'])
     esc()
-    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', '· Draft kept'])
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', 'Draft kept'])
   })
   it('the stack acts last: a listener on window sees the press before the layer closes (not yet handled); a press with nothing open goes on', () => {
     const seen: boolean[] = []
@@ -136,14 +136,14 @@ describe('escfix: the floor is under every surface, whenever it began', () => {
 describe('escfix: an unregistered popover over a registered layer', () => {
   it('one Escape closes only the popover (the layer stays), the second closes the layer, the Record form\'s draft is never discarded', () => {
     render(<><CommitForm sid="s_escfix1" view={view()} onWrote={async () => true} /><Popover /></>)
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    act(() => openCommitDraft('s_escfix1', view()))
     fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Keep this draft' } })
     fireEvent.click(screen.getByTestId('pop-open'))
     esc()
     expect([screen.queryByTestId('pop-menu') === null, screen.getByTestId('commit-form').getAttribute('data-open')]).toEqual([true, 'true'])
     esc()
-    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', '· Draft kept'])
-    fireEvent.click(screen.getByTestId('commit-form-open'))
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', 'Draft kept'])
+    act(() => openCommitDraft('s_escfix1', view()))
     expect((screen.getByLabelText('What will you do?') as HTMLTextAreaElement).value).toBe('Keep this draft')
   })
   it('the same when the popover listens on window and opened after the layer (its listener is later than the stack\'s)', () => {
@@ -162,21 +162,21 @@ describe('esc3 task 2 and 3: the canvas\'s surface and the Record form share one
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); install() })
   afterEach(() => { uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null, peek: null }); useCanvasStore.getState().clearSelection() })
   it('a Record form with a draft is open, then a card is pressed: the first Escape closes the details box AND clears the selection (the form, older, stays with its draft); the second folds the form and keeps the draft', async () => {
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
-    fireEvent.click(await screen.findByTestId('commit-form-open'))
+    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /><RecordStepButton /></ToastProvider>)
+    fireEvent.click(await screen.findByTestId('view-next-record'))
     fireEvent.change(screen.getByLabelText('What will you do?'), { target: { value: 'Open one market first' } })
     act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set([OPT]), edgeIds: new Set<string>(), anchorPosition: null } }); useLaneInspector.getState().open({ kind: 'card', id: OPT }) })
     await screen.findByTestId('lane-inspector')
     esc()
     expect([screen.queryByTestId('lane-inspector') === null, useCanvasStore.getState().selection.nodeIds.size, screen.getByTestId('commit-form').getAttribute('data-open')]).toEqual([true, 0, 'true'])
     esc()
-    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', '· Draft kept'])
+    expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.getByTestId('commit-form-draft-kept').textContent]).toEqual(['false', 'Draft kept'])
   })
   it('CONTRAST: the details box opened FIRST and the form after it: the form closes first, then the box', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: OPT })
-    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /></ToastProvider>)
+    render(<ToastProvider><LaneEditingLayer /><CommitFormSlot /><RecordStepButton /></ToastProvider>)
     await screen.findByTestId('lane-inspector')
-    fireEvent.click(await screen.findByTestId('commit-form-open'))
+    fireEvent.click(await screen.findByTestId('view-next-record'))
     esc()
     expect([screen.getByTestId('commit-form').getAttribute('data-open'), screen.queryByTestId('lane-inspector') !== null]).toEqual(['false', true])
     esc()
