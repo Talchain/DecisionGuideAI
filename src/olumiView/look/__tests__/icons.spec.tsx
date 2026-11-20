@@ -93,6 +93,15 @@ describe('OkIcon and OkIconButton', () => {
     expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull()
   })
 
+  it('Set aside and Open in floating window are two different pictures, each with an accessible name (Olumi tab panel rank 6)', () => {
+    const { container } = render(<><OkIconButton id="set-aside" testid="a" /><OkIconButton id="popout" testid="p" /></>)
+    const glyph = (t: string) => container.querySelector(`[data-testid="${t}"] svg`)!.getAttribute('class')!.split(/\s+/).find((c) => c.startsWith('lucide-') && c !== 'lucide')
+    expect([glyph('a'), glyph('p')]).toEqual(['lucide-ban', 'lucide-panel-top-open'])
+    expect([screen.getByTestId('a').getAttribute('aria-label'), screen.getByTestId('p').getAttribute('aria-label')]).toEqual(['Set aside', 'Open in floating window'])
+    // CONTRAST: neither glyph is the other's alternative, so no state of one can draw the other.
+    expect([ICONS['set-aside'].alt, ICONS.popout.alt === ICONS['set-aside'].Icon]).toEqual([undefined, false])
+  })
+
   it('OkIconButton renders aria-label and title with the hover words, a 44 px hit area, and presses', () => {
     const onClick = vi.fn()
     render(<OkIconButton id="set-aside" onClick={onClick} testid="aside" />)
