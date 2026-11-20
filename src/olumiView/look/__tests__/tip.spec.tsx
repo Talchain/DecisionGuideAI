@@ -67,7 +67,7 @@ describe('the one Tip', () => {
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')]).toEqual([`${900 - 200 - TIP_GAP}px`, `${800 - 60 - TIP_GAP}px`])
     spy.mockRestore()
   })
-  it('a box taller or wider than the window stays at the window\'s margin on both axes (the CSS caps its size and scrolls it); it never starts above or left of the margin', () => {
+  it('a box taller or wider than the window stays at the window\'s margin on both axes; it never starts above or left of the margin', () => {
     Object.defineProperty(window, 'innerWidth', { value: 400, configurable: true }); Object.defineProperty(window, 'innerHeight', { value: 300, configurable: true })
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 500, 2000))
     render(<Tip text="Very long" anchorRect={rect(200, 150, 20, 20)} />)
@@ -75,10 +75,26 @@ describe('the one Tip', () => {
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')]).toEqual([`${TIP_GAP}px`, `${TIP_GAP}px`])
     spy.mockRestore()
   })
-  it('the size cap is a recipe in olumiLook.css (viewport max-width and max-height, overflow auto), not a class or an inline style here', () => {
+  it('below the window\'s foot the tip flips up, its foot level with the anchor\'s; with room below it stays level with the anchor\'s top', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 1000, configurable: true }); Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 200, 60))
+    const { unmount } = render(<Tip text="Low" anchorRect={rect(100, 600, 80, 30)} />)
+    expect(screen.getByRole('tooltip').style.getPropertyValue('--tip-y'), 'room below').toBe('600px')
+    unmount()
+    render(<Tip text="Low" anchorRect={rect(100, 770, 80, 20)} />)
+    expect(screen.getByRole('tooltip').style.getPropertyValue('--tip-y'), 'flipped: 790 - 60').toBe('730px')
+    spy.mockRestore()
+  })
+  it('a tip is never interactive: a long body renders WHOLE (every word in the DOM), with no overflow or height style and no scroll recipe in the stylesheet', () => {
+    const body = Array.from({ length: 200 }, (_, i) => `word${i}`).join(' ')
+    render(<Tip text={`Title\n${body}`} anchorRect={rect(100, 100, 20, 20)} />)
+    const tip = screen.getByRole('tooltip')
+    expect(tip.querySelector('[data-tip-body]')!.textContent).toBe(body)
+    expect([tip.style.overflow, tip.style.maxHeight, tip.style.height, tip.getAttribute('style')?.includes('overflow') ?? false]).toEqual(['', '', '', false])
+    expect(tip.className).toContain('pointer-events-none')
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     const rule = css.match(/\.ok-tip\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect([/max-width:\s*min\(240px,\s*calc\(100vw/.test(rule), /max-height:\s*calc\(100vh/.test(rule), /overflow:\s*auto/.test(rule)]).toEqual([true, true, true])
+    expect([/max-width:\s*min\(240px,\s*calc\(100vw/.test(rule), /max-height|overflow/.test(rule)]).toEqual([true, false])
     expect(css).toMatch(/\.ok-tip-title\s*\{[^}]*font-weight:\s*500[^}]*var\(--text-header\)/)
   })
   it('nothing is drawn with no words or no row to stand beside', () => {

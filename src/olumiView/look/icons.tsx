@@ -36,7 +36,7 @@
  *  - core's words kept (`keepWords`): the info status line while waiting, core's olumi.text on the mark, GOAL_QUESTION (so Goal is icon plus
  *    word), the EarlyAnswer caveat, the story headings, and lens and next-step labels (icon plus word).
  */
-import { useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, ArrowDownRight, ArrowUpRight, BadgeHelp, Equal, MessagesSquare, Shuffle, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
@@ -45,8 +45,8 @@ import {
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
-  Brackets, EqualNot, Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
-  Columns2, Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
+  Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
+  Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   type LucideIcon,
 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
@@ -259,10 +259,6 @@ export const ICONS = {
   shortcuts: e(Keyboard, 'Keyboard shortcuts', '--text-light', 'icon-only', 'chrome'),
   cut: e(Scissors, 'Cut', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
-  /* analysis ids */
-  'scope-compared': e(Columns2, 'Compared', '--text-light', 'icon-only', 'chrome'),
-  'scope-not-compared': e(EqualNot, 'Not compared', '--text-light', 'icon-only', 'chrome'),
-  'scope-within': e(Brackets, 'Held within', '--text-light', 'icon-only', 'chrome'),
   /* links ids */
   // A link's midpoint mark: its typed direction (panel-visual §4, L2). The hover is the fallback only: core's causal.text, effect.text and effect.title are passed as `words`.
   'link-raises': e(ArrowUpRight, 'Increases', '--text-light', 'icon-only', 'kind'),
@@ -367,16 +363,40 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inheri
 
 const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="checkbox"], [role="switch"]'
 
-/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable, unless an interactive ancestor already is the focus target. */
+/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable. Inside an interactive ancestor it takes none (one focus stop, the ancestor): the Tip then listens to that ancestor's focus, blur and pointer, stands beside it, and describes it while open. */
 function LabelledIcon({ label, cls, testid, focusable, children }: { label: string; cls: string; testid?: string; focusable: boolean; children: ReactNode }) {
   const { handlers, tip, describedBy } = useAnchoredTip(label)
   const el = useRef<HTMLSpanElement>(null)
-  const [nested, setNested] = useState(false)
-  useLayoutEffect(() => { setNested(el.current?.parentElement?.closest(INTERACTIVE) != null) }, [])
-  const stop = focusable && !nested
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => { setHost(el.current?.parentElement?.closest<HTMLElement>(INTERACTIVE) ?? null) }, [])
+  const latest = useRef(handlers)
+  latest.current = handlers
+  useEffect(() => {
+    if (host === null) return
+    const at = { currentTarget: host } as unknown as SyntheticEvent<HTMLElement>
+    const onEnter = (e: Event) => latest.current.onPointerEnter({ ...at, pointerType: (e as PointerEvent).pointerType } as never)
+    const onLeave = () => latest.current.onPointerLeave()
+    const onFocus = () => latest.current.onFocus(at)
+    const onBlur = () => latest.current.onBlur()
+    const onKey = (e: Event) => latest.current.onKeyDown({ key: (e as KeyboardEvent).key } as never)
+    host.addEventListener('pointerenter', onEnter); host.addEventListener('pointerleave', onLeave)
+    host.addEventListener('focus', onFocus); host.addEventListener('blur', onBlur); host.addEventListener('keydown', onKey)
+    return () => {
+      host.removeEventListener('pointerenter', onEnter); host.removeEventListener('pointerleave', onLeave)
+      host.removeEventListener('focus', onFocus); host.removeEventListener('blur', onBlur); host.removeEventListener('keydown', onKey)
+    }
+  }, [host])
+  // While open the ancestor (the one focus stop) carries the description; the previous value is put back on close.
+  useEffect(() => {
+    if (host === null || describedBy === undefined) return
+    const before = host.getAttribute('aria-describedby')
+    host.setAttribute('aria-describedby', before === null || before === '' ? describedBy : `${before} ${describedBy}`)
+    return () => { if (before === null) host.removeAttribute('aria-describedby'); else host.setAttribute('aria-describedby', before) }
+  }, [host, describedBy])
+  const alone = host === null
   return (
     <>
-      <span ref={el} role="img" aria-label={label} tabIndex={stop ? 0 : undefined} aria-describedby={describedBy} className={cls} data-testid={testid} {...handlers}>{children}</span>
+      <span ref={el} role="img" aria-label={label} tabIndex={alone && focusable ? 0 : undefined} aria-describedby={alone ? describedBy : undefined} className={cls} data-testid={testid} {...(alone ? handlers : {})}>{children}</span>
       {tip}
     </>
   )

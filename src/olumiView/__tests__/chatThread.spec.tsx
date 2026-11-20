@@ -8,6 +8,7 @@ import { setTeamFetch } from '../../olumiCore/team/api'
 import { NEXT_STEP_WORDS, THINKING_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 import { useUIStore } from '../../stores/uiStore'
 import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { tipOf } from './tipHelpers'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
 const fixture: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session/after-find-first.view3.json'), 'utf8'))
@@ -153,7 +154,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(884)
   })
 
-  it('CT5 scrolling back shows Latest, preserves the reading position, and resumes following on press', () => {
+  it('CT5 scrolling back shows Latest, preserves the reading position, and resumes following on press', async () => {
     // Re-pinned (pre-screen 4b92d394, DL 10 Nov): row 14 short turns still settle at the bottom.
     vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(1300)
     show({ ...fixture, chat: fixture.chat.slice(0, 1) })
@@ -169,8 +170,10 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(latest).toHaveAccessibleName('Go to the latest message')
     // CHANGED BY DESIGN (18 Nov, Paul: standard text that is not dynamic is an icon): the word is gone; the arrow, named by its accessible name and title, is the control.
     expect(latest.textContent).toBe('')
-    expect(latest).toHaveAttribute('title', 'Go to the latest message')
-    expect(latest).toHaveClass('h-7', 'w-7', 'text-text-body', 'border-panel-border', 'bg-panel')
+    expect(latest.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await tipOf(latest), 'its words come through the one Tip').toBe('Go to the latest message')
+    // The registry's compact ghost icon button, on the panel's own recipe (a class from olumiLook.css, not utilities in the component).
+    expect(latest).toHaveClass('ok-to-latest', 'min-h-7', 'min-w-7')
     expect(latest).not.toHaveClass('text-info')
     // CHANGED BY DESIGN (17 Nov, icons carry no hue): the arrow is the registry's go-latest icon (grey), drawn as an svg inside a decorative span.
     expect(latest.querySelector('span[aria-hidden="true"] svg.lucide-arrow-down-to-line')).not.toBeNull()

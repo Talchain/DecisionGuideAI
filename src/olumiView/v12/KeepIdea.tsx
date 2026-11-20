@@ -3,7 +3,7 @@
  * the item stays Olumi's: the button's hover and its receipt say so. A refusal is core's own sentence; nothing is kept on a failure.
  */
 import { useState } from 'react'
-import { OkIcon } from '../look/icons'
+import { OkIconButton } from '../look/icons'
 import { typography } from '../../styles/typography'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { useViewStore } from '../store'
@@ -35,20 +35,17 @@ export function KeepIdea({ sid, turn, text, inline = false, floor = false }: { s
     : <p role="status" className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-keep-idea-kept">{KEPT_IDEA}</p>
   if (inline) return (
     <span className="ml-1 inline-flex items-center gap-1 align-middle" data-testid="view-keep-idea">
-      <button type="button" disabled={state.s === 'busy' || past} onClick={() => void go()} title={past ? PAST_VERSION : KEEP_IDEA_HOVER} aria-label={KEEP_IDEA} data-testid="view-keep-idea-button"
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-text-light opacity-0 transition-opacity group-hover/item:opacity-100 group-focus-within/item:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100 hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:cursor-not-allowed ${state.s === 'said' ? 'opacity-100' : ''}`}>
-        <OkIcon id="idea-keep" size={14} decorative />
-      </button>
+      {/* The icon reveals on its item's hover or focus (olumiLook.css `.ok-keep-inline`); its words come through the one Tip. */}
+      <span className="ok-keep-inline" data-said={state.s === 'said' ? '' : undefined}>
+        <OkIconButton id="idea-keep" tone="ghost" size={14} words={KEEP_IDEA} hover={past ? PAST_VERSION : KEEP_IDEA_HOVER} disabled={state.s === 'busy' || past} testid="view-keep-idea-button" onClick={() => void go()} />
+      </span>
       {state.s === 'said' ? <span role="alert" className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-keep-idea-said">{state.said}</span> : null}
     </span>
   )
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid="view-keep-idea">
-      <button type="button" disabled={state.s === 'busy' || past} onClick={() => void go()} title={past ? PAST_VERSION : KEEP_IDEA_HOVER} data-testid="view-keep-idea-button"
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed`}>
-        {/* v10 review item 6: an icon in the reply's one row; the words stay for readers and on hover. */}
-        <OkIcon id="idea-keep" size={14} decorative /><span className="sr-only">{KEEP_IDEA}</span>
-      </button>
+      {/* v10 review item 6: an icon in the reply's one row; its words are the name and, through the one Tip, the hover. */}
+      <OkIconButton id="idea-keep" tone="ghost" size={14} words={KEEP_IDEA} hover={past ? PAST_VERSION : KEEP_IDEA_HOVER} disabled={state.s === 'busy' || past} testid="view-keep-idea-button" onClick={() => void go()} />
       {state.s === 'said' ? <span role="alert" className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-keep-idea-said">{state.said}</span> : null}
     </div>
   )

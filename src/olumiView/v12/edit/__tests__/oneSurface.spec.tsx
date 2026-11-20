@@ -909,6 +909,50 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 
+  // C8 revalidation (Codex 20 Nov): the preview's own-height clamp runs AFTER the side is chosen, so the FINAL rectangle is checked against the neighbouring cards and the
+  // foot controls. A card low on the board with a neighbour (or a foot control) just right of it at the height the clamp would stand: the preview must not lie on them.
+  const finalRectCovers = (at: number[], shownH: number, o: { left: number; top: number; width: number; height: number }) =>
+    Math.min(at[0]! + 280, o.left + o.width) - Math.max(at[0]!, o.left) > 2 && Math.min(at[1]! + shownH, o.top + o.height) - Math.max(at[1]!, o.top) > 2
+  const lowCardRig = (extra: (el: Element) => { left: number; top: number; width: number; height: number } | null) => {
+    const CARD = { left: 100, top: 520, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const other = extra(this)
+      if (other !== null) return rectOf(other)
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(CARD)
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    return { CARD, H, at }
+  }
+  it('C8-n the preview beside a low card does not lie on a neighbouring card that the own-height clamp would reach; pinned, it keeps that place (no jump)', async () => {
+    const NEIGH = { left: 340, top: 560, width: 150, height: 60 }
+    const { H, at } = lowCardRig((el) => (el.closest('.react-flow__node')?.getAttribute('data-id') === OPT ? NEIGH : null))
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const peek = at(box()!), cap = parseFloat(box()!.style.getPropertyValue('--lane-details-h'))
+      expect(finalRectCovers(peek, Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap), NEIGH), `the preview (${peek}) is not on the neighbouring card`).toBe(false)
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'pinned where it was previewed: no jump').toEqual(peek)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+  it('C8-f the preview beside a low card does not lie on a foot control that the own-height clamp would reach (the zoom row)', async () => {
+    const FOOT = { left: 340, top: 560, width: 180, height: 36 }
+    const nav = document.createElement('nav'); nav.setAttribute('aria-label', 'Viewport controls'); document.body.appendChild(nav)
+    const { H, at } = lowCardRig((el) => (el === nav ? FOOT : null))
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const peek = at(box()!), cap = parseFloat(box()!.style.getPropertyValue('--lane-details-h'))
+      expect(finalRectCovers(peek, Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap), FOOT), `the preview (${peek}) is not on the foot control`).toBe(false)
+    } finally { vi.restoreAllMocks(); nav.remove(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
   it('A-8 a preview stands where its pinned box will fit, not merely where the small preview fits: with room above for the preview only, it is placed below (where the pinned box goes), and the press does not move it', async () => {
     // The card spans the board (no room at its sides); 200 px above it (the preview alone would fit), 400 px below (the pinned box fits), and another card stands just below it.
     const CARD = { left: 20, top: 200, width: 860, height: 100 }, BELOW = { left: 20, top: 320, width: 300, height: 100 }, H = { peek: 160, pinned: 340 }

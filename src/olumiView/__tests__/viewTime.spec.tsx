@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -98,12 +99,12 @@ describe('R19 timing on the chance row: a small second line beside the companion
     const lines = [...container.querySelectorAll(`[data-row-companion="${key}"], [data-row-timing="${key}"]`)].map((e) => e.getAttribute(e.hasAttribute('data-row-companion') ? 'data-row-companion' : 'data-row-timing') && e.textContent)
     expect(lines).toEqual(["about 50% without Olumi's suggested risk", TIMING_LINE])
   })
-  it('negative: a row with no timing draws no timing element, and the Analysis tab draws core\'s line with its hover where there is one', () => {
+  it('negative: a row with no timing draws no timing element, and the Analysis tab draws core\'s line with its hover (the one Tip) where there is one', async () => {
     const { card, at, model } = withTiming()
     const plain = { ...card, rows: card.rows.map((r, i) => (i === at ? ({ ...r, timing: null, timing_title: null } as typeof r) : r)) }
     expect(render(<DrawnCard card={plain} />).container.querySelector('[data-row-timing]')).toBeNull(); cleanup()
     const a = render(<ViewChances model={model} />).container.querySelector(`[data-view="${card.id}.rows.${at}.timing"]`)!
-    expect([a.textContent, a.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE])
+    expect([a.textContent, a.getAttribute('title'), await tipOf(a as HTMLElement)]).toEqual([TIMING_LINE, null, TIMING_TITLE])
   })
 })
 

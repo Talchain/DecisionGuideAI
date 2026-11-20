@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import type { View, ViewModel } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewChances } from '../ViewChances'
@@ -51,11 +52,11 @@ describe('R18 fix 1: the companion is a small second line under the chance, neve
     expect(container.querySelector('[data-row-companion]')).toBeNull()
     expect(container.querySelector(`[data-view="${card.id}.rows.${at}.value"]`)!.textContent).toBe('about 39% chance')
   })
-  it('the Analysis tab draws it too (core words, hover = the full sentence)', () => {
+  it('the Analysis tab draws it too (core words, hover = the full sentence, through the one Tip)', async () => {
     const { model, card, at } = optionWith(COMPANION)
     const a = render(<ViewChances model={model} />).container
     const el = a.querySelector(`[data-view="${card.id}.rows.${at}.companion"]`)!
-    expect([el.textContent, el.getAttribute('title')]).toEqual([COMPANION, TITLE])
+    expect([el.textContent, el.getAttribute('title'), await tipOf(el as HTMLElement)]).toEqual([COMPANION, null, TITLE])
   })
 })
 

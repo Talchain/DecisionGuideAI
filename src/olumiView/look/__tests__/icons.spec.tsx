@@ -174,6 +174,41 @@ describe('OkIcon and OkIconButton', () => {
     expect([tip.textContent, get('solo').getAttribute('aria-describedby')]).toEqual([ICONS.delete.hover, tip.id])
   })
 
+  it('an icon inside a button keeps ONE focus stop (the button): focusing the button for real opens the icon\'s tip beside the button, describes the button while open, and blur closes it', () => {
+    vi.useFakeTimers()
+    const { container } = render(<><button type="button" data-testid="outer"><OkIcon id="delete" testid="in" /></button><button type="button" data-testid="other">x</button></>)
+    const outer = container.querySelector<HTMLElement>('[data-testid="outer"]')!
+    const icon = container.querySelector<HTMLElement>('[data-testid="in"]')!
+    expect(container.querySelectorAll('[tabindex="0"]').length, 'no tab stop of its own').toBe(0)
+    expect(icon.getAttribute('aria-describedby')).toBeNull()
+    const spy = vi.spyOn(outer, 'getBoundingClientRect').mockReturnValue({ x: 10, y: 20, left: 10, top: 20, right: 50, bottom: 60, width: 40, height: 40, toJSON: () => ({}) } as DOMRect)
+    act(() => { outer.focus() })
+    expect(document.activeElement).toBe(outer)
+    expect(screen.queryByRole('tooltip'), 'not before 150 ms').toBeNull()
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const tip = screen.getByRole('tooltip')
+    expect([tip.textContent, outer.getAttribute('aria-describedby')]).toEqual([ICONS.delete.hover, tip.id])
+    expect(tip.style.getPropertyValue('--tip-x'), 'anchored to the button, not the glyph').toBe(`${50 + 8}px`)
+    act(() => { outer.blur() })
+    expect([screen.queryByRole('tooltip'), outer.getAttribute('aria-describedby')], 'closed, description removed').toEqual([null, null])
+    fireEvent.pointerEnter(outer)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip').textContent).toBe(ICONS.delete.hover)
+    fireEvent.pointerLeave(outer)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    spy.mockRestore()
+    vi.useRealTimers()
+  })
+
+  it('CONTRAST: a disabled ancestor around an icon still blocks its action (the icon adds no way in)', () => {
+    const onClick = vi.fn()
+    const { container } = render(<><button type="button" disabled onClick={onClick}><OkIcon id="delete" testid="in" /></button><button type="button" aria-disabled="true" onClick={(e) => { if (e.currentTarget.getAttribute('aria-disabled') !== 'true') onClick() }}><OkIcon id="delete" testid="in2" /></button></>)
+    fireEvent.click(container.querySelector('[data-testid="in"]')!)
+    fireEvent.click(container.querySelector('[data-testid="in2"]')!)
+    expect(onClick).not.toHaveBeenCalled()
+    expect(container.querySelectorAll('[tabindex="0"]').length).toBe(0)
+  })
+
   it('an icon-only OkIcon is an image named by the hover words (aria-label, no native title), in its token colour; its words show through the one Tip', () => {
     vi.useFakeTimers()
     render(<OkIcon id="delete" />)
@@ -222,12 +257,21 @@ describe('OkIcon and OkIconButton', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
+  it('the held look is a stylesheet rule on [aria-disabled=true] (light label, not-allowed cursor; the green one gets a neutral fill), and no `disabled:` class stands in for it', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const rule = (sel: string) => css.match(new RegExp(`${sel.replace(/[[\]().']/g, '\\$&')}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    expect(rule("button.ok-icon-btn[aria-disabled='true']")).toMatch(/color:\s*var\(--text-light\)[^}]*cursor:\s*not-allowed/)
+    expect(rule("button.ok-icon-btn-primary[aria-disabled='true']")).toMatch(/background-color:\s*var\(--border-default\)/)
+  })
+
   it('a disabled ghost icon button looks disabled: the disabled colour is a class that wins, and no colour is inline (18 Nov)', () => {
     for (const tone of ['ghost', undefined] as const) {
       const { container, unmount } = render(<OkIconButton id="cancel-close" tone={tone} words="Set aside" onClick={() => undefined} disabled testid="d" />)
       const btn = container.querySelector<HTMLButtonElement>('[data-testid="d"]')!
       expect(btn.getAttribute('aria-disabled')).toBe('true')
-      expect(btn.className.split(/\s+/), `tone ${String(tone)}`).toContain('disabled:text-text-light')
+      // The held look is the stylesheet's `button.ok-icon-btn[aria-disabled='true']` rule (a native :disabled is never set, so a `disabled:` class would be inert).
+      expect(btn.classList.contains('ok-icon-btn'), `tone ${String(tone)}`).toBe(true)
+      expect(btn.hasAttribute('disabled'), 'held by aria, not natively').toBe(false)
       expect(btn.getAttribute('style'), 'no inline colour').toBeNull()
       unmount()
     }

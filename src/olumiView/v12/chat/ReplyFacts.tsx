@@ -31,8 +31,8 @@ export function ReplyFacts({ at, about, rests, why, children }: {
       <div className="ok-facts" data-testid="view-reply-tools">
         <AboutChips cards={about} />
         {parts.length === 0 ? null : (
-          <OkIconButton id="rests-on" words={parts.join(', ')} hover={parts.join('\n')} expanded={open} controls={body} testid="view-reply-rests"
-            className="h-6 w-6 rounded-md hover:bg-panel-hover" onClick={() => setOpen((o) => !o)} />
+          <OkIconButton id="rests-on" tone="ghost" words={parts.join(', ')} hover={parts.join('\n')} expanded={open} controls={body} testid="view-reply-rests"
+            onClick={() => setOpen((o) => !o)} />
         )}
         {children}
       </div>

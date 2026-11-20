@@ -20,6 +20,7 @@ import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
 import { driverRange, ViewChances } from '../ViewChances'
 import { ViewReasoning } from '../ViewReasoning'
 import { optionCards } from '../layout'
+import { tipOf } from './tipHelpers'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -352,13 +353,13 @@ describe('what the driver chances are: said once, and only beside the figures it
     })
   }
 
-  it('every marked option names its figure (its card\'s heading beside the marker): the line is drawn once, at the head of the option rows, in core\'s words', () => {
+  it('every marked option names its figure (its card\'s heading beside the marker): the line is drawn once, at the head of the option rows, in core\'s words', async () => {
     const { m, fig } = named()
     const { container } = render(<ReactFlowProvider><ViewChances model={m} /></ReactFlowProvider>)
     const once = container.querySelectorAll('[data-view="run.sensitivity.text"]')
     expect(once.length).toBe(1)
     expect(once[0]!.textContent).toBe(m.run!.sensitivity.text)
-    expect(once[0]!.getAttribute('title')).toBe(m.run!.sensitivity.title)
+    expect(await tipOf(once[0] as HTMLElement)).toBe(m.run!.sensitivity.title)
     const first = container.querySelector(`[data-view-card="${optionCards(m)[0]!.id}"]`)!
     expect(once[0]!.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     for (const c of optionCards(m)) {

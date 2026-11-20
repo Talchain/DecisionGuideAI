@@ -15,6 +15,8 @@ import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { goToOutcome } from '../../../olumiCore/team/outcomeNav'
 import { openStep, type StepId } from '../../../olumiCore/team/flow'
 import { useViewStore } from '../../store'
+import { Hover } from '../chat/Hover'
+import { useAnchoredTip } from '../../look/Tip'
 import { useReveal } from '../../reveal'
 import { forgetLanded } from '../../revealReturn'
 import { moveKey, useViewChat } from '../../ViewChat'
@@ -90,23 +92,25 @@ export function go(to: JourneyRef): string | null {
 }
 
 /** One row: the whole row is the control when it can open; plain, with its reason, when it cannot; plain alone for a record with no card. */
-function Press({ id, press, onDone, children }: { id: string; press: JourneyPress; onDone?: () => void; children: ReactNode }): JSX.Element {
+function Press({ id, press, onDone, tip, children }: { id: string; press: JourneyPress; onDone?: () => void; /** Core's longer words for the row: the hover. On a pressable row the BUTTON owns it (one tab stop); on a plain row the block does. */ tip?: string; children: ReactNode }): JSX.Element {
   const [refused, setRefused] = useState<string | null>(null)
+  const { handlers, tip: drawn, describedBy, dismiss } = useAnchoredTip(tip)
   // A record the model holds with no card to open: drawn as it is, no control and no reason.
-  if ('plain' in press) return <div className="min-w-0" data-testid={`journey-${id}`} data-plain="true">{children}</div>
+  if ('plain' in press) return <Hover as="div" words={tip} className="min-w-0" data-testid={`journey-${id}`} data-plain="true">{children}</Hover>
   if ('unavailable' in press) {
     return (
-      <div className="min-w-0" data-testid={`journey-${id}`} data-unavailable="true">
-        {children}
+      <div className="min-w-0">
+        <Hover as="div" words={tip} className="min-w-0" data-testid={`journey-${id}`} data-unavailable="true">{children}</Hover>
         <p className={META} data-testid={`journey-${id}-why`}>{press.unavailable}</p>
       </div>
     )
   }
   return (
     <div className="min-w-0">
-      <button type="button" className={ROW} data-testid={`journey-${id}`} onClick={() => { const why = go(press.to); setRefused(why); if (why === null) onDone?.() }}>
+      <button type="button" className={ROW} data-testid={`journey-${id}`} {...handlers} aria-describedby={describedBy} onClick={() => { dismiss(); const why = go(press.to); setRefused(why); if (why === null) onDone?.() }}>
         {children}
       </button>
+      {drawn}
       {refused !== null && <p role="status" className={META} data-testid={`journey-${id}-why`}>{refused}</p>}
     </div>
   )
@@ -203,8 +207,8 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {j.open.map((o) => (
               <li key={o.key} className="min-w-0">
-                <Press id={o.key} press={o.press} onDone={onDone}>
-                  <p className={`${BODY} ${WORDS}`} title={o.title}>{o.label}</p>
+                <Press id={o.key} press={o.press} onDone={onDone} tip={o.title}>
+                  <p className={`${BODY} ${WORDS}`}>{o.label}</p>
                   {o.words !== null && o.words !== '' && <p className={`${META} ${WORDS}`}>{o.words}</p>}
                 </Press>
               </li>

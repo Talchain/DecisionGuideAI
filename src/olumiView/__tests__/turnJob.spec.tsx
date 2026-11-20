@@ -54,6 +54,41 @@ afterEach(() => {
 const tick = async (ms: number) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms) }) }
 const on = (view: View) => useViewStore.setState({ uuid: UUID, sid: SID, view, status: 'ready', error: null, stale: false, at: null })
 
+describe('the waiting seconds are per job (Codex panel round 2: core\'s `started` once accepted; job-scoped before)', () => {
+  const secs = (c: HTMLElement) => c.querySelector('[data-testid="view-chat-turn-seconds"]')?.textContent
+  const nowIso = (offsetMs = 0) => new Date(Date.now() + offsetMs).toISOString()
+  it('UT-S1 a slow acceptance: seconds run from Send before core accepts, then from core\'s own `started` (core accepted late, so the count does not still include the wait before it)', async () => {
+    const { container, rerender } = render(<TurnInFlight turn={null} me="7" />)
+    await tick(4000)
+    expect(secs(container), 'before acceptance: since Send').toBe(' 4 s')
+    rerender(<TurnInFlight turn={turnOf({ started: nowIso(-1000) })} me="7" />)
+    await tick(0)
+    expect(secs(container), 'after acceptance: since core\'s started, not since the mount').toBe(' 1 s')
+    await tick(2000)
+    expect(secs(container)).toBe(' 3 s')
+  })
+  it('UT-S2 a retained failed turn followed by a NEW job: the new job counts from its own start, never from the earlier one', async () => {
+    const { container, rerender } = render(<TurnInFlight turn={turnOf({ status: 'failed', words: 'The model changed; send your message again' })} me="7" />)
+    expect(secs(container), 'a finished turn draws no seconds').toBeUndefined()
+    await tick(10000)
+    rerender(<TurnInFlight turn={turnOf({ job: 32, started: nowIso() })} me="7" />)
+    await tick(0)
+    expect(secs(container), 'the new job starts at 0, not at the earlier mount').toBe(' 0 s')
+    await tick(2000)
+    expect(secs(container)).toBe(' 2 s')
+  })
+  it('UT-S3 CONTRAST: back to waiting for a NEW acceptance after an earlier job ended restarts the clock at Send', async () => {
+    const { container, rerender } = render(<TurnInFlight turn={turnOf({ started: nowIso() })} me="7" />)
+    await tick(5000)
+    expect(secs(container)).toBe(' 5 s')
+    rerender(<TurnInFlight turn={turnOf({ status: 'failed', words: 'Gone' })} me="7" />)
+    await tick(20000)
+    rerender(<TurnInFlight turn={null} me="7" />)
+    await tick(0)
+    expect(secs(container), 'the next Send counts from itself, not from the first job').toBe(' 0 s')
+  })
+})
+
 describe('a turn answered in core', () => {
   it('UT1 draws their words, then core\'s line verbatim as an accessible status with the seconds since core accepted it; another member\'s turn names them and offers no Try again', () => {
     on(viewWith(turnOf()))

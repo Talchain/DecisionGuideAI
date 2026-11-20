@@ -12,6 +12,7 @@ vi.mock('../../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(a
 
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
+import { ICONS } from '../../look/icons'
 import { useMe } from '../../../olumiCore/me'
 import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
@@ -22,6 +23,7 @@ import { actionable, examineOf } from '../../reasoning/examine'
 import { TIPPING_FIGURE } from '../AnalysisReaders'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, rangeOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
+import { tipOf } from '../../__tests__/tipHelpers'
 import { useUIStore } from '../../../stores/uiStore'
 
 const ready = (view: View) => {
@@ -101,7 +103,7 @@ describe('every option\'s line for every aim is drawn somewhere, never dropped',
 })
 
 describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () => {
-  it('bakery: under the chart, one likely range per option with an outcome, in core\'s order; each band at outcomePlace and core\'s line under it; heading is core\'s lens label', () => {
+  it('bakery: under the chart, one likely range per option with an outcome, in core\'s order; each band at outcomePlace and core\'s line under it; heading is core\'s lens label; the option\'s longer words are the one Tip, never a native title', async () => {
     const view = viewOf('golden/bakery'), m = view.model!, lead = leadAimOf(m)
     const rows = chartRowsOf(m).filter((r) => r.row.outcome != null)
     expect(rows.map((r) => r.card.id)).toEqual(['second_oven', 'longer_hours', 'carry_on'])
@@ -113,7 +115,7 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     for (const { card, row, i } of rows) {
       const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
       expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
-      expect(el.querySelector('button')!.getAttribute('title')).toBe(row.outcome!.title)
+      expect([el.querySelector('button')!.getAttribute('title'), await tipOf(el.querySelector('button')!)], card.id).toEqual([null, row.outcome!.title])
       if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
       else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
     }
@@ -201,14 +203,14 @@ describe('the chance chart', () => {
     expect(expectAllBound(view, chart, expect)).toBeGreaterThan(rows.length)
   })
 
-  it('core\'s most-likely mark is on the one row core gives it; CONTRAST: the other rows carry none', () => {
+  it('core\'s most-likely mark is on the one row core gives it, named by its title (inside the pressable row, which carries its own words); CONTRAST: the other rows carry none', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     const likely = rows.filter((r) => r.row.likely != null)
     expect(likely.map((r) => r.card.id)).toEqual(['second_oven'])
     ready(view); render(<PortAnalysisTab />)
     const marks = [...document.querySelectorAll<HTMLElement>('[data-view$=".likely.glyph"]')]
     expect(marks.map((m) => m.closest<HTMLElement>('[data-chart-option]')!.dataset['chartOption'])).toEqual(['second_oven'])
-    expect(marks[0]!.getAttribute('title')).toBe(likely[0]!.row.likely!.title)
+    expect([marks[0]!.getAttribute('title'), marks[0]!.getAttribute('aria-label'), marks[0]!.getAttribute('role')]).toEqual([null, likely[0]!.row.likely!.title, 'img'])
   })
 
   it('a press on a bar focuses that option\'s card on the canvas, by its id', () => {
@@ -218,15 +220,16 @@ describe('the chance chart', () => {
     expect(focus.node.mock.calls).toEqual([['longer_hours']])
   })
 
-  it('the key is drawn only where some bar has a range: CONTRAST bakery with every driver removed draws bars and no key', () => {
+  it('the key is drawn only where some bar has a range: CONTRAST bakery with every driver removed draws bars and no key; core\'s title for the ends is the one Tip on the ends\' sentence', async () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
-    expect(screen.getByTestId('analysis-chart-key').getAttribute('title')).toBe(view.model!.run!.sensitivity.title)
+    expect(screen.getByTestId('analysis-chart-key').hasAttribute('title'), 'no native title on the key').toBe(false)
     // What the two ends ARE is core's sentence, once, OPEN at rest (Codex 008 item 3: folded, the ends could read as a confidence interval); only the marks' legend folds.
     expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
     const ends = document.querySelector('[data-view="run.sensitivity.text"]')!
     expect(ends.textContent).toBe(view.model!.run!.sensitivity.text)
     expect(ends.closest('details'), 'not inside any fold').toBeNull()
+    expect([ends.getAttribute('title'), await tipOf(ends as HTMLElement)]).toEqual([null, view.model!.run!.sensitivity.title])
     expect(screen.getByTestId('analysis-chart-key').contains(ends)).toBe(true)
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
@@ -567,19 +570,19 @@ describe('why this reading: core\'s long reading, one press away', () => {
 })
 
 describe('what would have to be true, what could go wrong, what rests on Olumi\'s guesses: core\'s words, on the tab', () => {
-  it('bakery: the per-option crossing is drawn verbatim with its hover, and the lead crossing is drawn once (WhatMovesIt\'s), not twice', () => {
+  it('bakery: the per-option crossing is drawn verbatim with its hover as the one Tip, and the lead crossing is drawn once (WhatMovesIt\'s), not twice', async () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
     const opt = run.tipping.find((t) => t.kind !== 'lead')!, lead = run.tipping.find((t) => t.kind === 'lead')!
     ready(view); render(<PortAnalysisTab />)
     const box = screen.getByTestId('analysis-tipping')
     const p = box.querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
     expect(p.querySelector('[data-view^="run.tipping."]')!.textContent).toBe(opt.line)
-    expect(p.getAttribute('title')).toBe(opt.hover)
+    expect([p.getAttribute('title'), await tipOf(p.querySelector<HTMLElement>('[data-view^="run.tipping."]')!)]).toEqual([null, opt.hover])
     expect(box.querySelector(`[data-view-fact="${lead.id}"]`)).toBeNull()
     expect([...document.querySelectorAll('span')].filter((e) => e.textContent === lead.line)).toHaveLength(1)
     // Seen at rest (DL 14:0xZ): core's heading is a section heading, not a quiet caption; the figure press is named, never a bare card heading.
     const fig = box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!
-    expect([box.querySelector('[data-view="run.tipping_heading"]')!.tagName, fig.title.startsWith(`${TIPPING_FIGURE}: `), fig.querySelectorAll('svg').length]).toEqual(['H3', true, 1])
+    expect([box.querySelector('[data-view="run.tipping_heading"]')!.tagName, (fig.getAttribute('aria-label') ?? '').startsWith(`${TIPPING_FIGURE}: `), fig.hasAttribute('title'), fig.querySelectorAll('svg').length]).toEqual(['H3', true, false, 1])
     fireEvent.click(box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!)
     expect(focus.node).toHaveBeenCalled()
   })
@@ -671,39 +674,29 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
 })
 
 describe('data core sends that the tab drew only as a title or in a fold (A2, A3)', () => {
-  it('A3 bakery: each ranking says its scope in core\'s labels (separators outside each labelled span), and each figure\'s estimate size is in its row, not only a title', () => {
-    const view = viewOf('golden/bakery'), aims = view.model!.run!.find_out!.filter((a) => a.figures.length > 0)
-    ready(view); render(<PortAnalysisTab />)
+  it('A3 bakery: each ranking draws core\'s qualification sentence verbatim at its path, at rest, and none of the bare scope lists (core sends no word for which list is which); each figure\'s estimate size is in its row, not only a title', () => {
+    const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!, aims = run.find_out!.filter((a) => a.figures.length > 0)
     expect(aims.length).toBeGreaterThan(0)
+    aims.forEach((aim, n) => { aim.line = `Core's qualification ${n}.`; aim.not_compared = [{ id: 'x1', label: 'Opening a second shop' }]; aim.within = [{ id: 'l1', label: 'Rent limit' }] })
+    ready(view); render(<PortAnalysisTab />)
     for (const aim of aims) {
+      const i = run.find_out!.indexOf(aim)
       const box = document.querySelector(`[data-find-out-aim="${aim.aim}"]`)!
       const scope = box.querySelector('[data-testid="find-out-scope"]')!
-      const labels = [...scope.querySelectorAll('[data-find-out-scope="compared"] [data-view$=".label"]')].map((e) => e.textContent)
-      expect(labels).toEqual(aim.compared.map((x) => x.label))
-      expect(labels.every((l) => !/^[,·\s]/.test(l!)), 'no separator inside a labelled span').toBe(true)
-      expect(scope.querySelector('[data-find-out-scope="not_compared"]') !== null, 'CONTRAST: an empty list draws no part').toBe(aim.not_compared.length > 0)
+      expect([scope.textContent, scope.getAttribute('data-view')]).toEqual([aim.line, `run.find_out.${i}.line`])
+      expect(box.querySelector('[data-find-out-scope]'), 'no scope list is drawn: no invented word says which list it is').toBeNull()
+      expect(box.textContent!.includes('Opening a second shop') || box.textContent!.includes('Rent limit')).toBe(false)
       for (const f of aim.figures) expect(box.querySelector(`[data-find-out-figure="${f.id}"]`)!.textContent).toContain(f.estimate_text)
     }
   })
-  it('A3 a ranking that did not compare some options and held within some limits draws each list in core\'s labels, after its icon; core\'s qualification is behind the info icon, reachable by keyboard focus', () => {
-    vi.useFakeTimers()
-    try {
-      const view = structuredClone(viewOf('golden/bakery')), aim = view.model!.run!.find_out!.find((a) => a.figures.length > 0)!, a = view.model!.run!.find_out!.indexOf(aim)
-      aim.not_compared = [{ id: 'x1', label: 'Opening a second shop' }, { id: 'x2', label: 'Doing nothing' }]
-      aim.within = [{ id: 'l1', label: 'Rent limit' }]
-      aim.line = 'This ranking leaves out two options, and holds within the rent limit.'
-      ready(view); render(<PortAnalysisTab />)
-      const scope = document.querySelector(`[data-find-out-aim="${aim.aim}"] [data-testid="find-out-scope"]`)!
-      expect([...scope.querySelectorAll('[data-find-out-scope="not_compared"] [data-view]')].map((e) => [e.textContent, e.getAttribute('data-view')])).toEqual([['Opening a second shop', `run.find_out.${a}.not_compared.0.label`], ['Doing nothing', `run.find_out.${a}.not_compared.1.label`]])
-      expect([...scope.querySelectorAll('[data-find-out-scope="within"] [data-view]')].map((e) => e.textContent)).toEqual(['Rent limit'])
-      expect(scope.querySelector('[data-find-out-scope="not_compared"]')!.textContent, 'the separator between two labels is drawn, outside their spans').toBe('Opening a second shop, Doing nothing')
-      const info = scope.querySelector<HTMLElement>('[data-find-out-note] [role="img"]')!
-      expect([info.getAttribute('aria-label'), info.tabIndex]).toEqual([aim.line, 0])
-      fireEvent.focus(info); act(() => { vi.advanceTimersByTime(200) })
-      expect(screen.getByTestId('lane-tip').textContent).toBe(aim.line)
-    } finally { vi.useRealTimers() }
+  it('A3 the registry holds no scope icon and the tab names none: "Compared", "Not compared" and "Held within" are not words of the UI', () => {
+    const view = viewOf('golden/bakery')
+    ready(view); render(<PortAnalysisTab />)
+    expect(Object.keys(ICONS).filter((k) => k.startsWith('scope-'))).toEqual([])
+    const said = tab().textContent ?? ''
+    for (const w of ['Not compared', 'Held within']) expect(said.includes(w), w).toBe(false)
   })
-  it('A3 CONTRAST: a ranking with no scope list and no qualification draws no scope line at all', () => {
+  it('A3 CONTRAST: a ranking with no qualification draws no scope line at all', () => {
     const view = structuredClone(viewOf('golden/bakery')), aim = view.model!.run!.find_out!.find((a) => a.figures.length > 0)!
     aim.compared = []; aim.not_compared = []; aim.within = []; aim.line = ''
     ready(view); render(<PortAnalysisTab />)
@@ -729,7 +722,7 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
     fireEvent.click(screen.getByTestId('analysis-why-toggle'))
     expect(document.querySelectorAll('[data-view^="run.notes."]'), 'never twice: the fold no longer holds them').toHaveLength(notes.length)
   })
-  it('A2 a note\'s longer words (its title) reach the one Tip by keyboard focus, never a native title; a note whose title is its text is not a focus stop; no heading is written here', () => {
+  it('A2 a note\'s longer words (its title) reach the one Tip by REAL keyboard focus, never a native title; a note whose title is its text is not a focus stop; no heading is written here', () => {
     vi.useFakeTimers()
     try {
       const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
@@ -737,7 +730,9 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
       ready(view); render(<PortAnalysisTab />)
       const [first, second] = [...screen.getByTestId('analysis-leaves-out').querySelectorAll<HTMLElement>('li')] as [HTMLElement, HTMLElement]
       expect([first.getAttribute('title'), second.getAttribute('title'), first.tabIndex, second.hasAttribute('tabindex')]).toEqual([null, null, 0, false])
-      fireEvent.focus(first); act(() => { vi.advanceTimersByTime(200) })
+      act(() => { first.focus() })
+      expect(document.activeElement, 'the note itself is the keyboard stop').toBe(first)
+      act(() => { vi.advanceTimersByTime(200) })
       expect(screen.getByTestId('lane-tip').textContent).toBe(run.notes[0]!.title)
       expect(screen.getByTestId('analysis-leaves-out').querySelector('h3'), 'no invented heading').toBeNull()
     } finally { vi.useRealTimers() }

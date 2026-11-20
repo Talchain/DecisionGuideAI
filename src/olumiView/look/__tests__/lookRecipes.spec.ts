@@ -62,4 +62,12 @@ describe("the look's recipes, each written once", () => {
     expect(pinned.body).toMatch(/visibility: hidden/)
     expect(pinned.selectors.join(',').includes('[data-card-edit-cue]'), 'the pinned rule names the action hook whole, pencil included').toBe(false)
   })
+  it('C4 the next-step mark is ONE ring: the wrapper around Olumi\'s mark draws no border, radius or fill (the mark carries its own ring); the listed question\'s number is the one bordered circle, in the quiet ink and not Olumi\'s blue', () => {
+    const own = (cls: string) => rules.filter((r) => r.selectors.some((x) => x.endsWith(cls)))
+    const asks = own('.ok-asks')
+    expect(asks.length, 'the ring wrapper rule is read').toBeGreaterThan(0)
+    for (const r of asks) expect(r.body, 'a second ring').not.toMatch(/(?:^|[\s;])(?:border|border-radius|background)\s*:/)
+    const qn = own('.ok-qn').map((r) => r.body).join(' ')
+    expect([/border:\s*[\d.]+px solid var\(--text-light\)/.test(qn), /border-radius:\s*999px/.test(qn), /--info\b/.test(qn)]).toEqual([true, true, false])
+  })
 })

@@ -12,7 +12,7 @@
  *   4. Assumptions and evidence: every premise core puts on a card, once, behind one door.
  * Every word about the person's model is core's, at its View path (`data-view`); headings and action labels are the tab's own chrome.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ViewModel, ViewRun } from './client'
 import { FigureEdit } from './FigureEdit'
 import { premisesOnce } from './layout'
@@ -27,6 +27,7 @@ import { AnswerBox, AnsweredList } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
+import { GlyphMark, Hov } from './port/Hover'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
@@ -51,6 +52,8 @@ const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm bo
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
 /** Figures drawn per group at rest (every group is drawn): core orders them by share, so the first is the one that carries most of that group's uncertainty. */
 const REST_FIGURES = 1
+/** At most this many rest groups at rest, in core's order (Paul's progressive-disclosure rule); the others sit behind the one existing "Show n more" press. */
+export const RESTS_AT_REST = 3
 const LIST_AT_REST = 4
 
 type Rest = ViewRun['rests'][number]
@@ -75,18 +78,24 @@ function ShareBar({ f }: { f: Figure }) {
  */
 export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
   const [all, setAll] = useState(false)
+  const moreId = useId()
   const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '')  // a group with a headline and no figure detail is kept (A4): its headline is drawn, only the empty figure list is omitted
   if (run === null || rests.length === 0) return null
   const given = new Set<string>()
   const figuresOf = (r: Rest) => (r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '')
-  // What is folded at rest: the figures after the first in each group (A4: every group's headline share is drawn at rest, not only the first group's).
-  const folded = rests.reduce((n, { r }) => n + Math.max(0, figuresOf(r).length - REST_FIGURES), 0)
-  const firstWithFigures = rests.findIndex(({ r }) => figuresOf(r).length > 0)
-  const whose = new Set(rests.flatMap(({ r }) => (r.figures ?? []).map((f) => f.whose)))
+  // At rest: the first RESTS_AT_REST groups in core's order, each with its first figure. Everything else is one press away: the later groups (counted as
+  // the group and its figures) and the further figures of the groups shown.
+  const shownGroups = all ? rests : rests.slice(0, RESTS_AT_REST)
+  const folded = all ? 0 : rests.slice(0, RESTS_AT_REST).reduce((n, { r }) => n + Math.max(0, figuresOf(r).length - REST_FIGURES), 0)
+    + rests.slice(RESTS_AT_REST).reduce((n, { r }) => n + 1 + figuresOf(r).length, 0)
+  const toggle = all || folded > 0
+  const firstWithFigures = shownGroups.findIndex(({ r }) => figuresOf(r).length > 0)
+  const whose = new Set(shownGroups.flatMap(({ r }) => (all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f }) => f.whose)))
   return (
     <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
       <h3 className={H} {...(run.rests_heading ? { 'data-view': 'run.rests_heading' } : {})}>{run.rests_heading || REASONING_LABELS.rests}</h3>
-      {rests.map(({ r, k }, g) => {
+      <div className="space-y-2" id={moreId} data-testid="reasoning-rests-groups">
+      {shownGroups.map(({ r, k }, g) => {
         const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
         return (
           <div key={r.id} className="space-y-1" data-rest={r.id}>
@@ -110,7 +119,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
                   <li key={f.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-2" data-rest-figure={f.id}>
                     <ShareBar f={f} />
                     <span className={`${TYPE.meta} min-w-0 text-text-body`}>
-                      {f.mark == null ? null : <><span className="text-info" title={f.mark.title} aria-label={f.mark.title} data-view={`run.rests.${k}.figures.${j}.mark.glyph`}>{f.mark.glyph}</span>{' '}</>}
+                      {f.mark == null ? null : <><GlyphMark mark={f.mark} className="text-info" view={`run.rests.${k}.figures.${j}.mark.glyph`} />{' '}</>}
                       <span data-view={`run.rests.${k}.figures.${j}.line`}>{f.line}</span>
                     </span>
                     {give ? <FigureEdit id={f.id} edit={f.give!.edit} place="reasoning-rests" glyph words={false} label={`Give your figure for ${f.label}`} /> : <span />}
@@ -121,8 +130,9 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
           </div>
         )
       })}
-      {folded === 0 ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={MORE} data-testid="reasoning-rests-more">
+      </div>
+      {!toggle ? null : (
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={moreId} className={MORE} data-testid="reasoning-rests-more">
           {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(folded)}
         </button>
       )}
@@ -167,22 +177,24 @@ const rowData = (e: Examine) => e.kind === 'challenge' ? { 'data-reasoning-chall
 function Row({ e }: { e: Examine }) {
   const w = wordsOf(e)
   const ring = () => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])
-  const words = (
-    <span className="min-w-0 flex-1">
+  // `hover`: the words' longer text through the one Tip, on the words themselves (a focus stop); a challenge's whole row is a press that carries it instead.
+  const wordsEl = (hover?: string) => (
+    <Hov words={hover} className="min-w-0 flex-1">
       <span className={`${TYPE.body} block text-text-header`} {...at(e, w.at)} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-question' } : {})}>{w.text}</span>
       {w.why === null ? null : <span className={`${TYPE.meta} block text-text-body`} data-view={w.whyAt!} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-reason' } : {})}>{w.why}</span>}
-    </span>
+    </Hov>
   )
+  const words = wordsEl()
   const whole = `flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
-  if (e.kind === 'challenge') return <li {...rowData(e)}><button type="button" className={whole} title={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</button></li>
+  if (e.kind === 'challenge') return <li {...rowData(e)}><Hov as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hov></li>
   // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
   // message box is a quiet secondary press, never the row's primary action.
   if (e.kind === 'question') return (
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
-      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></button>
+      <Hov as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></Hov>
     </li>
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
@@ -190,27 +202,28 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
-      <button type="button" className={`${QUIET} shrink-0`} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></button>
+      <Hov as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></Hov>
     </li>
   )
   return (
-    <li className="flex items-start gap-2 px-1 py-1.5" title={w.hover} {...rowData(e)}>
+    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
-      <span className="min-w-0 flex-1 space-y-1">{words}<span className="block"><Act e={e} /></span></span>
+      <span className="min-w-0 flex-1 space-y-1">{wordsEl(w.hover)}<span className="block"><Act e={e} /></span></span>
     </li>
   )
 }
 
 function Examined({ items }: { items: Examine[] }) {
   const [all, setAll] = useState(false)
+  const listId = useId()
   if (items.length === 0) return null
   const shown = all ? items : items.slice(0, LIST_AT_REST)
   return (
     <section className="space-y-1" data-testid="reasoning-examine" aria-label={REASONING_LABELS.examine}>
       <h3 className={`${H} flex items-center gap-2`}>{REASONING_LABELS.examine}<span className={`${TYPE.meta} font-normal tabular-nums text-text-light`} data-count>{items.length}</span></h3>
-      <ul className="m-0 list-none divide-y divide-panel-border p-0">{shown.map((e) => <Row key={e.key} e={e} />)}</ul>
+      <ul id={listId} className="m-0 list-none divide-y divide-panel-border p-0">{shown.map((e) => <Row key={e.key} e={e} />)}</ul>
       {items.length <= LIST_AT_REST ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={MORE} data-testid="reasoning-examine-more">
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={listId} className={MORE} data-testid="reasoning-examine-more">
           {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(items.length - LIST_AT_REST)}
         </button>
       )}
@@ -227,13 +240,14 @@ function Premises({ model }: { model: ViewModel }) {
     <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.premises}>
       <Door label={REASONING_LABELS.premises} count={notes} testId="premises">
         {premises.map(({ card, p, j }) => (
-          <SignalRow key={`${card.id}.${j}`} title={p.title} data-reasoning-premise={`${card.id}.${j}`} mark={<span data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>}>
-            <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>{(p.olumi ?? null) === null ? null : <>{' '}<span className="text-info" title={p.olumi!.title} aria-label={p.olumi!.title} data-view={`${card.id}.premises.${j}.olumi.glyph`}>{p.olumi!.glyph}</span></>}
+          <SignalRow key={`${card.id}.${j}`} words={p.title} data-reasoning-premise={`${card.id}.${j}`} mark={<span data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>}
+            end={(p.olumi ?? null) === null ? null : <GlyphMark mark={p.olumi!} className="text-info" view={`${card.id}.premises.${j}.olumi.glyph`} />}>
+            <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
           </SignalRow>
         ))}
         {reasoning.map((c) => (
-          <SignalRow key={c.id} title={c.detail} data-reasoning-card={c.id} mark={<span data-view={`${c.id}.glyph`}>{c.glyph}</span>}
-            end={c.olumi === null ? null : <span className="text-info" title={c.olumi.title} aria-label={c.olumi.title} data-view={`${c.id}.olumi.glyph`}>{c.olumi.glyph}</span>}>
+          <SignalRow key={c.id} words={c.detail} data-reasoning-card={c.id} mark={<span data-view={`${c.id}.glyph`}>{c.glyph}</span>}
+            end={c.olumi === null ? null : <GlyphMark mark={c.olumi} className="text-info" view={`${c.id}.olumi.glyph`} />}>
             <span data-view={`${c.id}.reason`}>{c.reason}</span>
           </SignalRow>
         ))}
@@ -253,7 +267,7 @@ function LeadAct({ e }: { e: Examine }) {
   if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
   const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
   // Filling the message box is never the primary (green) action: it is the quiet secondary press, the same as in the list.
-  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} title={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} data-testid={fill.testId}><OkIcon id="fill-box" size={12} decorative />{REASONING_LABELS.fill}</button>
+  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} data-testid={fill.testId}><OkIcon id="fill-box" size={12} decorative />{REASONING_LABELS.fill}</button>
 }
 
 /**
@@ -271,7 +285,7 @@ export function StartHere({ model }: { model: ViewModel }) {
     <section key={e.key} className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
       <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
-      <p className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} title={w.hover ?? w.text} {...at(e, w.at)}>{w.text}</p>
+      <Hov as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hov>
       {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
       <div className="flex flex-wrap items-center gap-2 pt-1"><LeadAct e={e} /></div>
     </section>

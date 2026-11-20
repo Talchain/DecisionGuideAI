@@ -17,6 +17,7 @@ import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
 import { ActionsMenu, placeMenu } from '../actionsMenu'
 import { IdeaPanel } from '../bands/IdeaPanel'
 import { IDEA_PREFIX } from '../bands/bands'
+import { tipOf } from '../../__tests__/tipHelpers'
 import { VIEW_IDEA } from '../bands/BandNodes'
 import { useCanvasStore } from '../../../canvas/store'
 import type { Menu } from '../actions'
@@ -116,7 +117,8 @@ describe('Keep as an idea on a method reply', () => {
     // The newest reply's own Keep (an earlier reply with an answer has its own, since Codex 008e #3).
     const b = container.querySelector<HTMLButtonElement>('[data-testid="view-chat-latest"] [data-testid="view-keep-idea-button"]')!
     expect(b).not.toBeNull()
-    expect(b.title).toMatch(/recorded as Olumi’s/)
+    expect(b.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await tipOf(b)).toMatch(/recorded as Olumi’s/)
     await press(b)
     await waitFor(() => expect(container.querySelector('[data-testid="view-keep-idea-kept"]')).toHaveTextContent('Kept. It stays Olumi’s idea.'))
     expect(posts[0]!.body).toMatchObject({ kind: 'idea', from_turn: v.chat.at(-1)!.id, base: v.model!.edit_base })
@@ -128,8 +130,10 @@ describe('Keep as an idea on a method reply', () => {
     useViewStore.setState({ at: 2 })
     const { container } = render(<ViewChat />)
     const b = container.querySelector<HTMLButtonElement>('[data-testid="view-keep-idea-button"]')!
-    expect(b.disabled).toBe(true)
-    expect(b.title).toMatch(/earlier version/)
+    // Held, not removed: aria-disabled and still focusable, so its reason shows on hover and on keyboard focus; pressing does nothing.
+    expect(b).toHaveAttribute('aria-disabled', 'true')
+    expect(await tipOf(b)).toMatch(/earlier version/)
+    await press(b)
     expect(posts).toHaveLength(0)
     await expect(keepIdea({ sid: SID, turn: 1, text: 'x' })).rejects.toThrow(/earlier version/)
   })

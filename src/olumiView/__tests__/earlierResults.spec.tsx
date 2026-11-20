@@ -10,6 +10,7 @@ vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyfl
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { hoverWords } from './hoverTip'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewChances } from '../ViewChances'
@@ -42,12 +43,12 @@ afterEach(() => {
 describe('results saved by an earlier engine say so, once, in core\'s words', () => {
   // CHANGED BY DESIGN (v10 review item 2): on Simple the sentence is the hover of a small "Saved results" pill (the sentence is the same on every board);
   // Detailed still draws core's sentence whole, once.
-  it('ER1 the question card says core\'s sentence once, verbatim, on Detailed; on Simple it is the title of a "Saved results" pill; the hover is core\'s title', () => {
+  it('ER1 the question card says core\'s sentence once, verbatim, on Detailed; on Simple it is the title of a "Saved results" pill; the hover is core\'s title', async () => {
     const w = marks(drawQuestion(marked, 'working'))
-    expect([w.length, w[0]?.textContent, w[0]?.title]).toEqual([1, SAID.text, SAID.title])
+    expect([w.length, w[0]?.textContent, await hoverWords(w[0]!), w[0]?.hasAttribute('title')]).toEqual([1, 'Saved results', `${SAID.text}\n${SAID.title}`, false])
     cleanup()
     const s = marks(drawQuestion(marked, 'simple'))
-    expect([s.length, s[0]?.textContent, s[0]?.title, s[0]?.getAttribute('data-saved-results')]).toEqual([1, 'Saved results', SAID.title, QUESTION])
+    expect([s.length, s[0]?.textContent, await hoverWords(s[0]!), s[0]?.hasAttribute('title'), s[0]?.getAttribute('data-saved-results')]).toEqual([1, 'Saved results', SAID.title, false, QUESTION])
   })
   it('ER2 the Analysis lines say it once, right after the run\'s lead; the lead and every number are as before', () => {
     const plain = render(<ViewChances model={served.model!} />).container

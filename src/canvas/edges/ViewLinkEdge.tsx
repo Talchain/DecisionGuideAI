@@ -7,8 +7,7 @@
  * still means doubt and only doubt. A modelled effect carries a small midpoint icon from its typed direction (L2). Polarity (colour), doubt (dash),
  * alert (orange) and proposal (blue) are four channels (L4): on a line that has a direction, alert and proposal are a halo under it, never its colour.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
 import { reducedFaceSize } from '../../olumiView/camera'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
@@ -20,13 +19,13 @@ import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
-import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
-import { TIP_DELAY, Tip, useAnchoredTip } from '../../olumiView/look/Tip'
+import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
-import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH } from '../../olumiView/v12/links/styles'
+import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
+import { placeAt } from '../../olumiView/v12/links/place'
 import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
@@ -116,12 +115,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     return railSlots(ls, cards).get(id) ?? 0
   }, [edges, cards, id])
   const wordsRef = useRef<HTMLDivElement | null>(null)
+  // Where the words stand, kept for the moment they attach (the label layer can mount after the edge): written to `--link-x/--link-y` (links/place.ts).
+  const wordsAt = useRef({ x: 0, y: 0 })
   const [size, setSize] = useState({ w: 0, h: 0 })
   // eslint-disable-next-line react-hooks/exhaustive-deps -- after every render; an equal size bails out
   useLayoutEffect(() => { const el = wordsRef.current; if (el && (el.offsetWidth !== size.w || el.offsetHeight !== size.h)) setSize({ w: el.offsetWidth, h: el.offsetHeight }) })
   // And the moment the words are put in the label layer, which can mount after the edge (the effect above runs only when the edge renders).
   const attachWords = useCallback((el: HTMLDivElement | null) => {
     wordsRef.current = el
+    placeAt(el, wordsAt.current.x, wordsAt.current.y)
     if (el) setSize((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
   }, [])
   // A link with keyboard focus (links are focusable) is drawn and says its words, as a selected one does (DL 7 Nov: focus alone).
@@ -152,6 +154,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const near = selected || focused || driver || active.has(source) || active.has(target)
   const effect = near && role !== 'size' ? link.effect ?? null : null
   const { x, y } = placed
+  wordsAt.current = { x, y }
+  useLayoutEffect(() => { placeAt(wordsRef.current, x, y) })
   // Zoomed out (below the readable zoom, camera.ts) the cards draw less and so do the links: at rest a link says its sign by its colour
   // only, so the overview stays quiet (Paul 10 Nov, 68be1258). B1 (Paul's "do now", 11 Nov): the first open is the whole board, below that
   // zoom on every real model, so a link near what the person points at (a card hovered or selected, the link selected or focused, a driver
@@ -180,9 +184,13 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const offering = (selected || focused || removing) && link.remove != null
   const [ctl, setCtl] = useState({ w: 0, h: 0 })
   const ctlSeen = useRef<ResizeObserver | null>(null)
+  const ctlRef = useRef<HTMLDivElement | null>(null)
+  const ctlStand = useRef({ x: 0, y: 0 })
   const attachCtl = useCallback((el: HTMLDivElement | null) => {
     ctlSeen.current?.disconnect(); ctlSeen.current = null
+    ctlRef.current = el
     if (!el) return
+    placeAt(el, ctlStand.current.x, ctlStand.current.y)
     const read = () => setCtl((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
     read()
     if (typeof ResizeObserver !== 'undefined') { ctlSeen.current = new ResizeObserver(read); ctlSeen.current.observe(el) }
@@ -192,30 +200,10 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     const shownWords = words && !hidden ? [{ id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : []
     return linkWordsAt(path, [...clearOf, ...shownWords], ctl, { x: midX, y: midY })
   }, [offering, ctl, words, hidden, x, y, size, path, clearOf, midX, midY])
+  ctlStand.current = { x: ctlAt?.x ?? x, y: ctlAt?.y ?? y }
+  useLayoutEffect(() => { placeAt(ctlRef.current, ctlStand.current.x, ctlStand.current.y) })
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
-  // The mark's hover (L2) is core's words: the typed belief's own (`causal.text`), then the effect's (`effect.text`, `effect.title`), by the lane's one Tip
-  // (look/Tip.tsx) anchored to the mark (it sits in the HTML label layer, so a Tip can stand beside it). A link with keyboard focus (links are focusable)
-  // says them too, so the hover is reachable without a pointer. A mark core gave no words for says the registry's or the notation's.
-  // Empty when core sent none: OkIcon then says the registry's words for the icon (look/icons.tsx `link-*`), so this file writes no words of its own.
-  const markWords = mark === null ? '' : [...new Set([causal?.text, link.effect?.text, link.effect?.title].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n')
-  const markEl = useRef<HTMLSpanElement | null>(null)
-  const [focusRect, setFocusRect] = useState<DOMRect | null>(null)
-  const [focusOpen, setFocusOpen] = useState(false)
   const markVisible = markShown && !hidden
-  // The pointer's hover is OkIcon's own Tip (150 ms). A link with keyboard focus opens the same Tip after the same 150 ms, anchored to the mark.
-  useEffect(() => {
-    if (!focused) { setFocusOpen(false); return }
-    const t = setTimeout(() => setFocusOpen(true), TIP_DELAY)
-    return () => clearTimeout(t)
-  }, [focused])
-  // The focused link's tip follows the mark on screen: placement (x, y) AND the viewport (pan, zoom) move it. The viewport is read only while this link has focus.
-  const viewport = useStore((st) => (focused ? st.transform : null))
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- the rect is read when focus lands or the mark moves on the board or in the viewport
-  useLayoutEffect(() => { setFocusRect(focused && focusOpen && markVisible && markEl.current !== null ? markEl.current.getBoundingClientRect() : null) }, [focused, focusOpen, markVisible, x, y, viewport])
-  const tipId = `view-link-tip-${i}`
-  const focusWords = markWords !== '' ? markWords : mark === null ? '' : ICONS_HOVER(mark)
-  // The sign's and the effect's own hovers (core's `label_key` word and `effect.title`): the one Tip, never a native title.
-  const signTip = useAnchoredTip(labelWord), effectTip = useAnchoredTip(link.effect?.title)
   // L1: every View link is drawn at rest (the old fold of reason links and route rails to hover and selection is gone); only `focusPath` fades a link, and
   // only while a path is lit.
   // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; every other line, a plain structural one and a reason link (a note,
@@ -229,59 +217,121 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const coloured = styled !== null || modelled
   const haloAlert = link.alert, haloProposed = olumiInk
   const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : driver ? 'var(--text-header)' : EDGE_NEUTRAL
+  // The ink is a tone class on the `<g>` (olumiLook.css `.ok-link-tone-*` sets `--link-tone` from a token); the line, its end and its leader read it. No inline style.
+  const tone = toneOf(stroke)
   const dash = link.doubt ? DOUBT_DASH : null
   const dotted = !coloured && (link.kind === 'reason' || role === 'reason')
   const width = styled?.width ?? PLAIN_WIDTH
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
+  // THE LINK'S ONE HOVER (L2; Codex review-links-2): every link says its core words through the lane's one Tip (look/Tip.tsx `useAnchoredTip`: 150 ms, Escape,
+  // closes on leave and blur), by pointer on the line, its mark or its words, and by keyboard focus on the link. They are core's: the title, the typed belief's
+  // text and its author's title, the effect's `text` and `title`, and the key word core names for the sign, each once, in that order. A modelled mark core gave
+  // no words for says its registry entry's words (look/icons.tsx `link-*`); nothing is written here.
+  const said = [...new Set([...title.split('\n'), link.effect?.text, link.effect?.title, labelWord].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n')
+  const tipWords = said !== '' ? said : mark === null ? '' : ICONS_HOVER(mark)
+  const gRef = useRef<SVGGElement | null>(null)
+  const markEl = useRef<HTMLSpanElement | null>(null)
+  const linkTip = useAnchoredTip(tipWords)
+  const tipNow = useRef(linkTip); tipNow.current = linkTip
+  // The hook anchors on `event.currentTarget`, which here is the link's `<g>` (or a focus target outside it), so the Tip is anchored by a stand-in that answers
+  // with the mark's rect when the mark is on screen, else the pointer's own point (or the link's box for focus).
+  const anchored = (e: SyntheticEvent, at: 'pointer' | 'focus'): SyntheticEvent<HTMLElement> => {
+    const pointer = e as unknown as { clientX?: number; clientY?: number }
+    const rect = (): DOMRect => {
+      if (markEl.current !== null && markVisible) return markEl.current.getBoundingClientRect()
+      if (at === 'pointer') { const px = pointer.clientX ?? 0, py = pointer.clientY ?? 0; return { x: px, y: py, left: px, top: py, right: px, bottom: py, width: 0, height: 0, toJSON: () => ({}) } }
+      return gRef.current?.getBoundingClientRect() ?? ({ x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) })
+    }
+    const wrapper = gRef.current?.closest('.react-flow__edge') ?? null
+    const ring = (): boolean => { if (at === 'pointer' || wrapper === null) return true; try { return wrapper.matches(':focus-visible') } catch { return true } }
+    return Object.create(e, { currentTarget: { value: { getBoundingClientRect: rect, matches: ring } } }) as SyntheticEvent<HTMLElement>
+  }
+  // A link with keyboard focus (links are focusable; the canvas writes `useViewFocusLink`) opens the same Tip as the pointer, through the same hook.
+  useEffect(() => {
+    if (!focused) return
+    tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
+    return () => tipNow.current.handlers.onBlur()
+  }, [focused]) // eslint-disable-line react-hooks/exhaustive-deps -- `anchored` and the hook's handlers are read fresh through refs; focus opening is the only trigger
+  // Escape closes it whichever way it opened, the pointer's or the focus's.
+  const tipOpen = linkTip.describedBy !== undefined
+  // The focus target is React Flow's `.react-flow__edge` wrapper (canvas.ts gives it `aria-describedby` = the words id), so while the Tip is open under focus its id
+  // is appended there, and the previous value comes back on close or blur (the same host rule as look/icons.tsx LabelledIcon).
+  const tipId = linkTip.describedBy
+  useEffect(() => {
+    if (!focused || tipId === undefined) return
+    const host = gRef.current?.closest('.react-flow__edge') ?? null
+    if (host === null) return
+    const before = host.getAttribute('aria-describedby')
+    host.setAttribute('aria-describedby', before === null || before === '' ? tipId : `${before} ${tipId}`)
+    return () => { if (before === null) host.removeAttribute('aria-describedby'); else host.setAttribute('aria-describedby', before) }
+  }, [focused, tipId])
+  useEffect(() => {
+    if (!tipOpen) return
+    const close = (e: KeyboardEvent) => { if (e.key === 'Escape') tipNow.current.dismiss() }
+    document.addEventListener('keydown', close)
+    return () => document.removeEventListener('keydown', close)
+  }, [tipOpen])
+  // The Tip keeps its first measure, so the board moving under it (pan, zoom) closes it, as a scroll does; a focused link then opens it again at its new place.
+  // The viewport is read only while the pointer is on this link or it has focus, so a pan never re-renders every link.
+  const [hot, setHot] = useState(false)
+  const viewport = useStore((st) => (focused || hot ? st.transform : null))
+  const lastViewport = useRef<typeof viewport>(null)
+  useEffect(() => {
+    const before = lastViewport.current
+    lastViewport.current = viewport
+    if (before === null || viewport === null || before === viewport) return
+    tipNow.current.dismiss()
+    if (focused) tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
+  }, [viewport]) // eslint-disable-line react-hooks/exhaustive-deps -- a new viewport is the only trigger
+  const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-off-path={offPath || undefined} className={offPath ? 'ok-link ok-link-off-path' : 'ok-link'} role="group" aria-label={title !== '' ? title : undefined}>
-      <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} colour={stroke} /></defs>
-      {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" strokeWidth={width + 8} /> : null}
-      {haloProposed ? <path data-link-halo-path="proposed" d={path} className="ok-link-halo ok-link-halo-proposed" strokeWidth={width + (haloAlert ? 4 : 6)} /> : null}
-      <BaseEdge id={id} path={path} className={dotted ? 'ok-link-line ok-link-dotted' : 'ok-link-line'} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
-        style={{ stroke, strokeWidth: width, ...(dash !== null ? { strokeDasharray: dash } : {}) }} />
+    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-off-path={offPath || undefined} className={`ok-link ok-link-tone-${tone}${offPath ? ' ok-link-off-path' : ''}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
+      ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}>
+      <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
+      {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
+      {haloProposed ? <path data-link-halo-path="proposed" d={path} className={haloAlert ? 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner' : 'ok-link-halo ok-link-halo-proposed'} /> : null}
+      <BaseEdge id={id} path={path} className={`ok-link-line${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+      />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
-      {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} title={causal?.author?.title} /> : null}
+      {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (
-        <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
+        <path data-view-link-leader={`links.${i}`} d={`M ${x},${y} L ${placed.leaderTo.x},${placed.leaderTo.y}`} className="ok-link-leader" />
       ) : null}
       {!words ? null : (
         // The words on the line sit in React Flow's label layer, above a resting card (z 0) and below a selected one (1000), so a card
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
-          <div ref={attachWords} id={linkWordsIdOf(i)} className={`ok-link-words nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light`} data-view-link-words={`links.${i}`}
-            style={{ transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
+          <div ref={attachWords} id={linkWordsIdOf(i)} className={`ok-link-words nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light${hidden ? ' ok-link-hidden' : ''}`} data-view-link-words={`links.${i}`}>
             {!markShown || mark === null ? null : (
               <span ref={markEl} data-view-link-mark={`links.${i}`} data-link-direction={mark} data-view-link-unsettled={verdictless === null ? undefined : `links.${i}`} className="ok-link-mark inline-flex">
-                {/* The registry draws it and owns the hover (the one Tip, 150 ms, never a native title); core's words, when it sent any, are the name and the Tip's words. */}
-                <OkIcon id={MARK_ID[mark]} size={12} words={markWords !== '' ? markWords : undefined} focusable={false} inherit />
+                {/* The registry draws the glyph; the hover is the link's one Tip (the `<g>`'s handlers), so this icon carries none of its own. */}
+                <OkIcon id={MARK_ID[mark]} size={12} decorative inherit />
               </span>
             )}
-            {!signed || !textShown || farAtRest ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} tabIndex={labelWord ? 0 : undefined} aria-describedby={signTip.describedBy} className={labelWord ? 'ok-link-hit' : undefined} {...(labelWord ? signTip.handlers : {})}>{link.label}</span>}
-            {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
-            {effect === null ? null : <span tabIndex={effect.title ? 0 : undefined} aria-describedby={effectTip.describedBy} className="ok-link-hit" {...(effect.title ? effectTip.handlers : {})} data-view={`links.${i}.effect.text`}>{effect.text}</span>}
+            {!signed || !textShown || farAtRest ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} className="ok-link-hit">{link.label}</span>}
+            {/* Its strength in core's words (`effect`, core 685e725); core's hover for it is part of the link's Tip. */}
+            {effect === null ? null : <span className="ok-link-hit" data-view={`links.${i}.effect.text`}>{effect.text}</span>}
           </div>
         </EdgeLabelRenderer>
       )}
-      {focusRect === null || focusWords === '' ? null : createPortal(<Tip id={tipId} text={focusWords} anchorRect={focusRect} />, document.body)}
-      {signTip.tip}{effectTip.tip}
       {/* A revealed stance on this line (core `link_marks`), off every card and off this line's own words. */}
       <LinkMarkChip i={i} link={link} path={path} cards={markCards} midX={midX} midY={midY} />
       {/* R25 slice 2b: where core names the one record (and part) this line stands for (`remove`), the selected or focused link offers to
           take it off, in the label layer above the cards, at its own clear point (`ctlAt`), with a leader to the link when it sits off it. */}
       {offering && ctlAt?.leaderTo ? (
-        <path data-view-link-remove-leader={`links.${i}`} d={`M ${ctlAt.x},${ctlAt.y} L ${ctlAt.leaderTo.x},${ctlAt.leaderTo.y}`} fill="none" stroke={stroke} strokeWidth={1} strokeDasharray="2 3" />
+        <path data-view-link-remove-leader={`links.${i}`} d={`M ${ctlAt.x},${ctlAt.y} L ${ctlAt.leaderTo.x},${ctlAt.leaderTo.y}`} className="ok-link-leader" />
       ) : null}
       {offering && link.remove != null ? (
         <EdgeLabelRenderer>
           <div ref={attachCtl} data-link-remove-at={`links.${i}`}
-            className="ok-link-ctl" style={{ transform: `translate(-50%, -50%) translate(${ctlAt?.x ?? x}px, ${ctlAt?.y ?? y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z + 1, ...(ctlAt === null ? { visibility: 'hidden' as const } : {}) }}>
+            className={ctlAt === null ? 'ok-link-ctl ok-link-hidden' : 'ok-link-ctl'}>
             <LinkRemove edge={id} from={source} remove={link.remove} />
           </div>
         </EdgeLabelRenderer>
       ) : null}
+      {linkTip.tip}
     </g>
   )
 }

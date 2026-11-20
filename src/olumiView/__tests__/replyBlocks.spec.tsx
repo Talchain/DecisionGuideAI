@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import parts from './fixtures/live-first-reply-parts.json'
 import { Blocks, Words } from '../ViewChat'
 
@@ -23,12 +24,13 @@ describe('a reply keeps core\'s paragraphs and lists (the live first reply)', ()
     expect(container.querySelectorAll('[data-reply-list]').length).toBe(1)
     expect(container.querySelectorAll('[data-reply-para]').length).toBeGreaterThanOrEqual(4)
   })
-  it('INVARIANCE: every word verbatim and in order (only the list markers drop); the citation is the same one superscript; part 0 keeps its data-view', () => {
+  it('INVARIANCE: every word verbatim and in order (only the list markers drop); the citation is the same one superscript; part 0 keeps its data-view', async () => {
     const { container } = render(<Blocks parts={said} at="chat.0.answer.answer" />)
     const drawn = plain([...container.querySelectorAll('[data-view]')].map((e) => e.textContent).join('\n'))
     expect(drawn).toBe(plain(coreText.replace(/(^|\s)- /g, '$1')))
     const sup = container.querySelectorAll('sup[data-view-cite]')
-    expect([sup.length, sup[0]?.textContent, sup[0]?.getAttribute('title')]).toEqual([1, '1', (said[1] as { cite: string }).cite])
+    expect([sup.length, sup[0]?.textContent, sup[0]?.hasAttribute('title'), sup[0]?.getAttribute('aria-label')]).toEqual([1, '1', false, (said[1] as { cite: string }).cite])
+    expect(await tipOf(sup[0] as HTMLElement), 'the citation words come through the one Tip').toBe((said[1] as { cite: string }).cite)
     expect(container.querySelector('[data-view="chat.0.answer.answer.0.text"]')?.textContent).toBe((said[0] as { text: string }).text)
   })
 })

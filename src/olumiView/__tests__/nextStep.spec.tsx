@@ -364,6 +364,17 @@ describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
     expect(d.querySelector(`[data-view="chat.${k}.answer.next.label"]`)?.textContent, 'the label stays where there is no press').toBe(next.label)
   })
 
+  it('SY2b core marks the move NOT the newest (`newest: false`): no press is drawn anywhere on the panel, core\'s words still stand; CONTRAST: `newest: true` draws exactly one', () => {
+    const base = golden('proposal'), k = base.chat.length - 1
+    const stale = structuredClone(base)
+    stale.chat[k]!.answer!.next = { ...stale.chat[k]!.answer!.next, newest: false }
+    const c = show(stale)
+    expect(c.querySelectorAll('[data-testid="view-next-move"]'), 'a rejected move offers no tap').toHaveLength(0)
+    expect(c.querySelector(`[data-view="chat.${k}.answer.next.label"]`)?.textContent, 'core\'s label is still said, in words').toBe(base.chat[k]!.answer!.next.label)
+    cleanup()
+    expect(show(base).querySelectorAll('[data-testid="view-next-move"]'), 'CONTRAST: the same reply with newest true').toHaveLength(1)
+  })
+
   it('SY3 where core offers a next move with no proposal, the filled press is under the reply, once, and there is no Next step row above it', () => {
     const view = sessionView('after-find-first'), k = view.chat.length - 1, next = view.chat[k]!.answer!.next
     expect([view.proposal, next.newest]).toEqual([null, true])

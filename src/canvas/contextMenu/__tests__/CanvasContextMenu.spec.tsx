@@ -323,6 +323,85 @@ describe('CanvasContextMenu — shared-model authority', () => {
     }
   })
 
+  describe('the lane row tip on the keyboard, and when the menu moves', () => {
+    const rows = [
+      { id: 'plain', label: 'Plain row', icon: Eye, tooltip: 'Plain row note', enabled: true, action: vi.fn() },
+      { id: 'other', label: 'Other row', icon: Eye, tooltip: 'Other row note', enabled: true, action: vi.fn() },
+    ] as never
+    const useItems = () => ({ items: rows, overlay: null })
+    const tipText = () => document.querySelector('[role="tooltip"]')?.textContent ?? null
+    const open = () => {
+      vi.useFakeTimers()
+      vi.stubEnv('VITE_OLUMI_CORE', '1')
+      render(<CanvasContextMenuBase target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} useItems={useItems} />)
+    }
+    const close = () => { vi.unstubAllEnvs(); vi.useRealTimers() }
+
+    it('an arrow key opens the row tip at 150 ms (149: none), through the one timer, and moving on drops the old one', () => {
+      open()
+      try {
+        fireEvent.keyDown(document, { key: 'ArrowDown' })
+        act(() => { vi.advanceTimersByTime(149) })
+        expect(tipText(), 'not at 149 ms').toBeNull()
+        act(() => { vi.advanceTimersByTime(1) })
+        expect(tipText()).toBe('Plain row note')
+        expect(screen.getByText('Plain row').closest('button')).toHaveAttribute('aria-describedby', 'tooltip-plain')
+        fireEvent.keyDown(document, { key: 'ArrowDown' })
+        expect(tipText(), 'the old tip goes at once when the focus moves on').toBeNull()
+        act(() => { vi.advanceTimersByTime(150) })
+        expect(tipText()).toBe('Other row note')
+      } finally { close() }
+    })
+
+    it('real keyboard focus (focus ring) on a row opens its tip at 150 ms, and blur before then cancels it', () => {
+      open()
+      try {
+        const plain = screen.getByText('Plain row').closest('button')!
+        act(() => { plain.focus() })
+        expect(document.activeElement).toBe(plain)
+        act(() => { vi.advanceTimersByTime(149) })
+        expect(tipText(), 'not at 149 ms').toBeNull()
+        act(() => { plain.blur() })
+        act(() => { vi.advanceTimersByTime(500) })
+        expect(tipText(), 'blur cancelled the pending tip').toBeNull()
+        act(() => { plain.focus() })
+        act(() => { vi.advanceTimersByTime(150) })
+        expect(tipText()).toBe('Plain row note')
+        act(() => { plain.blur() })
+        expect(tipText(), 'gone at once on blur').toBeNull()
+      } finally { close() }
+    })
+
+    it('CONTRAST: off the lane the row tip keeps its own 300 ms (299: none; 300: there)', () => {
+      vi.useFakeTimers()
+      try {
+        render(<CanvasContextMenuBase target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} useItems={useItems} />)
+        fireEvent.mouseEnter(screen.getByText('Plain row').closest('button')!)
+        act(() => { vi.advanceTimersByTime(299) })
+        expect(tipText(), 'not at 299 ms').toBeNull()
+        act(() => { vi.advanceTimersByTime(1) })
+        expect(document.querySelector('[role="tooltip"]')).not.toBeNull()
+      } finally { close() }
+    })
+
+    it('an open tip closes on scroll and on resize (its anchor was measured once)', () => {
+      open()
+      try {
+        const plain = screen.getByText('Plain row').closest('button')!
+        fireEvent.mouseEnter(plain)
+        act(() => { vi.advanceTimersByTime(150) })
+        expect(tipText()).toBe('Plain row note')
+        act(() => { window.dispatchEvent(new Event('scroll')) })
+        expect(tipText(), 'scroll').toBeNull()
+        fireEvent.mouseEnter(plain)
+        act(() => { vi.advanceTimersByTime(150) })
+        expect(tipText()).toBe('Plain row note')
+        act(() => { window.dispatchEvent(new Event('resize')) })
+        expect(tipText(), 'resize').toBeNull()
+      } finally { close() }
+    })
+  })
+
   it('uses icon components rather than emoji and keeps structural separators', () => {
     const { container } = render(
       <CanvasContextMenu

@@ -15,6 +15,7 @@ import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab } from '../team/TeamTab'
 import { useMe } from '../me'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 
 const SID = 's_0123456789ab'
 const base = golden as unknown as View
@@ -64,13 +65,13 @@ const openForm = (option = 'single_country_test') => {
 }
 
 describe('the Run\'s "what would have to be true" lines (Analysis tab)', () => {
-  it('each line verbatim under core\'s heading, core\'s hover and mark; drawn once; a line with no mark has none', () => {
+  it('each line verbatim under core\'s heading, core\'s hover and mark; drawn once; a line with no mark has none', async () => {
     const { container } = render(<ViewChances model={withTipping([LINE, LINE2], HEADING)} />)
     const box = screen.getByTestId('view-run-tipping')
     expect(box.querySelector('[data-view="run.tipping_heading"]')?.textContent).toBe(HEADING)
     expect([...box.querySelectorAll('[data-view-fact]')].map((e) => e.textContent)).toEqual([`◆ ${LINE.line}`, LINE2.line])
-    expect(box.querySelector('[data-view-fact="F40"]')!.getAttribute('title')).toBe(LINE.hover)
-    expect(box.querySelector('[data-view-fact="F40"] [aria-label]')!.getAttribute('title')).toBe(MARK.title)
+    expect(await tipOf(box.querySelector<HTMLElement>('[data-view-fact="F40"]')!)).toBe(LINE.hover)
+    expect(await tipOf(box.querySelector<HTMLElement>('[data-view-fact="F40"] [aria-label]')!)).toBe(MARK.title)
     expect(container.textContent!.split(LINE.line).length - 1).toBe(1)
     expect(container.textContent!.split(HEADING).length - 1).toBe(1)
   })

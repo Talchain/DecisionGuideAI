@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import type { View } from '../client'
 import { ViewChances } from '../ViewChances'
 
@@ -24,16 +25,17 @@ describe('an option\'s chance definition is in its row\'s hover, never body text
   for (const [name, view] of goldens) {
     const rows = chanceRows(view)
     if (rows.length === 0) continue
-    it(`${name}: the Analysis tab draws no definition on screen; each row's hover is core's title, which opens with it`, () => {
+    it(`${name}: the Analysis tab draws no definition on screen; each row's hover (the one Tip) is core's title, which opens with it`, async () => {
       const c = render(<ViewChances model={view.model!} />).container
       // The option rows' own text (core cc1b522e may also send the line as one of the Run's notes, for an aim the Run is not about: that note
       // is core's, drawn verbatim, and is not the row).
       const onRows = [...c.querySelectorAll('[data-view-row]')].map((e) => e.textContent ?? '').join('\n')
       for (const { card, row, i } of rows) {
         expect(onRows.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
-        const hover = c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title') ?? ''
+        const at = `${card.id}.rows.${i}`
+        const hover = await tipOf(c.querySelector<HTMLElement>(`[data-view-row="${at}"] [data-view="${at}.aim"], [data-view-row="${at}"] > [data-view="${at}.text"]`)!)
         expect([hover === row.title, hover.startsWith(row.text!)], `${card.id} row ${i} hover`).toEqual([true, true])
       }
-    })
+    }, 30000)
   }
 })

@@ -7,7 +7,7 @@
  * THE LANE'S ONE TIP (surfaces step B, 18 Nov): the small box that says what a row cannot fit or why it cannot act. On the lane it stands in for the
  * right-click menu's own tooltip (canvas/contextMenu/MenuTooltip, a second look: rounded-lg, 11 px, grey on the page ground), which the older look,
  * off the lane, keeps until that look has been pictured. One look: the panel's ground and border, 12/16 text,
- * 240 px at most, read only (the pointer passes through). It stands right of its row, or left of it at the window's edge, and never below the
+ * 240 px at most, read only (the pointer passes through, no scroll: the whole text is always drawn). It stands right of its row, or left of it at the window's edge, and never below the
  * window's foot; where it stands is written to two custom properties, never an inline style.
  */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react'
@@ -30,8 +30,9 @@ export function Tip({ id, text, anchorRect }: { id?: string; text: string; ancho
     if (left + r.width > window.innerWidth) left = anchorRect.left - r.width - TIP_GAP
     // Neither side has room (a narrow window, a wide tip): stay inside the window rather than off its edge.
     left = Math.min(left, window.innerWidth - r.width - TIP_GAP)
-    // The box itself is capped to the window (olumiLook.css `.ok-tip`: max-width, max-height, overflow auto), so this clamp always has room.
-    if (top + r.height > window.innerHeight) top = window.innerHeight - r.height - TIP_GAP
+    // A tip is never interactive and never scrolls: its whole text is always drawn (olumiLook.css `.ok-tip` caps only the width, so the text wraps).
+    // Below the window's foot it flips up (its foot level with the anchor's), and a box taller than the window stays at the margin.
+    if (top + r.height > window.innerHeight - TIP_GAP) top = Math.min(anchorRect.bottom - r.height, window.innerHeight - r.height - TIP_GAP)
     t.style.setProperty('--tip-x', `${Math.max(TIP_GAP, left)}px`)
     t.style.setProperty('--tip-y', `${Math.max(TIP_GAP, top)}px`)
   }, [anchorRect, text])
@@ -64,8 +65,21 @@ export function useTipDelay(delay = TIP_DELAY) {
   return { activeTooltip: active, showTooltip, hideTooltip }
 }
 
-const focusRing = (e: SyntheticEvent<HTMLElement>): boolean => {
+export const focusRing = (e: SyntheticEvent<HTMLElement>): boolean => {
   try { return e.currentTarget.matches(':focus-visible') } catch { return true }
+}
+
+/** The anchor moves under a scroll or a resize and the tip keeps its first measure: close it rather than leave it detached. The one place that rule lives (an icon, a button and the context menu all use it). */
+export function useTipDismissOnMove(shown: boolean, hide: () => void) {
+  const latest = useRef(hide)
+  latest.current = hide
+  useEffect(() => {
+    if (!shown) return
+    const close = () => latest.current()
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => { window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close) }
+  }, [shown])
 }
 
 /**
@@ -90,13 +104,7 @@ export function useAnchoredTip(words: string | undefined) {
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => { if (e.key === 'Escape') hideTooltip() },
   }
   const shown = activeTooltip !== null && text !== ''
-  // The anchor moves under a scroll or a resize and the tip keeps its first measure: close it rather than leave it detached.
-  useEffect(() => {
-    if (!shown) return
-    window.addEventListener('scroll', hideTooltip, true)
-    window.addEventListener('resize', hideTooltip)
-    return () => { window.removeEventListener('scroll', hideTooltip, true); window.removeEventListener('resize', hideTooltip) }
-  }, [shown])  // eslint-disable-line react-hooks/exhaustive-deps -- hideTooltip only clears a ref'd timer and sets state to null
+  useTipDismissOnMove(shown, hideTooltip)
   const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} />, document.body) : null
   return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }

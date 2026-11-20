@@ -5,10 +5,11 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useState, Fragment } from 'react'
+import { useState, Fragment, type MouseEvent } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
-import { OlumiMark, worthMarksOf } from '../cards/marks'
+import { OlumiMark } from '../cards/marks'
+import { Tipped } from '../cards/Tipped'
 import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
@@ -30,37 +31,19 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   const said = [change, b.words || b.face || b.text].filter((x) => x != null && x !== '').join(' ')
   const words = [said, b.title].filter((x) => x != null && x !== '').join('\n')
   return (
-    <button type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} title={words} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
+    <Tipped as="button" words={words} type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
       data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
       <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
       {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}
-    </button>
-  )
-}
-
-/** Core's honesty line (`card.unused`: Olumi's analysis does not use this figure yet), as a mark with core's words. */
-export const UnusedMark = ({ id, words }: { id: string; words: string }): JSX.Element => (
-  <span className="ok-dt-icon" data-view={`${id}.unused`} data-unused={id}><OkIcon id="feeds-no-result" size={ICON} words={words} decorative={false} /></span>
-)
-
-/** Olumi's own observations on this card (core's `worth_checking`): one mark per distinct code, the same icons and words as the Simple foot (worthMarksOf), so a
- *  switch to Detailed never drops what Olumi said is worth checking, and two different observations are two different marks (C3). */
-export const WorthMark = ({ card }: { card: ViewCard }): JSX.Element | null => {
-  const marks = worthMarksOf(card)
-  return marks.length === 0 ? null : (
-    <>
-      {marks.map((m) => (
-        <span key={m.code} className="ok-dt-icon" data-view={`${card.id}.worth_checking`} data-card-mark="worth-checking" data-worth-code={m.code}><OkIcon id={m.icon} size={ICON} words={m.words} decorative={false} /></span>
-      ))}
-    </>
+    </Tipped>
   )
 }
 
 /** The question's date (core's `decide_by`): a calendar mark and core's words; Olumi's blue where Olumi set it. */
 export const DecideBy = ({ d }: { d: { text: string; title: string; olumi: boolean } }): JSX.Element => (
-  <span className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} title={d.title || d.text} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
+  <Tipped words={d.title || d.text} className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
     <OkIcon id="decide-by" size={ICON} /><span>{d.text}</span>
-  </span>
+  </Tipped>
 )
 
 /** An aim's own marker, small, beside a row that is about it: a goal's diamond in the goal's colour, a limit's outlined square (DS shapes). */
@@ -99,8 +82,8 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
   if (words.length <= ROW_WORDS_MAX) return <span data-row-words={at}>{words}</span>
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
-      <button type="button" className="ok-dt-icon ok-dt-press nodrag nopan" title={words} aria-label={words} aria-expanded={open}
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></button>
+      <Tipped as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open}
+        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></Tipped>
       {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )

@@ -31,6 +31,13 @@ export const effectStroke = (sign: string | null | undefined, isDark = false): s
  * low / likely / high are in each link's own units, so no width may imply a strength: the old 2 / 3 / 4 / 5 ladder and the driver minimum are gone.
  */
 export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
+/**
+ * The ink of a line is a TONE (a class on the link's `<g>`, olumiLook.css `.ok-link-tone-*`, which sets `--link-tone` from a token): the line, its end and its leader
+ * all read that one property, so no component writes a colour. `TONE_TOKEN` is what each tone's class must declare (links.spec reads the stylesheet against it).
+ */
+export type Tone = 'positive' | 'negative' | 'neutral' | 'ink' | 'goal'
+export const TONE_TOKEN: Readonly<Record<Tone, string>> = { positive: EFFECT_STROKES.increases, negative: EFFECT_STROKES.decreases, neutral: EDGE_NEUTRAL, ink: 'var(--text-header)', goal: GOLD }
+export const toneOf = (stroke: string): Tone => (Object.keys(TONE_TOKEN) as Tone[]).find((t) => TONE_TOKEN[t] === stroke) ?? 'neutral'
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
 /** The one dash: a doubted link. A reason link is never dashed for being one: it is dotted (olumiLook.css `.ok-link-dotted`), so a dash still means doubt only. */

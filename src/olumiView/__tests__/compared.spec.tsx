@@ -12,6 +12,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import golden from '../golden/european.view.json'
 import type { View, ViewModel } from '../client'
 import { PortAnalysis } from '../port/PortAnalysisTab'
+import { tipOf } from './tipHelpers'
 
 afterEach(cleanup)
 
@@ -48,10 +49,10 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
     expect([...screen.getByTestId('view-run-compared-better').querySelectorAll('[data-view-fact]')].map((d) => d.textContent)).toEqual([`◆ ${COMPARED[2]!.line}`, COMPARED[3]!.line])
     for (const c of COMPARED.slice(0, 4)) {
       expect(container.textContent!.split(c.line).length - 1).toBe(1) // once on the panel
-      expect(container.querySelector(`[data-view-fact="${c.id}"]`)!.getAttribute('title')).toBe(c.hover)
+      expect(await tipOf(container.querySelector<HTMLElement>(`[data-view-fact="${c.id}"]`)!)).toBe(c.hover)
     }
   })
-  it('the groups are inside the "Why this reading" fold, never at rest, and each group sits apart from the next (space-y-3)', () => {
+  it('the groups are inside the "Why this reading" fold, never at rest, and each group sits apart from the next (space-y-3)', async () => {
     render(<PortAnalysis model={withCompared(COMPARED, HEADINGS)} />)
     expect(screen.queryByTestId('view-run-compared')).toBeNull()
     fireEvent.click(screen.getByTestId('analysis-why-toggle'))

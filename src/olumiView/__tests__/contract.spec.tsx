@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import type { View, ViewModel } from '../client'
 import { driverRange, ViewChances } from '../ViewChances'
 
@@ -105,22 +106,25 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
     typeof v === 'string' ? (v !== '' && k !== 'kind' && k !== 'state' && k !== 'aim_id' && k !== 'title' && k !== 'rests_on_text' && !(k === 'text' && row['kind'] === 'chance') ? [`${at}.${k}`] : [])
     : v !== null && typeof v === 'object' && k !== 'outcome' && k !== 'rests_on' && k !== 'driver' ? shownStrings(v as Record<string, unknown>, `${at}.${k}`) : [])
   for (const n of GOLDEN) {
-    it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover`, () => {
+    it(`${n}: every word and mark on every option line is drawn, and each line carries core's hover (the one Tip on its words, never a native title)`, async () => {
       const model = golden(n).model!
       const { container } = render(<ViewChances model={model} />)
-      for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) card.rows.forEach((row, i) => {
+      for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) for (const [i, row] of card.rows.entries()) {
         const at = `${card.id}.rows.${i}`
         for (const path of shownStrings(row as unknown as Record<string, unknown>, at)) expect(container.querySelector(`[data-view="${path}"]`), path).not.toBeNull()
-        expect(container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title'), at).toBe(row.title)
-      })
-    })
+        const hover = container.querySelector<HTMLElement>(`[data-view-row="${at}"] [data-view="${at}.aim"], [data-view-row="${at}"] > [data-view="${at}.text"]`)!
+        // Every row's words are a focus stop (so a keyboard reaches them) and none is a native title; the Tip's own words are read on each card's first row (150 ms each).
+        expect([container.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title') ?? null, hover.tabIndex], at).toEqual([null, 0])
+        if (i === 0) expect(await tipOf(hover), at).toBe(row.title)
+      }
+    }, 30000)
   }
 })
 
 describe('each option says what moves its chance most, as the base dock did (00053 #2; core wip/view-dock dock.oracle.json)', () => {
   const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, { drivers: Record<string, string | null> }>
   for (const n of GOLDEN.filter((g) => g !== 'proposal')) {
-    it(`${n}: every option's driver line is the base dock's words, drawn under that option with core's hover`, () => {
+    it(`${n}: every option's driver line is the base dock's words, drawn under that option with core's hover`, async () => {
       const model = golden(n).model!
       const { container } = render(<ViewChances model={model} />)
       for (const [id, words] of Object.entries(oracle[n]!.drivers)) {
@@ -130,7 +134,7 @@ describe('each option says what moves its chance most, as the base dock did (000
         // with core's two chances (driver.low/high) the line is v10's low→high marker, core's words its label; without them, the words
         if (driverRange(driver) !== null) { expect(line?.getAttribute('aria-label'), id).toBe(words); expect(line?.textContent, id).toBe('') }
         else expect(line?.textContent, id).toBe(words)
-        expect(line?.getAttribute('title'), id).toBe(driver.title)
+        expect(await tipOf(line!), id).toBe(driver.title)
       }
     })
   }
@@ -141,7 +145,7 @@ describe('the Run beside the chances says what the base dock said, word for word
   const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, Oracle>
   const texts = (c: Element, sel: string) => [...c.querySelectorAll(sel)].map((e) => e.textContent)
   for (const n of GOLDEN.filter((g) => g !== 'proposal')) {
-    it(`${n}: lead, most likely, notes in order, and what the chances wait on`, () => {
+    it(`${n}: lead, most likely, notes in order, and what the chances wait on`, async () => {
       const model = golden(n).model!, o = oracle[n]!
       const { container } = render(<ViewChances model={model} />)
       // Core's short lead (3f36d04c, DL ruling 9 Nov): core changed the lead's words on purpose, and its frozen dock.oracle (the base
@@ -154,7 +158,8 @@ describe('the Run beside the chances says what the base dock said, word for word
       // (`rests_on_text`). Together they are still the base dock's words, in order, none dropped.
       const ml = model.run?.most_likely ?? null
       const head = container.querySelector('[data-view="run.most_likely.text"]')?.textContent ?? null
-      const hover = container.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title') ?? null
+      const hoverEl = container.querySelector<HTMLElement>('[data-view-hover="run.most_likely.rests_on_text"]')
+      const hover = hoverEl === null ? null : await tipOf(hoverEl)
       expect(hover, 'the hover is core\'s rests_on_text').toBe(ml?.rests_on_text ?? null)
       // R4 (core 271aa54): rests_on_text is core's one short line on the basis (kinds and counts, ≤ 120 characters), no longer the base
       // dock's rest word for word; the head on screen is still the base dock's opening, verbatim.
@@ -250,20 +255,20 @@ describe('a reason every option shares is said once, above the options; each cov
 })
 
 describe('worth checking first: each science line of the Run, in core\'s words, under the chances (olumi.view/3 model.run.science)', () => {
-  it('present (bakery, european): every line verbatim and in order, its mark before it when it rests on Olumi\'s proposals, the Run\'s reason on hover', () => {
+  it('present (bakery, european): every line verbatim and in order, its mark before it when it rests on Olumi\'s proposals, the Run\'s reason on hover', async () => {
     for (const n of ['bakery', 'european']) {
       const model = golden(n).model!, science = model.run!.science
       expect(science.length, n).toBeGreaterThan(0)
       const { container } = render(<ViewChances model={model} />)
       const lines = [...container.querySelectorAll<HTMLElement>('[data-testid="view-run-worth"] [data-view-fact]')]
       expect(lines.map((p) => p.getAttribute('data-view-fact')), n).toEqual(science.map((l) => l.id))
-      science.forEach((l, i) => {
+      for (const [i, l] of science.entries()) {
         expect(lines[i]!.querySelector(`[data-view="run.science.${i}.line"]`)?.textContent, n).toBe(l.line)
-        expect(lines[i]!.getAttribute('title'), n).toBe(l.hover)
+        expect(await tipOf(lines[i]!), n).toBe(l.hover)
         const mark = lines[i]!.querySelector(`[data-view="run.science.${i}.olumi.glyph"]`)
         if (l.olumi === null) expect(mark, n).toBeNull()
-        else { expect(mark?.textContent, n).toBe(l.olumi.glyph); expect(mark?.getAttribute('title'), n).toBe(l.olumi.title) }
-      })
+        else { expect(mark?.textContent, n).toBe(l.olumi.glyph); expect(await tipOf(mark as HTMLElement), n).toBe(l.olumi.title) }
+      }
     }
   })
   it('absent: a Run with no science line draws no block', () => {

@@ -7,6 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import golden from '../golden/european.view.json'
 import capacity from '../golden/proposal.view.json'
@@ -76,7 +77,7 @@ describe('"If it failed": Olumi\'s failure stories on the reply they came with (
   const withStories = (stories: unknown[], heading: string | null): View => ({ ...cap, chat: cap.chat.map((t, i) => (i === cap.chat.length - 1 && t.answer ? { ...t, answer: { ...t.answer, stories, stories_heading: heading } } : t)) } as View)
   const shown = (v: View) => { useViewStore.setState({ view: v }); render(<ViewConversation chat={v.chat} />) }
 
-  it('under core\'s heading, each story in Olumi\'s words, marked Olumi\'s with the key\'s own glyph and word', () => {
+  it('under core\'s heading, each story in Olumi\'s words, marked Olumi\'s with the key\'s own glyph and word', async () => {
     shown(withStories(STORIES, 'If it failed'))
     const box = screen.getByTestId('view-chat-stories')
     expect(box.querySelector('[data-view$=".answer.stories_heading"]')?.textContent).toBe('If it failed')
@@ -85,16 +86,21 @@ describe('"If it failed": Olumi\'s failure stories on the reply they came with (
     for (const li of items) {
       const mark = li.querySelector('[data-story-mark]')!
       expect(mark.textContent?.trim()).toBe('◆')
-      expect(mark.getAttribute('title')).toBe('Olumi')
+      expect(mark.hasAttribute('title'), 'no native title').toBe(false)
+      expect(mark.getAttribute('aria-label')).toBe('Olumi')
+      expect(await tipOf(mark as HTMLElement), 'its words come through the one Tip').toBe('Olumi')
     }
   })
 
-  it('⛔ Olumi\'s mark is core\'s key item by its id (`olumi`), never its words: with core\'s words for it changed, each story is still marked, in core\'s new words', () => {
+  it('⛔ Olumi\'s mark is core\'s key item by its id (`olumi`), never its words: with core\'s words for it changed, each story is still marked, in core\'s new words', async () => {
     const v = withStories(STORIES, 'If it failed'), m = v.model!
     shown({ ...v, model: { ...m, key: m.key.map((k) => (k.id === 'olumi' ? { ...k, text: 'Olumi’s estimate' } : k)) } } as View)
     const items = [...screen.getByTestId('view-chat-stories').querySelectorAll('[data-story]')]
     expect(items.length).toBe(STORIES.length)
-    for (const li of items) expect([li.querySelector('[data-story-mark]')?.textContent?.trim() ?? null, li.querySelector('[data-story-mark]')?.getAttribute('title') ?? null]).toEqual(['◆', 'Olumi’s estimate'])
+    for (const li of items) {
+      const mark = li.querySelector<HTMLElement>('[data-story-mark]')!
+      expect([mark.textContent?.trim(), mark.hasAttribute('title'), await tipOf(mark)]).toEqual(['◆', false, 'Olumi’s estimate'])
+    }
   })
 
   it('the option a story is about and the cards it rests on, as label: value lines in each card\'s own heading; a record not on the canvas is not named', () => {

@@ -10,6 +10,7 @@ import path_ from 'node:path'
 import { act, cleanup, render } from '@testing-library/react'
 import { getBezierPath, Position, ReactFlowProvider, useStoreApi, type Node } from '@xyflow/react'
 import type { ViewLink } from '../../../olumiView/client'
+import { applied, isHidden, standsAt } from '../../../olumiView/v12/links/__tests__/applied'
 import { ViewLinkEdge } from '../ViewLinkEdge'
 import { linkWordsAt, NEAR, REACH } from '../linkWordsPlace'
 import { linkWordsIdOf } from '../../../olumiView/canvas'
@@ -27,7 +28,7 @@ type B = { x: number; y: number; w: number; h: number }
 const boxOver = (p: { x: number; y: number }, s: { w: number; h: number }, c: B) =>
   p.x - s.w / 2 < c.x + c.w && p.x + s.w / 2 > c.x && p.y - s.h / 2 < c.y + c.h && p.y + s.h / 2 > c.y
 /** Where the edge drew its words (the last translate of their transform). */
-const drawnAt = (el: HTMLElement) => { const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\)$/.exec(el.style.transform)!; return { x: Number(m[1]), y: Number(m[2]) } }
+const drawnAt = (el: HTMLElement) => standsAt(el)
 /** jsdom lays nothing out: the words measure as the browser measured them (a size, or a size by what the words hold). */
 function measureWordsAs(size: { w: number; h: number } | ((el: HTMLElement) => { w: number; h: number })): () => void {
   const of = (el: HTMLElement) => (typeof size === 'function' ? size(el) : size)
@@ -73,8 +74,9 @@ describe('a link\'s words sit at the nearest point along its path that is clear 
     const link = { from: 'a', to: 'b', kind: 'causal', label: '!', title: 't', doubt: false, alert: true, proposed: false, effect: null } as unknown as ViewLink
     const c = render(<ReactFlowProvider initialNodes={nodes}><EdgeLabelLayer><svg><Edge id="e" source="a" target="b" {...ends} data={{ link, i: 0 }} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
     const words = c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
-    const m = /translate\(([-\d.e]+)px, ([-\d.e]+)px\)$/.exec(words.style.transform)!
-    expect(inside({ x: Number(m[1]), y: Number(m[2]) }, across), words.style.transform).toBe(false)
+    const at = standsAt(words)
+    expect(Number.isFinite(at.x) && Number.isFinite(at.y), 'the words stand where --link-x/--link-y say').toBe(true)
+    expect(inside(at, across), JSON.stringify(at)).toBe(false)
   })
 })
 
@@ -135,11 +137,11 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
       </svg></EdgeLabelLayer></ReactFlowProvider>
       const r = render(draw(false))
       const words = () => r.container.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
-      expect(words().style.visibility).toBe('')
+      expect(isHidden(words())).toBe(false)
       r.rerender(draw(true))
       expect(words().querySelector('[data-view$=".effect.text"]')).not.toBeNull()
       r.rerender(draw(false))
-      expect(words().style.visibility, 'the sign is back at rest').toBe('')
+      expect(isHidden(words()), 'the sign is back at rest').toBe(false)
       expect(drawnAt(words()).y).toBeCloseTo(116, 5) // in the gap, on its link
       expect(r.container.querySelector('[data-view-link-leader]')).toBeNull()
     } finally { restore() }
@@ -155,7 +157,7 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
       const words = c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
       expect(c.querySelector('[data-view-link-mark="links.0"]'), 'the mark is drawn').not.toBeNull()
-      expect(words.style.visibility, 'and not hidden at rest').toBe('')
+      expect(isHidden(words), 'and not hidden at rest').toBe(false)
       expect(c.querySelector('[data-view-link-leader="links.0"]'), 'its leader ties it to the link').not.toBeNull()
     } finally { restore() }
   })
@@ -169,18 +171,19 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
       const rest = draw(false)
       // Hidden, not removed (still measured).
-      expect(rest.querySelector<HTMLElement>('[data-view-link-words="links.0"]')?.style.visibility).toBe('hidden')
+      expect(isHidden(rest.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!), 'hidden by the class').toBe(true)
       expect(rest.querySelector('[data-view-link-leader]')).toBeNull()
       cleanup()
       const near = draw(true)
       const at = drawnAt(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)
       expect(boxOver(at, size, everywhere)).toBe(false)
-      expect(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!.style.visibility).toBe('')
+      expect(isHidden(near.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)).toBe(false)
       const leader = near.querySelector('[data-view-link-leader="links.0"]')!
       expect(leader.getAttribute('d')).toBe(`M ${at.x},${at.y} L ${vmid.x},${vmid.y}`)
       // In the link's own stroke, so it reads as part of it.
       const line = near.querySelector<SVGPathElement>('g[data-view-link="links.0"] path.react-flow__edge-path')!
-      expect(leader.getAttribute('stroke')).toBe(line.style.stroke)
+      expect(leader.getAttribute('class')).toContain('ok-link-leader')
+      expect(applied(leader).stroke, 'the leader reads the same tone as the line').toBe(applied(line).stroke)
     } finally { restore() }
   })
   it('the words describe their link to a screen reader: they carry the id its edge names (React Flow\'s aria-describedby)', () => {
@@ -257,7 +260,7 @@ describe('the remove control sits by the words\' rule (DL 7 Nov: under the words
         <Edge id="e" source="a" target="b" {...ends} data={{ link, i: 0 }} selected />
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
       const ctl = c.querySelector<HTMLElement>('[data-link-remove-at="links.0"]')!
-      expect(ctl.style.visibility).toBe('')
+      expect(isHidden(ctl)).toBe(false)
       const at = drawnAt(ctl), words = drawnAt(c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!)
       expect(boxOver(at, { w: 210, h: 28 }, below), `${JSON.stringify(at)} over the card`).toBe(false)
       expect(boxOver(at, { w: 210, h: 28 }, { x: words.x - 5.5, y: words.y - 9, w: 11, h: 18 })).toBe(false)
@@ -267,6 +270,6 @@ describe('the remove control sits by the words\' rule (DL 7 Nov: under the words
     const unmeasured = render(<ReactFlowProvider initialNodes={[node(below)]}><EdgeLabelLayer><svg>
       <Edge id="e" source="a" target="b" {...ends} data={{ link, i: 0 }} selected />
     </svg></EdgeLabelLayer></ReactFlowProvider>).container
-    expect(unmeasured.querySelector<HTMLElement>('[data-link-remove-at="links.0"]')!.style.visibility).toBe('hidden')
+    expect(isHidden(unmeasured.querySelector<HTMLElement>('[data-link-remove-at="links.0"]')!)).toBe(true)
   })
 })

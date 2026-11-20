@@ -5,11 +5,12 @@
  * A mark core sets off the line (`line: false`) is drawn on its card instead (RevealMarks), never here.
  * Selecting either chip opens the Team tab with its link picked where the person says where they stand on it (olumiCore/team/linkPick.ts, Paul's step 6).
  */
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { EdgeLabelRenderer } from '@xyflow/react'
 import { typography } from '../styles/typography'
 import { linkWordsAt } from '../canvas/edges/linkWordsPlace'
-import { GOAL_CHANCE_DRIVER_TAG_Z } from '../canvas/utils/goalChanceDriverLinks'
+import { useAnchoredTip } from './look/Tip'
+import { placeAt } from './v12/links/place'
 import type { View, ViewLink } from './client'
 import { useViewStore } from './store'
 import { openLinkStance } from '../olumiCore/team/linkPick'
@@ -33,10 +34,13 @@ export const useLineMarked = (i: number, link: Pick<ViewLink, 'holds'>): boolean
 export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; link: ViewLink; path: string; cards: readonly Box[]; midX: number; midY: number }): JSX.Element | null {
   // Drawn once per link, on the first line holding it; on an earlier version nothing is drawn (it is shown as it was, without the dock).
   const mark = useViewStore((s) => (s.at === null ? lineMarkAt(s.view, i, link.holds) : null))
+  const hover = useAnchoredTip(mark === null ? undefined : markHover(mark))
   const [size, setSize] = useState({ w: 0, h: 0 })
   const seen = useRef<ResizeObserver | null>(null)
+  const chipRef = useRef<HTMLElement | null>(null)
   const attach = useCallback((el: HTMLElement | null) => {
     seen.current?.disconnect(); seen.current = null
+    chipRef.current = el
     if (!el) return
     const read = () => setSize((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
     read()
@@ -45,27 +49,31 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
   // At the point along the line nearest its middle where the chip touches no card and no card's chip rail (the edge passes the rails as
   // obstacles, railBoxes.ts), and not this line's own words: the link words' own rule (linkWordsPlace.ts).
   const at = useMemo(() => (size.w === 0 ? null : linkWordsAt(path, cards, size, { x: midX, y: midY })), [path, cards, size, midX, midY])
+  // Where the chip stands is geometry: two custom properties (links/place.ts), turned into the transform by olumiLook.css `.ok-link-chip`.
+  useLayoutEffect(() => { placeAt(chipRef.current, at?.x ?? midX, at?.y ?? midY) })
   if (mark === null) return null
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (
     <EdgeLabelRenderer>
-      <button type="button" ref={attach} aria-label={mark.label} title={markHover(mark)} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
+      <button type="button" ref={attach} aria-label={mark.label} aria-describedby={hover.describedBy} {...hover.handlers} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
-        className={`nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}
-        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${at?.x ?? midX}px, ${at?.y ?? midY}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, pointerEvents: 'auto', ...(at === null ? { visibility: 'hidden' as const } : {}) }}>
+        className={`ok-link-chip${at === null ? ' ok-link-hidden' : ''} nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
         </span>
         <span className="min-w-0" data-view={`collab.link_marks.${link.holds?.record}.text`}>{mark.text}</span>
       </button>
+      {hover.tip}
     </EdgeLabelRenderer>
   )
 }
 
 export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
+  const hover = useAnchoredTip(markHover(mark))
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (
-    <button type="button" aria-label={mark.label} title={markHover(mark)} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
+    <>
+    <button type="button" aria-label={mark.label} aria-describedby={hover.describedBy} {...hover.handlers} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
       onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
       className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-flex flex-none">
@@ -73,5 +81,7 @@ export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
       </span>
       <span className="min-w-0">{mark.text}</span>
     </button>
+      {hover.tip}
+    </>
   )
 }

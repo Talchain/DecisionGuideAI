@@ -15,6 +15,7 @@ import { ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { TYPE } from '../port/type'
+import { Hov } from '../port/Hover'
 
 type Glyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
 
@@ -80,12 +81,13 @@ export function Door({ label, count, testId, children }: { label: string; count:
  */
 export function Clamped({ long, labels, children, testId, lines = 2 }: { long: boolean; labels: { more: string; less: string }; children: ReactNode; testId: string; lines?: 1 | 2 }) {
   const [open, setOpen] = useState(false)
+  const bodyId = useId()
   if (!long) return <>{children}</>
   return (
     <span className="block min-w-0" data-disclosure={open ? 'open' : 'closed'} data-testid={testId}>
       {/* `line-clamp-2` brings its own display (-webkit-box); a `block` beside it would win and undo the clamp. */}
-      <span className={open ? 'block' : lines === 1 ? 'line-clamp-1' : 'line-clamp-2'}>{children}</span>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} ${action('text')}`} data-testid={`${testId}-more`}>
+      <span id={bodyId} className={open ? 'block' : lines === 1 ? 'line-clamp-1' : 'line-clamp-2'}>{children}</span>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={bodyId} className={`${TYPE.meta} ${action('text')}`} data-testid={`${testId}-more`}>
         {open ? labels.less : labels.more}
       </button>
     </span>
@@ -93,11 +95,11 @@ export function Clamped({ long, labels, children, testId, lines = 2 }: { long: b
 }
 
 /** One row in the crafted SignalRow grid: core's mark in the 16px column, the line, and an end slot (core's Olumi mark). */
-export function SignalRow({ mark, children, end = null, title, ...data }: { mark: ReactNode; children: ReactNode; end?: ReactNode; title?: string } & Record<`data-${string}`, string>) {
+export function SignalRow({ mark, children, end = null, words, ...data }: { mark: ReactNode; children: ReactNode; end?: ReactNode; words?: string } & Record<`data-${string}`, string>) {
   return (
-    <div className={`${TYPE.meta} grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2 py-1`} title={title} {...data}>
+    <div className={`${TYPE.meta} grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2 py-1`} {...data}>
       <span className="text-center text-text-light" aria-hidden="true">{mark}</span>
-      <p className="m-0 min-w-0 text-text-body">{children}</p>
+      <Hov as="p" words={words} className="m-0 min-w-0 text-text-body">{children}</Hov>
       {end === null ? <span aria-hidden="true" /> : <span className="shrink-0">{end}</span>}
     </div>
   )

@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch } from '../../olumiCore/team/api'
+import { tipOf } from './tipHelpers'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { ViewChat, ViewComposer, useViewChat } from '../ViewChat'
@@ -94,14 +95,16 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
   const view = fixture('goal-understand')
   const s = sessionIn(view)
 
-  it('the chip shows core\'s text for the goal, with who set it on hover; the row of goals is not drawn', () => {
+  it('the chip shows core\'s text for the goal, with who set it on hover; the row of goals is not drawn', async () => {
     expect(s.goal).toEqual({ id: 'understand', text: 'Understand the situation' })
     show(view)
     const c = renderTab()
     const chip = c.querySelector('[data-testid="view-session-goal-chip"]')!
     expect(chip.querySelector('[data-view="session.goal.text"]')!.textContent).toBe(s.goal!.text)
     expect(s.set_by).toBe('Ana')
-    expect(c.querySelector('[data-testid="view-session-goal-change"]')!.getAttribute('title')).toBe(`Set by ${s.set_by}`)
+    const change = c.querySelector<HTMLElement>('[data-testid="view-session-goal-change"]')!
+    expect(change.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await tipOf(change)).toBe(`Set by ${s.set_by}`)
     expect(goalOptions(c)).toEqual([])
     drawnExactly(c, view)
   })

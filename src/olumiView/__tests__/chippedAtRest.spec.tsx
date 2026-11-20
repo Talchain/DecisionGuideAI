@@ -10,6 +10,7 @@ import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View } from '../client'
+import { applied } from '../v12/links/__tests__/applied'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { useViewStore } from '../store'
@@ -58,10 +59,10 @@ describe('a link that carries a disagreement chip is drawn at rest', () => {
     expect(line(edge(viewWith(4, true), 4, 1), 4)).toBeNull()
   })
   it('CR5 ruling 1 (V12 rule 2): a chipped link is its direction colour like any modelled effect, drawn as its unchipped self; the chip alone marks the disagreement', () => {
-    const plain = edge(viewWith(2, false), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
+    const plain = applied(edge(viewWith(2, false), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!).stroke!
     cleanup()
     const c = edge(viewWith(2, true), 2)
-    const marked = c.querySelector<SVGPathElement>('.react-flow__edge-path')!.style.stroke
+    const marked = applied(c.querySelector<SVGPathElement>('.react-flow__edge-path')!).stroke!
     expect(marked).toBe(plain)
     expect(marked).toMatch(/^var\(--edge-(positive|negative|neutral)\)$/)
     expect(c.querySelector('[data-link-mark="links.2"]')?.getAttribute('aria-label')).toBe(chip.label)

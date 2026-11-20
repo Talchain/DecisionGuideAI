@@ -69,9 +69,9 @@ export const ChangeGlyph = ({ card }: { card: ViewCard }): JSX.Element | null =>
   : <Named words={card.change.title} className="text-info" attrs={{ 'data-view': `${card.id}.change.glyph` }}>{card.change.glyph}</Named>
 
 /** The option's letter as a chip (for a row that names an option; on the option's own card the chip is drawn before its title by the look). */
-export const LetterChip = ({ letter, words }: { letter: string; words?: string | null }): JSX.Element => (
-  <span className="ok-letter" data-letter-chip={letter} title={words ?? undefined}>{letter}</span>
-)
+export const LetterChip = ({ letter, words }: { letter: string; words?: string | null }): JSX.Element => words == null || words === ''
+  ? <span className="ok-letter" data-letter-chip={letter}>{letter}</span>
+  : <Named words={words} className="ok-letter" attrs={{ 'data-letter-chip': letter }}>{letter}</Named>
 
 /** The typed-state marks beside a card's name (C2, 20 Nov: text that just sits there becomes an icon with its words on hover). Registry icons, grey; the
  *  data marks the card's readers bind by are kept on the wrapper. */
@@ -104,6 +104,12 @@ export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null
   const name = words != null && words !== '' ? words : OLUMI_ASKS
   return <Named words={name} className="ok-asks" attrs={{ 'data-olumi-asks': id, 'data-simple-note': id }}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></Named>
 }
+
+/** A listed question's number on the card it is about (C4, restored 20 Nov): the number the question has in the panel's list (layout.ts chatQuestionsOf), the question's words its
+ *  name and hover. A plain numbered circle in the quiet ink, never Olumi's blue ring: the ring is the next step's alone, so a card can wear both and tell them apart. */
+export const QuestionMark = ({ id, n, words }: { id: string; n: number; words: string }): JSX.Element => (
+  <Named words={words} className="ok-qn" attrs={{ 'data-question-ring': id, 'data-question-n': String(n) }}>{n}</Named>
+)
 
 /**
  * A CARD'S STATE MARKS (Paul, 17 Nov about 20:30Z: "You can cap at three, but there should be some sort of mechanism to show more").
@@ -170,7 +176,7 @@ export function cardMarksOf(card: ViewCard): readonly CardMark[] {
 
 /** One state mark: the registry icon named by core's words, on the data marks its readers bind by (`data-card-mark` is the kind of mark, `data-worth-code` core's code). */
 export const StateMark = ({ m, card, size = MARK }: { m: CardMark; card: ViewCard; size?: number }): JSX.Element => (
-  <span className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.code === undefined ? {} : { 'data-worth-code': m.code })} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
+  <span className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'unused' ? { 'data-view': `${card.id}.unused`, 'data-unused': card.id } : m.id === 'worth-checking' ? { 'data-view': `${card.id}.worth_checking` } : {})} {...(m.code === undefined ? {} : { 'data-worth-code': m.code })} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
     <OkIcon id={m.icon} size={size} words={m.words} decorative={false} />
   </span>
 )
@@ -185,10 +191,10 @@ export const MORE_MARKS = { lead: 'Also on this card', fewer: 'Show fewer' } as 
  * elsewhere that counts toward the three (the corner driver badge). "+N" names the hidden marks on hover and to a screen reader, and a press
  * (or Enter / Space) draws them in the row; it never selects or drags the card.
  */
-export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number }): JSX.Element | null {
+export function CardMarks({ card, taken = 0, omit = [] }: { card: ViewCard; taken?: number; /** Marks this face says elsewhere, once (Detailed's status line says "set aside"). */ omit?: readonly CardMark['id'][] }): JSX.Element | null {
   const [open, setOpen] = useState(false)
   const panel = useId()
-  const all = cardMarksOf(card)
+  const all = cardMarksOf(card).filter((m) => !omit.includes(m.id))
   const over = all.slice(Math.max(0, MARK_CAP - taken)), words = over.map((m) => m.words)
   // Once nothing is past the cap the control is gone, so its open state goes with it: marks that return later start folded (line review, 18 Nov).
   const none = over.length === 0

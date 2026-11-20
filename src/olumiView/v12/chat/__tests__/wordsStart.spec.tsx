@@ -501,7 +501,7 @@ describe('3c. one visible Keep chooser beside a concise reply whose lead paraphr
     const all = qa(t, 'view-keep-idea-button')
     expect(all.filter((b) => !fold(t).contains(b) && !list.contains(b))).toHaveLength(0)
     expect(list.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(3)
-    for (const b of list.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')) expect(b.className).not.toMatch(/opacity-0/)
+    for (const b of list.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')) expect(b.closest('.ok-keep-inline'), 'the reply\'s own keep is never the hidden-until-hover inline one').toBeNull()
     await press(list.querySelectorAll<HTMLElement>('[data-testid="view-keep-idea-button"]')[1]!)
     await waitFor(() => expect(posts).toHaveLength(1))
     expect(posts[0]).toEqual({ url: `/api/scenarios/${SID}/kept`, body: { floor: 21, text: B } })

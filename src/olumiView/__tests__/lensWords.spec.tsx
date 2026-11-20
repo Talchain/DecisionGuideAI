@@ -19,6 +19,7 @@ import { driversOf, restsOnOf } from '../layout'
 import { useCanvasStore } from '../../canvas/store'
 import { CoreCard } from '../previous/CoreCard'
 import { viewOf } from '../port/__tests__/viewAt'
+import { hoverWords } from './hoverTip'
 
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
 const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
@@ -37,28 +38,28 @@ afterEach(() => {
 
 describe('the lens marks say what they mark, on the mounted card (CoreCard)', () => {
   const view = viewOf('golden/european'), m = view.model!, W = view.lens_words!
-  it('Rests on: the number reads core\'s label with it, core\'s hint on hover; Olumi\'s keeps core\'s mark as its hover. CONTRAST: no lens words, the bare number', () => {
+  it('Rests on: the number reads core\'s label with it, core\'s hint on hover; Olumi\'s keeps core\'s mark as its hover. CONTRAST: no lens words, the bare number', async () => {
     const { items } = restsOnOf(m)
     const mine = [...items.values()].find((i) => !i.olumi)!, olumis = [...items.values()].find((i) => i.olumi)!
     show(view, 'rests_on', mine.id)
     const a = document.querySelector<HTMLElement>(`[data-core-card="${mine.id}"] [data-rests-on]`)!
-    expect([a.textContent, a.title, a.dataset['viewWords']]).toEqual([`${W.label.rests_on} ${mine.n}`, W.hint.rests_on, 'lens_words.label.rests_on'])
+    expect([a.textContent, await hoverWords(a), a.hasAttribute('title'), a.dataset['viewWords']]).toEqual([`${W.label.rests_on} ${mine.n}`, W.hint.rests_on, false, 'lens_words.label.rests_on'])
     cleanup()
     show(view, 'rests_on', olumis.id)
     const b = document.querySelector<HTMLElement>(`[data-core-card="${olumis.id}"] [data-rests-on]`)!
-    expect([b.textContent, b.title]).toEqual([`${W.label.rests_on} ${olumis.n}`, m.cards.find((c) => c.id === olumis.id)!.olumi!.title])
+    expect([b.textContent, await hoverWords(b)]).toEqual([`${W.label.rests_on} ${olumis.n}`, m.cards.find((c) => c.id === olumis.id)!.olumi!.title])
     cleanup()
     show(bare(view), 'rests_on', mine.id)
     const c = document.querySelector<HTMLElement>(`[data-core-card="${mine.id}"] [data-rests-on]`)!
     expect([c.textContent, c.dataset['viewWords']]).toEqual([String(mine.n), undefined])
   })
 
-  it('What would change: the ringed figure carries core\'s label, the options\' driver words on hover. CONTRAST: off the lens, or no lens words, no label', () => {
+  it('What would change: the ringed figure carries core\'s label, the options\' driver words on hover. CONTRAST: off the lens, or no lens words, no label', async () => {
     const [[id, options]] = [...driversOf(m)]
     expect(id, 'precondition: core names a driver figure drawn as a card').toBeTruthy()
     show(view, 'what_changes', id!)
     const mark = document.querySelector<HTMLElement>(`[data-driver-mark="${id}"]`)
-    expect([mark?.textContent, mark?.dataset['viewWords'], mark?.title]).toEqual([W.label.what_changes, 'lens_words.label.what_changes', options!.map((o) => o.driver!.title).join('\n')])
+    expect([mark?.textContent, mark?.dataset['viewWords'], await hoverWords(mark!), mark?.hasAttribute('title')]).toEqual([W.label.what_changes, 'lens_words.label.what_changes', options!.map((o) => o.driver!.title).join('\n'), false])
     expect(document.querySelector(`[data-core-card="${id}"]`)?.hasAttribute('data-driver-of')).toBe(true)
     // Read whole, never cut (lead's 1232 look at 38ebeed7: "What wo…" squeezed into the corner slot at the face's foot): the label is the face's own first
     // line, as Rests on's number is, with nothing that can cut it. jsdom lays nothing out, so scrollWidth/clientWidth are both 0 here (the lead's picture is the

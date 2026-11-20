@@ -15,6 +15,7 @@ import { RevealedViews, RevealMarks, ViewEntry } from '../team/ViewsPanel'
 const ViewsPanel = ({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }) => <><RevealedViews view={view} /><RevealMarks view={view} /><ViewEntry sid={sid} view={view} onWrote={onWrote} /></>
 import { Failure, Rests, Tipping } from '../../olumiView/ViewChances'
 import { tippingOf } from '../../olumiView/layout'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5', n), 'utf8'))
 type Eff = { quantity: string; status?: 'changes' | 'moves' | 'same'; refused?: string; goal?: string; leader?: string | null; model_leader?: string | null }
@@ -120,13 +121,13 @@ describe('the Analysis tab: D6 silent line, D5 and D8', () => {
     expect(screen.getByTestId('view-run-tipping').textContent).toContain('SILENT one')
     expect(screen.getByTestId('view-run-tipping').textContent).not.toContain('NOT drawn')
   })
-  it('D5 and D8: core\'s sentence verbatim under core\'s heading, hover as title; nothing when empty', () => {
+  it('D5 and D8: core\'s sentence verbatim under core\'s heading, hover as title; nothing when empty', async () => {
     const r = run({ failure_heading: 'Could go wrong', failure: [{ id: 'f1', line: 'FAIL sentence', hover: 'FAIL hover', aim: 'a', option: 'o', figures: [] }],
       rests_heading: 'Rests on guesses', rests: [{ id: 'r1', kind: 'goal', line: 'REST sentence', hover: 'REST hover', aim: 'a', option: 'o', olumi_share: 0.9, person_share: 0.1, unassigned: 0 }] })
     render(<><Failure run={r} /><Rests run={r} /></>)
     const f = screen.getByTestId('view-run-failure'), t = screen.getByTestId('view-run-rests')
     expect(f.textContent).toBe('Could go wrongFAIL sentence')
-    expect(f.querySelector('[data-view-fact]')?.getAttribute('title')).toBe('FAIL hover')
+    expect(await tipOf(f.querySelector<HTMLElement>('[data-view-fact]')!)).toBe('FAIL hover')
     expect(t.textContent).toBe('Rests on guessesREST sentence')
     expect(t.textContent).not.toMatch(/0\.9|90/)
     cleanup()

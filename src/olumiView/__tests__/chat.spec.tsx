@@ -178,7 +178,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     // CHANGED BY DESIGN (19 Nov, Paul: "Olumi proposes 13 chan…" was cut): the summary wraps, never cut with an ellipsis.
     const words = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"] [data-testid="view-proposal-words"]')!
     expect([review.querySelector('[data-testid="view-proposal-row"] .truncate'), words.className.split(/\s+/).includes('break-words')], 'the summary wraps and is never cut').toEqual([null, true])
-    expect(row.getAttribute('title'), 'the whole sentence on hover').toBe(row.textContent)
+    expect(row.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await hoverWords(row), 'the whole sentence on hover, through the one Tip').toBe(row.textContent)
     expect(review.querySelector('[data-testid="view-set-aside"]')!.getAttribute('aria-label')).toBe('Set aside')
   })
 
@@ -437,7 +438,7 @@ describe('the writes go straight to core, and the View is read again', () => {
 })
 
 describe('honest degradation (core chat[].degraded, turn policy 18 Nov; chat[].status is the existing stamp string)', () => {
-  it('a turn core marks as degraded says so in one quiet line in its reply, verbatim, its short form on hover; CONTRAST: a turn without status draws none', () => {
+  it('a turn core marks as degraded says so in one quiet line in its reply, verbatim, its short form on hover; CONTRAST: a turn without status draws none', async () => {
     const view = structuredClone(golden('s_ce285b3617bb'))
     const i = view.chat.findIndex((t) => t.answer !== null)
     expect(i, 'precondition: an answered turn').toBeGreaterThanOrEqual(0)
@@ -447,7 +448,8 @@ describe('honest degradation (core chat[].degraded, turn policy 18 Nov; chat[].s
     const line = container.querySelectorAll<HTMLElement>('[data-testid="view-chat-turn-degraded"]')
     expect(line).toHaveLength(1)
     expect(line[0]!.textContent).toBe(words)
-    expect(line[0]!.title).toBe('Team views not read')
+    expect(line[0]!.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await hoverWords(line[0]!), 'its short form is the one Tip').toBe('Team views not read')
     expect(line[0]!.dataset['view']).toBe(`chat.${i}.degraded.text`)
   })
 })
@@ -466,7 +468,8 @@ describe('honest degradation on a model-less floor reply (core floor[].degraded)
     const r = render(<ViewConversation chat={[]} floor={floor as never} draft={null} me={null} />)
     const l = r.container.querySelector<HTMLElement>('[data-testid="view-chat-turn-degraded"]')
     expect(l?.textContent).toBe(floor[0]!.degraded.text)
-    expect(l?.title).toBe('Answered on less than usual')
+    expect(l!.hasAttribute('title'), 'no native title').toBe(false)
+    expect(await hoverWords(l!)).toBe('Answered on less than usual')
     expect(l?.dataset['view']).toBe('floor.7.degraded.text')
     r.unmount()
     const r2 = render(<ViewConversation chat={[]} floor={[{ ...floor[0], degraded: undefined }] as never} draft={null} me={null} />)

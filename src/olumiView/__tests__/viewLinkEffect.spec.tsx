@@ -9,6 +9,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View } from '../client'
+import { applied } from '../v12/links/__tests__/applied'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { focusedLinkOf, useViewFocusLink } from '../canvas'
@@ -62,7 +63,7 @@ describe('a link core sizes says its strength on the line', () => {
     const t = c.querySelector(`[data-view="links.${i}.effect.text"]`)!
     expect(t.closest('.react-flow__edgelabel-renderer')).not.toBeNull()
     expect(t.closest('svg')).toBeNull()
-    expect(Number((t.closest('[data-view-link-words]') as HTMLElement).style.zIndex)).toBeGreaterThan(0)
+    expect(Number(applied(t.closest('[data-view-link-words]')!).zIndex), 'the words stand above a resting card by the class').toBeGreaterThan(0)
   })
   it('R25 (plan v3 item 7, Paul\'s 2A): at rest a sized link keeps its sign but not its strength words; selecting it shows them', () => {
     const i = sized[0]!

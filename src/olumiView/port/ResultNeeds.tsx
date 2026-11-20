@@ -4,7 +4,7 @@
  * chances wait on, a figure no one has given, Olumi's observation on a card), core's order inside each, each row core's own words and ONE
  * press: ✎ where core offers the figure's edit, else the card on the canvas (selected and centred). Five at rest; the rest behind one press.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { OkIcon, type IconId } from '../look/icons'
@@ -14,6 +14,7 @@ import { useViewStore } from '../store'
 import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 import { cardOf, needsOf, type Need } from './pick'
 import { TYPE } from './type'
+import { Hov } from './Hover'
 import { typography } from '../../styles/typography'
 
 /** The list's chrome: its two headings (no chance yet / under a chance), and the fold. */
@@ -24,6 +25,7 @@ const RING = 'analysis-needs'
 
 export function ResultNeeds({ model, under = false }: { model: ViewModel; under?: boolean }) {
   const [all, setAll] = useState(false)
+  const listId = useId()
   useViewStore((s) => s.view) // the View decides which rows the workspace can show
   const needs = needsOf(model)
   if (needs.length === 0) return null
@@ -36,25 +38,25 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
   return (
     <section className="space-y-1" data-testid="analysis-needs" data-needs-under={under ? 'chart' : 'alone'} aria-label={title} onMouseLeave={() => ringFrom(RING, [])}>
       <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{title}</h3>
-      <ul className="m-0 list-none p-0">
+      <ul id={listId} className="m-0 list-none p-0">
         {shown.map((n) => {
           const card = cardOf(model, n.card)
           // A relation drawn as a link, a record behind a badge or a fold, a premise: shown as a reply's "Show in the workspace" shows it.
           const place = n.card !== null && recordReach(n.card) === 'show' ? n.card : null
           return (
             <li key={n.key} className={`${TYPE.body} flex items-center gap-1`} data-need={n.key} data-need-class={n.cls}>
-              <button type="button" disabled={card === null && place === null} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
-                title={n.title} className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-1 text-left hover:bg-panel-hover disabled:cursor-default disabled:hover:bg-transparent">
+              <Hov as="button" type="button" aria-disabled={card === null && place === null ? true : undefined} words={n.title} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
+                className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-1 text-left hover:bg-panel-hover aria-disabled:cursor-default aria-disabled:hover:bg-transparent">
                 <OkIcon id={ICON_OF[n.cls]} size={14} decorative />
                 <span className="min-w-0 flex-1 text-text-body" {...(n.at === null ? {} : { 'data-view': n.at })}>{n.text}{n.detail === undefined ? null : <span className={`${TYPE.meta} block text-text-light`} data-need-detail={n.key}>{n.detail}</span>}</span>
-              </button>
+              </Hov>
               {n.edit === null || card === null ? null : <FigureEdit id={card.id} edit={n.edit} place="analysis-need" glyph words={false} label={`Give a figure for ${card.heading}`} />}
             </li>
           )
         })}
       </ul>
       {folded <= 0 ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={listId} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
           <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(folded)}
         </button>
       )}

@@ -11,11 +11,12 @@
  * (`row.tail`) is drawn at rest under each option's bar (A1); ONE press away: the low/high key and the marks' legend.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { FoldChevron } from '../look/FoldChevron'
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { OkIcon } from '../look/icons'
+import { GlyphMark, Hov } from './Hover'
 import type { ViewCard } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { chartGroupsOf, findOutOf, rangeOf, trackPct, type ChartRow } from './pick'
@@ -76,7 +77,7 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
       <span className="min-w-0">
         <span data-view={`${card.id}.heading`}>{card.heading}</span>
         {card.figure == null || card.figure.text === '' ? null : <>{' '}<span className="text-text-body" data-view={`${card.id}.figure.text`}>{card.figure.text}</span></>}
-        {card.olumi == null ? null : <>{' '}<span className="text-info" title={card.olumi.title} aria-label={card.olumi.title} data-view={`${card.id}.olumi.glyph`}>{card.olumi.glyph}</span></>}
+        {card.olumi == null ? null : <>{' '}<GlyphMark mark={card.olumi} className="text-info" view={`${card.id}.olumi.glyph`} /></>}
       </span>
       {card.figure?.edit == null || given.has(card.id) ? null : <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-mover" glyph words={false} label={`Give your figure for ${card.heading}`} />}
     </span>
@@ -93,20 +94,20 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   const tail = tailOf(row)
   return (
     <li data-chart-option={card.id}>
-      <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
-        title={row.title} className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
+      <Hov as="button" type="button" words={row.title} onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
+        className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
         <span className="flex items-baseline justify-between gap-2">
           <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
           <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
-            {row.likely == null ? null : <span className="text-text-header" title={row.likely.title} aria-label={row.likely.title} data-view={`${card.id}.rows.${i}.likely.glyph`}>{row.likely.glyph}</span>}
-            {row.olumi == null ? null : <span className="text-info" title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+            {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
+            {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
           </span>
         </span>
         {neverMet(card, row) ? null : <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>}
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
-      </button>
+      </Hov>
       {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
       {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional): supporting detail
           under its own bar, verbatim, never composed from its numbers and never a comparison across options. */}
@@ -120,6 +121,7 @@ const tailOf = (row: ChartRow['row']): string | null => (row.tail !== undefined 
 /** Every aim with a chance, each its own chart on the one 0 to 100 axis: the lead aim first, under core's lead; the others under their aim. */
 export function ChanceChart({ model }: { model: ViewModel }) {
   const [open, setOpen] = useState(false)
+  const foldId = useId()
   const run = model.run ?? null
   const groups = chartGroupsOf(model)
   if (run === null || groups.length === 0) return null
@@ -138,7 +140,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
       {groups.map((g, gi) => (
         <div key={g.aimId} className="space-y-1" data-chart-aim={g.aimId}>
           {g.lead && run.lead != null
-            ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
+            ? <Hov as="h3" words={lensTitle} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.lead">{run.lead}</Hov>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
           <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} />)}</ul>
         </div>
@@ -147,14 +149,14 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           (Codex 008 item 3: folded, the ends could read as a confidence interval). Then ONE press (a button, reachable by touch and keyboard, never
           hover alone), offered whenever anything is folded: the low/high key and each mark's meaning in core's own title. */}
       {!ranged && marks.length === 0 ? null : (
-        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
-          {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
-          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
+          {sentence === '' || !ranged ? null : <Hov as="p" words={run.sensitivity?.title} className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</Hov>}
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? foldId : undefined} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
             <FoldChevron open={open} />{CHART_WORDS.more}
           </button>
           {!open ? null : (
-            <div className="space-y-0.5 pb-1" data-testid="analysis-chart-fold">
+            <div id={foldId} className="space-y-0.5 pb-1" data-testid="analysis-chart-fold">
               {!ranged ? null : (
                 <p className="m-0 flex items-center gap-2" aria-hidden="true" data-testid="analysis-chart-ends-key">
                   <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>{CHART_WORDS.low}

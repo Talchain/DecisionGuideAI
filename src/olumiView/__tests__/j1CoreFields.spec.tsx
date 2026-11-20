@@ -16,6 +16,7 @@ import { linkMarkOf } from '../LinkMarkChip'
 import { revealOf } from '../reveal'
 import { cardLinks } from '../layout'
 import { drawLinkEdge, restingEdge } from '../v12/links/__tests__/drawEdge'
+import { railOf } from '../../canvas/edges/linkRail'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/j1/${f}`), 'utf8'))
 const bookshop = load('bookshop-v1-open.core-261df1d4.view3.json'), strategy = load('strategy-reveal-split.core-261df1d4.view3.json')
@@ -94,6 +95,15 @@ describe('the routes stay whole at 1232: what each says once', () => {
     const i = cardLinks(strategy.model!).find((x) => x.link === l)!.i
     // Rendered by the lane's edge with nothing hovered or selected: a path is drawn, and no focus path fades it.
     expect(restingEdge(drawLinkEdge(l, i))).toMatchObject({ drawn: true, faded: false }); cleanup()
+    // The rail's own geometry (canvas/edges/linkRail.ts): with the route's card under the head row and its target in it beside another head card, the edge draws the
+    // route round the board, at rest, on the very path `railOf` computes, never the straight curve between the cards.
+    const head = { id: 'head_beside', x: 360, y: 0, w: 300, h: 80 }, target = { id: l.to, x: 0, y: 0, w: 300, h: 80 }, route = { id: l.from, x: 0, y: 400, w: 300, h: 120 }
+    const cards = [head, target, route]
+    const railed = restingEdge(drawLinkEdge(l, i, cards)); cleanup()
+    expect(railed).toMatchObject({ drawn: true, faded: false, rail: true })
+    expect(railed.d, 'the drawn path is the rail\'s').toBe(railOf(route, target, cards, 0)!.path)
+    // CONTRAST: with no card laid out there is no rail (and the link is still drawn).
+    expect(restingEdge(drawLinkEdge(l, i))).toMatchObject({ drawn: true, rail: false }); cleanup()
     // CONTRAST: a story link that never ran as a rail is drawn the same way.
     const story = strategy.model!.links.find((x) => x.from === 'speed_to_value' && x.to === 'pilot_conversion')!
     expect(restingEdge(drawLinkEdge(story, cardLinks(strategy.model!).find((x) => x.link === story)!.i))).toMatchObject({ drawn: true, faded: false })

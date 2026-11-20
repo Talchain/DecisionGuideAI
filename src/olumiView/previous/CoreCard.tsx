@@ -21,7 +21,7 @@ import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
 import { typography } from '../../styles/typography'
 import type { ViewCard } from '../client'
-import { CARD_WIDTH, drawKindOf, QUESTION, readingOf } from '../layout'
+import { CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
 import { failedOf, failedReasonOf } from '../k5'
@@ -30,12 +30,13 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, RowWords, SaidOnce, UnusedMark, WorthMark } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, RowWords, SaidOnce } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
+import { Tipped } from '../v12/cards/Tipped'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
@@ -53,7 +54,7 @@ import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/car
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark } from '../v12/cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
 import { chanceParts, noChanceLineOf, onceWords, unsizedWords, withheldField, withheldWords } from '../v12/cards/words'
 import { fixedParts } from '../v12/cards/words'
@@ -63,7 +64,7 @@ export { withheldField, withheldWords }
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
-  mark == null ? null : <span role="img" aria-label={mark.title} title={mark.title} className={className} data-view={`${at}.glyph`}>{mark.glyph}</span>
+  mark == null ? null : <Tipped words={mark.title} role="img" aria-label={mark.title} className={className} data-view={`${at}.glyph`}>{mark.glyph}</Tipped>
 )
 
 /**
@@ -165,6 +166,19 @@ export function familyOf(card: ViewCard): 'option' | 'factor' | 'aim' | 'other' 
   if (card.bound != null || card.family === 'goal' || card.family === 'limit') return 'aim'
   if (card.family === 'quantity') return 'factor'
   return 'other'
+}
+
+/**
+ * UI-BRIEF-20261115 step 3 (Paul, 15 Nov: "visualising it as much as it can"), restored 20 Nov (C4, Codex BLOCK): the number of Olumi's question about THIS card in the
+ * panel's numbered list of Olumi's questions (layout.ts chatQuestionsOf, the same list and order ViewChat draws; numbered only with two or more), with the question's
+ * words. Bound by core's id (`trial_questions[].id`); a question core gives no id marks no card, and none is guessed from its words. It does not depend on the next
+ * step's card (`answer.next.at`): that step wears the ring, this wears the number, and a card can wear both.
+ */
+export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id: string): { n: number; text: string } | null {
+  const qs = chatQuestionsOf(model)
+  if (qs.length < 2) return null
+  const i = qs.findIndex((q) => q.id === id)
+  return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
 }
 
 /** Core's card kind (fields.ts) in the design system's kinds, which draw the frame's hue and the marker (olumiLook.css `data-ok-kind`). A note and another
@@ -283,7 +297,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // v10 review item 2: a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed too since 17 Nov (Paul: a
   // sentence that can be a mark is a mark).
   const earlierLine = earlier === null ? null
-    : <p className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} title={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</p>
+    : <Tipped as="p" words={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</Tipped>
   // The one finding line (core's `run.finding`), under the question text: nothing where core sends none (FindingLine).
   const findingLine = id === QUESTION && findingSurface === 'question' ? <FindingLine model={model} at="question" /> : null
   const badgeLine = badge === null ? null
@@ -299,17 +313,21 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
-  // ONE RING (C4, 20 Nov): the ring is Olumi's alone and means "Olumi asks about this card": the step core puts beside it (`answer.next.at`), named by core's
-  // label (`notedLabel`). One mark on one card, on both faces: no numbered circle, no second ring. Focus, selection and commitment keep their own marks.
-  // Detailed: the mark sits on the card's corner where nothing else holds it; Simple draws the same mark in its foot (SimpleFace, `noted`).
+  // TWO MARKS, TOLD APART (C4, 20 Nov; Codex BLOCK): the RING is Olumi's alone and means "Olumi asks about this card": the step core puts beside it (`answer.next.at`),
+  // named by core's label (`notedLabel`). The NUMBER is the question core ties to this card (`trial_questions[].id`), by its place in the panel's list. Different marks on
+  // purpose, so a card where both apply wears both. Focus, selection and commitment keep their own marks.
+  // Detailed: the ring sits on the card's corner where nothing else holds it; Simple draws the same ring in its foot (SimpleFace, `noted`); the number is on the corner at both levels.
+  const questionAbout = card === null ? null : questionRingOf(model, id)
   const ringMark = notedLabel === null || simple ? null : <OlumiAsksMark id={id} words={notedLabel} />
+  const cornerMarks = questionAbout === null && ringMark === null ? null
+    : <span className="inline-flex items-center gap-1">{questionAbout === null ? null : <QuestionMark id={id} n={questionAbout.n} words={questionAbout.text} />}{ringMark}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const driverMark = driverOf === null || lensWords === null ? null
-    : <span className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
+    : <Tipped words={driverOf.map((o) => o.driver!.title).join('\n')} className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</Tipped>
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
-    : <span className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} title={tried} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</span>
+    : <Tipped words={tried} className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</Tipped>
   const restsFar = restsOn === null ? null
-    : <span className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</span>
+    : <Tipped words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</Tipped>
   // THE DETAILED FACE (DL-529's nine faces, redrawn 17 Nov for Paul's "not overwhelming but truly valuable with rich data"), core's words
   // verbatim; nothing formatted, rounded or worked out here. Each fact is said once on the board (v12/detailed/said.ts), whose it is is a
   // mark, and what a sentence used to say is a visual where the View gives one:
@@ -428,7 +446,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // `--ok-slot`: the width the lane's layout placed this card at, so the Detailed face's floor (olumiLook.css) never draws it wider than its
       // slot and over its neighbour (1232 and 1128: the floor beat a narrower slot by 6 to 26 px).
       style={letter === null && !(hosted && width !== undefined) ? undefined : ({ ...(letter === null ? {} : { '--ok-letter': `"${letter}"` }), ...(hosted && width !== undefined ? { '--ok-slot': `${width}px` } : {}) } as CSSProperties)}>
-    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark ?? ringMark ?? undefined}
+    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
       lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
@@ -445,7 +463,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           </div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-condition={card.family === 'condition' ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} data-driver-of={driverOf === null ? undefined : ''}>
-          {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>}
+          {restsOn === null ? null : <Tipped words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Tipped>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
           {simple ? <SimpleFace card={card} model={model} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
@@ -519,8 +537,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {shape?.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
             {card.family === 'condition' ? <ConditionTag id={id} /> : null}
             {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
-            {card.unused == null || card.unused === '' ? null : <UnusedMark id={id} words={card.unused} />}
-            <WorthMark card={card} />
+            {/* The state marks through the one list and the one "+N" overflow the Simple foot uses (marks.tsx CardMarks); "set aside" is said once, by its status line. */}
+            <CardMarks card={card} taken={card.driver != null ? 1 : 0} omit={['set-aside']} />
             {changeOn === 'foot' ? changeMark : null}
             {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}
             {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}

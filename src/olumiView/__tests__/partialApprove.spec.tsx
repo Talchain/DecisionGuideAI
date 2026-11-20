@@ -15,6 +15,7 @@ import { KEPT_WITHOUT, LEAVE_OFF_SEP, NEEDED_BY, REFUSAL_NEEDS, TICK_NEEDED, WIL
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
+import { tipOf } from './tipHelpers'
 import { VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
@@ -353,12 +354,13 @@ describe('a figure and the line that reads it are ticked together', () => {
     expect(posts[0]!.body).toEqual({ base: pair.proposal!.base, only: ['two_specialists', 'add_two'], only_top: [] })
   })
 
-  it('each marked line carries core\'s why as its hover, verbatim; an unmarked line has none', () => {
+  it('each marked line carries core\'s why as its hover (the one Tip, never a native title), verbatim; an unmarked line has none', async () => {
     const c = showOpen(pair)
-    lines.forEach((l, i) => {
-      const hover = c.querySelector(`[data-view-hover="proposal.changes.${i}.together.why"]`)
-      expect(hover?.getAttribute('title') ?? null, l.id).toBe(l.together?.why ?? null)
-    })
+    for (const [i, l] of lines.entries()) {
+      const hover = c.querySelector<HTMLElement>(`[data-view-hover="proposal.changes.${i}.together.why"]`)
+      expect(hover?.hasAttribute('title') ?? false, `${l.id}: no native title`).toBe(false)
+      expect(hover === null ? null : await tipOf(hover), l.id).toBe(l.together?.why ?? null)
+    }
   })
 
   it('CONTRAST: a line core marks with nothing is ticked alone', () => {

@@ -3,10 +3,11 @@
  * on the first line holding it; no part said as null or '' alike; a mark without words is never drawn. On core's capacity fixture
  * (fixtures/disagree x2-stances: the morale link, "Bea doubts this link", with core's status and closing question).
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { TIP_DELAY } from '../look/Tip'
 import type { View } from '../client'
 import { LinkMarkCardChip, linkMarkOf } from '../LinkMarkChip'
 import { lineMarkAt, markHover, type LinkMark } from '../linkMarkRules'
@@ -23,7 +24,7 @@ function onLines(marks: LinkMark[]): View {
   return v
 }
 const lineMark = (over: Partial<LinkMark> = {}) => ({ ...structuredClone(mark), line: true, card: null, ...over }) as LinkMark
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('the chip\'s hover is core\'s strings, whole, in order', () => {
   it('LM1 precondition: core gives the mark its stances, its status and its closing question', () => {
@@ -32,7 +33,10 @@ describe('the chip\'s hover is core\'s strings, whole, in order', () => {
   it('LM2 catch: stances, then what the model cannot calculate, then the question; nothing composed', () => {
     expect(markHover(mark)).toBe([mark.title, mark.status_text, mark.question].join('\n'))
     const chip = render(<LinkMarkCardChip mark={mark} />).container.querySelector('[data-link-mark-card]')!
-    expect(chip.getAttribute('title')).toBe(markHover(mark))
+    // The hover is the lane's one Tip (150 ms), never a native title; it says core's strings whole and in order.
+    expect(chip.hasAttribute('title')).toBe(false)
+    vi.useFakeTimers(); fireEvent.pointerEnter(chip); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip').textContent).toBe(markHover(mark))
     expect(chip.getAttribute('aria-label')).toBe(mark.label) // its name stays core's label
   })
   it('LM3 must not change: a mark with only its stances hovers its stances alone', () => {

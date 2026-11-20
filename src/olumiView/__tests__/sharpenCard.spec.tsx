@@ -13,6 +13,7 @@ import type { View, ViewModel } from '../client'
 import { ViewChances } from '../ViewChances'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
+import { tipOf } from './tipHelpers'
 
 const base = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
@@ -29,7 +30,7 @@ const SHARPEN = [
 ]
 
 describe('Sharpen your thinking', () => {
-  it('after Behind this result and before the notes: the first two of core\'s prompts, the rest behind "+N more", every word core\'s at its path', () => {
+  it('after Behind this result and before the notes: the first two of core\'s prompts, the rest behind "+N more", every word core\'s at its path', async () => {
     const c = render(<ViewChances model={{ ...model, sharpen: SHARPEN } as ViewModel} />).container
     const behind = c.querySelector('[data-testid="view-run-behind"]')!, card = c.querySelector('[data-testid="view-run-sharpen"]')!, notes = c.querySelector('[data-testid="view-run-notes"]')!
     expect(card).not.toBeNull()
@@ -38,12 +39,12 @@ describe('Sharpen your thinking', () => {
     expect([...card.querySelectorAll('[data-sharpen]')].filter((e) => !more.contains(e)).map((e) => e.getAttribute('data-sharpen'))).toEqual(['shared_mechanism', 'option_breadth'])
     expect([...more.querySelectorAll('[data-sharpen]')].map((e) => e.getAttribute('data-sharpen'))).toEqual(['risk_count'])
     expect(more.querySelector('summary')!.textContent).toBe('+1 more')
-    SHARPEN.forEach((r, i) => {
+    for (const [i, r] of SHARPEN.entries()) {
       expect(card.querySelector(`[data-view="sharpen.${i}.lead"]`)!.textContent).toBe(r.lead)
       expect(card.querySelector(`[data-view="sharpen.${i}.emphasis"]`)!.textContent).toBe(r.emphasis)
       const why = card.querySelector(`[data-view-hover="sharpen.${i}.rationale"]`)!
-      expect([why.getAttribute('aria-label'), why.getAttribute('title')]).toEqual([r.rationale, r.rationale])
-    })
+      expect([why.getAttribute('aria-label'), await tipOf(why as HTMLElement)]).toEqual([r.rationale, r.rationale])
+    }
   })
   it('a View without the field (a core before it) draws no card', () => {
     const c = render(<ViewChances model={model} />).container

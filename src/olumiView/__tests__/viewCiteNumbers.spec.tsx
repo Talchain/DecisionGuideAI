@@ -34,7 +34,7 @@ describe('a reply\'s cites are numbered by their place in it, core\'s cite on ho
         const reply = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"] [data-testid="view-chat-answer"]`)
         if (t.answer === null) { expect(reply).toBeNull(); return }
         const marks = [...reply!.querySelectorAll<HTMLElement>('[data-view-cite]')]
-        expect(marks.map((m) => [m.textContent, m.getAttribute('title'), m.getAttribute('aria-label')]), String(t.id)).toEqual(citesOf(t).map((c, k) => [String(k + 1), c, c]))
+        expect(marks.map((m) => [m.textContent, m.hasAttribute('title'), m.getAttribute('aria-label')]), String(t.id)).toEqual(citesOf(t).map((c, k) => [String(k + 1), false, c]))
       })
     })
   }

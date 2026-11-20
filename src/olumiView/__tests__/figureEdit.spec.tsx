@@ -15,6 +15,7 @@ import { ViewChances } from '../ViewChances'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
+import { tipOf } from './tipHelpers'
 
 // SURFACES STEP 5: on the lane a figure is changed in the details panel's Value row (v12/edit/__tests__/oneFigureEditor.spec.tsx); the pop-over under the card and the editors in the panel and the chat are not drawn there. These rows bind the older look's
 // editor, which is unchanged, so they run with the lane off (and are the contrast that proves it).
@@ -207,12 +208,12 @@ describe('worth checking first: the line\'s figure given with its ✎, as core\'
     expect(posts()[0]).toEqual({ method: 'POST', path: `/api/scenarios/${SID}/edit`,
       body: { base: view.model!.edit_base, quantity: fig.id, typed: '150', op: expect.stringMatching(/^[A-Za-z0-9-]{8,64}$/) } })
   })
-  it('whose mark after the line when core gives one, with its hover; none when core gives none', () => {
+  it('whose mark after the line when core gives one, with its hover; none when core gives none', async () => {
     const mark = { glyph: '◐', title: 'A person\'s figure, Olumi\'s range' }
     const marked = { ...view.model!, run: { ...view.model!.run!, science: [{ ...line, figure: { ...fig, mark } }] } }
     const m = render(<ViewChances model={marked} />).container.querySelector('[data-view="run.science.0.figure.mark.glyph"]')!
     expect(m.textContent).toBe('◐')
-    expect(m.getAttribute('title')).toBe(mark.title)
+    expect(await tipOf(m as HTMLElement)).toBe(mark.title)
     cleanup()
     expect(render(<ViewChances model={view.model!} />).container.querySelector('[data-view="run.science.0.figure.mark.glyph"]')).toBeNull()
   })

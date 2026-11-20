@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { OkIcon } from '../look/icons'
+import { Hov } from './Hover'
 
 // Previous OlumiTabBody's pop-out labels (A2 stop/float, DL 10 Nov).
 export const CHAT_POPOUT_LABEL = 'Open Olumi in floating panel'
@@ -85,8 +86,8 @@ export function dockChat() {
 }
 
 export function ChatDockBack({ inWindow = false }: { inWindow?: boolean }) {
-  return <button type="button" onClick={dockChat} className={TARGET} aria-label={DOCK_LABEL} title={DOCK_LABEL}
-    data-testid={inWindow ? 'view-chat-dockback' : 'view-chat-return'}><OkIcon id="popout" variant="alt" decorative inherit /></button>
+  return <Hov as="button" type="button" onClick={dockChat} className={TARGET} aria-label={DOCK_LABEL} words={DOCK_LABEL}
+    data-testid={inWindow ? 'view-chat-dockback' : 'view-chat-return'}><OkIcon id="popout" variant="alt" decorative inherit /></Hov>
 }
 
 /** One View thread, portalled above the canvas (A2 stop/float, DL 10 Nov). */

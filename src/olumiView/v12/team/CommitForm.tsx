@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
@@ -92,7 +92,7 @@ function useCommitReach(): { view: View; sid: string } | null {
 export function RecordStepButton(): JSX.Element | null {
   const reach = useCommitReach()
   if (reach === null) return null
-  return <OkIconButton id="commit-action" words={COMMIT_WORDS.nextStepButton} testid="view-next-record" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={() => openCommitDraft(reach.sid, reach.view)} />
+  return <OkIconButton id="commit-action" words={COMMIT_WORDS.nextStepButton} testid="view-next-record" tone="ghost" onClick={() => openCommitDraft(reach.sid, reach.view)} />
 }
 
 /** A kept idea's "Use as my action": its words, verbatim, in the form's first box as the person's draft. */
@@ -191,10 +191,7 @@ export function CommitForm({ sid, view, onWrote }: { sid: string; view: View; on
     <section ref={form} data-testid="commit-form" data-anchored={anchored ? 'true' : 'false'} data-open="true" aria-label={COMMIT_WORDS.heading} className={CARD}>
       <div className="flex items-center justify-between gap-2">
         <h3 className={H} data-testid="commit-form-heading">{COMMIT_WORDS.heading}</h3>
-        <button type="button" aria-label={COMMIT_WORDS.close} title={COMMIT_WORDS.close} data-testid="commit-form-close" onClick={close}
-          className="inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-md text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
-          <X aria-hidden="true" strokeWidth={1.75} className="h-4 w-4" />
-        </button>
+        <OkIconButton id="cancel-close" tone="ghost" words={COMMIT_WORDS.close} testid="commit-form-close" onClick={close} />
       </div>
       {!anchored && <p className={META} data-testid="commit-form-unanchored">{COMMIT_WORDS.unanchored}</p>}
       {bound === null ? null : (

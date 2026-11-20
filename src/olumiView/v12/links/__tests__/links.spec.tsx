@@ -10,12 +10,14 @@ import { useViewStore } from '../../../store'
 import { useViewFocusLink, useViewHover } from '../../../canvas'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
-import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, linkStyle } from '../styles'
+import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, TONE_TOKEN, linkStyle, toneOf } from '../styles'
 import { effectMidpoint } from '../geometry'
 import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { LINK_OFF_PATH_OPACITY as EDGE_OFF_PATH_OPACITY, useFocusPath } from '../../bands/focusPath'
 import { TIP_DELAY } from '../../../look/Tip'
 import { ICONS } from '../../../look/icons'
+import { GOAL_CHANCE_DRIVER_TAG_Z } from '../../../../canvas/utils/goalChanceDriverLinks'
+import { applied, declared, isHidden, standsAt } from './applied'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const first = view.model!.links[0]!
@@ -35,6 +37,8 @@ const withCausal = (sign: 'increases' | 'decreases' | 'none' | 'unknown', extra:
   ({ ...base, doubt: false, alert: false, proposed: false, ...extra, causal: { ...base.causal!, sign, author: { by: 'person', text: '', title: '' }, disputed: false } }) as ViewLink
 const line = (c: HTMLElement) => c.querySelector('path.react-flow__edge-path') as SVGPathElement
 const g = (c: HTMLElement) => c.querySelector('g[data-view-link]') as SVGGElement
+const px = (n: number) => `${n}px`
+const DOTS = '0.1 6' // olumiLook.css `.ok-link-dotted`: round dots, the reason link's recipe
 
 describe('style table', () => {
   it('every role has its stroke, dash, end and label', () => {
@@ -59,8 +63,8 @@ describe('a modelled effect', () => {
     const want = { increases: 'var(--edge-positive)', decreases: 'var(--edge-negative)', none: 'var(--edge-neutral)' } as const
     for (const sign of ['increases', 'decreases', 'none'] as const) {
       const c = draw(withCausal(sign))
-      expect(line(c).style.stroke).toBe(want[sign])
-      expect(line(c).style.stroke).not.toBe(INK)
+      expect(applied(line(c)).stroke).toBe(want[sign])
+      expect(applied(line(c)).stroke).not.toBe(INK)
       expect(g(c).getAttribute('data-link-end')).toBe('arrow')
       expect(line(c).getAttribute('marker-end')).toMatch(/^url\(#/)
       expect(c.querySelector('[data-view-link-sign]')).toBeNull()
@@ -68,57 +72,57 @@ describe('a modelled effect', () => {
     }
   })
   it('an unsettled direction is the neutral colour, and a decreasing link is never drawn in ink (fails if the polarity colour is lost)', () => {
-    expect(line(draw(withCausal('unknown'))).style.stroke).toBe('var(--edge-neutral)')
+    expect(applied(line(draw(withCausal('unknown')))).stroke).toBe('var(--edge-neutral)')
     cleanup()
-    const neg = line(draw(withCausal('decreases'))).style.stroke
+    const neg = applied(line(draw(withCausal('decreases')))).stroke
     expect(neg).toBe('var(--edge-negative)'); expect(neg).not.toBe(INK)
   })
   it('L3 strength is never a width: every effect is the one 2 px rung whatever share or raw figures it carries, the line stays screen px, and a `reason` link carrying a share is 2 px too', () => {
     const shared = (share: number | null, extra: Partial<ViewLink> = {}) => { const l = withCausal('increases', extra); l.causal = { ...l.causal!, strength: { ...l.causal!.strength, share } as never }; return l }
     // The old ladder (0.25 is 3, 0.8 is 5) is gone: a share, large or small, or none, draws the same line.
-    expect([0.25, 0.8, 0.1, 5, -0.5, null].map((x) => { const c = draw(shared(x)); const w = line(c).style.strokeWidth; cleanup(); return w })).toEqual(Array(6).fill(String(PLAIN_WIDTH)))
+    expect([0.25, 0.8, 0.1, 5, -0.5, null].map((x) => { const c = draw(shared(x)); const w = applied(line(c)).strokeWidth; cleanup(); return w })).toEqual(Array(6).fill(px(PLAIN_WIDTH)))
     expect(PLAIN_WIDTH).toBe(2)
     // Screen px: the line does not thin as the camera zooms out.
     const c = draw(shared(0.5))
-    expect(line(c).style.vectorEffect).toBe('non-scaling-stroke')
+    expect(applied(line(c)).vectorEffect).toBe('non-scaling-stroke')
     expect(g(c).getAttribute('data-link-width')).toBe('2')
     cleanup()
     const plain = { ...shared(0.8), causal: null, role: null, kind: 'reason' } as unknown as ViewLink
-    expect(line(draw(plain)).style.strokeWidth).toBe('2')
+    expect(applied(line(draw(plain))).strokeWidth).toBe(px(2))
   })
   it('is dashed only when doubted (not when unsized or proposed)', () => {
-    expect(line(draw(withCausal('increases', { doubt: true }))).style.strokeDasharray).not.toBe('')
+    expect(applied(line(draw(withCausal('increases', { doubt: true })))).strokeDasharray).toBe(DOUBT_DASH)
     cleanup()
     const c = draw(withCausal('increases', { proposed: true }))
-    expect(line(c).style.strokeDasharray).toBe('')
+    expect(applied(line(c)).strokeDasharray, 'proposed is no dash').toBeUndefined()
   })
   it('a link Olumi proposed carries Olumi\'s mark on the line, not a dash', () => {
     const l = withCausal('increases'); l.causal!.author = { by: 'olumi', text: '', title: 'Olumi proposed this' }
     const c = draw(l)
     expect(c.querySelector('[data-view-link-olumi-mark="links.0"]')).not.toBeNull()
-    expect(line(c).style.strokeDasharray).toBe('')
+    expect(applied(line(c)).strokeDasharray).toBeUndefined()
     cleanup()
     expect(draw(withCausal('increases')).querySelector('[data-view-link-olumi-mark]')).toBeNull()
   })
   // CHANGED BY DESIGN (the lead's D4, 17 Nov: depends, disputed and unknown are no-verdict grey, each with its own small icon): the bare "?" text glyph
   // is a Lucide icon now (no text glyph as an icon); the words are unchanged.
-  it('an unsettled direction gets its own small icon (no "?" text) with the fixed words, or core\'s when it sends them; core\'s `depends` gets a different one', () => {
-    const l = withCausal('unknown'); l.causal!.text = ''
+  it('an unsettled direction gets its own small icon (no "?" text); the link is named with the fixed words, or core\'s when it sends them; core\'s `depends` gets a different icon', () => {
+    const l = withCausal('unknown'); l.causal!.text = ''; l.title = ''
     const c = draw(l)
     const mark = document.body.querySelector('[data-view-link-unsettled="links.0"]')!
     expect([mark.textContent, mark.querySelector('svg') !== null, mark.getAttribute('data-link-direction')]).toEqual(['', true, 'unknown'])
-    expect(document.body.querySelector('[data-view-link-unsettled] [role="img"]')?.getAttribute('aria-label')).toBe(DIRECTION_NOT_SETTLED)
+    expect(g(c).getAttribute('aria-label'), 'the registry\'s words when core sent none').toBe(DIRECTION_NOT_SETTLED)
     const icon = mark.querySelector('svg')!.getAttribute('class')
     cleanup()
     // core's own direction (fields.ts linkLook): `depends` draws its own icon, not the unknown one, on the neutral line.
-    const d = { ...withCausal('unknown'), direction: 'depends' } as unknown as ViewLink
+    const d = { ...withCausal('unknown'), title: '', direction: 'depends' } as unknown as ViewLink
     const dc = draw(d)
     const dm = document.body.querySelector('[data-view-link-unsettled="links.0"]')!
-    expect([dm.getAttribute('data-link-direction'), dm.querySelector('svg')!.getAttribute('class') !== icon, line(dc).style.stroke]).toEqual(['depends', true, EDGE_NEUTRAL])
+    expect([dm.getAttribute('data-link-direction'), dm.querySelector('svg')!.getAttribute('class') !== icon, applied(line(dc)).stroke]).toEqual(['depends', true, EDGE_NEUTRAL])
     cleanup(); void c
-    const m = withCausal('unknown'); m.causal!.text = 'Which way this moves is not settled'
-    draw(m)
-    expect(document.body.querySelector('[data-view-link-unsettled] [role="img"]')?.getAttribute('aria-label')).toBe('Which way this moves is not settled')
+    const m = withCausal('unknown'); m.causal!.text = 'Which way this moves is not settled'; m.title = ''
+    const mc = draw(m)
+    expect(g(mc).getAttribute('aria-label')).toBe('Which way this moves is not settled')
     cleanup()
     draw(withCausal('increases'))
     expect(document.body.querySelector('[data-view-link-unsettled]')).toBeNull()
@@ -131,14 +135,16 @@ describe('a first draft marks no link as Olumi\'s proposal (R3, 16 Nov)', () => 
   const withView = (v: object) => useViewStore.setState({ view: { ...view, ...v } as View })
   it('proposed, and a version: Olumi\'s blue; proposed and a proposal with no version: neutral', () => {
     withView({ proposal: null, version: { id: 'v1', n: 1 } })
-    expect(line(draw(plain())).style.stroke, 'an approved model keeps the mark').toBe('var(--semantic-info)'); cleanup()
+    // L4: the proposal is a halo, never the line's colour; the plain line keeps its neutral stroke.
+    const proposed = (c: HTMLElement) => [applied(line(c)).stroke, c.querySelector('[data-link-halo-path="proposed"]') !== null]
+    expect(proposed(draw(plain())), 'an approved model keeps the mark, as a halo under the neutral line').toEqual([EDGE_NEUTRAL, true]); cleanup()
     // The defect's own case (Line reviewer, edbd5fda F1): a REASON line Olumi proposed keeps Olumi's ink; one nobody proposed stays neutral.
-    expect(line(draw(plain({ kind: 'reason', role: 'reason' }))).style.stroke, 'a proposed reason line is Olumi\'s too').toBe('var(--semantic-info)'); cleanup()
+    expect(proposed(draw(plain({ kind: 'reason', role: 'reason' }))), 'a proposed reason line is Olumi\'s too').toEqual([EDGE_NEUTRAL, true]); cleanup()
     useViewHover.setState({ id: first.from })
-    expect(line(draw(plain({ kind: 'reason', role: 'reason', proposed: false }))).style.stroke, 'CONTRAST: an unproposed reason line').toBe(EDGE_NEUTRAL); cleanup()
+    expect(proposed(draw(plain({ kind: 'reason', role: 'reason', proposed: false }))), 'CONTRAST: an unproposed reason line has no halo').toEqual([EDGE_NEUTRAL, false]); cleanup()
     withView({ proposal: { id: 'p1' }, version: null })
-    expect(line(draw(plain())).style.stroke, 'a first draft marks nothing').toBe(EDGE_NEUTRAL); cleanup()
-    expect(line(draw(plain({ doubt: true }))).style.strokeDasharray, 'CONTRAST: a doubted link is dashed on a first draft').toBe(DOUBT_DASH)
+    expect(proposed(draw(plain())), 'a first draft marks nothing: no halo, the neutral line').toEqual([EDGE_NEUTRAL, false]); cleanup()
+    expect(applied(line(draw(plain({ doubt: true })))).strokeDasharray, 'CONTRAST: a doubted link is dashed on a first draft').toBe(DOUBT_DASH)
   })
 })
 
@@ -147,25 +153,25 @@ describe('link roles', () => {
   const role = (r: string, extra: object = {}) => ({ ...first, doubt: false, alert: false, proposed: false, causal: null, role: r, ...extra }) as unknown as ViewLink
   it('input: neutral, 2 px and solid, a filled dot at the end, no arrowhead', () => {
     const c = draw(role('input'))
-    expect(line(c).style.stroke).toBe(INPUT_GREY)
-    expect(line(c).style.strokeDasharray).toBe('')
-    expect(line(c).style.strokeWidth).toBe('2')
+    expect(applied(line(c)).stroke).toBe(INPUT_GREY)
+    expect(applied(line(c)).strokeDasharray).toBeUndefined()
+    expect(applied(line(c)).strokeWidth).toBe(px(2))
     expect(g(c).getAttribute('data-link-end')).toBe('dot')
     expect(c.querySelector('marker circle')).not.toBeNull()
     expect(c.querySelector('marker path')).toBeNull()
   })
   it('measures: the DS goal colour, no polarity, no arrowhead (R5 exception, ruled by the lead: the goal\'s gold is the aim\'s own colour, not an effect\'s direction colour; width 2 px, never the ladder)', () => {
     const c = draw(role('measures'))
-    expect(line(c).style.stroke).toBe(GOLD)
+    expect(applied(line(c)).stroke).toBe(GOLD)
     expect(GOLD).toBe('var(--goal)')
     expect(line(c).getAttribute('marker-end')).toBeNull()
     expect(g(c).getAttribute('data-link-role')).toBe('measures')
   })
-  it('target: a gold line, 2 px (the same R5 exception as measures)', () => { const c = draw(role('target')); expect([line(c).style.stroke, line(c).style.strokeWidth]).toEqual([GOLD, '2']) })
+  it('target: a gold line, 2 px (the same R5 exception as measures)', () => { const c = draw(role('target')); expect([applied(line(c)).stroke, applied(line(c)).strokeWidth]).toEqual([GOLD, px(2)]) })
   it('a link with a typed `causal` is an effect whatever its role says: direction colour and arrowhead, never the role\'s dots (R5)', () => {
     const c = draw({ ...withCausal('decreases'), role: 'input' } as ViewLink)
-    expect(line(c).style.stroke).toBe(EFFECT_STROKES.decreases)
-    expect(line(c).style.strokeDasharray).toBe('')
+    expect(applied(line(c)).stroke).toBe(EFFECT_STROKES.decreases)
+    expect(applied(line(c)).strokeDasharray).toBeUndefined()
     expect(g(c).getAttribute('data-link-end')).toBe('arrow')
     expect(g(c).getAttribute('data-link-role')).toBe('input')
   })
@@ -174,22 +180,22 @@ describe('link roles', () => {
     setDefaultLevel('simple')
     for (const l of [role('reason'), { ...role('reason'), role: undefined, kind: 'reason' } as unknown as ViewLink, { ...first, doubt: false, alert: false, proposed: false, causal: null, label: '' } as unknown as ViewLink]) {
       const c = draw(l)
-      expect(line(c).style.stroke).toBe(EDGE_NEUTRAL)
-      expect(line(c).style.stroke).not.toBe(INK)
-      expect(line(c).style.strokeWidth).toBe('2')
-      expect(line(c).style.strokeDasharray).toBe('')
+      expect(applied(line(c)).stroke).toBe(EDGE_NEUTRAL)
+      expect(applied(line(c)).stroke).not.toBe(INK)
+      expect(applied(line(c)).strokeWidth).toBe(px(2))
+      expect(applied(line(c)).strokeDasharray, 'dots at most, never the doubt dash').not.toBe(DOUBT_DASH)
       cleanup()
     }
   })
   it('only a doubted link is dashed, whatever kind of line it is (R5)', () => {
-    expect(line(draw(role('input', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
+    expect(applied(line(draw(role('input', { doubt: true })))).strokeDasharray).toBe(DOUBT_DASH)
     cleanup()
-    expect(line(draw(role('reason', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
+    expect(applied(line(draw(role('reason', { doubt: true })))).strokeDasharray).toBe(DOUBT_DASH)
   })
   it('size: a plain wire to the midpoint of the sized effect, labelled "size"; never an arrowhead', () => {
     const l = role('size', { sizes: { from: 'a', to: 'b' } })
     const c = draw({ ...l, from: 'f', to: 't' } as ViewLink, [{ id: 'a', x: 0, y: 0 }, { id: 'b', x: 0, y: 200 }, { id: 'f', x: 300, y: 0 }, { id: 't', x: 300, y: 100 }])
-    expect(line(c).style.strokeDasharray).toBe('')
+    expect(applied(line(c)).strokeDasharray).toBeUndefined()
     expect(line(c).getAttribute('marker-end')).toBeNull()
     expect(c.querySelector('[data-view-link-size-label="links.0"]')?.textContent).toBe('size')
     expect(c.querySelector('[data-view-link-size-label="links.0"]')?.getAttribute('font-size')).toBe('12')
@@ -239,9 +245,10 @@ describe('every link is drawn at rest (panel-visual system L1)', () => {
   })
   it('L1b a reason link is DOTTED by its own class, never dashed: a dash still means doubt (a doubted reason link keeps the doubt dash); an effect and a role line are not dotted', () => {
     const plain = draw(reason())
-    expect([g(plain).getAttribute('data-link-dotted'), line(plain).getAttribute('class')?.includes('ok-link-dotted'), line(plain).style.strokeDasharray]).toEqual(['', true, ''])
+    expect([g(plain).getAttribute('data-link-dotted'), line(plain).getAttribute('class')?.includes('ok-link-dotted'), applied(line(plain)).strokeDasharray]).toEqual(['', true, DOTS])
+    expect(DOTS, 'dots are not the doubt dash').not.toBe(DOUBT_DASH)
     cleanup()
-    expect(line(draw(reason({ doubt: true }))).style.strokeDasharray, 'doubt is the dash').toBe(DOUBT_DASH)
+    expect(applied(line(draw(reason({ doubt: true })))).strokeDasharray, 'doubt is the dash').toBe(DOUBT_DASH)
     cleanup()
     for (const l of [causal(), { ...first, causal: null, role: 'input', kind: 'relation', doubt: false, alert: false, proposed: false } as unknown as ViewLink]) {
       expect(g(draw(l)).hasAttribute('data-link-dotted'), 'CONTRAST: only a reason line is dotted').toBe(false); cleanup()
@@ -256,9 +263,10 @@ describe('every link is drawn at rest (panel-visual system L1)', () => {
 })
 
 describe('the midpoint mark (panel-visual system L2)', () => {
-  const dir = (direction: string, extra: Partial<ViewLink> = {}) => ({ ...withCausal('increases'), direction, effect: null, ...extra }) as unknown as ViewLink
+  // `title: ''`: these rows are about the words core's typed belief and effect carry; a link's own title is the title-only rows' (below).
+  const dir = (direction: string, extra: Partial<ViewLink> = {}) => ({ ...withCausal('increases'), title: '', direction, effect: null, ...extra }) as unknown as ViewLink
   // A typed `none` with core's direction field null: not a belief with a direction, but a typed "no effect" (its own mark).
-  const none = () => ({ ...withCausal('none'), direction: null, effect: null }) as unknown as ViewLink
+  const none = () => ({ ...withCausal('none'), title: '', direction: null, effect: null }) as unknown as ViewLink
   const markOf = () => document.body.querySelector('[data-view-link-mark="links.0"]')
   it('L2a each typed direction draws its own small icon at rest: raises, lowers, depends, disputed, unknown and a typed `none` are six different icons', () => {
     setDefaultLevel('simple')
@@ -267,20 +275,26 @@ describe('the midpoint mark (panel-visual system L2)', () => {
       draw(l)
       const m = markOf()!
       expect(m, name).not.toBeNull()
-      expect([m.getAttribute('data-link-direction'), m.querySelector('[role="img"]') !== null], name).toEqual([name, true])
+      expect([m.getAttribute('data-link-direction'), m.querySelector('svg') !== null], name).toEqual([name, true])
       classes[name] = m.querySelector('svg')!.getAttribute('class')
       cleanup()
     }
     expect(new Set(Object.values(classes)).size, 'six directions, six icons').toBe(6)
   })
-  const nameOf = () => markOf()!.querySelector('[role="img"]')!.getAttribute('aria-label')
-  it('L2b the mark says core\'s words (causal.text, effect.text, effect.title) to assistive technology; a mark core gave no words for says its registry entry\'s words, written nowhere in the edge', () => {
-    const l = dir('raises', { effect: { text: 'a lot', title: 'About a lot more per week' } } as Partial<ViewLink>); l.causal!.text = 'More A raises B'
-    draw(l)
-    expect(nameOf()).toBe('More A raises B\na lot\nAbout a lot more per week')
+  it('L2b the link is named by core\'s words (title, causal.text, author title), and its Tip says them with the effect\'s text and title once each; a mark core gave no words for says its registry entry\'s words, written nowhere in the edge', () => {
+    vi.useFakeTimers()
+    const l = dir('raises', { effect: { text: 'a lot', title: 'About a lot more per week' }, title: 'Core\'s link title' } as Partial<ViewLink>); l.causal!.text = 'More A raises B'
+    const c = draw(l)
+    expect(g(c).getAttribute('aria-label')).toBe('More A raises B\nCore\'s link title')
+    fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip').textContent, 'core\'s words, deduplicated, in order').toBe('More A raises B\nCore\'s link title\na lot\nAbout a lot more per week')
     cleanup()
-    draw(dir('lowers')); expect(nameOf()).toBe(ICONS['link-lowers'].hover); cleanup()
-    draw(none()); expect(nameOf()).toBe(ICONS['link-none'].hover)
+    const lower = draw(dir('lowers'))
+    fireEvent.pointerEnter(g(lower)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect([g(lower).getAttribute('aria-label'), screen.getByRole('tooltip').textContent]).toEqual([ICONS['link-lowers'].hover, ICONS['link-lowers'].hover])
+    cleanup()
+    const n = draw(none())
+    expect(g(n).getAttribute('aria-label')).toBe(ICONS['link-none'].hover)
   })
   it('L2d direction ids live in the registry under `/* links ids */` and the edge draws them through OkIcon: no icon map of its own, six ids, six Lucide glyphs', () => {
     const ids = ['link-raises', 'link-lowers', 'link-depends', 'link-disputed', 'link-unknown', 'link-none'] as const
@@ -297,32 +311,74 @@ describe('the midpoint mark (panel-visual system L2)', () => {
       draw(dir('raises', { effect: { text: 'a lot', title: 'About a lot' } } as Partial<ViewLink>), cards)
       act(() => { flow!.setState({ transform: [0, 0, 0.2] }) }) // the first open's whole board: below the readable zoom
       expect(markOf(), level).not.toBeNull()
-      expect(document.body.querySelector('[data-view-link-words="links.0"]')?.getAttribute('style') ?? '', `${level}: not hidden at rest`).not.toContain('hidden')
+      expect(isHidden(document.body.querySelector('[data-view-link-words="links.0"]')!), `${level}: not hidden at rest`).toBe(false)
       expect(document.body.querySelector('[data-view="links.0.effect.text"]'), `${level}: the effect words wait for nearness`).toBeNull()
       cleanup()
     }
   })
 })
 
-describe('the hover is the shared Tip (panel-visual rule 4)', () => {
-  const dir = (extra: Partial<ViewLink> = {}) => ({ ...withCausal('increases'), direction: 'raises', effect: { text: 'a lot', title: 'About a lot more per week' }, ...extra }) as unknown as ViewLink
-  const inner = () => document.body.querySelector('[data-view-link-mark="links.0"] [role="img"]') as HTMLElement
-  it('the pointer opens the Tip after exactly 150 ms, with core\'s words, and leaving closes it at once; no native title is written on the mark or its words', () => {
+describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for the pointer and for focus', () => {
+  const dir = (extra: Partial<ViewLink> = {}) => ({ ...withCausal('increases'), title: '', direction: 'raises', effect: { text: 'a lot', title: 'About a lot more per week' }, ...extra }) as unknown as ViewLink
+  const WORDS = 'More A raises B\na lot\nAbout a lot more per week'
+  const withText = () => { const l = dir(); l.causal!.text = 'More A raises B'; return l }
+  const tips = () => screen.queryAllByRole('tooltip')
+  it('the pointer on the line opens the Tip after exactly 150 ms with core\'s words, and leaving closes it at once; no native title is written anywhere on the link', () => {
     vi.useFakeTimers()
-    const l = dir(); l.causal!.text = 'More A raises B'
-    draw(l)
+    const c = draw(withText())
     expect(TIP_DELAY).toBe(150)
-    fireEvent.pointerEnter(inner())
+    fireEvent.pointerEnter(g(c))
     act(() => { vi.advanceTimersByTime(TIP_DELAY - 1) })
-    expect(screen.queryByRole('tooltip'), 'not yet at 149 ms').toBeNull()
+    expect(tips(), 'not yet at 149 ms').toHaveLength(0)
     act(() => { vi.advanceTimersByTime(1) })
-    expect(screen.getByRole('tooltip').textContent).toBe('More A raises B\na lot\nAbout a lot more per week')
-    fireEvent.pointerLeave(inner())
-    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(screen.getByRole('tooltip').textContent).toBe(WORDS)
+    expect(g(c).getAttribute('aria-describedby'), 'the link is described by the open Tip').toBe(screen.getByRole('tooltip').id)
+    fireEvent.pointerLeave(g(c))
+    expect(tips()).toHaveLength(0)
+    expect(g(c).hasAttribute('aria-describedby')).toBe(false)
     expect(document.body.querySelectorAll('[title]'), 'no native title on the edge or its words').toHaveLength(0)
     expect(document.body.querySelector('g[data-view-link] title'), 'no SVG <title> either').toBeNull()
   })
-  it('a link with keyboard focus opens the same Tip after the same 150 ms, and it repositions when the board is panned or zoomed', () => {
+  it('a link with only a core title (no mark, no effect) says that title in the Tip; so do an input, a measures and a size line, whose titles had no hover once the native title went', () => {
+    vi.useFakeTimers()
+    const only = (extra: object) => ({ ...first, doubt: false, alert: false, proposed: false, causal: null, kind: 'plain', label: '', effect: null, title: 'What core says of this link', ...extra }) as unknown as ViewLink
+    for (const l of [only({ role: null }), only({ role: 'input' }), only({ role: 'measures' }), only({ role: 'size' })]) {
+      const c = draw(l)
+      fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect([screen.getByRole('tooltip').textContent, g(c).getAttribute('aria-label')], String((l as { role: unknown }).role)).toEqual(['What core says of this link', 'What core says of this link'])
+      cleanup()
+    }
+    // CONTRAST: a link core sent no words for, and no mark for, opens nothing.
+    const c = draw(only({ role: null, title: '' }))
+    fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(tips()).toHaveLength(0)
+  })
+  it('Escape closes the Tip whichever way it opened', () => {
+    vi.useFakeTimers()
+    const c = draw(withText())
+    fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(tips()).toHaveLength(1)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(tips()).toHaveLength(0)
+    cleanup()
+    draw(withText())
+    act(() => { useViewFocusLink.setState({ id: 'e' }) }); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(tips()).toHaveLength(1)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(tips(), 'a focused link\'s Tip too').toHaveLength(0)
+  })
+  it('the pointer and focus on one link are ONE Tip, not two; it stays while either holds and closes when both are gone', () => {
+    vi.useFakeTimers()
+    const c = draw(withText())
+    act(() => { useViewFocusLink.setState({ id: 'e' }) })
+    fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(tips()).toHaveLength(1)
+    fireEvent.pointerLeave(g(c))
+    expect(tips(), 'focus still holds it').toHaveLength(1)
+    act(() => { useViewFocusLink.setState({ id: null }) })
+    expect(tips(), 'closes with the focus').toHaveLength(0)
+  })
+  it('a link with keyboard focus opens the same Tip after the same 150 ms, anchored to the mark, and the Tip follows the mark when the board is panned or zoomed', () => {
     vi.useFakeTimers()
     let at = { left: 100, top: 50, width: 12, height: 12 }
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -331,17 +387,46 @@ describe('the hover is the shared Tip (panel-visual rule 4)', () => {
     })
     draw(dir())
     act(() => { useViewFocusLink.setState({ id: 'e' }) })
-    expect(screen.queryByRole('tooltip'), 'focus alone is not instant').toBeNull()
+    expect(tips(), 'focus alone is not instant').toHaveLength(0)
     act(() => { vi.advanceTimersByTime(TIP_DELAY) })
-    const tip = screen.getByRole('tooltip')
-    expect(tip.style.getPropertyValue('--tip-x')).toBe(`${100 + 12 + 8}px`)
-    // The board is panned: the mark is somewhere else on screen, and the Tip goes with it.
+    expect(screen.getByRole('tooltip').style.getPropertyValue('--tip-x')).toBe(`${100 + 12 + 8}px`)
+    // The board is panned: the Tip keeps its first measure, so it closes as a scroll closes it, and the focused link opens it again where the mark now is.
     at = { left: 300, top: 220, width: 12, height: 12 }
     act(() => { flow!.setState({ transform: [40, 30, 1.5] }) })
+    expect(tips(), 'closed by the pan').toHaveLength(0)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect([screen.getByRole('tooltip').style.getPropertyValue('--tip-x'), screen.getByRole('tooltip').style.getPropertyValue('--tip-y')]).toEqual([`${300 + 12 + 8}px`, '220px'])
     act(() => { useViewFocusLink.setState({ id: null }) })
-    expect(screen.queryByRole('tooltip'), 'closes with the focus').toBeNull()
+    expect(tips(), 'closes with the focus').toHaveLength(0)
     spy.mockRestore()
+  })
+  it('under focus the Tip\'s id joins the focus target\'s (React Flow\'s edge wrapper) description, and the words id alone returns on Escape', () => {
+    vi.useFakeTimers()
+    const link = dir()
+    const c = render(
+      <ReactFlowProvider><Grab /><EdgeLabelLayer><svg>
+        <g className="react-flow__edge" aria-describedby="words-0">
+          <Edge id="e" source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
+            sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} />
+        </g>
+      </svg></EdgeLabelLayer></ReactFlowProvider>,
+    ).container
+    const wrapper = c.querySelector('.react-flow__edge') as SVGGElement
+    act(() => { useViewFocusLink.setState({ id: 'e' }) })
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const id = screen.getByRole('tooltip').id
+    expect(wrapper.getAttribute('aria-describedby')).toBe(`words-0 ${id}`)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(tips()).toHaveLength(0)
+    expect(wrapper.getAttribute('aria-describedby'), 'back to the words id').toBe('words-0')
+  })
+  it('a pan while the pointer rests on the link closes its Tip too (the pointer\'s Tip is no longer left detached)', () => {
+    vi.useFakeTimers()
+    const c = draw(withText())
+    fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(tips()).toHaveLength(1)
+    act(() => { flow!.setState({ transform: [10, 10, 1] }) })
+    expect(tips()).toHaveLength(0)
   })
 })
 
@@ -356,7 +441,7 @@ describe('width stays uniform (panel-visual system L3)', () => {
   it('L3 core reserves `causal.strength.share` as null, so every effect is the thinnest rung whatever its low / likely / high say; no strength is implied', () => {
     for (const [low, likely, high] of [[1, 2, 3], [100, 900, 1500], [null, null, null]] as const) {
       const l = withCausal('increases'); l.causal = { ...l.causal!, strength: { state: 'sized', figure: null, low, likely, high, share: null } as never }
-      expect(line(draw(l)).style.strokeWidth).toBe(String(PLAIN_WIDTH)); cleanup()
+      expect(applied(line(draw(l))).strokeWidth).toBe(px(PLAIN_WIDTH)); cleanup()
     }
   })
 })
@@ -365,14 +450,14 @@ describe('modifier channels (panel-visual system L4)', () => {
   const both = (extra: Partial<ViewLink>) => withCausal('decreases', extra)
   it('L4a alert is an orange halo under a directional line: the line keeps its direction colour (it was orange, and lost its direction)', () => {
     const c = draw(both({ alert: true }))
-    expect(line(c).style.stroke).toBe(EFFECT_STROKES.decreases)
+    expect(applied(line(c)).stroke).toBe(EFFECT_STROKES.decreases)
     expect(c.querySelector('[data-link-halo-path="alert"]')?.getAttribute('class')).toContain('ok-link-halo-alert')
     expect(g(c).getAttribute('data-link-halo')).toBe('alert')
   })
   it('L4b proposal is a blue halo under a directional line in an approved model, the direction colour kept; on a first draft it marks nothing (R3)', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const c = draw(both({ proposed: true }))
-    expect([line(c).style.stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
+    expect([applied(line(c)).stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
     expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
     cleanup()
     useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
@@ -381,14 +466,14 @@ describe('modifier channels (panel-visual system L4)', () => {
   it('L4c the four channels coexist on one line: direction colour, doubt dash, alert halo and proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const c = draw(both({ doubt: true, alert: true, proposed: true }))
-    expect([line(c).style.stroke, line(c).style.strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
+    expect([applied(line(c)).stroke, applied(line(c)).strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
   })
   it('L4d alert and proposal survive together on a neutral line and on a reason line, as two separate halos; the line keeps its neutral stroke (it was orange only, and the proposal vanished)', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const plain = (extra: object) => ({ ...first, causal: null, role: null, kind: 'relation', doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
     for (const l of [plain({ alert: true, proposed: true }), plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' })]) {
       const c = draw(l)
-      expect([line(c).style.stroke, g(c).getAttribute('data-link-halo')]).toEqual([EDGE_NEUTRAL, 'alert proposed'])
+      expect([applied(line(c)).stroke, g(c).getAttribute('data-link-halo')]).toEqual([EDGE_NEUTRAL, 'alert proposed'])
       expect(c.querySelector('[data-link-halo-path="alert"]')).not.toBeNull()
       expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
       cleanup()
@@ -401,14 +486,49 @@ describe('modifier channels (panel-visual system L4)', () => {
 })
 
 describe('presentation is token CSS (panel-visual system, no styles in components)', () => {
-  it('the halos, the dotted recipe, the off-path fade and the words\' box are classes in olumiLook.css; the fade\'s transition is gated on reduced motion', () => {
-    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-off-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit']) expect(css, sel).toContain(sel)
+  const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  it('the tone classes declare the tokens the lane\'s ink table names, and every drawn line takes its stroke from its tone class (no inline stroke)', () => {
+    for (const [tone, token] of Object.entries(TONE_TOKEN)) expect(declared(`ok-link-tone-${tone}`)['--link-tone'], tone).toBe(token)
+    expect(toneOf(EFFECT_STROKES.increases)).toBe('positive')
+    const c = draw(withCausal('decreases'))
+    expect([g(c).getAttribute('data-link-tone'), g(c).classList.contains('ok-link-tone-negative'), line(c).getAttribute('style')]).toEqual(['negative', true, null])
+  })
+  it('the width, the dash, the dots and the screen-px rule are declared by the stylesheet\'s classes the line carries; the doubt dash outranks the dots', () => {
+    expect(declared('ok-link-line', 'react-flow__edge-path')['stroke-width']).toBe(px(PLAIN_WIDTH))
+    expect(declared('ok-link-line', 'react-flow__edge-path')['vector-effect']).toBe('non-scaling-stroke')
+    expect(declared('ok-link-doubt', 'react-flow__edge-path')['stroke-dasharray']).toBe(DOUBT_DASH)
+    expect(declared('ok-link-dotted', 'react-flow__edge-path')['stroke-dasharray']).toBe(DOTS)
+    expect(css, 'four classes deep, so React Flow\'s selected stroke never wins').toMatch(/\.react-flow__edge \.react-flow__edge-path\.ok-link-line \{/)
+    const c = draw(withCausal('increases', { doubt: true }))
+    expect(line(c).getAttribute('class')).toContain('ok-link-doubt')
+    expect(line(c).hasAttribute('style'), 'the line carries no inline style').toBe(false)
+    cleanup()
+    const reasonDoubt = draw({ ...first, kind: 'reason', role: 'reason', causal: null, doubt: true, alert: false, proposed: false } as unknown as ViewLink)
+    expect(applied(line(reasonDoubt)).strokeDasharray, 'a doubted reason link is dashed, not dotted').toBe(DOUBT_DASH)
+  })
+  it('the halos, the off-path fade and the words\' box are classes in olumiLook.css; the fade\'s transition is gated on reduced motion; the halo widths are the stylesheet\'s', () => {
+    for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-off-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit', '.ok-link-hidden', '.ok-link-leader', '.ok-link-end', '.ok-link-chip', '.ok-link-ctl']) expect(css, sel).toContain(sel)
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^}]*\.ok-link \{ transition: opacity/)
+    expect([declared('ok-link-halo-alert')['stroke-width'], declared('ok-link-halo-proposed')['stroke-width']]).toEqual([px(PLAIN_WIDTH + 8), px(PLAIN_WIDTH + 6)])
     const c = draw(withCausal('increases', { alert: true }))
     const words = document.body.querySelector('[data-view-link-words]') as HTMLElement
     expect(words.className).toContain('ok-link-words')
-    expect([words.style.position, words.style.background, words.style.pointerEvents], 'no inline position, ground or pointer rule').toEqual(['', '', ''])
-    expect(c.querySelector('path.ok-link-halo')?.getAttribute('style') ?? '', 'the halo is the class, not inline').toBe('')
+    expect(Object.keys(applied(words)), 'the words\' box, ground and pointer rule are the class\'s').toEqual(expect.arrayContaining(['position', 'background', 'pointerEvents', 'zIndex', 'transform']))
+    expect(c.querySelector('path.ok-link-halo')?.hasAttribute('style'), 'the halo is the class, not inline').toBe(false)
+    expect(c.querySelector('path.ok-link-halo')?.hasAttribute('stroke-width'), 'nor an attribute').toBe(false)
+  })
+  it('where the words stand is two custom properties (as the Tip\'s --tip-x), never an inline transform, z-index or visibility; hidden is a class', () => {
+    draw(withCausal('increases'))
+    const words = document.body.querySelector('[data-view-link-words]') as HTMLElement
+    const at = standsAt(words)
+    expect([Number.isFinite(at.x), Number.isFinite(at.y)]).toEqual([true, true])
+    expect(words.getAttribute('style') ?? '').not.toMatch(/transform|z-index|visibility|position/)
+    expect(declared('ok-link-words')['z-index']).toBe(String(GOAL_CHANCE_DRIVER_TAG_Z))
+  })
+  it('no component or its edge writes an inline style or a native title: the files hold none', () => {
+    for (const f of ['src/canvas/edges/ViewLinkEdge.tsx', 'src/olumiView/v12/links/LinkEnds.tsx', 'src/olumiView/LinkMarkChip.tsx', 'src/olumiView/v12/links/place.ts', 'src/olumiView/v12/links/styles.ts']) {
+      const src = readFileSync(path.resolve(f), 'utf8').split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
+      expect(src, f).not.toMatch(/\s(style|title)=/)
+    }
   })
 })

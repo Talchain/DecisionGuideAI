@@ -11,7 +11,7 @@
  * Above it all, the model's state is said once, in the Reasoning tab's own strip (`StateStrip`): a held proposal, or a what-if with its way back.
  * Every word about the person's model is core's, at its View path (`data-view`); the headings are the tab's own chrome.
  */
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { pressCard } from '../reasoning/tabRing'
@@ -31,6 +31,7 @@ import { REASONING_LABELS, RestsOn, StartHere } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useAnchoredTip } from '../look/Tip'
+import { GlyphMark, Hov } from './Hover'
 
 /** The tab's own chrome: the fold that holds core's long reading. */
 export const ANALYSIS_WORDS = { why: 'Why this reading' } as const
@@ -74,15 +75,15 @@ function Limits({ model }: { model: ViewModel }) {
           <ul className="m-0 list-none p-0">
             {g.rows.map(({ card, row, i }) => (
               <li key={card.id}>
-                <button type="button" onClick={() => pressCard(card.id)} title={row.title} className={`${TYPE.body} block min-h-7 w-full rounded-sm px-1 py-0.5 text-left hover:bg-panel-hover`} data-limit-option={card.id}>
+                <Hov as="button" type="button" onClick={() => pressCard(card.id)} words={row.olumi == null ? row.title : `${row.title}\n${row.olumi.title}`} className={`${TYPE.body} block min-h-7 w-full rounded-sm px-1 py-0.5 text-left hover:bg-panel-hover`} data-limit-option={card.id}>
                   <span className="flex items-baseline gap-2">
                     <span className="min-w-0 flex-1 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</span>
                     {row.state_text == null || row.state_text === '' ? null : <span className={`${TYPE.meta} shrink-0 text-text-body`} data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span>}
-                    {row.olumi == null ? null : <span className={`${TYPE.meta} shrink-0 text-info`} title={row.olumi.title} aria-label={row.olumi.title} data-view={`${card.id}.rows.${i}.olumi.glyph`}>{row.olumi.glyph}</span>}
+                    {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className={`${TYPE.meta} shrink-0 text-info`} view={`${card.id}.rows.${i}.olumi.glyph`} />}
                   </span>
                   {/* Core's own line for the state, with any condition it rests on ("if … does not happen"), always visible. */}
                   {row.value === '' ? null : <span className={`${TYPE.meta} block text-text-light`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>}
-                </button>
+                </Hov>
               </li>
             ))}
           </ul>
@@ -105,9 +106,9 @@ function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
         <div key={group} className="space-y-1" data-testid={`view-run-compared-${group}`} aria-label={heading}>
           <p className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={`run.compared_headings.${group}`}>{heading}</p>
           {lines.map(({ line: l, i }) => (
-            <div key={l.id} title={l.hover} data-view-fact={l.id}>
-              {l.olumi === null ? null : <><span className="text-info" title={l.olumi.title} aria-label={l.olumi.title} data-view={`run.compared.${i}.olumi.glyph`}>{l.olumi.glyph}</span> </>}
-              <span data-view={`run.compared.${i}.line`}>{l.line}</span>
+            <div key={l.id} data-view-fact={l.id}>
+              {l.olumi === null ? null : <><GlyphMark mark={l.olumi} className="text-info" view={`run.compared.${i}.olumi.glyph`} /> </>}
+              <Hov words={l.hover} data-view={`run.compared.${i}.line`}>{l.line}</Hov>
             </div>
           ))}
         </div>
@@ -119,6 +120,7 @@ function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
 /** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons. */
 function WhyThisReading({ model }: { model: ViewModel }) {
   const [open, setOpen] = useState(false)
+  const regionId = useId()
   const run = model.run ?? null
   if (run === null) return null
   const ml = run.most_likely ?? null
@@ -127,14 +129,14 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && !compared) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
         <FoldChevron open={open} />{ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
-        <div className={`${TYPE.meta} mt-2 space-y-2 text-text-body`} data-testid="analysis-why-region">
+        <div id={regionId} className={`${TYPE.meta} mt-2 space-y-2 text-text-body`} data-testid="analysis-why-region">
           {ml == null ? null : (
-            <p className="m-0" title={ml.title} data-testid="analysis-why-most-likely">
-              <span data-view="run.most_likely.text">{ml.text}</span>
+            <p className="m-0" data-testid="analysis-why-most-likely">
+              <Hov words={ml.title} data-view="run.most_likely.text">{ml.text}</Hov>
               {mlCard?.figure?.edit == null ? null : <> <FigureEdit id={mlCard.id} edit={mlCard.figure.edit} place="analysis-likely" glyph words={false} label={`Give your figure for ${mlCard.heading}`} /></>}
             </p>
           )}

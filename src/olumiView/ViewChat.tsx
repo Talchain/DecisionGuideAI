@@ -65,6 +65,8 @@ import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
 import { ReplyFacts } from './v12/chat/ReplyFacts'
+import { Hover, HoverButton } from './v12/chat/Hover'
+import { useAnchoredTip } from './look/Tip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { IntakeSheet } from './v12/chat/IntakeSheet'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
@@ -101,7 +103,7 @@ export function Words({ parts, at, first = 1 }: { parts: Said; at: string; first
   return (
     <>
       {parts.map((p, i) => ('cite' in p
-        ? <sup key={i} className={typography.viewPanelMeta} data-view-cite={`${at}.${i}.cite`} title={p.cite} aria-label={p.cite}>{n++}</sup>
+        ? <Hover key={i} as="sup" words={p.cite} className={typography.viewPanelMeta} data-view-cite={`${at}.${i}.cite`} aria-label={p.cite}>{n++}</Hover>
         : <span key={i} data-view={`${at}.${i}.text`}>{p.text}</span>))}
     </>
   )
@@ -136,7 +138,7 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
   parts.forEach((p, i) => { if ('cite' in p) citeNo.set(i, first + citeNo.size) })
   // `strip`: the line's own marker, which is layout, not words: a list line's "- ", or a lead-in's two to six hashes (LEAD_IN).
   const draw = (line: Piece[], strip: RegExp | null) => line.map((x, j) => {
-    if (x.kind === 'cite') return <sup key={j} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} title={x.cite} aria-label={x.cite}>{citeNo.get(x.i)}</sup>
+    if (x.kind === 'cite') return <Hover key={j} as="sup" words={x.cite} className={typography.viewPanelMeta} data-view-cite={`${at}.${x.i}.cite`} aria-label={x.cite}>{citeNo.get(x.i)}</Hover>
     const s = strip !== null && j === 0 ? x.s.replace(strip, '') : x.s
     return <span key={j} data-view={x.k === 0 ? `${at}.${x.i}.text` : `${at}.${x.i}.text.${x.k}`}>{richText(s)}</span>
   })
@@ -243,7 +245,7 @@ function Stories({ answer, at }: { answer: NonNullable<ViewTurn['answer']>; at: 
           const rests = st.rests_on.flatMap((id) => { const h = headingOf(id); return h === null ? [] : [h] })
           return (
             <li key={i} data-story={i}>
-              <p>{olumi === null ? null : <span className="text-info" title={olumi.text} aria-label={olumi.text} data-story-mark="">{olumi.glyph} </span>}<span data-view={`${at}.answer.stories.${i}.text`}>{st.text}</span></p>
+              <p>{olumi === null ? null : <Hover words={olumi.text} className="text-info" aria-label={olumi.text} data-story-mark="">{olumi.glyph} </Hover>}<span data-view={`${at}.answer.stories.${i}.text`}>{st.text}</span></p>
               {option === null ? null : <p className={`${typography.chatMeta} text-text-light`} data-story-option="">Option: <span>{option}</span></p>}
               {rests.length === 0 ? null : <p className={`${typography.chatMeta} text-text-light`} data-story-rests="">Rests on: <span>{rests.join(', ')}</span></p>}
             </li>
@@ -342,7 +344,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} ${reply.status === 'running' ? 'text-text-light' : 'text-text-body'}`} data-testid="view-chat-reply" data-reply={reply.status}><span data-view="reply.words">{reply.words}</span></p>
   )) : (
     <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-chat-answer">
-      {olumi === null ? null : <span className="ok-reply-mark" role="img" aria-label={olumi.text} title={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</span>}
+      {olumi === null ? null : <Hover words={olumi.text} className="ok-reply-mark" role="img" aria-label={olumi.text} data-view={`${at}.answer.mark`}>{olumi.glyph}</Hover>}
       <DegradedLine of={t} at={at} />
       {lead !== null && firstAnswerOf(t.answer) !== null
         // A first draft's reply with a lead. The CURRENT answer leads (Codex 19:46:53Z): core's lead first, as on any reply (the newest one's short
@@ -381,10 +383,11 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const waiting = whole?.proposal != null
   // P4 (system spec): the reply's facts are ONE compact grey icon row (ReplyFacts): the cards it is about, what it rests on and why (one disclosure), keep,
   // show in the workspace, and the version as its icon. Core's version and status words are the icon's hover and name (Tip), never drawn beside it.
+  // Keyboard (Codex panel round 2): the wrapper is NOT a tab stop; the labelled icon inside it is the one stop, and its focus opens the Tip.
   // say3 (Paul 18 Nov, "nothing said twice"): while Olumi's proposal waits, the reply's status is its own and the foot says the proposal once; the icon keeps core's words.
   const stampWords = t.status === null ? t.version : `${t.version} · ${t.status}`
   const stamp = (
-    <span tabIndex={0} className="inline-flex" data-testid="view-chat-version">
+    <span className="inline-flex" data-testid="view-chat-version">
       <OkIcon id="version-tag" size={14} words={stampWords} decorative={false} testid={t.status === null || waiting ? 'view-chat-version-icon' : 'view-chat-status-icon'} />
     </span>
   )
@@ -406,7 +409,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.answer === null && t.problem !== null && t.said !== '' ? <AskAgain words={t.said} /> : null}
-      {t.marks.map((m, j) => <p key={j} title={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></p>)}
+      {t.marks.map((m, j) => <Hover key={j} as="p" words={m.title}><span data-view={`${at}.marks.${j}.what`}>{m.what}</span>: <span data-view={`${at}.marks.${j}.status`}>{m.status}</span></Hover>)}
     </li>
   )
 }
@@ -436,11 +439,8 @@ export const ASK_AGAIN = 'Ask this again'
 export function askAgainDraft(typed: string, words: string): string { return typed.trim() === '' ? words : typed.includes(words) ? typed : `${typed}\n\n${words}` }
 function AskAgain({ words }: { words: string }) {
   return (
-    <button type="button" data-testid="view-ask-again" aria-label={ASK_AGAIN} title={ASK_AGAIN}
-      onClick={() => { useViewChat.setState({ text: askAgainDraft(useViewChat.getState().text, words) }); document.getElementById('view-chat-text')?.focus() }}
-      className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-      <OkIcon id="retry" size={14} inherit decorative /><span className="sr-only">{ASK_AGAIN}</span>
-    </button>
+    <OkIconButton id="retry" tone="ghost" words={ASK_AGAIN} testid="view-ask-again"
+      onClick={() => { useViewChat.setState({ text: askAgainDraft(useViewChat.getState().text, words) }); document.getElementById('view-chat-text')?.focus() }} />
   )
 }
 /** Honest degradation (core `degraded`, optional on a chat turn and a floor entry; the vendored contract predates it; `chat[].status` is the version
@@ -448,7 +448,7 @@ function AskAgain({ words }: { words: string }) {
 function DegradedLine({ of, at }: { of: unknown; at: string }): JSX.Element | null {
   const d = (of as { degraded?: { text?: unknown; title?: unknown } | null }).degraded
   if (typeof d?.text !== 'string' || d.text === '') return null
-  return <p className={`${typography.viewPanelMeta} m-0 text-text-light`} title={typeof d.title === 'string' ? d.title : d.text} data-view={`${at}.degraded.text`} data-testid="view-chat-turn-degraded">{d.text}</p>
+  return <Hover as="p" words={typeof d.title === 'string' ? d.title : d.text} className={`${typography.viewPanelMeta} m-0 text-text-light`} data-view={`${at}.degraded.text`} data-testid="view-chat-turn-degraded">{d.text}</Hover>
 }
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
@@ -529,11 +529,16 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
   // no restart: ViewChat draws it at one place in the thread), with the page's one waiting sentence until core's own words arrive.
   const running = turn === null || turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
-  const [born] = useState(() => Date.now())
-  const [now, setNow] = useState(born)
-  useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
+  // Seconds are per JOB (Codex panel round 2). Once core has accepted, the clock is core's own `started`, never earlier (so a retained failed turn followed by
+  // another job cannot carry the earlier job's time). Before acceptance (`turn` null) it is the moment of Send, which restarts each time the mount goes back
+  // to waiting for a new acceptance; a started that cannot be read falls back to that same moment.
+  const [sent, setSent] = useState(() => Date.now())
+  const [waiting, setWaiting] = useState(turn === null)
+  if ((turn === null) !== waiting) { setWaiting(turn === null); if (turn === null) setSent(Date.now()) }
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => { if (!running) return; setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running, turn?.started])
   const parsed = turn === null ? NaN : Date.parse(turn.started)
-  const from = Number.isFinite(parsed) ? Math.min(parsed, born) : born, secs = Math.max(0, Math.floor((now - from) / 1000))
+  const from = Number.isFinite(parsed) ? parsed : sent, secs = Math.max(0, Math.floor((now - from) / 1000))
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn?.status ?? 'answering'} data-shown={shown ? '' : undefined}>
       <li className="space-y-1">
@@ -589,14 +594,18 @@ const refusedNeedsOf = (e: unknown): Need[] => { if (!(e instanceof TeamApiError
 function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], without = [], refused = [], oneOf = null }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one: why this line is ticked. */ neededBy?: readonly string[]; /** Core's `why` of each such need, with where core sent it (`needs[k].why` of the line that needs this one). */ reasons?: readonly { at: string; why: string }[]; /** The optional associations this ticked line is kept WITHOUT: core's text of each left-off line and core's why. */ without?: readonly { at: string; text: string; why: string }[]; /** Core's why for each need its refusal named this line for. */ refused?: readonly string[]; /** A ticked line that needs one of several lines, none ticked yet: core's why for it, with where core sent it. */ oneOf?: { at: string; why: string } | null }) {
   // R4 (core v1.13): a line approved only with others carries core's why as its hover, verbatim (`together.why`).
   const why = c.together?.why ?? null
-  const line = <><span data-view={`proposal.changes.${i}.text`} title={why ?? undefined} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</span>{c.olumi === null ? null : <> <span title={c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</span></>}</>
+  // Under a summary (the line has detail) the summary is the one tab stop and owns the hover; the spans are plain there.
+  const detailed = c.detail !== ''
+  const olumiWords = c.olumi === null ? null : c.olumi.title
+  const summaryTip = useAnchoredTip([why, olumiWords].filter((w): w is string => w !== null && w !== '').join('\n') || undefined)
+  const line = <><Hover words={detailed ? null : why} data-view={`proposal.changes.${i}.text`} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</Hover>{c.olumi === null ? null : <> <Hover words={detailed ? null : c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</Hover></>}</>
   return (
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
       {/* R25 (24px targets): the box sits in a 24px label, the label the target. */}
       {ticked === null ? null : <label className="inline-flex min-h-[24px] min-w-[24px] flex-none cursor-pointer items-center justify-center" data-target-for={`view-change-tick-${i}`}><input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} /></label>}
       <div className="min-w-0">
         {c.detail === '' ? <span>{line}</span> : (
-          <details><summary className="cursor-pointer">{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p></details>
+          <details><summary className="cursor-pointer" {...summaryTip.handlers} aria-describedby={summaryTip.describedBy}>{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p>{summaryTip.tip}</details>
         )}
         {/* A tick that brings other lines with it is never silent (015; Codex root 21:32Z): once ticked, the line says core's why at rest (its hover
             before), and each line it brought says which ticked line needs it, by that line's own words from core. */}
@@ -825,9 +834,9 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
   }
   return (
     <div ref={root} className={`${typography.viewPanelBody} space-y-2`} data-testid="view-chat-proposal">
-      {closed ? null : inRow ? (p.removed === null ? null : <div><span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></div>)
+      {closed ? null : inRow ? (p.removed === null ? null : <div><Hover words={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</Hover></div>)
         : <div><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}
-        {p.removed === null ? null : <> <span title={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</span></>}</div>}
+        {p.removed === null ? null : <> <Hover words={p.removed.title} data-view="proposal.removed.text">{p.removed.text}</Hover></>}</div>}
       {/* Who asked and the evidence it rests on stay in view with the closed card: Approve is never offered without its basis. */}
       {from === null ? null : (
         <div className="text-text-light" data-testid="view-chat-proposal-from">
@@ -840,7 +849,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {closed ? null : p.marks.map((m, j) => {
         const words = <><span data-view={`proposal.marks.${j}.what`}>{m.what}</span>: <span data-view={`proposal.marks.${j}.status`}>{m.status}</span></>
         const id = m.reading?.id
-        if (id === undefined || !readingIds.includes(id)) return <p key={j} title={m.title}>{words}</p>
+        if (id === undefined || !readingIds.includes(id)) return <Hover key={j} as="p" words={m.title}>{words}</Hover>
         const shared = sharedTitle !== null && j === firstReading
           ? <p key={`t${j}`} className="m-0 text-text-light" data-testid="view-readings-title" data-view={`proposal.marks.${j}.title`}>{sharedTitle}</p> : null
         const choose = (on: boolean) => { setRefused(false); setChoice((c) => ({ ...c, [id]: on ? 'use' : 'keep' })) }
@@ -1462,8 +1471,8 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   if (!moveTapDrawn(sid, next, sid !== null && gone === moveKey(sid, turn, next.move))) return null
   return (
     arrow
-      ? <button type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label} title={next.label}
-          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={16} decorative /></button>
+      ? <HoverButton words={next.label} type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label}
+          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={16} decorative /></HoverButton>
       : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
@@ -1674,12 +1683,12 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   // filled button and Set aside as an icon (Proposal's actions). The mark is beside core's words, never in their place.
   const lead = (
     <>
-      <button type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row" title={p.on === '' ? p.heading : `${p.heading} · ${p.on}`}
+      <HoverButton words={p.on === '' ? p.heading : `${p.heading} · ${p.on}`} type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         <OkIcon id="olumi-mark" size={16} decorative />
         {/* One flowing run: the heading, the dot and the version wrap together, never three flex columns (DL look at 1500x904 at 1.33). It wraps and is never cut: Paul, 19 Nov. */}
         <span className="min-w-0 flex-1 break-words" data-testid="view-proposal-words"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
-      </button>
+      </HoverButton>
       <button type="button" className={`${VIEW_CHIP_CLASS} ok-review-toggle`}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         Review<FoldChevron open={open} />
@@ -1744,15 +1753,15 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
       <div className="flex" data-testid="view-session-goal">
         <span className={`inline-flex items-center gap-1 rounded-lg border border-field bg-panel pl-2.5 pr-1 ${typography.viewPanelBody}`} data-testid="view-session-goal-chip">
           <OkIcon id="goal" size={14} decorative />
-          <button type="button" disabled={held} onClick={() => setChanging(true)} title={session.set_by === null ? undefined : `Set by ${session.set_by}`}
+          <HoverButton words={session.set_by === null ? undefined : `Set by ${session.set_by}`} type="button" disabled={held} onClick={() => setChanging(true)}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
-            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed">
+            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
             <span data-view="session.goal.text">{goal.text}</span>
-          </button>
-          <button type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} title={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:text-text-light disabled:cursor-not-allowed">
+          </HoverButton>
+          <HoverButton words={`Clear: ${goal.text}`} type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
             <OkIcon id="clear-goal" size={14} decorative inherit />
-          </button>
+          </HoverButton>
         </span>
       </div>
     )
@@ -1967,7 +1976,7 @@ export function ViewChat() {
       {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
       {away ? (
         <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
-          <button type="button" data-testid="view-chat-to-latest" aria-label="Go to the latest message" title="Go to the latest message" onClick={toLatest} className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-panel-border bg-panel text-text-body"><OkIcon id="go-latest" decorative inherit /></button>
+          <OkIconButton id="go-latest" tone="ghost" words="Go to the latest message" testid="view-chat-to-latest" className="ok-to-latest" onClick={toLatest} />
         </div>
       ) : null}
       {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
@@ -2118,10 +2127,10 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           )}
           {/* Words-start (17 Nov): the one deliberate choice for a new brief, beside Send; Send still builds a model (the default). */}
           {!brief ? null : (
-            <button type="button" disabled={sendHeld} title={TALK_FIRST_HOVER} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
-              className={`${typography.viewPanelHeading} inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-default`}>
+            <HoverButton words={TALK_FIRST_HOVER} type="button" disabled={sendHeld} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
+              className={`${typography.viewPanelHeading} inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:cursor-default`}>
               <OkIcon id="talk-first" size={14} inherit />{TALK_FIRST}
-            </button>
+            </HoverButton>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
             className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${controls.act}`}>

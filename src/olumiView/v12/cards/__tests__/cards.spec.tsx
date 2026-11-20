@@ -726,6 +726,40 @@ describe('C1 the card foot has one order on both faces: state marks, then count 
   })
 })
 
+describe('C1 (Codex round 3) the Detailed foot caps and overflows its state marks exactly as the Simple foot does', () => {
+  const UNUSED = "Olumi's analysis doesn't use this figure yet, so changing it won't move any chance."
+  const TWO = [
+    { code: 'estimate_held_as_one_figure', title: 'A single figure', text: 'Held as one number.', rests_on: [], olumi: true },
+    { code: 'only_supporting_evidence', title: 'No challenging evidence', text: 'Nothing recorded challenges it.', rests_on: [], olumi: true },
+  ]
+  const crowdedCard = () => ({ ...cardOf(ASKED, 'carry_on'), driver: null, status: 'ruled out', challenged: true, reason: 'Two sources disagree', unused: UNUSED, worth_checking: TWO }) as unknown as ViewCard
+  const kinds = (el: Element) => [...el.querySelectorAll<HTMLElement>('[data-card-mark]')].map((m) => `${m.getAttribute('data-card-mark')}${m.getAttribute('data-worth-code') ?? ''}`)
+  it('F3 a crowded card: at rest Detailed draws at most MARK_CAP state marks and a "+N" naming the rest; a press draws them all in core\'s order, the same order Simple has; the author mark stays last', () => {
+    const card = crowdedCard()
+    // Simple: set-aside, challenged, worth, worth, unused (five). Detailed says "set aside" once, on its status line, so it has four.
+    const all = cardMarksOf(card).map((m) => `${m.id}${m.code ?? ''}`)
+    expect(all.length, 'precondition: more state marks than the cap').toBeGreaterThan(MARK_CAP)
+    const foot = draw(withCard(ASKED, card), card.id, 'working').querySelector<HTMLElement>(`[data-core-card="${card.id}"] .ok-dt-foot`)!
+    const detailed = all.filter((k) => k !== 'set-aside')
+    expect(kinds(foot), 'at rest: the first three, in order').toEqual(detailed.slice(0, MARK_CAP))
+    const more = foot.querySelector<HTMLButtonElement>('[data-card-more]')!
+    expect([more.getAttribute('data-card-more'), more.textContent, more.getAttribute('aria-expanded')]).toEqual([String(detailed.length - MARK_CAP), `+${detailed.length - MARK_CAP}`, 'false'])
+    expect(foot.lastElementChild!.getAttribute('data-core-author'), 'whose it is is last').toBe(card.id)
+    fireEvent.click(more)
+    expect([kinds(foot), more.getAttribute('aria-expanded')], 'a press draws every mark, in the same order').toEqual([detailed, 'true'])
+    // PARITY with the Simple foot: the same marks in the same order (Simple adds the set-aside mark first).
+    cleanup()
+    const simple = render(<SimpleFace card={card} model={withCard(ASKED, card).model} noted={false} />).container
+    fireEvent.click(simple.querySelector<HTMLButtonElement>('[data-card-more]')!)
+    expect(kinds(simple).filter((k) => k !== 'set-aside')).toEqual(detailed)
+  })
+  it('F4 CONTRAST: a card with no more than MARK_CAP state marks draws no "+N" on Detailed, and no unused or worth mark is lost to the cap', () => {
+    const card = { ...crowdedCard(), challenged: false, reason: null, worth_checking: [TWO[0]!] } as unknown as ViewCard
+    const foot = draw(withCard(ASKED, card), card.id, 'working').querySelector<HTMLElement>(`[data-core-card="${card.id}"] .ok-dt-foot`)!
+    expect([kinds(foot), foot.querySelector('[data-card-more]')]).toEqual([['worth-checkingestimate_held_as_one_figure', 'unused'], null])
+  })
+})
+
 describe('C5 a condition is neutral and has its own icon; orange only from core\'s own challenge field', () => {
   // A real condition card of the served European View (core's `condition` family); `challenged` is core's own field, set here only to contrast it.
   const cond = (extra: Partial<ViewCard> = {}) => ({ ...cardOf(EU, 'country_readiness'), challenged: false, ...extra }) as unknown as ViewCard

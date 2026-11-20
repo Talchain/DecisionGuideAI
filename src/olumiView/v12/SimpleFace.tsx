@@ -16,6 +16,8 @@
  * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
 import type { ReactNode } from 'react'
+import { useAnchoredTip } from '../look/Tip'
+import { Tipped } from './cards/Tipped'
 import type { ViewCard, ViewModel } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceAtOf } from '../resultRange'
@@ -38,7 +40,7 @@ import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
  */
 const FIGURE = `${typography.viewLabel} tabular-nums`
 /** Olumi's blue, the person's ink and the goal's colour: the board's own tokens. */
-const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)', GOAL = 'var(--edge-positive)'
+const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
 
@@ -205,17 +207,17 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // A bound core has not measured (`bound.measured` false: "not checked yet: nothing in the model is counted against it") is the card's state, so it is its quiet
       // meta line, no border and no heading type (Paul, url3-2: two identical large pills); a measured bound keeps the outlined pill.
       card.bound.measured ? (
-        <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: GOAL }}>
+        <Tipped as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className={`${typography.viewValue} ok-tone-goal flex min-w-0 basis-full items-center gap-1`} data-simple-face="target">
           <span className="ok-pill ok-bound min-w-0">
             {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
             {mark}
           </span>
-        </p>
+        </Tipped>
       ) : (
-        <p className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id} title={card.bound.title !== '' ? card.bound.title : card.bound.text}>
+        <Tipped as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
           {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
           {mark}
-        </p>
+        </Tipped>
       )
     )
   } else if (card.figure?.state === 'waits') {
@@ -228,14 +230,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
-      <div className="min-w-0 basis-full" data-simple-scale={id} title={card.figure?.title || words || undefined}>
-        {words === '' ? null : <p className={`${FIGURE} min-w-0 break-words`} data-simple-figure-text={id} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{words}</p>}
+      <Tipped words={card.figure?.title || words || undefined} className="min-w-0 basis-full" data-simple-scale={id}>
+        {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
         {scale}
-      </div>
+      </Tipped>
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    visual = <p className={`${FIGURE} min-w-0 basis-full break-words`} data-simple-face="figure" title={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} style={{ color: card.author?.by === 'olumi' || estimate ? BLUE : INK }}>{card.figure!.text}</p>
+    visual = <Tipped as="p" words={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 basis-full break-words`} data-simple-face="figure">{card.figure!.text}</Tipped>
   } else if (card.figure != null) {
     // An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover (R6). No empty track.
     const gap = unsizedWords(card)
@@ -272,9 +274,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       return [short, row.title != null && row.title !== '' && row.title !== short ? row.title : null].filter((x) => x != null && x !== '').join('\n')
     })
     .filter((t) => t !== '')
+  // The card's other results, one per line, on the one Tip (150 ms, keyboard focus too): the card holds a stop only where there are words to reach.
+  const moreTip = useAnchoredTip(more.length === 0 ? undefined : more.join('\n'))
+  // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
   return (
-    // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
+    <>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
+      {...(more.length === 0 ? {} : { tabIndex: 0, 'aria-describedby': moreTip.describedBy, ...moreTip.handlers })}>
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
@@ -296,5 +302,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       </div>
       {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>
+    {moreTip.tip}
+    </>
   )
 }

@@ -21,7 +21,7 @@ vi.mock('../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(awai
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { challengedCards } from '../layout'
-import { ViewReasoningBlock } from '../ViewReasoning'
+import { RESTS_AT_REST, ViewReasoningBlock } from '../ViewReasoning'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
@@ -38,7 +38,7 @@ const ready = (view: View, more: object = {}) => {
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
-  it("european: each rest by its id in core's order (every group and its first figure at rest, the further figures behind one press; core's figure-list label once); each figure a bar to its share, coloured by whose; core's give ✎ once per figure", () => {
+  it("european: at rest the first three rests in core's order, each with its first figure (core's figure-list label once); the other groups and the further figures behind ONE press, which draws every group; each figure a bar to its share, coloured by whose; core's give ✎ once per figure", () => {
     const view = read('european.view.json'), run = view.model!.run!
     const rests = run.rests.filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
     expect(rests.length).toBeGreaterThan(2)
@@ -46,10 +46,16 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-rests')
     const groups = () => [...box.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])
-    expect(groups()).toEqual(rests.map((r) => r.id))
-    expect([...box.querySelectorAll<HTMLElement>('[data-rest-figure]')].map((e) => e.dataset['restFigure'])).toEqual(rests.map((r) => (r.figures ?? []).filter((f) => f.line !== '')[0]!.id))
+    const first3 = rests.slice(0, RESTS_AT_REST)
+    expect(rests.length, 'precondition: more groups than fit at rest').toBeGreaterThan(RESTS_AT_REST)
+    expect(groups()).toEqual(first3.map((r) => r.id))
+    expect([...box.querySelectorAll<HTMLElement>('[data-rest-figure]')].map((e) => e.dataset['restFigure'])).toEqual(first3.map((r) => (r.figures ?? []).filter((f) => f.line !== '')[0]!.id))
     expect(box.querySelector('[data-view="run.rests_figures_heading"]')!.textContent).toBe(run.rests_figures_heading)
-    fireEvent.click(screen.getByTestId('reasoning-rests-more'))
+    expect(box.querySelectorAll('[data-testid="reasoning-rests-more"]'), 'ONE disclosure holds everything folded').toHaveLength(1)
+    const more = screen.getByTestId('reasoning-rests-more')
+    expect([more.getAttribute('aria-expanded'), document.getElementById(more.getAttribute('aria-controls')!)?.contains(box.querySelector('[data-rest]'))]).toEqual(['false', true])
+    fireEvent.click(more)
+    expect(more.getAttribute('aria-expanded')).toBe('true')
     expect(groups()).toEqual(rests.map((r) => r.id))
     for (const r of rests) {
       const g = box.querySelector<HTMLElement>(`[data-rest="${r.id}"]`)!
@@ -70,6 +76,7 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     const bare = rs.find((r) => r.line !== '' && (r.figures ?? []).length > 0)!, kept = rs.find((r) => r !== bare && r.line !== '' && (r.figures ?? []).length > 0)!
     ;(bare as { figures?: unknown }).figures = undefined
     ready(view); render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('reasoning-rests-more'))   // the later groups are behind the one press; opened so both groups are in view
     const box = screen.getByTestId('reasoning-rests')
     const g = box.querySelector<HTMLElement>(`[data-rest="${bare.id}"]`)!
     expect(g.querySelector('[data-testid="rests-sentence"]')!.textContent).toBe(bare.hover || bare.line)

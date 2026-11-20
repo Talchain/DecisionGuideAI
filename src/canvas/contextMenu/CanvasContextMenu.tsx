@@ -13,7 +13,7 @@ import { useShowToast } from '../ToastContext'
 import { useMenuItems } from './useMenuItems'
 import { Submenu } from './Submenu'
 import { MenuTooltip } from './MenuTooltip'
-import { Tip, TIP_DELAY, rowTipOf, useTipDelay } from '../../olumiView/look/Tip'
+import { Tip, TIP_DELAY, focusRing, rowTipOf, useTipDelay, useTipDismissOnMove } from '../../olumiView/look/Tip'
 import { menuLook } from '../../olumiView/look/menu'
 import { isDivider, isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from './types'
 import { SetValuePopover } from './SetValuePopover'
@@ -80,6 +80,15 @@ export function CanvasContextMenuBase({
   const lane = isOlumiCoreLane(), look = menuLook(lane)
   // The lane's hover is the one 150 ms hover; the older look keeps its own 300 ms.
   const { activeTooltip, showTooltip, hideTooltip } = useTipDelay(lane ? TIP_DELAY : 300)
+  // The saved anchor is measured once: a scroll or a resize closes the tip rather than leave it detached (the same rule as every other Tip).
+  useTipDismissOnMove(activeTooltip !== null, hideTooltip)
+  /** A row's tip words, or null. On the lane a label the row cut is said whole first; an enabled submenu row starts no tip (its submenu opens at the same 150 ms and would cancel it). */
+  // The menu's focus is virtual (the arrows move `focusedIndex`, not DOM focus), so a key move opens the row's tip through the same one timer; a pointer move does not (its own enter does).
+  const keyMoved = useRef(false)
+  const rowTip = (row: HTMLElement, item: MenuItemDef): string | null => {
+    const tip = lane ? rowTipOf(row, item.label, item.tooltip) : item.tooltip || null
+    return tip !== null && !(lane && item.hasSubmenu && item.enabled) ? tip : null
+  }
 
   /**
    * ⭐⭐ THE CARD'S WRITER, KEYED TO THIS MENU'S NODE — the one path a value set
@@ -166,10 +175,12 @@ export function CanvasContextMenuBase({
           break
         case 'ArrowDown':
           e.preventDefault()
+          keyMoved.current = true
           setFocusedIndex((p) => Math.min(p + 1, actionableItems.length - 1))
           break
         case 'ArrowUp':
           e.preventDefault()
+          keyMoved.current = true
           setFocusedIndex((p) => Math.max(p - 1, 0))
           break
         case 'Enter':
@@ -198,12 +209,22 @@ export function CanvasContextMenuBase({
           break
         case 'Tab':
           e.preventDefault()
+          keyMoved.current = true
           setFocusedIndex((p) => (p + 1) % actionableItems.length)
           break
       }
     },
     [actionableItems, focusedIndex, onClose, openSubmenuId, openSubmenu, overlay],
   )
+
+  useEffect(() => {
+    if (!keyMoved.current) return
+    const item = actionableItems[focusedIndex]
+    const row = item === undefined ? undefined : submenuTriggerRefs.current.get(item.id)
+    const tip = item !== undefined && row !== undefined ? rowTip(row, item) : null
+    if (tip !== null && item !== undefined && row !== undefined) showTooltip(tip, row, item.id)
+    else hideTooltip()
+  }, [focusedIndex])  // eslint-disable-line react-hooks/exhaustive-deps -- runs on a key move only; the helpers are per-render closures over the same state
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
@@ -340,12 +361,12 @@ export function CanvasContextMenuBase({
                 item.action()
               }}
               onMouseEnter={(e) => {
+                keyMoved.current = false
                 setFocusedIndex(currentIdx)
                 // Older look: start the tooltip timer — submenu open (150ms) cancels it before it fires (300ms)
                 // (Surfaces step B, the lane: a label the row cut is said whole in the same tip, before the row's own note.)
-                const tip = lane ? rowTipOf(e.currentTarget, item.label, item.tooltip) : item.tooltip || null
-                // On the lane the tip and the submenu both open at 150 ms, so an enabled submenu row starts no tip (the submenu would cancel it a moment after it showed).
-                if (tip !== null && !(lane && item.hasSubmenu && item.enabled)) showTooltip(tip, e.currentTarget, item.id)
+                const tip = rowTip(e.currentTarget, item)
+                if (tip !== null) showTooltip(tip, e.currentTarget, item.id)
                 if (item.hasSubmenu && item.enabled) {
                   handleSubmenuHoverEnter(item.id, e.currentTarget)
                 } else {
@@ -353,6 +374,13 @@ export function CanvasContextMenuBase({
                   handleSubmenuHoverLeave()
                 }
               }}
+              // Keyboard focus (a focus ring, not a mouse press) opens the same tip through the same one timer; blur cancels it.
+              onFocus={(e) => {
+                if (!focusRing(e)) return
+                const tip = rowTip(e.currentTarget, item)
+                if (tip !== null) showTooltip(tip, e.currentTarget, item.id)
+              }}
+              onBlur={() => hideTooltip()}
               onMouseLeave={() => {
                 hideTooltip()
                 if (item.hasSubmenu) handleSubmenuHoverLeave()

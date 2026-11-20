@@ -14,6 +14,7 @@ import { Position, ReactFlowProvider, type Node } from '@xyflow/react'
 import type { View } from '../client'
 import { railObstacles, useRailBoxes, useRailBoxesRef, type RailEntry } from '../railBoxes'
 import { linkWordsAt } from '../../canvas/edges/linkWordsPlace'
+import { standsAt } from '../v12/links/__tests__/applied'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 
@@ -67,9 +68,9 @@ describe('railBoxes: the link words keep clear of the chips on a card\'s rail', 
           sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 9 }} selected />
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
       const el = c.querySelector('[data-view-link-words="links.9"]') as HTMLElement
-      const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)\s*$/.exec(el.style.transform)!
+      const at = standsAt(el)
       cleanup()
-      return { x: Number(m[1]), y: Number(m[2]) }
+      return at
     }
     // CONTRAST: with no rail published, the words sit at the link's middle, on the chip.
     expect(inBox(words(), chipOnBoard)).toBe(true)

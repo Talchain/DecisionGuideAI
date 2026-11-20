@@ -5,14 +5,14 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 const chat = vi.hoisted(() => ({ prefill: vi.fn() }))
 vi.mock('../../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../ViewChat')>()), prefillComposer: chat.prefill }))
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
-import { StartHere, ViewReasoningBlock } from '../../ViewReasoning'
+import { RESTS_AT_REST, StartHere, ViewReasoningBlock } from '../../ViewReasoning'
 import { controls } from '../../../styles/controls'
 import { clearWhatIf } from '../../whatif'
 import { useMe } from '../../../olumiCore/me'
@@ -30,32 +30,51 @@ const rows = () => screen.getByTestId('view-reasoning').querySelectorAll(ROW).le
 const items = () => screen.getByTestId('reasoning-examine').querySelectorAll('li').length
 
 /**
- * THE FIT CRITERION, TWO FIXED NUMBERS (neither scales with the count of rest groups):
- *  - the panel at 1232x704 holds about 12 of these rows (the figure this file has always held), of which one rest group's three lines were part, so
- *    everything BESIDE the rest groups' own lines (the lead, the examine and commitment items, the rests heading, core's figure-list label and the key)
- *    stays within OUTSIDE_RESTS = 9 rows, however many groups there are;
- *  - each rest group at rest is its own three lines at most (its option and aim, core's sentence, its first figure): PER_GROUP = 3.
- * A4 draws every group's headline share at rest, so a model with many groups is taller than the panel by design: this spec does NOT claim the total fits.
- * The total is a geometry question, read at 1232x704 by S4 (see the lane reply), never inferred from this row count.
+ * (Round 3 repair: the total budget is the panel's capacity itself, 12 rows, not arithmetic on the caps; a golden that draws more is a real overflow to fix by
+ * cutting rows, not by raising this number. The browser pixel geometry at 1232x704 and 1128 at 1.33 is still owed by S4 and must be attached before the row is resolved.)
+ * THE FIT CRITERION (Paul's progressive-disclosure rule; S4 ruling 20 Nov round 3): at most RESTS_AT_REST (3) rest groups at rest, in core's order, the rest behind
+ * ONE disclosure. With the groups capped, the at-rest TOTAL is bounded by fixed numbers that do not grow with the model:
+ *  - the panel at 1232x704 holds about 12 of these rows, so everything BESIDE the rest groups' own lines (the lead, the examine and commitment items, the
+ *    rests heading, core's figure-list label and the key) stays within OUTSIDE_RESTS = 9;
+ *  - each rest group at rest is its own three lines at most (its option and aim, core's sentence, its first figure): PER_GROUP = 3;
+ *  - so the whole tab at rest is TOTAL_AT_REST = OUTSIDE_RESTS + RESTS_AT_REST * PER_GROUP rows, plus core's one figure-list label.
+ * The total is asserted on EVERY golden, european (7 groups) included: it is a count of rows because jsdom has no layout. The pixel height at 1232x704
+ * (and 1128 at 1.33) is a browser measurement this file cannot make; S4 supplies it. A row count that passes here does not prove the panel fits.
  */
-const OUTSIDE_RESTS = 9
+const CAPACITY_ROWS = 12 // what the 1232x704 panel (about 561 px) holds, from the 724 px measurement above: a fixed fact of the panel, not derived from the caps below
+const OUTSIDE_RESTS = 3 // so the lead, examine and commitment items, rests heading and key leave room for the groups' own lines
 const PER_GROUP = 3
+const TOTAL_AT_REST = CAPACITY_ROWS
 const groupRows = (g: Element) => g.querySelectorAll('p:not([data-view="run.rests_figures_heading"]), [data-rest-figure]').length
 const outsideRests = () => rows() - [...document.querySelectorAll('[data-rest]')].reduce((n, g) => n + groupRows(g), 0)
+const goldens = readdirSync(path.resolve('src/olumiView/golden')).filter((n) => n.endsWith('.view.json')).sort()
 
 describe('Reasoning at rest fits the 1232x704 panel', () => {
-  it('european (the model that measured 724 px against a 561 px panel): at rest the lead and at most three more items, every rest group with its first figure and nothing beside the groups past the fixed budget, the further figures behind presses; opening them draws more rows', () => {
+  it('european (the model that measured 724 px against a 561 px panel): at most three rest groups at rest, each with its first figure; the other groups and the further figures behind ONE press; opening it draws more rows', () => {
     ready(read('european.view.json')); render(<ViewReasoningBlock />)
     const atRest = rows()
     const groups = [...document.querySelectorAll('[data-rest]')]
-    expect([outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP), items() <= 4, groups.length > 1, document.querySelectorAll('[data-rest-figure]').length], `rows at rest: ${atRest}, outside the groups: ${outsideRests()}`).toEqual([true, true, true, true, groups.length])
+    expect([groups.length, groups.every((g) => groupRows(g) <= PER_GROUP), outsideRests() <= OUTSIDE_RESTS, items() <= 4], `rows at rest: ${atRest}, outside the groups: ${outsideRests()}`).toEqual([RESTS_AT_REST, true, true, true])
+    expect(atRest, 'the TOTAL at rest, not only what is left after subtracting the groups').toBeLessThanOrEqual(TOTAL_AT_REST)
+    expect(screen.getAllByTestId('reasoning-rests-more'), 'ONE press for everything folded').toHaveLength(1)
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))
     expect(rows(), 'CONTRAST: the folded rows are one press away, not deleted').toBeGreaterThan(atRest)
+    expect(document.querySelectorAll('[data-rest]').length, 'opened: every group, in core\'s order').toBeGreaterThan(RESTS_AT_REST)
   })
-  it('CONTRAST: a short model (bakery, one rest) draws it whole at rest, with no press to fold anything, inside the same two fixed numbers', () => {
-    ready(read('bakery.view.json')); render(<ViewReasoningBlock />)
+  for (const name of goldens) {
+    it(`${name}: whatever core sends, the Reasoning tab at rest draws at most ${RESTS_AT_REST} rest groups and its total rows stay within the fixed budget`, () => {
+      const view = read(name)
+      expect(view.model, `${name}: a golden with no model cannot show it fits; fail rather than skip`).not.toBeNull()
+      ready(view); render(<ViewReasoningBlock />)
+      const groups = [...document.querySelectorAll('[data-rest]')]
+      expect([groups.length <= RESTS_AT_REST, groups.every((g) => groupRows(g) <= PER_GROUP), rows() <= TOTAL_AT_REST], `${name}: ${rows()} rows, ${groups.length} groups`).toEqual([true, true, true])
+    })
+  }
+  // Pricing, not bakery: bakery has one group and two figures, so its second figure folds; pricing is the one golden that is whole at rest.
+  it('CONTRAST: a short model (pricing, one rest with one figure) draws it whole at rest, with no press to fold anything, inside the same fixed numbers', () => {
+    ready(read('pricing.view.json')); render(<ViewReasoningBlock />)
     const groups = [...document.querySelectorAll('[data-rest]')]
-    expect([groups.length, outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP)]).toEqual([1, true, true])
+    expect([groups.length, outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP), screen.queryByTestId('reasoning-rests-more')?.getAttribute('aria-expanded') ?? null]).toEqual([1, true, true, null])
   })
 })
 

@@ -3,10 +3,10 @@
  * it; each link's meaning (#3): its sign, its doubt, its challenge, its proposal and its hover; and core's marks on a card (#4): Olumi
  * points at it, it is challenged, core doubts it. Each row toggles one View flag and the drawing must change with it.
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewLink } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
@@ -14,6 +14,11 @@ import { ViewQuestion } from '../../canvas/nodes/ViewQuestionNode'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { useViewHover } from '../canvas'
 import { EdgeLabelLayer } from './edgeLabelLayer'
+import { applied } from '../v12/links/__tests__/applied'
+import { TIP_DELAY } from '../look/Tip'
+import { DOUBT_DASH } from '../v12/links/styles'
+
+afterEach(() => { vi.useRealTimers() })
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 
@@ -70,16 +75,24 @@ describe('#3 a link keeps its meaning', () => {
     const doubted = links.find((l) => l.doubt)!, firm = links.find((l) => !l.doubt)!
     for (const l of [doubted, firm]) {
       const c = edge(l)
-      // A typed causal link's hover is its causal words, its author's, then core's own title (ViewLinkEdge `title`); an untyped one's is core's title alone.
+      // A typed causal link's words are its causal text, its author's title, then core's own title (ViewLinkEdge `title`); an untyped one's is core's title alone. They are the
+      // link's name and its one Tip (no native title, no SVG <title>): the Tip says each of core's words once, the effect's after them.
       const expected = l.causal == null ? l.title : [l.causal.text, l.causal.author?.title, l.title].filter(Boolean).join('\n')
-      expect(c.querySelector('g[data-view-link] > title')?.textContent).toBe(expected)
-      expect(c.querySelector('g[data-view-link] > title')?.textContent).toContain(l.title)
+      const gEl = c.querySelector('g[data-view-link]')!
+      expect(gEl.getAttribute('aria-label')).toBe(expected)
+      expect(gEl.querySelector(':scope > title')).toBeNull()
+      vi.useFakeTimers(); fireEvent.pointerEnter(gEl); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      const said = screen.getByRole('tooltip').textContent ?? ''
+      for (const word of expected.split('\n')) expect(said, word).toContain(word)
+      expect(said).toContain(l.title)
+      fireEvent.pointerLeave(gEl); vi.useRealTimers()
       expect(c.querySelector('g[data-view-link]')?.getAttribute('data-kind')).toBe(l.kind)
       // Dashed means doubt (the J1 gate's links draw the dash as 5 5): bound to dashed or not, not to one pattern's bytes.
       // The line itself (React Flow's edge path), not the arrowhead's path in <defs>, which now comes first.
-      const dash = (c.querySelector('path.react-flow__edge-path') as SVGPathElement).style.strokeDasharray
-      if (l.doubt) expect(dash, 'doubted is dashed').not.toBe('')
-      else expect(dash, 'firm is solid').toBe('')
+      const lineEl = c.querySelector('path.react-flow__edge-path') as SVGPathElement
+      const dash = applied(lineEl).strokeDasharray
+      if (l.doubt) { expect(lineEl.getAttribute('class'), 'doubted carries the doubt class').toContain('ok-link-doubt'); expect(dash, 'doubted is dashed').toBeDefined() }
+      else { expect(lineEl.getAttribute('class'), 'firm does not').not.toContain('ok-link-doubt'); expect(dash, 'a firm line is solid (or, a reason link, dotted), never the doubt dash').not.toBe(DOUBT_DASH) }
     }
   })
 

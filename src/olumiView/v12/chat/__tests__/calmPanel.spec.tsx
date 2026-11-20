@@ -29,6 +29,7 @@ import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
 import { controls } from '../../../../styles/controls'
 import { TIP_DELAY } from '../../../look/Tip'
+import { tipOnFocus } from '../../../__tests__/tipHelpers'
 
 /** The words the shared Tip shows after the pointer rests on `el` (no native title any more). */
 const tipWords = (el: HTMLElement): string | null => {
@@ -102,6 +103,11 @@ describe('1. one quiet footer row per reply', () => {
     expect(icon.getAttribute('aria-label')).toContain(t.version)
     expect(icon.hasAttribute('title'), 'no native title').toBe(false)
     expect(await tipOf(icon)).toContain(t.version)
+    // Keyboard (Codex panel round 2): the wrapper must NOT take the tab stop (the labelled icon suppresses its own stop inside a [tabindex] ancestor, so its
+    // focus handler never ran). The icon is the one stop, and real focus on it opens the Tip.
+    expect(stamp.hasAttribute('tabindex'), 'the wrapper is not a keyboard stop').toBe(false)
+    expect([...stamp.querySelectorAll('[tabindex]')], 'exactly one stop inside the stamp: the icon').toEqual([icon])
+    expect(await tipOnFocus(icon), 'keyboard focus shows the version').toContain(t.version)
     expect(stamp.textContent, 'no visible "version N" text').toBe('')
     expect(stamp.querySelector('[data-view$=".version"], [data-view$=".status"]')).toBeNull()
     expect(t.status, 'this fixture has no status: the version is the one word').toBeNull()

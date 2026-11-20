@@ -14,6 +14,7 @@ import type { View } from '../client'
 import { driverLinksOf, driversOf } from '../layout'
 import { useViewLens } from '../lens'
 import { useViewStore } from '../store'
+import { applied } from '../v12/links/__tests__/applied'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 
@@ -58,13 +59,13 @@ describe('What would change on the links', () => {
     c = edge(sized)
     expect(c.querySelector('[data-driver-link]')).not.toBeNull()
     // L3 (panel-visual): a driver link is no thicker than any other; no width implies a strength.
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
+    expect(applied(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!).strokeWidth).toBe('2px')
     expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)?.textContent).toBe(model.links[sized]!.effect!.text)
     cleanup()
     c = edge(plain)
     expect(c.querySelector('[data-driver-link]')).toBeNull()
     // Every link is 2 px (L3).
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
+    expect(applied(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!).strokeWidth).toBe('2px')
   })
 
   it('L3: a driver link is the one uniform width whatever strength core sends (share 0.8, none)', () => {
@@ -77,8 +78,8 @@ describe('What would change on the links', () => {
         <Edge id="d" source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: sized }} />
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
     }
-    const width = (c: HTMLElement) => ({ driver: c.querySelector('[data-driver-link]') !== null, w: c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth })
-    expect(width(withShare(0.8))).toEqual({ driver: true, w: '2' }); cleanup()
-    expect(width(withShare(null))).toEqual({ driver: true, w: '2' })
+    const width = (c: HTMLElement) => ({ driver: c.querySelector('[data-driver-link]') !== null, w: applied(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!).strokeWidth })
+    expect(width(withShare(0.8))).toEqual({ driver: true, w: '2px' }); cleanup()
+    expect(width(withShare(null))).toEqual({ driver: true, w: '2px' })
   })
 })

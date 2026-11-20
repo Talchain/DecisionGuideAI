@@ -13,6 +13,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
+import { hoverWords } from './hoverTip'
 import { useMe } from '../../olumiCore/me'
 import { RootLinkEdge, ROOT_LINK_STROKE } from '../previous/RootLinkEdge'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
@@ -128,7 +129,7 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   type B = { label: string; face?: string; words?: string; text: string }
 
-  it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', () => {
+  it('PB6: the question\'s badge is drawn on the question, in core\'s words, under its own label (pending European first model)', async () => {
     ready(EU)
     const b = EU.model!.question.badge as unknown as B
     expect(b, 'precondition: core folded records behind the question').not.toBeNull()
@@ -136,11 +137,11 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
     // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): the fold is a stack mark and CORE'S OWN words for it (its face, else its text), never a count made in the page; on this
     // pending model every fold holds proposed additions, so core's change marker is drawn after the words, leads the hover and ends the name.
     const btn = document.querySelector<HTMLElement>(`button[data-core-badge="${QUESTION}"]`)!
-    expect([btn.getAttribute('aria-label'), btn.title.split('\n')[0], btn.textContent, btn.querySelector('[data-view="question.badge.face"]')?.textContent, btn.querySelector('[data-view="question.badge.change"]')?.textContent])
+    expect([btn.getAttribute('aria-label'), (await hoverWords(btn))?.split('\n')[0], btn.textContent, btn.querySelector('[data-view="question.badge.face"]')?.textContent, btn.querySelector('[data-view="question.badge.change"]')?.textContent])
       .toEqual(['Show 5 notes behind this, 5 proposed changes +', '+ 1 thing left out, 2 figures, 2 claims', '2 figures and 3 more+', '2 figures and 3 more', '+'])
   })
 
-  it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', () => {
+  it('PB7: every card core folds records behind draws its badge, by its id, in core\'s words; a card with none draws none', async () => {
     ready(EU)
     const m = EU.model!, withBadge = m.cards.filter((c) => c.badge != null)
     const DRAWN: Readonly<Record<string, readonly [string, string, string]>> = {
@@ -157,7 +158,7 @@ describe('core\'s badges on the board (UI-18: the lane\'s card never drew them)'
       // CHANGED BY DESIGN (Detailed, 18 Nov, two reviews): core's own words for the fold (its face) and its change marker, by card id: the name, the hover's first line, what is drawn.
       const btn = r.container.querySelector<HTMLElement>(`button[data-core-badge="${c.id}"]`)
       if (c.badge == null) expect([btn, c.id in DRAWN], c.id).toEqual([null, false])
-      else expect([btn?.getAttribute('aria-label'), btn?.title.split('\n')[0], btn?.textContent], c.id).toEqual(DRAWN[c.id])
+      else expect([btn?.getAttribute('aria-label'), btn === null ? undefined : (await hoverWords(btn))?.split('\n')[0], btn?.textContent], c.id).toEqual(DRAWN[c.id])
       r.unmount()
     }
   })

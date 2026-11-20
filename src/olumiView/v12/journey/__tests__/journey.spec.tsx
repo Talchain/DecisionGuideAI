@@ -18,6 +18,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { useVersionsPanelStore } from '../../../../canvas/versions/versionsPanelStore'
 import { resetTeamFlow, useTeamFlow } from '../../../../olumiCore/team/flow'
+import { tipOnFocus } from '../../../__tests__/tipHelpers'
 import { isEmpty, journeyOf, JOURNEY_WORDS as W, type JourneyContext } from '../journey'
 
 const focused: string[] = []
@@ -293,6 +294,13 @@ describe('#2 open items, each with its exact action', () => {
     expect(keys).not.toContain('confirm:d_other')
     const considered = full({ evidence: base.evidence.map((e) => ({ ...e, considered: { at: 'x', by: 'Olumi', proposal: null, why: null } })) })
     expect(journeyOf(considered, CTX).open.some((o) => o.key.startsWith('consider:'))).toBe(false)
+  })
+  it('P4: a pressable row has exactly ONE tab stop (the button), and real focus on it shows core\'s title; no tabindex child inside', async () => {
+    show(full()); render(<JourneyRecord view={full()} at={null} />)
+    const row = screen.getByTestId('journey-wait:contract_to_cash')
+    expect(row.tagName).toBe('BUTTON')
+    expect(row.querySelectorAll('[tabindex]')).toHaveLength(0)
+    expect(await tipOnFocus(row)).toBe('hover')
   })
   it('each opens its own thing: the waited-on card, that evidence in Team, the next step in the chat', () => {
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')

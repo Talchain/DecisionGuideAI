@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
+import { tipOf } from './tipHelpers'
 import type { View, ViewModel } from '../client'
 import { restsOnOf } from '../layout'
 import { ViewChances } from '../ViewChances'
@@ -35,20 +36,21 @@ const occurrences = (hay: string, needle: string) => hay.split(needle).length - 
 describe('each option\'s finding, not the wall', () => {
   // R5 look defect 2 (Paul's look check, 5 Nov): the finding sentence is a definition, so it is no longer drawn under the row; the row's
   // hover is core's title, which opens with it (viewChanceHover.spec binds that on every golden).
-  it('each option draws no finding as body text, never the whole fact either; the row\'s hover is core\'s title', () => {
+  it('each option draws no finding as body text, never the whole fact either; the row\'s hover (the one Tip) is core\'s title', async () => {
     expect(chanceRows.length).toBe(3)
     const c = render(<ViewChances model={model} />).container
     for (const { card, i, row } of chanceRows) {
       expect(c.querySelector(`[data-view="${card.id}.rows.${i}.text"]`), card.id).toBeNull()
       expect(c.textContent?.includes(row.text), `${card.id}: the finding is not drawn as text`).toBe(false)
       expect(c.textContent?.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
-      expect(c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title')).toBe(row.title)
+      const at = `${card.id}.rows.${i}`
+      expect([c.querySelector(`[data-view-row="${at}"]`)?.getAttribute('title') ?? null, await tipOf(c.querySelector<HTMLElement>(`[data-view-row="${at}"] [data-view="${at}.aim"], [data-view-row="${at}"] > [data-view="${at}.text"]`)!)]).toEqual([null, row.title])
     }
   })
-  it('core\'s rests_on_text is never drawn as text on screen; the most likely line keeps it as its hover, verbatim', () => {
+  it('core\'s rests_on_text is never drawn as text on screen; the most likely line keeps it as its hover, verbatim', async () => {
     const c = render(<ViewChances model={model} />).container, all = c.textContent ?? ''
     for (const { card, row } of chanceRows) expect(occurrences(all, row.rests_on_text), `${card.id}: not on screen`).toBe(0)
-    expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
+    expect(await tipOf(c.querySelector<HTMLElement>('[data-view-hover="run.most_likely.rests_on_text"]')!)).toBe('Rests on Olumi\'s reading of the aim.')
     expect(occurrences(all, 'Rests on Olumi\'s reading of the aim.')).toBe(0)
   })
   it('every card a finding rests on is marked on the Rests on lens: a what-if, an estimate that is its own driver card, an approximation', () => {
@@ -60,30 +62,30 @@ describe('each option\'s finding, not the wall', () => {
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
   })
-  it('core\'s own output on every golden: each chance row\'s finding at most two sentences, opening its row\'s hover, never on screen; each rests_on_text never on screen; every basis id on the lens', () => {
+  it('core\'s own output on every golden: each chance row\'s finding at most two sentences, opening its row\'s hover, never on screen; each rests_on_text never on screen; every basis id on the lens', async () => {
     let rows = 0
     for (const g of ['app-launch', 'bakery', 'european', 'pricing', 'proposal', 's_ce285b3617bb', 'studio']) {
       const m = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${g}.view.json`), 'utf8')) as View).model!
       const c = render(<ViewChances model={m} />).container, all = c.textContent ?? ''
       const { items } = restsOnOf(m)
-      for (const card of m.cards) card.rows.forEach((r, i) => {
-        if (r.kind !== 'chance' || r.text === undefined) return
+      for (const card of m.cards) for (const [i, r] of card.rows.entries()) {
+        if (r.kind !== 'chance' || r.text === undefined) continue
         rows += 1
         expect(r.text.match(/[.!?](\s|$)/g)?.length ?? 0, `${g} ${card.id}: sentences`).toBeLessThanOrEqual(2)
         expect(all.includes(r.text), `${g} ${card.id}: the finding is not on screen`).toBe(false)
-        expect(c.querySelector(`[data-view-row="${card.id}.rows.${i}"]`)?.getAttribute('title')?.startsWith(r.text), `${g} ${card.id}: it opens the row's hover`).toBe(true)
+        expect((await tipOf(c.querySelector<HTMLElement>(`[data-view-row="${card.id}.rows.${i}"] [data-view="${card.id}.rows.${i}.aim"], [data-view-row="${card.id}.rows.${i}"] > [data-view="${card.id}.rows.${i}.text"]`)!)).startsWith(r.text), `${g} ${card.id}: it opens the row's hover`).toBe(true)
         if (r.rests_on_text !== undefined) expect(all.includes(r.rests_on_text), `${g} ${card.id}: basis not on screen`).toBe(false)
         for (const id of [...(r.rests_on?.what_ifs ?? []), ...(r.rests_on?.estimates ?? []), ...(r.rests_on?.approx ?? [])]) {
           const on = m.cards.find((k) => k.id === id) ?? m.cards.find((k) => k.badge?.records.includes(id))
           if (on !== undefined) expect(items.has(on.id), `${g} ${card.id}: ${id} marked`).toBe(true)
         }
-      })
+      }
       const ml = m.run?.most_likely
-      if (ml?.rests_on_text !== undefined) expect(c.querySelector('[data-view-hover="run.most_likely.rests_on_text"]')?.getAttribute('title'), `${g}: most likely basis as hover`).toBe(ml.rests_on_text)
+      if (ml?.rests_on_text !== undefined) expect(await tipOf(c.querySelector<HTMLElement>('[data-view-hover="run.most_likely.rests_on_text"]')!), `${g}: most likely basis as hover`).toBe(ml.rests_on_text)
       cleanup()
     }
     expect(rows, 'core\'s goldens carry the fields').toBeGreaterThan(0)
-  })
+  }, 60000)
   it('must not change: a View without the stand-in draws exactly as before (no finding, no footnote)', () => {
     const c = render(<ViewChances model={golden.model!} />).container
     // The stand-in's hovers only: the sharpen card's own `sharpen.N.rationale` hover (a core field the golden carries) is not the wall.

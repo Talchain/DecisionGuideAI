@@ -19,6 +19,7 @@ import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
+import { HoverButton } from './Hover'
 import { HIT_44 } from '../../../styles/hitArea'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { useViewStore } from '../../store'
@@ -91,10 +92,10 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
             <div key={x.key} hidden={k !== i} data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
           ))}
         </div>
-        <button type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} title={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
+        <HoverButton words={open ? CLOSE_ANSWER : OPEN_ANSWER} type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
           className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
           <FoldChevron open={open} />
-        </button>
+        </HoverButton>
         <OkIconButton id="cancel-close" tone="ghost" testid="view-question-remove" words={REMOVE_QUESTIONS}
           onClick={() => { removed.add(setKey); bump((x) => x + 1) }} />
       </div>
@@ -118,7 +119,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           )}
           <div className="flex flex-wrap items-center gap-1">
             {own || typed.trim() === '' ? null : <button type="button" disabled={held || sending} onClick={() => void use()} className={USE_CLASS} data-testid="view-question-use">{USE_THIS}</button>}
-            {i >= n - 1 ? null : <OkIconButton id="skip-question" testid="view-question-skip" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={() => setAt(i + 1)} />}
+            {i >= n - 1 ? null : <OkIconButton id="skip-question" tone="ghost" testid="view-question-skip" onClick={() => setAt(i + 1)} />}
           </div>
         </div>
       )}
