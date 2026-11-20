@@ -130,7 +130,7 @@ describe('a link renders the typed causal meaning, with no inferred strength sca
     withKey()
     for (const label_key of ['test-missing', 7]) {
       cleanup()
-      const g = glyphOf(draw(null, { label: '✓', label_key }).r)
+      const g = glyphOf(draw(null, { label: '✓', label_key: label_key as unknown as string }).r) // a number on purpose: a View from outside the contract
       expect([g.getAttribute('title'), g.getAttribute('aria-label')]).toEqual([null, null])
     }
   })
