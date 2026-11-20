@@ -20,11 +20,14 @@ function Kebab({ withTooltip }: { withTooltip: boolean }): JSX.Element {
 }
 
 describe('one Escape closes a menu whose button shows a tooltip', () => {
-  it('press the button (focus keeps its tooltip up), one Escape: the menu is closed AND the tooltip is gone', async () => {
+  it('press the button, focus it again (its tooltip is up beside the open menu), one Escape: the menu is closed AND the tooltip is gone', async () => {
     render(<Kebab withTooltip />)
     const b = screen.getByRole('button', { name: 'More options' })
     await act(async () => { b.focus(); fireEvent.click(b) })
     expect(screen.getByRole('menu')).toBeTruthy()
+    expect(screen.queryByRole('tooltip'), 'the press itself closed the tip (Tooltip.pressCloses.spec)').toBeNull()
+    // Keyboard: Tab away and back shows the tip again while the menu is still open, the case Escape has to close in one press.
+    await act(async () => { b.blur(); b.focus() })
     expect(screen.queryByRole('tooltip'), 'the tooltip is showing on focus').not.toBeNull()
     await act(async () => { fireEvent.keyDown(b, { key: 'Escape' }) })
     expect(screen.queryByRole('menu'), 'one press closes the menu').toBeNull()

@@ -466,17 +466,21 @@ export function ScenarioSwitcher({
             <SaveStatusPill isSaving={isSaving} isDirty={isDirty} lastSavedAt={lastSavedAt} />
           )}
 
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className={`shrink-0 inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors ${HIT_44}`}
-            type="button"
-            aria-expanded={isOpen}
-            aria-haspopup="true"
-            aria-label="Open model menu"
-            data-testid="scenario-switcher-trigger"
-          >
-            <OkIcon id="fold-chevron" decorative className="rotate-90" />
-          </button>
+          {/* The menu is the local records (Save, Export, Import, the list). Where none are drawn (the lane: lane.ts `records`) it would hold nothing but a
+              pointer to My scenarios, so there is no chevron and no menu: the control is absent, not a door to a sentence. */}
+          {records ? (
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={`shrink-0 inline-flex min-h-[24px] min-w-[24px] items-center justify-center rounded hover:bg-info/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors ${HIT_44}`}
+              type="button"
+              aria-expanded={isOpen}
+              aria-haspopup="true"
+              aria-label="Open model menu"
+              data-testid="scenario-switcher-trigger"
+            >
+              <OkIcon id="fold-chevron" decorative className="rotate-90" />
+            </button>
+          ) : null}
         </div>
 
         {/* Dropdown menu */}
@@ -487,7 +491,7 @@ export function ScenarioSwitcher({
             data-testid="scenario-switcher-menu"
           >
             {/* Current scenario actions */}
-            {records ? (<div className="p-2">
+            <div className="p-2">
               <div className="flex flex-col gap-1">
                 {/* Save row */}
                 <div className="flex items-center gap-1">
@@ -560,7 +564,7 @@ export function ScenarioSwitcher({
                   Import scenario...
                 </button>
               </div>
-            </div>) : null}
+            </div>
 
             {/* Hidden file input */}
             <input
@@ -575,7 +579,7 @@ export function ScenarioSwitcher({
                 for a persisted session (see `isPersisted`). Replaced there by a
                 pointer to the surface that does own decisions, so the control
                 disappearing does not read as something broken. */}
-            {isPersisted || !records ? (
+            {isPersisted ? (
               <div
                 className={`px-4 py-3 ${typography.body} text-gray-500`}
                 data-testid="scenario-switcher-persisted-notice"

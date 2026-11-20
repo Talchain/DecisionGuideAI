@@ -89,6 +89,12 @@ const KIND_CLASS: Readonly<Record<ChangeLine['kind'], string>> = {
   modified: 'text-info',
 }
 
+/**
+ * The drawer stands on the canvas side, against the dock's left edge (`--dock-right-offset`: the dock's width, open or collapsed), never over the chat or the
+ * tabs beside it. A literal class string: Tailwind emits CSS only for class text it can see.
+ */
+const DRAWER_CLASS = 'fixed right-[var(--dock-right-offset,0rem)] top-[var(--topbar-h)] bottom-[var(--bottombar-h)] z-[2000]'
+
 export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   const {
     versions,
@@ -123,7 +129,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   // offered there: core never sees them, so they could neither be shared nor compared with what core holds (lane audit 7.5).
   if (isOlumiCoreLane()) {
     return (
-      <div className="fixed right-0 z-[2000]" style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }} data-testid="what-changed-panel">
+      <div className={DRAWER_CLASS} data-testid="what-changed-panel">
         <PanelShell icon={<History className="w-5 h-5" />} title="Version history" onClose={onClose} width="420px">
           {/* Catch up: how the conclusions moved, what is open, commitments, history (olumiView/v12/journey), above core's versions. */}
           <Suspense fallback={null}><JourneyRecordBlock onDone={onClose} /></Suspense>
@@ -148,11 +154,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
   const localVersionsOffered = !isThinClientSession()
 
   return (
-    <div
-      className="fixed right-0 z-[2000]"
-      style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
-      data-testid="what-changed-panel"
-    >
+    <div className={DRAWER_CLASS} data-testid="what-changed-panel">
       <PanelShell
         icon={<History className="w-5 h-5" />}
         title="Version history"

@@ -4,6 +4,7 @@
  * Duplicate, Delete, the local list and its Load, Import, Export) are not drawn, and the store's duplicate and delete do nothing.
  * lane.ts declares the surface ONCE (`lanePreviousControl`). Both directions: off the lane the same controls are there.
  */
+import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ScenarioSwitcher } from '../ScenarioSwitcher'
@@ -18,8 +19,9 @@ vi.mock('../../store/scenarios', () => ({
 
 const LOCAL = 'A local record of this scenario'
 const menu = () => within(screen.getByTestId('scenario-switcher-menu'))
+const show = () => render(<ToastProvider><ScenarioSwitcher displayName="The open scenario" /></ToastProvider>)
 const open = () => {
-  render(<ToastProvider><ScenarioSwitcher displayName="The open scenario" /></ToastProvider>)
+  show()
   fireEvent.click(screen.getByTestId('scenario-switcher-trigger'))
 }
 beforeEach(() => {
@@ -34,18 +36,18 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs() })
 
 describe('the lane has no local-record controls', () => {
-  it('on the lane: no Save, Duplicate, Delete, Export, Import or local list, and the menu says where scenarios are', () => {
+  it('on the lane there is no chevron and no menu (it would hold one pointer to My scenarios): the name stays, and nothing local is drawn', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
-    open()
-    expect(menu().queryByRole('menuitem', { name: /save/i })).toBeNull()
-    expect(menu().queryByTitle('Duplicate')).toBeNull()
-    expect(menu().queryByTitle('Delete')).toBeNull()
-    expect(menu().queryByTitle('Export scenario')).toBeNull()
-    expect(menu().queryByRole('menuitem', { name: /import/i })).toBeNull()
-    expect(menu().queryByText(LOCAL)).toBeNull()
-    expect(menu().getByText('Your scenarios are listed under My scenarios.')).toBeTruthy()
+    show()
+    expect(screen.queryByTestId('scenario-switcher-trigger')).toBeNull()
+    expect(screen.queryByLabelText('Open model menu')).toBeNull()
+    expect(screen.queryByTestId('scenario-switcher-menu')).toBeNull()
+    expect(screen.queryByText('Your scenarios are listed under My scenarios.')).toBeNull()
+    expect(screen.getByTestId('scenario-name-text')).toHaveTextContent('The open scenario')
+    expect(screen.queryByText(LOCAL)).toBeNull()
   })
-  it('contrast, off the lane: the same controls are there', () => {
+  it('contrast, off the lane: the chevron, the menu and the same controls are there', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '')
     open()
     expect(menu().getByRole('menuitem', { name: /save/i })).toBeTruthy()
     expect(menu().getByTitle('Delete')).toBeTruthy()

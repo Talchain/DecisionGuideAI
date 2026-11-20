@@ -1,8 +1,9 @@
 /**
  * More options on the olumi-core lane: every item offered has a working path, and nothing else is drawn (Paul, 16 Nov).
- *   Rename (core's own-title route), Export (the Summary as Markdown), Snapshots (core's versions panel), Start new scenario (a blank brief),
- *   Fullscreen, Keyboard shortcuts, How influence works. Not offered, for want of a route or an effect on the lane's canvas: Import,
- *   Canvas settings. Off the lane nothing changes.
+ *   Rename (core's own-title route: the title is not pressable on the lane, so this is its only route), Start new scenario (a blank brief),
+ *   Fullscreen, Keyboard shortcuts, How influence works, and the canvas settings the V12 canvas reads. Not drawn, because the bar already has the
+ *   control: Export summary (the Summary's own Download Markdown) and Version history (the bar's history control). Not offered, for want of a
+ *   route: Import. Off the lane nothing changes.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -11,7 +12,6 @@ import { createRef } from 'react'
 import { KebabMenu } from '../KebabMenu'
 import { ToastProvider } from '../../../canvas/ToastContext'
 import { useViewStore } from '../../../olumiView/store'
-import { useVersionsPanelStore } from '../../../canvas/versions/versionsPanelStore'
 
 const startFresh = vi.fn()
 const retitle = vi.fn()
@@ -34,14 +34,14 @@ const renderKebab = (onClose = vi.fn()) => render(
 const names = () => screen.getAllByRole('menuitem').map((e) => e.textContent)
 
 beforeEach(() => { startFresh.mockReset(); retitle.mockReset(); refresh.mockReset(); window.location.hash = '' })
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ sid: null, at: null, view: null } as never); useVersionsPanelStore.getState().close() })
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); useViewStore.setState({ sid: null, at: null, view: null } as never) })
 
 describe('on the lane', () => {
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
 
-  it('offers exactly the items with a working path: no Import; Canvas settings with only what the V12 canvas reads (grid, its size, snap)', () => {
+  it('offers exactly the items with no other route: no Import, no Export summary or Version history (the bar has both); Canvas settings with only what the V12 canvas reads (grid, its size, snap)', () => {
     show(); renderKebab()
-    expect(names()).toEqual(['Rename', 'Export summary', 'Version history', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
+    expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
     expect(screen.getByText('Canvas settings')).toBeInTheDocument()
     expect(screen.getByLabelText('Show grid')).toBeInTheDocument()
     expect(screen.getByLabelText(/Grid size/)).toBeInTheDocument()
@@ -50,30 +50,19 @@ describe('on the lane', () => {
     expect(screen.queryByLabelText('High contrast mode')).toBeNull()
   })
 
-  it('Export is the saved version\'s Markdown Summary (the viewed version when one is looked at)', () => {
+  it('with a saved model, Export summary and Version history are still not rows here, at the latest or at a viewed version', () => {
     show(); renderKebab()
-    expect(screen.getByTestId('kebab-export-core')).toHaveAttribute('href', `/api/scenarios/${SID}/summary?format=md`)
+    expect(screen.queryByTestId('kebab-export-core')).toBeNull()
+    expect(screen.queryByTestId('kebab-snapshots-core')).toBeNull()
     cleanup(); show({ at: 1 }); renderKebab()
-    expect(screen.getByTestId('kebab-export-core')).toHaveAttribute('href', `/api/scenarios/${SID}/summary?at=1&format=md`)
+    expect(screen.queryByRole('menuitem', { name: /export summary|version history/i })).toBeNull()
   })
 
-  it('with no saved model there is no Export or Snapshots, and with no scenario no Rename; Start new scenario stays', () => {
+  it('with no saved model the menu is the same; with no scenario there is no Rename; Start new scenario stays', () => {
     show({ view: { title: 'x', version: null } as never }); renderKebab()
     expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
     cleanup(); show({ sid: null, view: null }); renderKebab()
     expect(names()).toEqual(['Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
-  })
-
-  it('working notes and no saved model (a words start with a kept idea): Export is offered at the latest; Version history is not', () => {
-    show({ view: { title: 'x', version: null, kept: [{ id: 7, turn: 3, text: 'An invented kept idea.' }] } as never }); renderKebab()
-    expect(names()).toEqual(['Rename', 'Export summary', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
-    expect(screen.getByTestId('kebab-export-core')).toHaveAttribute('href', `/api/scenarios/${SID}/summary?format=md`)
-  })
-
-  it('Snapshots opens the version history panel', () => {
-    show(); renderKebab()
-    fireEvent.click(screen.getByTestId('kebab-snapshots-core'))
-    expect(useVersionsPanelStore.getState().isOpen).toBe(true)
   })
 
   it('Start new scenario forgets the shown scenario and goes to the blank brief, with no confirmation', async () => {
