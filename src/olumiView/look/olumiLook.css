@@ -502,3 +502,13 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* A held icon button stays focusable (aria-disabled, so its reason shows on focus) and reads as held by token: a light label, a neutral fill for the green one, never faded. */
 button.ok-icon-btn[aria-disabled='true'] { color: var(--text-light); background-color: transparent; cursor: not-allowed; }
 button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--border-default); }
+
+/* analysis */
+/* The Analysis tab's quiet lines (core's notes, a ranking's scope and the sizes under its figures): the 12/16 meta scale in the light ink, built from tokens. */
+.olumi-look .ok-an-notes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--text-light); font-size: 12px; line-height: 16px; }
+.olumi-look .ok-an-aim { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-an-scope { margin: 0; color: var(--text-light); font-size: 12px; line-height: 16px; }
+.olumi-look .ok-an-scope-kind > [role='img'] { margin-right: calc(4px * var(--o-s)); vertical-align: text-bottom; }
+.olumi-look .ok-an-scope-note { margin-left: calc(4px * var(--o-s)); }
+.olumi-look .ok-an-detail { display: block; color: var(--text-light); }
+.olumi-look .ok-an-detail-lines { white-space: pre-line; }

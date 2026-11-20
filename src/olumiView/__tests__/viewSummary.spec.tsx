@@ -2,7 +2,7 @@
  * THE LANE'S SUMMARY IS CORE'S (core API v1.16, DL 7 Nov): the top bar's Summary opens core's Summary of the saved version on screen and
  * draws its blocks word for word, with core's two exports. Asserted from core's own Summary output (golden/*.summary.json, written by
  * olumi-core's summaryOf from its View goldens), never from words written here.
- * Replaces viewBrief.spec: the top bar no longer mounts the View-fed side panel (ViewBrief.tsx), whose body the other specs still bind.
+ * Replaces viewBrief.spec: the top bar no longer mounts the View-fed side panel.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'

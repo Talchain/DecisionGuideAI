@@ -13,7 +13,6 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { restsOnOf } from '../layout'
 import { ViewChances } from '../ViewChances'
-import { ViewBriefBody } from '../ViewBrief'
 
 const raw: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
 // The golden without core's Analysis-wall fields (as a core before 550ad5f serves it): the base for the hand-written fixture and the
@@ -60,16 +59,6 @@ describe('each option\'s finding, not the wall', () => {
     // CONTRAST: without the stand-in, the risk and the worked-out figure are not on the lens.
     const plain = restsOnOf(golden.model!).items
     expect([plain.has('sales'), plain.has('oven_repair')]).toEqual([false, false])
-  })
-  it('the Summary draws the same: no finding and no basis line as text, the wall never as text; the row\'s hover is core\'s title', () => {
-    const c = render(<ViewBriefBody model={model} />).container, all = c.textContent ?? ''
-    for (const { card, i, row } of chanceRows) {
-      expect(all.includes(row.text), `${card.id}: the finding is not drawn as text`).toBe(false)
-      expect(c.querySelector(`[data-view-brief-row="${card.id}.${i}"]`)?.getAttribute('title'), card.id).toBe(row.title)
-      expect(occurrences(all, row.rests_on_text), card.id).toBe(0)
-      expect(all.includes(row.title), `${card.id}: the wall is not drawn as text`).toBe(false)
-    }
-    expect(c.querySelector('[data-testid="view-brief-most-likely"]')?.getAttribute('title')).toBe('Rests on Olumi\'s reading of the aim.')
   })
   it('core\'s own output on every golden: each chance row\'s finding at most two sentences, opening its row\'s hover, never on screen; each rests_on_text never on screen; every basis id on the lens', () => {
     let rows = 0

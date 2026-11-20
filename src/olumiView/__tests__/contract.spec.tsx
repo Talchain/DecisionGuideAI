@@ -6,13 +6,12 @@
  * - a mutant that swaps two options' rows fails;
  * - the lint: outside the one layout module, src/olumiView/ formats, sorts, filters and reduces nothing, and reads no CEE shape.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
-import { driverRange, ViewChances, ViewChancesBlock } from '../ViewChances'
-import { useViewStore } from '../store'
+import { driverRange, ViewChances } from '../ViewChances'
 
 // Paths from the repository root (vitest's working directory): jsdom gives this module no file: URL to resolve against.
 const DIR = path.resolve('src/olumiView')
@@ -116,37 +115,6 @@ describe('nothing the View says on a line is dropped (review 00049)', () => {
       })
     })
   }
-})
-
-describe('the block draws only a current View of the approved model (review 00049)', () => {
-  const view = golden('pricing')
-  const block = () => render(<ViewChancesBlock />).container.querySelector('[data-testid="view-chances"]')
-  afterEach(() => useViewStore.setState({ view: null, error: null, status: 'none' }))
-
-  it('draws the approved model\'s lines when the last read succeeded', () => {
-    useViewStore.setState({ view, error: null, status: 'ready' })
-    expect(block()).not.toBeNull()
-  })
-
-  // R25 (superseded the 00049 blank rule; DL 7 Nov after Paul's 6 Nov test, where the tabs went blank under every held proposal): a held
-  // proposal's lines are drawn, headed by core's proposal heading and base, so they never read as the approved Run.
-  it('draws a held proposal\'s lines under core\'s heading and base, verbatim', () => {
-    useViewStore.setState({ view: { ...view, proposal: { id: 9, base: 1, heading: 'Olumi proposes 1 change', on: 'on version 1', removed: null, problem: null, marks: [], changes: [], groups: null, from: null } }, error: null, status: 'ready' })
-    const { container } = render(<ViewChancesBlock />)
-    expect(container.querySelector('[data-testid="view-chances"]')).not.toBeNull()
-    const head = container.querySelector('[data-testid="view-tabs-held-proposal"]')!
-    expect([head.querySelector('[data-view-proposal="heading"]')!.textContent, head.querySelector('[data-view-proposal="on"]')!.textContent]).toEqual(['Olumi proposes 1 change', 'on version 1'])
-  })
-
-  it('must not change: the approved model\'s lines carry no proposal heading', () => {
-    useViewStore.setState({ view, error: null, status: 'ready' })
-    expect(render(<ViewChancesBlock />).container.querySelector('[data-testid="view-tabs-held-proposal"]')).toBeNull()
-  })
-
-  it('draws nothing when the last read failed: older lines are never shown as current', () => {
-    useViewStore.setState({ view, error: 'Olumi could not be read just now. Try again in a moment.', status: 'ready' })
-    expect(block()).toBeNull()
-  })
 })
 
 describe('each option says what moves its chance most, as the base dock did (00053 #2; core wip/view-dock dock.oracle.json)', () => {

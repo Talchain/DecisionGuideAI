@@ -14,7 +14,7 @@ import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
 import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, sizeLinesOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
-import { shownModel, useViewStore } from './store'
+import { useViewStore } from './store'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from './whatif'
 import { InfoIcon } from './ds/icons'
 import { typography } from '../styles/typography'
@@ -366,18 +366,6 @@ function FactCard({ testid, view, t }: { testid: string; view: string; t: { head
 export const Failure = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-failure" view="run.failure" t={failureOf(run)} />
 export const Rests = ({ run }: { run: ViewRun | null }) => <FactCard testid="view-run-rests" view="run.rests" t={restsOf(run)} />
 
-/** R19: Olumi's timing assumptions, once, in core's words ("Olumi's timing assumption, not your figure: 'X' is 1 to 4 months."); the generic what-if note for the same
- *  quantity is skipped beside it (layout.ts `notesBesideTiming`). Nothing when core sends none. */
-export function TimingAssumptions({ run }: { run: ViewRun | null }) {
-  const timing = run?.timing ?? []
-  if (timing.length === 0) return null
-  return (
-    <div className="space-y-1" data-testid="view-run-timing">
-      {timing.map((t, i) => <p key={t.quantity} className={typography.viewPanelMeta} data-timing={t.quantity} data-view={`run.timing.${i}.text`}>{t.text}</p>)}
-    </div>
-  )
-}
-
 /**
  * The lines for one View model: pure, so a test draws it from a golden View. As the base dock (ViewOnlyRunChancesBlock): the Run's lead,
  * then, when every option waits (`all_withheld`), the waits-on headline; a reason every option shares (`shared_blockers`), said once
@@ -410,7 +398,6 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         <Sensitivity model={model} />
         {/* Each chance's definition is core's row hover (its title), never body text (Paul's look check, R5 defect 2). */}
         <div className="space-y-3">{optionCards(model).map((card) => <OptionLines key={card.id} card={card} model={model} />)}</div>
-        <TimingAssumptions run={run} />
         {run?.most_likely == null ? null : <MostLikely model={model} ml={run.most_likely} />}
         {run === null || run.waits_on === null || headline ? null : (
           <p data-testid="view-run-waits-on"><span data-view="run.waits_on.label">{run.waits_on.label}</span>{' '}<WaitsOnItems w={run.waits_on} unknown={false} /></p>
@@ -485,8 +472,3 @@ export function HeldProposalLine() {
   )
 }
 
-/** The block on the olumi-core lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under its heading). */
-export function ViewChancesBlock() {
-  const model = useViewStore(shownModel), chat = useViewStore((s) => s.view?.chat ?? null)
-  return model === null ? null : <><HeldProposalLine /><ViewChances model={model} chat={chat} /></>
-}
