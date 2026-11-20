@@ -70,7 +70,7 @@ describe('the Run\'s "what would have to be true" lines (Analysis tab)', () => {
     const box = screen.getByTestId('view-run-tipping')
     expect(box.querySelector('[data-view="run.tipping_heading"]')?.textContent).toBe(HEADING)
     expect([...box.querySelectorAll('[data-view-fact]')].map((e) => e.textContent)).toEqual([`◆ ${LINE.line}`, LINE2.line])
-    expect(await tipOf(box.querySelector<HTMLElement>('[data-view-fact="F40"]')!)).toBe(LINE.hover)
+    expect(await tipOf(box.querySelector<HTMLElement>('[data-view-fact="F40"] [data-view$=".line"]')!)).toBe(LINE.hover)
     expect(await tipOf(box.querySelector<HTMLElement>('[data-view-fact="F40"] [aria-label]')!)).toBe(MARK.title)
     expect(container.textContent!.split(LINE.line).length - 1).toBe(1)
     expect(container.textContent!.split(HEADING).length - 1).toBe(1)

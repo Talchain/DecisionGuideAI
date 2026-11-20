@@ -299,7 +299,8 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     expect(presses[0]?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(BUILD.label)
     // The row shape of every press under it: core's label, then core's own line for it drawn as the row's description (DL 08:5xZ), and its hover.
     expect(presses[0]?.querySelector('[data-testid="view-build-model-title"]')?.textContent).toBe(BUILD.title)
-    expect(presses[0]?.title).toBe(BUILD.title)
+    // The hover is the one Tip, never a native title.
+    expect([presses[0]?.hasAttribute('title'), await tipOf(presses[0]!)]).toEqual([false, BUILD.title])
     const order = (sel: string) => [...m.querySelectorAll('*')].indexOf(m.querySelector(sel)!)
     expect(order('[data-testid="view-build-model"]')).toBeLessThan(order('[data-testid="view-session-goal"]'))
     expect(m.querySelector('[data-testid="view-actions-tools"] [data-testid="view-build-model"]')).toBeNull()

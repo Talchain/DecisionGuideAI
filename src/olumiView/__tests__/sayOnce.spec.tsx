@@ -79,7 +79,8 @@ describe('SC-02: each tab says each thing once', () => {
     const view = real('european-22cards'), m = view.model!
     ready(view)
     render(<ViewModelTabBlock />)
-    for (let r = 0; r < 3 && closed().length > 0; r++) for (const b of closed()) fireEvent.click(b)
+    // Open every disclosure. "Expand all" is itself a disclosure now (aria-expanded), so a button an earlier click has opened is not clicked again (that would close it).
+    for (let r = 0; r < 3 && closed().length > 0; r++) for (const b of closed()) if (b.getAttribute('aria-expanded') === 'false') fireEvent.click(b)
     // A relationship row names the question as one of its ends (a label, not the question said again): those are not counted.
     const said = [...document.querySelectorAll('[data-view="model.question.text"]')].filter((e) => e.closest('[data-model-select^="link:"]') === null)
     expect(said.length).toBe(1)

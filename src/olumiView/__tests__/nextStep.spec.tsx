@@ -356,7 +356,9 @@ describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
     const c = show(view)
     expect(c.querySelectorAll('[data-testid="view-next-move"]')).toHaveLength(1)
     expect(labelled(c, next.label).map((e) => e.outerHTML.slice(0, 160)), 'one visible copy of the label: the press').toHaveLength(1)
-    expect(c.querySelector(`[data-view="chat.${k}.answer.next.label"]`), 'no bold label beside the press').toBeNull()
+    // CHANGED BY DESIGN (S4, 19 Nov): the label is drawn inside its tap, bound to its View path there; none is drawn beside the press.
+    const bound = c.querySelectorAll(`[data-view="chat.${k}.answer.next.label"]`)
+    expect([bound.length, bound[0]?.closest('[data-testid="view-next-move"]') !== null], 'the one bound label is inside the press').toEqual([1, true])
     cleanup()
     useViewChat.setState({ gone: moveKey(view.id, view.chat[k]!.id, next.move) } as never)
     const d = show(view)

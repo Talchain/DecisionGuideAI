@@ -4,7 +4,7 @@
  * two-person round written in by hand, in the View's own shape.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
@@ -259,7 +259,10 @@ describe('the record and how the model moved (PL review 4 Nov: both on core)', (
     await waitFor(() => expect(screen.getByTestId('team-compare-out')).toBeTruthy())
     expect(calls.at(-1)!.path).toBe(`/api/scenarios/${SID}/compare?from=1&to=2`)
     expect(screen.getByTestId('team-compare-versions').textContent).toBe('Version 2: proposed by Olumi · approved by Ada')
-    expect(screen.getByTestId('team-compare-changes').textContent).toBe('+ figure: staff absence 2 to 10 ticket/week ◆')
+    // Olumi's mark is the registry's icon named by core's own words, not core's text glyph.
+    const changes = screen.getByTestId('team-compare-changes')
+    expect(changes.textContent!.trim()).toBe('+ figure: staff absence 2 to 10 ticket/week')
+    expect(within(changes).getByRole('img').getAttribute('aria-label')).toBe('Olumi’s proposal')
     expect(screen.getByTestId('team-compare-results').textContent).toBe('‘Add one specialist’ on ‘At least 100 a week’: about 50% chance → about 40% chance (down)')
     fireEvent.change(screen.getByTestId('team-compare-from'), { target: { value: '2' } })
     fireEvent.click(screen.getByTestId('team-compare-go'))

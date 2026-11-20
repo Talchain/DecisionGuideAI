@@ -166,7 +166,7 @@ export function KeyLines() {
           {UNDERLAYS.filter((u) => underlays.has(u.kind)).map((u) => <span key={u.kind} className={item} data-key-item={u.kind}><UnderlaySample kind={u.kind} />{u.word}</span>)}
           {markWords.map((w) => (
             <span key={w} className={item} data-key-item="direction">
-              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={12} decorative /></span>)}{w}
+              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={14} decorative /></span>)}{w}
             </span>
           ))}
         </div>

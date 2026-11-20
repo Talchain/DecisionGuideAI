@@ -264,7 +264,7 @@ describe('worth checking first: each science line of the Run, in core\'s words, 
       expect(lines.map((p) => p.getAttribute('data-view-fact')), n).toEqual(science.map((l) => l.id))
       for (const [i, l] of science.entries()) {
         expect(lines[i]!.querySelector(`[data-view="run.science.${i}.line"]`)?.textContent, n).toBe(l.line)
-        expect(await tipOf(lines[i]!), n).toBe(l.hover)
+        expect(await tipOf(lines[i]!.querySelector<HTMLElement>(`[data-view="run.science.${i}.line"]`)!), n).toBe(l.hover)
         const mark = lines[i]!.querySelector(`[data-view="run.science.${i}.olumi.glyph"]`)
         if (l.olumi === null) expect(mark, n).toBeNull()
         else { expect(mark?.textContent, n).toBe(l.olumi.glyph); expect(await tipOf(mark as HTMLElement), n).toBe(l.olumi.title) }

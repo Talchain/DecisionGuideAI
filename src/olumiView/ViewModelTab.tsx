@@ -200,7 +200,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
   const saidOn = (id: GroupId) => (groupSaid?.row === groupRow(id) ? groupSaid : null)
   const linksSaid = saidOn('relationships')
   // The lists Expand all answers for: each open group's (Relationships' too, where it is drawn).
-  const openLists = [...groups.filter((x) => x.open).map((x) => listId(x.g.id)), ...(model.links.length === 0 && linksSaid === null || !isOpen('relationships', linkCount) ? [] : [listId('relationships')])]
+  const openLists = [...groups.flatMap((x) => (x.open ? [listId(x.g.id)] : [])), ...(model.links.length === 0 && linksSaid === null || !isOpen('relationships', linkCount) ? [] : [listId('relationships')])]
   return (
     <div className={`${typography.viewPanelBody} space-y-2 pb-4`} data-testid="view-model-tab">
       <div className="flex items-center justify-between gap-2">

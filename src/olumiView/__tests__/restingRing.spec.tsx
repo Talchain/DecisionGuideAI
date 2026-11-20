@@ -58,7 +58,10 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     const panel = render(<ViewChat />).container
     expect(panel.querySelector('[data-testid="view-next-step"]')).toBeNull()
     const line = panel.querySelector<HTMLElement>('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')!
-    expect(line.textContent).toContain(next.label)
+    // CHANGED BY DESIGN (S4, 19 Nov): core's label is drawn inside its tap (the press), not beside the line; the line is core's words, and the label is said once.
+    const tap = panel.querySelector<HTMLElement>('[data-testid="view-chat-latest"] [data-testid="view-next-move"]')!
+    expect(tap.textContent).toBe(next.label)
+    expect(line.textContent).not.toContain(next.label)
     expect(line.textContent).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
   })
 

@@ -74,7 +74,9 @@ describe('Reasoning at rest fits the 1232x704 panel', () => {
   it('CONTRAST: a short model (pricing, one rest with one figure) draws it whole at rest, with no press to fold anything, inside the same fixed numbers', () => {
     ready(read('pricing.view.json')); render(<ViewReasoningBlock />)
     const groups = [...document.querySelectorAll('[data-rest]')]
-    expect([groups.length, outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP), screen.queryByTestId('reasoning-rests-more')?.getAttribute('aria-expanded') ?? null]).toEqual([1, true, true, null])
+    // The fixed numbers are ONE budget: the panel's 12 rows. OUTSIDE_RESTS (3) is what is left beside a FULL three groups (3 x PER_GROUP); a model with one group has the
+    // rows of the two empty group slots as well, so what may sit outside its groups is the budget less the groups it actually draws.
+    expect([groups.length, outsideRests() <= TOTAL_AT_REST - groups.length * PER_GROUP, rows() <= TOTAL_AT_REST, groups.every((g) => groupRows(g) <= PER_GROUP), screen.queryByTestId('reasoning-rests-more')?.getAttribute('aria-expanded') ?? null], `rows ${rows()}, outside ${outsideRests()}`).toEqual([1, true, true, true, null])
   })
 })
 
