@@ -23,6 +23,7 @@ import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
 import { showSimple, showWholeModel } from '../../simpleStore'
+import { tipOf } from '../../../__tests__/tipHelpers'
 import { setInputsOpen } from '../foldStore'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
@@ -223,11 +224,11 @@ describe('bands: kept ideas', () => {
     expect(keptIdeasOf(v)).toEqual([{ id: 'i1', text: 'Add one line to the sign-in sheet', olumis: true, sourceTurn: '4', keptBy: { id: 'u1', name: 'Sam' } }])
     expect(keptIdeasOf(view)).toEqual([])
   })
-  it('I2 an idea card carries Olumi\'s corner mark and the provenance on hover', () => {
+  it('I2 an idea card carries Olumi\'s corner mark and the provenance on hover', async () => {
     const idea = keptIdeasOf(v)[0]!
     const { container } = render(<IdeaCard {...({ data: { idea, width: 200 } } as unknown as Parameters<typeof IdeaCard>[0])} />)
     expect(container.querySelector('[data-idea-mark="olumi"]')).not.toBeNull()
-    expect(screen.getByTestId('view-idea-card').getAttribute('title')).toContain(ideaProvenance(idea))
+    expect(await tipOf(screen.getByTestId('view-idea-card'))).toContain(ideaProvenance(idea))
     expect(ideaProvenance(idea)).toBe("Olumi's idea · kept by Sam")
   })
   it('I3 the ideas stand in their own band, last, below the aims', async () => {

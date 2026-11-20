@@ -132,13 +132,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // mark beside the number where the chance rests on Olumi's figures (`rows[].olumi`). No figure is read from the words; none is dropped or reordered.
       const parts = words === null ? null : chanceParts(words), row = headlineChanceRow(card)
       visual = (
-        <div className="min-w-0 basis-full" data-simple-face="gauge" title={h.title !== '' ? h.title : h.text}>
+        <Hover as="div" focusable={false} className="min-w-0 basis-full" data-simple-face="gauge" words={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
           <p className={`${typography.viewValue} mt-1 min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
             {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} /></span>}
           </p>
-        </div>
+        </Hover>
       )
       if (parts !== null && parts.qualifier !== null) state = { text: parts.qualifier, title: [words, h.title].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-qual': id } }
     } else if (limitLeadOf(card) !== null) {
@@ -159,17 +159,17 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     visual = (
       // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
       // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
-      <div className="grid min-w-0 basis-full gap-px" data-simple-face="range" title={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+      <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-px" data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.length === 0 ? null : (
           <div className="relative grid gap-px" data-simple-axis={id}>
             {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2" style={{ left: `${axisInfo.goalAt}%`, borderColor: 'var(--goal)' }} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
         {bands.slice(0, 4).map((b) => (
-          <div key={b.option} title={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
+          <Hover as="div" focusable={false} key={b.option} words={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
             <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--border-default)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
               {b.hi > b.lo ? <i className="absolute top-0 block h-full rounded-full" style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%`, background: `color-mix(in srgb, ${b.olumi ? BLUE : INK} 75%, transparent)` }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
               {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm" style={{ left: `${b.mid}%`, background: INK }} />}
             </span>
-          </div>
+          </Hover>
         ))}
           </div>
         )}
@@ -180,15 +180,15 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
           </div>
         )}
         {held.length === 0 ? null : (
-          <div className="ok-withheld-row" data-simple-withheld-group={id} title={held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n')}>
+          <Hover as="div" focusable={false} className="ok-withheld-row" data-simple-withheld-group={id} words={held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n')}>
             {held.map((w) => (
-              <span key={w.option} title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
+              <Hover focusable={false} key={w.option} words={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
                 {letters.has(w.option) ? <LetterChip letter={letters.get(w.option)!} words={headingOf(w.option)} /> : null}
-              </span>
+              </Hover>
             ))}
-          </div>
+          </Hover>
         )}
-      </div>
+      </Hover>
     )
     if (held.length > 0) state = { text: held[0]!.text, title: held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n'), marks: { 'data-simple-withheld-why': held[0]!.option } }
   } else if (card.bound != null) {
@@ -284,7 +284,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={quiet.title} {...quiet.marks}>{quiet.text}</Hover>}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>

@@ -13,6 +13,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { OkIcon, OkIconButton } from '../../look/icons'
+import { Hover, HoverButton } from '../../look/Hover'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
 import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
@@ -151,8 +152,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => (
-    <button key={r.id} type="button" title={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
-      className={VIEW_CHIP_CLASS}>{r.label}</button>
+    <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
+      className={VIEW_CHIP_CLASS}>{r.label}</HoverButton>
   )
 
   if (link !== null) return (
@@ -162,9 +163,9 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         {closeX}
       </div>
       <div className="min-h-0 space-y-2 overflow-y-auto">
-        {link.size === undefined ? null : <p className="m-0 text-text-body" title={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</p>}
+        {link.size === undefined ? null : <Hover as="p" className="m-0 text-text-body" words={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</Hover>}
         <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size?.edit ?? null, subject: link.size?.text ?? '' }} />
-        {link.causal?.author == null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} title={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</p>}
+        {link.causal?.author == null ? null : <Hover as="p" className={`${typography.viewPanelMeta} m-0 text-text-light`} words={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</Hover>}
       </div>
       {rows.length === 0 ? null : <div className="flex flex-wrap gap-1" role="group" aria-label={BOX_WORDS.edit}>{rows.map(chip)}</div>}
     </aside>
@@ -311,7 +312,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
       {card === null ? null : (
         <>
           {card.detail === '' ? null : <p className="text-text-body" data-testid="lane-inspector-detail">{card.detail}</p>}
-          {card.figure === null ? null : <p className="text-text-body" title={card.figure.title} data-testid="lane-inspector-figure">{card.figure.text}</p>}
+          {card.figure === null ? null : <Hover as="p" className="text-text-body" words={card.figure.title} data-testid="lane-inspector-figure">{card.figure.text}</Hover>}
           {card.olumi === null ? null : <p className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-source"><span aria-hidden="true">{card.olumi.glyph} </span>{card.olumi.title}</p>}
           {card.status === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`}>{card.status}</p>}
           <FigureInspector card={card} range={range} onAsk={ask} onClose={() => close()} />
@@ -319,15 +320,15 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
       )}
       {link === null ? null : (
         <>
-          {link.size === undefined ? null : <p className="text-text-body" title={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</p>}
-          {link.causal?.author == null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} title={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</p>}
+          {link.size === undefined ? null : <Hover as="p" className="text-text-body" words={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</Hover>}
+          {link.causal?.author == null ? null : <Hover as="p" className={`${typography.viewPanelMeta} text-text-light`} words={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</Hover>}
         </>
       )}
       {rows.length === 0 ? null : (
         <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label="Edit">
           {rows.map((r) => (
-            <button key={r.id} type="button" title={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
-              className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>{r.label}</button>
+            <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
+              className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>{r.label}</HoverButton>
           ))}
         </div>
       )}

@@ -5,6 +5,7 @@
  */
 import type { CSSProperties } from 'react'
 import type { View, ViewCard, ViewModel } from '../../client'
+import { Hover } from '../../look/Hover'
 import { withheldValues } from '../contract'
 import { aimOf, axisOf, fmt, LABEL_PX, letterOf, modelOf, pctOf, unitOf, type Letters } from './axis'
 
@@ -25,7 +26,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
   const bands = bandsOf(card), withheld = withheldValues(card)
   if (waits) {
     const words = card.figure?.title || card.figure?.text || ''
-    return <div data-testid="outcome-pending" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 8px', fontSize: LABEL_PX, color: LIGHT }}>pending{words ? `: ${words}` : ''}</div>
+    return <Hover as="div" data-testid="outcome-pending" data-card={card.id} words={words} style={{ border: `1px dashed ${LIGHT}`, borderRadius: 4, padding: '4px 8px', fontSize: LABEL_PX, color: LIGHT }}>pending{words ? `: ${words}` : ''}</Hover>
   }
   if (bands.length === 0 && withheld.length === 0) return null
   const aim = aimOf(model), unit = unitOf(card, aim)
@@ -58,7 +59,7 @@ export function OutcomeStrips({ card, view, letters }: { card: ViewCard; view: {
         {axis.ticks.map((t) => <span key={t} data-testid="outcome-tick" style={{ position: 'absolute', top: 1, left: `${pctOf(axis, t)}%`, transform: 'translateX(-50%)' }}>{fmt(t)}</span>)}
         {unit !== null && <span data-testid="outcome-unit" style={{ position: 'absolute', right: 0, top: 1, background: 'var(--bg-panel)' }}>{unit}</span>}
       </div>
-      <div data-testid="outcome-legend" title={card.figure?.title || undefined} style={{ marginTop: 2 }}>middle 80% · median</div>
+      <Hover as="div" data-testid="outcome-legend" words={card.figure?.title || undefined} style={{ marginTop: 2 }}>middle 80% · median</Hover>
     </div>
   )
 }

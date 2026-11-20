@@ -9,7 +9,8 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { TIP_DELAY } from '../../../look/Tip'
 import { hoverWords } from '../../../__tests__/tipHelpers'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
@@ -34,6 +35,16 @@ const cardOf = (v: View, id: string): ViewCard => v.model!.cards.find((c) => c.i
 const withCard = (v: View, card: ViewCard): View => ({ ...v, model: { ...v.model!, cards: v.model!.cards.map((c) => (c.id === card.id ? card : c)) } })
 const optionsOf = (v: View) => v.model!.cards.filter((c) => c.family === 'option')
 
+/** What the one Tip says for an element once the pointer rests on it and the delay passes (null where it says nothing). The hover is this, never a native `title`. */
+const tipNow = (el: Element | null | undefined): string | null => {
+  if (el == null) return null
+  vi.useFakeTimers()
+  try {
+    fireEvent.pointerEnter(el)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    return document.querySelector('[data-testid="lane-tip"]')?.textContent ?? null
+  } finally { fireEvent.pointerLeave(el); vi.useRealTimers() }
+}
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
 /** The real card at the Detailed level (`working`) on a View; the question by its id. */
 const draw = (view: View, id: string): HTMLElement => {
@@ -239,8 +250,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
   it('DT15 the same short status over DIFFERENT reasons is not said once: each option keeps its own line with its own hover, and the aim says none. CONTRAST: the same board with one reason on every option says it once, with that reason the hover, and the options say nothing', () => {
     const [A, B, C] = ['second_oven', 'longer_hours', 'carry_on'] as const, AIM = 'sell_360'
     const waiting = (why: Readonly<Record<string, string>>): View => Object.entries(why).reduce((v, [id, w]) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, text: 'No chance yet', title: '', add: null, why: w } } as ViewCard), ASKED)
-    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
-    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, tipNow(p)]; cleanup(); return out }
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, tipNow(l)]); cleanup(); return said }
     const differ = waiting({ [A]: 'The oven price is missing.', [B]: 'The staff cost is missing.', [C]: 'The oven price is missing.' })
     expect([A, B, C].map((id) => ownLine(differ, id))).toEqual([
       [A, false, 'No chance yet', 'The oven price is missing.'],
@@ -257,8 +268,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const SHARED = 'Cannot be worked out yet: Explain the release decision without unfair team blame'
     expect([APP.model!.run!.all_withheld, ...[S, D, I].map((id) => { const h = cardOf(APP, id).headline!; return [h.state, h.shared, h.text, h.title, h.why, h.add, h.aim_id].join('|') })], 'precondition: core\'s shared form')
       .toEqual([true, ...[S, D, I].map(() => `none|true|No chance yet|${SHARED}|||${AIM}`)])
-    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
-    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, tipNow(l)]); cleanup(); return said }
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, tipNow(p)]; cleanup(); return out }
     expect(aimSays(APP)).toEqual([['No chance yet', SHARED]])
     expect([S, D, I].map((id) => ownLine(APP, id))).toEqual([[S, true, null, null], [D, true, null, null], [I, true, null, null]])
     // The FIRST option carries its own reason: the shared line must not take it as the hover for the other two.
@@ -275,8 +286,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const reasons: Readonly<Record<string, string>> = { [S]: 'Only this option: its release date is not set.', [D]: 'Only this option: the delay is not costed.', [I]: 'Only this option: the isolation scope is not named.' }
     const every = [S, D, I].reduce((v, id) => withCard(v, { ...cardOf(v, id), headline: { ...cardOf(v, id).headline!, why: reasons[id]! } } as ViewCard), APP)
     expect([every.model!.run!.all_withheld, [S, D, I].every((id) => cardOf(every, id).headline!.shared === true)], 'precondition: core marks the headline shared').toEqual([true, true])
-    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title')]); cleanup(); return said }
-    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, p?.getAttribute('title') ?? null]; cleanup(); return out }
+    const aimSays = (v: View) => { const said = [...faceOf(draw(v, AIM), AIM).querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, tipNow(l)]); cleanup(); return said }
+    const ownLine = (v: View, id: string) => { const face = faceOf(draw(v, id), id).querySelector<HTMLElement>('[data-ok-face="none"]')!, p = face.querySelector<HTMLElement>(`[data-view="${id}.headline.text"]`); const out = [id, face.hasAttribute('data-said-once'), p?.textContent ?? null, tipNow(p)]; cleanup(); return out }
     expect([sharedNoChance(every.model), saidOnceOf(every.model).none, aimSays(every)]).toEqual([null, null, []])
     expect([S, D, I].map((id) => ownLine(every, id))).toEqual([S, D, I].map((id) => [id, false, 'No chance yet', reasons[id]]))
     // CONTRAST: the served board, where every option relies on core's shared line, says it once on the same aim.
@@ -289,8 +300,8 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     expect([A, B, C].map((id) => [cardOf(ASKED, id).heading, cardOf(ASKED, id).rows[1]!.aim_id, cardOf(ASKED, id).rows[1]!.kind])).toEqual([['A second oven', AIM, 'none'], ['Open two hours longer', AIM, 'none'], ['Carry on as now', AIM, 'none']])
     const limit = (v: View) => {
       const face = faceOf(draw(v, AIM), AIM)
-      const out = { once: [...face.querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, l.getAttribute('title'), l.querySelector('[data-said-olumi] [data-olumi-mark]')?.getAttribute('aria-label') ?? null]),
-        rows: [...face.querySelectorAll<HTMLElement>('[data-aim-result]')].map((r) => [r.getAttribute('data-aim-result'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector('[data-row-words]')?.textContent, r.getAttribute('title'), r.querySelector('[data-olumi-mark]')?.getAttribute('aria-label') ?? null]) }
+      const out = { once: [...face.querySelectorAll<HTMLElement>(`[data-said-once-on="${AIM}"] .ok-dt-said-line`)].map((l) => [l.textContent, tipNow(l), l.querySelector('[data-said-olumi] [data-olumi-mark]')?.getAttribute('aria-label') ?? null]),
+        rows: [...face.querySelectorAll<HTMLElement>('[data-aim-result]')].map((r) => [r.getAttribute('data-aim-result'), r.querySelector('[data-letter-chip]')?.textContent, r.querySelector('[data-row-words]')?.textContent, tipNow(r), r.querySelector('[data-olumi-mark]')?.getAttribute('aria-label') ?? null]) }
       cleanup(); return out
     }
     const OVEN = 'What would the second oven cost?', STAFF = 'What would two more hours of staff cost?', T = 'The budget cannot be checked yet.'
@@ -312,7 +323,7 @@ describe('Detailed: each fact said once on the board (said.ts)', () => {
     const UNSIZED = 'not given yet · What would the second oven cost?', WAITS = 'waits on: oven price'
     expect([cardOf(ASKED, 'oven_price').figure!.text, cardOf(ASKED, 'oven_price').figure!.title, cardOf(ASKED, 'spend').figure!.state, cardOf(ASKED, 'spend').figure!.text], 'precondition: core\'s own words for both').toEqual(['', UNSIZED, 'waits', WAITS])
     const unsized = faceOf(draw(ASKED, 'oven_price'), 'oven_price')
-    expect([unsized.querySelector(EMPTY_TRACK), [...unsized.querySelectorAll<HTMLElement>('[data-unsized="oven_price"]')].map((e) => [e.textContent, e.getAttribute('title')])]).toEqual([null, [[UNSIZED, UNSIZED]]])
+    expect([unsized.querySelector(EMPTY_TRACK), [...unsized.querySelectorAll<HTMLElement>('[data-unsized="oven_price"]')].map((e) => [e.textContent, tipNow(e)])]).toEqual([null, [[UNSIZED, UNSIZED]]])
     cleanup()
     const waits = faceOf(draw(ASKED, 'spend'), 'spend')
     expect([waits.querySelector(EMPTY_TRACK), waits.querySelector('[data-ok-face="worked"]')?.hasAttribute('data-ok-pending'), [...waits.querySelectorAll('.ok-status [data-core-lead-clamp]')].map((e) => e.textContent)]).toEqual([null, true, [WAITS]])
@@ -421,7 +432,7 @@ describe('Detailed: marks, not sentences', () => {
     const state = (v: View, id: string) => {
       const face = faceOf(draw(v, id), id), line = [...face.querySelectorAll<HTMLElement>(`[data-view="${id}.status"]`)]
       const out = { status: line.map((e) => e.textContent), marked: face.hasAttribute('data-detailed-set-aside'), headline: [...face.querySelectorAll('[data-ok-face="chance"] .ok-chance [data-core-lead-clamp]')].map((e) => e.textContent),
-        gauge: face.querySelector('[data-ok-face="chance"]') !== null, drawnChance: drawn(face).includes('about 23% chance'), hoverSaysStatus: (face.getAttribute('title') ?? '').includes('ruled out'), lineHover: line[0]?.getAttribute('title')?.split('\n')[0] ?? null }
+        gauge: face.querySelector('[data-ok-face="chance"]') !== null, drawnChance: drawn(face).includes('about 23% chance'), hoverSaysStatus: (tipNow(face) ?? '').includes('ruled out'), lineHover: tipNow(line[0])?.split('\n')[0] ?? null }
       cleanup(); return out
     }
     expect(state(withCard(HIRING, { ...live, status: 'ruled out' } as ViewCard), LIVE)).toEqual({ status: ['ruled out'], marked: true, headline: [], gauge: false, drawnChance: false, hoverSaysStatus: false, lineHover: 'about 23% chance' })

@@ -587,6 +587,21 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     expect(focus.node).toHaveBeenCalled()
   })
 
+  it('the figure pencil ends its row\'s own line: inside the same row element as the words, after an inline (never block) figure press', () => {
+    const view = viewOf('golden/bakery'), opt = view.model!.run!.tipping.find((t) => t.kind !== 'lead')!
+    ready(view); render(<PortAnalysisTab />)
+    const row = screen.getByTestId('analysis-tipping').querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
+    const words = row.querySelector<HTMLElement>('[data-view^="run.tipping."]')!, fig = row.querySelector<HTMLElement>('[data-tipping-figure]')!
+    const pencil = row.querySelector<HTMLElement>('[data-testid^="analysis-tip-give-"]')!
+    expect(pencil, 'the pencil is drawn for this figure').not.toBeNull()
+    expect(pencil.closest('[data-view-fact]')).toBe(row)
+    expect([words.closest('[data-view-fact]'), fig.closest('[data-view-fact]')]).toEqual([row, row])
+    expect(fig.compareDocumentPosition(pencil) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // A block-level press (flex, not inline-flex) would break the row before the pencil: the press is inline-level.
+    expect(fig.className.split(/\s+/)).toContain('inline-flex')
+    expect(fig.className.split(/\s+/)).not.toContain('flex')
+  })
+
   it('failure: none before the person\'s own reasons (CONTRAST), core\'s lines verbatim after', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     view.model!.run!.failure = [{ id: 'F90', line: 'Core\'s failure sentence.', hover: 'Core\'s failure hover.' }] as never

@@ -4,6 +4,7 @@ import type { View } from '../../client'
 import { ownViewPending } from '../../../olumiCore/ownViewFirst'
 import { BODY, CARD, H, LABEL } from '../../../olumiCore/team/ui'
 import { nonEmpty } from '../../tipping'
+import { Hover } from '../../look/Hover'
 
 /**
  * A colleague's first arrival (17 Nov): the one card a member reads above the private-view box while core still holds them, that is, until
@@ -36,12 +37,12 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
     <section data-testid="first-arrival" aria-label={ARRIVAL_WORDS.heading} className={CARD}>
       <h3 className={H}>{ARRIVAL_WORDS.heading}</h3>
       {/* v10 review item 9: headline plus one line. The lock is core's privacy sentence and the line itself carries the reveal sentence, both as hover words. */}
-      <p className={ROW} data-testid="first-arrival-why" title={ARRIVAL_WORDS.reveal}>
-        <span data-testid="first-arrival-private" title={nonEmpty(privacy) ? privacy : undefined} className="inline-flex flex-none">
+      <Hover as="p" className={ROW} data-testid="first-arrival-why" words={ARRIVAL_WORDS.reveal}>
+        <Hover data-testid="first-arrival-private" words={nonEmpty(privacy) ? privacy : undefined} className="inline-flex flex-none">
           <Lock strokeWidth={1.75} aria-hidden="true" className={ICON} />
-        </span>
+        </Hover>
         <span>{ARRIVAL_WORDS.why}</span>
-      </p>
+      </Hover>
       {brief.trim() !== '' && (
         <div className="grid gap-1">
           <button type="button" data-testid="first-arrival-brief-toggle" aria-expanded={open} aria-controls={briefId} onClick={() => setOpen((o) => !o)}

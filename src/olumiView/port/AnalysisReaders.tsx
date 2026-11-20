@@ -36,9 +36,9 @@ export function TippingPerOption({ model }: { model: ViewModel }) {
           <p key={l.id} className={`${TYPE.body} m-0 text-text-body`} data-view-fact={l.id}>
             {l.olumi == null ? null : <><GlyphMark mark={l.olumi} className="text-info" /> </>}
             <Hover words={l.hover} data-view={`run.tipping.${i}.line`}>{l.line}</Hover>
-            {card == null ? null : <Hover as="button" type="button" className={`${TYPE.meta} nodrag mt-0.5 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} words={`${TIPPING_FIGURE}: ${card.heading}`} aria-label={`${TIPPING_FIGURE}: ${card.heading}`}
+            {card == null ? null : <Hover as="button" type="button" className={`${TYPE.meta} nodrag inline-flex max-w-full items-center gap-1 rounded-sm p-0 align-middle text-left text-text-light underline-offset-2 hover:underline`} words={`${TIPPING_FIGURE}: ${card.heading}`} aria-label={`${TIPPING_FIGURE}: ${card.heading}`}
               onClick={() => { if (recordReach(card.id) === 'show') void showRecord(card.id); else pressCard(card.id) }} data-tipping-figure={card.id}><OkIcon id="why-moves" size={14} inherit decorative /><span className="min-w-0 truncate">{card.heading}</span></Hover>}
-            {/* What would have to be true: try the figure on a copy (nothing saved); the person types the value, nothing is prefilled from core's threshold. */}
+            {/* The figure press is inline-flex (never a block) so the pencil after it ends the same line as the row's words, as the card pencils do. What would have to be true: try the figure on a copy (nothing saved); the person types the value, nothing is prefilled from core's threshold. */}
             {card?.figure?.edit == null ? null : <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-tip" glyph words={false} primary="try" label={`Try a figure for ${card.heading}`} />}
           </p>
         )

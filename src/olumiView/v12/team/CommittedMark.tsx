@@ -1,4 +1,5 @@
 import { OkIcon } from '../../look/icons'
+import { HoverButton } from '../../look/Hover'
 import { useViewStore } from '../../store'
 import { goToOutcome } from '../../../olumiCore/team/outcomeNav'
 
@@ -22,10 +23,10 @@ export function CommittedMark({ card }: { card: string }): JSX.Element | null {
   if (open === null || !sid) return null
   const words = open.lines.join('\n')
   return (
-    <button type="button" aria-label={words} title={words} data-committed-mark={card} data-commitment={open.id}
+    <HoverButton type="button" aria-label={words} words={words} data-committed-mark={card} data-commitment={open.id}
       onClick={(e) => { e.stopPropagation(); goToOutcome(sid, open.id) }}
       className="nodrag pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-panel-border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header">
       <OkIcon id="committed" size={12} decorative />
-    </button>
+    </HoverButton>
   )
 }

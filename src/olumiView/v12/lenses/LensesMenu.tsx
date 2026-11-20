@@ -3,8 +3,10 @@
  * layer on. Production's lens list for power users, drawn from core's View only (`layers.ts`). Chrome words are the layers' names and the table's column
  * heads; everything about the scenario is the View's, verbatim. Olumi's own contributions stay Olumi's: a figure's author line is core's words.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { OkIcon } from '../../look/icons'
+import { Hover, HoverButton } from '../../look/Hover'
+import { useAnchoredTip } from '../../look/Tip'
 import Tooltip from '../../../components/Tooltip'
 import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
 import { typography } from '../../../styles/typography'
@@ -81,10 +83,10 @@ export function LensesMenu(): JSX.Element | null {
           <div role="group" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
             <p role="presentation" className={`${typography.viewPanelMeta} px-3 pb-0.5 pt-1 text-text-light`}>{LEVEL_WORDS.group}</p>
             {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
-              <button key={id} type="button" role="menuitemradio" aria-checked={level === id} title={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
+              <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
                 className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
                 <span className="min-w-0 truncate">{label}</span>
-              </button>
+              </HoverButton>
             ))}
           </div>
           {entries.length <= 1 ? null : <div role="separator" className={MENU_SEPARATOR} />}
@@ -122,6 +124,21 @@ function Head({ title, tag = null, count = null, onClose }: { title: string; tag
 
 export const LINK_LEGEND = '? sign not settled. n/a: the View holds no sign. Dashed: doubted.'
 
+/** One link's row: a keyboard stop that selects the link (Enter, Space, press), its words through the one Tip. It owns the hook a map cannot, and the scroll-into-view ref a Hover cannot take. */
+function LinkTableRow({ index, edgeId, role, words, on, onSelect, className, children }: { index: number; edgeId: string; role: string | undefined; words: string | undefined; on: boolean; onSelect: () => void; className: string; children: ReactNode }): JSX.Element {
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(words)
+  return (
+    <>
+      <tr data-edge={index} data-edge-id={edgeId} data-role={role} tabIndex={0} aria-selected={on} aria-describedby={describedBy}
+        ref={(el) => { if (on) el?.scrollIntoView?.({ block: 'nearest' }) }}
+        onPointerEnter={handlers.onPointerEnter} onPointerLeave={handlers.onPointerLeave} onFocus={handlers.onFocus} onBlur={handlers.onBlur}
+        onClick={() => { dismiss(); onSelect() }} onKeyDown={(e) => { handlers.onKeyDown(e); if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
+        className={className}>{children}</tr>
+      {tip}
+    </>
+  )
+}
+
 /**
  * Every link as a row. A row and its link on the canvas are one selection, both ways, through the canvas's own store (`selection.edgeIds`): pressing a row
  * selects the link, and a link selected on the canvas marks its row. Core's own words (headings, author, strength) are as the View sends them.
@@ -138,14 +155,12 @@ function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[]
           {rows.map((r) => {
             const id = edgeIdOf(model.links[r.index]!), on = selected.has(id)
             return (
-              <tr key={r.index} data-edge={r.index} data-edge-id={id} data-role={r.role ?? undefined} title={r.hover} tabIndex={0} aria-selected={on}
-                ref={(el) => { if (on) el?.scrollIntoView?.({ block: 'nearest' }) }}
-                onClick={() => select(id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(id) } }}
+              <LinkTableRow key={r.index} index={r.index} edgeId={id} role={r.role ?? undefined} words={r.hover} on={on} onSelect={() => select(id)}
                 className={`cursor-pointer hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${on ? 'bg-panel-hover' : ''}`}>
                 <td className={td}>{r.from}</td><td className={td}>{r.to}</td>
                 <td className={td}>{r.sign === null ? <span data-edge-na>n/a</span> : <><span aria-hidden="true">{SIGN_GLYPH[r.sign]}</span> <span className={r.sign === 'unknown' ? '' : 'sr-only'}>{SIGN_WORDS[r.sign]}</span></>}{r.by !== null ? <span className={`${typography.viewPanelMeta} block`} data-edge-author>{r.by}</span> : null}{r.disputed ? <span className={`${typography.viewPanelMeta} block`}>Disputed</span> : null}</td>
                 <td className={td}>{r.strength ?? ''}</td>
-              </tr>
+              </LinkTableRow>
             )
           })}
         </tbody>
@@ -164,8 +179,8 @@ function FigureList({ view, ids }: { view: View; ids: ReadonlyMap<string, readon
         const c = model.cards.find((x) => x.id === id)!
         return (
           <li key={id} data-layer-row={id}>
-            <p className="text-text-header">{c.heading}{c.figure !== null ? <span className={`${typography.viewPanelTabular} ml-2 text-text-body`} title={c.figure.title}>{c.figure.text}</span> : null}</p>
-            {c.author != null ? <p className={`${typography.viewPanelMeta} ${c.author.by === 'olumi' || c.author.by === 'mixed' ? 'text-info' : 'text-text-body'}`} title={c.author.title}>{c.author.text}</p> : null}
+            <p className="text-text-header">{c.heading}{c.figure !== null ? <Hover className={`${typography.viewPanelTabular} ml-2 text-text-body`} words={c.figure.title}>{c.figure.text}</Hover> : null}</p>
+            {c.author != null ? <Hover as="p" className={`${typography.viewPanelMeta} ${c.author.by === 'olumi' || c.author.by === 'mixed' ? 'text-info' : 'text-text-body'}`} words={c.author.title}>{c.author.text}</Hover> : null}
             <p className={typography.viewPanelMeta}>{options.map((o) => o.heading).join(' · ')}</p>
           </li>
         )
@@ -197,8 +212,8 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
   } else if (layer === 'sensitivity') {
     body = (
       <div className="space-y-2">
-        {model.run !== null ? <p className={typography.viewPanelMeta} title={model.run.sensitivity.title}>{model.run.sensitivity.text}</p> : null}
-        {model.cards.filter((c) => c.driver != null && c.status === null).map((c) => <p key={c.id} data-layer-row={c.id}><span className="text-text-header">{c.heading}</span><br /><span title={c.driver!.title}>{c.driver!.text}</span></p>)}
+        {model.run !== null ? <Hover as="p" className={typography.viewPanelMeta} words={model.run.sensitivity.title}>{model.run.sensitivity.text}</Hover> : null}
+        {model.cards.filter((c) => c.driver != null && c.status === null).map((c) => <p key={c.id} data-layer-row={c.id}><span className="text-text-header">{c.heading}</span><br /><Hover words={c.driver!.title}>{c.driver!.text}</Hover></p>)}
       </div>
     )
   } else if (layer === 'sensitive_assumptions') {
@@ -220,7 +235,7 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
           return items.length === 0 ? null : (
             <section key={b} data-basis={b}>
               <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`}>{BASIS_LABEL[b]}</h3>
-              <ul>{items.map((c) => { const id = c.id; return <li key={id} data-layer-row={id}>{c.heading}{c.author != null ? <span className={`${typography.viewPanelMeta} ml-2 ${b === 'assumed' ? 'text-info' : b === 'challenged' ? 'text-text-header' : ''}`} title={c.author.title}>{c.author.text}</span> : null}</li> })}</ul>
+              <ul>{items.map((c) => { const id = c.id; return <li key={id} data-layer-row={id}>{c.heading}{c.author != null ? <Hover className={`${typography.viewPanelMeta} ml-2 ${b === 'assumed' ? 'text-info' : b === 'challenged' ? 'text-text-header' : ''}`} words={c.author.title}>{c.author.text}</Hover> : null}</li> })}</ul>
             </section>
           )
         })}

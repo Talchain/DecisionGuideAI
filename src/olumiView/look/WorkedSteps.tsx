@@ -10,6 +10,7 @@
  */
 import type { View, ViewCard, ViewLink } from '../client'
 import { FigureEdit } from '../FigureEdit'
+import { Hover } from './Hover'
 
 /** The product's own words for the steps' heading where core sends the relation no label (a pending first model). */
 export const WORKED_OUT = 'How it is worked out'
@@ -80,8 +81,8 @@ function Operand({ s, option, coefficient = false }: { s: Omit<CoreStep, 'role'>
   return (
     <>
       <span className="ok-step-name" data-step-coefficient={coefficient ? editId : undefined}>{s.label}</span>{' '}
-      <b data-step-coefficient-figure={coefficient ? '' : undefined} title={coefficient ? fig.title : undefined}>{fig.text}</b>
-      {author == null || author.text === '' ? null : <span className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} title={author.title} data-step-by={author.by}> · {author.text}</span>}
+      <Hover as="b" data-step-coefficient-figure={coefficient ? '' : undefined} words={coefficient ? fig.title : undefined}>{fig.text}</Hover>
+      {author == null || author.text === '' ? null : <Hover className={`ok-step-by ${author.by === 'olumi' ? 'ok-by-olumi' : ''}`} words={author.title} data-step-by={author.by}> · {author.text}</Hover>}
       {edit == null ? null : <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={editId} edit={edit} place="view-step" glyph label="Change figure" words={false} /></span></>}
     </>
   )
@@ -90,7 +91,7 @@ function Operand({ s, option, coefficient = false }: { s: Omit<CoreStep, 'role'>
 function CoreWorked({ card, worked, option, mine, open, inline }: { card: ViewCard; worked: CoreWorkedOf; option?: string; mine?: ReadonlySet<string>; open?: boolean; inline?: boolean }): JSX.Element {
   return (
     <details className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
-      <summary title={WORKED_OUT}><span>{WORKED_OUT}</span></summary>
+      <Hover as="summary" words={WORKED_OUT} focusable={false}><span>{WORKED_OUT}</span></Hover>
       <ol>
         {worked.steps.map((s, i) => {
           const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
@@ -98,12 +99,12 @@ function CoreWorked({ card, worked, option, mine, open, inline }: { card: ViewCa
           const own = mine?.has(editId) ?? false
           const join = joinOf(worked.form, s, i === 0), coefficient = worked.form === 'effect' ? s.coefficient ?? null : null
           return (
-            <li key={`${s.id}:${i}`} title={fig.title} data-view={`${card.id}.worked.steps.${i}`} data-step={s.role} data-step-from={editId}
+            <Hover as="li" key={`${s.id}:${i}`} words={fig.title} data-view={`${card.id}.worked.steps.${i}`} data-step={s.role} data-step-from={editId}
               data-step-sign={s.sign} data-step-power={s.power} data-step-own={own ? '' : undefined} className={own ? 'ok-step-own' : undefined}>
               {join === null ? null : <><span className="ok-step-join" data-step-join={join}>{join}</span>{' '}</>}
               <Operand s={s} option={option} />
               {coefficient === null ? null : <>{' '}<span className="ok-step-join" data-step-join="times">times</span>{' '}<Operand s={coefficient} option={option} coefficient /></>}
-            </li>
+            </Hover>
           )
         })}
       </ol>
@@ -128,7 +129,7 @@ export function WorkedSteps({ view, id, mine, option, open, inline }: { view: Vi
     <>
       {worked.map(({ relation, steps }) => (
         <details key={relation.id} className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${id}.worked.${relation.id}`} open={open}>
-          <summary title={relation.label}><span>{relation.label}</span></summary>
+          <Hover as="summary" words={relation.label} focusable={false}><span>{relation.label}</span></Hover>
           <ol>
             {steps.map(({ link, from, effectCard }, i) => {
               const effect = (link as { effect?: { text: string; title: string } | null }).effect ?? null
@@ -137,12 +138,12 @@ export function WorkedSteps({ view, id, mine, option, open, inline }: { view: Vi
               const mark = whose(own)
               const edit = own?.figure?.edit ?? null
               return (
-                <li key={`${link.from}:${i}`} title={link.title} data-step={base ? 'base' : 'term'} data-step-from={link.from} data-step-own={mine?.has(link.from) ? '' : undefined} className={mine?.has(link.from) ? 'ok-step-own' : undefined}>
+                <Hover as="li" key={`${link.from}:${i}`} words={link.title} data-step={base ? 'base' : 'term'} data-step-from={link.from} data-step-own={mine?.has(link.from) ? '' : undefined} className={mine?.has(link.from) ? 'ok-step-own' : undefined}>
                   <span className="ok-step-name">{from?.heading ?? link.from}</span>{' '}
                   <b className="font-medium">{base ? from?.figure?.text ?? '' : effect?.text ?? ''}</b>
                   {mark === null ? null : <span className={`ok-step-by ${mark.olumi ? 'ok-by-olumi' : ''}`}> · {mark.text}</span>}
                   {own !== null && edit != null ? <>{' '}<span className="ok-edit" data-figure-edit-wrap=""><FigureEdit id={own.id} edit={edit} place="view-step" glyph label="Change figure" words={false} /></span></> : null}
-                </li>
+                </Hover>
               )
             })}
           </ol>

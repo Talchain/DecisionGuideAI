@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '../../../styles/typography'
+import { Hover } from '../../look/Hover'
 import { VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { useUIStore } from '../../../stores/uiStore'
 import { TeamApiError } from '../../../olumiCore/team/api'
@@ -118,7 +119,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
       {fresh ? <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="inspector-figure-aside">{ASIDE_WORDS.done}</p> : null}
       {fields.map((f, i) => (
         <div key={f.key} className="grid gap-1">
-          <label htmlFor={`inspector-figure-${kind}-${id}-${f.key}`} className={`${typography.viewPanelMeta} font-medium text-text-header`} title={f.hint}>{f.label}</label>
+          <Hover as="label" focusable={false} {...{ htmlFor: `inspector-figure-${kind}-${id}-${f.key}` }} className={`${typography.viewPanelMeta} font-medium text-text-header`} words={f.hint}>{f.label}</Hover>
           <input id={`inspector-figure-${kind}-${id}-${f.key}`} ref={i === 0 ? first : undefined} data-testid={`inspector-figure-${f.key}`} autoComplete="off" spellCheck={false} value={values[f.key] ?? ''} readOnly={sending} placeholder={size ? f.hint : undefined}
             onChange={(e) => set(f.key, e.target.value)}
             className="rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />

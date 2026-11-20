@@ -12,6 +12,7 @@ import { useLaneInspector } from '../../edit/inspectorStore'
 import { triableCards } from '../../../layout'
 import { useViewStore } from '../../../store'
 import { approved, install, uninstall } from '../../edit/__tests__/harness'
+import { tipOf } from '../../../__tests__/tipHelpers'
 
 const PLAIN = 'starting_customers'
 const lane = (on: boolean): void => { vi.stubEnv('VITE_OLUMI_CORE', on ? '1' : '0') }
@@ -75,13 +76,13 @@ describe('task 3: a figure\'s box is short at rest', () => {
 
 describe('S4 pop-up lane (20 Nov): the figure field is labelled once, in core\'s words, whole', () => {
   beforeEach(() => { lane(true); install(approved()) })
-  it('P2 the lane box labels the field with core\'s own prompt, drawn once and uncut, with no chrome word before it; the ask stays as its hint', () => {
+  it('P2 the lane box labels the field with core\'s own prompt, drawn once and uncut, with no chrome word before it; the ask stays as its hint', async () => {
     const edit = useViewStore.getState().view!.model!.cards.find((c) => c.id === PLAIN)!.figure!.edit!
     expect(edit.prompt.length, 'precondition: core sent a prompt').toBeGreaterThan(0)
     mount(PLAIN)
     const label = screen.getByTestId('inspector-figure-typed').closest('div')!.querySelector('label')!
     expect(label.textContent, 'the label is core\'s prompt exactly: nothing prefixed, nothing cut').toBe(edit.prompt)
-    expect(label.getAttribute('title')).toBe(edit.ask)
+    expect([label.hasAttribute('title'), await tipOf(label)]).toEqual([false, edit.ask])
     expect(within(screen.getByTestId('lane-inspector')).getAllByText(edit.prompt, { exact: false }), 'the prompt is drawn once in the box').toHaveLength(1)
   })
   it('CONTRAST: the older look keeps its own field, labelled in its own words (the change is the lane box\'s Value row only)', () => {

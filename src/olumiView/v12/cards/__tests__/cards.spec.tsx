@@ -204,7 +204,7 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
     const STEP = 'An invented next step for this option alone.'
     const face = draw(withCard(ASKED, { ...o, headline: { ...h, add: STEP } }), o.id).querySelector<HTMLElement>(`[data-core-lead="${o.id}"]`)!
     const line = face.querySelector<HTMLElement>('.ok-quiet')!
-    expect([line.textContent, line.getAttribute('title')]).toEqual([STEP, `${h.why}\n${STEP}`])
+    expect([line.textContent, hover(line)]).toEqual([STEP, `${h.why}\n${STEP}`])
     expect(face.querySelectorAll('.ok-quiet').length, 'one line').toBe(1)
     expect(face.querySelector(gone), 'nothing of the old withheld furniture').toBeNull()
     expect(face.textContent, 'unknown is never drawn as zero').not.toMatch(/\?|0%/)
@@ -213,7 +213,7 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
   it('W2 Simple: the same one line on the compact face; the reason whole on hover with core\'s next step; never the bare state words', () => {
     const face = draw(ASKED, o.id, 'simple').querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
     expect(face.textContent).toBe(h.add)
-    expect(face.getAttribute('title')).toBe(`${h.why}\n${h.add}`)
+    expect(hover(face)).toBe(`${h.why}\n${h.add}`)
     expect(face.querySelector(gone)).toBeNull()
     expect(face.textContent).not.toContain(h.text)
   })
@@ -238,7 +238,7 @@ describe('a figure with no value yet, and one that waits', () => {
       expect([cardOf(view, id).figure!.text, cardOf(view, id).figure!.title], 'precondition: no value, and core\'s own words for the gap').toEqual(['', words])
       for (const level of ['working', 'simple'] as const) {
         const el = draw(view, id, level), quiet = el.querySelector<HTMLElement>(`[data-unsized="${id}"]`)!
-        expect([level, el.querySelectorAll(`[data-unsized="${id}"]`).length, el.querySelector('.ok-empty, .ok-unsized, [data-testid$="-empty-bar"]'), quiet.matches('p.ok-quiet'), quiet.textContent, quiet.getAttribute('title')]).toEqual([level, 1, null, true, words, words]); cleanup()
+        expect([level, el.querySelectorAll(`[data-unsized="${id}"]`).length, el.querySelector('.ok-empty, .ok-unsized, [data-testid$="-empty-bar"]'), quiet.matches('p.ok-quiet'), quiet.textContent, hover(quiet)]).toEqual([level, 1, null, true, words, words]); cleanup()
       }
     }
   })
@@ -277,7 +277,7 @@ describe('a figure with no value yet, and one that waits', () => {
   it('U3b CONTRAST to U3: a figure that waits and has NO working draws core\'s "waits on" words as ONE quiet line (R6): no empty track, the whole words its hover', () => {
     const spend = cardOf(ASKED, 'spend'), view = withCard(ASKED, { ...spend, worked: null } as unknown as ViewCard)
     const line = draw(view, 'spend', 'simple').querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([line.matches('p.ok-quiet'), line.textContent, line.getAttribute('title'), line.closest('[data-simple-card]')?.querySelector('.ok-empty, [data-testid$="-empty-bar"]')]).toEqual([true, spend.figure!.text, spend.figure!.title, null])
+    expect([line.matches('p.ok-quiet'), line.textContent, hover(line), line.closest('[data-simple-card]')?.querySelector('.ok-empty, [data-testid$="-empty-bar"]')]).toEqual([true, spend.figure!.text, spend.figure!.title, null])
   })
 })
 
@@ -416,7 +416,7 @@ describe('a calculated figure core could not calculate for an option says so, wi
     const el = draw(held, 'sales', 'simple'), row = el.querySelector<HTMLElement>('[data-simple-withheld="longer_hours"]')!
     expect([row.querySelector('[data-letter-chip]')?.textContent, el.querySelector('[data-simple-withheld-why="longer_hours"]')?.textContent, el.querySelector('[data-simple-band="longer_hours"]')]).toEqual(['B', REASON, null])
     expect(el.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), 'no dashed empty track').toBeNull()
-    expect(row.getAttribute('title'), 'the option and core\'s reason are the letter\'s hover').toContain(REASON)
+    expect(hover(row), 'the option and core\'s reason are the letter\'s hover').toContain(REASON)
     cleanup()
     expect(bandRowsOf(sales, ASKED.model).map((b) => b.option)).toContain('longer_hours')
     for (const level of ['working', 'simple'] as const) { expect(draw(ASKED, 'sales', level).querySelector('[data-testid^="strip-withheld-"], [data-simple-withheld]'), level).toBeNull(); cleanup() }
@@ -510,7 +510,7 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     // CHANGED BY DESIGN (18 Nov): an option's condition is never cut to one line, so it is the two-line class here.
     const line = twoLineOf(draw(described(EU, o.id), o.id, 'simple'))!
     expect([line.textContent, line.hasAttribute('data-simple-qual')]).toEqual([qualifier, true])
-    expect(line.title).toContain(DESC)
+    expect(hover(line)).toContain(DESC)
     cleanup()
     const plain = cardOf(FACE, 'second_oven')
     expect(chanceParts(headlineChanceRow(plain)!.value).qualifier, 'CONTRAST: this chance has no condition').toBeNull()

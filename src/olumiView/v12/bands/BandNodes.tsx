@@ -5,6 +5,7 @@
  * proposal mark `proposal.changes[].olumi.title`, the grouped cards' headings on hover) or the product's existing chrome (the count, "N notes").
  */
 import { OkIcon } from '../../look/icons'
+import { Hover, HoverButton } from '../../look/Hover'
 import type { NodeProps } from '@xyflow/react'
 import type { NodeType } from '../../../canvas/domain/nodes'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
@@ -34,12 +35,12 @@ export const ideaProvenance = (i: KeptIdea): string => `${i.olumis ? "Olumi's id
 export function IdeaCard({ data }: NodeProps) {
   const { idea, width } = data as { idea: KeptIdea; width: number }
   return (
-    <div data-view-idea={idea.id} data-testid="view-idea-card" title={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
+    <Hover as="div" data-view-idea={idea.id} data-testid="view-idea-card" words={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
       className="relative rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {idea.olumis ? <span data-idea-mark="olumi" aria-label="Olumi's idea" role="img" className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-panel border border-panel-border"><OkIcon id="olumi-mark" size={14} decorative /></span> : null}
       {/* The kept words as the conversation draws the reply they came from (DL, pair v3: the card showed `**` and "## " raw), at the board's type size. */}
       <div className="space-y-1 break-words" data-testid="view-idea-text"><ReplyBlocks text={idea.text} /></div>
-    </div>
+    </Hover>
   )
 }
 
@@ -58,24 +59,24 @@ export function FoldCard({ data }: NodeProps) {
     // in the panel's border.
     const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow, olumis = group.kind === 'olumi'
     return (
-      <button type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
-        onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} title={group.hover}
+      <HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
+        onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover}
         className={`flex items-center gap-1.5 rounded-md border bg-panel px-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
         {proposed || olumis ? <OlumiMark words={group.words} /> : null}
         <span className="font-medium tabular-nums text-text-header">{proposed ? count : olumis ? olumiMore(count) : notesCount(count)}</span>
         {proposed && group.words !== null ? <span className="min-w-0 truncate">{group.words}</span> : null}
-        {group.challenged > 0 ? <span role="img" data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} title={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></span> : null}
+        {group.challenged > 0 ? <Hover role="img" focusable={false} data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} words={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></Hover> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
           {group.kinds.map((k) => <span key={k} className="inline-flex" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'calc(10px * var(--o-s, 1))' }}><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
         </span>
-      </button>
+      </HoverButton>
     )
   }
   return (
-    <button type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
-      title="Show these inputs in place" className="rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body" style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+    <HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
+      words="Show these inputs in place" className="rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body" style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {count} inputs
-    </button>
+    </HoverButton>
   )
 }

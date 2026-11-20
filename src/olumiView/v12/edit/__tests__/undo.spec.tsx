@@ -14,6 +14,7 @@ import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useViewStore } from '../../../store'
 import type { View } from '../../../client'
 import { BASE, SID, approved, install, uninstall, type Stub } from './harness'
+import { tipOf } from '../../../__tests__/tipHelpers'
 
 let stub: Stub
 const withUndo = (u: unknown): View => { const v = approved(); return { ...v, model: { ...v.model!, undo: u } } as never }
@@ -122,13 +123,14 @@ describe('a saved undo is core\'s route', () => {
 
 describe('the control and the keys', () => {
   const mount = () => render(<ToastProvider><UndoControl /><LaneEditingLayer /></ToastProvider>)
-  it('is labelled by what it will undo, and a disabled one says why', () => {
+  it('is labelled by what it will undo, and a disabled one says why', async () => {
     mount()
     expect(screen.getByTestId('lane-undo')).toHaveAttribute('aria-label', 'Undo: nothing of yours to undo yet')
-    expect(screen.getByTestId('lane-undo')).toHaveAttribute('title', UNDO_WORDS.savedNotYet)
+    expect(screen.getByTestId('lane-undo')).not.toHaveAttribute('title')
+    expect(await tipOf(screen.getByTestId('lane-undo'))).toBe(UNDO_WORDS.savedNotYet)
     act(() => recordLayoutMove(SID, { a: { x: 1, y: 1 } }))
     expect(screen.getByTestId('lane-undo')).toHaveAttribute('aria-label', 'Undo move')
-    expect(screen.getByTestId('lane-undo').getAttribute('title')).toContain(UNDO_WORDS.savedNotYet)
+    expect(await tipOf(screen.getByTestId('lane-undo'))).toContain(UNDO_WORDS.savedNotYet)
   })
   it('⌘Z undoes a move; ⇧⌘Z redoes it; never while typing in a field', async () => {
     nodes([['a', 5, 5]])

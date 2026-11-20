@@ -5,6 +5,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
+import { Hover } from '../../look/Hover'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
 import type { ViewCard } from '../../client'
@@ -79,7 +80,7 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
   }
   return (
     <form className="grid gap-1" data-testid="inspector-your-figure" onSubmit={(e) => { e.preventDefault(); void save() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
-      <label htmlFor={`inspector-figure-${card.id}`} className={`${typography.viewPanelMeta} font-medium text-text-header`} title={edit.ask}>{INSPECTOR_WORDS.yourFigure}: {edit.prompt}</label>
+      <Hover as="label" focusable={false} {...{ htmlFor: `inspector-figure-${card.id}` }} className={`${typography.viewPanelMeta} font-medium text-text-header`} words={edit.ask}>{INSPECTOR_WORDS.yourFigure}: {edit.prompt}</Hover>
       <input id={`inspector-figure-${card.id}`} data-testid="inspector-figure-typed" autoComplete="off" spellCheck={false} value={typed} disabled={busy}
         onChange={(e) => { setTyped(e.target.value); if (note !== null) setNote(null) }}
         className="rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />

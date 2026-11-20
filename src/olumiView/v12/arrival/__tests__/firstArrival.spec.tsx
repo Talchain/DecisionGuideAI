@@ -11,6 +11,7 @@ import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../../client'
 import { FirstArrival } from '../FirstArrival'
+import { tipOf } from '../../../__tests__/tipHelpers'
 
 const fx: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/r5/effects.view3.json'), 'utf8'))
 const BRIEF = 'Tallow & Wick makes candles for hotels.\n\nWe want ideas for a second product the same buyers would order, and a view on which to try first.'
@@ -22,28 +23,29 @@ const REPLY = 'A reply that draws on what Sam said about price.', KEPT = 'Offer 
 afterEach(cleanup)
 
 describe('FirstArrival: a reader core holds', () => {
-  it('reads a headline and one line with a lock; core\'s privacy sentence and the reveal sentence are hover words only (CHANGED BY DESIGN, v10 review item 9)', () => {
+  it('reads a headline and one line with a lock; core\'s privacy sentence and the reveal sentence are hover words only (CHANGED BY DESIGN, v10 review item 9)', async () => {
     render(<FirstArrival view={held()} />)
     const card = screen.getByTestId('first-arrival')
     expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Your view comes first')
     expect(card.querySelectorAll('p')[0]!.textContent).toBe('Say what you think before you read the others’, so the team hears what only you know.')
     expect(screen.getByTestId('first-arrival-brief-toggle').textContent).toBe('The brief this scenario started from')
-    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBe(fx.team_words.views.private)
+    expect(await tipOf(screen.getByTestId('first-arrival-private'))).toBe(fx.team_words.views.private)
     expect(screen.getByTestId('first-arrival-private').querySelector('svg')).toBeTruthy()
-    expect(screen.getByTestId('first-arrival-why').getAttribute('title')).toBe('Once everyone has given or skipped a view, any of you can reveal them all together.')
+    expect(await tipOf(screen.getByTestId('first-arrival-why'))).toBe('Once everyone has given or skipped a view, any of you can reveal them all together.')
     expect(screen.queryByTestId('first-arrival-reveal')).toBeNull()
     // At rest, those three lines are everything it says; the lock and eye sentences are not in the text.
     expect(card.textContent).toBe(['Your view comes first', 'Say what you think before you read the others’, so the team hears what only you know.', 'The brief this scenario started from'].join(''))
   })
 
-  it('carries core\'s privacy line as given in the lock\'s title (CHANGED BY DESIGN, v10 review item 9), and no title when core gives none', () => {
+  it('carries core\'s privacy line as given in the lock\'s title (CHANGED BY DESIGN, v10 review item 9), and no hover when core gives none', async () => {
     const words = (line: string) => ({ ...fx.team_words, views: { ...fx.team_words.views, private: line } })
     render(<FirstArrival view={held({ team_words: words('Core’s own line about privacy.') })} />)
-    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBe('Core’s own line about privacy.')
+    expect(await tipOf(screen.getByTestId('first-arrival-private'))).toBe('Core’s own line about privacy.')
     cleanup()
     render(<FirstArrival view={held({ team_words: words('') })} />)
     expect(screen.getByTestId('first-arrival')).toBeTruthy()
-    expect(screen.getByTestId('first-arrival-private').getAttribute('title')).toBeNull()
+    const bare = screen.getByTestId('first-arrival-private')
+    expect([bare.hasAttribute('title'), bare.hasAttribute('tabindex')], 'no native title, and no empty hover to reach').toEqual([false, false])
   })
 
   it('keeps the brief behind a closed disclosure and opens it whole, as written', () => {

@@ -70,7 +70,7 @@ const DISABLED_FENCE =
   // emitted no CSS, so the fenced state's border silently did not render either.
   // Caught by `controls.classesResolve.spec.ts` — the same class of defect as
   // `border-field`, in the same file, found by the guard written for the first.
-  ' disabled:bg-panel disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed'
+  ' disabled:bg-panel disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed aria-disabled:bg-panel aria-disabled:border-panel-border aria-disabled:text-text-light aria-disabled:cursor-not-allowed'
 
 /** The geometry both halves of the canvas value editor share — see `editableRestingCanvas`. */
 const CANVAS_VALUE_BOX = 'rounded-sm border -mx-1 -my-px px-[3px] py-0 transition-colors'
@@ -140,7 +140,7 @@ export const controls = {
     // A pencil on a fenced control is a promise, so the cue goes with the box.
     // `group-disabled:` because the cue is a CHILD of the button that carries
     // both the `group` marker and the disabled state.
-    ' disabled:hover:border-panel-border',
+    ' disabled:hover:border-panel-border aria-disabled:hover:border-panel-border',
 
   /**
    * ⭐ THE CANVAS CARD'S CLICK-TO-EDIT VALUE, AT REST — plain text, NOT the
@@ -239,9 +239,9 @@ export const controls = {
    * own (the lane's `border-0` chips); `act` is the bordered pill or circle every other filled action uses.
    */
   actColours:
-    'bg-success text-text-header hover:bg-success-hover active:bg-success-active disabled:cursor-not-allowed disabled:bg-panel-border disabled:text-text-light',
+    'bg-success text-text-header hover:bg-success-hover active:bg-success-active disabled:cursor-not-allowed disabled:bg-panel-border disabled:text-text-light aria-disabled:cursor-not-allowed aria-disabled:bg-panel-border aria-disabled:text-text-light aria-disabled:hover:bg-panel-border',
   act:
-    'border border-success bg-success text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light',
+    'border border-success bg-success text-text-header hover:border-success-hover hover:bg-success-hover active:bg-success-active focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light aria-disabled:cursor-not-allowed aria-disabled:border-panel-border aria-disabled:bg-panel-border aria-disabled:text-text-light aria-disabled:hover:border-panel-border aria-disabled:hover:bg-panel-border',
 
   selectableChip: {
     base: 'px-2.5 py-1 rounded-full cursor-pointer capitalize border transition-colors',

@@ -8,6 +8,7 @@
  *    steps are the base and the terms the View gives, never a formula.
  */
 import type { View, ViewCard } from '../client'
+import { Hover } from './Hover'
 import { movedByWorked, WorkedSteps, workedStepsOf } from './WorkedSteps'
 
 /** The cards this option moves through a sized term: `through` links from the option or a figure it sets, into a card worked out. */
@@ -32,7 +33,7 @@ export function SelectedExplain({ view, id, testid = 'selected-explain' }: { vie
           <p className="ok-explain-head">What it changes</p>
           <ul>{sets.map((s, i) => (
             <li key={s.id} data-view={`${id}.sets.${i}`}>
-              <span>{s.label}</span>{' '}<b title={s.figure?.title ?? undefined} data-view={`${id}.sets.${i}.figure.text`}>{s.figure?.text ?? ''}</b>
+              <span>{s.label}</span>{' '}<Hover as="b" words={s.figure?.title ?? undefined} data-view={`${id}.sets.${i}.figure.text`}>{s.figure?.text ?? ''}</Hover>
               {s.author == null || s.author === '' ? null : <span className={s.whose === 'olumi' ? 'ok-by-olumi' : 'ok-by'}> · {s.author}</span>}
             </li>
           ))}</ul>
@@ -42,7 +43,7 @@ export function SelectedExplain({ view, id, testid = 'selected-explain' }: { vie
         <section data-testid={`${testid}-premises`}>
           <p className="ok-explain-head">Rests on</p>
           <ul>{premises.map((p, i) => (
-            <li key={`${p.id ?? i}`} title={p.title} data-view={`${id}.premises.${i}.text`}><span aria-hidden="true" className="ok-explain-glyph">{p.glyph}</span> {p.text}</li>
+            <Hover as="li" key={`${p.id ?? i}`} words={p.title} data-view={`${id}.premises.${i}.text`}><span aria-hidden="true" className="ok-explain-glyph">{p.glyph}</span> {p.text}</Hover>
           ))}</ul>
         </section>
       )}

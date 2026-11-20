@@ -94,14 +94,14 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
 function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: RowT; at: string; words: string; hover: string; mark: Record<string, string | boolean | undefined> }): JSX.Element {
   const chance = typeof r.chance === 'number' && r.chance >= 0 && r.chance <= 1 ? r.chance : null
   return (
-    <div className="ok-dt-aim" title={hover} data-view={at} data-aim-row={r.kind} {...mark}>
+    <Hover as="div" className="ok-dt-aim" words={hover} data-view={at} data-aim-row={r.kind} {...mark}>
       {lead}
       {r.kind === 'none' ? <span className="ok-dt-mini-none" data-withheld-row={at} />
         : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
         : <span className="ok-dt-mini-none" />}
       <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} /></span>
       {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} />}
-    </div>
+    </Hover>
   )
 }
 /** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
@@ -172,8 +172,8 @@ export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }):
   return (
     <div className="ok-dt-said" data-said-once-on={at}>
       {lines.map((s, i) => (
-        <p key={i} className="ok-dt-said-line" title={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} />
-          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} /></span>}</p>
+        <Hover as="p" key={i} className="ok-dt-said-line" words={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} />
+          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} /></span>}</Hover>
       ))}
     </div>
   )

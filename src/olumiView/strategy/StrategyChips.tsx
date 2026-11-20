@@ -5,6 +5,7 @@
  * already marks the card or the View has no `strategy`. Selecting it opens the first person's view in the dock, as the reveal's chip does.
  * When it is the card's only rail, the links the team's explanations differ on (TM-04, CardDiffers.tsx) sit in it too: never a second rail.
  */
+import { HoverButton } from '../look/Hover'
 import { typography } from '../../styles/typography'
 import { CARD_WIDTH } from '../layout'
 import { openView } from '../RevealMarks'
@@ -31,14 +32,14 @@ export function StrategyChips({ card }: { card: string }): JSX.Element | null {
   const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
   return (
     <div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`strategy-chips-${card}`}>
-      <button type="button" aria-pressed={on} aria-label={mark.text} title={mark.text} data-strategy-chip={mark.views[0]} data-strategy-kind={mark.kind}
+      <HoverButton type="button" aria-pressed={on} aria-label={mark.text} words={mark.text} data-strategy-chip={mark.views[0]} data-strategy-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openView(mark.views[0]!, card) }}
         className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map((p, i) => <span key={`${p.view}:${p.by}`} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>{initial(p.by)}</span>)}
         </span>
         <span className="truncate" data-strategy-chip-text="">{mark.text}</span>
-      </button>
+      </HoverButton>
       {hostsDiffers ? differs.map((d) => <DifferChip key={d.record} d={d} card={card} />) : null}
     </div>
   )

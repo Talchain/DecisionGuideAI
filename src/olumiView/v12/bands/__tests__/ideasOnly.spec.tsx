@@ -23,6 +23,7 @@ import { VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { CHALLENGE_IDEA, DEVELOP_IDEA, IdeaPanel, ideaDetailOf } from '../IdeaPanel'
 import { takesBrief } from '../../../ViewChat'
 import { setLevel } from '../../simpleStore'
+import { tipOf } from '../../../__tests__/tipHelpers'
 import { challengeQuestionOf, developQuestionOf, keptIdeasOf } from '../../ideas'
 
 vi.mock('../../../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
@@ -180,7 +181,7 @@ describe('008e 2: an idea card is usable for the next thought', () => {
 describe('a kept idea draws its words as the conversation draws the reply (DL, pair v3: `**` and "## " showed raw on the card)', () => {
   const MARKED = [row(43, 3, '**An invented lead.** Then the invented words follow.', SAM), row(44, 3, '## An invented heading', SAM)]
   const card = (id: string) => document.querySelector<HTMLElement>(`[data-testid="view-idea-card"][data-view-idea="${id}"]`)!
-  it('catch: the card draws a bold run as weight, a lead-in as a quiet heading, no marks; at the board\'s type size, with no size of its own', () => {
+  it('catch: the card draws a bold run as weight, a lead-in as a quiet heading, no marks; at the board\'s type size, with no size of its own', async () => {
     show(noModel([...KEPT, ...MARKED])); mount()
     const lead = card('kept:43'), heading = card('kept:44')
     const text = (el: HTMLElement) => el.querySelector<HTMLElement>('[data-testid="view-idea-text"]')!
@@ -190,8 +191,9 @@ describe('a kept idea draws its words as the conversation draws the reply (DL, p
     expect(text(heading).querySelector('[data-reply-lead-in]')?.textContent).toBe('An invented heading')
     expect(lead.style.fontSize).toBe('calc(12px * var(--o-s, 1))')
     expect([...text(lead).querySelectorAll('*')].filter((e) => /(^|\s)text-(xs|sm|base|lg)(\s|$)/.test(e.className))).toEqual([])
-    expect(lead.title).not.toMatch(/\*\*|##/)
-    expect(lead.title).toContain('An invented lead. Then the invented words follow.')
+    const leadTip = await tipOf(lead)
+    expect(leadTip).not.toMatch(/\*\*|##/)
+    expect(leadTip).toContain('An invented lead. Then the invented words follow.')
   })
   it('catch: the opened idea\'s panel draws the same words the same way', () => {
     show(noModel([...KEPT, ...MARKED])); mount()
@@ -225,9 +227,9 @@ describe('the ideas strip\'s heading is the neutral "Kept ideas" for every reade
     show(noModel([row(53, 3, 'An invented idea Sam kept.', SAM), row(54, 3, 'Another invented idea Sam kept.', SAM)])); mount()
     expect(label()).toBe('Kept ideas')
   })
-  it('contrast: each card still says who kept it, from kept_by', () => {
+  it('contrast: each card still says who kept it, from kept_by', async () => {
     show(noModel([row(53, 3, 'An invented idea Sam kept.', SAM)])); mount()
-    expect(screen.getByTestId('view-idea-card').getAttribute('title')).toContain('kept by Sam')
+    expect(await tipOf(screen.getByTestId('view-idea-card'))).toContain('kept by Sam')
   })
 })
 

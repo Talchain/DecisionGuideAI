@@ -7,6 +7,7 @@
  */
 import { useState } from 'react'
 import { FoldChevron } from '../../look/FoldChevron'
+import { Hover } from '../../look/Hover'
 import type { ViewCard } from '../../client'
 import { typography } from '../../../styles/typography'
 import { OlumiMark } from './marks'
@@ -26,10 +27,10 @@ export function RestsOn({ card, open: initial }: { card: ViewCard; open: boolean
       {open ? (
         <ul className="m-0 grid list-none gap-1 p-0" data-testid={`rests-on-${card.id}-list`}>
           {premises.map((p, i) => (
-            <li key={p.id ?? i} title={p.title} className={`${typography.viewLabel} flex items-start gap-1 text-text-body`} data-view={`${card.id}.premises.${i}.text`}>
+            <Hover as="li" key={p.id ?? i} words={p.title} className={`${typography.viewLabel} flex items-start gap-1 text-text-body`} data-view={`${card.id}.premises.${i}.text`}>
               {p.olumi != null ? <OlumiMark words={p.olumi.title} /> : <span aria-hidden="true" className="text-text-light">{p.glyph}</span>}
               <span className="min-w-0 break-words">{p.text}</span>
-            </li>
+            </Hover>
           ))}
         </ul>
       ) : null}

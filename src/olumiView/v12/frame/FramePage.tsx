@@ -2,6 +2,7 @@ import { BODY, H, LABEL } from '../../../olumiCore/team/ui'
 import { typography } from '../../../styles/typography'
 import { requestAsk } from '../../../canvas/ui/inspector-v2/askSemantic'
 import { OkIcon } from '../../look/icons'
+import { Hover, HoverButton } from '../../look/Hover'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
 import { useLaneInspector } from '../edit/inspectorStore'
@@ -52,9 +53,9 @@ function Aim({ card }: { card: ViewCard }): JSX.Element {
         <button type="button" className={EDIT} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
           onClick={() => useLaneInspector.getState().open({ kind: 'card', id: card.id })}>{FRAME_WORDS.edit}</button>
       </div>
-      <span className={`${BODY} text-text-light`} data-frame="bound" title={b?.title}>
+      <Hover className={`${BODY} text-text-light`} data-frame="bound" words={b?.title}>
         {b != null && b.measured ? b.text : FRAME_WORDS.inWords}<Mark card={card} bound />
-      </span>
+      </Hover>
     </li>
   )
 }
@@ -73,7 +74,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
       <section className="grid gap-2" aria-label={FRAME_WORDS.question}>
         <div className="flex items-start gap-2">
           <h2 className={`${typography.viewPanelBody} m-0 min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="frame-question">{q.text}</h2>
-          {model.cards.length === 0 ? null : <button type="button" className={EDIT} data-testid="frame-edit-question" title="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</button>}
+          {model.cards.length === 0 ? null : <HoverButton type="button" className={EDIT} data-testid="frame-edit-question" words="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</HoverButton>}
         </div>
       </section>
       {model.cards.length === 0 ? (

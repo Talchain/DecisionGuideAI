@@ -9,6 +9,7 @@ import type { View } from '../../client'
 import type { Difference } from '../../../olumiCore/team/differences'
 import { AVATAR, LABEL, META } from '../../../olumiCore/team/ui'
 import { typography } from '../../../styles/typography'
+import { Hover } from '../../look/Hover'
 
 type Span = { readonly lo: number; readonly hi: number }
 /** A side's span and the words for it, both from the one revealed figure, so the mark and its label can never disagree. */
@@ -55,7 +56,7 @@ export function FigureSides({ view, d, at: id }: { view: View; d: Difference; at
         const x0 = at(axis, sp.lo), x1 = at(axis, sp.hi)
         const point = sp.hi === sp.lo
         return (
-          <li key={s.holder_id} className="grid gap-1" data-difference-side={s.holder_id} title={s.title}>
+          <Hover as="li" key={s.holder_id} className="grid gap-1" data-difference-side={s.holder_id} words={s.title}>
             <p className={`${META} flex items-center gap-1.5`}>
               <span aria-hidden="true" className={AVATAR}>{initial(s.holder)}</span>
               <span className="text-text-header">{s.holder}</span>
@@ -67,7 +68,7 @@ export function FigureSides({ view, d, at: id }: { view: View; d: Difference; at
                 ? <rect x={Math.max(0, x0 - 0.8)} y="0" width="1.6" height="8" className="fill-current text-text-header" data-range-mark="point" />
                 : <rect x={x0} y="1.5" width={Math.max(1.6, x1 - x0)} height="5" rx="1" className="fill-current text-text-header" data-range-mark="span" />}
             </svg>
-          </li>
+          </Hover>
         )
       })}
     </ul>
@@ -87,7 +88,7 @@ export function ChanceBars({ d, heading, modelHeading, at: id }: { d: Difference
           <p className={`${typography.viewPanelBody} m-0 break-words text-text-header`}>{o.label}
             {o.model !== '' && <span className={`${META} ml-1.5`} data-difference-model="">· {modelHeading} {o.model}</span>}</p>
           {o.chances.map((c) => (
-            <p key={c.holder_id} className={`${META} m-0 grid grid-cols-[22px_1fr_auto] items-center gap-2`} data-difference-chance={c.holder_id} title={c.withheld?.reason}>
+            <Hover as="p" key={c.holder_id} className={`${META} m-0 grid grid-cols-[22px_1fr_auto] items-center gap-2`} data-difference-chance={c.holder_id} words={c.withheld?.reason}>
               <span aria-hidden="true" className={AVATAR}>{initial(holder(c.holder_id))}</span>
               <span className="sr-only">{holder(c.holder_id)}</span>
               {c.chance === null
@@ -99,7 +100,7 @@ export function ChanceBars({ d, heading, modelHeading, at: id }: { d: Difference
                   </svg>
                 )}
               <span className="tabular-nums text-text-body">{c.text}</span>
-            </p>
+            </Hover>
           ))}
         </div>
       ))}

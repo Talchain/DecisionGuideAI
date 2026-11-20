@@ -13,6 +13,7 @@
 import { useMemo } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { useViewStore } from '../../store'
+import { Hover, HoverButton } from '../../look/Hover'
 import { chanceRailOf, type RailChallenge } from '../../railRows'
 import { toggleBadge } from '../../Badge'
 import { optionLetters } from '../cards/letters'
@@ -30,8 +31,8 @@ const letterOf = (letters: ReadonlyMap<string, string>, id: string) => letters.g
 /** Core's challenge mark on an option's lane (its key's own glyph, the badge's words its name and hover); pressing it opens what the badge folds. */
 function ChallengeMark({ id, c }: { id: string; c: RailChallenge }): JSX.Element {
   return (
-    <button type="button" className="ok-rail-challenge nodrag nopan" title={c.title} aria-label={`${c.word}: ${c.title}`} aria-expanded={c.badge.open} data-rail-challenge={id}
-      onClick={(e) => { e.stopPropagation(); void toggleBadge(id, c.badge) }}>{c.glyph}</button>
+    <HoverButton type="button" className="ok-rail-challenge nodrag nopan" words={c.title} aria-label={`${c.word}: ${c.title}`} aria-expanded={c.badge.open} data-rail-challenge={id}
+      onClick={(e) => { e.stopPropagation(); void toggleBadge(id, c.badge) }}>{c.glyph}</HoverButton>
   )
 }
 
@@ -58,7 +59,7 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
         // Layout only: words too long for the words column go under the lane across the rail's width (the lane keeps its place on the axis).
         const stack = l.on && typeof words !== 'string' && l.text.length > RAIL_WORDS_STACK
         return (
-          <div key={l.id} className={`ok-dt-rail-row${stack ? ' ok-dt-rail-stack' : ''}`} data-rail-stack={stack ? '' : undefined} data-rail-row={l.id} title={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
+          <Hover as="div" key={l.id} className={`ok-dt-rail-row${stack ? ' ok-dt-rail-stack' : ''}`} data-rail-stack={stack ? '' : undefined} data-rail-row={l.id} words={`${l.name}\n${l.text}${'range' in l && l.range ? `\n${l.range}` : ''}`}>
             <span className="ok-letter" data-letter-chip={letterOf(letters, l.id)}>{letterOf(letters, l.id)}</span>
             {l.on ? (
               <span className="ok-dt-rail-lane" role="img" aria-label={`${l.name}: ${l.text}`} data-rail-lane={l.id}>
@@ -68,10 +69,10 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
             ) : null}
             {/* The value cell wraps and clips nothing; core's words are their own element and the challenge mark sits beside them, never inside them. */}
             <span className={`ok-dt-rail-val ${l.on ? '' : 'ok-dt-rail-none'}`}><span data-view={`${l.id}.headline.text`}>{words}</span>{l.challenge === null ? null : <>{' '}<ChallengeMark id={l.id} c={l.challenge} /></>}</span>
-          </div>
+          </Hover>
         )
       })}
-      {qualifier === null ? null : <p className="ok-dt-said-line" data-shared-qualifier="" title={qualifier}>{qualifier}</p>}
+      {qualifier === null ? null : <Hover as="p" className="ok-dt-said-line" data-shared-qualifier="" words={qualifier}>{qualifier}</Hover>}
     </div>
   )
 }
@@ -84,7 +85,7 @@ export function Strips({ card, model }: { card: ViewCard; model: ViewModel | nul
   return (
     <div className="ok-dt-strips" data-detailed-strips={card.id}>
       {rows.map((b) => (
-        <div key={b.option} className="ok-dt-strip" title={`${b.heading} · ${b.text}`} data-strip={b.option} data-core-value={`${card.id}.${b.option}`}>
+        <Hover as="div" key={b.option} className="ok-dt-strip" words={`${b.heading} · ${b.text}`} data-strip={b.option} data-core-value={`${card.id}.${b.option}`}>
           <span className="ok-letter">{b.letter}</span>
           <span className="ok-dt-strip-lane">
             {b.hi > b.lo ? <i className={`ok-dt-strip-band ${b.olumi ? 'ok-dt-olumi-band' : ''}`} style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%` }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
@@ -94,15 +95,15 @@ export function Strips({ card, model }: { card: ViewCard; model: ViewModel | nul
           <span className="ok-dt-strip-val">{b.text}{(() => {
             // Core's mark on a value a held proposal would change (its glyph, its words the name), by the value's own place in `values`.
             const i = (card.values ?? []).findIndex((v) => v.option === b.option), ia = i < 0 ? null : card.values![i]!.if_approved
-            return ia == null ? null : <span className="ok-dt-olumi ok-dt-ia" role="img" aria-label={ia.title} title={ia.title} data-view={`${card.id}.values.${i}.if_approved.glyph`}>{ia.glyph}</span>
+            return ia == null ? null : <Hover className="ok-dt-olumi ok-dt-ia" role="img" aria-label={ia.title} words={ia.title} data-view={`${card.id}.values.${i}.if_approved.glyph`}>{ia.glyph}</Hover>
           })()}</span>
-        </div>
+        </Hover>
       ))}
       {held.map((w) => (
-        <div key={w.option} className="ok-dt-strip" title={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-strip-withheld={w.option}>
+        <Hover as="div" key={w.option} className="ok-dt-strip" words={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-strip-withheld={w.option}>
           <span className="ok-letter">{letterOf(letters, w.option)}</span>
           <span className="ok-dt-strip-val ok-dt-strip-none ok-dt-quiet">{w.text}</span>
-        </div>
+        </Hover>
       ))}
       {axis === null || rows.length === 0 ? null : (
         <div className="ok-dt-strip ok-dt-strip-axis" aria-hidden="true"><span /><span className="ok-dt-strip-ends"><span>{axis.min}</span><span>{axis.max}{axis.unit === null ? '' : ` ${axis.unit}`}</span></span><span /></div>

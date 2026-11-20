@@ -4,6 +4,7 @@
  * the span between them is a link between two chances, not a probability band, so it is a plain line and is never shaded.
  */
 import type { View, ViewCard, ViewModel } from '../../client'
+import { Hover } from '../../look/Hover'
 import { LABEL_PX } from './axis'
 import { sampledChanceWords } from './chanceWords'
 
@@ -21,7 +22,7 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
   const lo = Math.min(d.low, d.high) * 100, hi = Math.max(d.low, d.high) * 100
   const dot = (p: number, id: string) => <span data-testid={id} data-p={p} style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: OPT, left: `calc(${p * 100}% - 5px)` }} />
   return (
-    <div data-testid="conditional-bar" data-card={card.id} title={card.driver?.title || undefined} style={{ margin: '4px 0', fontSize: LABEL_PX, color: LIGHT }}>
+    <Hover as="div" data-testid="conditional-bar" data-card={card.id} words={card.driver?.title || undefined} style={{ margin: '4px 0', fontSize: LABEL_PX, color: LIGHT }}>
       <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
         <span style={{ position: 'absolute', top: 7, height: 2, background: `color-mix(in srgb, ${INK} 40%, transparent)`, left: `${lo}%`, width: `${hi - lo}%` }} />
         {dot(d.low, 'conditional-low')}{dot(d.high, 'conditional-high')}
@@ -30,6 +31,6 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
         <span data-testid="conditional-low-label">low {sampledChanceWords(d.low)}</span>
         <span data-testid="conditional-high-label">high {sampledChanceWords(d.high)}</span>
       </div>
-    </div>
+    </Hover>
   )
 }

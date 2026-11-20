@@ -19,6 +19,7 @@ import { LensesMenu } from '../lenses/LensesMenu'
 import { figureRange } from '../contract'
 import { RangeBar } from '../scale/RangeBar'
 import { axisOf, pctOf } from '../scale/axis'
+import { tipOf } from '../../__tests__/tipHelpers'
 
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
 vi.mock('../../../canvas/hydrate/serverGraphHydration', async (real) => ({ ...(await real<object>()), hydrateCanvasFromServer: vi.fn(async () => 'merged') }))
@@ -197,7 +198,7 @@ describe('V12 Simple faces', () => {
     expect(words.parentElement!.className, 'the track and the words are stacked, not one row').not.toContain('flex')
   })
 
-  it('S2c (R6) an option with no chance is ONE quiet line in core\'s own words, its long reason the hover: no "?", no "Why not", no empty track, no zero', () => {
+  it('S2c (R6) an option with no chance is ONE quiet line in core\'s own words, its long reason the hover: no "?", no "Why not", no empty track, no zero', async () => {
     const base = card('broader_entry')
     const why = 'The chance is not worked out: in 170 samples a figure went outside what it can be, such as below zero.'
     const add = 'Give a value for the first cheque'
@@ -205,7 +206,7 @@ describe('V12 Simple faces', () => {
     const { container } = render(<SimpleFace card={withheld} model={model} noted={false} />)
     const face = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
     expect(face.textContent, 'what is missing: core\'s next step').toBe(add)
-    expect(face.title, 'the long reason whole on hover, then the next step').toBe(`${why}\n${add}`)
+    expect(await tipOf(face), 'the long reason whole on hover, then the next step').toBe(`${why}\n${add}`)
     expect(container.querySelector('summary'), 'no "Why not"').toBeNull()
     expect(container.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), 'no dashed empty track at rest').toBeNull()
     expect(container.textContent, 'no "?" and no figure drawn for what is unknown').not.toMatch(/\?|0%/)
@@ -214,7 +215,7 @@ describe('V12 Simple faces', () => {
     const bare = { ...withheld, headline: { ...withheld.headline, add: null } }
     const b = render(<SimpleFace card={bare} model={model} noted={false} />).container
     expect(b.querySelector('[data-simple-face="no-chance"]')!.textContent).toBe('No chance yet')
-    expect(b.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!.title).toBe(why)
+    expect(await tipOf(b.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).toBe(why)
   })
 
   it('S4 a figure with a modelled band is one range bar per option on one axis, inside 0 to 100', () => {
@@ -264,12 +265,12 @@ describe('V12 Simple faces', () => {
     expect(empty.querySelector('[data-simple-face="figure"]')).toBeNull()
   })
 
-  it('S6 a withheld chance is a dashed empty bar (a built case, since the fixture holds every chance)', () => {
+  it('S6 a withheld chance is a dashed empty bar (a built case, since the fixture holds every chance)', async () => {
     const opt = card('broader_entry')
     const built = { ...opt, headline: { ...opt.headline!, state: 'none' as const, why: 'A figure is missing' }, rows: [] }
     const { container } = render(<SimpleFace card={built as never} model={model} noted={false} />)
     const f = container.querySelector('[data-simple-face="no-chance"]')!
-    expect(f.getAttribute('title')).toBe('A figure is missing')
+    expect(await tipOf(f as HTMLElement)).toBe('A figure is missing')
     expect(container.querySelector('.ok-track')).toBeNull()
   })
 

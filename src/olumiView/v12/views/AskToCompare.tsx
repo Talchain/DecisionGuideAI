@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import type { View } from '../../client'
 import { OkIcon } from '../../look/icons'
+import { HoverButton } from '../../look/Hover'
 import { ASK, META } from '../../../olumiCore/team/ui'
 import { twoPeopleRevealed } from './differGroups'
 import { ASK_SAID, askOlumi, COMPARE_REQUEST, type AskOutcome } from './askOlumi'
@@ -21,10 +22,10 @@ export function AskButton({ label, question, target = null, chip = null, at }: {
   const said = done !== null && done.q === question ? done.out : null
   return (
     <div className="grid justify-items-start gap-1" data-testid={at}>
-      <button type="button" className={ASK} data-testid={`${at}-go`} title={question} disabled={said === 'sending' || said === 'sent'} data-question={question}
+      <HoverButton type="button" className={ASK} data-testid={`${at}-go`} words={question} disabled={said === 'sending' || said === 'sent'} data-question={question}
         onClick={() => setDone({ q: question, out: askOlumi(question, target, (out) => setDone({ q: question, out }), chip) })}>
         <OkIcon id="olumi-mark" size={14} decorative />{label}
-      </button>
+      </HoverButton>
       <p role="status" className={META} data-testid={`${at}-said`}>{said === null ? '' : ASK_SAID[said]}</p>
     </div>
   )

@@ -5,6 +5,7 @@ import path from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../../../client'
 import { ConditionalBar, OutcomeStrips, RangeBar } from '..'
+import { tipOf } from '../../../__tests__/tipHelpers'
 
 const load = (n: string): ViewModel => (JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/core-38eebca9/${n}.view3.json`), 'utf8')) as View).model!
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x))
@@ -14,7 +15,7 @@ const letters = new Map([['broader_entry', 'A'], ['single_country_test', 'B'], [
 describe('OutcomeStrips', () => {
   const m = load('european')
   const c = card(m, 'customers')
-  it('O1 draws one strip and median per option on one shared 0-based axis, with the letter, ticks, unit, deadline and legend', () => {
+  it('O1 draws one strip and median per option on one shared 0-based axis, with the letter, ticks, unit, deadline and legend', async () => {
     render(<OutcomeStrips card={c} view={m} letters={letters} />)
     for (const v of c.values!) {
       expect(screen.getByTestId(`strip-letter-${v.option}`).textContent).toBe(letters.get(v.option))
@@ -27,7 +28,7 @@ describe('OutcomeStrips', () => {
     expect(screen.getByTestId('outcome-unit').textContent).toBe('customer')
     expect(screen.getByTestId('outcome-deadline').textContent).toBe('800 customer deadline')
     expect(screen.getByTestId('outcome-legend').textContent).toBe('middle 80% · median')
-    expect(screen.getByTestId('outcome-legend').getAttribute('title')).toBe(c.figure!.title)
+    expect(await tipOf(screen.getByTestId('outcome-legend'))).toBe(c.figure!.title)
   })
   it('O2 draws no deadline when the card is not the aim quantity, and no unit it was not told', () => {
     const other = card(m, 'churn_rate')
