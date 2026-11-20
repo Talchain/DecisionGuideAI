@@ -36,16 +36,46 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead; /** Core's note that this reply ran on less than usual (`floor[].degraded`), verbatim; absent otherwise. */ degraded?: { text: string; title: string }; /** A message sent by a press on the canvas (typed fields 13b, `floor[].press` on an unanswered turn); absent otherwise. */ press?: TurnPress }
 /** A reply's short lead (View v3, additive; DL 11:06:45Z): one or two opening sentences and its points, in Olumi's words as core serves them.
  *  The page draws it and folds the full answer beneath; it never cuts, counts or writes one. Absent: the reply is drawn as before. */
-export type ReplyLead = { opening: string; points: string[] }
+export type LeadActionOn = { finding: string } | { record: string } | { world: true }
+/** One thing core suggests doing (`lead.actions[]`, harness slice 3): its words, what it is about (a finding, a record, or the world outside the model) and its basis, all core's. */
+export type LeadAction = { text: string; on: LeadActionOn; basis: string }
+/** `actions`: at most three, in core's order; the key is absent when there are none. */
+export type ReplyLead = { opening: string; points: string[]; actions?: LeadAction[] }
+const MAX_ACTIONS = 3
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== ''
+const actionOnOf = (on: unknown): LeadActionOn | null => {
+  if (on === null || typeof on !== 'object' || Array.isArray(on)) return null
+  const { finding, record, world } = on as { finding?: unknown; record?: unknown; world?: unknown }
+  const shapes = [finding !== undefined, record !== undefined, world !== undefined].filter(Boolean).length
+  if (shapes !== 1) return null
+  if (nonEmpty(finding)) return { finding }
+  if (nonEmpty(record)) return { record }
+  return world === true ? { world: true } : null
+}
+/** Core's `lead.actions`, read defensively: well-formed items only (words, a basis, and an `on` of exactly one of the three shapes), the first three in core's order; none where absent. */
+const actionsOf = (a: unknown): LeadAction[] => {
+  if (!Array.isArray(a)) return []
+  const out: LeadAction[] = []
+  for (const item of a) {
+    if (item === null || typeof item !== 'object') continue
+    const { text, on, basis } = item as { text?: unknown; on?: unknown; basis?: unknown }
+    const o = actionOnOf(on)
+    if (!nonEmpty(text) || o === null || typeof basis !== 'string') continue
+    out.push({ text, on: o, basis })
+    if (out.length === MAX_ACTIONS) break
+  }
+  return out
+}
 const squash = (s: string) => s.replace(/\r\n?/g, '\n').split('\n').map((l) => l.replace(/^\s*#{2,6}\s+/, '').replace(/^\s*[-*•]\s+/, '').replace(/\*\*([^*\n]+)\*\*/g, '$1')).join(' ').replace(/\s+/g, ' ').trim()
 /** A well-formed lead on `holder` (a turn's answer or a floor row), or null: a non-empty opening and points that are each non-empty words. `full`
  *  is the whole answer's text: a lead that says all of it (the same words) folds nothing, so the reply is drawn as before. */
 export const leadOf = (holder: unknown, full: string): ReplyLead | null => {
   const l = typeof holder === 'object' && holder !== null ? (holder as { lead?: unknown }).lead : undefined
   if (l === null || typeof l !== 'object') return null
-  const { opening, points } = l as { opening?: unknown; points?: unknown }
+  const { opening, points, actions } = l as { opening?: unknown; points?: unknown; actions?: unknown }
   if (typeof opening !== 'string' || opening.trim() === '' || !Array.isArray(points) || !points.every((p) => typeof p === 'string' && p.trim() !== '')) return null
-  const lead = { opening, points: points as string[] }
+  const acts = actionsOf(actions)
+  const lead: ReplyLead = { opening, points: points as string[], ...(acts.length === 0 ? {} : { actions: acts }) }
   return squash(full) === squash([opening, ...lead.points].join('\n')) ? null : lead
 }
 export type Unanswered = { status: 'failed' | 'lost'; words: string | null }

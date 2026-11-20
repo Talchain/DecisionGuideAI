@@ -229,6 +229,17 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
 .ok-reply .ok-reply-more { margin-top: 2px; }
 .ok-reply .ok-reply-more[open] > summary { margin-bottom: 8px; }
+/* A reply lead's actions (core `lead.actions`): one short line each, under the opening. A linked line is a quiet underlined button that selects its card;
+   a line about the world carries Olumi's general-suggestion mark and no link. The basis rides the one Tip. */
+.ok-lead-actions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.ok-lead-action { display: flex; align-items: flex-start; gap: var(--space-1); min-width: 0; color: var(--text-body); }
+.ok-lead-action-link {
+  margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: var(--text-body); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere;
+}
+.ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); }
+.ok-lead-action-link:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 2px; }
+.ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
 /* Olumi's proposal, pinned at the foot of the thread just above the composer (17 Nov, the calm panel): ONE line (Olumi's mark, core's heading, Review,
    Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
    actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */
