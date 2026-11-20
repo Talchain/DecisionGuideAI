@@ -15,7 +15,6 @@ import { levelOf, useSimpleLevel } from '../simpleStore'
 import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
 import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
-import { sharedWaitsOf } from '../cards/words'
 import { FOOT_EDGE } from '../../BelowCue'
 
 const INK = 'var(--text-light)'
@@ -74,8 +73,6 @@ export function BandLayer() {
   const labels = labelsAboveFold(all, ty, zoom, paneH)
   // The board's type scale (layout.ts simpleScaleOf), the cards' own, so a label is the size of the text it labels.
   const scale = useMemo(() => nodes.map((n) => (n.data as { scale?: number }).scale).find((x) => x !== undefined), [nodes])
-  // The waits item every option shares, said once beside the options label (words.ts sharedWaitsOf), quiet, core's words whole.
-  const waitsOnce = useMemo(() => sharedWaitsOf(model), [model])
   const unlinked = useMemo(() => (model === null ? new Set<string>() : new Set(unlinkedIds(model))), [model])
   // With no model only the kept ideas' band is drawn, on either level; with one, the bands are Simple's.
   if ((level !== 'simple' && model !== null) || all.length === 0) return null
@@ -87,7 +84,6 @@ export function BandLayer() {
           <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y, transform: `translateY(calc(-100% - ${SIMPLE_LABEL_GAP}px - ${KIND_GLYPH_PX / 2}px * var(--o-s, 1)))`, color: INK, pointerEvents: 'none', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
             className="z-[3] flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 font-medium leading-tight">
             <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
-            {band === 'options' && waitsOnce !== null ? <span className="font-normal" title={waitsOnce.title} data-band-waits-once>{waitsOnce.text}</span> : null}
             {band === 'inputs' && expanded ? <button type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
               title="Fold these inputs into one group" aria-label="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}><OkIcon id="fold-group" variant="alt" size={14} decorative inherit /></button> : null}
           </div>

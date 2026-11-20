@@ -1,6 +1,6 @@
 /**
- * Url3-2 (Paul, 19 Nov): the same waits item was said once on every option, each cut by a two-line clamp, and an aim's "not checked yet" state was a large
- * outlined pill. Core's words only, by typed field: the option's `headline.add` and `needs[].id`, the aim's `bound.measured`.
+ * Url3-2 (Paul, 19 Nov): the same waits item was said on every option, each cut by a two-line clamp (core now says it once, 0f85bc3d), and an aim's "not checked yet"
+ * state was a large outlined pill. Core's words only, by typed field: the option's `headline.add` and `needs[].id`, the aim's `bound.measured`.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,7 +10,6 @@ import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../../../client'
 import { SimpleFace } from '../../SimpleFace'
-import { sharedWaitsOf } from '../words'
 
 const BASE = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/bakery-asked.view3.json'), 'utf8')) as View
 const ADD = "Still unresolved: 'Productivity gain from the hire', which Olumi has not been able to size from what is in the model so far."
@@ -19,30 +18,25 @@ const modelWith = (per: (c: ViewCard, i: number) => ViewCard): ViewModel => {
   let i = 0
   return { ...BASE.model!, cards: BASE.model!.cards.map((c) => (c.family === 'option' ? per(c, i++) : c)) }
 }
-const SAME = modelWith((c) => waiting(c, ['gain'], ADD))
+const CORE_ONCE = modelWith((c) => waiting(c, ['gain'], ''))
 const options = (m: ViewModel) => m.cards.filter((c) => c.family === 'option')
 afterEach(cleanup)
 
-describe('the waits item every option shares is said once, whole', () => {
-  it('W1 every option waits on the same item id in the same words: said once (core\'s words), and no option card repeats it', () => {
-    expect(sharedWaitsOf(SAME)?.text).toBe(ADD)
-    for (const o of options(SAME)) {
-      const { container } = render(<SimpleFace card={o} model={SAME} noted={false} />)
-      expect([o.id, container.textContent?.includes('Still unresolved')]).toEqual([o.id, false])
+describe('a waits item every option shares: core says it once (core 0f85bc3d), the options draw what core sent', () => {
+  it('W1 core sends the shared item on no option: each option draws its own headline words and never the item', () => {
+    for (const o of options(CORE_ONCE)) {
+      const { container } = render(<SimpleFace card={o} model={CORE_ONCE} noted={false} />)
+      const line = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
+      expect([o.id, line.textContent, container.textContent?.includes('Still unresolved')]).toEqual([o.id, o.headline!.text, false])
       cleanup()
     }
   })
-  it('W2 CONTRAST: one option waits on another item (or has other words) and every option keeps its own line, whole, with no two-line clamp', () => {
-    const other = modelWith((c, i) => waiting(c, [i === 1 ? 'something_else' : 'gain'], ADD))
-    expect(sharedWaitsOf(other)).toBeNull()
-    const differing = modelWith((c, i) => waiting(c, ['gain'], i === 1 ? `${ADD} Different.` : ADD))
-    expect(sharedWaitsOf(differing)).toBeNull()
-    for (const o of options(other)) {
-      const { container } = render(<SimpleFace card={o} model={other} noted={false} />)
-      const line = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
-      expect([o.id, line.textContent, line.classList.contains('ok-two-lines')]).toEqual([o.id, ADD, false])
-      cleanup()
-    }
+  it('W2 CONTRAST: an option that still carries its own `add` line draws it whole, with no two-line clamp', () => {
+    const own = modelWith((c, i) => (i === 1 ? waiting(c, ['gain'], ADD) : waiting(c, ['gain'], '')))
+    const o = options(own)[1]!
+    const { container } = render(<SimpleFace card={o} model={own} noted={false} />)
+    const line = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
+    expect([line.textContent, line.classList.contains('ok-two-lines')]).toEqual([ADD, false])
   })
 })
 

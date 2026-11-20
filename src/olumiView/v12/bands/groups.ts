@@ -120,15 +120,16 @@ export function withoutGrouped(model: ViewModel, groups: readonly CardGroup[]): 
  *  group draws the real links with their own controls. */
 export type GroupLink = { readonly from: string; readonly to: string; readonly count: number }
 
-/** The links of the groups' cards, run to the group card: one connector per pair of drawn ends, none inside one group, none to an end not drawn.
- *  `drawn`: the node ids on the board. */
-export function groupLinksOf(model: ViewModel, groups: readonly CardGroup[], drawn: ReadonlySet<string>): GroupLink[] {
-  const into = new Map(groups.flatMap((g) => g.cards.map((c) => [c, g.id] as const)))
+/** The links of the groups' cards, run to the group card, and of an aim's bars (layout.ts barsOf), run to the aim: one connector per pair of drawn ends,
+ *  none inside one group, none to an end not drawn, none where the pair already has a link of its own. `drawn`: the node ids on the board. */
+export function groupLinksOf(model: ViewModel, groups: readonly CardGroup[], drawn: ReadonlySet<string>, bars: ReadonlyMap<string, string> = new Map()): GroupLink[] {
+  const into = new Map([...groups.flatMap((g) => g.cards.map((c) => [c, g.id] as const)), ...bars])
   const out = new Map<string, GroupLink>()
+  const have = new Set(model.links.map((k) => `${k.from}>${k.to}`))
   for (const link of model.links) {
     const from = into.get(link.from) ?? link.from, to = into.get(link.to) ?? link.to
     if (from === link.from && to === link.to) continue
-    if (from === to || !drawn.has(from) || !drawn.has(to)) continue
+    if (from === to || !drawn.has(from) || !drawn.has(to) || have.has(`${from}>${to}`)) continue
     const key = `${from}>${to}`
     out.set(key, { from, to, count: (out.get(key)?.count ?? 0) + 1 })
   }

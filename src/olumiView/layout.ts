@@ -369,6 +369,20 @@ export function drawnModelOf(model: ViewModel): ViewModel {
   return { ...model, cards: model.cards.filter((c) => !asLinks.has(c.id)), links: model.links.filter((l) => !asLinks.has(l.from) && !asLinks.has(l.to)) }
 }
 /**
+ * A figure core marks `bar_of` an aim (core 79b57973: its only reader is that aim's target or bound, used once there) is that aim's bar. Simple says it
+ * on the aim card (its bound), so the board draws it as no card of its own: bar id -> aim id. A bar whose aim is not in the model stays a card, so
+ * nothing is lost. Detailed draws every card, bars included.
+ */
+export function barsOf(model: ViewModel): ReadonlyMap<string, string> {
+  const ids = new Set(model.cards.map((c) => c.id))
+  return new Map(model.cards.flatMap((c) => (c.bar_of != null && ids.has(c.bar_of) ? [[c.id, c.bar_of] as const] : [])))
+}
+/** The figure that is this aim's bar, from the same `barsOf` map the board uses (one source): null where core marks none. */
+export function barCardOf(model: ViewModel, aimId: string): ViewCard | null {
+  const barId = [...barsOf(model)].find(([, aim]) => aim === aimId)?.[0]
+  return barId === undefined ? null : model.cards.find((c) => c.id === barId) ?? null
+}
+/**
  * J1 step 3 (nothing repeated): while no option has a chance yet (every option card's rows are core's "none" kind), each option card leaves
  * that row to the panel, which says what is not yet there once. Keyed by the rows' kind, never their words. False when any option has a
  * chance or a limit row, or there is no option.

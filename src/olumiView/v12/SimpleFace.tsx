@@ -22,11 +22,12 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
+import { barCardOf } from '../layout'
 import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark } from './cards/marks'
-import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, sharedWaitsOf, unsizedWords } from './cards/words'
+import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
+import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
@@ -147,9 +148,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     } else if (h !== null && sharedNoChanceOf(model, h.aim_id) === null) {
       // R6 (16 Nov): an option with no chance is ONE quiet line, core's own words for what is missing (words.ts noChanceLineOf); the long reason is the hover.
       // Where every option waits for one shared reason, the aim card says it once and the options say nothing (words.ts sharedNoChanceOf).
-      // Where every option waits on the same item, the options band says it once (words.ts sharedWaitsOf); each option's own `add` line is whole, never clamped.
+      // Each option's own `add` line is whole, never clamped. (A waits item every option shares is core's to say once: it sends it on none of them.)
       const { line, hover } = noChanceLineOf(h)
-      if (sharedWaitsOf(model) === null) state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
+      state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
     }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
@@ -190,8 +191,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     if (held.length > 0) state = { text: held[0]!.text, title: held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n'), marks: { 'data-simple-withheld-why': held[0]!.option } }
   } else if (card.bound != null) {
     const olumi = card.bound.olumi != null
-    // The aim's question opens its target figure's own editor, as the Detailed face does (core's `target`, targets.ts); none where core offers none.
-    const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
+    // The aim's bar (core's `bar_of`, layout.ts barsOf) has no card of its own on this face: the bound is its place, and the author mark beside it is the bar figure's
+    // (core's author words), not the aim's own.
+    // One source: the bar is the card layout.ts barsOf names for this aim; its editor and its author mark are that card's. Where core names no bar, the
+    // aim's target line (targets.ts) is the editor and the mark is bound.olumi's. The mark is decided on data (whoseOf), never on an element existing.
+    const bar = model === null ? null : barCardOf(model, id)
+    const target = model === null || model.edit_base === null ? null : bar !== null ? (bar.figure?.edit != null ? bar : null) : targetCardOf(model, card)
+    const mark = bar !== null && whoseOf(bar) !== null ? <AuthorGlyph card={bar} /> : olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
     const quietBound = <span className="min-w-0 break-words">{card.bound.text}</span>
     visual = (
@@ -202,13 +208,13 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         <p className={`${typography.viewValue} flex min-w-0 basis-full items-center gap-1`} data-simple-face="target" title={card.bound.title !== '' ? card.bound.title : card.bound.text} style={{ color: GOAL }}>
           <span className="ok-pill ok-bound min-w-0">
             {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
-            {olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null}
+            {mark}
           </span>
         </p>
       ) : (
         <p className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id} title={card.bound.title !== '' ? card.bound.title : card.bound.text}>
           {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
-          {olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null}
+          {mark}
         </p>
       )
     )
