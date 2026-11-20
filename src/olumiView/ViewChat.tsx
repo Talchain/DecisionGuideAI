@@ -1992,8 +1992,8 @@ export function ViewChat() {
         : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
       {/* "Record what you will do" (DL 20 Nov, the 1232 and 1.33 limit): docked here, just above the composer whose icon opens it, never in the
           thread. Inside the thread the open form scrolled Olumi's newest reply out of view; here the thread shrinks above it, keeps its floor
-          and rests on that reply's first line (followNewest), and the form, capped, scrolls in its own box (olumiLook.css .ok-form-foot). */}
-      <div className="ok-form-foot shrink-0" data-testid="view-chat-form"><CommitFormFoot /></div>
+          and rests on that reply's first line (followNewest), and the form takes the rest, scrolling in its own box only past that (olumiLook.css .ok-form-foot). */}
+      <div className="ok-form-foot" data-testid="view-chat-form"><CommitFormFoot /></div>
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).
