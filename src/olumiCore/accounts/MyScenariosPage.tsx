@@ -57,10 +57,15 @@ export default function MyScenariosPage(): JSX.Element {
     void load(() => live)
     return () => { live = false }
   }, [load])
-  // Investor audit #4 (20 Nov): a person with no scenario at all (none archived either) lands straight on the brief box, as "New scenario" opens it, not on an
-  // empty list; replaced in history, so Back does not return to a page that would open the brief again.
+  // Investor audit #4 (20 Nov): a person with no scenario at all (none archived either) lands straight on the brief box, not on an empty list; replaced in
+  // history, so Back does not return to a page that would open the brief again. Only the remembered scenario id is forgotten (the server says this person
+  // has none); the canvas and its autosave are recovery state and are kept (Codex HOLD, 1800dd56..783f8768): an unsent brief survives. New scenario is unchanged.
   const empty = list !== null && list.length === 0 && away.length === 0
-  useEffect(() => { if (empty) { startFreshScenario(); navigate('/canvas', { replace: true }) } }, [empty, navigate])
+  useEffect(() => {
+    if (!empty) return
+    clearCurrentScenarioId(); useCanvasStore.setState({ currentScenarioId: null })
+    navigate('/canvas', { replace: true })
+  }, [empty, navigate])
   /** After a refused save: a refusal because this browser is now someone else's (409) clears everything of this page's person, and the
    *  edit; any other refusal keeps the list and what was typed, so the person can correct it. */
   const refused = async (e: unknown) => {

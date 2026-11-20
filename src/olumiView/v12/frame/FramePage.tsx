@@ -20,10 +20,19 @@ import { withheldWords } from '../cards/words'
  */
 /** Investor audit #2 (20 Nov: the chances sat behind the Results tab): a route says its chance at rest, core's headline words as its option card says them
  *  ("about 51% chance"), quiet beside its name. A withheld chance says nothing here: its reason is long and lives on the card. */
-function routeChance(c: ViewCard): JSX.Element | null {
+const shownChance = (c: ViewCard): NonNullable<ViewCard['headline']> | null => {
   const h = c.headline
-  return h == null || h.text === '' || withheldWords(h) !== null ? null : <span className="text-text-light" data-view={`${c.id}.headline.text`}> · {h.text}</span>
+  return h == null || h.text === '' || withheldWords(h) !== null ? null : h
 }
+/** What each chance is OF (Codex, 7923dd8c): core's run lead ("Chance of ‘…’, in this model on current information") once over the routes whose chance is the
+ *  run's aim; a route whose chance is another aim's names that aim, by its card's own heading, on the route. Bound by id (`headline.aim_id`, `run.aim`). */
+function routeChance(c: ViewCard, model: NonNullable<View['model']>): JSX.Element | null {
+  const h = shownChance(c)
+  if (h === null) return null
+  const other = h.aim_id != null && h.aim_id !== (model.run?.aim ?? null) ? model.cards.find((x) => x.id === h.aim_id) ?? null : null
+  return <span className="text-text-light" data-view={`${c.id}.headline.text`}> · {h.text}{other === null ? null : <> (<span data-view={`${other.id}.heading`}>{other.heading}</span>)</>}</span>
+}
+const runScoped = (c: ViewCard, model: NonNullable<View['model']>): boolean => { const h = shownChance(c); return h !== null && (h.aim_id == null || h.aim_id === (model.run?.aim ?? null)) }
 
 export const FRAME_WORDS = {
   question: 'Question', edit: 'Edit', askChange: 'Ask Olumi to change it', matters: 'What matters', aims: 'Aims', limits: 'Limits', routes: 'Routes you could take', fullGraph: 'Full graph',
@@ -104,8 +113,9 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
           {routes.length === 0 ? null : (
             <section className="grid gap-1" aria-label={FRAME_WORDS.routes}>
               <h3 className={H}>{FRAME_WORDS.routes}</h3>
+              {model.run?.lead == null || !routes.some((c) => runScoped(c, model)) ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-view="run.lead">{model.run.lead}</p>}
               <ul className="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="frame-routes">
-                {routes.map((c) => <li key={c.id} className={`${BODY} rounded-md border px-2 py-1 ${c.olumi != null ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-route-${c.id}`}>{c.olumi != null ? <><OlumiMark words={c.olumi.title} /> </> : null}{c.heading}{routeChance(c)}</li>)}
+                {routes.map((c) => <li key={c.id} className={`${BODY} rounded-md border px-2 py-1 ${c.olumi != null ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-route-${c.id}`}>{c.olumi != null ? <><OlumiMark words={c.olumi.title} /> </> : null}{c.heading}{routeChance(c, model)}</li>)}
               </ul>
             </section>
           )}

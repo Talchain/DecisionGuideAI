@@ -51,6 +51,18 @@ describe('the Frame page', () => {
     expect(screen.getByTestId('frame-route-opt_x').querySelector('[data-view="opt_x.headline.text"]')?.textContent).toContain('about 51% chance')
     expect([screen.getByTestId('frame-route-opt_y').querySelector('[data-view$=".headline.text"]'), screen.getByTestId('frame-route-opt_y').textContent]).toEqual([null, 'Hire two'])
   })
+  it('#2 scope (Codex): core\'s run lead says once what the chances are of; a route whose chance is another aim\'s names that aim by its heading; no chance shown, no lead', () => {
+    const LEAD = 'Chance of ‘Handle 160 calls a day’, in this model on current information'
+    const on = (aim: string | null) => ({ state: 'chance', text: 'about 51% chance', title: 't', why: null, add: null, aim_id: aim })
+    const other = card({ id: 'aim_cost', family: 'goal', heading: 'Stay within £40,000' })
+    const run = { ...fx.model!.run, aim: 'aim_calls', lead: LEAD }
+    page(viewOf([other, card({ id: 'opt_x', family: 'option', heading: 'Hire one', headline: on('aim_calls') }), card({ id: 'opt_z', family: 'option', heading: 'Hire two', headline: on('aim_cost') })], { run }))
+    expect(screen.getAllByText(LEAD)).toHaveLength(1)
+    expect([screen.getByTestId('frame-route-opt_x').textContent, screen.getByTestId('frame-route-opt_z').textContent]).toEqual(['Hire one · about 51% chance', 'Hire two · about 51% chance (Stay within £40,000)'])
+    cleanup()
+    page(viewOf([card({ id: 'opt_y', family: 'option', heading: 'Hire two', headline: { ...on('aim_calls'), state: 'none', why: 'Needs a size.' } })], { run }))
+    expect(screen.queryByText(LEAD)).toBeNull()
+  })
   it('an Olumi bound on the person\'s own card is marked on the bound alone (not on the card, and no "yours")', () => {
     page(viewOf([limit]))
     const c = screen.getByTestId('frame-card-lim_cap')

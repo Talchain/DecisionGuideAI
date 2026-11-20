@@ -180,16 +180,19 @@ describe('My scenarios (home)', () => {
   })
 
   // CHANGED BY DESIGN (investor audit #4, 20 Nov): with no scenario, home opens the brief box itself, as "New scenario" does; there is no empty list to click past.
-  it('no scenario at all: home goes straight to the canvas on a blank brief, the scenario the canvas showed last forgotten, not reopened', async () => {
-    // Measured on a local core: without the reset, the canvas restored the last scenario opened from this browser.
+  it('no scenario at all: home goes straight to the canvas; the remembered scenario is forgotten, the autosaved draft is kept (recovery state, Codex HOLD)', async () => {
     const last = '00000000-0000-4000-8000-a00000000002'
     localStorage.setItem('olumi-canvas-current-scenario-id', last)
     useCanvasStore.setState({ currentScenarioId: last })
+    const keys = () => Object.keys(localStorage).filter((k) => k !== 'olumi-canvas-current-scenario-id').sort()
+    localStorage.setItem('olumi-canvas-autosave', '{"draft":"my unsent brief"}')
+    const before = keys()
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: [] } } : undefined)
     at('/', <MyScenariosPage />)
     await screen.findByTestId('at-canvas')
     expect(localStorage.getItem('olumi-canvas-current-scenario-id')).toBeNull()
     expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+    expect([keys(), localStorage.getItem('olumi-canvas-autosave')]).toEqual([before, '{"draft":"my unsent brief"}'])
   })
   it('CONTRAST: every scenario archived stays on home, which says so; New scenario still goes to the canvas on a blank brief', async () => {
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios'
