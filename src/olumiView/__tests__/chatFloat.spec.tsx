@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor, within } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -38,13 +38,17 @@ afterEach(() => {
 })
 
 describe('A2 stop/float, DL 10 Nov', () => {
-  it('CF1 moves the one thread and composer to a body portal and back, keeping typed words and thread state', () => {
+  it('CF1 moves the one thread and composer to a body portal and back, keeping typed words and thread state', async () => {
     const { container, getByTestId, queryByTestId, getAllByTestId, getByPlaceholderText } = scene()
     const thread = getByTestId('view-chat-turns')
     fireEvent.change(getByPlaceholderText(COMPOSER), { target: { value: 'Keep this thought' } })
     const popout = getByTestId('view-chat-popout')
     expect(popout).toHaveAccessibleName('Open Olumi in floating panel')
-    expect(popout).toHaveAttribute('title', 'Open in floating window')
+    expect(popout).not.toHaveAttribute('title') // the name stays the aria-label; the differing hover is the one Tip, after 150 ms
+    fireEvent.pointerEnter(popout)
+    expect(document.querySelector('[role="tooltip"]'), 'not at the instant of arrival').toBeNull()
+    await waitFor(() => expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Open in floating window'))
+    fireEvent.pointerLeave(popout)
     // CHANGED BY DESIGN (v10 review item 10): the popout left its 44 px strip above the thread for the composer's icon row (a 28 px icon, like its neighbours).
     expect(popout).toHaveClass('w-7', 'h-7') // the lane's 28 px icon (18 Nov), as its neighbours
     expect(popout.closest('[data-testid="view-composer-actions"]')).not.toBeNull()

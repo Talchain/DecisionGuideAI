@@ -36,7 +36,7 @@
  *  - core's words kept (`keepWords`): the info status line while waiting, core's olumi.text on the mark, GOAL_QUESTION (so Goal is icon plus
  *    word), the EarlyAnswer caveat, the story headings, and lens and next-step labels (icon plus word).
  */
-import type { ComponentType, CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode } from 'react'
 import {
   AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
@@ -48,6 +48,7 @@ import {
   UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
 } from 'lucide-react'
+import { useAnchoredTip } from './Tip'
 import { HIT_44 } from '../../styles/hitArea'
 import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
@@ -293,6 +294,8 @@ interface OkIconProps {
   testid?: string
   /** Beside visible words: hidden from assistive tech. Default: true for icon-plus-word entries. */
   decorative?: boolean
+  /** Alone (not decorative): a keyboard stop that shows its words on focus. Default true; it is dropped on its own when the icon sits inside an interactive control (never nested focus targets). */
+  focusable?: boolean
   className?: string
 }
 
@@ -319,7 +322,7 @@ function Glyph({ id, size, variant, className }: { id: IconId; size: number; var
 }
 
 /** The icon in its token colour. Beside words it is decorative; alone it is an image labelled and titled with the hover (or core's words). */
-export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, className }: OkIconProps) {
+export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, focusable = true, className }: OkIconProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
@@ -332,10 +335,23 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inheri
       </span>
     )
   }
+  return <LabelledIcon label={label} cls={cls} testid={testid} focusable={focusable}><Glyph id={id} size={size} variant={variant} /></LabelledIcon>
+}
+
+const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="checkbox"], [role="switch"]'
+
+/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable, unless an interactive ancestor already is the focus target. */
+function LabelledIcon({ label, cls, testid, focusable, children }: { label: string; cls: string; testid?: string; focusable: boolean; children: ReactNode }) {
+  const { handlers, tip, describedBy } = useAnchoredTip(label)
+  const el = useRef<HTMLSpanElement>(null)
+  const [nested, setNested] = useState(false)
+  useLayoutEffect(() => { setNested(el.current?.parentElement?.closest(INTERACTIVE) != null) }, [])
+  const stop = focusable && !nested
   return (
-    <span role="img" aria-label={label} title={label} className={cls} data-testid={testid}>
-      <Glyph id={id} size={size} variant={variant} />
-    </span>
+    <>
+      <span ref={el} role="img" aria-label={label} tabIndex={stop ? 0 : undefined} aria-describedby={describedBy} className={cls} data-testid={testid} {...handlers}>{children}</span>
+      {tip}
+    </>
   )
 }
 
@@ -353,30 +369,36 @@ interface OkIconButtonProps {
   className?: string
   /** The lane's compact icon button (18 Nov): a 28px square, ghost grey or solid green, in place of the 44px hit area. Omitted: the 44px one. */
   tone?: 'ghost' | 'primary'
-  /** A hover (title) that differs from the accessible name: the name is `words`, the hover this. Omitted: both are the same words. */
+  /** A hover (the Tip) that differs from the accessible name: the name is `words`, the hover this. Omitted: both are the same words. */
   hover?: string
   /** A small tabular numeral beside the icon inside the same control (Approve ticked · N): drawn, and the label still carries it in words. */
   count?: number
 }
 
-/** An icon-only press: a 44 px hit area, the hover words as both aria-label and title; focus is left to the global outline. */
+/** An icon-only press (held = aria-disabled, still focusable, so its reason shows; the press is a no-op): a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
 export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
+  const shown = hover ?? label
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(shown)
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
   return (
+    <>
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={() => { dismiss(); if (!disabled) onClick() }}
+      {...handlers}
+      aria-describedby={shown !== label ? describedBy : undefined}
+      aria-disabled={disabled === true ? true : undefined}
       aria-label={label}
       aria-pressed={pressed}
-      title={hover ?? label}
       data-testid={testid}
-      className={`${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
+      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >
       <Glyph id={id} size={size} variant={variant} />
       {count === undefined ? null : <span className={`${typography.caption} tabular-nums`} data-testid={testid === undefined ? undefined : `${testid}-count`} aria-hidden="true">{count}</span>}
     </button>
+    {tip}
+    </>
   )
 }

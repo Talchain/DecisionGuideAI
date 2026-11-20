@@ -546,9 +546,9 @@ describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold
   })
   it('B. the review\'s approve controls are held while Olumi answers a turn on that same proposal (by id and status), and free when it answers nothing there', () => {
     const base = golden('proposal'), p = base.proposal!
-    const approves = (v: View) => { const c = mount(v); const r = ['view-approve'].map((t) => (q(c, t) as HTMLButtonElement | null)?.disabled); cleanup(); return r }
+    const approves = (v: View) => { const c = mount(v); const r = ['view-approve'].map((t) => (q(c, t) as HTMLButtonElement | null)?.getAttribute('aria-disabled') === 'true'); cleanup(); return r }
     // The ticked approval too: open the review, tick a line, and "Approve ticked" is held with the whole one while Olumi answers on this proposal.
-    const ticked = (v: View) => { const c = mount(v); setOpen(q(c, 'view-proposal-review')!, true); const box = q(c, 'view-change-tick-0') as HTMLInputElement | null; if (box !== null) fireEvent.click(box); const r = [q(c, 'view-approve-ticked') as HTMLButtonElement | null, q(c, 'view-approve') as HTMLButtonElement | null].map((b) => b?.disabled); cleanup(); return r }
+    const ticked = (v: View) => { const c = mount(v); setOpen(q(c, 'view-proposal-review')!, true); const box = q(c, 'view-change-tick-0') as HTMLInputElement | null; if (box !== null) fireEvent.click(box); const r = [q(c, 'view-approve-ticked') as HTMLButtonElement | null, q(c, 'view-approve') as HTMLButtonElement | null].map((b) => b?.getAttribute('aria-disabled') === 'true'); cleanup(); return r }
     const turn = (status: string) => ({ job: 9, status, said: 'x', ask: 'message', by: 'You', by_id: youOf(base), words: 'w', started: '2026-11-19T00:00:00Z', at: '2026-11-19T00:00:00Z' })
     const reply = (status: string, proposal: number) => ({ job: 10, proposal, version: 1, status, words: 'w', by: 'You', by_id: youOf(base), started: '2026-11-19T00:00:00Z', at: '2026-11-19T00:00:00Z' })
     expect(approves({ ...base, turn: null } as unknown as View), 'nothing answering').toEqual([false])
