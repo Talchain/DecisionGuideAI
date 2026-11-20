@@ -94,7 +94,7 @@ describe('OkIcon and OkIconButton', () => {
   })
 
   it('Set aside and Open in floating window are two different pictures, each with an accessible name (Olumi tab panel rank 6)', () => {
-    const { container } = render(<><OkIconButton id="set-aside" testid="a" /><OkIconButton id="popout" testid="p" /></>)
+    const { container } = render(<><OkIconButton id="set-aside" testid="a" onClick={() => {}} /><OkIconButton id="popout" testid="p" onClick={() => {}} /></>)
     const glyph = (t: string) => container.querySelector(`[data-testid="${t}"] svg`)!.getAttribute('class')!.split(/\s+/).find((c) => c.startsWith('lucide-') && c !== 'lucide')
     expect([glyph('a'), glyph('p')]).toEqual(['lucide-ban', 'lucide-panel-top-open'])
     expect([screen.getByTestId('a').getAttribute('aria-label'), screen.getByTestId('p').getAttribute('aria-label')]).toEqual(['Set aside', 'Open in floating window'])
