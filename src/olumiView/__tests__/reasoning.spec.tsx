@@ -38,7 +38,7 @@ const ready = (view: View, more: object = {}) => {
 afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
-  it('european: each rest by its id in core\'s order (every group and its first figure at rest, the further figures behind one press; core's figure-list label once); each figure a bar to its share, coloured by whose; core\'s give ✎ once per figure', () => {
+  it("european: each rest by its id in core's order (every group and its first figure at rest, the further figures behind one press; core's figure-list label once); each figure a bar to its share, coloured by whose; core's give ✎ once per figure", () => {
     const view = read('european.view.json'), run = view.model!.run!
     const rests = run.rests.filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
     expect(rests.length).toBeGreaterThan(2)
@@ -64,6 +64,17 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     const given = [...new Set(rests.flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '' && f.give !== null).map((f) => f.id)))]
     for (const id of given) expect(box.querySelectorAll(`[data-testid="reasoning-rests-edit-${id}"]`), id).toHaveLength(1)
     expect(expectAllBound(view, box, expect)).toBeGreaterThan(0)
+  })
+  it('A4 a group with core\'s headline and no figure detail is kept: its sentence is drawn at rest, only the empty figure list is omitted; CONTRAST: a group with figures keeps its list', () => {
+    const view = structuredClone(read('european.view.json')), rs = view.model!.run!.rests
+    const bare = rs.find((r) => r.line !== '' && (r.figures ?? []).length > 0)!, kept = rs.find((r) => r !== bare && r.line !== '' && (r.figures ?? []).length > 0)!
+    ;(bare as { figures?: unknown }).figures = undefined
+    ready(view); render(<ViewReasoningBlock />)
+    const box = screen.getByTestId('reasoning-rests')
+    const g = box.querySelector<HTMLElement>(`[data-rest="${bare.id}"]`)!
+    expect(g.querySelector('[data-testid="rests-sentence"]')!.textContent).toBe(bare.hover || bare.line)
+    expect([g.querySelectorAll('[data-rest-figure]').length, g.querySelector('ul')]).toEqual([0, null])
+    expect(box.querySelector(`[data-rest="${kept.id}"] [data-rest-figure]`), 'CONTRAST').not.toBeNull()
   })
   it('CONTRAST: an older View whose figure lacks give draws the bar with no ✎ and does not crash', () => {
     const view = structuredClone(read('european.view.json'))

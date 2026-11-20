@@ -30,19 +30,32 @@ import { FoldChevron } from '../look/FoldChevron'
 import { REASONING_LABELS, RestsOn, StartHere } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
+import { useAnchoredTip } from '../look/Tip'
 
-/** The tab's own chrome: the fold that holds core's long reading, and the heading over core's notes (core sends no heading for `run.notes`). */
-export const ANALYSIS_WORDS = { why: 'Why this reading', leavesOut: 'What this leaves out' } as const
+/** The tab's own chrome: the fold that holds core's long reading. */
+export const ANALYSIS_WORDS = { why: 'Why this reading' } as const
 
-/** Core's notes on the result (`run.notes`), each verbatim with its title on hover, as one quiet list; never split into caveats and questions (core sends no kind). */
+/** One of core's notes, verbatim; its longer words (`title`), when core sends them, through the one Tip on pointer and on keyboard focus. */
+function NoteLine({ n, i }: { n: NonNullable<ViewModel['run']>['notes'][number]; i: number }) {
+  const longer = n.title !== '' && n.title !== n.text ? n.title : undefined
+  const { handlers, tip, describedBy } = useAnchoredTip(longer)
+  return (
+    <>
+      <li tabIndex={longer === undefined ? undefined : 0} aria-describedby={describedBy} data-view={`run.notes.${i}.text`} {...handlers}>{n.text}</li>
+      {tip}
+    </>
+  )
+}
+
+/** Core's notes on the result (`run.notes`: what it leaves out, assumes or cannot say), one quiet list at rest. Core sends no heading for them and no kind
+ *  (caveat or question), so none is written here and they are not split. */
 function LeavesOut({ model }: { model: ViewModel }) {
   const notes = (model.run?.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '')
   if (notes.length === 0) return null
   return (
-    <section className="space-y-1" data-testid="analysis-leaves-out" aria-label={ANALYSIS_WORDS.leavesOut}>
-      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{ANALYSIS_WORDS.leavesOut}</h3>
-      <ul className={`${TYPE.meta} m-0 list-none space-y-1 p-0 text-text-light`}>
-        {notes.map(({ n, i }) => <li key={i} title={n.title === '' ? undefined : n.title} data-view={`run.notes.${i}.text`}>{n.text}</li>)}
+    <section data-testid="analysis-leaves-out">
+      <ul className="ok-an-notes">
+        {notes.map(({ n, i }) => <NoteLine key={i} n={n} i={i} />)}
       </ul>
     </section>
   )

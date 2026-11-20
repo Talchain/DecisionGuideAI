@@ -1,5 +1,5 @@
 /**
- * R19 time treatment on the page (core 2.x olumi.view/3 `model.run.readings`, `model.run.timing`, and each chance row's `timing` / `timing_title`).
+ * R19 time treatment on the page (core 2.x olumi.view/3 `model.run.readings`, `model.run.timing` (no live surface draws it now), and each chance row's `timing` / `timing_title`).
  * Every word is core's own and drawn once, verbatim; the page formats nothing (the UI formats no model value). Words below are core's own
  * (src/run/__tests__/r19-time.test.ts; the european golden carries a real `readings` entry). Bound by identity: the aim's id, the quantity, the row's key.
  */
@@ -71,24 +71,10 @@ describe('R19 readings: how the Run reads each aim, once, under the aim', () => 
   })
 })
 
-describe('R19 timing: Olumi\'s assumptions once, the generic what-if note for the same quantity skipped', () => {
-  it('catch: the Analysis tab draws core\'s assumption once, and the generic note for that quantity is not drawn beside it; another note is kept', () => {
-    const { model } = withTiming()
-    const c = render(<ViewChances model={model} />).container
-    expect([...c.querySelectorAll('[data-testid="view-run-timing"] p')].map((p) => [p.textContent, p.getAttribute('data-timing')])).toEqual([[ASSUMPTION, 'tech_lead_delay']])
-    const notes = [...c.querySelectorAll('[data-view^="run.notes."]')].map((n) => n.textContent)
-    expect(notes).not.toContain(GENERIC)
-    expect(notes).toContain(OTHER_NOTE)
-    expect(c.textContent!.split('Tech lead start delay').length - 1).toBe(2)       // the assumption and the timing row, never the generic note as a third
-    // the kept note keeps its own index into core's notes (identity, not position among the survivors)
-    expect(c.querySelector(`[data-view="run.notes.${model.run!.notes.findIndex((n) => n.text === OTHER_NOTE)}.text"]`)!.textContent).toBe(OTHER_NOTE)
-  })
-  it('negative: with no timing assumption every note stays, and no timing block is drawn (contrast)', () => {
+describe('R19 timing notes: with no timing assumption every note stays', () => {
+  it('negative: `notesBesideTiming` drops nothing when core sends no timing (contrast)', () => {
     const { model } = withTiming({ timing: [] })
     expect(notesBesideTiming(model.run!)).toEqual(model.run!.notes)
-    const c = render(<ViewChances model={model} />).container
-    expect(c.querySelector('[data-testid="view-run-timing"]')).toBeNull()
-    expect([...c.querySelectorAll('[data-view^="run.notes."]')].map((n) => n.textContent)).toContain(GENERIC)
   })
 })
 

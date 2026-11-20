@@ -29,23 +29,33 @@ const ROW = 'h3, [data-rest] > p, [data-rest-figure], [data-testid="reasoning-ex
 const rows = () => screen.getByTestId('view-reasoning').querySelectorAll(ROW).length
 const items = () => screen.getByTestId('reasoning-examine').querySelectorAll('li').length
 
-/** The most rows the tab draws at rest on a model with chances: 10 rows beside the uncertainty groups, plus three per rest group (its label, core's
- *  sentence and the group's first figure: every group's headline share is at rest, A4). S4 measures the real panel at 1232x704. */
-const AT_REST = (groups: number) => 10 + 3 * groups
+/**
+ * THE FIT CRITERION, TWO FIXED NUMBERS (neither scales with the count of rest groups):
+ *  - the panel at 1232x704 holds about 12 of these rows (the figure this file has always held), of which one rest group's three lines were part, so
+ *    everything BESIDE the rest groups' own lines (the lead, the examine and commitment items, the rests heading, core's figure-list label and the key)
+ *    stays within OUTSIDE_RESTS = 9 rows, however many groups there are;
+ *  - each rest group at rest is its own three lines at most (its option and aim, core's sentence, its first figure): PER_GROUP = 3.
+ * A4 draws every group's headline share at rest, so a model with many groups is taller than the panel by design: this spec does NOT claim the total fits.
+ * The total is a geometry question, read at 1232x704 by S4 (see the lane reply), never inferred from this row count.
+ */
+const OUTSIDE_RESTS = 9
+const PER_GROUP = 3
+const groupRows = (g: Element) => g.querySelectorAll('p:not([data-view="run.rests_figures_heading"]), [data-rest-figure]').length
+const outsideRests = () => rows() - [...document.querySelectorAll('[data-rest]')].reduce((n, g) => n + groupRows(g), 0)
 
 describe('Reasoning at rest fits the 1232x704 panel', () => {
-  it('european (the model that measured 724 px against a 561 px panel): at rest the lead and at most three more items, every rest group with its first figure, the further figures behind presses; opening them draws more rows', () => {
+  it('european (the model that measured 724 px against a 561 px panel): at rest the lead and at most three more items, every rest group with its first figure and nothing beside the groups past the fixed budget, the further figures behind presses; opening them draws more rows', () => {
     ready(read('european.view.json')); render(<ViewReasoningBlock />)
     const atRest = rows()
-    const groups = document.querySelectorAll('[data-rest]').length
-    expect([atRest <= AT_REST(groups), items() <= 4, groups > 1, document.querySelectorAll('[data-rest-figure]').length], `rows at rest: ${atRest}`).toEqual([true, true, true, groups])
+    const groups = [...document.querySelectorAll('[data-rest]')]
+    expect([outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP), items() <= 4, groups.length > 1, document.querySelectorAll('[data-rest-figure]').length], `rows at rest: ${atRest}, outside the groups: ${outsideRests()}`).toEqual([true, true, true, true, groups.length])
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))
     expect(rows(), 'CONTRAST: the folded rows are one press away, not deleted').toBeGreaterThan(atRest)
   })
-  it('CONTRAST: a short model (bakery, one rest) draws it whole at rest, with no press to fold anything', () => {
+  it('CONTRAST: a short model (bakery, one rest) draws it whole at rest, with no press to fold anything, inside the same two fixed numbers', () => {
     ready(read('bakery.view.json')); render(<ViewReasoningBlock />)
-    const r = document.querySelectorAll('[data-rest]').length
-    expect([r, rows() <= AT_REST(r)]).toEqual([1, true])
+    const groups = [...document.querySelectorAll('[data-rest]')]
+    expect([groups.length, outsideRests() <= OUTSIDE_RESTS, groups.every((g) => groupRows(g) <= PER_GROUP)]).toEqual([1, true, true])
   })
 })
 

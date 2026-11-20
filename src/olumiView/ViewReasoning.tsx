@@ -75,12 +75,13 @@ function ShareBar({ f }: { f: Figure }) {
  */
 export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
   const [all, setAll] = useState(false)
-  const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
+  const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '')  // a group with a headline and no figure detail is kept (A4): its headline is drawn, only the empty figure list is omitted
   if (run === null || rests.length === 0) return null
   const given = new Set<string>()
   const figuresOf = (r: Rest) => (r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '')
   // What is folded at rest: the figures after the first in each group (A4: every group's headline share is drawn at rest, not only the first group's).
   const folded = rests.reduce((n, { r }) => n + Math.max(0, figuresOf(r).length - REST_FIGURES), 0)
+  const firstWithFigures = rests.findIndex(({ r }) => figuresOf(r).length > 0)
   const whose = new Set(rests.flatMap(({ r }) => (r.figures ?? []).map((f) => f.whose)))
   return (
     <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
@@ -99,9 +100,9 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
             {(r.hover ?? '') !== ''
               ? <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.hover`}>{r.hover}</p>
               : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
-            {/* Core's label for the figure list (`run.rests_figures_heading`, when it sends one), said once, above the first group's figures. */}
-            {g !== 0 || !run.rests_figures_heading ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
-            <ul className="m-0 list-none space-y-1 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
+            {/* Core's label for the figure list (`run.rests_figures_heading`, when it sends one), said once, above the first group that has figures. */}
+            {g !== firstWithFigures || !run.rests_figures_heading ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
+            {figuresOf(r).length === 0 ? null : <ul className="m-0 list-none space-y-1 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
               {(all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f, j }) => {
                 const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
@@ -116,7 +117,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
                   </li>
                 )
               })}
-            </ul>
+            </ul>}
           </div>
         )
       })}

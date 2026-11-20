@@ -54,7 +54,7 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
  * shown, fed by core's own stored versions and comparison (`compare.tsx`, `versions.tsx`), never the local snapshots or CEE's run delta.
  */
 // The legend and the Summary are shown: on the lane each is the View's own (src/olumiView/ViewLegend.tsx draws core's key, model.key;
-// src/olumiView/ViewBrief.tsx the question, the Run and each option), never the legacy ones of legacy marks and the saved model.
+// the Analysis tab draws the question, the Run and each option; ViewBrief.tsx is deleted), never the legacy ones of legacy marks and the saved model.
 // Compare and Version history are core's own (compare.tsx, versions.tsx). `lenses` is the legacy lens bar, which reads legacy node shapes
 // a View card never carries (review 00057 #2): the lane's canvas draws its own, fed from the View (src/olumiView/ViewLensBar.tsx).
 // `diagnostics` (Model) is the lane's own outline, drawn from the View (src/olumiView/ViewModelTab.tsx; DL 4 Nov, R2), in place of the

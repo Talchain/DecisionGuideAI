@@ -5,7 +5,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
@@ -671,17 +671,53 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
 })
 
 describe('data core sends that the tab drew only as a title or in a fold (A2, A3)', () => {
-  it('A3 bakery: each ranking says its scope in core\'s labels, one meta line, and each figure\'s estimate size is in its row, not only a title', () => {
+  it('A3 bakery: each ranking says its scope in core\'s labels (separators outside each labelled span), and each figure\'s estimate size is in its row, not only a title', () => {
     const view = viewOf('golden/bakery'), aims = view.model!.run!.find_out!.filter((a) => a.figures.length > 0)
     ready(view); render(<PortAnalysisTab />)
     expect(aims.length).toBeGreaterThan(0)
     for (const aim of aims) {
       const box = document.querySelector(`[data-find-out-aim="${aim.aim}"]`)!
       const scope = box.querySelector('[data-testid="find-out-scope"]')!
-      expect([...scope.querySelectorAll('[data-find-out-scope="compared"] [data-view]')].map((e) => e.textContent)).toEqual(aim.compared.map((x) => x.label))
+      const labels = [...scope.querySelectorAll('[data-find-out-scope="compared"] [data-view$=".label"]')].map((e) => e.textContent)
+      expect(labels).toEqual(aim.compared.map((x) => x.label))
+      expect(labels.every((l) => !/^[,·\s]/.test(l!)), 'no separator inside a labelled span').toBe(true)
       expect(scope.querySelector('[data-find-out-scope="not_compared"]') !== null, 'CONTRAST: an empty list draws no part').toBe(aim.not_compared.length > 0)
       for (const f of aim.figures) expect(box.querySelector(`[data-find-out-figure="${f.id}"]`)!.textContent).toContain(f.estimate_text)
     }
+  })
+  it('A3 a ranking that did not compare some options and held within some limits draws each list in core\'s labels, after its icon; core\'s qualification is behind the info icon, reachable by keyboard focus', () => {
+    vi.useFakeTimers()
+    try {
+      const view = structuredClone(viewOf('golden/bakery')), aim = view.model!.run!.find_out!.find((a) => a.figures.length > 0)!, a = view.model!.run!.find_out!.indexOf(aim)
+      aim.not_compared = [{ id: 'x1', label: 'Opening a second shop' }, { id: 'x2', label: 'Doing nothing' }]
+      aim.within = [{ id: 'l1', label: 'Rent limit' }]
+      aim.line = 'This ranking leaves out two options, and holds within the rent limit.'
+      ready(view); render(<PortAnalysisTab />)
+      const scope = document.querySelector(`[data-find-out-aim="${aim.aim}"] [data-testid="find-out-scope"]`)!
+      expect([...scope.querySelectorAll('[data-find-out-scope="not_compared"] [data-view]')].map((e) => [e.textContent, e.getAttribute('data-view')])).toEqual([['Opening a second shop', `run.find_out.${a}.not_compared.0.label`], ['Doing nothing', `run.find_out.${a}.not_compared.1.label`]])
+      expect([...scope.querySelectorAll('[data-find-out-scope="within"] [data-view]')].map((e) => e.textContent)).toEqual(['Rent limit'])
+      expect(scope.querySelector('[data-find-out-scope="not_compared"]')!.textContent, 'the separator between two labels is drawn, outside their spans').toBe('Opening a second shop, Doing nothing')
+      const info = scope.querySelector<HTMLElement>('[data-find-out-note] [role="img"]')!
+      expect([info.getAttribute('aria-label'), info.tabIndex]).toEqual([aim.line, 0])
+      fireEvent.focus(info); act(() => { vi.advanceTimersByTime(200) })
+      expect(screen.getByTestId('lane-tip').textContent).toBe(aim.line)
+    } finally { vi.useRealTimers() }
+  })
+  it('A3 CONTRAST: a ranking with no scope list and no qualification draws no scope line at all', () => {
+    const view = structuredClone(viewOf('golden/bakery')), aim = view.model!.run!.find_out!.find((a) => a.figures.length > 0)!
+    aim.compared = []; aim.not_compared = []; aim.within = []; aim.line = ''
+    ready(view); render(<PortAnalysisTab />)
+    expect(document.querySelector(`[data-find-out-aim="${aim.aim}"] [data-testid="find-out-scope"]`)).toBeNull()
+  })
+  it('A3 science: a worth line\'s estimate size (`science[].hover`) is drawn whole in its row, bound to its path, and no native title carries it', () => {
+    const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
+    const worth = (run.science ?? []).findIndex((l) => (l.hover ?? '') !== '')
+    expect(worth, 'fixture: a science line with a hover').toBeGreaterThanOrEqual(0)
+    run.find_out = []                       // so the ranking does not already name it
+    ready(view); render(<PortAnalysisTab />)
+    const el = document.querySelector(`[data-view="run.science.${worth}.hover"]`)
+    expect(el?.textContent).toBe(run.science![worth]!.hover)
+    expect(el!.closest('li')!.getAttribute('title')).toBeNull()
   })
   it('A2 bakery (a chance; the none state is pinned in the no-chance test above): core\'s notes are one quiet list at rest, each verbatim at its path; under the chart when there is one', () => {
     const view = viewOf('golden/bakery'), notes = (view.model!.run!.notes ?? []).filter((n) => n.text !== '')
@@ -692,5 +728,18 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
     expect(screen.getByTestId('analysis-chance-chart').compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING, 'under the chart').toBeTruthy()
     fireEvent.click(screen.getByTestId('analysis-why-toggle'))
     expect(document.querySelectorAll('[data-view^="run.notes."]'), 'never twice: the fold no longer holds them').toHaveLength(notes.length)
+  })
+  it('A2 a note\'s longer words (its title) reach the one Tip by keyboard focus, never a native title; a note whose title is its text is not a focus stop; no heading is written here', () => {
+    vi.useFakeTimers()
+    try {
+      const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
+      run.notes = [{ text: 'It leaves out rent.', title: 'It leaves out rent, which core could not size.' }, { text: 'It assumes a steady summer.', title: 'It assumes a steady summer.' }] as typeof run.notes
+      ready(view); render(<PortAnalysisTab />)
+      const [first, second] = [...screen.getByTestId('analysis-leaves-out').querySelectorAll<HTMLElement>('li')] as [HTMLElement, HTMLElement]
+      expect([first.getAttribute('title'), second.getAttribute('title'), first.tabIndex, second.hasAttribute('tabindex')]).toEqual([null, null, 0, false])
+      fireEvent.focus(first); act(() => { vi.advanceTimersByTime(200) })
+      expect(screen.getByTestId('lane-tip').textContent).toBe(run.notes[0]!.title)
+      expect(screen.getByTestId('analysis-leaves-out').querySelector('h3'), 'no invented heading').toBeNull()
+    } finally { vi.useRealTimers() }
   })
 })

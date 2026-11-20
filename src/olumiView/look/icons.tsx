@@ -45,7 +45,7 @@ import {
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
   PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
-  UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
+  Brackets, EqualNot, Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   type LucideIcon,
 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
@@ -258,6 +258,10 @@ export const ICONS = {
   shortcuts: e(Keyboard, 'Keyboard shortcuts', '--text-light', 'icon-only', 'chrome'),
   cut: e(Scissors, 'Cut', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
+  /* analysis ids */
+  'scope-compared': e(Scale, 'Compared', '--text-light', 'icon-only', 'chrome'),
+  'scope-not-compared': e(EqualNot, 'Not compared', '--text-light', 'icon-only', 'chrome'),
+  'scope-within': e(Brackets, 'Held within', '--text-light', 'icon-only', 'chrome'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS
