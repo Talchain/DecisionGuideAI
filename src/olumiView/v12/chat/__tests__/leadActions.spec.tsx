@@ -20,7 +20,6 @@ import { ViewChat, useViewChat } from '../../../ViewChat'
 import { leadOf } from '../../../early'
 import { pressCard } from '../../../reasoning/tabRing'
 import { tipOf } from '../../../__tests__/tipHelpers'
-import { WORLD_ACTION_MARK } from '../ReplyLead'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 type Answer = NonNullable<ViewTurn['answer']>
@@ -95,9 +94,11 @@ describe('a reply lead\'s actions', () => {
   })
 
   it('a world action carries Olumi\'s general suggestion mark; a linked one does not', () => {
-    const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true })])
+    // The mark's words are core's own basis (slice 3 on trial28: "Olumi's general suggestion, not from this model."), never the UI's.
+    const BASIS = 'Olumi’s general suggestion, not from this model.'
+    const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true }, BASIS)])
     const [linked, world] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
-    expect(world!.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(WORLD_ACTION_MARK)
+    expect(world!.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(BASIS)
     expect(linked!.querySelector('[role="img"]')).toBeNull()
   })
 

@@ -13,7 +13,6 @@ import { Hover, HoverButton } from '../../look/Hover'
 export const FULL_ANSWER = 'Full answer'
 
 /** The words of the mark a world action carries (an action about what is outside the model): Olumi's own general contribution, never a claim from the model. */
-export const WORLD_ACTION_MARK = 'Olumi’s general suggestion'
 
 /**
  * One of the lead's actions, core's words on one line. On a record or a finding the line is a button that reaches that card as every other press
@@ -24,7 +23,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
   const model = useViewStore((st) => st.view?.model ?? null)
   const on = a.on
   if ('world' in on) {
-    return <li className="ok-lead-action" data-lead-action="world"><OkIcon id="olumi-contributes" size={14} words={WORLD_ACTION_MARK} /><Hover words={a.basis} className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</Hover></li>
+    return <li className="ok-lead-action" data-lead-action="world"><OkIcon id="olumi-contributes" size={14} words={a.basis} /><Hover words={a.basis} className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</Hover></li>
   }
   // A finding is reached through the card it rests on, as the finding line's own figure link does; one with no card to reach is words alone.
   const named = 'record' in on ? on.record : on.finding
