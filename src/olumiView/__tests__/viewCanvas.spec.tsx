@@ -201,7 +201,6 @@ describe('every link is drawn at rest, the reason links included (panel-visual s
     }
   })
 })
-})
 
 describe('the cards as the original canvas numbers and draws them', () => {
   it('european: options O1–O3, a figure a person sets is a factor (F), one core works out an outcome (OC), assumptions A, the aim unnumbered', async () => {
