@@ -1,5 +1,5 @@
 /**
- * R19 time treatment on the page (core 2.x olumi.view/3 `model.run.readings`, `model.run.timing` (no live surface draws it now), and each chance row's `timing` / `timing_title`).
+ * R19 time treatment on the page (core 2.x olumi.view/3 `model.run.readings`, `model.run.timing` (drawn once on the Analysis tab's notes list, in core's words), and each chance row's `timing` / `timing_title`).
  * Every word is core's own and drawn once, verbatim; the page formats nothing (the UI formats no model value). Words below are core's own
  * (src/run/__tests__/r19-time.test.ts; the european golden carries a real `readings` entry). Bound by identity: the aim's id, the quantity, the row's key.
  */
@@ -15,9 +15,11 @@ import type { View, ViewCard, ViewModel } from '../client'
 import { ViewCard as DrawnCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 import { useViewStore } from '../store'
 import { ViewChances } from '../ViewChances'
+import { PortAnalysisTab } from '../port/PortAnalysisTab'
+import { useMe } from '../../olumiCore/me'
 import { notesBesideTiming, readingOf } from '../layout'
 
-afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
+afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useMe.setState({ me: null, status: 'none' }) })
 const DIR = path.resolve('src/olumiView/golden')
 const base = (JSON.parse(readFileSync(path.join(DIR, 'european.view.json'), 'utf8')) as View).model!
 const READING = base.run!.readings[0]!                       // core's: "Olumi reads this at its highest within 12 months; change it if you meant …"
@@ -72,10 +74,42 @@ describe('R19 readings: how the Run reads each aim, once, under the aim', () => 
   })
 })
 
-describe('R19 timing notes: with no timing assumption every note stays', () => {
-  it('negative: `notesBesideTiming` drops nothing when core sends no timing (contrast)', () => {
+const EUROPEAN = JSON.parse(readFileSync(path.join(DIR, 'european.view.json'), 'utf8')) as View
+/** The live surface: the Analysis tab, from the View in the store; its notes list is the one place core's caveats are read. */
+const analysisOf = (model: ViewModel): HTMLElement => {
+  const view = { ...EUROPEAN, model } as View
+  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
+  useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
+  return render(<PortAnalysisTab />).container
+}
+const listed = (c: ParentNode) => [...c.querySelectorAll('[data-testid="analysis-leaves-out"] li')].map((li) => li.textContent)
+
+describe('R19 timing: Olumi\'s assumption once, in core\'s words, on the Analysis tab; the generic what-if note for the same quantity is not said beside it', () => {
+  it('catch: with run.timing present the assumption is drawn once at its path, the generic note for that quantity is not drawn, another note is kept at its own index', () => {
+    const { model } = withTiming()
+    const c = analysisOf(model)
+    const at = (model.run!.timing as { quantity: string }[]).findIndex((t) => t.quantity === 'tech_lead_delay')
+    expect([...c.querySelectorAll('[data-timing]')].map((e) => [e.textContent, e.getAttribute('data-timing'), e.getAttribute('data-view')])).toEqual([[ASSUMPTION, 'tech_lead_delay', `run.timing.${at}.text`]])
+    expect(listed(c).filter((t) => t === ASSUMPTION)).toHaveLength(1)
+    expect(c.textContent).not.toContain(GENERIC)
+    expect(listed(c)).toContain(OTHER_NOTE)
+    expect(c.querySelector(`[data-view="run.notes.${model.run!.notes.findIndex((n) => n.text === OTHER_NOTE)}.text"]`)!.textContent).toBe(OTHER_NOTE)
+    expect(c.textContent!.split(ASSUMPTION).length - 1).toBe(1)
+  })
+  it('negative (contrast): with no timing from core the generic note IS drawn, and no timing line', () => {
     const { model } = withTiming({ timing: [] })
     expect(notesBesideTiming(model.run!)).toEqual(model.run!.notes)
+    const c = analysisOf(model)
+    expect(c.querySelector('[data-timing]')).toBeNull()
+    expect(listed(c)).toEqual(expect.arrayContaining([GENERIC, OTHER_NOTE]))
+    expect(c.textContent).not.toContain(ASSUMPTION)
+  })
+  it('negative: a timing entry core sends with no words draws nothing and suppresses nothing (only a drawn line may drop a note)', () => {
+    const { model } = withTiming()
+    const empty = { ...model, run: { ...model.run!, timing: model.run!.timing.map((t) => ({ ...t, text: '' })) } }
+    const c = analysisOf(empty)
+    expect(c.querySelector('[data-timing]')).toBeNull()
+    expect(listed(c)).toContain(GENERIC)
   })
 })
 

@@ -378,7 +378,7 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inheri
 const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="checkbox"], [role="switch"]'
 
 /** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable. Inside an interactive ancestor it takes none (one focus stop, the ancestor): the Tip then opens on that ancestor's keyboard focus (standing beside it and describing it while open) and on the pointer resting on the icon itself, so a card's own tip and an icon's tip inside it never open together. */
-function LabelledIcon({ label, cls, testid, focusable, children }: { label: string; cls: string; testid?: string; focusable: boolean; children: ReactNode }) {
+export function LabelledIcon({ label, cls, testid, focusable = true, attrs, children }: { label: string; cls: string; testid?: string; focusable?: boolean; /** Pass-through attributes (data marks) for the span. */ attrs?: Readonly<Record<string, string | undefined>>; children: ReactNode }) {
   const { handlers, tip, describedBy } = useAnchoredTip(label)
   const el = useRef<HTMLSpanElement>(null)
   const [host, setHost] = useState<HTMLElement | null>(null)
@@ -406,7 +406,7 @@ function LabelledIcon({ label, cls, testid, focusable, children }: { label: stri
   const alone = host === null
   return (
     <>
-      <span ref={el} role="img" aria-label={label} tabIndex={alone && focusable ? 0 : undefined} aria-describedby={alone ? describedBy : undefined} className={cls} data-testid={testid} {...(alone ? handlers : { onPointerEnter: handlers.onPointerEnter, onPointerLeave: handlers.onPointerLeave })}>{children}</span>
+      <span ref={el} {...attrs} role="img" aria-label={label} tabIndex={alone && focusable ? 0 : undefined} aria-describedby={alone ? describedBy : undefined} className={cls} data-testid={testid} {...(alone ? handlers : { onPointerEnter: handlers.onPointerEnter, onPointerLeave: handlers.onPointerLeave })}>{children}</span>
       {tip}
     </>
   )

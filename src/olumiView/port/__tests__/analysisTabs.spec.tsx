@@ -553,6 +553,18 @@ describe('the model\'s state is said once, above the tab, in the same strip as R
   })
 })
 
+describe('the tab draws only a current View of the model (ported from the deleted ViewChancesBlock spec)', () => {
+  it('a read that failed, or a View marked stale, draws no tab: older lines are never shown as current. CONTRAST: the same View ready draws it', () => {
+    const view = viewOf('golden/bakery')
+    for (const state of [{ error: 'Olumi could not be read just now. Try again in a moment.', stale: false }, { error: null, stale: true }]) {
+      ready(view); useViewStore.setState(state as never)
+      expect(render(<PortAnalysisTab />).container.querySelector('[data-testid="port-analysis-tab"]')).toBeNull(); cleanup()
+    }
+    ready(view)
+    expect(render(<PortAnalysisTab />).container.querySelector('[data-testid="port-analysis-tab"]')).not.toBeNull()
+  })
+})
+
 describe('why this reading: core\'s long reading, one press away', () => {
   it('bakery: the most-likely paragraph is not drawn at rest; opened, it is drawn once at its path with its ✎', () => {
     const view = viewOf('golden/bakery'), ml = view.model!.run!.most_likely!

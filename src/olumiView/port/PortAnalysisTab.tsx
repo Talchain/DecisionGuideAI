@@ -18,7 +18,7 @@ import { pressCard } from '../reasoning/tabRing'
 import { shownModel, useViewStore } from '../store'
 import { WhatIfShown } from '../ViewChances'
 import { StateStrip, useTabState } from '../reasoning/StateStrip'
-import { comparedGroupsOf } from '../layout'
+import { comparedGroupsOf, notesBesideTiming } from '../layout'
 import { ChanceChart } from './ChanceChart'
 import { LikelyOutcome } from './LikelyOutcome'
 import { cardOf, limitGroupsOf, tabStateOf } from './pick'
@@ -48,14 +48,25 @@ function NoteLine({ n, i }: { n: NonNullable<ViewModel['run']>['notes'][number];
   )
 }
 
-/** Core's notes on the result (`run.notes`: what it leaves out, assumes or cannot say), one quiet list at rest. Core sends no heading for them and no kind
- *  (caveat or question), so none is written here and they are not split. */
+/** One of core's timing assumptions (`run.timing`), its whole sentence verbatim ("Olumi's timing assumption, not your figure: 'X' is 1 to 4 months."); core sends no title or mark for it. */
+function TimingLine({ t, i }: { t: NonNullable<ViewModel['run']>['timing'][number]; i: number }) {
+  return <li data-timing={t.quantity} data-view={`run.timing.${i}.text`}>{t.text}</li>
+}
+
+/** Core's notes on the result (`run.notes`: what it leaves out, assumes or cannot say), one quiet list at rest, with Olumi's timing assumptions (`run.timing`) each once in the
+ *  same list, in core's words. The generic what-if note for a quantity a timing line says is skipped (layout.ts `notesBesideTiming`), so the assumption is said once.
+ *  Core sends no heading for them and no kind (caveat or question), so none is written here and they are not split. */
 function LeavesOut({ model }: { model: ViewModel }) {
-  const notes = (model.run?.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '')
-  if (notes.length === 0) return null
+  const run = model.run ?? null
+  const timing = (run?.timing ?? []).map((t, i) => ({ t, i })).filter(({ t }) => t.text !== '')
+  // Only a timing line that is drawn may suppress a note.
+  const kept = new Set(run === null ? [] : notesBesideTiming({ ...run, timing: timing.map(({ t }) => t) }))
+  const notes = (run?.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '' && kept.has(n))
+  if (notes.length === 0 && timing.length === 0) return null
   return (
     <section data-testid="analysis-leaves-out">
       <ul className="ok-an-notes">
+        {timing.map(({ t, i }) => <TimingLine key={t.quantity} t={t} i={i} />)}
         {notes.map(({ n, i }) => <NoteLine key={i} n={n} i={i} />)}
       </ul>
     </section>

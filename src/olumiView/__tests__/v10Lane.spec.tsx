@@ -397,8 +397,12 @@ describe('v10 driver marker (core d1fe5e2 driver.low/high; DL 4 Nov)', () => {
         drawn++
         expect(mark!.closest('[data-view-card]')?.getAttribute('data-view-card'), c.id).toBe(c.id)
         expect(mark!.getAttribute('aria-label'), c.id).toBe(c.driver.text)
-        expect(mark!.querySelector<HTMLElement>('[data-range-low]')!.style.left, c.id).toBe(`${c.driver.low * 100}%`)
-        expect(mark!.querySelector<HTMLElement>('[data-range-high]')!.style.left, c.id).toBe(`${c.driver.high * 100}%`)
+        expect(mark!.querySelector<HTMLElement>('[data-range-low]')!.style.getPropertyValue('--an-left'), c.id).toBe(`${c.driver.low * 100}%`)
+        expect(mark!.querySelector<HTMLElement>('[data-range-high]')!.style.getPropertyValue('--an-left'), c.id).toBe(`${c.driver.high * 100}%`)
+        // geometry is custom properties set through a ref, never a React style attribute (the span: from the lower to the higher chance, at least 2%)
+        const span = mark!.querySelector<HTMLElement>('[data-range-span]')!
+        expect([span.style.getPropertyValue('--an-left'), span.style.getPropertyValue('--an-width')], c.id).toEqual([`${Math.min(c.driver.low, c.driver.high) * 100}%`, `${Math.max(2, Math.abs(c.driver.high - c.driver.low) * 100)}%`])
+        for (const el of mark!.querySelectorAll<HTMLElement>('[data-range-span], [data-range-low], [data-range-high]')) expect(el.style.left, c.id).toBe('')
       }
       expect(drawn).toBeGreaterThan(1) // the probe reads real markers
       // core's per-option sentence is no longer drawn as text, once or six times

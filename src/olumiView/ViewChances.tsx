@@ -11,7 +11,7 @@ import { earlierResultsOf } from './v12/contract'
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
 import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
-import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, sizeLinesOf, worthLinesOf, type SharpenRow } from './layout'
+import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, sizeLinesOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
 import { useViewStore } from './store'
@@ -191,6 +191,9 @@ export function driverRange(d: Pick<Driver, 'low' | 'high'>): { lowPct: number; 
   return { lowPct: at(d.low), highPct: at(d.high) }
 }
 
+/** Where a marker stands is custom properties set through a ref (as the lane's Tip writes --tip-x), never a React `style` attribute; the geometry is olumiLook.css (.ok-an-*). */
+const place = (props: Readonly<Record<string, string>>) => (el: HTMLElement | null): void => { if (el !== null) for (const [k, v] of Object.entries(props)) el.style.setProperty(k, v) }
+
 /**
  * What moves an option's chance most, as v10's low→high marker (the values band's look): a track from no chance to certain, the span
  * between the chance when that figure is low (hollow ring) and when it is high (filled dot). The numbers place the marks and nothing else;
@@ -203,9 +206,9 @@ function DriverRange({ id, driver, figure = null }: { id: string; driver: Driver
     <>
       <Hover as="div" words={driver.title} className="mt-1 py-1" role="img" aria-label={driver.text} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
         <div className="ok-an-track">
-          <div className="ok-an-span" data-range-span style={{ left: `${left}%`, width: `${width}%` }} />
-          <div className="ok-an-dot ok-an-dot-low" data-range-low style={{ left: `${lowPct}%` }} />
-          <div className="ok-an-dot ok-an-dot-high" data-range-high style={{ left: `${highPct}%` }} />
+          <div className="ok-an-span" data-range-span ref={place({ '--an-left': `${left}%`, '--an-width': `${width}%` })} />
+          <div className="ok-an-dot ok-an-dot-low" data-range-low ref={place({ '--an-left': `${lowPct}%` })} />
+          <div className="ok-an-dot ok-an-dot-high" data-range-high ref={place({ '--an-left': `${highPct}%` })} />
         </div>
       </Hover>
       {/* The figure the marker is about, by its own card's heading (core's words), beside the marker, never inside its label element. */}
@@ -414,10 +417,10 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
         </section>
       )}
       <SharpenCard model={model} />
-      {run === null || notesBesideTiming(run).length === 0 ? null : (
+      {run === null || run.notes.length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
           <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>About these numbers</summary>
-          {notesBesideTiming(run).map((n, i) => <Hover as="p" key={i} words={n.title} className={typography.viewPanelMeta} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</Hover>)}
+          {run.notes.map((n, i) => <Hover as="p" key={i} words={n.title} className={typography.viewPanelMeta} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</Hover>)}
         </details>
       )}
     </div>

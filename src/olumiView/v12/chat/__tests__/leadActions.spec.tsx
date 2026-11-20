@@ -1,7 +1,7 @@
 /**
  * The reply lead's actions (core `lead.actions`, harness slice 3): at most three short lines under the opening, in core's order and words. A line about
  * a record or finding is a press that reaches that card by the chat's one existing mechanism (`pressCard`); a line about the world has Olumi's general
- * suggestion mark and no link; the basis is the one Tip. Absent or empty: nothing is drawn. Draw order: points, opening, actions, "Full answer".
+ * suggestion mark and no link; the basis is the one Tip. Absent or empty: nothing is drawn. Draw order: opening, points, actions, "Full answer" (Paul's reply shape; DL ruling after Codex, 20 Nov).
  * Real mounted ViewChat on a golden reply with `lead.actions` added in memory; every word is invented.
  */
 import '@testing-library/jest-dom/vitest'
@@ -53,9 +53,9 @@ const turn = (actions: unknown, lead: Record<string, unknown> = LEAD) => show(wi
 const act = (text: string, on: unknown, basis = 'Because it was said.') => ({ text, on, basis })
 
 describe('a reply lead\'s actions', () => {
-  it('draws points, then the opening, then the actions, then the closed "Full answer"; each action is one line bound by its data-view path, in core\'s words', () => {
+  it('draws the opening, then the points, then the actions, then the closed "Full answer"; each action is one line bound by its data-view path, in core\'s words', () => {
     const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true })])
-    const order = [t.querySelector('[data-testid="view-reply-lead-points"]')!, t.querySelector('[data-reply-opening]')!, q(t, 'view-reply-lead-actions')!, q(t, 'view-reply-full')!]
+    const order = [t.querySelector('[data-reply-opening]')!, t.querySelector('[data-testid="view-reply-lead-points"]')!, q(t, 'view-reply-lead-actions')!, q(t, 'view-reply-full')!]
     for (let k = 0; k + 1 < order.length; k++) expect(before(order[k]!, order[k + 1]!), `order ${k}`).toBe(true)
     expect([0, 1].map((i) => t.querySelector(`[data-view="${AT}.${i}.text"]`)?.textContent)).toEqual(['Count the walkers.', 'Ask the staff.'])
     expect(q(t, 'view-reply-lead-actions')!.closest('details'), 'at rest, outside the fold').toBeNull()
@@ -91,6 +91,16 @@ describe('a reply lead\'s actions', () => {
     expect([lines[2]!.querySelector('button, a'), lines[2]!.querySelector('[data-lead-action-card]')]).toEqual([null, null])
     fireEvent.click(lines[2]!.querySelector('[data-view]')!)
     expect(vi.mocked(pressCard)).toHaveBeenCalledTimes(2)
+  })
+
+  it('a finding action whose id matches no card is plain words with the basis Tip, never a link to another finding\'s figure. CONTRAST: one that matches a card is a button', async () => {
+    const t = turn([act('Read the finding.', { finding: 'no-such-card' }, 'It rests on nothing drawn.'), act('Read the other.', { finding: card })])
+    const [lost, found] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
+    expect([lost!.getAttribute('data-lead-action'), lost!.querySelector('[data-lead-action-card]'), lost!.querySelector('button')]).toEqual(['plain', null, null])
+    expect(await tipOf(lost!.querySelector<HTMLElement>('[data-view]')!)).toBe('It rests on nothing drawn.')
+    expect(found!.getAttribute('data-lead-action')).toBe('card')
+    fireEvent.click(lost!.querySelector('[data-view]')!)
+    expect(vi.mocked(pressCard)).not.toHaveBeenCalled()
   })
 
   it('a world action carries Olumi\'s general suggestion mark; a linked one does not', () => {

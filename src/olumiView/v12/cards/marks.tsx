@@ -3,26 +3,16 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter and the name of Olumi's
  * question mark; since 20 Nov "baseline", "assumption", "limit" and "condition" are registry icons (C2, C5), core's words on their hover. Look: look/olumiLook.css (.ok-*).
  */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { ViewCard } from '../../client'
-import { ICONS, OkIcon, type IconId } from '../../look/icons'
+import { ICONS, LabelledIcon, OkIcon, type IconId } from '../../look/icons'
 import { useAnchoredTip } from '../../look/Tip'
 
-/** A mark with words is an image named by them whose hover is the one Tip (150 ms, keyboard focus too; never a native `title`); one with none is decoration. */
-const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"]'
+/** A mark with words is an image named by them whose hover is the one Tip (150 ms, keyboard focus too; never a native `title`), the registry's own LabelledIcon (look/icons.tsx: inside a focusable card the card is the one tab stop and its focus opens the tip); one with none is decoration. */
 function Named({ words, className, attrs, children }: { words: string | null | undefined; className: string; attrs?: Readonly<Record<string, string | undefined>>; children: ReactNode }): JSX.Element {
-  const has = words != null && words !== ''
-  const { handlers, tip, describedBy } = useAnchoredTip(has ? words : undefined)
-  // A keyboard stop of its own, unless a control around it already is the stop (never nested focus targets, as OkIcon).
-  const el = useRef<HTMLSpanElement>(null)
-  const [nested, setNested] = useState(false)
-  useLayoutEffect(() => { setNested(el.current?.parentElement?.closest(INTERACTIVE) != null) }, [])
-  return (
-    <>
-      <span ref={el} className={className} {...attrs} {...(has ? { role: 'img', 'aria-label': words, tabIndex: nested ? undefined : 0, 'aria-describedby': describedBy, ...handlers } : { 'aria-hidden': true })}>{children}</span>
-      {tip}
-    </>
-  )
+  return words == null || words === ''
+    ? <span className={className} {...attrs} aria-hidden>{children}</span>
+    : <LabelledIcon label={words} cls={className} attrs={attrs}>{children}</LabelledIcon>
 }
 
 type MarkProps = { readonly words?: string | null }

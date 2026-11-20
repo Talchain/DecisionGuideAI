@@ -539,8 +539,8 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .ok-an-detail-lines { white-space: pre-line; }
 /* The driver's range marker (ViewChances DriverRange): a track, the span between the two chances and the two dots; only the left/width the numbers give are set by the component. */
 .ok-an-track { position: relative; height: 4px; background: var(--factor-light); border-radius: 2px; }
-.ok-an-span { position: absolute; top: 0; height: 100%; background: var(--option); border-radius: 2px; }
-.ok-an-dot { position: absolute; top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-top: -4px; border-radius: 4px; }
+.ok-an-span { position: absolute; left: var(--an-left, 0); width: var(--an-width, 0); top: 0; height: 100%; background: var(--option); border-radius: 2px; }
+.ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-top: -4px; border-radius: 4px; }
 .ok-an-dot-low { background: var(--surface-card); border: 2px solid var(--option); }
 .ok-an-dot-high { background: var(--option); }
 

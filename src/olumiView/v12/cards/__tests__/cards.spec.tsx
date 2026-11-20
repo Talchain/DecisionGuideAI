@@ -22,7 +22,7 @@ import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
 import { TIP_DELAY } from '../../../look/Tip'
 import { ICONS } from '../../../look/icons'
-import { cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, WORTH_ICON, worthCheckingOf, worthMarksOf } from '../marks'
+import { AuthorMark, cardMarksOf, LIMIT_MEANS, MARK_CAP, MORE_MARKS, OLUMI_ASKS, WORTH_ICON, worthCheckingOf, worthMarksOf } from '../marks'
 import { chanceParts, headlineChanceRow, onceWords, sharedNoChanceOf, unsizedWords } from '../words'
 import { needsOf } from '../../fields/fields'
 
@@ -802,5 +802,30 @@ describe('C7 the figure\'s pencil is drawn at rest where the View carries an edi
     expect(draw(EU, editable!.id, 'simple').querySelector('[data-card-edit-cue]')).not.toBeNull(); cleanup()
     const none = { ...editable!, figure: { ...editable!.figure!, edit: null } } as unknown as ViewCard
     expect(draw(withCard(EU, none), none.id, 'simple').querySelector('[data-card-edit-cue]')).toBeNull()
+  })
+})
+
+describe('a mark inside a focusable card (Codex P1: the one labelled-icon machinery, look/icons.tsx LabelledIcon)', () => {
+  const olumis = EU.model!.cards.find((c) => c.author?.by === 'olumi')!
+  it('real focus on the card opens the mark\'s tip; the card is the one tab stop; the pointer on the mark opens it too', () => {
+    vi.useFakeTimers()
+    try {
+      const { container } = render(<div tabIndex={0} data-testid="host"><AuthorMark card={olumis} /></div>)
+      const host = container.querySelector<HTMLElement>('[data-testid="host"]')!, mark = container.querySelector<HTMLElement>('[data-author-mark]')!
+      expect([...container.querySelectorAll('[tabindex]')], 'one tab stop: the card').toEqual([host])
+      expect(document.querySelector('[data-testid="lane-tip"]')).toBeNull()
+      act(() => { host.focus() })
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(document.querySelector('[data-testid="lane-tip"]')?.textContent, 'the card\'s focus opens the mark\'s tip').toBe(mark.getAttribute('aria-label'))
+      act(() => { host.blur() })
+      expect(document.querySelector('[data-testid="lane-tip"]')).toBeNull()
+      fireEvent.pointerEnter(mark)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(document.querySelector('[data-testid="lane-tip"]')?.textContent, 'the pointer on the mark').toBe(mark.getAttribute('aria-label'))
+    } finally { vi.useRealTimers() }
+  })
+  it('alone it is its own tab stop', () => {
+    const { container } = render(<AuthorMark card={olumis} />)
+    expect(container.querySelector('[data-author-mark]')).toHaveAttribute('tabindex', '0')
   })
 })

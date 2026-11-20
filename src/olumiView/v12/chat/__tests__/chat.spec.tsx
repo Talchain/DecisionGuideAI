@@ -66,6 +66,7 @@ describe('composer and reply wording', () => {
     const latest = container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!
     const toggle = latest.querySelector<HTMLElement>('[data-testid="view-reply-rests"]')!
     expect(latest.querySelector('[data-testid="view-reply-rests-body"]'), 'closed at rest').toBeNull()
+    expect(toggle.hasAttribute('aria-controls'), 'closed: names no body that is not mounted').toBe(false)
     expect([toggle.getAttribute('aria-expanded'), toggle.hasAttribute('aria-pressed')], 'a disclosure is expanded, never pressed').toEqual(['false', false])
     fireEvent.click(toggle)
     const body = latest.querySelector('[data-testid="view-reply-rests-body"]')!
