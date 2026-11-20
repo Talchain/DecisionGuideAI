@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { act, cleanup, createEvent, render, screen, fireEvent } from '@testing-library/react'
 import { Check, Plus, Trash2 } from 'lucide-react'
 import { TIP_DELAY } from '../Tip'
 import { ICONS, OkIcon, OkIconButton, duplicateIconIds, type IconEntry, type IconId } from '../icons'
@@ -129,7 +129,10 @@ describe('OkIcon and OkIconButton', () => {
       expect(screen.queryByRole('tooltip')).toBeNull()
       fireEvent.pointerLeave(btn)
     }
-    fireEvent.pointerEnter(btn, { pointerType: 'touch' })
+    // jsdom drops pointerType from the init dict, so set it on the event itself.
+    const touch = createEvent.pointerEnter(btn)
+    Object.defineProperty(touch, 'pointerType', { value: 'touch' })
+    fireEvent(btn, touch)
     act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(screen.queryByRole('tooltip')).toBeNull()
   })

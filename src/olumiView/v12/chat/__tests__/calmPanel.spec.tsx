@@ -28,6 +28,19 @@ import { chatQuestionsOf } from '../../../layout'
 import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
 import { controls } from '../../../../styles/controls'
+import { TIP_DELAY } from '../../../look/Tip'
+
+/** The words the shared Tip shows after the pointer rests on `el` (no native title any more). */
+const tipWords = (el: HTMLElement): string | null => {
+  vi.useFakeTimers()
+  try {
+    fireEvent.pointerEnter(el)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const words = document.querySelector('[role="tooltip"]')?.textContent ?? null
+    fireEvent.pointerLeave(el)
+    return words
+  } finally { vi.useRealTimers() }
+}
 
 const selection: { value: { id: string; label: string; kind: 'node' | 'edge' } | null } = { value: null }
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => selection.value }))
@@ -112,7 +125,7 @@ describe('2. the pending proposal is ONE line at the thread\'s foot, above the c
     const aside = q(line, 'view-set-aside')!
     expect(aside.textContent).toBe('') // an icon, not words
     expect(aside.getAttribute('aria-label')).toBe('Set aside')
-    expect(aside.title).toBe('Set aside')
+    expect(tipWords(aside)).toBe('Set aside') // the one hover (Tip), not a native title
     expect(qa(box, 'view-approve')).toHaveLength(1) // ONE filled button
   })
   it('opening Review shows the change list ABOVE the line, inside the same box; Approve and Set aside stay in the line', () => {
@@ -206,7 +219,7 @@ describe('4. the selected card is a chip inside the composer', () => {
     const c = mount(session('after-find-first'))
     const chip = q(q(c, 'view-composer')!, 'selection-chip')!
     const ask = q(chip, 'selection-ask-chip')!
-    expect(ask.title).toBe('Ask about per specialist')
+    expect(tipWords(ask)).toBe('Ask about per specialist')
     expect(ask.getAttribute('aria-label')).toBe('Ask about per specialist')
     expect(ask.querySelector('svg')).not.toBeNull() // drawn, not hidden
     expect(ask.className.split(/\s+/)).toContain('text-text-light') // neutral (a class since 18 Nov, so disabled and hover can win)
@@ -362,7 +375,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     const card = open(q(c, 'view-model-question')!)
     const skip = q(card, 'view-question-skip')!
     expect(skip.textContent).toBe('')
-    expect(skip.title).toBe('Skip')
+    expect(tipWords(skip)).toBe('Skip')
     expect(skip.className.split(/\s+/)).toContain('text-text-light')
     fireEvent.click(skip)
     expect(q(card, 'view-question-count')!.textContent).toBe('2 of 3')
