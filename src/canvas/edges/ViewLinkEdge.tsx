@@ -310,7 +310,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
                 <OkIcon id={MARK_ID[mark]} size={12} decorative inherit />
               </span>
             )}
-            {!signed || !textShown || farAtRest ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} className="ok-link-hit">{link.label}</span>}
+            {/* Far at rest the sign WAITS hidden, never removed: the box keeps one measured size whatever the placement says, so size and placement settle
+                (DL BLOCKER 20 Nov: removing it made the box fit, the sign return, the box not fit, an update-depth loop, React #185). */}
+            {!signed || !textShown ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} className={farAtRest ? 'ok-link-hit ok-link-hidden' : 'ok-link-hit'}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725); core's hover for it is part of the link's Tip. */}
             {effect === null ? null : <span className="ok-link-hit" data-view={`links.${i}.effect.text`}>{effect.text}</span>}
           </div>
