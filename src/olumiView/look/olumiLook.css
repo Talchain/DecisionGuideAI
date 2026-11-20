@@ -478,3 +478,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-rail-val .ok-dt-quiet { font-weight: 400; }
 /* Codex 12:40Z: the board is not painted until its first frame is taken (ViewCanvas useViewCamera `framed`): never at 0,0 scale 1 under the dock. Layout and measuring go on. */
 .olumi-look.ok-board-unframed .react-flow__viewport { visibility: hidden; }
+
+/* Paul, 20 Nov ("the blue we're using isn't on brand"): a checkbox drew the browser's default blue, because no colour was ever set. Every tick
+   box takes the action green (--success, the Approve button's own fill). An element selector, so a control that sets its own accent keeps it. */
+input[type='checkbox'] { accent-color: var(--success); }

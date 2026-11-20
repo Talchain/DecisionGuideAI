@@ -66,7 +66,6 @@ import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } fr
 import { aboutCardsOf, AboutChips } from './v12/chat/AboutChip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { IntakeSheet } from './v12/chat/IntakeSheet'
-import { ChangeMix } from './v12/chat/ChangeMix'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { ICONS, OkIcon, OkIconButton } from './look/icons'
 import { FoldChevron } from './look/FoldChevron'
@@ -1672,7 +1671,8 @@ export function nextStepOf(view: View, isGone?: (turn: number, move: string) => 
 // give the figure (strategy witness 8, 8 Nov: core said "which no one can size yet" where the UI said "only you can give").
 export const NEXT_STEP_WORDS = {
   // R25 (Paul's 6 Nov test: no ✎ appeared while a proposal waited): say why, here, where the decision is (core holds edits by contract).
-  approve: 'Olumi proposes changes, shown on the canvas. Check them against your situation, then approve them or set them aside. Nothing changes until you approve, and figure edits wait until then.',
+  // Paul, 20 Nov: one sentence, no waffle. Keeps R25's reason (edits wait while a proposal is open).
+  approve: 'Check Olumi’s changes on the canvas: nothing changes, and figure edits wait, until you approve.',
   invite: 'Bring in a colleague: each of you gives your own view privately, then you reveal them together and see where you differ.',
 } as const
 
@@ -1715,7 +1715,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the
           change list and the readings join them, above the line. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
       <div id={body} data-review-body="">
-        {open ? <><p>{NEXT_STEP_WORDS.approve}</p><ChangeMix changes={p.changes} /></> : null}
+        {open ? <p>{NEXT_STEP_WORDS.approve}</p> : null}
         <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} lead={lead} />
       </div>
     </div>

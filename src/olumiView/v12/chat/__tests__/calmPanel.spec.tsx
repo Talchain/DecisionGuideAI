@@ -495,25 +495,11 @@ describe('9. the proposal line: heading basis (D3) and the change mix', () => {
     setOpen(q(c, 'view-proposal-review')!, false)
     expect(line().className).toContain('flex-nowrap')
   })
-  it('the strip carries a stacked change-mix bar: one segment per change family, in that kind\'s token, as wide as its count; none where the changes carry no family', () => {
-    const view = structuredClone(golden('proposal'))
-    const ch = view.proposal!.changes!
-    view.proposal!.changes = [{ ...ch[0]!, family: 'quantity' }, { ...ch[1]!, family: 'quantity' }, { ...ch[0]!, id: 'o1', family: 'option' }, { ...ch[0]!, id: 'g1', family: 'goal' }, { ...ch[0]!, id: 'x1', family: 'claim' }]
-    const c = mount(view)
-    expect(q(q(c, 'view-proposal-actions')!, 'view-change-mix'), 'closed, the one-row bar carries no mix (18 Nov)').toBeNull()
+  it('no change-mix bar, open or closed (Paul, 20 Nov: a 4px strip he could barely see, with no value; it was deleted)', () => {
+    const c = mount(structuredClone(golden('proposal')))
+    expect(q(c, 'view-change-mix')).toBeNull()
     setOpen(q(c, 'view-proposal-review')!, true)
-    const bar = q(q(c, 'view-proposal-review')!, 'view-change-mix')!
-    const seg = [...bar.children] as HTMLElement[]
-    expect(seg.map((x) => [x.dataset['family'], x.dataset['n'], x.style.background])).toEqual([['quantity', '2', 'var(--factor)'], ['option', '1', 'var(--option)'], ['goal', '1', 'var(--goal)'], ['claim', '1', 'var(--border-emphasis)']])
-    expect(seg.map((x) => x.style.flexGrow)).toEqual(['2', '1', '1', '1']) // as wide as its count: removing the width fails here
-    expect(bar.getAttribute('role')).toBe('img')
-    expect(bar.getAttribute('aria-label')).toBe('Kinds of change: quantity 2, option 1, goal 1, claim 1') // the bar in words
-    expect(bar.getAttribute('aria-hidden')).toBeNull()
-    expect(q(c, 'view-proposal-row')!.contains(bar)).toBe(false) // beside the row, so core\'s words stay exactly the row's text
-    cleanup()
-    const older = structuredClone(golden('proposal'))
-    older.proposal!.changes = older.proposal!.changes!.map((x) => ({ ...x, family: '' }))
-    expect(q(mount(older), 'view-change-mix')).toBeNull()
+    expect(q(c, 'view-change-mix')).toBeNull()
   })
 })
 
