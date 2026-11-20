@@ -884,6 +884,31 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 
+  it('C8 (20 Nov) a preview stands BESIDE its hovered card: the reserve (360 px, for the pinned box) chooses the side only, and the preview is clamped by its own height, so on a card low on the board it is not lifted 200 px above it. The press still does not move it. CONTRAST: the reserve alone would have lifted it', async () => {
+    const CARD = { left: 100, top: 520, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }, WINDOW_H = 700
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(CARD)
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: WINDOW_H })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const [x, y] = at(box()!)
+      const reserveLift = WINDOW_H - 360 - 8
+      expect(x >= CARD.left + CARD.width || x + 280 <= CARD.left, `the preview is beside its card, not on it (${x},${y})`).toBe(true)
+      expect(Math.abs(y! - CARD.top), `the preview's top is within 16 px of its card's top (placed ${y}, card ${CARD.top})`).toBeLessThanOrEqual(16)
+      expect(CARD.top - reserveLift, 'CONTRAST: the reserve-height rule alone would have lifted it this far').toBeGreaterThan(100)
+      expect(y! + H.peek, 'and it stands whole inside the window').toBeLessThanOrEqual(WINDOW_H)
+      fireEvent.click(node(FIG2)); await settle()
+      expect(box()!.getAttribute('data-state')).toBe('pinned')
+      expect(at(box()!), 'pinned where it was previewed: no jump').toEqual([x, y])
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
   it('A-8 a preview stands where its pinned box will fit, not merely where the small preview fits: with room above for the preview only, it is placed below (where the pinned box goes), and the press does not move it', async () => {
     // The card spans the board (no room at its sides); 200 px above it (the preview alone would fit), 400 px below (the pinned box fits), and another card stands just below it.
     const CARD = { left: 20, top: 200, width: 860, height: 100 }, BELOW = { left: 20, top: 320, width: 300, height: 100 }, H = { peek: 160, pinned: 340 }

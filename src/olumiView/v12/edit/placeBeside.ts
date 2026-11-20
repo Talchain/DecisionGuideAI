@@ -306,11 +306,26 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
             }
           }
         }
-        const placedNow = Math.min(size.height, p.maxHeight ?? size.height)
+        let placedNow = Math.min(size.height, p.maxHeight ?? size.height)
         // Shorter than the height its place was chosen for (a preview): its cap is its own, and above its item it stands on its bottom edge, next to the item.
         if (anchor !== null && lock === null && size.height > own_h) {
           const placed = Math.min(size.height, p.maxHeight ?? size.height), shown = Math.min(own_h, placed)
-          p = { left: p.left, top: p.top + placed <= anchor.top ? p.top + (placed - shown) : p.top, maxHeight: own_h > placed ? placed : null }
+          // C8 (20 Nov): the reserve chose the SIDE only. Beside its card the preview is clamped by its OWN height, not the reserve's: it stands at the card's top, or as
+          // low as the free canvas (and the foot controls) allow for its own height, never lifted for room only the pinned box needs. The span the side was chosen for
+          // (the reserve below the place's top) holds it, so no card is newly covered. Pinned, the same corner is KEPT (no jump); its body scrolls where room is short.
+          const beside = p.left >= anchor.right || p.left + size.width <= anchor.left
+          let top = p.top + placed <= anchor.top ? p.top + (placed - shown) : p.top
+          if (beside) {
+            top = clamp(anchor.top, p.top, free.bottom - HOVER_CARD_GAP - shown)
+            for (const f of footRects()) {
+              if (p.left >= f.right || p.left + size.width <= f.left || top + shown <= f.top - HOVER_CARD_GAP || top >= f.bottom) continue
+              top = Math.max(p.top, Math.min(top, f.top - HOVER_CARD_GAP - shown))
+            }
+          }
+          p = { left: p.left, top, maxHeight: own_h > placed ? placed : null }
+          // A preview beside its card stands at its own height: that is the height a later move is judged against (the pinned box keeps this corner, cut to the room
+          // below it, rather than being placed afresh because it shows less than the reserve).
+          if (beside) placedNow = shown
         }
         stood = anchor === null ? null : { ax: anchor.left, ay: anchor.top, free: freeKey, left: p.left, top: p.top, placed: placedNow }
         el.style.setProperty(vars.x, `${p.left}px`); el.style.setProperty(vars.y, `${p.top}px`)
