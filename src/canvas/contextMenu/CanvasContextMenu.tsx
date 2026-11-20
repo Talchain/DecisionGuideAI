@@ -222,8 +222,9 @@ export function CanvasContextMenuBase({
     const item = actionableItems[focusedIndex]
     const row = item === undefined ? undefined : submenuTriggerRefs.current.get(item.id)
     const tip = item !== undefined && row !== undefined ? rowTip(row, item) : null
+    // The old row's tip goes at once when the focus moves on; the new row's opens after the one delay.
+    hideTooltip()
     if (tip !== null && item !== undefined && row !== undefined) showTooltip(tip, row, item.id)
-    else hideTooltip()
   }, [focusedIndex])  // eslint-disable-line react-hooks/exhaustive-deps -- runs on a key move only; the helpers are per-render closures over the same state
 
   useEffect(() => {
