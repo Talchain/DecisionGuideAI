@@ -40,7 +40,9 @@ export const effectWidth = (share: number | null | undefined): number =>
 export const DRIVER_WIDTH = EDGE_STROKE_WIDTH_BANDS.strong
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
-/** The one dash: a doubted link. */
+/** Fixed notation words (UI chrome, not core's): a link core types as having no effect, when core sent no words for it. */
+export const DIRECTION_NONE = 'No effect'
+/** The one dash: a doubted link. A reason link is never dashed for being one: it is dotted (olumiLook.css `.ok-link-dotted`), so a dash still means doubt only. */
 export const DOUBT_DASH = '5 4'
 
 export const LINK_STYLES: Readonly<Record<StyledRole, LinkStyle>> = {

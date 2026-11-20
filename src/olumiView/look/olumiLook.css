@@ -482,3 +482,13 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* Paul, 20 Nov ("the blue we're using isn't on brand"): a checkbox drew the browser's default blue, because no colour was ever set. Every tick
    box takes the action green (--success, the Approve button's own fill). An element selector, so a control that sets its own accent keeps it. */
 input[type='checkbox'] { accent-color: var(--success); }
+
+/* LINKS (panel-visual system §4, L1 L2 L4). A reason link (a premise or an assumption, always drawn at rest) is round dots, never a dash: a dash is doubt. */
+.olumi-look .ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
+/* Alert (orange) and proposal (Olumi's blue) are a halo under a line that has its own direction colour, so neither overwrites the direction. */
+.olumi-look .ok-link-halo { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.35; pointer-events: none; }
+.olumi-look .ok-link-halo-alert { stroke: var(--olumi-mark-orange); }
+.olumi-look .ok-link-halo-proposed { stroke: var(--semantic-info); }
+/* The midpoint mark: one small grey icon from the typed direction, counter-scaled to the board. Hover and focus are the Tip's. */
+.olumi-look .ok-link-mark { color: var(--edge-neutral); pointer-events: auto; }
+.olumi-look .ok-link-mark svg { width: calc(12px * var(--canvas-label-scale, 1)); height: calc(12px * var(--canvas-label-scale, 1)); }

@@ -86,7 +86,6 @@ describe('a modelled effect', () => {
     expect([0.25, 0.8, 0.1, null].map((x) => { const c = draw(shared(x)); const w = line(c).style.strokeWidth; cleanup(); return w })).toEqual(['3', '5', '2', '2'])
     // CONTRAST: a plain structural line is 2 px whatever the share beside it says; a reason link too.
     const plain = { ...shared(0.8), causal: null, role: null, kind: 'reason' } as unknown as ViewLink
-    useViewHover.setState({ id: plain.from })
     expect(line(draw(plain)).style.strokeWidth).toBe('2')
   })
   it('is dashed only when doubted (not when unsized or proposed)', () => {
@@ -110,7 +109,7 @@ describe('a modelled effect', () => {
     const c = draw(l)
     const mark = document.body.querySelector('[data-view-link-unsettled="links.0"]')!
     expect([mark.textContent, mark.querySelector('svg') !== null, mark.getAttribute('data-link-direction')]).toEqual(['', true, 'unknown'])
-    expect(document.body.querySelector('[data-view-link-unsettled]')?.getAttribute('title')).toBe(DIRECTION_NOT_SETTLED)
+    expect(document.body.querySelector('[data-view-link-unsettled]')?.getAttribute('aria-label')).toBe(DIRECTION_NOT_SETTLED)
     const icon = mark.querySelector('svg')!.getAttribute('class')
     cleanup()
     // core's own direction (fields.ts linkLook): `depends` draws its own icon, not the unknown one, on the neutral line.
@@ -121,7 +120,7 @@ describe('a modelled effect', () => {
     cleanup(); void c
     const m = withCausal('unknown'); m.causal!.text = 'Which way this moves is not settled'
     draw(m)
-    expect(document.body.querySelector('[data-view-link-unsettled]')?.getAttribute('title')).toBe('Which way this moves is not settled')
+    expect(document.body.querySelector('[data-view-link-unsettled]')?.getAttribute('aria-label')).toBe('Which way this moves is not settled')
     cleanup()
     draw(withCausal('increases'))
     expect(document.body.querySelector('[data-view-link-unsettled]')).toBeNull()
@@ -173,9 +172,8 @@ describe('link roles', () => {
     expect(g(c).getAttribute('data-link-role')).toBe('input')
   })
   it('reason: a plain 2 px neutral line, never coloured or weighted as an effect, never ink (R5)', () => {
-    // A reason link is drawn only while one of its cards is active, in Simple and Detailed alike: its card hovered here.
+    // A reason link is drawn at rest (L1), in Simple and Detailed alike, as a plain neutral line (dotted by class, never an inline dash).
     setDefaultLevel('simple')
-    useViewHover.setState({ id: first.from })
     for (const l of [role('reason'), { ...role('reason'), role: undefined, kind: 'reason' } as unknown as ViewLink, { ...first, doubt: false, alert: false, proposed: false, causal: null, label: '' } as unknown as ViewLink]) {
       const c = draw(l)
       expect(line(c).style.stroke).toBe(EDGE_NEUTRAL)
@@ -188,7 +186,6 @@ describe('link roles', () => {
   it('only a doubted link is dashed, whatever kind of line it is (R5)', () => {
     expect(line(draw(role('input', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
     cleanup()
-    useViewHover.setState({ id: first.from })
     expect(line(draw(role('reason', { doubt: true }))).style.strokeDasharray).toBe(DOUBT_DASH)
   })
   it('size: a plain wire to the midpoint of the sized effect, labelled "size"; never an arrowhead', () => {
@@ -229,31 +226,99 @@ describe('the lit path (R1, 16 Nov): links fade only while a path is lit', () =>
   })
 })
 
-describe('connector density (S4 density lane, 19 Nov): a reason link is a line only while its card is active', () => {
+describe('every link is drawn at rest (panel-visual system L1)', () => {
   const reason = (extra: Partial<ViewLink> = {}) => ({ ...first, from: 'a', to: 'b', kind: 'reason', role: 'reason', causal: null, doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
   const causal = () => ({ ...withCausal('increases'), from: 'a', to: 'b' }) as ViewLink
-  it('DENS1 Simple at rest draws no reason line, and its causal line is still drawn', () => {
-    setDefaultLevel('simple')
-    expect(line(draw(reason()))).toBeNull(); cleanup()
-    expect(line(draw(causal()))).not.toBeNull()
+  it('L1a a reason link is drawn at rest on Simple and on Detailed, with nothing hovered or selected; so is its causal neighbour', () => {
+    for (const level of ['simple', 'working'] as const) {
+      setDefaultLevel(level)
+      expect(line(draw(reason())), level).not.toBeNull(); cleanup()
+      expect(line(draw(causal())), level).not.toBeNull(); cleanup()
+    }
   })
-  it('DENS2 Simple draws the reason line while either of its cards is hovered; another card hovered draws nothing', () => {
-    setDefaultLevel('simple')
-    useViewHover.setState({ id: 'b' })
-    expect(line(draw(reason()))).not.toBeNull(); cleanup()
-    useViewHover.setState({ id: 'z' })
-    expect(line(draw(reason()))).toBeNull()
+  it('L1b a reason link is DOTTED by its own class, never dashed: a dash still means doubt (a doubted reason link keeps the doubt dash); an effect and a role line are not dotted', () => {
+    const plain = draw(reason())
+    expect([g(plain).getAttribute('data-link-dotted'), line(plain).getAttribute('class')?.includes('ok-link-dotted'), line(plain).style.strokeDasharray]).toEqual(['', true, ''])
+    cleanup()
+    expect(line(draw(reason({ doubt: true }))).style.strokeDasharray, 'doubt is the dash').toBe(DOUBT_DASH)
+    cleanup()
+    for (const l of [causal(), { ...first, causal: null, role: 'input', kind: 'relation', doubt: false, alert: false, proposed: false } as unknown as ViewLink]) {
+      expect(g(draw(l)).hasAttribute('data-link-dotted'), 'CONTRAST: only a reason line is dotted').toBe(false); cleanup()
+    }
   })
-  it('DENS3 a reason line core marks challenged or proposed is drawn at rest on Simple', () => {
-    setDefaultLevel('simple')
+  it('L1c a reason link core marks challenged or proposed is drawn at rest as before; a link no one hovers is no longer folded away', () => {
     expect(line(draw(reason({ alert: true })))).not.toBeNull(); cleanup()
-    expect(line(draw(reason({ proposed: true })))).not.toBeNull()
-  })
-  it('DENS4 Detailed is as before: no reason line at rest, drawn on focus; its causal line is drawn', () => {
-    setDefaultLevel('working')
-    expect(line(draw(reason()))).toBeNull(); cleanup()
-    expect(line(draw(causal()))).not.toBeNull(); cleanup()
-    useViewHover.setState({ id: 'a' })
+    expect(line(draw(reason({ proposed: true })))).not.toBeNull(); cleanup()
+    useViewHover.setState({ id: 'z' })
     expect(line(draw(reason()))).not.toBeNull()
+  })
+})
+
+describe('the midpoint mark (panel-visual system L2)', () => {
+  const dir = (direction: string, extra: Partial<ViewLink> = {}) => ({ ...withCausal('increases'), direction, effect: null, ...extra }) as unknown as ViewLink
+  // A typed `none` with core's direction field null: not a belief with a direction, but a typed "no effect" (its own mark).
+  const none = () => ({ ...withCausal('none'), direction: null, effect: null }) as unknown as ViewLink
+  const markOf = () => document.body.querySelector('[data-view-link-mark="links.0"]')
+  it('L2a each typed direction draws its own small icon at rest: raises, lowers, depends, disputed, unknown and a typed `none` are six different icons', () => {
+    setDefaultLevel('simple')
+    const classes: Record<string, string | null> = {}
+    for (const [name, l] of [['raises', dir('raises')], ['lowers', dir('lowers')], ['depends', dir('depends')], ['disputed', dir('disputed')], ['unknown', dir('unknown')], ['none', none()]] as const) {
+      draw(l)
+      const m = markOf()!
+      expect(m, name).not.toBeNull()
+      expect([m.getAttribute('data-link-direction'), m.getAttribute('role')], name).toEqual([name, 'img'])
+      classes[name] = m.querySelector('svg')!.getAttribute('class')
+      cleanup()
+    }
+    expect(new Set(Object.values(classes)).size, 'six directions, six icons').toBe(6)
+  })
+  it('L2b the mark says core\'s words (causal.text, effect.text, effect.title) to assistive technology and in the lane Tip on hover; a mark core gave no words for says the registry\'s or notation words', () => {
+    const l = dir('raises', { effect: { text: 'a lot', title: 'About a lot more per week' } } as Partial<ViewLink>); l.causal!.text = 'More A raises B'
+    draw(l)
+    expect(markOf()!.getAttribute('aria-label')).toBe('More A raises B\na lot\nAbout a lot more per week')
+    cleanup()
+    draw(dir('lowers')); expect(markOf()!.getAttribute('aria-label')).toBe('Decreases'); cleanup()
+    draw(none()); expect(markOf()!.getAttribute('aria-label')).toBe('No effect')
+  })
+  it('L2c a link that is not an effect (a role line, a reason link, a size wire) has no midpoint mark', () => {
+    for (const l of [{ ...first, causal: null, role: 'input', kind: 'relation' }, { ...first, causal: null, role: 'reason', kind: 'reason' }] as unknown as ViewLink[]) { draw(l); expect(markOf()).toBeNull(); cleanup() }
+  })
+})
+
+describe('width stays uniform (panel-visual system L3)', () => {
+  it('L3 core reserves `causal.strength.share` as null, so every effect is the thinnest rung whatever its low / likely / high say; no strength is implied', () => {
+    for (const [low, likely, high] of [[1, 2, 3], [100, 900, 1500], [null, null, null]] as const) {
+      const l = withCausal('increases'); l.causal = { ...l.causal!, strength: { state: 'sized', figure: null, low, likely, high, share: null } as never }
+      expect(line(draw(l)).style.strokeWidth).toBe(String(PLAIN_WIDTH)); cleanup()
+    }
+  })
+})
+
+describe('modifier channels (panel-visual system L4)', () => {
+  const both = (extra: Partial<ViewLink>) => withCausal('decreases', extra)
+  it('L4a alert is an orange halo under a directional line: the line keeps its direction colour (it was orange, and lost its direction)', () => {
+    const c = draw(both({ alert: true }))
+    expect(line(c).style.stroke).toBe(EFFECT_STROKES.decreases)
+    expect(c.querySelector('[data-link-halo-path="alert"]')?.getAttribute('class')).toContain('ok-link-halo-alert')
+    expect(g(c).getAttribute('data-link-halo')).toBe('alert')
+  })
+  it('L4b proposal is a blue halo under a directional line in an approved model, the direction colour kept; on a first draft it marks nothing (R3)', () => {
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as View })
+    const c = draw(both({ proposed: true }))
+    expect([line(c).style.stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
+    expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
+    cleanup()
+    useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as View })
+    expect(g(draw(both({ proposed: true }))).hasAttribute('data-link-halo')).toBe(false)
+  })
+  it('L4c the four channels coexist on one line: direction colour, doubt dash, alert halo and proposal halo', () => {
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as View })
+    const c = draw(both({ doubt: true, alert: true, proposed: true }))
+    expect([line(c).style.stroke, line(c).style.strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
+  })
+  it('L4d CONTRAST: a line with no direction colour of its own (a plain or reason line) takes orange or blue as its colour, as before, with no halo', () => {
+    const plain = (extra: object) => ({ ...first, causal: null, role: null, kind: 'relation', doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
+    const c = draw(plain({ alert: true }))
+    expect([line(c).style.stroke, g(c).hasAttribute('data-link-halo')]).toEqual(['var(--olumi-mark-orange)', false])
   })
 })

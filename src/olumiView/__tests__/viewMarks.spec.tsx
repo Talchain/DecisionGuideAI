@@ -58,7 +58,7 @@ describe('#1 the question', () => {
   })
 })
 
-// Drawn with its first card hovered: a premise or assumption link is drawn only then (linkDrawn; viewCanvas.spec folds them).
+// Drawn with its first card hovered, so the link's words and its card's path are lit as a person pointing at it would see them (every link is drawn at rest).
 const edge = (link: ViewLink, i = 0) => (useViewHover.setState({ id: link.from }), render(
   <ReactFlowProvider><EdgeLabelLayer><svg><ViewLinkEdge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={100} targetY={40}
     sourcePosition={Position.Right} targetPosition={Position.Left} data={{ link, i }} /></svg></EdgeLabelLayer></ReactFlowProvider>,

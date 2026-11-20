@@ -38,7 +38,7 @@ export const isViewNode = (node: { type?: string } | null | undefined): boolean 
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
-/** The View card (or the question) under the pointer, if any: its reason links are drawn while it is (`linkDrawn`). */
+/** The View card (or the question) under the pointer, if any: the path from it is lit (focusPath.ts) and its links say their words (ViewLinkEdge). */
 export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
 /** The link (its React Flow edge id) with keyboard focus, if any: it is drawn and says its words while it is (ViewLinkEdge). */
 export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null }))

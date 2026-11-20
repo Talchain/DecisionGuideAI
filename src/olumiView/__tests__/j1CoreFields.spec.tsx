@@ -14,7 +14,7 @@ import type { View } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { linkMarkOf } from '../LinkMarkChip'
 import { revealOf } from '../reveal'
-import { routeRailAtRest } from '../layout'
+import * as layout from '../layout'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/j1/${f}`), 'utf8'))
 const bookshop = load('bookshop-v1-open.core-261df1d4.view3.json'), strategy = load('strategy-reveal-split.core-261df1d4.view3.json')
@@ -87,12 +87,9 @@ describe('the routes stay whole at 1232: what each says once', () => {
     const factor = render(<ViewCard card={route('cross_team_adoption')} />).container.querySelector('[data-view="cross_team_adoption.face.line.text"]')!
     expect(factor.className).not.toMatch(/(^| )hidden( |$)/)
   })
-  it('a route’s rail into a factor waits for either card to be active; a story link and a non-rail route link do not', () => {
+  it('a route’s rail into a factor is drawn at rest like every link (panel-visual L1): nothing in the layout holds a rail back until a card is active', () => {
     const l = strategy.model!.links.find((x) => x.from === 'top_down_enterprise_sale' && x.to === 'cross_team_adoption')!
-    expect(routeRailAtRest(l, true, true, new Set())).toBe(false)
-    expect(routeRailAtRest(l, true, true, new Set(['cross_team_adoption']))).toBe(true)
-    expect(routeRailAtRest(l, true, false, new Set())).toBe(true)
-    const story = strategy.model!.links.find((x) => x.from === 'speed_to_value' && x.to === 'pilot_conversion')!
-    expect(routeRailAtRest(story, false, true, new Set())).toBe(true)
+    expect(l).toBeDefined()
+    expect((layout as Record<string, unknown>).routeRailAtRest).toBeUndefined()
   })
 })
