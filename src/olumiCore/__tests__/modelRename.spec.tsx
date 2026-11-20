@@ -55,9 +55,9 @@ describe('on the olumi-core lane the model\'s name cannot be edited (it would be
     expect(screen.queryByTestId('scenario-name-button')).toBeNull()
     expect(screen.queryByRole('button', { name: /Rename model/ })).toBeNull()
   })
-  it('the dropdown has no rename button, and the rename request opens no editor', () => {
+  it('there is no dropdown to hold a rename button (no chevron), and the rename request opens no editor', () => {
     renderSwitcher()
-    fireEvent.click(screen.getByTestId('scenario-switcher-trigger'))
+    expect(screen.queryByTestId('scenario-switcher-trigger')).toBeNull()
     expect(screen.queryByTitle('Rename')).toBeNull()
     fireEvent(window, new CustomEvent(SCENARIO_RENAME_REQUEST_EVENT))
     expect(screen.queryByTestId('scenario-name-input')).toBeNull()

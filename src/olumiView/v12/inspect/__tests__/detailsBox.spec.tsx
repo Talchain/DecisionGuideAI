@@ -5,7 +5,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { LaneEditingLayer } from '../../edit/LaneEditingLayer'
 import { useLaneInspector } from '../../edit/inspectorStore'
@@ -70,5 +70,24 @@ describe('task 3: a figure\'s box is short at rest', () => {
     expect(rest.filter((t) => t.startsWith('inspector-figure-')), `lane buttons at rest: ${rest.join(',')}`).toEqual([])
     fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '1' } })
     expect(buttons().length - rest.length, 'CONTRAST: the two it used to draw at rest').toBe(2)
+  })
+})
+
+describe('S4 pop-up lane (20 Nov): the figure field is labelled once, in core\'s words, whole', () => {
+  beforeEach(() => { lane(true); install(approved()) })
+  it('P2 the lane box labels the field with core\'s own prompt, drawn once and uncut, with no chrome word before it; the ask stays as its hint', () => {
+    const edit = useViewStore.getState().view!.model!.cards.find((c) => c.id === PLAIN)!.figure!.edit!
+    expect(edit.prompt.length, 'precondition: core sent a prompt').toBeGreaterThan(0)
+    mount(PLAIN)
+    const label = screen.getByTestId('inspector-figure-typed').closest('div')!.querySelector('label')!
+    expect(label.textContent, 'the label is core\'s prompt exactly: nothing prefixed, nothing cut').toBe(edit.prompt)
+    expect(label.getAttribute('title')).toBe(edit.ask)
+    expect(within(screen.getByTestId('lane-inspector')).getAllByText(edit.prompt, { exact: false }), 'the prompt is drawn once in the box').toHaveLength(1)
+  })
+  it('CONTRAST: the older look keeps its own field, labelled in its own words (the change is the lane box\'s Value row only)', () => {
+    cleanup(); uninstall(); lane(false); install(approved())
+    const edit = useViewStore.getState().view!.model!.cards.find((c) => c.id === PLAIN)!.figure!.edit!
+    mount(PLAIN)
+    expect(screen.getByTestId('inspector-your-figure').querySelector('label')!.textContent).toBe(`Your figure: ${edit.prompt}`)
   })
 })

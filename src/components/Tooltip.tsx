@@ -75,7 +75,9 @@ export default function Tooltip({ children, content, className = '', delay, asCh
   const focus = useFocus(context);
   // Escape closes this tooltip and CONTINUES: floating-ui stops the press at `document` by default, which swallowed the first Escape of any
   // surface whose control showed a tooltip (More options needed two), and the one shared Escape rule (escapeLayers.ts) acts last, at `window`.
-  const dismiss = useDismiss(context, { bubbles: { escapeKey: true } });
+  // A press of the control closes it too: a tip standing over the menu or drawer the press just opened is two pop-ups for one control. `click` (not the
+  // default pointerdown) so a keyboard press (Enter, Space) closes it as well, and so it is the press that completes that closes, after focus has shown it.
+  const dismiss = useDismiss(context, { bubbles: { escapeKey: true }, referencePress: true, referencePressEvent: 'click' });
   const role = useRole(context, { role: 'tooltip' });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([
@@ -100,13 +102,7 @@ export default function Tooltip({ children, content, className = '', delay, asCh
   return (
     <>
       {child ? React.cloneElement(child, {
-        ...getReferenceProps({
-          ...child.props,
-          onClick: (event: React.MouseEvent) => {
-            setIsOpen(false);
-            child.props.onClick?.(event);
-          },
-        }),
+        ...getReferenceProps(child.props),
         ref: referenceRef,
         // An empty title blocks native tooltips inherited from an ancestor
         // (for example an external factor's "Outside your control" label).

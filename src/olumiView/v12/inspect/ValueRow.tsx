@@ -21,7 +21,6 @@ import { tryWhatIf } from '../../whatif'
 import { FORM_WORDS, isSizeEdit, submitEdit, type CoreEdit, type EditSpec } from '../edit/EditForm'
 import { editGateNow } from '../edit/editGate'
 import { useLaneInspector } from '../edit/inspectorStore'
-import { INSPECTOR_WORDS } from './FigureInspector'
 
 export const VALUE_WORDS = { change: 'Change figure', changeOlumi: "Change to your figure (was Olumi's estimate)", save: FORM_WORDS.save, tryIt: 'Try without saving', saved: 'Saved.' } as const
 
@@ -31,7 +30,8 @@ export type ValueItem = { readonly kind: 'card' | 'link'; readonly id: string; r
 type Field = { readonly key: 'typed' | 'chance' | 'change'; readonly label: string; readonly hint: string; readonly optional: boolean }
 const fieldsOf = (edit: NonNullable<CoreEdit>): Field[] => (isSizeEdit(edit)
   ? edit.fields.map((f) => ({ key: f.key, label: f.prompt, hint: f.ask, optional: edit.fields.length > 1 }))
-  : [{ key: 'typed', label: `${INSPECTOR_WORDS.yourFigure}: ${edit.prompt}`, hint: edit.ask, optional: false }])
+  // The label is core's own prompt, whole and said once. Whose figure it is stands on the Value row above it (core's source line), so no chrome word is prefixed.
+  : [{ key: 'typed', label: edit.prompt, hint: edit.ask, optional: false }])
 
 const BASE_KEY = 'base'
 const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
