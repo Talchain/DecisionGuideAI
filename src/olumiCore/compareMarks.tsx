@@ -49,10 +49,12 @@ export function CompareCardMark({ id }: { id: string }): JSX.Element | null {
   if (!lines || m.sid === null || m.sid !== sid || m.to === null || m.from === null || shownN !== m.to) return null
   const hover = lines.map((l) => (l.detail ? `${l.text}\n${l.detail}` : l.text)).join('\n')
   return (
+    // One line, bounded by the band (BaseNode right-insets it clear of the card's action rail): the words truncate rather than wrap, since the band
+    // reserves one line (6 + 27 * scale) and a second would grow upward over the card. The full words stay in the hover.
     // The registry's version icon (`version-tag`, "Core's version label"): the mark names a version. Grey, decorative beside the words.
     <BottomCardMark>
-      <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
-        title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><OkIcon id="version-tag" size={12} decorative />{changedSince(m.from)}</span>
+      <span className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-text-light bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`}
+        title={hover} data-compare-mark={id} data-compare-from={m.from} data-compare-to={m.to}><span className="inline-flex shrink-0"><OkIcon id="version-tag" size={12} decorative /></span><span className="truncate">{changedSince(m.from)}</span></span>
     </BottomCardMark>
   )
 }

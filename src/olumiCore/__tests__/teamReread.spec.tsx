@@ -43,15 +43,15 @@ const twoPeople = (over: Partial<View['collab']> = {}, view: Partial<View> = {})
 
 // `reads` counts the View's own re-reads (what this spec is about), bound to the View's path: the Team panels' own reads (where
 // explanations differ, the strategy vocabulary) are not re-reads of the View.
-let served: View, reads = 0
+let served: View, reads = 0, failing = false
 beforeEach(() => {
   vi.useFakeTimers()
-  reads = 0
+  reads = 0; failing = false
   served = twoPeople({ commitments: [{ ...twoPeople().collab.commitments[0]!, outcomes: [] }] })
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     if ((init?.method ?? 'GET') !== 'GET') return new Response('{}', { status: 201 })
     if (String(u).endsWith('/invites')) return new Response(JSON.stringify({ invites: [] }), { status: 200 })
-    if (/\/view\?schema=/.test(String(u))) reads += 1
+    if (/\/view\?schema=/.test(String(u))) { reads += 1; if (failing) return new Response('{}', { status: 500 }) }
     return new Response(JSON.stringify(served), { status: 200 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: served, status: 'ready', error: null, stale: false })
@@ -90,5 +90,30 @@ describe('a re-read on its own, on the Team tab', () => {
     expect(value('team-c-action')).toBe('An action, half written')
     expect(value('team-o-9-happened')).toBe('What happened, half written')
     expect(value('team-invite-name')).toBe('Cy')
+  })
+})
+
+describe('no press asks for a new view: the poll is the only way in', () => {
+  const withCy = (): View => ({ ...served, team_presence: { ...served.team_presence, members: [...served.team_presence.members, { id: 'p_3', text: 'Cy' }] } } as View)
+  it('the tab draws no refresh control, and a member who joins after the last read is drawn by the next poll tick alone', async () => {
+    render(<Page />)
+    expect(screen.queryByTestId('team-check'), 'no "Check for new views" press').toBeNull()
+    expect(screen.queryByRole('button', { name: /check for new views/i })).toBeNull()
+    expect(screen.queryByTestId('team-member-p_3'), 'control: Cy is not on the tab yet').toBeNull()
+    served = withCy()
+    await tick(POLL_MS + 10)
+    expect(screen.getByTestId('team-member-p_3')).toBeTruthy()
+  })
+  it('CONTRAST: a read that fails does not stop the poll: the tab says it may be out of date, then the next tick brings Cy in and the warning goes', async () => {
+    render(<Page />)
+    failing = true; served = withCy()
+    await tick(POLL_MS + 10)
+    expect(screen.getByTestId('team-stale').textContent).toMatch(/may be out of date/)
+    expect(screen.queryByTestId('team-member-p_3')).toBeNull()
+    failing = false
+    await tick(POLL_MS + 10)
+    expect(reads).toBe(2)
+    expect(screen.getByTestId('team-member-p_3')).toBeTruthy()
+    expect(screen.queryByTestId('team-stale')).toBeNull()
   })
 })

@@ -197,7 +197,7 @@ describe('asking for the reading (core A8: POST …/round-read, one counted call
     const sent = post({ status: 201, body: { round_read: 'unchanged' } })
     render(<RoundRead sid={base.id} view={base} headings={core.headings} onWrote={async () => false} />)
     fireEvent.click(screen.getByTestId('round-read-ask'))
-    await waitFor(() => expect(screen.getByTestId('round-read-said').textContent).toBe("Asked. Press “Check for new views” to see Olumi's reading."))
+    await waitFor(() => expect(screen.getByTestId('round-read-said').textContent).toBe("Asked. Olumi's reading will appear here when the page catches up."))
     expect(sent.filter((s) => s.method === 'POST')).toHaveLength(1)
     expect(document.body.textContent).not.toContain('Olumi has no reading of this round yet.')
     cleanup(); resetWrites()

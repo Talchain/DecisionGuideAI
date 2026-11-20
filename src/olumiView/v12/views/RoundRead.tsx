@@ -25,7 +25,7 @@ export const ROUND_WORDS = {
   ask: 'Ask Olumi to read this round',
   reading: 'Olumi is reading the round…',
   none: 'Olumi has no reading of this round yet.',
-  behind: "Asked. Press “Check for new views” to see Olumi's reading.",
+  behind: "Asked. Olumi's reading will appear here when the page catches up.",
   failed: 'That did not go through. Nothing was saved.',
 } as const
 
