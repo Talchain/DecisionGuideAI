@@ -19,7 +19,7 @@ import { driversOf, restsOnOf } from '../layout'
 import { useCanvasStore } from '../../canvas/store'
 import { CoreCard } from '../previous/CoreCard'
 import { viewOf } from '../port/__tests__/viewAt'
-import { hoverWords } from './hoverTip'
+import { hoverWords } from './tipHelpers'
 
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
 const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,

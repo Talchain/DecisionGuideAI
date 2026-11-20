@@ -27,7 +27,7 @@ import { AnswerBox, AnsweredList } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
-import { GlyphMark, Hov } from './port/Hover'
+import { GlyphMark, Hover } from './look/Hover'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
@@ -179,22 +179,22 @@ function Row({ e }: { e: Examine }) {
   const ring = () => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])
   // `hover`: the words' longer text through the one Tip, on the words themselves (a focus stop); a challenge's whole row is a press that carries it instead.
   const wordsEl = (hover?: string) => (
-    <Hov words={hover} className="min-w-0 flex-1">
+    <Hover words={hover} className="min-w-0 flex-1">
       <span className={`${TYPE.body} block text-text-header`} {...at(e, w.at)} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-question' } : {})}>{w.text}</span>
       {w.why === null ? null : <span className={`${TYPE.meta} block text-text-body`} data-view={w.whyAt!} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-reason' } : {})}>{w.why}</span>}
-    </Hov>
+    </Hover>
   )
   const words = wordsEl()
   const whole = `flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
-  if (e.kind === 'challenge') return <li {...rowData(e)}><Hov as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hov></li>
+  if (e.kind === 'challenge') return <li {...rowData(e)}><Hover as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hover></li>
   // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
   // message box is a quiet secondary press, never the row's primary action.
   if (e.kind === 'question') return (
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
-      <Hov as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></Hov>
+      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></Hover>
     </li>
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
@@ -202,7 +202,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
-      <Hov as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></Hov>
+      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></Hover>
     </li>
   )
   return (
@@ -285,7 +285,7 @@ export function StartHere({ model }: { model: ViewModel }) {
     <section key={e.key} className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
       <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
-      <Hov as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hov>
+      <Hover as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hover>
       {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
       <div className="flex flex-wrap items-center gap-2 pt-1"><LeadAct e={e} /></div>
     </section>

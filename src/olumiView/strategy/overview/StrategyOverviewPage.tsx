@@ -6,7 +6,7 @@ import type { View } from '../../client'
 import { typography } from '../../../styles/typography'
 import { META, BODY, H } from '../../../olumiCore/team/ui'
 import { OkIcon, OkIconButton } from '../../look/icons'
-import { Hover } from '../../v12/chat/Hover'
+import { Hover } from '../../look/Hover'
 import { MAX_HOLDERS, overviewOf, type Family, type Group, type Holder, type Row } from './overview'
 
 const SHAPE: Record<Family, string> = {

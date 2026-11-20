@@ -17,7 +17,7 @@
  */
 import { Fragment, useEffect, type CSSProperties } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
-import { HoverButton } from '../../olumiView/v12/chat/Hover'
+import { HoverButton } from '../../olumiView/look/Hover'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react'
 import { Button } from '../components/ui/Button'
-import { HoverButton } from '../olumiView/v12/chat/Hover'
+import { HoverButton } from '../olumiView/look/Hover'
 import { useViewStore } from '../olumiView/store'
 import { ChangeItem, ComparedLists, CoreCompare, SideText, what, whoOf, type Compared } from './compare'
 import { call, TeamApiError } from './team/api'

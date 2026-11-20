@@ -16,7 +16,7 @@ import { FoldChevron } from '../look/FoldChevron'
 import type { ViewModel } from '../client'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { OkIcon } from '../look/icons'
-import { GlyphMark, Hov } from './Hover'
+import { GlyphMark, Hover } from '../look/Hover'
 import type { ViewCard } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { chartGroupsOf, findOutOf, rangeOf, trackPct, type ChartRow } from './pick'
@@ -94,7 +94,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   const tail = tailOf(row)
   return (
     <li data-chart-option={card.id}>
-      <Hov as="button" type="button" words={row.title} onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
+      <Hover as="button" type="button" words={row.title} onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
         className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
         <span className="flex items-baseline justify-between gap-2">
           <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
@@ -107,7 +107,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
         <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
-      </Hov>
+      </Hover>
       {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
       {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional): supporting detail
           under its own bar, verbatim, never composed from its numbers and never a comparison across options. */}
@@ -140,7 +140,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
       {groups.map((g, gi) => (
         <div key={g.aimId} className="space-y-1" data-chart-aim={g.aimId}>
           {g.lead && run.lead != null
-            ? <Hov as="h3" words={lensTitle} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.lead">{run.lead}</Hov>
+            ? <Hover as="h3" words={lensTitle} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.lead">{run.lead}</Hover>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
           <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} />)}</ul>
         </div>
@@ -151,7 +151,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
       {!ranged && marks.length === 0 ? null : (
         <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
-          {sentence === '' || !ranged ? null : <Hov as="p" words={run.sensitivity?.title} className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</Hov>}
+          {sentence === '' || !ranged ? null : <Hover as="p" words={run.sensitivity?.title} className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</Hover>}
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? foldId : undefined} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
             <FoldChevron open={open} />{CHART_WORDS.more}
           </button>

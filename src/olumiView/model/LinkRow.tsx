@@ -10,7 +10,7 @@ import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { OkIcon } from '../look/icons'
 import { useAnchoredTip } from '../look/Tip'
-import { Hover } from '../v12/chat/Hover'
+import { Hover } from '../look/Hover'
 import type { ViewLink, ViewModel } from '../client'
 import { FigureEditor, WithdrawnNote } from './editors'
 import { useModelWords } from './editing'

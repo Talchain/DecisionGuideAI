@@ -11,7 +11,7 @@ import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { TeamApiError } from '../../olumiCore/team/api'
 import { OkIcon, type IconId } from '../look/icons'
-import { Hover, HoverButton } from '../v12/chat/Hover'
+import { Hover, HoverButton } from '../look/Hover'
 import type { ViewCard, ViewLink, ViewModel } from '../client'
 import { writes } from '../client'
 import { useViewStore } from '../store'

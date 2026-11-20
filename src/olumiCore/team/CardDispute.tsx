@@ -13,7 +13,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
-import { Hover, HoverButton } from '../../olumiView/v12/chat/Hover'
+import { Hover, HoverButton } from '../../olumiView/look/Hover'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { typography } from '../../styles/typography'
 import { FOLD_SUMMARY_TOP, FoldChevron } from '../../olumiView/look/FoldChevron'

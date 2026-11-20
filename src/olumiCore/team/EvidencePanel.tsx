@@ -5,7 +5,7 @@ import { teamApi, TeamApiError, type EvidenceInput } from './api'
 import { useDraft } from './drafts'
 import { runWrite, useWriteSending } from './writes'
 import { BODY, CARD, ERR, FIELD, H, LABEL, META, PLAIN_LINK } from './ui'
-import { Hover } from '../../olumiView/v12/chat/Hover'
+import { Hover } from '../../olumiView/look/Hover'
 
 type Stance = EvidenceInput['stance']
 const NONE = '__none__'

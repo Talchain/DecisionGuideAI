@@ -19,7 +19,7 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import type { View, ViewModel } from '../client'
 import { cardsOfRecords } from '../layout'
 import { cardKind } from '../v12/fields/fields'
-import { Hover } from '../v12/chat/Hover'
+import { Hover } from '../look/Hover'
 
 /** The previous tab's section headings (`GoalConstraintsSection` "Limits", `ModelHealthSection` "Model card"). UI words, not model words. */
 export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'History of this model', changed: 'Changed in this version', removed: 'Removed' } as const

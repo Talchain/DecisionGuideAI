@@ -14,7 +14,7 @@ import { useViewStore } from '../store'
 import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 import { cardOf, needsOf, type Need } from './pick'
 import { TYPE } from './type'
-import { Hov } from './Hover'
+import { Hover } from '../look/Hover'
 import { typography } from '../../styles/typography'
 
 /** The list's chrome: its two headings (no chance yet / under a chance), and the fold. */
@@ -45,11 +45,11 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
           const place = n.card !== null && recordReach(n.card) === 'show' ? n.card : null
           return (
             <li key={n.key} className={`${TYPE.body} flex items-center gap-1`} data-need={n.key} data-need-class={n.cls}>
-              <Hov as="button" type="button" aria-disabled={card === null && place === null ? true : undefined} words={n.title} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
+              <Hover as="button" type="button" aria-disabled={card === null && place === null ? true : undefined} words={n.title} onClick={() => { if (place !== null) void showRecord(place); else if (card !== null) pressCard(card.id) }} onMouseEnter={() => ringFrom(RING, card === null ? [] : [card.id])}
                 className="flex min-h-7 min-w-0 flex-1 items-center gap-2 rounded-sm px-1 text-left hover:bg-panel-hover aria-disabled:cursor-default aria-disabled:hover:bg-transparent">
                 <OkIcon id={ICON_OF[n.cls]} size={14} decorative />
                 <span className="min-w-0 flex-1 text-text-body" {...(n.at === null ? {} : { 'data-view': n.at })}>{n.text}{n.detail === undefined ? null : <span className={`${TYPE.meta} block text-text-light`} data-need-detail={n.key}>{n.detail}</span>}</span>
-              </Hov>
+              </Hover>
               {n.edit === null || card === null ? null : <FigureEdit id={card.id} edit={n.edit} place="analysis-need" glyph words={false} label={`Give a figure for ${card.heading}`} />}
             </li>
           )

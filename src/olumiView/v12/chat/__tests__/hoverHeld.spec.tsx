@@ -5,7 +5,7 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { HoverButton } from '../Hover'
+import { HoverButton } from '../../../look/Hover'
 import { tipOnFocus } from '../../../__tests__/tipHelpers'
 
 afterEach(cleanup)

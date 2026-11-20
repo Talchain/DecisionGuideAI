@@ -7,7 +7,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { OkIcon } from '../look/icons'
-import { HoverButton } from './chat/Hover'
+import { HoverButton } from '../look/Hover'
 import { TOOL_WORDS, type Menu, type ToolId } from './actions'
 
 /** The menu's name for assistive technology (the same words the question menu always had). */

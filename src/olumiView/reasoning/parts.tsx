@@ -14,7 +14,7 @@ import { useId, useState, type ComponentType, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { TYPE } from '../port/type'
-import { Hov } from '../port/Hover'
+import { Hover } from '../look/Hover'
 import { FoldChevron } from '../look/FoldChevron'
 
 type Glyph = ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
@@ -99,7 +99,7 @@ export function SignalRow({ mark, children, end = null, words, ...data }: { mark
   return (
     <div className={`${TYPE.meta} grid grid-cols-[16px_minmax(0,1fr)_auto] items-start gap-2 py-1`} {...data}>
       <span className="text-center text-text-light" aria-hidden="true">{mark}</span>
-      <Hov as="p" words={words} className="m-0 min-w-0 text-text-body">{children}</Hov>
+      <Hover as="p" words={words} className="m-0 min-w-0 text-text-body">{children}</Hover>
       {end === null ? <span aria-hidden="true" /> : <span className="shrink-0">{end}</span>}
     </div>
   )

@@ -36,7 +36,7 @@ import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/s
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
-import { Tipped } from '../v12/cards/Tipped'
+import { Hover } from '../look/Hover'
 import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
@@ -64,7 +64,7 @@ export { withheldField, withheldWords }
 
 /** One of core's marks (its glyph), with core's words for it as its hover and its accessible name: never a bare glyph. */
 const Glyph = ({ at, mark, className = '' }: { at: string; mark: { glyph: string; title: string } | null | undefined; className?: string }) => (
-  mark == null ? null : <Tipped words={mark.title} role="img" aria-label={mark.title} className={className} data-view={`${at}.glyph`}>{mark.glyph}</Tipped>
+  mark == null ? null : <Hover focusable={false} words={mark.title} role="img" aria-label={mark.title} className={className} data-view={`${at}.glyph`}>{mark.glyph}</Hover>
 )
 
 /**
@@ -297,7 +297,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // v10 review item 2: a small "Saved results" pill (the same on every board), core's sentence its hover (title); Detailed too since 17 Nov (Paul: a
   // sentence that can be a mark is a mark).
   const earlierLine = earlier === null ? null
-    : <Tipped as="p" words={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</Tipped>
+    : <Hover focusable={false} as="p" words={simple ? earlier.title : `${earlier.text}\n${earlier.title}`} className="ok-pill ok-saved" data-view="run.earlier" data-saved-results={id} tabIndex={0} aria-label={`Saved results: ${earlier.text}`}><OkIcon id="held-past-version" size={14} decorative inherit className="mr-1.5" />Saved results</Hover>
   // The one finding line (core's `run.finding`), under the question text: nothing where core sends none (FindingLine).
   const findingLine = id === QUESTION && findingSurface === 'question' ? <FindingLine model={model} at="question" /> : null
   const badgeLine = badge === null ? null
@@ -323,11 +323,11 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     : <span className="inline-flex items-center gap-1">{questionAbout === null ? null : <QuestionMark id={id} n={questionAbout.n} words={questionAbout.text} />}{ringMark}</span>
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const driverMark = driverOf === null || lensWords === null ? null
-    : <Tipped words={driverOf.map((o) => o.driver!.title).join('\n')} className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</Tipped>
+    : <Hover focusable={false} words={driverOf.map((o) => o.driver!.title).join('\n')} className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</Hover>
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
-    : <Tipped words={tried} className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</Tipped>
+    : <Hover focusable={false} words={tried} className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</Hover>
   const restsFar = restsOn === null ? null
-    : <Tipped words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</Tipped>
+    : <Hover focusable={false} words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</Hover>
   // THE DETAILED FACE (DL-529's nine faces, redrawn 17 Nov for Paul's "not overwhelming but truly valuable with rich data"), core's words
   // verbatim; nothing formatted, rounded or worked out here. Each fact is said once on the board (v12/detailed/said.ts), whose it is is a
   // mark, and what a sentence used to say is a visual where the View gives one:
@@ -463,7 +463,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           </div>) : (
         <div className={`ok-face ${driverOf !== null ? 'rounded-sm ring-2 ring-text-header ring-offset-4' : ''}`} data-core-card={id} data-ok-family={familyOf(card)} data-ok-detailed={simple ? undefined : ''} data-detailed-set-aside={!simple && setAside ? '' : undefined}
           data-ok-shape={shape?.shape} data-ok-kind={dsKind} data-ok-assumption={isAssumptionShape(shape?.shape) ? '' : undefined} data-ok-condition={card.family === 'condition' ? '' : undefined} data-ok-state={shape?.state ?? undefined} data-option-letter={letter ?? undefined} data-driver-of={driverOf === null ? undefined : ''}>
-          {restsOn === null ? null : <Tipped words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Tipped>}
+          {restsOn === null ? null : <Hover focusable={false} words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Hover>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
           {simple ? <SimpleFace card={card} model={model} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}

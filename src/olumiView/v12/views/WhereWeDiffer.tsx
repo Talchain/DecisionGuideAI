@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { useAnchoredTip } from '../../look/Tip'
-import { Hover } from '../chat/Hover'
+import { Hover } from '../../look/Hover'
 import type { View } from '../../client'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { ringCards } from '../../ring'

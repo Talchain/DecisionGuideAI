@@ -11,7 +11,7 @@ import { useViewStore } from '../olumiView/store'
 import { typography } from '../styles/typography'
 import { OkIcon } from '../olumiView/look/icons'
 import { BottomCardMark } from '../canvas/nodes/shared/CardMark'
-import { Hover } from '../olumiView/v12/chat/Hover'
+import { Hover } from '../olumiView/look/Hover'
 
 /** One of core's change lines, as the mark's hover says it. */
 export type MarkedLine = { text: string; detail: string }

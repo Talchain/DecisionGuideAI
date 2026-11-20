@@ -17,7 +17,8 @@ import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
-import { KeyLines, keyLinesOf } from '../KeyPill'
+import { KeyLines, KEY_MARK_IDS, keyExtrasOf, keyLinesOf, keyPresent } from '../KeyPill'
+import { ICONS } from '../../../look/icons'
 import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -154,6 +155,53 @@ describe('bands: the key pill', () => {
     expect(screen.getByTestId('view-key-lines').className).not.toMatch(/text-\[(9|10|11)px\]/)
     expect(screen.getByTestId('view-key-lines').className).toContain('text-[12px]')
     expect(container.querySelector('[data-key-sample="unsettled"]')!.className).toContain('text-[12px]')
+  })
+  it('K6 a link with core\'s `direction` is a modelled effect even with no `causal`; the doubted sample keeps both direction colours and arrows, dashed', () => {
+    const typed = { ...model.links[0]!, role: 'input', causal: null, direction: 'raises', doubt: true }
+    expect([...keyPresent(withKey(['effect', 'input'], [typed]))].sort()).toEqual(['doubted', 'effect'])
+    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey(['doubted'], [typed]) }, status: 'ready' } as never)
+    const { container } = render(<KeyLines />)
+    const item = container.querySelector('[data-key-item="doubted"]')!
+    expect(item).toHaveTextContent('core says doubted')
+    const paths = (id: string) => [...item.querySelectorAll(`[data-key-polarity="${id}"] path`)] as SVGPathElement[]
+    expect(paths('increases').map((x) => x.style.stroke)).toEqual([EFFECT_STROKES.increases, EFFECT_STROKES.increases])
+    expect(paths('decreases')[0]!.style.stroke).toBe(EFFECT_STROKES.decreases)
+    expect(paths('increases')[0]!.getAttribute('stroke-dasharray')).toBe('5 4')
+  })
+  it('K7 the six midpoint marks, the dotted reason line and the two halos stand only where the board draws them, in registry words', () => {
+    const l0 = model.links[0]!, l1 = model.links[1]!
+    const cases = [{ ...l0, causal: null, direction: 'raises' }, { ...l1, causal: null, direction: 'lowers' }, { ...l1, causal: null, direction: 'depends' }, { ...l1, causal: null, direction: 'disputed' }, { ...l1, causal: null, direction: 'unknown' }, { ...l1, causal: { sign: 'none' }, direction: null }]
+    const m = withKey([], cases)
+    const { marks, underlays } = keyExtrasOf({ ...view, model: m } as View)
+    expect([...marks].sort()).toEqual(['depends', 'disputed', 'lowers', 'none', 'raises', 'unknown'])
+    expect(underlays.size).toBe(0)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
+    const { container } = render(<KeyLines />)
+    expect(KEY_MARK_IDS).toEqual({ raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' })
+    expect([...container.querySelectorAll('[data-key-direction]')].map((e) => e.getAttribute('data-key-direction'))).toEqual(['raises', 'lowers', 'depends', 'disputed', 'unknown', 'none'])
+    const words = [...container.querySelectorAll('[data-key-item="direction"]')].map((e) => e.textContent)
+    expect(words).toEqual([ICONS['link-raises'].hover, ICONS['link-lowers'].hover, ICONS['link-depends'].hover, ICONS['link-none'].hover])
+    cleanup()
+    const none = render(<KeyLines />)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey([], [{ ...l0, causal: null, direction: null }]) }, status: 'ready' } as never)
+    none.rerender(<KeyLines />)
+    expect(none.container.querySelector('[data-key-direction]')).toBeNull()
+  })
+  it('K8 a reason line is a dotted sample, an alert is the orange halo, a proposal the blue halo (not on a first draft)', () => {
+    const reason = { ...model.links[0]!, kind: 'reason', role: 'reason', causal: null, direction: null }
+    const alert = { ...model.links[1]!, causal: { sign: 'increases' }, alert: true }
+    const proposed = { ...model.links[2]!, causal: { sign: 'increases' }, proposed: true }
+    const settled = { ...view, version: { ...(view as { version?: object }).version, n: 2 }, model: { ...withKey(['reason', 'alert', 'olumi'], [reason, alert, proposed]), first_draft: false } } as View
+    const x = keyExtrasOf(settled).underlays
+    expect([...x].sort()).toEqual(['dotted', 'halo-alert', 'halo-proposed'])
+    expect(keyExtrasOf({ ...settled, model: { ...settled.model!, first_draft: true } } as View).underlays.has('halo-proposed')).toBe(false)
+    expect(keyExtrasOf({ ...settled, model: { ...settled.model!, links: [{ ...settled.model!.links[0]! }] } } as View).underlays.has('halo-alert')).toBe(false)
+    useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never)
+    const { container } = render(<KeyLines />)
+    expect(container.querySelector('[data-key-sample="dotted"] path')!.getAttribute('class')).toBe('ok-key-dotted')
+    expect(container.querySelector('[data-key-sample="halo-alert"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-alert')
+    expect(container.querySelector('[data-key-sample="halo-proposed"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-proposed')
+    expect(container.querySelector('[data-key-item="halo-alert"]')).toHaveTextContent('core says alert')
   })
   it('K4 with no role in the View, the key still draws its marks and no line sample', () => {
     useViewStore.setState({ sid: view.id, view: { ...view, model: { ...model, key: key(['input']) } }, status: 'ready' } as never)

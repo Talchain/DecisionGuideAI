@@ -11,7 +11,7 @@ import { create } from 'zustand'
 import { typography } from '../styles/typography'
 import { VIEW_CHIP_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import { OkIcon, OkIconButton } from './look/icons'
-import { Hover, HoverButton } from './v12/chat/Hover'
+import { Hover, HoverButton } from './look/Hover'
 import type { FigureFirstEntry, FigureFirstShown } from './client'
 import { figureAxisOf, type FigureFirstGiven, type FigureFirstHeadings } from './layout'
 

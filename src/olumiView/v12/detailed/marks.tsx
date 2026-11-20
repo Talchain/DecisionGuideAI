@@ -9,7 +9,7 @@ import { useState, Fragment, type MouseEvent } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
-import { Tipped } from '../cards/Tipped'
+import { Hover } from '../../look/Hover'
 import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
@@ -31,19 +31,19 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   const said = [change, b.words || b.face || b.text].filter((x) => x != null && x !== '').join(' ')
   const words = [said, b.title].filter((x) => x != null && x !== '').join('\n')
   return (
-    <Tipped as="button" words={words} type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
+    <Hover as="button" words={words} type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
       data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
       <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
       {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}
-    </Tipped>
+    </Hover>
   )
 }
 
 /** The question's date (core's `decide_by`): a calendar mark and core's words; Olumi's blue where Olumi set it. */
 export const DecideBy = ({ d }: { d: { text: string; title: string; olumi: boolean } }): JSX.Element => (
-  <Tipped words={d.title || d.text} className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
+  <Hover focusable={false} words={d.title || d.text} className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
     <OkIcon id="decide-by" size={ICON} /><span>{d.text}</span>
-  </Tipped>
+  </Hover>
 )
 
 /** An aim's own marker, small, beside a row that is about it: a goal's diamond in the goal's colour, a limit's outlined square (DS shapes). */
@@ -82,8 +82,8 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
   if (words.length <= ROW_WORDS_MAX) return <span data-row-words={at}>{words}</span>
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
-      <Tipped as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open}
-        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></Tipped>
+      <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open}
+        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></Hover>
       {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )

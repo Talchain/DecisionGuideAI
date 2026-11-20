@@ -572,3 +572,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 /* A held Team button (aria-disabled, so it stays focusable and its reason shows through the one Tip) reads as held by token, never faded. The green action goes solid neutral with a light label; the quiet one loses its underline. */
 button.ok-team-go[aria-disabled='true'] { cursor: not-allowed; border-color: var(--border-default); background-color: var(--border-default); color: var(--text-light); }
 button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoration-line: none; color: var(--text-light); }
+/* key */
+/* The key's samples draw the canvas's own line recipes (KeyPill): the dotted reason line, and the halo underlays (.ok-link-halo-*, above) which may stand past the sample's box. */
+.olumi-look .ok-key-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
+.olumi-look .ok-key-underlay { overflow: visible; }

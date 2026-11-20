@@ -14,7 +14,7 @@ import { outcomePlace } from '../layout'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { chartGroupsOf, type ChartRow } from './pick'
 import { TYPE } from './type'
-import { Hov } from './Hover'
+import { Hover } from '../look/Hover'
 import { typography } from '../../styles/typography'
 
 const RING = 'analysis-outcome'
@@ -48,7 +48,7 @@ export function LikelyOutcome({ model }: { model: ViewModel }) {
     <section className="space-y-3" data-testid="analysis-likely-outcome" aria-label={label} onMouseLeave={() => ringFrom(RING, [])}>
       {lens === null
         ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{label}</h3>
-        : <Hov as="h3" words={lens.title} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={`run.lenses.${li}.label`}>{label}</Hov>}
+        : <Hover as="h3" words={lens.title} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={`run.lenses.${li}.label`}>{label}</Hover>}
       {groups.map((g) => (
         <div key={g.aimId} className="space-y-1" data-outcome-aim={g.aimId}>
           {groups.length > 1 ? <p className={`${TYPE.meta} m-0 text-text-light`} data-view={g.aim.at}>{g.aim.text}</p> : null}
@@ -57,12 +57,12 @@ export function LikelyOutcome({ model }: { model: ViewModel }) {
               const o = outcomeOf(r)!, place = outcomePlace(model, g.aimId, o)
               return (
                 <li key={r.card.id} data-outcome-option={r.card.id}>
-                  <Hov as="button" type="button" words={o.title} onClick={() => pressCard(r.card.id)} onMouseEnter={() => ringFrom(RING, [r.card.id])} onFocus={() => ringFrom(RING, [r.card.id])} onBlur={() => ringFrom(RING, [])}
+                  <Hover as="button" type="button" words={o.title} onClick={() => pressCard(r.card.id)} onMouseEnter={() => ringFrom(RING, [r.card.id])} onFocus={() => ringFrom(RING, [r.card.id])} onBlur={() => ringFrom(RING, [])}
                     className="-mx-1 block w-[calc(100%+0.5rem)] rounded-sm px-1 py-1 text-left hover:bg-panel-hover">
                     <span className={`${TYPE.body} block min-w-0 text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>
                     <span className="mt-1 block px-1"><OutcomeTrack {...place} /></span>
                     <span className={`${TYPE.meta} mt-0.5 block tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>
-                  </Hov>
+                  </Hover>
                 </li>
               )
             })}

@@ -10,7 +10,7 @@ import { recordReach, showRecord } from './v12/showInWorkspace/show'
 import { typography } from '../styles/typography'
 import { OkIcon } from './look/icons'
 import { useAnchoredTip } from './look/Tip'
-import { Hover } from './v12/chat/Hover'
+import { Hover } from './look/Hover'
 
 const RING = 'finding'
 /** The pressable figure's own name, said by the same mark Analysis uses for it: a bare card name under the finding read as an orphan (roll5 pictures). */

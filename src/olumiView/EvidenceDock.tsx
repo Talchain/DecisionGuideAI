@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, type ReactNode } from 'react'
 import { OkIcon, OkIconButton } from './look/icons'
-import { Hover } from './v12/chat/Hover'
+import { Hover } from './look/Hover'
 import { linkOf } from '../olumiCore/team/EvidencePanel'
 import { AVATAR, BODY, CARD, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'

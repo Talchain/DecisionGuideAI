@@ -66,7 +66,7 @@ import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } fr
 import { aboutCardsOf } from './v12/chat/AboutChip'
 import { ReplyFacts } from './v12/chat/ReplyFacts'
 import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
-import { Hover, HoverButton } from './v12/chat/Hover'
+import { Hover, HoverButton } from './look/Hover'
 import { useAnchoredTip } from './look/Tip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { IntakeSheet } from './v12/chat/IntakeSheet'

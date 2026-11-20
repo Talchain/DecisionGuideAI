@@ -6,7 +6,7 @@
  */
 import { useId, useState } from 'react'
 import { FoldChevron } from '../look/FoldChevron'
-import { Hover } from '../v12/chat/Hover'
+import { Hover } from '../look/Hover'
 import { AVATAR, BODY, CARD, H, META } from '../../olumiCore/team/ui'
 import type { View } from '../client'
 import { strategyOf } from './strategy'

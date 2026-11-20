@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
-import { Hover } from '../../olumiView/v12/chat/Hover'
+import { Hover } from '../../olumiView/look/Hover'
 import { Button } from '../../components/ui/Button'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'

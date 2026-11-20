@@ -11,7 +11,7 @@
  */
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
-import { GlyphMark, Hov } from './Hover'
+import { GlyphMark, Hover } from '../look/Hover'
 import { useViewStore } from '../store'
 import { cardOf, findOutOf, leadChangeOf, aimSilentsOf } from './pick'
 import { TYPE } from './type'
@@ -40,17 +40,17 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
   const leadCard = lead === null ? null : cardOf(model, lead.figure)
   return (
     <section className="space-y-2" data-testid="analysis-what-moves" aria-label={words?.label.what_changes ?? MOVES_FALLBACK}>
-      <Hov as="h3" words={words?.hint.what_changes} className={`${typography.viewPanelHeading} m-0 text-text-header`} {...(words === null ? {} : { 'data-view-words': 'lens_words.label.what_changes' })}>
+      <Hover as="h3" words={words?.hint.what_changes} className={`${typography.viewPanelHeading} m-0 text-text-header`} {...(words === null ? {} : { 'data-view-words': 'lens_words.label.what_changes' })}>
         {words?.label.what_changes ?? MOVES_FALLBACK}
-      </Hov>
+      </Hover>
       {lead === null ? null : (
         <p className={`${TYPE.meta} m-0 flex items-start gap-2 text-text-body`} data-testid="analysis-lead-change" data-lead-change={lead.kind}>
-          <Hov words={lead.hover} className="min-w-0 flex-1" data-view={lead.at}>{lead.line}</Hov>
+          <Hover words={lead.hover} className="min-w-0 flex-1" data-view={lead.at}>{lead.line}</Hover>
           {leadCard?.figure?.edit == null ? null : <FigureEdit id={leadCard.id} edit={leadCard.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${leadCard.heading}`} />}
         </p>
       )}
       {silents.map((x) => (
-        <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} data-testid="analysis-aim-silent" data-silent-aim={x.aim}><Hov words={x.hover} data-view={x.at}>{x.line}</Hov></p>
+        <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} data-testid="analysis-aim-silent" data-silent-aim={x.aim}><Hover words={x.hover} data-view={x.at}>{x.line}</Hover></p>
       ))}
       {aims.length === 0 ? null : (
         <div className="space-y-1" data-testid="port-find-out">

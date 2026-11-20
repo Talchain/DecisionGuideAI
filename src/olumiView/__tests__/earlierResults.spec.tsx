@@ -10,7 +10,7 @@ vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyfl
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render } from '@testing-library/react'
-import { hoverWords } from './hoverTip'
+import { hoverWords } from './tipHelpers'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewChances } from '../ViewChances'

@@ -21,7 +21,7 @@ import { typography } from '../styles/typography'
 import type { OutputTab } from '../stores/uiStore'
 import { mostLikelyBasisOf } from './standin'
 import { WhatIfAxis, WhatIfBars } from './port/WhatIfBars'
-import { GlyphMark, Hov } from './port/Hover'
+import { GlyphMark, Hover } from './look/Hover'
 
 function Mark({ at, mark }: { at: string; mark: { glyph: string; title: string } | null }) {
   return mark === null ? null : <GlyphMark mark={mark} view={`${at}.glyph`} />
@@ -38,7 +38,7 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
     case 'chance':
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" data-view-row={at}>
-          <Hov words={row.title} data-view={`${at}.aim`}>{row.aim}</Hov>
+          <Hover words={row.title} data-view={`${at}.aim`}>{row.aim}</Hover>
           {/* Each mark follows the value's last word after a no-break space, so it wraps with that word, never alone (R5). */}
           <span className={typography.viewPanelTabular}>{row.approx === '' ? null : <span data-view={`${at}.approx`}>{row.approx}</span>}<span data-view={`${at}.value`}>{row.value}</span>
             {row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}
@@ -47,15 +47,15 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
             {row.if_approved == null ? null : <>{NBSP}<Mark at={`${at}.if_approved`} mark={row.if_approved} /></>}
           </span>
           {/* R18 fix 1: core's short companion ("about 50% without Olumi's suggested risk"), muted, its full sentence on hover; null otherwise. */}
-          {row.companion == null ? null : <Hov words={row.companion_title ?? row.companion} className={`${typography.viewPanelMeta} basis-full`} data-view={`${at}.companion`}>{row.companion}</Hov>}
+          {row.companion == null ? null : <Hover words={row.companion_title ?? row.companion} className={`${typography.viewPanelMeta} basis-full`} data-view={`${at}.companion`}>{row.companion}</Hover>}
           {/* R19: core's timing line, the same muted second line beside the companion; its whole sentence on hover; null unless material. */}
-          {row.timing == null ? null : <Hov words={row.timing_title ?? row.timing} className={`${typography.viewPanelMeta} basis-full`} data-view={`${at}.timing`}>{row.timing}</Hov>}
+          {row.timing == null ? null : <Hover words={row.timing_title ?? row.timing} className={`${typography.viewPanelMeta} basis-full`} data-view={`${at}.timing`}>{row.timing}</Hover>}
         </div>
       )
     case 'limit':
       return (
         <div className="flex flex-wrap items-baseline gap-x-2" data-view-row={at}>
-          <Hov words={row.title} data-view={`${at}.aim`}>{row.aim}</Hov>
+          <Hover words={row.title} data-view={`${at}.aim`}>{row.aim}</Hover>
           <span className={typography.viewPanelTabular}><span data-view={`${at}.value`}>{row.value}</span>{row.olumi === null ? null : <>{NBSP}<Mark at={`${at}.olumi`} mark={row.olumi} /></>}</span>
         </div>
       )
@@ -63,7 +63,7 @@ export function Row({ card, row, i }: { card: ViewCard; row: ViewRow; i: number 
       // a core before view-dock serves no `text`: the row says its title, as the base dock did (00058 P1)
       return row.text == null
         ? <div data-view-row={at}><span data-view={`${at}.title`}>{row.title}</span></div>
-        : <div data-view-row={at}><Hov words={row.title} data-view={`${at}.text`}>{row.text}</Hov>
+        : <div data-view-row={at}><Hover words={row.title} data-view={`${at}.text`}>{row.text}</Hover>
           {/* core's question for the figure it waits on, readable in the row, not only on hover (DL 11 Nov) */}
           {row.question == null || row.question === '' ? null : <span className={`${typography.viewPanelMeta} block`} data-view={`${at}.question`}>{row.question}</span>}</div>
   }
@@ -113,7 +113,7 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
       )}
       {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
       {v.stopped !== null ? <p data-view="whatif.stopped">{v.stopped}</p>
-        : v.blocked !== null ? <Hov as="p" words={v.blocked} data-testid="view-whatif-blocked">Olumi could not work this what-if out.</Hov>
+        : v.blocked !== null ? <Hover as="p" words={v.blocked} data-testid="view-whatif-blocked">Olumi could not work this what-if out.</Hover>
           : (
             <>
               {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
@@ -135,7 +135,7 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
                 )
               })}
               <WhatIfAxis model={model} rows={v.rows} facts={v.facts} />
-              {v.most_likely === null ? null : <Hov as="p" words={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</Hov>}
+              {v.most_likely === null ? null : <Hover as="p" words={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</Hover>}
             </>
           )}
     </div>
@@ -150,7 +150,7 @@ function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['
   const card = ml.estimate === null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
   return (
     <div>
-      <Hov words={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'} data-view="run.most_likely.text">{ml.text}</Hov>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
+      <Hover words={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'} data-view="run.most_likely.text">{ml.text}</Hover>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
       {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph words={false} label={`Give your figure for ${card.heading}`} /></>}
     </div>
   )
@@ -163,11 +163,11 @@ function WaitsOnItems({ w, unknown }: { w: WaitsOn; unknown: boolean }) {
   return (
     <>
       {w.items.map((it, i) => (
-        <Hov key={it.id} words={it.title}>
+        <Hover key={it.id} words={it.title}>
           <span data-view={`run.waits_on.items.${i}.text`}>{it.text}</span>
           {unknown && it.unknown !== null ? <span data-view={`run.waits_on.items.${i}.unknown`}>{it.unknown}</span> : null}
           {i < w.items.length - 1 ? ', ' : null}
-        </Hov>
+        </Hover>
       ))}
     </>
   )
@@ -201,15 +201,15 @@ function DriverRange({ id, driver, figure = null }: { id: string; driver: Driver
   const left = Math.min(lowPct, highPct), width = Math.max(2, Math.abs(highPct - lowPct))
   return (
     <>
-      <Hov as="div" words={driver.title} className="mt-1 py-1" role="img" aria-label={driver.text} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
+      <Hover as="div" words={driver.title} className="mt-1 py-1" role="img" aria-label={driver.text} data-view-label={`${id}.driver.text`} data-testid={`view-range-driver-${id}`}>
         <div className="ok-an-track">
           <div className="ok-an-span" data-range-span style={{ left: `${left}%`, width: `${width}%` }} />
           <div className="ok-an-dot ok-an-dot-low" data-range-low style={{ left: `${lowPct}%` }} />
           <div className="ok-an-dot ok-an-dot-high" data-range-high style={{ left: `${highPct}%` }} />
         </div>
-      </Hov>
+      </Hover>
       {/* The figure the marker is about, by its own card's heading (core's words), beside the marker, never inside its label element. */}
-      {figure === null ? null : <Hov as="p" words={driver.title} className={typography.viewPanelMeta} data-driver-figure={id} data-view={`${figure.id}.heading`}>{figure.heading}</Hov>}
+      {figure === null ? null : <Hover as="p" words={driver.title} className={typography.viewPanelMeta} data-driver-figure={id} data-view={`${figure.id}.heading`}>{figure.heading}</Hover>}
     </>
   )
 }
@@ -226,7 +226,7 @@ export const sensitivityShown = (model: ViewModel): boolean => {
 }
 export function Sensitivity({ model }: { model: ViewModel }) {
   const s = model.run?.sensitivity ?? null
-  return s === null || !sensitivityShown(model) ? null : <Hov as="p" words={s.title} className={typography.viewPanelMeta} data-view="run.sensitivity.text">{s.text}</Hov>
+  return s === null || !sensitivityShown(model) ? null : <Hover as="p" words={s.title} className={typography.viewPanelMeta} data-view="run.sensitivity.text">{s.text}</Hover>
 }
 
 /** The card of the figure an option's chance moves most with (`driver.figure`), when the canvas draws it; null when it is folded. */
@@ -242,7 +242,7 @@ export function OptionLines({ card, after, children, model }: { card: ViewCard; 
       <div className={typography.panelHeader} data-view={`${card.id}.heading`}>{card.heading}</div>
       {card.rows.map((row, i) => <Fragment key={i}><Row card={card} row={row} i={i} />{after?.(row, i)}</Fragment>)}
       {card.driver == null ? null : driverRange(card.driver) !== null ? <DriverRange id={card.id} driver={card.driver} figure={model === undefined ? null : figureCard(model, card.driver)} />
-        : <Hov as="p" words={card.driver.title} className={typography.viewPanelMeta} data-view={`${card.id}.driver.text`}>{card.driver.text}</Hov>}
+        : <Hover as="p" words={card.driver.title} className={typography.viewPanelMeta} data-view={`${card.id}.driver.text`}>{card.driver.text}</Hover>}
       {children}
     </div>
   )
@@ -257,7 +257,7 @@ function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
     <div data-view-fact={l.id}>
       <p>
         {l.olumi === null ? null : <><GlyphMark mark={l.olumi} view={`run.science.${i}.olumi.glyph`} /> </>}
-        <Hov words={l.hover} data-view={`run.science.${i}.line`}>{l.line}</Hov>
+        <Hover words={l.hover} data-view={`run.science.${i}.line`}>{l.line}</Hover>
         {l.figure?.mark == null ? null : <> <GlyphMark mark={l.figure.mark} view={`run.science.${i}.figure.mark.glyph`} /></>}
       </p>
       {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
@@ -305,7 +305,7 @@ export function Compared({ run }: { run: ViewRun | null }) {
           {lines.map(({ line: l, i }) => (
             <div key={l.id} data-view-fact={l.id}>
               {l.olumi === null ? null : <><GlyphMark mark={l.olumi} view={`run.compared.${i}.olumi.glyph`} /> </>}
-              <Hov words={l.hover} data-view={`run.compared.${i}.line`}>{l.line}</Hov>
+              <Hover words={l.hover} data-view={`run.compared.${i}.line`}>{l.line}</Hover>
             </div>
           ))}
         </div>
@@ -346,7 +346,7 @@ export function Tipping({ run }: { run: ViewRun | null }) {
       {t.lines.map(({ line: l, i }) => (
         <p key={l.id} data-view-fact={l.id}>
           {l.olumi == null ? null : <><GlyphMark mark={l.olumi} /> </>}
-          <Hov words={l.hover} data-view={`run.tipping.${i}.line`}>{l.line}</Hov>
+          <Hover words={l.hover} data-view={`run.tipping.${i}.line`}>{l.line}</Hover>
         </p>
       ))}
       {t.silent.map((s) => <p key={s.aim} data-view-silent={s.aim}>{s.line}</p>)}
@@ -359,7 +359,7 @@ function FactCard({ testid, view, t }: { testid: string; view: string; t: { head
   return t === null ? null : (
     <section className={BOX} data-testid={testid} aria-label={t.heading}>
       <p className={typography.panelHeader} data-view={`${view}_heading`}>{t.heading}</p>
-      {t.lines.map(({ line: l, i }) => <Hov as="p" key={l.id} words={l.hover} data-view-fact={l.id}><span data-view={`${view}.${i}.line`}>{l.line}</span></Hov>)}
+      {t.lines.map(({ line: l, i }) => <Hover as="p" key={l.id} words={l.hover} data-view-fact={l.id}><span data-view={`${view}.${i}.line`}>{l.line}</span></Hover>)}
     </section>
   )
 }
@@ -387,7 +387,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       <WhatIfShown model={model} />
       <section className={BOX} data-testid="view-run-headline" aria-label="Each option's chance">
         {run?.lead == null ? null : <p className={typography.panelHeader} data-view="run.lead">{run.lead}</p>}
-        {earlier === null ? null : <Hov as="p" words={earlier.title} className={`${typography.viewPanelMeta} text-text-light`} data-view="run.earlier">{earlier.text}</Hov>}
+        {earlier === null ? null : <Hover as="p" words={earlier.title} className={`${typography.viewPanelMeta} text-text-light`} data-view="run.earlier">{earlier.text}</Hover>}
         {!headline ? null : (
           <div data-testid="view-run-waits-headline">
             <p className={typography.viewPanelMeta} data-view="run.waits_on.head">{run.waits_on!.head}</p>
@@ -417,7 +417,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       {run === null || notesBesideTiming(run).length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
           <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>About these numbers</summary>
-          {notesBesideTiming(run).map((n, i) => <Hov as="p" key={i} words={n.title} className={typography.viewPanelMeta} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</Hov>)}
+          {notesBesideTiming(run).map((n, i) => <Hover as="p" key={i} words={n.title} className={typography.viewPanelMeta} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</Hover>)}
         </details>
       )}
     </div>
@@ -440,8 +440,8 @@ function SharpenCard({ model }: { model: ViewModel }) {
         <span data-view={`sharpen.${i}.lead`}>{row.lead}</span>{' '}
         <span className="font-medium" data-view={`sharpen.${i}.emphasis`}>{row.emphasis}</span>
       </p>
-      <Hov words={row.rationale} role="img" aria-label={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
-        className={`${typography.viewPanelMeta} shrink-0 cursor-help text-text-light`}><InfoIcon /></Hov>
+      <Hover words={row.rationale} role="img" aria-label={row.rationale} data-view-hover={`sharpen.${i}.rationale`} data-testid={`view-run-sharpen-why-${row.id}`}
+        className={`${typography.viewPanelMeta} shrink-0 cursor-help text-text-light`}><InfoIcon /></Hover>
     </div>
   )
   return (

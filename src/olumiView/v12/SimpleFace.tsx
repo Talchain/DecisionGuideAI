@@ -17,7 +17,7 @@
  */
 import type { ReactNode } from 'react'
 import { useAnchoredTip } from '../look/Tip'
-import { Tipped } from './cards/Tipped'
+import { Hover } from '../look/Hover'
 import type { ViewCard, ViewModel } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceAtOf } from '../resultRange'
@@ -207,17 +207,17 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // A bound core has not measured (`bound.measured` false: "not checked yet: nothing in the model is counted against it") is the card's state, so it is its quiet
       // meta line, no border and no heading type (Paul, url3-2: two identical large pills); a measured bound keeps the outlined pill.
       card.bound.measured ? (
-        <Tipped as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className={`${typography.viewValue} ok-tone-goal flex min-w-0 basis-full items-center gap-1`} data-simple-face="target">
+        <Hover focusable={false} as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className={`${typography.viewValue} ok-tone-goal flex min-w-0 basis-full items-center gap-1`} data-simple-face="target">
           <span className="ok-pill ok-bound min-w-0">
             {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
             {mark}
           </span>
-        </Tipped>
+        </Hover>
       ) : (
-        <Tipped as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
+        <Hover focusable={false} as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
           {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
           {mark}
-        </Tipped>
+        </Hover>
       )
     )
   } else if (card.figure?.state === 'waits') {
@@ -230,14 +230,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
-      <Tipped words={card.figure?.title || words || undefined} className="min-w-0 basis-full" data-simple-scale={id}>
+      <Hover focusable={false} words={card.figure?.title || words || undefined} className="min-w-0 basis-full" data-simple-scale={id}>
         {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
         {scale}
-      </Tipped>
+      </Hover>
     )
   } else if (hasFigure) {
     const estimate = card.olumi !== null && card.author?.by !== 'olumi'
-    visual = <Tipped as="p" words={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 basis-full break-words`} data-simple-face="figure">{card.figure!.text}</Tipped>
+    visual = <Hover focusable={false} as="p" words={card.figure!.title !== '' ? card.figure!.title : card.figure!.text} className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 basis-full break-words`} data-simple-face="figure">{card.figure!.text}</Hover>
   } else if (card.figure != null) {
     // An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover (R6). No empty track.
     const gap = unsizedWords(card)

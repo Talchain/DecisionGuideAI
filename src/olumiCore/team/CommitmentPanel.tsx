@@ -9,7 +9,7 @@ import { dissentHolderName, dissentLine } from './DissentPanel'
 import { currentModel, useViewStore } from '../../olumiView/store'
 import { nonEmpty, savedTriggerOf } from '../../olumiView/tipping'
 import { suggestedTriggersFor } from './triggers'
-import { Hover } from '../../olumiView/v12/chat/Hover'
+import { Hover } from '../../olumiView/look/Hover'
 import { OkIcon } from '../../olumiView/look/icons'
 import { CommitForm } from '../../olumiView/v12/team/CommitForm'
 

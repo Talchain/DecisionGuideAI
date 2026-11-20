@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { OkIcon, OkIconButton } from './look/icons'
-import { Hover } from './v12/chat/Hover'
+import { Hover } from './look/Hover'
 import { Effects } from '../olumiCore/team/ViewsPanel'
 import { AVATAR, BODY, H, META } from '../olumiCore/team/ui'
 import type { View } from './client'
