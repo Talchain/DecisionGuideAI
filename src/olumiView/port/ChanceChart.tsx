@@ -116,6 +116,14 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   )
 }
 
+/** Core's one note for the worst-tenth lines (`run.tail_note`, core s3-tail-once 7e6add3d): what "Worst tenth" means and its hedge, said ONCE by code for the aims it
+ *  lists; each option's own line is then short ("Worst tenth: about £320/week"). Read defensively (additive; absent on an older core, whose rows carry the whole sentence). */
+export const tailNoteOf = (run: unknown): { text: string; aims: string[] } | null => {
+  const n = typeof run === 'object' && run !== null ? (run as { tail_note?: unknown }).tail_note : undefined
+  if (typeof n !== 'object' || n === null) return null
+  const { text, aims } = n as { text?: unknown; aims?: unknown }
+  return typeof text === 'string' && text.trim() !== '' && Array.isArray(aims) && aims.every((a) => typeof a === 'string') ? { text, aims: aims as string[] } : null
+}
 const tailOf = (row: ChartRow['row']): string | null => (row.tail !== undefined && row.tail.text !== '' ? row.tail.text : null)
 
 /** Every aim with a chance, each its own chart on the one 0 to 100 axis: the lead aim first, under core's lead; the others under their aim. */
@@ -135,6 +143,9 @@ export function ChanceChart({ model }: { model: ViewModel }) {
   const marks = [...new Map(groups.flatMap((g) => g.rows.flatMap(({ row }) => [row.likely, row.olumi])).filter((m): m is NonNullable<typeof m> => m != null).map((m) => [m.glyph, m] as const)).values()]
   const sentence = ranged && run.sensitivity != null ? run.sensitivity.text : ''
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
+  // The note goes once, under the heading of the first chart whose aim it covers and whose bars carry a worst-tenth line: read before the lines it explains.
+  const tailNote = tailNoteOf(run)
+  const noteAt = tailNote === null ? -1 : groups.findIndex((g) => tailNote.aims.includes(g.aimId) && g.rows.some(({ row }) => tailOf(row) !== null))
   return (
     <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
       {groups.map((g, gi) => (
@@ -142,6 +153,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <Hover as="h3" words={lensTitle} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view="run.lead">{run.lead}</Hover>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
+          {gi !== noteAt ? null : <p className={`${TYPE.meta} m-0 px-1 text-text-light`} data-view="run.tail_note.text">{tailNote!.text}</p>}
           <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} />)}</ul>
         </div>
       ))}

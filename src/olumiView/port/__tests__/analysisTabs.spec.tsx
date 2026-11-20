@@ -181,6 +181,23 @@ describe('the chance chart', () => {
     expect(chart.querySelector(`[data-chart-option="${b.card.id}"] [data-view$=".tail.text"]`)).toBeNull()
     expect(chart.querySelectorAll('[data-view$=".tail.text"]')).toHaveLength(1)
   })
+  it('tail note (core s3-tail-once 7e6add3d, `run.tail_note`): core\'s one note for the short worst-tenth lines is drawn ONCE, before the lines it explains, for the aims it lists; CONTRAST: no note, or one for an aim with no line, draws nothing', () => {
+    const NOTE = "Worst tenth: the mean of what the aim measures in the worst tenth of that option's runs, in this model on current information, not a forecast."
+    const build = (aims: (ids: string[]) => string[]) => {
+      const view = structuredClone(viewOf('golden/bakery')), rows = chartRowsOf(view.model!)
+      for (const r of rows) (view.model!.cards.find((c) => c.id === r.card.id)!.rows[r.i] as { tail?: unknown }).tail = { text: 'Worst tenth: about 3 a week', mean: 3, unit: null, share: 0.1 }
+      ;(view.model!.run as unknown as { tail_note?: unknown }).tail_note = { text: NOTE, aims: aims(rows.map((r) => r.row.aim_id ?? '')) }
+      return view
+    }
+    ready(build((ids) => [...new Set(ids)])); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    const notes = chart.querySelectorAll('[data-view="run.tail_note.text"]'), lines = chart.querySelectorAll('[data-view$=".tail.text"]')
+    expect([notes.length, notes[0]?.textContent, lines.length > 1]).toEqual([1, NOTE, true])
+    expect(notes[0]!.compareDocumentPosition(lines[0]!) & Node.DOCUMENT_POSITION_FOLLOWING, 'read before the lines').toBeTruthy()
+    cleanup()
+    ready(build(() => ['some_other_aim'])); render(<PortAnalysisTab />)
+    expect(screen.getByTestId('analysis-chance-chart').querySelector('[data-view="run.tail_note.text"]')).toBeNull()
+  })
   it('bakery: one bar per option with a chance for the lead aim, in core\'s order; each bar filled to its chance and its whisker at its driver\'s two chances; core\'s words under it', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     expect(rows.length).toBe(3)
