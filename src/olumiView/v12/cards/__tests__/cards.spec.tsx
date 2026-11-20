@@ -51,6 +51,15 @@ const hover = (mark: HTMLElement): string | null => {
     return document.querySelector('[data-testid="lane-tip"]')?.textContent ?? null
   } finally { fireEvent.pointerLeave(mark); vi.useRealTimers() }
 }
+/** Every Tip open once the pointer rests on `mark` (the one-tip rule says there is at most one). */
+const hoverAll = (mark: HTMLElement): string[] => {
+  vi.useFakeTimers()
+  try {
+    fireEvent.pointerEnter(mark)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    return [...document.querySelectorAll('[data-testid="lane-tip"]')].map((t) => t.textContent ?? '')
+  } finally { fireEvent.pointerLeave(mark); vi.useRealTimers() }
+}
 const imgOf = (mark: HTMLElement): HTMLElement => (mark.getAttribute('role') === 'img' ? mark : mark.querySelector<HTMLElement>('[role="img"]'))!
 const faceOf = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`[data-core-card="${id}"]`)!
 
@@ -572,7 +581,12 @@ describe('an option\'s other results say core\'s whole sentence on hover (DL 17 
   const o = cardOf(EU, 'broader_entry')
   const others = o.rows.filter((r) => r.aim_id != null && r.aim_id !== o.headline!.aim_id) as unknown as Other[]
   const short = (r: Other) => `${r.aim ?? cardOf(EU, r.aim_id).heading} ${r.value}`
-  const hoverOf = (v: View) => draw(v, o.id, 'simple').querySelector<HTMLElement>(`[data-simple-card="${o.id}"]`)!.title.split('\n')
+  // CHANGED BY DESIGN (panel system round 3): the card's results are the one Tip on the card (150 ms, focus too), not a native `title`.
+  const hoverOf = (v: View) => {
+    const all = hoverAll(draw(v, o.id, 'simple').querySelector<HTMLElement>(`[data-simple-card="${o.id}"]`)!)
+    expect(all, 'one tip on the screen: the card\'s own').toHaveLength(1)
+    return all[0]!.split('\n')
+  }
   it('M1 Simple: each other result is its name and short value, then core\'s sentence (`title`), in core\'s row order', () => {
     expect(others.map((r) => r.aim_id), 'the served option has two results besides its headline').toEqual(['investment_limit', 'proposed_churn_guardrail'])
     expect(others.every((r) => r.title !== '' && r.title !== short(r))).toBe(true)

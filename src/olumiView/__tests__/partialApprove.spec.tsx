@@ -359,7 +359,10 @@ describe('a figure and the line that reads it are ticked together', () => {
     for (const [i, l] of lines.entries()) {
       const hover = c.querySelector<HTMLElement>(`[data-view-hover="proposal.changes.${i}.together.why"]`)
       expect(hover?.hasAttribute('title') ?? false, `${l.id}: no native title`).toBe(false)
-      expect(hover === null ? null : await tipOf(hover), l.id).toBe(l.together?.why ?? null)
+      // A line with a detail is one summary: it owns ONE Tip, core's why first and, on a line of Olumi's, core's title for Olumi's mark after it (one hover, not two).
+      const words = hover === null ? null : await tipOf(hover)
+      expect(words === null ? null : words.split('\n')[0], l.id).toBe(l.together?.why ?? null)
+      if (words !== null) expect(words, `${l.id}: why, then Olumi's mark`).toBe([l.together?.why, l.olumi?.title].filter((w): w is string => typeof w === 'string' && w !== '').join('\n'))
     }
   })
 

@@ -48,20 +48,30 @@ export function Tip({ id, text, anchorRect }: { id?: string; text: string; ancho
   )
 }
 
+/** One tip on the screen at a time (Codex round 4: a card's tip and an icon's tip inside it opened together). The newest tip to open closes the
+ *  one before; since pointerenter reaches an ancestor before its child, the innermost element's tip is the one left open. */
+let openTip: (() => void) | null = null
+
 /** The tip's delay (default TIP_DELAY, 150 ms): shown that long after the pointer comes to rest on a row, gone at once when it leaves. */
 export function useTipDelay(delay = TIP_DELAY) {
   const [active, setActive] = useState<{ text: string; rect: DOMRect; itemId?: string } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const close = useRef<() => void>(() => {})
+  close.current = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; setActive(null) }
+  const mine = useRef(() => close.current())
   const showTooltip = (text: string, element: HTMLElement, itemId?: string) => {
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => { setActive({ text, rect: element.getBoundingClientRect(), itemId }) }, delay)
+    timer.current = setTimeout(() => {
+      if (openTip !== null && openTip !== mine.current) openTip()
+      openTip = mine.current
+      setActive({ text, rect: element.getBoundingClientRect(), itemId })
+    }, delay)
   }
   const hideTooltip = () => {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = null
-    setActive(null)
+    close.current()
+    if (openTip === mine.current) openTip = null
   }
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); if (openTip === mine.current) openTip = null }, [])
   return { activeTooltip: active, showTooltip, hideTooltip }
 }
 

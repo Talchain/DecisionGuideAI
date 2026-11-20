@@ -245,7 +245,7 @@ describe('every link is drawn at rest (panel-visual system L1)', () => {
   })
   it('L1b a reason link is DOTTED by its own class, never dashed: a dash still means doubt (a doubted reason link keeps the doubt dash); an effect and a role line are not dotted', () => {
     const plain = draw(reason())
-    expect([g(plain).getAttribute('data-link-dotted'), line(plain).getAttribute('class')?.includes('ok-link-dotted'), applied(line(plain)).strokeDasharray]).toEqual(['', true, DOTS])
+    expect([g(plain).getAttribute('data-link-dotted'), line(plain).getAttribute('class')?.includes('ok-link-dotted'), applied(line(plain)).strokeDasharray]).toEqual(['true', true, DOTS])
     expect(DOTS, 'dots are not the doubt dash').not.toBe(DOUBT_DASH)
     cleanup()
     expect(applied(line(draw(reason({ doubt: true })))).strokeDasharray, 'doubt is the dash').toBe(DOUBT_DASH)
@@ -405,13 +405,15 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
     const link = dir()
     const c = render(
       <ReactFlowProvider><Grab /><EdgeLabelLayer><svg>
-        <g className="react-flow__edge" aria-describedby="words-0">
+        <g className="react-flow__edge" aria-describedby="words-0" tabIndex={0}>
           <Edge id="e" source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
             sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} />
         </g>
       </svg></EdgeLabelLayer></ReactFlowProvider>,
     ).container
     const wrapper = c.querySelector('.react-flow__edge') as SVGGElement
+    // Real keyboard focus on the wrapper: the Tip opens only on a focus ring (`:focus-visible`), which a store write alone does not give it.
+    act(() => { wrapper.focus() })
     act(() => { useViewFocusLink.setState({ id: 'e' }) })
     act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     const id = screen.getByRole('tooltip').id

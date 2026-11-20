@@ -17,6 +17,7 @@ import type { View } from '../client'
 import { ifApprovedMarkOf } from '../layout'
 import { ViewCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 import { useViewStore } from '../store'
+import { tipOf } from './tipHelpers'
 import { ViewChances } from '../ViewChances'
 
 const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
@@ -98,19 +99,22 @@ describe.each([
     expect(seen).toContain(null)
   })
 
-  it('the Analysis tab: each chance row and the most likely line carry core\'s mark verbatim where core gives one, none where null', () => {
+  it('the Analysis tab: each chance row and the most likely line carry core\'s mark verbatim where core gives one, none where null', async () => {
     const model = r5.model!
     const { container } = render(<ViewChances model={model} />)
     const seen: (string | null)[] = []
-    for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) card.rows.forEach((r, i) => {
-      if (r.kind !== 'chance') return
+    // A mark's words are the one Tip's (never a native title), named for assistive tech by the same words.
+    const read = async (m: Element | null) => m === null ? [null, null, null] : [m.textContent, m.getAttribute('aria-label'), await tipOf(m as HTMLElement)]
+    for (const card of model.cards.filter((c) => c.family === 'option' && c.status === null)) for (const [i, r] of card.rows.entries()) {
+      if (r.kind !== 'chance') continue
       const core = (r as Marked).if_approved ?? null, m = container.querySelector(`[data-view="${card.id}.rows.${i}.if_approved.glyph"]`)
-      expect([m?.textContent ?? null, m?.getAttribute('title') ?? null], `${card.id} ${i}`).toEqual(core === null ? [null, null] : [core.glyph, core.title])
+      expect(await read(m), `${card.id} ${i}`).toEqual(core === null ? [null, null, null] : [core.glyph, core.title, core.title])
+      expect(m?.hasAttribute('title') ?? false, `${card.id} ${i} native title`).toBe(false)
       seen.push(core?.title ?? null)
-    })
+    }
     expect(seen.some((t) => t !== null) && seen.some((t) => t === null)).toBe(true)
     const ml = (model.run?.most_likely ?? null) as Marked | null, m = container.querySelector('[data-view="run.most_likely.if_approved.glyph"]')
-    expect([m?.textContent ?? null, m?.getAttribute('title') ?? null]).toEqual(ml?.if_approved == null ? [null, null] : [ml.if_approved.glyph, ml.if_approved.title])
+    expect(await read(m)).toEqual(ml?.if_approved == null ? [null, null, null] : [ml.if_approved.glyph, ml.if_approved.title, ml.if_approved.title])
   })
 
   it('each option\'s value on a worked-out figure: core\'s mark where it moved, none where it did not', () => {

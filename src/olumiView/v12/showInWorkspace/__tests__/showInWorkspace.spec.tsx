@@ -1389,14 +1389,15 @@ describe('S14 a result need whose record the board does not draw as a card (Anal
   it('contrast: a need that is a plain card still presses that card by id and shows nothing; a need nothing can place stays disabled', async () => {
     const v = needing(growth, 'cross_team_adoption'); install(v); lay()
     const c = mountNeeds(v)
-    expect(rowButton(c).disabled).toBe(false)
+    expect(rowButton(c).getAttribute('aria-disabled')).toBeNull()
     await press(rowButton(c)); await run(100)
     expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
     expect(rf.sets).toStrictEqual([])
     cleanup()
     const n = needing(growth, 'invented_nothing_draws_this'); install(n); lay()
     const d = mountNeeds(n)
-    expect(rowButton(d).disabled).toBe(true)
+    // Held as the Tip's Hov holds it: aria-disabled, still focusable so the hover can say why; the press does nothing.
+    expect(rowButton(d).getAttribute('aria-disabled')).toBe('true')
     await press(rowButton(d)); await run(100)
     expect(rf.sets).toStrictEqual([])
     expect(pressed.cards).toStrictEqual(['cross_team_adoption'])

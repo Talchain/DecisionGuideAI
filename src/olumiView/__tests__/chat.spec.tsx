@@ -34,7 +34,7 @@ const at = (v: unknown, p: string): unknown => p.split('.').reduce<unknown>((x, 
 
 describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly as the View holds it (%s)', (name) => {
   const view = golden(name)
-  it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', () => {
+  it('every drawn string is the View\'s own at its path, and every word of every turn is drawn', async () => {
     const { container } = render(<ViewTurns chat={view.chat} />)
     for (const el of container.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(view, el.dataset['view']!))
     // Not words: hovers, the records a turn is about or cites, the one card it is beside (`at`) and the coach's move id (`move`, olumi.view/3).
@@ -43,10 +43,20 @@ describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly
       // `next.at` is the card id the step points at, `next.move` the coach's move id (olumi.view/3 e16a497): core's ids, never words.
       : x !== null && typeof x === 'object' ? Object.entries(x).flatMap(([k, y]) => (k === 'title' || k === 'about' || k === 'cite' || k === 'at' || k === 'move' ? [] : strings(y, `${p}.${k}`))) : []
     view.chat.forEach((t, i) => {
-      for (const k of ['by', 'version', 'status', 'said', 'answer', 'broke', 'problem', 'marks'] as const) for (const p of strings(t[k], `chat.${i}.${k}`)) {
+      for (const k of ['by', 'said', 'answer', 'broke', 'problem', 'marks'] as const) for (const p of strings(t[k], `chat.${i}.${k}`)) {
         expect(container.querySelector(`[data-view="${p}"]`), p).not.toBeNull()
       }
     })
+    // P4 (system spec): core's version and status words are not drawn beside the reply's version icon; they are its name and its one Tip, verbatim (nothing dropped).
+    const turns = [...container.querySelectorAll<HTMLElement>('[data-view-turn]')]
+    expect(turns.length).toBe(view.chat.length)
+    for (const [i, t] of view.chat.entries()) {
+      const icon = turns[i]!.querySelector<HTMLElement>('[data-testid="view-chat-version"] [role="img"]')
+      expect(icon, `chat.${i} version icon`).not.toBeNull()
+      const words = t.status === null ? t.version : `${t.version} · ${t.status}`
+      expect(icon!.getAttribute('aria-label'), `chat.${i}`).toBe(words)
+    }
+    expect(await hoverWords(turns[0]!.querySelector<HTMLElement>('[data-testid="view-chat-version"] [role="img"]')!)).toBe(view.chat[0]!.status === null ? view.chat[0]!.version : `${view.chat[0]!.version} · ${view.chat[0]!.status}`)
     expect(view.chat.length).toBeGreaterThan(1)
   })
 
@@ -392,7 +402,7 @@ describe('the writes go straight to core, and the View is read again', () => {
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
         const m = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>).container
         // P1: a write in flight with no brief is said by the thread's one waiting line: the loader, the words and the seconds, side by side.
-        expect(m.querySelector('[data-testid="view-chat-turn-wait"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+        expect(m.querySelector('[data-testid="view-chat-turn-wait"] [role="status"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`) // the words and seconds; the wrap also holds the loader's own keyframes
         expect(m.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
         expect(m.querySelector('[data-testid="view-composer"] [data-testid="thinking-indicator"]')).toBeNull() // not a second one in the composer
         expect(m.querySelector('[data-testid="view-drafting-board"]')).toBeNull()

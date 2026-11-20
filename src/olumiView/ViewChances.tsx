@@ -149,10 +149,10 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
 function MostLikely({ model, ml }: { model: ViewModel; ml: NonNullable<ViewRun['most_likely']> }) {
   const card = ml.estimate === null ? undefined : model.cards.find((c) => c.id === ml.estimate && c.figure?.edit)
   return (
-    <Hov as="div" words={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'}>
-      <span data-view="run.most_likely.text">{ml.text}</span>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
+    <div>
+      <Hov words={mostLikelyHover(ml)} data-view-hover={mostLikelyBasisOf(ml).rests_on_text === null ? undefined : 'run.most_likely.rests_on_text'} data-view="run.most_likely.text">{ml.text}</Hov>{ml.if_approved == null ? null : <>{NBSP}<Mark at="run.most_likely.if_approved" mark={ml.if_approved} /></>}
       {card === undefined ? null : <> <FigureEdit id={card.id} edit={card.figure!.edit} place="likely" glyph words={false} label={`Give your figure for ${card.heading}`} /></>}
-    </Hov>
+    </div>
   )
 }
 
@@ -254,15 +254,15 @@ type Science = NonNullable<ViewRun['science']>[number]
  *  words and ✎ on a line of their own under it. */
 function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
   return (
-    <Hov as="div" words={l.hover} stop={false} data-view-fact={l.id}>
+    <div data-view-fact={l.id}>
       <p>
         {l.olumi === null ? null : <><GlyphMark mark={l.olumi} view={`run.science.${i}.olumi.glyph`} /> </>}
-        <span data-view={`run.science.${i}.line`}>{l.line}</span>
+        <Hov words={l.hover} data-view={`run.science.${i}.line`}>{l.line}</Hov>
         {l.figure?.mark == null ? null : <> <GlyphMark mark={l.figure.mark} view={`run.science.${i}.figure.mark.glyph`} /></>}
       </p>
       {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
       {l.figure?.give == null ? null : <div className={typography.viewPanelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
-    </Hov>
+    </div>
   )
 }
 
@@ -303,10 +303,10 @@ export function Compared({ run }: { run: ViewRun | null }) {
         <div key={group} data-testid={`view-run-compared-${group}`} aria-label={heading}>
           <p className={typography.panelHeader} data-view={`run.compared_headings.${group}`}>{heading}</p>
           {lines.map(({ line: l, i }) => (
-            <Hov as="div" key={l.id} words={l.hover} stop={false} data-view-fact={l.id}>
+            <div key={l.id} data-view-fact={l.id}>
               {l.olumi === null ? null : <><GlyphMark mark={l.olumi} view={`run.compared.${i}.olumi.glyph`} /> </>}
-              <span data-view={`run.compared.${i}.line`}>{l.line}</span>
-            </Hov>
+              <Hov words={l.hover} data-view={`run.compared.${i}.line`}>{l.line}</Hov>
+            </div>
           ))}
         </div>
       ))}
@@ -344,10 +344,10 @@ export function Tipping({ run }: { run: ViewRun | null }) {
     <section className={BOX} data-testid="view-run-tipping" aria-label={t.heading}>
       <p className={typography.panelHeader} data-view="run.tipping_heading">{t.heading}</p>
       {t.lines.map(({ line: l, i }) => (
-        <Hov as="p" key={l.id} words={l.hover} stop={false} data-view-fact={l.id}>
+        <p key={l.id} data-view-fact={l.id}>
           {l.olumi == null ? null : <><GlyphMark mark={l.olumi} /> </>}
-          <span data-view={`run.tipping.${i}.line`}>{l.line}</span>
-        </Hov>
+          <Hov words={l.hover} data-view={`run.tipping.${i}.line`}>{l.line}</Hov>
+        </p>
       ))}
       {t.silent.map((s) => <p key={s.aim} data-view-silent={s.aim}>{s.line}</p>)}
     </section>

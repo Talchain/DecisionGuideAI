@@ -212,7 +212,7 @@ describe('a reason every option shares is said once, above the options; each cov
   // resolve, so a refusal only where it cannot compute, DL ruling 9 Nov), captured from core's viewOf; its oracle key followed the rename.
   type Oracle = { lead: string | null; withheld: Record<string, string> }
   const oracle = JSON.parse(readFileSync(path.join(DIR, 'golden', 'dock.oracle.json'), 'utf8')) as Record<string, Oracle>
-  it('present: the Run\'s sentence once, in core\'s words, before every option; each covered option\'s row is the mark the dock oracle names', () => {
+  it('present: the Run\'s sentence once, in core\'s words, before every option; each covered option\'s row is the mark the dock oracle names', async () => {
     const model = golden('pricing-unmoved-unresolved').model!, shared = model.run!.shared_blockers!
     expect(shared).toHaveLength(1)
     const { container } = render(<ViewChances model={model} />)
@@ -229,7 +229,7 @@ describe('a reason every option shares is said once, above the options; each cov
       // cards, the card's line is only 'No chance yet' and the oracle's words are its hover; every other withheld line is the words.
       const text = container.querySelector(`[data-view-card="${id}"] [data-view="${id}.rows.${i}.text"]`)
       expect(text?.textContent, id).toBe(card.rows[i]!.kind === 'none' ? card.rows[i]!.text : null)
-      if (text?.textContent === 'No chance yet') expect(text.closest('[data-view-row]')?.getAttribute('title'), id).toBe(mark)
+      if (text?.textContent === 'No chance yet') expect(await tipOf(text as HTMLElement), id).toBe(mark)
       else expect(text?.textContent, id).toBe(mark)
     }
     // Core's deliberate lead change (DL, 8 Nov; core e653edb1 view.test.ts maps the oracle's lead the same way): one line, qualifier visible.

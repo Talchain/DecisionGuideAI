@@ -194,7 +194,7 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
     expect(paras).toContain('####### Seven stay as typed.')
   })
 
-  it('the Next step card numbers its cites after the answer\'s, as the reply does; the reply\'s Why lines follow the next step\'s', () => {
+  it('P2/P4: the reply\'s next step numbers its cites after the answer\'s; the Why lines (in the reply\'s one facts disclosure) follow the next step\'s', () => {
     const v = session('after-find-first'), k = v.chat.length - 1, t = v.chat[k]!
     const view = withAnswer(v, k, {
       answer: [{ text: 'An answer.' }, { cite: 'Answer source' }],
@@ -202,10 +202,13 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
       why: [[{ text: 'A reason.' }, { cite: 'Why source' }]],
     } as Partial<Answer>)
     const c = show(view)
-    expect(q(c, 'view-next-step')!.getAttribute('data-step')).toBe('move')
-    expect(c.querySelector(`[data-view-cite="chat.${k}.answer.answer.1.cite"]`)?.textContent).toBe('1')
-    expect(q(c, 'view-next-step')!.querySelector(`[data-view-cite="chat.${k}.answer.next.text.1.cite"]`)?.textContent).toBe('2')
-    expect(c.querySelector(`[data-view-cite="chat.${k}.answer.why.0.1.cite"]`)?.textContent).toBe('3')
+    expect(q(c, 'view-next-step')).toBeNull() // no card at the top: the step is the reply's own
+    const latest = q(c, 'view-chat-latest')!
+    expect(latest.querySelector(`[data-view-cite="chat.${k}.answer.answer.1.cite"]`)?.textContent).toBe('1')
+    expect(q(latest, 'view-chat-next')!.querySelector(`[data-view-cite="chat.${k}.answer.next.text.1.cite"]`)?.textContent).toBe('2')
+    expect(latest.querySelector(`[data-view-cite="chat.${k}.answer.why.0.1.cite"]`), 'the Why lines wait behind the facts disclosure').toBeNull()
+    fireEvent.click(q(latest, 'view-reply-rests')!)
+    expect(latest.querySelector(`[data-view-cite="chat.${k}.answer.why.0.1.cite"]`)?.textContent).toBe('3')
   })
 
   it('the newest reply\'s opening is the one 18 px line when it is 20 words or fewer; a longer opening, and an older reply, stay body size', () => {
@@ -221,13 +224,15 @@ describe('2. the opening of every reply shows; a long reply folds its tail', () 
 })
 
 describe('3 and 4. nothing said twice; one input for one thing', () => {
-  it('the figure the step asks for has ONE box, in the step; Olumi\'s question about the same figure is not drawn again, another one is', () => {
+  it('P2: the figure core asks for is not a step of the panel\'s own: its question is drawn once, in Olumi\'s questions, with at most one box; another figure\'s question is drawn once too', () => {
     const view = golden('bakery'), item = view.model!.run!.waits_on!.items.find((i) => i.edit !== null)!
     const trial = [{ id: item.id, title: 'What does the new oven cost?', edit: item.edit }, { id: 'flour_price', title: 'What does a sack of flour cost?', edit: null }]
     const c = show({ ...view, model: { ...view.model!, trial_questions: trial } } as unknown as View)
-    expect(q(c, 'view-next-step')!.getAttribute('data-step')).toBe('figure')
-    expect(c.querySelectorAll(`[data-question-id="${item.id}"]`)).toHaveLength(0)
-    expect(c.querySelectorAll('[data-question-id="flour_price"]')).toHaveLength(1) // CONTRAST: another figure's question stays
+    expect(q(c, 'view-next-step'), 'the UI chooses no figure step of its own (system spec P2)').toBeNull()
+    expect(q(c, 'next-figure-edit-' + item.id)).toBeNull()
+    expect(c.querySelectorAll(`[data-question-id="${item.id}"]`)).toHaveLength(1) // said once, in the question list
+    expect(c.querySelectorAll(`[data-testid$="-edit-${item.id}"]`).length).toBeLessThanOrEqual(1) // ONE box for the figure
+    expect(c.querySelectorAll('[data-question-id="flour_price"]')).toHaveLength(1) // CONTRAST: another figure's question
   })
 })
 

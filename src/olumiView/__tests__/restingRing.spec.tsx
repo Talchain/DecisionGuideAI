@@ -49,15 +49,17 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     const { container } = render(<><ViewConversation chat={golden.chat} /><ViewComposer /></>)
     expect(lit()).toEqual(sorted(NAMED))
     expect(nodeEl(OTHER).classList.contains('v10-lit')).toBe(false)
-    // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1 and 3): the newest reply's next step is drawn once, in the one Next step card at the top (core's
-    // label on its tap, core's words), not under the reply and not in a "From my last reply" card (gone). Was: that card above the composer.
+    // CHANGED BY DESIGN (panel system P2, round 3): the newest reply's next step is drawn ONCE, at the end of that reply (core's label and words),
+    // and there is no Next step card at the top and no "From my last reply" card. Was: one card at the top, not under the reply.
     const next = golden.chat[LAST]!.answer!.next
-    expect(container.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toBeNull()
+    expect(container.querySelectorAll(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toHaveLength(1)
     expect(container.querySelector('[data-testid="view-last-reply-text"]')).toBeNull()
     cleanup()
-    const step = render(<ViewChat />).container.querySelector<HTMLElement>('[data-testid="view-next-step"]')!
-    expect(step.querySelector('[data-testid="view-next-move"]')?.textContent).toBe(next.label)
-    expect(step.textContent).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
+    const panel = render(<ViewChat />).container
+    expect(panel.querySelector('[data-testid="view-next-step"]')).toBeNull()
+    const line = panel.querySelector<HTMLElement>('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')!
+    expect(line.textContent).toContain(next.label)
+    expect(line.textContent).toContain(next.text.map((p) => ('text' in p ? p.text : '')).join('').trim().slice(0, 40))
   })
 
   it('pointing at an earlier reply\'s next step lights exactly its cards; leaving restores the newest reply\'s, by hover and by keyboard', () => {
@@ -102,22 +104,24 @@ describe('coaching on its card: the newest reply\'s next step keeps the cards it
     expect(lit()).toEqual([OTHER])
     rerender(<ViewConversation chat={chatWith([])} />)
     expect(lit()).toEqual([])
-    // V12: the newest reply's line is the card's, not drawn under the reply; so the focus rule is read on an EARLIER reply's line (which keeps its own).
-    expect(container.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')).toBeNull()
+    // P2: the newest reply's line is drawn under it, and naming nothing it takes no focus.
+    const none = container.querySelector('[data-testid="view-chat-latest"] [data-testid="view-chat-next"]')!
+    expect(none).not.toBeNull()
+    expect(none.hasAttribute('tabindex')).toBe(false)
     rerender(<ViewConversation chat={golden.chat} />)
     expect(lit()).toEqual(sorted(NAMED))
     unmount()
     expect(lit()).toEqual([])
   })
 
-  it('an earlier reply\'s line takes focus exactly when it names cards or records; the newest reply\'s is the card\'s and not under the reply', () => {
+  it('an earlier reply\'s line takes focus exactly when it names cards or records; the newest reply\'s, drawn under it, by the same rule', () => {
     const named = render(<ViewConversation chat={golden.chat} />).container.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')!
     expect(golden.chat[0]!.answer!.next.about.length, 'precondition: the earlier reply names records').toBeGreaterThan(0)
     expect(named.getAttribute('tabindex')).toBe('0')
     cleanup()
     const none = render(<ViewConversation chat={chatWith(null, [])} />).container
     expect(none.querySelector('[data-view-turn="chat.0"] [data-testid="view-chat-next"]')!.hasAttribute('tabindex')).toBe(false)
-    expect(none.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)).toBeNull()
+    expect(none.querySelector(`[data-view-turn="chat.${LAST}"] [data-testid="view-chat-next"]`)!.getAttribute('tabindex')).toBe('0')
   })
 
   it('fails closed: a record that is no card lights nothing and never throws; a card named twice is lit once (the one adapter)', () => {

@@ -281,12 +281,13 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): an added card's "+" repeats its proposed frame,
   // so Detailed marks only a change the frame does not say (as Simple does); a changed card keeps core's glyph, its words its hover and name.
-  it('FT3 change: core\'s change mark on every card changed in a way its frame does not say, its words as hover and accessible name; an addition draws none', () => {
+  it('FT3 change: core\'s change mark on every card changed in a way its frame does not say, its words as hover and accessible name; an addition draws none', async () => {
     const changed = EU.model!.cards.find((c) => c.change != null)!
     const v = withCard(EU, changed.id, (c) => ({ ...c, change: { glyph: '↻', title: 'An invented change', kind: 'changed' } }))
     for (const c of v.model!.cards) {
       const el = draw(v, c.id).querySelector<HTMLElement>(`[data-view="${c.id}.change.glyph"]`)
-      expect([el?.textContent, el?.getAttribute('aria-label'), el?.title], c.id).toEqual(c.change == null || c.change.kind === 'added' ? [undefined, undefined, undefined] : [c.change.glyph, c.change.title, c.change.title])
+      // CHANGED BY DESIGN (panel system round 3): the hover is the one Tip, not a native `title`; the words are read through it.
+      expect([el?.textContent, el?.getAttribute('aria-label'), el === null || el === undefined ? undefined : await hoverWords(el)], c.id).toEqual(c.change == null || c.change.kind === 'added' ? [undefined, undefined, undefined] : [c.change.glyph, c.change.title, c.change.title])
       cleanup()
     }
     expect(EU.model!.cards.some((c) => c.change?.kind === 'added'), 'CONTRAST: the served board has additions, drawn by their frame').toBe(true)
@@ -302,13 +303,13 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     }
   })
 
-  it('FT5 (DERIVED: the European question given a date Olumi set, and held as proposed): its date with core\'s hover in Olumi\'s blue, a solid blue frame. CONTRAST: none, nothing', () => {
+  it('FT5 (DERIVED: the European question given a date Olumi set, and held as proposed): its date with core\'s hover in Olumi\'s blue, a solid blue frame. CONTRAST: none, nothing', async () => {
     const q = EU.model!.question
     // Inside an approved model (R3: on a first draft the question is not marked as proposed either).
     const dated = { ...EU, proposal: null, version: { id: 1, n: 1, label: 'Version 1', changed: [], at: '2026-11-02T00:00:00.000Z', at_text: '2 Nov 2026' }, model: { ...EU.model!, question: { ...q, proposed: true, decide_by: { text: 'by 1 March', title: 'Olumi\'s reading of your brief', olumi: true } } } } as unknown as View
     const c = draw(dated, QUESTION), el = c.querySelector<HTMLElement>('[data-view="question.decide_by.text"]')!
     // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences, text as icons with a hover; v12/detailed): the date is a calendar mark and core's words; Olumi's blue is the look's class.
-    expect([el.textContent, el.title, el.className.includes('ok-dt-olumi')]).toEqual(['by 1 March', 'Olumi\'s reading of your brief', true])
+    expect([el.textContent, await hoverWords(el), el.className.includes('ok-dt-olumi')]).toEqual(['by 1 March', 'Olumi\'s reading of your brief', true])
     expect([frame(c).includes('border-info'), frame(c).includes('border-dashed')]).toEqual([true, false])
     cleanup()
     expect(draw(EU, QUESTION).querySelector('[data-view="question.decide_by.text"]')).toBeNull()
@@ -368,7 +369,7 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
 
   // ORDER-UI-NEXT (DL, 13 Nov): three lines, as every other card: at two, the chance line's assumption name was cut ("…for 'Weeks until first…").
   // DL 15 Nov polish (supersedes the three-line clamp of FT13/FT14): no sentence is ever cut on a card face; core's words are drawn whole, wrapped.
-  it('FT13 an option\'s long setting question is drawn whole on its face, never cut; core\'s words whole on hover too', () => {
+  it('FT13 an option\'s long setting question is drawn whole on its face, never cut; core\'s words whole on hover too', async () => {
     const opt = EU.model!.cards.find((c) => c.family === 'option')!
     const long = 'How much would "Close 1.3 million now and plan a follow-on tied to milestones" change "Follow-on funding planned against milestones", and in what unit is it counted?'
     const v = withCard(EU, opt.id, (c) => ({ ...c, headline: null, rows: [{ kind: 'none', aim_id: null, text: long, title: 'core\'s title' } as never] }))
@@ -376,7 +377,7 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     // away, whole (v12/detailed/marks.tsx RowWords); it is never cut, and it stays the hover.
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
     const press = lead.querySelector<HTMLElement>(`[data-row-words="${opt.id}.rows.0"] button`)!
-    expect([press.getAttribute('aria-label'), press.title, lead.title.startsWith(long), lead.textContent?.includes(long)]).toEqual([long, long, true, false])
+    expect([press.getAttribute('aria-label'), await hoverWords(press), lead.title.startsWith(long), lead.textContent?.includes(long)]).toEqual([long, long, true, false])
     fireEvent.click(press)
     expect(lead.querySelector('[role="note"]')?.textContent, 'one press shows it whole').toBe(long)
   })

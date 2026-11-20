@@ -40,13 +40,16 @@ afterEach(() => {
 })
 
 describe('v10 on the core lane', () => {
-  it('the four methods are also icon buttons inside the composer box (named, titled); over typed words they fill the prefix and send nothing; none for a brief', () => {
+  it('the four methods are also icon buttons inside the composer box (named, titled); over typed words they fill the prefix and send nothing; none for a brief', async () => {
     const { container, unmount } = render(<><ViewChat /><ViewComposer /></>)
     const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
     const row = container.querySelector('[data-testid="view-composer"] [data-testid="view-composer-methods"]')!
     expect(row).not.toBeNull()
-    expect([...row.querySelectorAll('button')].map((b) => [b.getAttribute('aria-label'), b.getAttribute('title')])).toEqual(
-      ['Challenge it', 'The opposite', 'What would disprove it', 'Outside view'].map((l) => [l, l]))
+    const buttons = [...row.querySelectorAll<HTMLElement>('button')]
+    const hovers: string[] = []
+    for (const b of buttons) hovers.push(await tipOf(b)) // the one Tip, never a native title
+    expect(buttons.map((b, i) => [b.getAttribute('aria-label'), b.hasAttribute('title'), hovers[i]])).toEqual(
+      ['Challenge it', 'The opposite', 'What would disprove it', 'Outside view'].map((l) => [l, false, l]))
     fireEvent.change(box, { target: { value: 'the 30p rise' } })
     fireEvent.click(row.querySelector('[data-testid="view-composer-method-disconfirming"]')!)
     expect(box.value).toBe('What would disprove: the 30p rise')

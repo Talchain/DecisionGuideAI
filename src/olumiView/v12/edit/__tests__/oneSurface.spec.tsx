@@ -926,7 +926,7 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     })
     return { CARD, H, at }
   }
-  it('C8-n the preview beside a low card does not lie on a neighbouring card that the own-height clamp would reach; pinned, it keeps that place (no jump)', async () => {
+  it('C8-n the preview beside a low card does not lie on a neighbouring card that the own-height clamp would reach; pinned, it keeps its side and its near edge (no jump)', async () => {
     const NEIGH = { left: 340, top: 560, width: 150, height: 60 }
     const { H, at } = lowCardRig((el) => (el.closest('.react-flow__node')?.getAttribute('data-id') === OPT ? NEIGH : null))
     const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
@@ -937,7 +937,13 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       expect(finalRectCovers(peek, Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap), NEIGH), `the preview (${peek}) is not on the neighbouring card`).toBe(false)
       fireEvent.click(node(FIG2)); await settle()
       expect(box()!.getAttribute('data-state')).toBe('pinned')
-      expect(at(box()!), 'pinned where it was previewed: no jump').toEqual(peek)
+      // No jump: the pinned box keeps the preview's side and its near edge. Beside the card that is the same top; above it the preview stands on its bottom edge, next to
+      // the card, so the taller pinned box grows upward and keeps the same bottom (it cannot keep its top without lying on the card). Never on the neighbour either.
+      const pinned = at(box()!), pcap = parseFloat(box()!.style.getPropertyValue('--lane-details-h')), pinnedH = Number.isNaN(pcap) ? H.pinned : Math.min(H.pinned, pcap)
+      const peekH = Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap)
+      expect(pinned[0], 'pinned on the same side').toBe(peek[0])
+      expect([pinned[1], pinned[1]! + pinnedH].some((edge, i) => edge === (i === 0 ? peek[1]! : peek[1]! + peekH)), `pinned (${pinned}) keeps the preview's top or its bottom edge (${peek})`).toBe(true)
+      expect(finalRectCovers(pinned, pinnedH, NEIGH), 'the pinned box is not on the neighbouring card').toBe(false)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
   it('C8-f the preview beside a low card does not lie on a foot control that the own-height clamp would reach (the zoom row)', async () => {

@@ -300,7 +300,8 @@ describe('#2 open items, each with its exact action', () => {
     const row = screen.getByTestId('journey-wait:contract_to_cash')
     expect(row.tagName).toBe('BUTTON')
     expect(row.querySelectorAll('[tabindex]')).toHaveLength(0)
-    expect(await tipOnFocus(row)).toBe('hover')
+    // core's words for the row: the figure's own ask where the wait has an edit (journey.ts `edit.ask ?? title`), else its title
+    expect(await tipOnFocus(row)).toBe('Give a figure')
   })
   it('each opens its own thing: the waited-on card, that evidence in Team, the next step in the chat', () => {
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')

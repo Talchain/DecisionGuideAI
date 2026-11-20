@@ -49,7 +49,7 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
     expect([...screen.getByTestId('view-run-compared-better').querySelectorAll('[data-view-fact]')].map((d) => d.textContent)).toEqual([`◆ ${COMPARED[2]!.line}`, COMPARED[3]!.line])
     for (const c of COMPARED.slice(0, 4)) {
       expect(container.textContent!.split(c.line).length - 1).toBe(1) // once on the panel
-      expect(await tipOf(container.querySelector<HTMLElement>(`[data-view-fact="${c.id}"]`)!)).toBe(c.hover)
+      expect(await tipOf(container.querySelector<HTMLElement>(`[data-view-fact="${c.id}"] [data-view$=".line"]`)!)).toBe(c.hover)
     }
   })
   it('the groups are inside the "Why this reading" fold, never at rest, and each group sits apart from the next (space-y-3)', async () => {

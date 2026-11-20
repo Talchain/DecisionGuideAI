@@ -34,7 +34,10 @@ describe('an option\'s chance definition is in its row\'s hover, never body text
         expect(onRows.includes(row.text!), `${card.id} row ${i} on screen`).toBe(false)
         const at = `${card.id}.rows.${i}`
         const hover = await tipOf(c.querySelector<HTMLElement>(`[data-view-row="${at}"] [data-view="${at}.aim"], [data-view-row="${at}"] > [data-view="${at}.text"]`)!)
-        expect([hover === row.title, hover.startsWith(row.text!)], `${card.id} row ${i} hover`).toEqual([true, true])
+        // The trial24 proposal golden is a schema fixture: its words are id placeholders (⟦F2.body⟧, ⟦F2.pointed⟧), which cannot open with one
+        // another. The hover is still core's title there; "opens with the definition" is asserted wherever core's real words are in the golden.
+        const placeholder = /^⟦[^⟧]+⟧$/.test(row.text!)
+        expect([hover === row.title, placeholder || hover.startsWith(row.text!)], `${card.id} row ${i} hover`).toEqual([true, true])
       }
     }, 30000)
   }

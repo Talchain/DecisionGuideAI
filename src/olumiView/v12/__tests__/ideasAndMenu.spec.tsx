@@ -243,7 +243,7 @@ describe('the reply\'s next step (system spec P2: no card at the top)', () => {
     const view: View = { ...v, chat: v.chat.map((x) => (x === t ? { ...x, answer: { ...x.answer!, next: { ...x.answer!.next, move: 'other_method' } } } : x)) }
     core(() => view)
     show(view)
-    const c = render(<ViewChat />).container
+    const c = render(<><ViewChat /><ViewComposer /></>).container // the ⋯ list lives in the composer
     expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull() // CHANGED BY DESIGN: was the goal's first question as a card at the top
     expect(c.querySelector('[data-testid="view-next-move"]')).toBeNull() // the filler draws no move tap
     await press(c.querySelector('[data-testid="view-actions-button"]')!)

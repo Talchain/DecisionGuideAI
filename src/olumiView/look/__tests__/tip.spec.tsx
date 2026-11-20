@@ -7,8 +7,9 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render, screen } from '@testing-library/react'
-import { Tip, TIP_GAP, TIP_DELAY, rowTipOf } from '../Tip'
+import type { ReactNode } from 'react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Tip, TIP_GAP, TIP_DELAY, rowTipOf, useAnchoredTip } from '../Tip'
 
 afterEach(() => { cleanup() })
 
@@ -100,5 +101,25 @@ describe('the one Tip', () => {
   it('nothing is drawn with no words or no row to stand beside', () => {
     render(<><Tip text="" anchorRect={rect(0, 0, 10, 10)} /><Tip text="words" anchorRect={null} /></>)
     expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+})
+
+describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an icon\'s tip inside it opened together)', () => {
+  function Anchored({ words, testid, children }: { words: string; testid: string; children?: ReactNode }) {
+    const t = useAnchoredTip(words)
+    return <div data-testid={testid} {...t.handlers}>{children}{t.tip}</div>
+  }
+  it('the pointer resting on an icon inside a card shows the icon\'s tip only; leaving the icon for another anchor swaps it, never two', () => {
+    vi.useFakeTimers()
+    try {
+      render(<><Anchored words="Card results" testid="card"><Anchored words="Icon words" testid="icon" /></Anchored><Anchored words="Other" testid="other" /></>)
+      fireEvent.pointerEnter(screen.getByTestId('card'))
+      fireEvent.pointerEnter(screen.getByTestId('icon'))
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(screen.getAllByRole('tooltip').map((t) => t.textContent)).toEqual(['Icon words'])
+      fireEvent.pointerEnter(screen.getByTestId('other'))
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(screen.getAllByRole('tooltip').map((t) => t.textContent)).toEqual(['Other'])
+    } finally { vi.useRealTimers() }
   })
 })

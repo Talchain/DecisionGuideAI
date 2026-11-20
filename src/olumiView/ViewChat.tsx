@@ -376,7 +376,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {/* P2 (system spec): the reply's own next step is drawn ONCE, here, at the end of the reply; there is no second copy at the top of the panel. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}
         onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) ring(false) }} onFocus={() => ring(true)} onBlur={() => ring(false)}>{tapDrawn ? null : <><span className={`${typography.viewPanelHeading} text-text-header${about.length > 0 && !(moves && t.answer.next.newest) ? ' sr-only' : ''}`} data-view={`${at}.answer.next.label`}>{t.answer.next.label}</span>{' '}</>}<Words parts={t.answer.next.text} at={`${at}.answer.next.text`} first={nextFirst} /></p>
-      {tapDrawn ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} /> : null}
+      {tapDrawn ? <MoveTap turn={t.id} next={t.answer.next} primary={primary} at={`${at}.answer.next`} /> : null}
       <Stories answer={t.answer} at={at} />
     </div>
   )

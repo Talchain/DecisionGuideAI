@@ -363,7 +363,7 @@ export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inheri
 
 const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"], [role="checkbox"], [role="switch"]'
 
-/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable. Inside an interactive ancestor it takes none (one focus stop, the ancestor): the Tip then listens to that ancestor's focus, blur and pointer, stands beside it, and describes it while open. */
+/** An icon alone: an image named by aria-label whose words show through the one Tip (150 ms, beside it), never a native title. It takes keyboard focus so the words are reachable. Inside an interactive ancestor it takes none (one focus stop, the ancestor): the Tip then opens on that ancestor's keyboard focus (standing beside it and describing it while open) and on the pointer resting on the icon itself, so a card's own tip and an icon's tip inside it never open together. */
 function LabelledIcon({ label, cls, testid, focusable, children }: { label: string; cls: string; testid?: string; focusable: boolean; children: ReactNode }) {
   const { handlers, tip, describedBy } = useAnchoredTip(label)
   const el = useRef<HTMLSpanElement>(null)
@@ -374,15 +374,11 @@ function LabelledIcon({ label, cls, testid, focusable, children }: { label: stri
   useEffect(() => {
     if (host === null) return
     const at = { currentTarget: host } as unknown as SyntheticEvent<HTMLElement>
-    const onEnter = (e: Event) => latest.current.onPointerEnter({ ...at, pointerType: (e as PointerEvent).pointerType } as never)
-    const onLeave = () => latest.current.onPointerLeave()
     const onFocus = () => latest.current.onFocus(at)
     const onBlur = () => latest.current.onBlur()
     const onKey = (e: Event) => latest.current.onKeyDown({ key: (e as KeyboardEvent).key } as never)
-    host.addEventListener('pointerenter', onEnter); host.addEventListener('pointerleave', onLeave)
     host.addEventListener('focus', onFocus); host.addEventListener('blur', onBlur); host.addEventListener('keydown', onKey)
     return () => {
-      host.removeEventListener('pointerenter', onEnter); host.removeEventListener('pointerleave', onLeave)
       host.removeEventListener('focus', onFocus); host.removeEventListener('blur', onBlur); host.removeEventListener('keydown', onKey)
     }
   }, [host])
@@ -396,7 +392,7 @@ function LabelledIcon({ label, cls, testid, focusable, children }: { label: stri
   const alone = host === null
   return (
     <>
-      <span ref={el} role="img" aria-label={label} tabIndex={alone && focusable ? 0 : undefined} aria-describedby={alone ? describedBy : undefined} className={cls} data-testid={testid} {...(alone ? handlers : {})}>{children}</span>
+      <span ref={el} role="img" aria-label={label} tabIndex={alone && focusable ? 0 : undefined} aria-describedby={alone ? describedBy : undefined} className={cls} data-testid={testid} {...(alone ? handlers : { onPointerEnter: handlers.onPointerEnter, onPointerLeave: handlers.onPointerLeave })}>{children}</span>
       {tip}
     </>
   )

@@ -38,7 +38,8 @@ describe('a link core sizes says its strength on the line', () => {
       vi.useFakeTimers()
       fireEvent.pointerEnter(t!)
       act(() => { vi.advanceTimersByTime(150) })
-      expect(screen.getByRole('tooltip').textContent, `links.${i}`).toBe(model.links[i]!.effect!.title)
+      // The link's one Tip says all of core's words for it, each once: its own title and the effect's text and title among them.
+      expect(screen.getByRole('tooltip').textContent, `links.${i}`).toContain(model.links[i]!.effect!.title!)
       vi.useRealTimers()
       cleanup()
     }

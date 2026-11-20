@@ -175,8 +175,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     // The registry's compact ghost icon button, on the panel's own recipe (a class from olumiLook.css, not utilities in the component).
     expect(latest).toHaveClass('ok-to-latest', 'min-h-7', 'min-w-7')
     expect(latest).not.toHaveClass('text-info')
-    // CHANGED BY DESIGN (17 Nov, icons carry no hue): the arrow is the registry's go-latest icon (grey), drawn as an svg inside a decorative span.
-    expect(latest.querySelector('span[aria-hidden="true"] svg.lucide-arrow-down-to-line')).not.toBeNull()
+    // CHANGED BY DESIGN (17 Nov, icons carry no hue): the arrow is the registry's go-latest icon (grey), drawn as a decorative svg inside the button (OkIconButton draws the glyph itself, aria-hidden).
+    expect(latest.querySelector('svg.lucide-arrow-down-to-line[aria-hidden="true"]')).not.toBeNull()
     act(() => show(fixture))
     expect(scroll.scrollTop).toBe(200)
     act(() => show({ ...fixture, turn: running }))

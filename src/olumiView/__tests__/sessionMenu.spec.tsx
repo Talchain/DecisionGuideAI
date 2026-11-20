@@ -217,8 +217,9 @@ describe('a press asks that question as a discussion-only turn', () => {
     openMenu(c)
     expect(methods(c)).toHaveLength(11)
     for (const b of methods(c)) expect(b.disabled, b.dataset['method']).toBe(true)
-    expect(c.querySelector<HTMLButtonElement>('[data-testid="view-session-goal-clear"]')!.disabled).toBe(true)
-    expect(c.querySelector<HTMLButtonElement>('[data-testid="view-session-goal-change"]')!.disabled).toBe(true)
+    // The goal chip's buttons are held as the Tip's HoverButton holds them: aria-disabled (still focusable, so the hover can say why), and a press does nothing.
+    expect(c.querySelector('[data-testid="view-session-goal-clear"]')!.getAttribute('aria-disabled')).toBe('true')
+    expect(c.querySelector('[data-testid="view-session-goal-change"]')!.getAttribute('aria-disabled')).toBe('true')
     openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'go_wrong')!)
     expect(posts).toHaveLength(1)
     await act(async () => { release(new Response(JSON.stringify({ proposal: 6, discussion: true }), { status: 201 })) })

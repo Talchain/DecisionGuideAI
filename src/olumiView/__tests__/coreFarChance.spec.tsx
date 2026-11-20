@@ -14,6 +14,7 @@ import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
+import { tipOf } from './tipHelpers'
 import { CoreCard, leadLineOf, withheldField, withheldWords } from '../previous/CoreCard'
 
 const EU = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/european-loop9.view3.json'), 'utf8')) as View
@@ -32,13 +33,13 @@ const mount = (id: string, rung: 'line' | 'full') => {
 const far = (id: string) => { const { card, c } = mount(id, 'line'); return { card, line: within(c).getByTestId('node-lod-line') } }
 
 describe('the far face draws a chance whole (DL-424)', () => {
-  it('a chance resting on Olumi\'s assumption: core\'s chance words whole, then core\'s Olumi mark titled with core\'s full sentence', () => {
+  it('a chance resting on Olumi\'s assumption: core\'s chance words whole, then core\'s Olumi mark titled with core\'s full sentence', async () => {
     const { card, line } = far('keep_sending_cold_emails_and_seeking_warm_connections')
     expect(card.headline!.text, 'precondition: core\'s face line carries the assumption clause').toBe("about 3% chance, on Olumi's assumption for 'Time until funding is secured now'")
     expect(within(line).getByTestId('node-lod-line-text').textContent).toBe('about 3% chance')
     const rested = LIVE.find((c) => c.id === 'time_until_funding_is_secured_now')!
     const mark = line.querySelector<HTMLElement>(`[data-view="${card.id}.far.olumi.glyph"]`)!
-    expect([mark.textContent, mark.title]).toEqual([rested.olumi!.glyph, card.headline!.title])
+    expect([mark.textContent, mark.getAttribute('aria-label'), await tipOf(mark)]).toEqual([rested.olumi!.glyph, card.headline!.title, card.headline!.title])
   })
 
   // Contract 3 (15 Nov): a withheld chance shows core's own reason, never the bare "No chance yet". The far line is leadLineOf's words.

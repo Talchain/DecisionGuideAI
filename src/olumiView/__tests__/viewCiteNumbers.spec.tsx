@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import type { View } from '../client'
 import { ViewConversation } from '../ViewChat'
@@ -33,7 +33,13 @@ describe('a reply\'s cites are numbered by their place in it, core\'s cite on ho
         // Each reply by its own turn (`data-view-turn`), never by its place on screen.
         const reply = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"] [data-testid="view-chat-answer"]`)
         if (t.answer === null) { expect(reply).toBeNull(); return }
-        const marks = [...reply!.querySelectorAll<HTMLElement>('[data-view-cite]')]
+        // P4 (system spec): the Why lines sit in the reply's ONE facts disclosure, closed at rest; open it, then read the turn's cites in the order drawn
+        // (the answer and its next step, then the Why lines).
+        const turn = container.querySelector<HTMLElement>(`[data-view-turn="chat.${i}"]`)!
+        const rests = turn.querySelector<HTMLElement>('[data-testid="view-reply-rests"]')
+        if (rests !== null) fireEvent.click(rests)
+        if (t.answer.why.length > 0) expect(rests, `chat.${i}: the Why lines are behind the facts disclosure`).not.toBeNull()
+        const marks = [...turn.querySelectorAll<HTMLElement>('[data-view-cite]')]
         expect(marks.map((m) => [m.textContent, m.hasAttribute('title'), m.getAttribute('aria-label')]), String(t.id)).toEqual(citesOf(t).map((c, k) => [String(k + 1), false, c]))
       })
     })

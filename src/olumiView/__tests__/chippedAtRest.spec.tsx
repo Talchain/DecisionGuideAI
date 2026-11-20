@@ -47,16 +47,19 @@ describe('a link that carries a disagreement chip is drawn at rest', () => {
     expect(studio.model!.links[4]!.kind).toBe('reason')
     expect(studio.model!.links[2]!.label).toBe('+')
   })
-  it('CR2 contrast: the reason link with no chip waits for focus (nothing drawn at rest)', () => {
-    expect(line(edge(viewWith(4, false), 4), 4)).toBeNull()
+  it('CR2 contrast: the reason link with no chip is drawn at rest too (L1: every link is), dotted and with no chip', () => {
+    const c = edge(viewWith(4, false), 4)
+    expect(line(c, 4)).not.toBeNull()
+    expect(line(c, 4)!.getAttribute('data-link-dotted')).toBe('true')
+    expect(c.querySelector('[data-link-mark="links.4"]')).toBeNull()
   })
   it('CR3 catch: the same reason link carrying core\'s chip is drawn at rest, with its chip', () => {
     const c = edge(viewWith(4, true), 4)
     expect(line(c, 4)).not.toBeNull()
     expect(c.querySelector('[data-link-mark="links.4"]')?.getAttribute('aria-label')).toBe(chip.label)
   })
-  it('CR4 must not change: on an earlier version the chipped reason link waits for focus again', () => {
-    expect(line(edge(viewWith(4, true), 4, 1), 4)).toBeNull()
+  it('CR4 must not change: on an earlier version the chipped reason link is still drawn (L1: no link waits for focus)', () => {
+    expect(line(edge(viewWith(4, true), 4, 1), 4)).not.toBeNull()
   })
   it('CR5 ruling 1 (V12 rule 2): a chipped link is its direction colour like any modelled effect, drawn as its unchipped self; the chip alone marks the disagreement', () => {
     const plain = applied(edge(viewWith(2, false), 2).querySelector<SVGPathElement>('.react-flow__edge-path')!).stroke!

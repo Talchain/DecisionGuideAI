@@ -111,7 +111,8 @@ describe('nothing is written while a past version is drawn', () => {
     useViewStore.setState({ view: withVersion(1), at: 1 })
     render(<ViewComposer analysisAction={{ label: 'Run analysis', canRun: true, isRunning: false, onRun: () => {} } as never} />)
     expect((document.querySelector('#view-chat-text') as HTMLTextAreaElement).disabled).toBe(true)
-    expect((screen.getByTestId('view-composer-analyse') as HTMLButtonElement).disabled).toBe(true)
+    // The registry icon button is held by aria-disabled (it stays focusable so the Tip can say why); its press does nothing.
+    expect(screen.getByTestId('view-composer-analyse').getAttribute('aria-disabled')).toBe('true')
     expect(screen.getByTestId('view-composer-past').textContent).toBe(`${PAST_HELD}Back to the latest`) // no version sentence the page composes (DL 7 Nov)
     expect(screen.getByTestId('view-composer-back')).toBeTruthy()
   })
