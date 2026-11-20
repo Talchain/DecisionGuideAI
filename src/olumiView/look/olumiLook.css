@@ -265,9 +265,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
    Nothing held: exactly as before. */
 /* "Record what you will do", docked at the thread's foot above the composer (ViewChat, DL 20 Nov): folded it is at most its one kept or saving
    line; open, the thread above keeps the pinned proposal's floor and the form takes the rest, scrolling in its own box only past that. */
-.ok-form-foot { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: 0 12px; }
-.ok-form-foot:has([data-open='true']) { padding: var(--space-2) 12px; }
-.ok-form-foot:has([data-open='false']:empty) { display: none; }
+.ok-form-foot { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) 12px; }
+.ok-form-foot:has([data-open='true']) { padding-block: var(--space-2); }
+.ok-form-foot:not(:has([data-testid='commit-form'] > *)) { display: none; }
 [data-testid='view-chat']:has(.ok-form-foot [data-open='true']) > [data-thread-wrap] { min-height: min(18vh, 128px); }
 /* Contract 3: only while the one-row review is OPEN (closed, it is one line and the thread keeps its room). */
 [data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
