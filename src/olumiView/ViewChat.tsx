@@ -490,7 +490,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
             {un.words === null ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-floor-unanswered" data-view={`floor.${f.job}.unanswered.words`} data-latest-floor={latest ? '' : undefined}>{un.words}</p>}
             {f.said === '' ? null : <AskAgain words={f.said} />}
           </>
-        : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><DegradedLine of={f} at={`floor.${f.job}`} />{f.lead === undefined ? text
+        : <div className={`${typography.viewPanelBody} ok-reply space-y-3`} data-testid="view-floor-reply" data-latest-floor={latest ? '' : undefined}><DegradedLine of={f} at={`floor.${f.job}`} />{f.lead === undefined ? <>{text}{f.lead_not_held === undefined ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`floor.${f.job}.lead.not_held`}>{f.lead_not_held}</p>}</>
           // The reply's short lead (core `floor[].lead`): drawn first, the reply as today folded under "Full answer"; Keep is one chooser beside it.
           : <ReplyLead lead={f.lead} at={`floor.${f.job}`} keep={sid === null ? null : <KeepChooser sid={sid} turn={f.job} entries={entries} />}>{text}</ReplyLead>}</div>}
     </li>

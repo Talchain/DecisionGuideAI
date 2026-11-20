@@ -168,6 +168,19 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(r2.querySelectorAll('[data-testid="view-keep-idea-button"]')).toHaveLength(3)
   })
 
+  it('K1 a floor reply\'s lead.not_held: after the lead where the lead is drawn; under the reply, once, where the lead says the whole reply and is not drawn; CONTRAST: absent, none', () => {
+    const NH = 'Not in your model: 210 pupils, 120 seats.'
+    const TEXT = 'Hire before you rent.\n\nAsk the two mechanics first.'
+    const floor = { job: 21, at: '2026-11-17T11:00:00.000Z', by: 'Ada', by_id: '7', said: 'What first?', text: TEXT, prose: TEXT.split('\n\n') }
+    const words = (lead: Record<string, unknown>) => ({ ...base, you_id: '7', you: 'Ada', start: 'words', draft: null, version: null, proposal: null, model: null, chat: [], turn: null, floor: [{ ...floor, lead }] } as unknown as View)
+    const lines = (c: HTMLElement) => [...c.querySelectorAll('[data-floor-job="21"] [data-testid="view-lead-not-held"]')].map((e) => e.textContent)
+    expect(lines(show(words({ opening: 'Hire first.', points: ['Ask them.'], not_held: NH })))).toEqual([NH])
+    cleanup()
+    const same = show(words({ opening: 'Hire before you rent.', points: ['Ask the two mechanics first.'], not_held: NH }))
+    expect([lines(same), same.querySelector('[data-view="floor.21.lead.opening"]')]).toEqual([[NH], null])
+    cleanup()
+    expect(lines(show(words({ opening: 'Hire before you rent.', points: ['Ask the two mechanics first.'] })))).toEqual([])
+  })
   it('readers: a malformed lead is none; a lead that says the whole answer folds nothing; floorOf carries a well-formed lead', () => {
     const full = 'Hire before you rent.\n\n- Ask the two mechanics first.'
     expect(leadOf({ lead: { opening: 'Hire before you rent.', points: ['Ask first.'] } }, full)).toEqual({ opening: 'Hire before you rent.', points: ['Ask first.'] })

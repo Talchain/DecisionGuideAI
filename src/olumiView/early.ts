@@ -33,7 +33,7 @@ export const earlyBlocks = (text: string): { list: boolean; lines: string[] }[] 
 }
 
 /** One kept reply on a scenario that has no model (core `view.floor[i]`): who said what, and Olumi's plain answer. */
-export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead; /** Core's note that this reply ran on less than usual (`floor[].degraded`), verbatim; absent otherwise. */ degraded?: { text: string; title: string }; /** A message sent by a press on the canvas (typed fields 13b, `floor[].press` on an unanswered turn); absent otherwise. */ press?: TurnPress }
+export type FloorTurn = { job: number; at: string; by: string; by_id: string; said: string; text: string; /** Olumi's own typed prose blocks of this reply (words-start CONTRACT 4, `floor[].prose`): what can be kept; absent on legacy or untyped replies. */ prose?: string[]; /** A plain message whose reply failed or was lost (core `floor[].unanswered`, sx-team 08:51Z): core's status and its own sentence for that job, verbatim; `words` null where core has none. Such a row has no reply, no prose and no Keep. */ unanswered?: Unanswered; /** The reply's short lead (core `floor[].lead`, Paul 11:02Z): drawn first, the full text folded under it. */ lead?: ReplyLead; /** Core's `lead.not_held` where the lead itself is not drawn (K1): said once under the reply. */ lead_not_held?: string; /** Core's note that this reply ran on less than usual (`floor[].degraded`), verbatim; absent otherwise. */ degraded?: { text: string; title: string }; /** A message sent by a press on the canvas (typed fields 13b, `floor[].press` on an unanswered turn); absent otherwise. */ press?: TurnPress }
 /** A reply's short lead (View v3, additive; DL 11:06:45Z): one or two opening sentences and its points, in Olumi's words as core serves them.
  *  The page draws it and folds the full answer beneath; it never cuts, counts or writes one. Absent: the reply is drawn as before. */
 export type LeadActionOn = { finding: string } | { record: string } | { world: true }
@@ -113,7 +113,9 @@ export const floorOf = (view: unknown, alreadyShown?: { job?: number | null; tex
     // Honest degradation (core `floor[].degraded`, optional): kept only when well formed, drawn by the reply's own note (ViewChat DegradedLine).
     const d = row.degraded
     const degraded = d !== null && typeof d === 'object' && typeof d.text === 'string' && d.text !== '' ? { degraded: { text: d.text as string, title: typeof d.title === 'string' ? d.title as string : d.text as string } } : {}
-    rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: row.text, ...prose, ...(lead === null ? {} : { lead }), ...degraded })
+    // K1: a lead not drawn (it repeats the reply) keeps core's not-held line, said under the reply as the chat's turn does (leadNotHeldOf).
+    const notHeld = lead === null ? leadNotHeldOf(row) : null
+    rows.push({ job: row.job, at: row.at, by, by_id, said: row.said, text: row.text, ...prose, ...(lead === null ? {} : { lead }), ...(notHeld === null ? {} : { lead_not_held: notHeld }), ...degraded })
   }
   return rows
 }
