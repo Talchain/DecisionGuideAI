@@ -179,18 +179,26 @@ describe('My scenarios (home)', () => {
     expect(screen.getByTestId('at-scenario')).toBeTruthy()
   })
 
-  it('New scenario goes to the canvas on a blank brief: the scenario the canvas showed last is forgotten, not reopened', async () => {
-    // Measured on a local core: without this, the canvas restored the last scenario opened from this browser.
+  // CHANGED BY DESIGN (investor audit #4, 20 Nov): with no scenario, home opens the brief box itself, as "New scenario" does; there is no empty list to click past.
+  it('no scenario at all: home goes straight to the canvas on a blank brief, the scenario the canvas showed last forgotten, not reopened', async () => {
+    // Measured on a local core: without the reset, the canvas restored the last scenario opened from this browser.
     const last = '00000000-0000-4000-8000-a00000000002'
     localStorage.setItem('olumi-canvas-current-scenario-id', last)
     useCanvasStore.setState({ currentScenarioId: last })
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios' ? { body: { you_id: '7', scenarios: [] } } : undefined)
     at('/', <MyScenariosPage />)
-    expect((await screen.findByTestId('my-scenarios-empty')).textContent).toContain('writing a brief')
-    fireEvent.click(screen.getByTestId('my-scenarios-new'))
-    expect(screen.getByTestId('at-canvas')).toBeTruthy()
+    await screen.findByTestId('at-canvas')
     expect(localStorage.getItem('olumi-canvas-current-scenario-id')).toBeNull()
     expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+  })
+  it('CONTRAST: every scenario archived stays on home, which says so; New scenario still goes to the canvas on a blank brief', async () => {
+    core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } } : p === '/api/account/scenarios'
+      ? { body: { you_id: '7', scenarios: [], archived: [{ id: 's_a00000000001', label: 'Old', title: 'Old', open: '/#/scenario/00000000-0000-4000-8000-a00000000001', version: null, last_activity: null, your_last: null, members: [] }] } } : undefined)
+    at('/', <MyScenariosPage />)
+    await screen.findByTestId('my-scenarios-all-archived')
+    expect(screen.queryByTestId('at-canvas')).toBeNull()
+    fireEvent.click(screen.getByTestId('my-scenarios-new'))
+    expect(screen.getByTestId('at-canvas')).toBeTruthy()
   })
 
   it('signed out, home goes to sign in and asks core for no scenario', async () => {
@@ -255,7 +263,8 @@ describe('Terms, Privacy and Delete my data on the signed-in pages', () => {
   const NOTICES = [['Terms', '/terms'], ['Privacy', '/privacy']] as const
   it('My scenarios, Organisation and Account each link to Terms and Privacy', async () => {
     core((_m, p) => p === '/api/me' ? { body: { me: ANA, account: OWNER } }
-      : p === '/api/account/scenarios' ? { body: { you_id: ANA.id, scenarios: [] } }
+      // One scenario: with none, home opens the brief box instead (investor audit #4).
+      : p === '/api/account/scenarios' ? { body: { you_id: ANA.id, scenarios: [{ id: 's_a00000000001', label: 'Hire', title: 'Hire', open: '/#/scenario/00000000-0000-4000-8000-a00000000001', version: null, last_activity: null, your_last: null, members: [] }] } }
       : p === '/api/org' ? { body: { org: { id: OWNER.org.id, name: 'Northwind' }, you: { id: ANA.id, role: 'owner' }, members: [] } }
       : p === '/api/org/invites' ? { body: { you_id: ANA.id, invites: [] } } : undefined)
     for (const [path, page] of [['/', <MyScenariosPage />], ['/organisation', <OrganisationPage />], ['/account', <AccountPage />]] as const) {

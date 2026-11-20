@@ -91,12 +91,22 @@ describe('2. an aim\'s measured bound is drawn once', () => {
     expect([c.querySelector('.ok-pill.ok-bound')?.textContent, c.querySelector('[data-simple-description]')]).toEqual(['at least 100 tickets/week', null])
     expect((aim({}).author as { title: string }).title).toContain(QUOTE)
   })
-  it('A2 CONTRASTS: a description core did not quote (not in author.title), or an unmeasured bound, is still drawn', () => {
+  // CHANGED BY DESIGN (investor audit #5, 20 Nov): the quote is no line on ANY card, measured bound or not; only a description core did not quote is drawn.
+  it('A2 CONTRAST: a description core did not quote (not in author.title) is still drawn; the quote on an unmeasured bound is not, as on any card', () => {
     const other = lines(aim({ description: 'by the end of the second quarter' }))
     expect(other.querySelector('[data-simple-description]')?.textContent).toBe('by the end of the second quarter')
     cleanup()
     const unmeasured = lines(aim({ bound: { text: 'not checked yet', title: 'not checked yet', olumi: null, measured: false } }))
-    expect(unmeasured.querySelector('[data-simple-description]')?.textContent).toBe(QUOTE)
+    expect(unmeasured.querySelector('[data-simple-description]')).toBeNull()
+  })
+  it('A3 (investor audit #5) a figure card whose description is the person\'s quote in its author.title draws no description line; Olumi\'s own description (not quoted) is drawn', () => {
+    const fig = (author: { by: string; text: string; title: string }, description: string) => ({ id: 'f', family: 'quantity', heading: 'Experienced receptionist calls a day', glyph: '*',
+      figure: { text: '', title: '', state: null }, status: null, rows: [], premises: [], author, description } as unknown as ViewCard)
+    const said = 'Should we hire one experienced receptionist, who handles 35 to 45 calls a day?'
+    expect(lines(fig({ by: 'person', text: 'Yours', title: `You said: \u201c${said}\u201d` }, said)).querySelector('[data-simple-description]')).toBeNull()
+    cleanup()
+    const note = 'Zero while carrying on; routes set it.'
+    expect(lines(fig({ by: 'olumi', text: 'Proposed by Olumi', title: `Proposed by Olumi: ${note}` }, note)).querySelector('[data-simple-description]')?.textContent).toBe(note)
   })
 })
 

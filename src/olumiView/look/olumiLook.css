@@ -240,6 +240,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); }
 .ok-lead-action-link:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 2px; }
 .ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
+/* A world action's basis (core's words): its own row, under the words and in line with them past the 14 px mark. */
+.ok-lead-action:has(.ok-lead-action-basis) { flex-wrap: wrap; }
+.ok-lead-action-basis { flex-basis: 100%; padding-left: calc(14px + var(--space-1)); }
 /* Olumi's proposal, pinned at the foot of the thread just above the composer (17 Nov, the calm panel): ONE line (Olumi's mark, core's heading, Review,
    Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
    actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */

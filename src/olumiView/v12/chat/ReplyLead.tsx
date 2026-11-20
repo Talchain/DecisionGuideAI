@@ -16,13 +16,20 @@ export const FULL_ANSWER = 'Full answer'
 /**
  * One of the lead's actions, core's words on one line. On a record or a finding the line is a button that reaches that card as every other press
  * from the chat does (a card the board draws is selected; one behind a fold or badge is shown); on the world it is words with Olumi's mark and no link.
- * The basis is the one Tip on the words.
+ * On a linked line the basis is the one Tip on the words; on a world line it is a quiet line under them, at rest.
  */
 function ActionLine({ a, at }: { a: LeadAction; at: string }) {
   const model = useViewStore((st) => st.view?.model ?? null)
   const on = a.on
   if ('world' in on) {
-    return <li className="ok-lead-action" data-lead-action="world"><OkIcon id="olumi-contributes" size={14} words={a.basis} /><Hover words={a.basis} className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</Hover></li>
+    // Olumi's own suggestion is marked as Olumi's where it is read (DL 20 Nov, slice-3 proof: the mark alone did not say it): core's basis is a quiet line under
+    // the words, said once at rest, so the mark beside it is decorative and the words carry no Tip repeating it.
+    return (
+      <li className="ok-lead-action" data-lead-action="world">
+        <OkIcon id="olumi-contributes" size={14} decorative /><span className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</span>
+        <p className="ok-quiet ok-lead-action-basis" data-view={`${at}.basis`}>{a.basis}</p>
+      </li>
+    )
   }
   // A finding is reached through the card it rests on, as the finding line's own figure link does; one whose id matches no card is words alone with the basis Tip (never another finding's figure).
   const named = 'record' in on ? on.record : on.finding

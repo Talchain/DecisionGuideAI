@@ -103,20 +103,22 @@ describe('a reply lead\'s actions', () => {
     expect(vi.mocked(pressCard)).not.toHaveBeenCalled()
   })
 
-  it('a world action carries Olumi\'s general suggestion mark; a linked one does not', () => {
-    // The mark's words are core's own basis (slice 3 on trial28: "Olumi's general suggestion, not from this model."), never the UI's.
+  // CHANGED BY DESIGN (DL 20 Nov, slice-3 proof at 1232): the world action's basis is read at rest, a quiet line under its words, so the mark beside it is decorative.
+  it('a world action carries Olumi\'s mark and core\'s basis as a quiet line at rest; a linked one has neither', () => {
+    // Core's own basis (slice 3 on trial28: "Olumi's general suggestion, not from this model."), never the UI's.
     const BASIS = 'Olumi’s general suggestion, not from this model.'
     const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true }, BASIS)])
     const [linked, world] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
-    expect(world!.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe(BASIS)
-    expect(linked!.querySelector('[role="img"]')).toBeNull()
+    const line = world!.querySelector<HTMLElement>('[data-view$=".basis"]')
+    expect([line?.textContent, line?.classList.contains('ok-quiet'), world!.querySelector('svg') !== null]).toEqual([BASIS, true, true])
+    expect([linked!.querySelector('svg'), linked!.querySelector('[data-view$=".basis"]')]).toEqual([null, null])
   })
 
-  it('the basis is the one Tip, on the line\'s words, for a linked line and a world line, never a native title', async () => {
+  it('a linked line\'s basis is the one Tip on its words; a world line\'s is said once, at rest; never a native title', async () => {
     const t = turn([act('Count the walkers.', { record: card }, 'It rests on the walker count.'), act('Ask the staff.', { world: true }, 'General practice, not from the model.')])
     const [linked, world] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
     expect(await tipOf(linked!.querySelector<HTMLElement>('[data-lead-action-card]')!)).toBe('It rests on the walker count.')
-    expect(await tipOf(world!.querySelector<HTMLElement>('[data-view]')!)).toBe('General practice, not from the model.')
+    expect(world!.textContent!.split('General practice, not from the model.').length - 1, 'said once').toBe(1)
     expect(t.querySelectorAll('[data-lead-action] [title], [data-lead-action][title]')).toHaveLength(0)
   })
 

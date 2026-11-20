@@ -57,6 +57,10 @@ export default function MyScenariosPage(): JSX.Element {
     void load(() => live)
     return () => { live = false }
   }, [load])
+  // Investor audit #4 (20 Nov): a person with no scenario at all (none archived either) lands straight on the brief box, as "New scenario" opens it, not on an
+  // empty list; replaced in history, so Back does not return to a page that would open the brief again.
+  const empty = list !== null && list.length === 0 && away.length === 0
+  useEffect(() => { if (empty) { startFreshScenario(); navigate('/canvas', { replace: true }) } }, [empty, navigate])
   /** After a refused save: a refusal because this browser is now someone else's (409) clears everything of this page's person, and the
    *  edit; any other refusal keeps the list and what was typed, so the person can correct it. */
   const refused = async (e: unknown) => {
@@ -92,12 +96,6 @@ export default function MyScenariosPage(): JSX.Element {
           {list === null && !error && <p className={BODY}>Loading your scenarios…</p>}
           {list !== null && list.length === 0 && away.length > 0 && (
             <p className={`${CARD} ${BODY}`} data-testid="my-scenarios-all-archived">Every scenario you are on is archived. Restore one below to see it here again.</p>
-          )}
-          {list !== null && list.length === 0 && away.length === 0 && (
-            <div className={`${CARD} grid gap-2`} data-testid="my-scenarios-empty">
-              <p className={`${typography.h5} text-text-header m-0`}>No scenarios yet</p>
-              <p className={BODY}>Start one by writing a brief: the question you are working on, in your own words. Olumi builds a model from it for you to shape.</p>
-            </div>
           )}
           {list !== null && list.length > 0 && (
             <ul className="m-0 grid list-none gap-3 p-0" data-testid="my-scenarios">
