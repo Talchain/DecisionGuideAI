@@ -13,8 +13,7 @@ export function EndMarker({ id, end, colour }: { id: string; end: LineEnd; colou
 /** Olumi's mark (the board's circle, square and triangle) on the line of a link Olumi proposed: its author, in place of a dash. */
 export function OlumiLineMark({ i, x, y, title }: { i: number; x: number; y: number; title?: string }): JSX.Element {
   return (
-    <g data-view-link-olumi-mark={`links.${i}`} transform={`translate(${x - 6},${y - 6})`}>
-      <title>{title ?? "Olumi's estimate"}</title>
+    <g data-view-link-olumi-mark={`links.${i}`} transform={`translate(${x - 6},${y - 6})`} role="img" aria-label={title ?? "Olumi's estimate"}>
       <rect x="-1" y="-1" width="14" height="14" rx="3" fill="var(--bg-canvas)" />
       <OlumiAiIcon size={12} strokeWidth={2.4} aria-label="Olumi's estimate" />
     </g>

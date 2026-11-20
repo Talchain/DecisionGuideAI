@@ -4,9 +4,11 @@
  * left/top. The menu's use of it (hover a row, 300 ms) is in canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
-import { Tip, TIP_GAP, rowTipOf } from '../Tip'
+import { Tip, TIP_GAP, TIP_DELAY, rowTipOf } from '../Tip'
 
 afterEach(() => { cleanup() })
 
@@ -43,10 +45,41 @@ describe('the one Tip', () => {
     const tip = screen.getByRole('tooltip')
     expect(tip).toHaveAttribute('id', 'tooltip-x')
     expect(tip.textContent).toBe('A row\'s whole words\nand its note')
-    for (const c of ['rounded-sm', 'border', 'border-panel-border', 'bg-panel', 'max-w-[240px]', 'pointer-events-none', 'whitespace-pre-line', 'shadow-1']) expect(tip.classList.contains(c), c).toBe(true)
+    for (const c of ['rounded-sm', 'border', 'border-panel-border', 'bg-panel', 'ok-tip', 'pointer-events-none', 'whitespace-pre-line', 'shadow-1']) expect(tip.classList.contains(c), c).toBe(true)
     expect([...tip.classList].filter((c) => /^rounded(-|$)/.test(c)), 'one radius').toEqual(['rounded-sm'])
     expect([tip.style.left, tip.style.top], 'no inline position').toEqual(['', ''])
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')], 'right of its row, level with it').toEqual([`${100 + 220 + TIP_GAP}px`, '200px'])
+  })
+  it('one layout: the first line is the title, the rest the body, and the words still read as one string; a lone line is plain', () => {
+    const { unmount } = render(<Tip text={'Title\nBody line'} anchorRect={rect(0, 0, 10, 10)} />)
+    expect([screen.getByRole('tooltip').querySelector('[data-tip-title]')!.textContent, screen.getByRole('tooltip').querySelector('[data-tip-body]')!.textContent]).toEqual(['Title', 'Body line'])
+    expect(screen.getByRole('tooltip').querySelector('[data-tip-title]')!.className).toBe('ok-tip-title') // the weight and ink are olumiLook.css's recipe, not a class here
+    unmount()
+    render(<Tip text="Just words" anchorRect={rect(0, 0, 10, 10)} />)
+    expect([screen.getByRole('tooltip').querySelector('[data-tip-body]'), screen.getByRole('tooltip').querySelector('[data-tip-title]')!.className]).toEqual([null, ''])
+  })
+  it('the delay is 150 ms, and the tip stays inside the window: left of its anchor at the right edge, and up from the foot', () => {
+    expect(TIP_DELAY).toBe(150)
+    Object.defineProperty(window, 'innerWidth', { value: 1000, configurable: true }); Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true })
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 200, 60))
+    render(<Tip text="Edge" anchorRect={rect(900, 790, 80, 30)} />)
+    const tip = screen.getByRole('tooltip')
+    expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')]).toEqual([`${900 - 200 - TIP_GAP}px`, `${800 - 60 - TIP_GAP}px`])
+    spy.mockRestore()
+  })
+  it('a box taller or wider than the window stays at the window\'s margin on both axes (the CSS caps its size and scrolls it); it never starts above or left of the margin', () => {
+    Object.defineProperty(window, 'innerWidth', { value: 400, configurable: true }); Object.defineProperty(window, 'innerHeight', { value: 300, configurable: true })
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 500, 2000))
+    render(<Tip text="Very long" anchorRect={rect(200, 150, 20, 20)} />)
+    const tip = screen.getByRole('tooltip')
+    expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')]).toEqual([`${TIP_GAP}px`, `${TIP_GAP}px`])
+    spy.mockRestore()
+  })
+  it('the size cap is a recipe in olumiLook.css (viewport max-width and max-height, overflow auto), not a class or an inline style here', () => {
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const rule = css.match(/\.ok-tip\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect([/max-width:\s*min\(240px,\s*calc\(100vw/.test(rule), /max-height:\s*calc\(100vh/.test(rule), /overflow:\s*auto/.test(rule)]).toEqual([true, true, true])
+    expect(css).toMatch(/\.ok-tip-title\s*\{[^}]*font-weight:\s*500[^}]*var\(--text-header\)/)
   })
   it('nothing is drawn with no words or no row to stand beside', () => {
     render(<><Tip text="" anchorRect={rect(0, 0, 10, 10)} /><Tip text="words" anchorRect={null} /></>)

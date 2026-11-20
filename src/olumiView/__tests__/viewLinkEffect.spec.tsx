@@ -3,10 +3,10 @@
  * core's hover. The bakery View from the wire: two links with an empty label and an effect.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
@@ -14,7 +14,7 @@ import { EdgeLabelLayer } from './edgeLabelLayer'
 import { focusedLinkOf, useViewFocusLink } from '../canvas'
 
 const model = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View).model!
-afterEach(() => { cleanup(); useViewFocusLink.setState({ id: null }) })
+afterEach(() => { cleanup(); useViewFocusLink.setState({ id: null }); vi.useRealTimers() })
 /** The edge with only the props it reads (React Flow passes the rest). */
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 // R25 (2A): strength words show while the link is selected (or focused, or an end card active); these rows read a selected link.
@@ -32,7 +32,13 @@ describe('a link core sizes says its strength on the line', () => {
     for (const i of sized) {
       const t = edge(i).querySelector(`[data-view="links.${i}.effect.text"]`)
       expect(t?.textContent, `links.${i}`).toBe(model.links[i]!.effect!.text)
-      expect(t?.getAttribute('title'), `links.${i}`).toBe(model.links[i]!.effect!.title)
+      // Core's hover is the one Tip (150 ms), never a native title (panel-visual rule 4).
+      expect(t?.getAttribute('title'), `links.${i}`).toBeNull()
+      vi.useFakeTimers()
+      fireEvent.pointerEnter(t!)
+      act(() => { vi.advanceTimersByTime(150) })
+      expect(screen.getByRole('tooltip').textContent, `links.${i}`).toBe(model.links[i]!.effect!.title)
+      vi.useRealTimers()
       cleanup()
     }
   })

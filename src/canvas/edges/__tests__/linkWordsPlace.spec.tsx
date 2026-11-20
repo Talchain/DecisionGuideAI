@@ -144,6 +144,21 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
       expect(r.container.querySelector('[data-view-link-leader]')).toBeNull()
     } finally { restore() }
   })
+  it('L2 (panel-visual): in a crowd with no room by its link, the sign and the strength words wait, but the direction MARK of a modelled effect stays drawn at rest, joined to its link by the leader', () => {
+    const restore = measureWordsAs(size)
+    try {
+      const everywhere = { id: 'cover', x: -1000, y: -1000, w: 3000, h: 3000 }
+      const link = { from: 'a', to: 'b', kind: 'causal', label: '', title: 't', doubt: false, alert: false, proposed: false, effect: null, direction: 'raises',
+        causal: { sign: 'increases', of: 'more_of_from', target: 'b', disputed: false, author: null, text: '', strength: { state: 'sized', figure: null, low: null, likely: null } } } as unknown as ViewLink
+      const c = render(<ReactFlowProvider initialNodes={[node(everywhere)]}><EdgeLabelLayer><svg>
+        <Edge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={0} targetY={400} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} />
+      </svg></EdgeLabelLayer></ReactFlowProvider>).container
+      const words = c.querySelector<HTMLElement>('[data-view-link-words="links.0"]')!
+      expect(c.querySelector('[data-view-link-mark="links.0"]'), 'the mark is drawn').not.toBeNull()
+      expect(words.style.visibility, 'and not hidden at rest').toBe('')
+      expect(c.querySelector('[data-view-link-leader="links.0"]'), 'its leader ties it to the link').not.toBeNull()
+    } finally { restore() }
+  })
   it('catch at the renderer: far words are not drawn at rest; with the link near they are, joined to it by their leader', () => {
     const restore = measureWordsAs(size)
     try {

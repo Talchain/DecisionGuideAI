@@ -9,12 +9,13 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { render } from '@testing-library/react'
+import { cleanup, render } from '@testing-library/react'
 import type { View } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { linkMarkOf } from '../LinkMarkChip'
 import { revealOf } from '../reveal'
-import * as layout from '../layout'
+import { cardLinks } from '../layout'
+import { drawLinkEdge, restingEdge } from '../v12/links/__tests__/drawEdge'
 
 const load = (f: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/j1/${f}`), 'utf8'))
 const bookshop = load('bookshop-v1-open.core-261df1d4.view3.json'), strategy = load('strategy-reveal-split.core-261df1d4.view3.json')
@@ -90,6 +91,11 @@ describe('the routes stay whole at 1232: what each says once', () => {
   it('a route’s rail into a factor is drawn at rest like every link (panel-visual L1): nothing in the layout holds a rail back until a card is active', () => {
     const l = strategy.model!.links.find((x) => x.from === 'top_down_enterprise_sale' && x.to === 'cross_team_adoption')!
     expect(l).toBeDefined()
-    expect((layout as Record<string, unknown>).routeRailAtRest).toBeUndefined()
+    const i = cardLinks(strategy.model!).find((x) => x.link === l)!.i
+    // Rendered by the lane's edge with nothing hovered or selected: a path is drawn, and no focus path fades it.
+    expect(restingEdge(drawLinkEdge(l, i))).toMatchObject({ drawn: true, faded: false }); cleanup()
+    // CONTRAST: a story link that never ran as a rail is drawn the same way.
+    const story = strategy.model!.links.find((x) => x.from === 'speed_to_value' && x.to === 'pilot_conversion')!
+    expect(restingEdge(drawLinkEdge(story, cardLinks(strategy.model!).find((x) => x.link === story)!.i))).toMatchObject({ drawn: true, faded: false })
   })
 })

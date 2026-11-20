@@ -483,6 +483,14 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
    box takes the action green (--success, the Approve button's own fill). An element selector, so a control that sets its own accent keeps it. */
 input[type='checkbox'] { accent-color: var(--success); }
 
+/* ── The one hover (Tip, panel-and-visual system rule 4) ───────────────────────────────────────────── */
+/* Global, not under .olumi-look: the Tip is portalled to the body. The box never outgrows the window (Tip.tsx clamps its place inside the same 8px margin); the title line, when a body follows, is the heavier ink. */
+.ok-tip { max-width: min(240px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; }
+.ok-tip-title { font-weight: 500; color: var(--text-header); }
+/* A held icon button stays focusable (aria-disabled, so its reason shows on focus) and reads as held by token: a light label, a neutral fill for the green one, never faded. */
+button.ok-icon-btn[aria-disabled='true'] { color: var(--text-light); background-color: transparent; cursor: not-allowed; }
+button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--border-default); }
+
 /* LINKS (panel-visual system §4, L1 L2 L4). A reason link (a premise or an assumption, always drawn at rest) is round dots, never a dash: a dash is doubt. */
 .olumi-look .ok-link-line { vector-effect: non-scaling-stroke; }
 .olumi-look .ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
@@ -498,3 +506,7 @@ input[type='checkbox'] { accent-color: var(--success); }
 /* The midpoint mark: one small grey icon from the typed direction, counter-scaled to the board. Hover and focus are the Tip's. */
 .olumi-look .ok-link-mark { color: var(--edge-neutral); pointer-events: auto; }
 .olumi-look .ok-link-mark svg { width: calc(12px * var(--canvas-label-scale, 1)); height: calc(12px * var(--canvas-label-scale, 1)); }
+
+/* LINKS, the parts that take the pointer (the label layer is pointer-less): the sign and the effect words, which carry a Tip, and the remove control's box. */
+.olumi-look .ok-link-hit { pointer-events: auto; }
+.olumi-look .ok-link-ctl { position: absolute; }
