@@ -19,31 +19,26 @@ import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
-import { useLevel } from '../../olumiView/v12/simpleStore'
 import { useDriverLink } from '../../olumiView/lens'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../utils/goalChanceDriverLinks'
 import { LinkMarkChip, useLineMarked } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
-import { Equal, HelpCircle, MessagesSquare, Minus, Plus, Split, type LucideIcon } from 'lucide-react'
 import { Tip, useTipDelay } from '../../olumiView/look/Tip'
-import { ICONS } from '../../olumiView/look/icons'
-import { DIRECTION_NONE, DIRECTION_NOT_SETTLED, DRIVER_WIDTH, EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, effectWidth, linkStyle, DOUBT_DASH } from '../../olumiView/v12/links/styles'
-import { LINK_OFF_PATH_OPACITY, useFocusPath } from '../../olumiView/v12/bands/focusPath'
+import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
+import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH } from '../../olumiView/v12/links/styles'
+import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
 
 export type ViewLinkData = { link: ViewLink; i: number }
 /**
- * The midpoint mark of a modelled effect (panel-visual system L2): one small grey Lucide icon per typed direction, so the direction is said by shape
- * as well as by colour. raises (+), lowers (-), and the no-verdict ones (D4: depends, disputed, unknown); `none` (core's "no effect") keeps its own.
- * Plus and Minus are drawn here, not through the icon registry: the registry holds Plus as "Add" and has no id for a line's direction.
+ * The midpoint mark of a modelled effect (panel-visual system L2): the registry's icon for its typed direction, so the direction is said by shape as
+ * well as by colour. Six states, six registry ids (look/icons.tsx `link-*`); `none` (core's "no effect") keeps its own.
  */
 type LinkMark = 'raises' | 'lowers' | 'depends' | 'disputed' | 'unknown' | 'none'
-const MARK_ICON: Readonly<Record<LinkMark, LucideIcon>> = { raises: Plus, lowers: Minus, depends: Split, disputed: MessagesSquare, unknown: HelpCircle, none: Equal }
-/** The words of a mark core gave none for: the registry's own Increases / Decreases, and the notation words for the others (UI chrome). */
-const MARK_WORDS: Readonly<Record<LinkMark, string>> = { raises: ICONS['effect-up'].hover, lowers: ICONS['effect-down'].hover, depends: DIRECTION_NOT_SETTLED, disputed: DIRECTION_NOT_SETTLED, unknown: DIRECTION_NOT_SETTLED, none: DIRECTION_NONE }
+const MARK_ID: Readonly<Record<LinkMark, IconId>> = { raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' }
 export type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 /**
  * The cards as React Flow holds them now (flow units). React Flow refills one `nodeLookup` Map in place (xyflow adoptUserNodes), so a
@@ -85,7 +80,6 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const hovered = useViewHover((h) => h.id)
-  const simple = useLevel() === 'simple'
   // A path is lit while a card is hovered or selected (focusPath.ts): the links off it fade to production's 0.18, and only then.
   const offPath = useFocusPath((f) => f.path !== null && !(f.path.has(source) && f.path.has(target)))
   // R3: on a first draft (a proposal and no approved version) everything is proposed, so a proposal is no mark on a link.
@@ -166,13 +160,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // draw at the bare zoom's ~5 px (DL 10 Nov). The flag, not the scale, is selected: an edge re-renders only when it flips.
   const zoomedOut = useStore((st) => reducedFaceSize(st.transform[2]) > 0)
   // A no-verdict icon (D4) is the line's meaning, not words: Simple draws it at rest at every zoom (its type is counter-scaled to the board, so it is not "zoomed out").
-  // The mark is the line's meaning, not words: Simple draws it at rest at every zoom (its type is counter-scaled to the board, so it is not "zoomed out").
-  const markShown = mark !== null && role !== 'size' && (!zoomedOut || near || simple)
+  // The mark is the line's meaning, not words: every modelled effect always says its direction, at every zoom and level and in a crowd (its type is
+  // counter-scaled to the board). Only the longer words (the sign glyph, `effect.text`) disclose progressively, by zoom and nearness.
+  const markShown = mark !== null && role !== 'size'
   const textShown = (signed || effect !== null) && role !== 'size' && (!zoomedOut || near)
   const words = markShown || textShown
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
   // link is near. Hidden, not removed, so they are still measured: as the strength words leave, the sign alone may fit by the link again.
-  const hidden = placed.far === true && !near
+  const farAtRest = placed.far === true && !near
+  const hidden = farAtRest && !markShown
   // This link's words, while drawn, are a box the later links keep clear of.
   const putWords = useLinkWordsBoxes((s) => s.put), dropWords = useLinkWordsBoxes((s) => s.drop)
   const shown = words && !hidden && size.w > 0
@@ -200,43 +196,43 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // The mark's hover (L2) is core's words: the typed belief's own (`causal.text`), then the effect's (`effect.text`, `effect.title`), by the lane's one Tip
   // (look/Tip.tsx) anchored to the mark (it sits in the HTML label layer, so a Tip can stand beside it). A link with keyboard focus (links are focusable)
   // says them too, so the hover is reachable without a pointer. A mark core gave no words for says the registry's or the notation's.
-  const markWords = mark === null ? '' : ([...new Set([causal?.text, link.effect?.text, link.effect?.title].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n') || MARK_WORDS[mark])
+  const markWords = mark === null ? '' : ([...new Set([causal?.text, link.effect?.text, link.effect?.title].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n') || ICONS[MARK_ID[mark]].hover)
   const { activeTooltip, showTooltip, hideTooltip } = useTipDelay()
   const markEl = useRef<HTMLSpanElement | null>(null)
   const [focusRect, setFocusRect] = useState<DOMRect | null>(null)
   const markVisible = markShown && !hidden
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- the mark moves with its placement (x, y); the rect is read when focus lands or the mark moves
-  useLayoutEffect(() => { setFocusRect(focused && markVisible && markEl.current !== null ? markEl.current.getBoundingClientRect() : null) }, [focused, markVisible, x, y])
+  // The focused link's tip follows the mark on screen: placement (x, y) AND the viewport (pan, zoom) move it. The viewport is read only while this link has focus.
+  const viewport = useStore((st) => (focused ? st.transform : null))
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the rect is read when focus lands or the mark moves on the board or in the viewport
+  useLayoutEffect(() => { setFocusRect(focused && markVisible && markEl.current !== null ? markEl.current.getBoundingClientRect() : null) }, [focused, markVisible, x, y, viewport])
   const tipRect = activeTooltip?.rect ?? focusRect
   const tipId = `view-link-tip-${i}`
   // L1: every View link is drawn at rest (the old fold of reason links and route rails to hover and selection is gone); only `focusPath` fades a link, and
   // only while a path is lit.
-  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour and production's width ladder (2 / 3 / 4 / 5); every other line,
-  // a plain structural one and a reason link (a note, a route "considered against this aim") included, is 2 px and neutral, and an effect's
-  // colour is never borrowed for it. A dash means doubt and nothing else; a reason link is DOTTED (L1, a round-dot recipe, never a dash).
-  // L4, four channels that coexist: polarity is the line's COLOUR, doubt its DASH, alert (core's orange) and proposal (Olumi's blue) a HALO under a line
-  // that has a direction or a role colour, so neither overwrites the direction. A line with no colour of its own (a plain or reason line) takes orange
-  // or blue as its colour, as before. A driver link (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model
-  // already approved; on a first draft everything is proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model draws as Olumi's
-  // whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
+  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; every other line, a plain structural one and a reason link (a note,
+  // a route "considered against this aim") included, is neutral, and an effect's colour is never borrowed for it. EVERY line is one width (L3).
+  // A dash means doubt and nothing else; a reason link is DOTTED (L1, a round-dot recipe, never a dash).
+  // L4, four channels that coexist on every kind of line: polarity is the COLOUR (a line with none of its own is the neutral grey), doubt the DASH,
+  // alert (core's orange) and proposal (Olumi's blue) each its own HALO underlay, so neither overwrites the other nor the direction. A driver link
+  // (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model already approved; on a first draft everything is
+  // proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model is Olumi's whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
   const olumiInk = (link.proposed || byOlumi) && !firstDraft
   const coloured = styled !== null || modelled
-  const haloAlert = coloured && link.alert, haloProposed = coloured && olumiInk
-  const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : link.alert ? 'var(--olumi-mark-orange)' : driver ? 'var(--text-header)' : olumiInk ? 'var(--semantic-info)' : EDGE_NEUTRAL
+  const haloAlert = link.alert, haloProposed = olumiInk
+  const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : driver ? 'var(--text-header)' : EDGE_NEUTRAL
   const dash = link.doubt ? DOUBT_DASH : null
   const dotted = !coloured && (link.kind === 'reason' || role === 'reason')
-  // A driver link (the lens) is at least the ladder's 4 px rung, never thinner than the width its own strength earns.
-  const width = Math.max(modelled ? effectWidth(causal?.strength.share) : styled?.width ?? PLAIN_WIDTH, driver ? DRIVER_WIDTH : 0)
+  const width = styled?.width ?? PLAIN_WIDTH
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-off-path={offPath || undefined} style={{ opacity: offPath ? LINK_OFF_PATH_OPACITY : undefined, transition: 'opacity 300ms ease' }}>
+    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-off-path={offPath || undefined} className={offPath ? 'ok-link ok-link-off-path' : 'ok-link'}>
       <title>{title}</title>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} colour={stroke} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" strokeWidth={width + 8} /> : null}
       {haloProposed ? <path data-link-halo-path="proposed" d={path} className="ok-link-halo ok-link-halo-proposed" strokeWidth={width + (haloAlert ? 4 : 6)} /> : null}
-      <BaseEdge id={id} path={path} className={dotted ? 'ok-link-dotted' : undefined} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
-        style={{ stroke, strokeWidth: width, vectorEffect: 'non-scaling-stroke', ...(dash !== null ? { strokeDasharray: dash } : {}) }} />
+      <BaseEdge id={id} path={path} className={dotted ? 'ok-link-line ok-link-dotted' : 'ok-link-line'} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+        style={{ stroke, strokeWidth: width, ...(dash !== null ? { strokeDasharray: dash } : {}) }} />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} title={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (
@@ -247,13 +243,16 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // never cuts them (DL 4 Nov, R3: "…week" clipped under a card); the line itself stays under the cards. They sit at the nearest point
         // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
-          <div ref={attachWords} id={linkWordsIdOf(i)} className={`nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light`} data-view-link-words={`links.${i}`}
-            style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, background: 'var(--bg-canvas)', pointerEvents: 'none', ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
-            {!markShown || mark === null ? null : (() => { const Icon = MARK_ICON[mark]; return (
+          <div ref={attachWords} id={linkWordsIdOf(i)} className={`ok-link-words nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light`} data-view-link-words={`links.${i}`}
+            style={{ transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`, zIndex: GOAL_CHANCE_DRIVER_TAG_Z, ...(hidden ? { visibility: 'hidden' as const } : {}) }}>
+            {!markShown || mark === null ? null : (
               <span ref={markEl} data-view-link-mark={`links.${i}`} data-link-direction={mark} data-view-link-unsettled={verdictless === null ? undefined : `links.${i}`} role="img" aria-label={markWords}
-                aria-describedby={tipRect === null ? undefined : tipId} className="ok-link-mark inline-flex" onMouseEnter={(e) => showTooltip(markWords, e.currentTarget)} onMouseLeave={hideTooltip}><Icon aria-hidden="true" strokeWidth={1.75} /></span>
-            ) })()}
-            {!signed || !textShown ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span>}
+                aria-describedby={tipRect === null ? undefined : tipId} className="ok-link-mark inline-flex" onMouseEnter={(e) => showTooltip(markWords, e.currentTarget)} onMouseLeave={hideTooltip}>
+                {/* The registry draws it (decorative: this span is the image and carries the name; no native title beside the Tip). */}
+                <OkIcon id={MARK_ID[mark]} size={12} decorative inherit />
+              </span>
+            )}
+            {!signed || !textShown || farAtRest ? null : <span data-view={`links.${i}.label`} role={labelWord ? 'img' : undefined} aria-label={labelWord} title={labelWord} style={labelWord ? { pointerEvents: 'auto' } : undefined}>{link.label}</span>}
             {/* Its strength in core's words (`effect`, core 685e725), with core's hover; under the sign when the link has one. */}
             {effect === null ? null : <span title={effect.title} style={{ pointerEvents: 'auto' }} data-view={`links.${i}.effect.text`}>{effect.text}</span>}
           </div>

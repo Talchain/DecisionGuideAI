@@ -38,7 +38,7 @@
  */
 import type { ComponentType, CSSProperties, ReactNode } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
+  AlertOctagon, AlertTriangle, AlignLeft, ArrowDownRight, ArrowUpRight, BadgeHelp, Equal, MessagesSquare, Shuffle, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
@@ -178,6 +178,13 @@ export const ICONS = {
   brief: e(FileText, 'Your brief', '--text-light', 'icon-only', 'kind', { hoverColour: '--text-header' }),
   'effect-up': e(TrendingUp, 'Increases', '--text-light', 'icon-only', 'kind'),
   'effect-down': e(TrendingDown, 'Decreases', '--text-light', 'icon-only', 'kind'),
+  // A link's midpoint mark: its typed direction (panel-visual §4, L2). The hover is the fallback; core's causal.text, effect.text and effect.title are passed as `words`.
+  'link-raises': e(ArrowUpRight, 'Raises', '--text-light', 'icon-only', 'kind'),
+  'link-lowers': e(ArrowDownRight, 'Lowers', '--text-light', 'icon-only', 'kind'),
+  'link-depends': e(Shuffle, 'Direction depends on conditions', '--text-light', 'icon-only', 'kind'),
+  'link-disputed': e(MessagesSquare, 'Direction disputed', '--text-light', 'icon-only', 'kind'),
+  'link-unknown': e(BadgeHelp, 'Direction not settled', '--text-light', 'icon-only', 'kind'),
+  'link-none': e(Equal, 'No effect', '--text-light', 'icon-only', 'kind'),
   'assumption-tag': e(CircleDashed, 'Assumption', '--text-light', 'icon-only', 'kind'),
   'baseline-tag': e(Flag, 'The option you already have', '--text-body', 'icon-plus-word', 'kind'),
   'limit-tag': e(LimitShape, 'Limit', '--text-light', 'icon-plus-word', 'kind'),

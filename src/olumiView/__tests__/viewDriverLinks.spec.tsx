@@ -57,16 +57,17 @@ describe('What would change on the links', () => {
     act(() => useViewLens.setState({ lens: 'what_changes' }))
     c = edge(sized)
     expect(c.querySelector('[data-driver-link]')).not.toBeNull()
-    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('4')
+    // L3 (panel-visual): a driver link is no thicker than any other; no width implies a strength.
+    expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
     expect(c.querySelector(`[data-view="links.${sized}.effect.text"]`)?.textContent).toBe(model.links[sized]!.effect!.text)
     cleanup()
     c = edge(plain)
     expect(c.querySelector('[data-driver-link]')).toBeNull()
-    // R1/R5 (Paul, 16 Nov): a plain link at rest is production's 2 px neutral, the foot of the width ladder; a driver link is the 4 px band above it.
+    // Every link is 2 px (L3).
     expect(c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth).toBe('2')
   })
 
-  it('R5: a driver link is the 4 px rung at least and never thinner than its own strength earns (share 0.8 is the 5 px rung; no share is 4)', () => {
+  it('L3: a driver link is the one uniform width whatever strength core sends (share 0.8, none)', () => {
     useViewStore.setState({ view })
     act(() => useViewLens.setState({ lens: 'what_changes' }))
     const sized = model.links.findIndex((l) => l.from === 'one_oven' && l.to === 'sales')
@@ -77,7 +78,7 @@ describe('What would change on the links', () => {
       </svg></EdgeLabelLayer></ReactFlowProvider>).container
     }
     const width = (c: HTMLElement) => ({ driver: c.querySelector('[data-driver-link]') !== null, w: c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.strokeWidth })
-    expect(width(withShare(0.8))).toEqual({ driver: true, w: '5' }); cleanup()
-    expect(width(withShare(null))).toEqual({ driver: true, w: '4' })
+    expect(width(withShare(0.8))).toEqual({ driver: true, w: '2' }); cleanup()
+    expect(width(withShare(null))).toEqual({ driver: true, w: '2' })
   })
 })

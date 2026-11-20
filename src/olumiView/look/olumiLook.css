@@ -484,7 +484,13 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 input[type='checkbox'] { accent-color: var(--success); }
 
 /* LINKS (panel-visual system §4, L1 L2 L4). A reason link (a premise or an assumption, always drawn at rest) is round dots, never a dash: a dash is doubt. */
+.olumi-look .ok-link-line { vector-effect: non-scaling-stroke; }
 .olumi-look .ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
+/* Focus path (focusPath.ts, production's 0.18): a link off the lit path fades, and only then. The fade is a transition only where motion is allowed. */
+.olumi-look .ok-link-off-path { opacity: 0.18; }
+@media (prefers-reduced-motion: no-preference) { .olumi-look .ok-link { transition: opacity 300ms ease; } }
+/* A link's words and mark sit in the label layer on the board's ground; only the mark and the sign take the pointer. */
+.olumi-look .ok-link-words { position: absolute; background: var(--bg-canvas); pointer-events: none; }
 /* Alert (orange) and proposal (Olumi's blue) are a halo under a line that has its own direction colour, so neither overwrites the direction. */
 .olumi-look .ok-link-halo { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.35; pointer-events: none; }
 .olumi-look .ok-link-halo-alert { stroke: var(--olumi-mark-orange); }
