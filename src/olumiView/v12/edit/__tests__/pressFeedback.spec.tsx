@@ -42,11 +42,17 @@ describe('S4 press 2: Escape in the message box', () => {
     box().focus(); fireEvent.keyDown(box(), { key: 'Escape' })
     expect(form()).toBeNull(); expect(useViewChat.getState().text).toBe('my draft')
   })
-  it('E3 CONTRAST: another text field outside the surface still keeps its own Escape (the surface stays open)', () => {
+  // CHANGED BY DESIGN (one Escape rule, 42f400b5): a field that handles its own Escape keeps the surface open; a press nothing handled closes it (one press, Paul 18 Nov).
+  it('E3 CONTRAST: another text field that handles its own Escape keeps the surface open; an unhandled press in it closes the surface', () => {
     mount(); fireEvent.click(screen.getByTestId('lane-size-edit'))
     const other = document.createElement('input'); document.body.appendChild(other); other.focus()
+    const own = (e: KeyboardEvent) => { if (e.key === 'Escape') e.preventDefault() }
+    other.addEventListener('keydown', own)
     fireEvent.keyDown(other, { key: 'Escape' })
-    expect(form()).not.toBeNull(); other.remove()
+    expect(form()).not.toBeNull()
+    other.removeEventListener('keydown', own)
+    fireEvent.keyDown(other, { key: 'Escape' })
+    expect(form()).toBeNull(); other.remove()
   })
 })
 

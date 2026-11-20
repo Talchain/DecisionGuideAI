@@ -117,11 +117,13 @@ describe('Compare views in the main workspace', () => {
     expect(screen.getByTestId(`compare-person-${fx.collab.shared.find((x) => x.id === 9)!.by_id}`).textContent).toContain(frames[9].question)
     await waitFor(() => expect(sent.length).toBeGreaterThan(0))
   })
-  it('returns to the model: the Back button and Esc close it; an Esc inside a menu does not', () => {
+  // CHANGED BY DESIGN (one Escape rule, 42f400b5, v12/edit/escapeLayers.ts): a menu over the stage that handles its own Escape marks the press handled and
+  // keeps the stage open; a press nothing handled closes it. (The old rule read `role="menu"` on the target; a bare menu with no handler is now no exception.)
+  it('returns to the model: the Back button and Esc close it; an Esc a menu handles itself does not', () => {
     serve(() => ({ status: 200, body: payload([]) }))
     show(withFrames())
     useCompare.setState({ open: true })
-    render(<><div role="menu"><button type="button" data-testid="in-menu">m</button></div><CompareViewsStage /></>)
+    render(<><div role="menu" onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault() }}><button type="button" data-testid="in-menu">m</button></div><CompareViewsStage /></>)
     fireEvent.keyDown(screen.getByTestId('in-menu'), { key: 'Escape' })
     expect(useCompare.getState().open).toBe(true)
     fireEvent.keyDown(document.body, { key: 'Escape' })
