@@ -10011,6 +10011,68 @@
             "items": {
              "type": "string"
             }
+           },
+           "actions": {
+            "maxItems": 3,
+            "type": "array",
+            "items": {
+             "type": "object",
+             "properties": {
+              "text": {
+               "type": "string"
+              },
+              "on": {
+               "anyOf": [
+                {
+                 "type": "object",
+                 "properties": {
+                  "finding": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "finding"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "object",
+                 "properties": {
+                  "record": {
+                   "type": "string"
+                  }
+                 },
+                 "required": [
+                  "record"
+                 ],
+                 "additionalProperties": false
+                },
+                {
+                 "type": "object",
+                 "properties": {
+                  "world": {
+                   "type": "boolean",
+                   "const": true
+                  }
+                 },
+                 "required": [
+                  "world"
+                 ],
+                 "additionalProperties": false
+                }
+               ]
+              },
+              "basis": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "text",
+              "on",
+              "basis"
+             ],
+             "additionalProperties": false
+            }
            }
           },
           "required": [
@@ -10274,6 +10336,27 @@
        "heading",
        "shown",
        "more"
+      ],
+      "additionalProperties": false
+     },
+     "receipt": {
+      "type": "object",
+      "properties": {
+       "why": {
+        "type": "string",
+        "enum": [
+         "stale",
+         "held_read_only",
+         "words"
+        ]
+       },
+       "words": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "why",
+       "words"
       ],
       "additionalProperties": false
      }
@@ -11398,6 +11481,68 @@
         "type": "array",
         "items": {
          "type": "string"
+        }
+       },
+       "actions": {
+        "maxItems": 3,
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "text": {
+           "type": "string"
+          },
+          "on": {
+           "anyOf": [
+            {
+             "type": "object",
+             "properties": {
+              "finding": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "finding"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "record": {
+               "type": "string"
+              }
+             },
+             "required": [
+              "record"
+             ],
+             "additionalProperties": false
+            },
+            {
+             "type": "object",
+             "properties": {
+              "world": {
+               "type": "boolean",
+               "const": true
+              }
+             },
+             "required": [
+              "world"
+             ],
+             "additionalProperties": false
+            }
+           ]
+          },
+          "basis": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "text",
+          "on",
+          "basis"
+         ],
+         "additionalProperties": false
         }
        }
       },

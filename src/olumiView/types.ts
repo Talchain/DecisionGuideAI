@@ -1831,6 +1831,17 @@ export type View = {
       lead?: {
         opening: string
         points: Array<string>
+        actions?: Array<{
+          text: string
+          on: {
+            finding: string
+          } | {
+            record: string
+          } | {
+            world: true
+          }
+          basis: string
+        }>
       }
     } | null
     broke: string | null
@@ -1878,6 +1889,10 @@ export type View = {
         writer: string | null
       }>
       more: number
+    }
+    receipt?: {
+      why: "stale" | "held_read_only" | "words"
+      words: string
     }
   }>
   model_words: {
@@ -2098,6 +2113,17 @@ export type View = {
     lead?: {
       opening: string
       points: Array<string>
+      actions?: Array<{
+        text: string
+        on: {
+          finding: string
+        } | {
+          record: string
+        } | {
+          world: true
+        }
+        basis: string
+      }>
     }
     held?: true
     degraded?: {
