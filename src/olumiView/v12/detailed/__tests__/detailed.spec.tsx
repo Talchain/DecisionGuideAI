@@ -337,7 +337,7 @@ describe('Detailed: marks, not sentences', () => {
     expect(o.querySelector(`[data-core-author="${olumi.id}"] [data-author-mark]`)?.getAttribute('data-author-mark')).toBe('olumi')
     expect(drawn(o), 'not on the face (the closed working lists each step\'s author inside it)').not.toContain(olumi.author!.text)
   })
-  it('DT7 what core folded behind a card is drawn in core\'s own words (its face, else its text), never a count made in the page; a fold holding a proposed change keeps core\'s change marker, drawn, in the hover and in the name. CONTRASTS: a fold with no change draws no marker and its name is core\'s label alone; a card with no badge draws none', () => {
+  it('DT7 what core folded behind a card is drawn in core\'s own words (its face, else its text), never a count made in the page; a fold holding a proposed change keeps core\'s change marker, drawn, in the hover and in the name. CONTRASTS: a fold with no change draws no marker and its name is core\'s label alone; a card with no badge draws none', async () => {
     const PLAIN = 'team_delivery_throughput_change', CHANGED = 'cut_monthly_spending_to_extend_the_runway'
     const badgeOf = async (v: View, id: string) => {
       const b = faceOf(draw(v, id), id).querySelector<HTMLElement>(`[data-core-badge="${id}"]`)!

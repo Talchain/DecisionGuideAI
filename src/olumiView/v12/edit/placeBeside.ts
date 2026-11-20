@@ -324,7 +324,8 @@ export function stayBeside(get: () => HTMLElement | null, target: DetailsTarget,
             // REVALIDATED (Codex C8): the clamp above ran after the side was judged, so the FINAL peek rectangle is checked against the neighbouring cards and the foot controls.
             // Where it would cover more of them than the place the side was chosen for (that place's span, `p.top`, was judged clear), it keeps that place; a tie keeps the clamp.
             const next = canvasCardRects(own), feet = footRects()
-            const covered = (t: number): number => { const r = { left: p.left, top: t, right: p.left + size.width, bottom: t + shown }; return next.filter((o) => covers(r, o)).length + feet.filter((f) => covers(r, f)).length }
+            const left = p.left
+            const covered = (t: number): number => { const r = { left, top: t, right: left + size.width, bottom: t + shown }; return next.filter((o) => covers(r, o)).length + feet.filter((f) => covers(r, f)).length }
             if (covered(p.top) < covered(top)) top = p.top
           }
           p = { left: p.left, top, maxHeight: own_h > placed ? placed : null }

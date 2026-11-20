@@ -40,7 +40,7 @@ const show = (model: ViewModel) => {
 }
 
 describe('core\'s comparisons, each under core\'s own heading for it', () => {
-  it('each line is drawn once, verbatim, under its group\'s heading, in core\'s order; Olumi\'s mark when core gives one', () => {
+  it('each line is drawn once, verbatim, under its group\'s heading, in core\'s order; Olumi\'s mark when core gives one', async () => {
     const { container } = show(withCompared(COMPARED, HEADINGS))
     const groups = [...screen.getByTestId('view-run-compared').querySelectorAll('[data-testid^="view-run-compared-"]')]
     expect(groups.map((g) => g.querySelector('p')!.textContent)).toEqual([HEADINGS.middle, HEADINGS.unresolved, HEADINGS.better])
