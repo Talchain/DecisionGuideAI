@@ -14,6 +14,7 @@ import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { CoreCard, questionRingOf } from '../previous/CoreCard'
+import { setDefaultLevel } from '../v12/simpleStore'
 import { chatQuestionsOf } from '../layout'
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
@@ -24,7 +25,7 @@ const draw = (view: View, card: ViewCard): HTMLElement => {
   return render(<ReactFlowProvider><Node {...({ id: card.id, type: 'viewCard', data: { card, label: card.heading }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 }
-afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 describe('a question\'s number on the card it is about', () => {
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences; v12/detailed): on Detailed the mark is Olumi's own in its ring
@@ -39,23 +40,41 @@ describe('a question\'s number on the card it is about', () => {
       const ring = el.querySelector<HTMLElement>(`[data-question-ring="${card.id}"]`)
       const want = named.find((q) => q.id === card.id)
       const mark = ring?.querySelector<HTMLElement>('[data-olumi-asks]') ?? null
-      expect(ring === null ? null : [ring.textContent, mark?.getAttribute('title'), mark?.getAttribute('aria-label')], card.id)
-        .toEqual(want === undefined ? null : ['', want.text, want.text])
+      expect(ring === null ? null : [ring.textContent, mark?.hasAttribute('title'), mark?.getAttribute('aria-label')], card.id)
+        .toEqual(want === undefined ? null : ['', false, want.text])
       cleanup()
     }
   })
   it('Q2 must not change: a question core gives no id marks no card; with only one question the list is not numbered and no card is marked', () => {
-    const one = structuredClone(RUN2); one.model!.trial_questions = one.model!.trial_questions!.slice(1, 2); one.model!.coaching_questions = []
+    // The step core puts beside a card (`next.at`) rings that card too (C4), so this contrast View names no card in its reply.
+    const unplaced = (v: View): View => { for (const t of v.chat) if (t.answer) t.answer.next.at = null; return v }
+    const one = unplaced(structuredClone(RUN2)); one.model!.trial_questions = one.model!.trial_questions!.slice(1, 2); one.model!.coaching_questions = []
     expect(chatQuestionsOf(one.model).length).toBe(1)
     for (const c of one.model!.cards) {
       expect(questionRingOf(one.model, c.id), c.id).toBeNull()
       expect(draw(one, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
     }
-    const coachingOnly = structuredClone(RUN2); coachingOnly.model!.trial_questions = []; coachingOnly.model!.coaching_questions = [...RUN2.model!.coaching_questions!, RUN2.model!.coaching_questions![0]! + ' (2)']
+    const coachingOnly = unplaced(structuredClone(RUN2)); coachingOnly.model!.trial_questions = []; coachingOnly.model!.coaching_questions = [...RUN2.model!.coaching_questions!, RUN2.model!.coaching_questions![0]! + ' (2)']
     expect(chatQuestionsOf(coachingOnly.model).length, 'a numbered list of questions with no id').toBe(2)
     for (const c of coachingOnly.model!.cards) {
       expect(questionRingOf(coachingOnly.model, c.id), c.id).toBeNull()
       expect(draw(coachingOnly, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
+    }
+  })
+  // C4 (20 Nov): ONE ring, Olumi's alone, meaning "Olumi asks about this card". The step core puts beside a card (`answer.next.at`) draws it too, on either face; a card never wears two.
+  it('Q3 the card core\'s newest step is beside wears one ring on Simple and on Detailed, named by core\'s label; no numbered circle exists; every other card wears none', () => {
+    const noQuestions = structuredClone(RUN2); noQuestions.model!.trial_questions = []; noQuestions.model!.coaching_questions = []
+    const next = noQuestions.chat.find((t) => t.answer?.next.newest === true)!.answer!.next
+    expect([next.at !== null, next.label !== ''], 'precondition: core names a card and a label').toEqual([true, true])
+    for (const level of ['simple', 'working'] as const) {
+      setDefaultLevel(level)
+      for (const card of noQuestions.model!.cards) {
+        const el = draw(noQuestions, card)
+        const rings = [...el.querySelectorAll<HTMLElement>('[data-olumi-asks]')]
+        expect([level, card.id, rings.map((r) => r.getAttribute('aria-label')), el.querySelector('[data-question-n]')], `${level} ${card.id}`)
+          .toEqual([level, card.id, card.id === next.at ? [next.label] : [], null])
+        cleanup()
+      }
     }
   })
 })

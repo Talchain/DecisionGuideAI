@@ -183,8 +183,6 @@ export const ICONS = {
   'assumption-tag': e(CircleDashed, 'Assumption', '--text-light', 'icon-only', 'kind'),
   'baseline-tag': e(Flag, 'The option you already have', '--text-body', 'icon-plus-word', 'kind'),
   'limit-tag': e(LimitShape, 'Limit', '--text-light', 'icon-plus-word', 'kind'),
-  // C5 (20 Nov): a condition card is neutral; this is its own mark (never a risk's, never inferred as an alert).
-  'condition-tag': e(ToggleRight, 'Condition', '--text-light', 'icon-only', 'kind'),
   'what-if': e(ArrowRightLeft, 'What if', '--text-header', 'icon-only', 'kind'),
   'not-linked': e(Link2Off, 'No link touches this figure', '--text-light', 'icon-only', 'kind'),
   'folded-records': e(Layers, "What core folded behind this card", '--text-light', 'icon-only', 'kind', { keepWords: "core's badge words are the hover and label (`card.badge`); the count of records is drawn beside it" }),
@@ -198,17 +196,6 @@ export const ICONS = {
   'worth-checking': e(SearchCheck, 'Olumi suggests checking this', '--info', 'icon-only', 'state'),
   // Core's own sentence (`card.unused`) is passed as this mark's words, so it is the hover and the name.
   'feeds-no-result': e(Unplug, 'Not used in the analysis yet', '--text-light', 'icon-only', 'state'),
-  // CARDS (C3, 20 Nov): one grey mark per code of Olumi's `worth_checking` (core's nine-value enum), so each observation is its own mark; the hover is core's title and
-  // sentence, passed as `words`, and the registry's words are only the generic ones. No family name core does not give (bias, evidence, range...) labels a mark.
-  'check-estimate-under-aims': e(Anchor, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-result-rests-on-range': e(Ruler, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-one-figure': e(CircleDot, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-only-supporting': e(Scale, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-shared-evidence': e(Combine, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-narrow-range': e(FoldHorizontal, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-untested-assumption': e(FlaskConical, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-range-turns': e(Shuffle, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'went-wrong': e(AlertOctagon, 'Something went wrong', '--danger', 'icon-only', 'state', { keepWords: 'a failure sentence stays words (drawn in --warning-ink)' }),
   unsaved: e(CloudOff, 'Unsaved', '--warning', 'icon-only', 'state'),
   'stale-analysis': e(RefreshCwOff, 'This analysis is out of date', '--warning', 'icon-only', 'state'),
@@ -272,6 +259,20 @@ export const ICONS = {
   shortcuts: e(Keyboard, 'Keyboard shortcuts', '--text-light', 'icon-only', 'chrome'),
   cut: e(Scissors, 'Cut', '--text-light', 'icon-only', 'chrome'),
   'chrome-kebab-sections': e(Hairline, 'Section divider', '--border-default', 'icon-only', 'chrome'),
+  /* cards ids */
+  // C5 (20 Nov): a condition card is neutral; this is its own mark (never a risk's, never inferred as an alert).
+  'condition-tag': e(ToggleRight, 'Condition', '--text-light', 'icon-only', 'kind'),
+  // CARDS (C3, 20 Nov): one grey mark per code of Olumi's `worth_checking` (core's nine-value enum), so each observation is its own mark; the hover is core's title and
+  // sentence, passed as `words`, and the registry's words are only the generic ones. No family name core does not give (bias, evidence, range...) labels a mark.
+  'check-estimate-under-aims': e(Anchor, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-result-rests-on-range': e(Ruler, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-one-figure': e(CircleDot, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-only-supporting': e(Scale, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-shared-evidence': e(Combine, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-narrow-range': e(FoldHorizontal, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-untested-assumption': e(FlaskConical, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-range-turns': e(Shuffle, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
 } as const satisfies Record<string, IconEntry>
 
 export type IconId = keyof typeof ICONS

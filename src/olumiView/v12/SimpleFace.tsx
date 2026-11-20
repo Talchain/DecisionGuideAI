@@ -26,7 +26,7 @@ import { barCardOf } from '../layout'
 import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, CardMarks, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
 import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
@@ -276,20 +276,23 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length} title={more.length === 0 ? undefined : more.join('\n')}>
       {visual}
-      {kind.shape === 'assumption' ? <KindTag id={id} tag="assumption" /> : null}
-      {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
       {quiet === null ? null : <p className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} title={quiet.title} {...quiet.marks}>{quiet.text}</p>}
+      {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
+          question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
-        <AuthorGlyph card={card} />
+        {kind.shape === 'assumption' ? <KindTag id={id} /> : null}
+        {card.family === 'condition' ? <ConditionTag id={id} /> : null}
+        {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
         {/* The card's state marks, capped (cards/marks.tsx): an option's corner driver badge takes one of the three places. */}
         <CardMarks card={card} taken={card.driver != null ? 1 : 0} />
         {/* An added card's "+" repeats its proposed frame: shown only for a change the frame does not say (16 Nov, Paul: less noise). */}
-        {card.change == null || card.change.kind === 'added' ? null : <span role="img" aria-label={card.change.title} title={card.change.title} className="text-info" data-view={`${id}.change.glyph`}>{card.change.glyph}</span>}
+        {card.change == null || card.change.kind === 'added' ? null : <ChangeGlyph card={card} />}
         {noted ? <OlumiAsksMark id={id} words={notedWords} /> : null}
-        <span className="ml-auto flex items-center gap-1 empty:hidden">{extra}</span>
+        {extra}
+        <AuthorGlyph card={card} />
       </div>
       {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>

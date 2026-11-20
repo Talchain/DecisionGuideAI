@@ -60,7 +60,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-face [data-stated-figure] { color: var(--text-light); }
 /* THE CARD'S SMALL TEXT, ONE RECIPE (V12 spec §1: canvas detail and meta 12 / 400 / 1.4). Every quiet line of a card takes its size and line
    height here and nowhere else; what a line is for is its colour alone (light: meta, body: reading, ink: emphasis), set on its own rule. */
-.olumi-look .ok-face [data-stated-figure], .olumi-look .ok-qual, .olumi-look .ok-status, .olumi-look .ok-count, .olumi-look .ok-tag,
+.olumi-look .ok-face [data-stated-figure], .olumi-look .ok-qual, .olumi-look .ok-status, .olumi-look .ok-count,
 .olumi-look .ok-caption, .olumi-look .ok-by, .olumi-look .ok-limit, .olumi-look .ok-next, .olumi-look .ok-steps li, .olumi-look .ok-quiet,
 .olumi-look .ok-pop { font-size: calc(12px * var(--o-s)); line-height: 1.4; }
 /* The one headline: an option's chance. */
@@ -319,6 +319,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .react-flow__node:has([data-ok-kind='outcome']) { --ok-kc: var(--success); }
 /* A limit (17 Nov): the constraint kind's grey frame and outlined-square marker, never the goal's yellow diamond. */
 .olumi-look .react-flow__node:has([data-ok-kind='constraint']) { --ok-kc: var(--text-light); }
+/* A condition (C5, 20 Nov; core's `condition` family): neutral, the constraint's grey, never a risk's or a challenge's orange. Orange stays core's own `challenged` field (the card's own
+   class below wins). It follows the kind rules so it overrides the factor hue the board draws it as. */
+.olumi-look .react-flow__node:has([data-ok-condition]) { --ok-kc: var(--text-light); }
 /* The frame is the kind's full hue, 1 px, solid (R2); where the frame says something else (Olumi's blue, challenge orange) the card's own class wins. */
 .olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc) !important; }
 
@@ -344,11 +347,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* The qualifier under a Simple chance: core's words after the number, on their own line. */
 .olumi-look .ok-simple-qual { font-weight: 400; color: var(--text-light); }
 .olumi-look .ok-letter { display: inline-flex; flex: none; align-items: center; line-height: 1; }
-/* A kind's tag ("assumption") and the aim's bound in Simple (a quiet outlined pill that may shrink). */
-.olumi-look .ok-tag { flex: none; color: var(--text-light); }
+/* The aim's bound in Simple (a quiet outlined pill that may shrink). Assumption, baseline, limit and condition are registry icons (.ok-kind-mark), no longer words. */
 .olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
-/* "baseline": the same quiet outlined pill, level with the marks beside it. */
-.olumi-look .ok-pill.ok-baseline { align-self: center; }
 .olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
 /* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
 .olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }

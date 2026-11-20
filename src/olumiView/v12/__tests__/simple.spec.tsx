@@ -280,7 +280,7 @@ describe('V12 Simple faces', () => {
 
   it('S8 authorship is a glyph (Olumi\'s or a person\'s) with the words on hover; Olumi\'s note is a badge only where it sits', () => {
     expect(face('horizon').container.querySelector('[data-simple-author="olumi"]')).not.toBeNull()
-    expect(face('starting_customers').container.querySelector('[data-simple-author="person"]')!.getAttribute('title')).toBe(card('starting_customers').author!.text + (card('starting_customers').author!.title ? ` · ${card('starting_customers').author!.title}` : ''))
+    expect(face('starting_customers').container.querySelector('[data-simple-author="person"]')!.getAttribute('aria-label')).toBe(card('starting_customers').author!.text + (card('starting_customers').author!.title ? ` · ${card('starting_customers').author!.title}` : ''))
     expect(face('horizon', true).container.querySelector('[data-simple-note="horizon"]')).not.toBeNull()
     expect(face('horizon', false).container.querySelector('[data-simple-note]')).toBeNull()
   })

@@ -3,14 +3,27 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter and the name of Olumi's
  * question mark; since 20 Nov "baseline", "assumption", "limit" and "condition" are registry icons (C2, C5), core's words on their hover. Look: look/olumiLook.css (.ok-*).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard } from '../../client'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
+import { useAnchoredTip } from '../../look/Tip'
 
-/** A mark with words is an image named by them (its hover too); one with none is decoration. */
-const named = (words: string | null | undefined) => (words == null || words === ''
-  ? { 'aria-hidden': true as const }
-  : { role: 'img' as const, 'aria-label': words, title: words })
+/** A mark with words is an image named by them whose hover is the one Tip (150 ms, keyboard focus too; never a native `title`); one with none is decoration. */
+const INTERACTIVE = 'button, a[href], input, select, textarea, summary, [tabindex], [role="button"], [role="menuitem"], [role="tab"], [role="link"]'
+function Named({ words, className, attrs, children }: { words: string | null | undefined; className: string; attrs?: Readonly<Record<string, string | undefined>>; children: ReactNode }): JSX.Element {
+  const has = words != null && words !== ''
+  const { handlers, tip, describedBy } = useAnchoredTip(has ? words : undefined)
+  // A keyboard stop of its own, unless a control around it already is the stop (never nested focus targets, as OkIcon).
+  const el = useRef<HTMLSpanElement>(null)
+  const [nested, setNested] = useState(false)
+  useLayoutEffect(() => { setNested(el.current?.parentElement?.closest(INTERACTIVE) != null) }, [])
+  return (
+    <>
+      <span ref={el} className={className} {...attrs} {...(has ? { role: 'img', 'aria-label': words, tabIndex: nested ? undefined : 0, 'aria-describedby': describedBy, ...handlers } : { 'aria-hidden': true })}>{children}</span>
+      {tip}
+    </>
+  )
+}
 
 type MarkProps = { readonly words?: string | null }
 
@@ -19,11 +32,11 @@ const MARK = 14
 
 /** Olumi's mark: the product's own, never a sparkle, a speech bubble or a text glyph. */
 export const OlumiMark = ({ words }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-olumi" data-olumi-mark="" {...named(words)}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></span>
+  <Named words={words} className="ok-am ok-am-olumi" attrs={{ 'data-olumi-mark': '' }}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></Named>
 )
 /** A person's mark. */
 export const PersonMark = ({ words }: MarkProps): JSX.Element => (
-  <span className="ok-am ok-am-person" data-person-mark="" {...named(words)}><OkIcon id="person-mark" size={MARK} decorative inherit /></span>
+  <Named words={words} className="ok-am ok-am-person" attrs={{ 'data-person-mark': '' }}><OkIcon id="person-mark" size={MARK} decorative inherit /></Named>
 )
 
 export type Whose = 'olumi' | 'person' | 'mixed'
@@ -44,12 +57,16 @@ export function AuthorMark({ card, simple = false }: { card: ViewCard; simple?: 
   const whose = whoseOf(card)
   if (whose === null) return null
   return (
-    <span className="ok-author" data-author-mark={whose} {...(simple ? { 'data-simple-author': whose } : {})} {...named(authorWordsOf(card))}>
+    <Named words={authorWordsOf(card)} className="ok-author" attrs={{ 'data-author-mark': whose, ...(simple ? { 'data-simple-author': whose } : {}) }}>
       {whose === 'person' ? null : <OlumiMark />}
       {whose === 'olumi' ? null : <PersonMark />}
-    </span>
+    </Named>
   )
 }
+
+/** A card's change glyph (core's `change.glyph`, "+" and the like), named by core's `change.title` on the one Tip; the caller decides where a change is not already said by the frame. */
+export const ChangeGlyph = ({ card }: { card: ViewCard }): JSX.Element | null => card.change == null ? null
+  : <Named words={card.change.title} className="text-info" attrs={{ 'data-view': `${card.id}.change.glyph` }}>{card.change.glyph}</Named>
 
 /** The option's letter as a chip (for a row that names an option; on the option's own card the chip is drawn before its title by the look). */
 export const LetterChip = ({ letter, words }: { letter: string; words?: string | null }): JSX.Element => (
@@ -82,7 +99,7 @@ export const OLUMI_ASKS = 'Olumi has a question about this: see the chat'
 /** "Olumi has a question about this": a ring holding Olumi's mark, named by core's own label for the step where it sends one. */
 export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null }): JSX.Element => {
   const name = words != null && words !== '' ? words : OLUMI_ASKS
-  return <span className="ok-asks" role="img" aria-label={name} title={name} data-olumi-asks={id} data-simple-note={id}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></span>
+  return <Named words={name} className="ok-asks" attrs={{ 'data-olumi-asks': id, 'data-simple-note': id }}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></Named>
 }
 
 /**
@@ -167,22 +184,30 @@ export const MORE_MARKS = { lead: 'Also on this card', fewer: 'Show fewer' } as 
  */
 export function CardMarks({ card, taken = 0 }: { card: ViewCard; taken?: number }): JSX.Element | null {
   const [open, setOpen] = useState(false)
+  const panel = useId()
   const all = cardMarksOf(card)
   const over = all.slice(Math.max(0, MARK_CAP - taken)), words = over.map((m) => m.words)
   // Once nothing is past the cap the control is gone, so its open state goes with it: marks that return later start folded (line review, 18 Nov).
   const none = over.length === 0
   useEffect(() => { if (none) setOpen(false) }, [none])
+  // The "+N" hover is the one Tip: the folded marks' words, one per line (aria-label keeps them whole for a screen reader).
+  const moreTip = useAnchoredTip(open ? MORE_MARKS.fewer : [`${MORE_MARKS.lead}:`, ...words].join('\n'))
   if (all.length === 0) return null
-  const shown = open ? all : all.slice(0, all.length - over.length)
+  const shown = all.slice(0, all.length - over.length)
+  const markOf = (m: CardMark) => <StateMark key={`${m.id}${m.code ?? ''}`} m={m} card={card} />
   return (
     <>
-      {shown.map((m) => <StateMark key={`${m.id}${m.code ?? ''}`} m={m} card={card} />)}
+      {shown.map(markOf)}
+      {open && over.length > 0 ? <span id={panel} className="contents">{over.map(markOf)}</span> : null}
       {over.length === 0 ? null : (
-        <button type="button" className="ok-more nodrag nopan" aria-expanded={open} data-card-more={over.length}
-          aria-label={open ? MORE_MARKS.fewer : `${MORE_MARKS.lead}: ${words.join('; ')}`} title={open ? MORE_MARKS.fewer : [`${MORE_MARKS.lead}:`, ...words].join('\n')}
-          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}>
-          {open ? '−' : `+${over.length}`}
-        </button>
+        <>
+          <button type="button" className="ok-more nodrag nopan" aria-expanded={open} aria-controls={open ? panel : undefined} data-card-more={over.length} aria-describedby={moreTip.describedBy} {...moreTip.handlers}
+            aria-label={open ? MORE_MARKS.fewer : `${MORE_MARKS.lead}: ${words.join('; ')}`}
+            onClick={(e) => { e.stopPropagation(); moreTip.dismiss(); setOpen((o) => !o) }}>
+            {open ? '−' : `+${over.length}`}
+          </button>
+          {moreTip.tip}
+        </>
       )}
     </>
   )
