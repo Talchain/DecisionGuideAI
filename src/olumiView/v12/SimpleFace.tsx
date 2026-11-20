@@ -283,7 +283,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
-        {kind.shape === 'assumption' ? <KindTag id={id} /> : null}
+        {kind.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
         {card.family === 'condition' ? <ConditionTag id={id} /> : null}
         {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
         {/* The card's state marks, capped (cards/marks.tsx): an option's corner driver badge takes one of the three places. */}

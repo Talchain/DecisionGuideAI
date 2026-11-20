@@ -21,7 +21,7 @@ import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
 import { typography } from '../../styles/typography'
 import type { ViewCard } from '../client'
-import { CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
+import { CARD_WIDTH, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
 import { failedOf, failedReasonOf } from '../k5'
@@ -167,19 +167,6 @@ export function familyOf(card: ViewCard): 'option' | 'factor' | 'aim' | 'other' 
   return 'other'
 }
 
-/**
- * UI-BRIEF-20261115 step 3 (Paul, 15 Nov: "visualising it as much as it can"): the number of Olumi's question about THIS card in the panel's
- * numbered list of Olumi's questions (layout.ts chatQuestionsOf, the same list and order ViewChat draws; it is numbered only with two or
- * more), with the question's words. Bound by core's id (`trial_questions[].id`); a question core gives no id (coaching_questions) marks no
- * card, and none is guessed from its words.
- */
-export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id: string): { n: number; text: string } | null {
-  const qs = chatQuestionsOf(model)
-  if (qs.length < 2) return null
-  const i = qs.findIndex((q) => q.id === id)
-  return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
-}
-
 /** Core's card kind (fields.ts) in the design system's kinds, which draw the frame's hue and the marker (olumiLook.css `data-ok-kind`). A note and another
  *  person's position have no shape of their own in the design system: they keep the factor's, as today's rule draws them. */
 const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
@@ -312,13 +299,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
-  // ONE RING (C4, 20 Nov): the ring is Olumi's alone and means "Olumi asks about this card": the step core puts beside it (`next.at`, `notedLabel`), or a listed
-  // question core ties to it (questionRingOf). One mark on one card, never a second ring or a number; core's label for the step is its name, else the question's words.
-  // Focus, selection and commitment keep their own marks.
-  const ring = card === null ? null : questionRingOf(model, id)
-  const askWords = ring !== null ? ring.text : notedLabel
-  // Detailed: Olumi's mark in its ring on the card's corner where nothing else holds it; Simple draws the same mark in its foot (SimpleFace, `noted`).
-  const ringMark = askWords === null || simple ? null : <span data-question-ring={id}><OlumiAsksMark id={id} words={askWords} /></span>
+  // ONE RING (C4, 20 Nov): the ring is Olumi's alone and means "Olumi asks about this card": the step core puts beside it (`answer.next.at`), named by core's
+  // label (`notedLabel`). One mark on one card, on both faces: no numbered circle, no second ring. Focus, selection and commitment keep their own marks.
+  // Detailed: the mark sits on the card's corner where nothing else holds it; Simple draws the same mark in its foot (SimpleFace, `noted`).
+  const ringMark = notedLabel === null || simple ? null : <OlumiAsksMark id={id} words={notedLabel} />
   // The figure tried on a copy, as the person typed it, on the card's corner (out of flow, no card moves), where it is not drawn in place.
   const driverMark = driverOf === null || lensWords === null ? null
     : <span className={`inline-flex h-[18px] items-center self-start whitespace-nowrap rounded-sm border border-text-header bg-panel px-1.5 text-text-header ${typography.viewLabel}`} title={driverOf.map((o) => o.driver!.title).join('\n')} data-driver-mark={id} data-view-words="lens_words.label.what_changes">{lensWords.label.what_changes}</span>
@@ -464,7 +448,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {restsOn === null ? null : <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel px-1 tabular-nums ${typography.viewLabel} ${restsInk}`} title={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</span>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
-          {simple ? <SimpleFace card={card} model={model} noted={askWords !== null} notedWords={askWords} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
+          {simple ? <SimpleFace card={card} model={model} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
@@ -532,7 +516,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               (Olumi's mark or a person's, both where mixed), core's author words its hover and name. */}
           <div className="ok-dt-foot">
             {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
-            {shape?.shape === 'assumption' ? <KindTag id={id} /> : null}
+            {shape?.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
             {card.family === 'condition' ? <ConditionTag id={id} /> : null}
             {dsKind === 'constraint' ? <LimitTag id={id} model={model} /> : null}
             {card.unused == null || card.unused === '' ? null : <UnusedMark id={id} words={card.unused} />}

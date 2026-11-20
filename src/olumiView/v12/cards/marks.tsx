@@ -80,8 +80,11 @@ const KindMark = ({ attrs, children }: { attrs: Readonly<Record<string, string>>
 /** "baseline": the option the person already has, only where core marks it (contract.ts isBaseline). Registry flag; its words the hover and the name. */
 export const BaselinePill = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-option-baseline': id }}><OkIcon id="baseline-tag" size={MARK} decorative={false} /></KindMark>
 
-/** A card's assumption mark (core's `assumption` family: a premise taken as given). */
-export const KindTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'assumption', 'data-kind-tag-of': id }}><OkIcon id="assumption-tag" size={MARK} decorative={false} /></KindMark>
+/** A card's assumption mark (core's `assumption` family: a premise taken as given); its words are the key's own word for it (core's `model.key` item `assumption`), else the registry's. */
+export const KindTag = ({ id, model }: { id: string; model: { key?: readonly { id: string; text: string }[] } | null }): JSX.Element => {
+  const word = model?.key?.find((k) => k.id === 'assumption')?.text
+  return <KindMark attrs={{ 'data-kind-tag': 'assumption', 'data-kind-tag-of': id }}><OkIcon id="assumption-tag" size={MARK} words={word} decorative={false} /></KindMark>
+}
 
 /** A condition card's own mark (C5): neutral, the registry's, drawn for the `condition` family only. */
 export const ConditionTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'condition', 'data-kind-tag-of': id }}><OkIcon id="condition-tag" size={MARK} decorative={false} /></KindMark>

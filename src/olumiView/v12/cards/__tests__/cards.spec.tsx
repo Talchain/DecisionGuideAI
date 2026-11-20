@@ -373,7 +373,9 @@ describe('an assumption wears its tag', () => {
   it('G1 the assumption icon on an assumption card at both levels (C2: an icon, its words the Tip, no word drawn); CONTRAST: a figure wears none', () => {
     for (const level of ['working', 'simple'] as const) {
       const tag = draw(EU, 'customer_flow_assumptions', level).querySelector<HTMLElement>('[data-kind-tag-of="customer_flow_assumptions"]')!
-      expect([level, tag.textContent, imgOf(tag).getAttribute('aria-label'), hover(imgOf(tag))]).toEqual([level, '', ICONS['assumption-tag'].hover, ICONS['assumption-tag'].hover]); cleanup()
+      // Core's own word for it is the key's `assumption` item (core's model.key); the registry's words are only the fallback.
+      const words = EU.model!.key.find((k) => k.id === 'assumption')!.text
+      expect([level, tag.textContent, imgOf(tag).getAttribute('aria-label'), hover(imgOf(tag))]).toEqual([level, '', words, words]); cleanup()
       expect(draw(EU, 'starting_customers', level).querySelector('[data-kind-tag]'), level).toBeNull(); cleanup()
     }
   })
@@ -703,6 +705,7 @@ describe('C1 the card foot has one order on both faces: state marks, then count 
   const kindOf = (e: Element): string => (e.hasAttribute('data-option-baseline') ? 'baseline' : e.hasAttribute('data-card-more') ? 'more' : e.hasAttribute('data-card-mark') ? 'state' : e.hasAttribute('data-count') ? 'count' : e.hasAttribute('data-author-mark') ? 'author' : '?')
   const rank = { baseline: 0, state: 1, more: 2, count: 3, author: 4, '?': 9 } as const
   it('F1 Simple: baseline and the state marks (with "+N") come first, the count badge after them, the author mark last; CONTRAST: the author mark is not first', () => {
+    expect(cardOf(ASKED, 'carry_on').author?.by, 'precondition: the card has an author, so its mark is drawn').toBe('person')
     const base = { ...cardOf(ASKED, 'carry_on'), baseline: true, driver: null, status: 'ruled out', challenged: true, reason: 'Two sources disagree', unused: UNUSED, worth_checking: WORTH } as unknown as ViewCard
     const count = <p className="ok-count" data-count="">2 folded</p>
     const { container } = render(<SimpleFace card={base} model={withCard(ASKED, base).model} noted={false} extra={count} />)
@@ -724,7 +727,9 @@ describe('C1 the card foot has one order on both faces: state marks, then count 
 })
 
 describe('C5 a condition is neutral and has its own icon; orange only from core\'s own challenge field', () => {
-  const cond = (extra: Partial<ViewCard> = {}) => ({ ...cardOf(EU, 'starting_customers'), family: 'condition', challenged: false, ...extra }) as unknown as ViewCard
+  // A real condition card of the served European View (core's `condition` family); `challenged` is core's own field, set here only to contrast it.
+  const cond = (extra: Partial<ViewCard> = {}) => ({ ...cardOf(EU, 'country_readiness'), challenged: false, ...extra }) as unknown as ViewCard
+  it('N0 precondition: the served card is of the condition family', () => { expect(cardOf(EU, 'country_readiness').family).toBe('condition') })
   it('N1 at both levels the condition card wears the condition icon, named by the registry, and the neutral hook; a challenge draws core\'s own mark, never the family', () => {
     for (const level of ['simple', 'working'] as const) {
       const c = cond(), face = faceOf(draw(withCard(EU, c), c.id, level), c.id)

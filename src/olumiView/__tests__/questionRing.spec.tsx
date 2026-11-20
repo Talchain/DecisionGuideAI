@@ -1,7 +1,7 @@
 /**
- * UI-BRIEF-20261115 step 3 (Paul, 15 Nov: "visualising it as much as it can … It's not intuitive at all"): each of Olumi's questions that core
- * ties to a card (trial_questions[].id) puts its number from the panel's numbered list on that card, with the question's words as its hover.
- * Bound by core's id and the list's own order (chatQuestionsOf, as ViewChat draws it). Fixture: the served run-2 funding View.
+ * C4 (system build, 20 Nov): ONE ring, Olumi's alone, meaning "Olumi asks about this card": the card core's newest next step is beside (`answer.next.at`)
+ * wears Olumi's mark in a ring, named by core's label for the step, on Simple and on Detailed. It replaces UI-BRIEF-20261115 step 3 (a question's
+ * number on the card a listed question names): that numbered circle and its second ring are gone, so no card wears two. Fixture: the served run-2 funding View.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -13,9 +13,8 @@ import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
-import { CoreCard, questionRingOf } from '../previous/CoreCard'
+import { CoreCard } from '../previous/CoreCard'
 import { setDefaultLevel } from '../v12/simpleStore'
-import { chatQuestionsOf } from '../layout'
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
 const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
@@ -27,54 +26,31 @@ const draw = (view: View, card: ViewCard): HTMLElement => {
 }
 afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
-describe('a question\'s number on the card it is about', () => {
-  // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: each fact said once, marks not sentences; v12/detailed): on Detailed the mark is Olumi's own in its ring
-  // (Paul's capture: numbered circles sat on the figures), the question's words its name; Simple keeps the number (v12/__tests__ owns Simple).
-  it('Q1 every card a listed question names carries Olumi\'s mark named by that question\'s words, no number; every other card carries none', () => {
-    const qs = chatQuestionsOf(RUN2.model)
-    expect(qs.length, 'precondition: a numbered list (two or more questions)').toBeGreaterThanOrEqual(2)
-    const named = qs.map((q, i) => ({ id: q.id, n: i + 1, text: q.text })).filter((q) => q.id !== null && RUN2.model!.cards.some((c) => c.id === q.id))
-    expect(named.length, 'precondition: a listed question names a card on this board').toBeGreaterThan(0)
-    for (const card of RUN2.model!.cards) {
-      const el = draw(RUN2, card)
-      const ring = el.querySelector<HTMLElement>(`[data-question-ring="${card.id}"]`)
-      const want = named.find((q) => q.id === card.id)
-      const mark = ring?.querySelector<HTMLElement>('[data-olumi-asks]') ?? null
-      expect(ring === null ? null : [ring.textContent, mark?.hasAttribute('title'), mark?.getAttribute('aria-label')], card.id)
-        .toEqual(want === undefined ? null : ['', false, want.text])
+describe('the one ring: Olumi asks about this card', () => {
+  const placed = (at: string | null): View => { const v = structuredClone(RUN2); for (const t of v.chat) if (t.answer?.next.newest === true) t.answer.next.at = at; return v }
+  const ringsOf = (view: View, level: 'simple' | 'working') => {
+    setDefaultLevel(level)
+    return view.model!.cards.map((card) => {
+      const el = draw(view, card)
+      const out = { id: card.id, rings: [...el.querySelectorAll<HTMLElement>('[data-olumi-asks]')].map((r) => r.getAttribute('aria-label')), titled: el.querySelector('[data-olumi-asks][title]') !== null, numbered: el.querySelector('[data-question-n]') !== null }
       cleanup()
-    }
-  })
-  it('Q2 must not change: a question core gives no id marks no card; with only one question the list is not numbered and no card is marked', () => {
-    // The step core puts beside a card (`next.at`) rings that card too (C4), so this contrast View names no card in its reply.
-    const unplaced = (v: View): View => { for (const t of v.chat) if (t.answer) t.answer.next.at = null; return v }
-    const one = unplaced(structuredClone(RUN2)); one.model!.trial_questions = one.model!.trial_questions!.slice(1, 2); one.model!.coaching_questions = []
-    expect(chatQuestionsOf(one.model).length).toBe(1)
-    for (const c of one.model!.cards) {
-      expect(questionRingOf(one.model, c.id), c.id).toBeNull()
-      expect(draw(one, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
-    }
-    const coachingOnly = unplaced(structuredClone(RUN2)); coachingOnly.model!.trial_questions = []; coachingOnly.model!.coaching_questions = [...RUN2.model!.coaching_questions!, RUN2.model!.coaching_questions![0]! + ' (2)']
-    expect(chatQuestionsOf(coachingOnly.model).length, 'a numbered list of questions with no id').toBe(2)
-    for (const c of coachingOnly.model!.cards) {
-      expect(questionRingOf(coachingOnly.model, c.id), c.id).toBeNull()
-      expect(draw(coachingOnly, c).querySelector('[data-question-ring]'), `drawn ${c.id}`).toBeNull(); cleanup()
-    }
-  })
-  // C4 (20 Nov): ONE ring, Olumi's alone, meaning "Olumi asks about this card". The step core puts beside a card (`answer.next.at`) draws it too, on either face; a card never wears two.
-  it('Q3 the card core\'s newest step is beside wears one ring on Simple and on Detailed, named by core\'s label; no numbered circle exists; every other card wears none', () => {
-    const noQuestions = structuredClone(RUN2); noQuestions.model!.trial_questions = []; noQuestions.model!.coaching_questions = []
-    const next = noQuestions.chat.find((t) => t.answer?.next.newest === true)!.answer!.next
+      return out
+    })
+  }
+  it('Q1 the card the newest step is beside wears ONE ring at both levels, named by core\'s label, with no native title and no number; every other card wears none', () => {
+    const next = RUN2.chat.find((t) => t.answer?.next.newest === true)!.answer!.next
     expect([next.at !== null, next.label !== ''], 'precondition: core names a card and a label').toEqual([true, true])
     for (const level of ['simple', 'working'] as const) {
-      setDefaultLevel(level)
-      for (const card of noQuestions.model!.cards) {
-        const el = draw(noQuestions, card)
-        const rings = [...el.querySelectorAll<HTMLElement>('[data-olumi-asks]')]
-        expect([level, card.id, rings.map((r) => r.getAttribute('aria-label')), el.querySelector('[data-question-n]')], `${level} ${card.id}`)
-          .toEqual([level, card.id, card.id === next.at ? [next.label] : [], null])
-        cleanup()
-      }
+      expect(ringsOf(RUN2, level), level).toEqual(RUN2.model!.cards.map((c) => ({ id: c.id, rings: c.id === next.at ? [next.label] : [], titled: false, numbered: false })))
     }
+  })
+  it('Q2 CONTRAST: where core names no card for the step, no card wears the ring, even a card a listed question is about (the question-number marker is gone)', () => {
+    const tied = RUN2.model!.trial_questions!.filter((q) => q.id !== null && RUN2.model!.cards.some((c) => c.id === q.id))
+    expect(tied.length, 'precondition: a listed question names a card on this board').toBeGreaterThan(0)
+    for (const level of ['simple', 'working'] as const) expect(ringsOf(placed(null), level).filter((r) => r.rings.length > 0 || r.numbered), level).toEqual([])
+  })
+  it('Q3 the ring follows core\'s `next.at`: move the step to another card and the ring moves with it', () => {
+    const other = RUN2.model!.cards.find((c) => c.id !== RUN2.chat.find((t) => t.answer?.next.newest === true)!.answer!.next.at)!
+    for (const level of ['simple', 'working'] as const) expect(ringsOf(placed(other.id), level).filter((r) => r.rings.length > 0).map((r) => r.id), level).toEqual([other.id])
   })
 })
