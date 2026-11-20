@@ -354,6 +354,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }
 /* Core's words for a gap, whole and wrapped (R6: no word is cut); the long reason is the card's hover. */
 .olumi-look .ok-quiet { margin: 0; color: var(--text-light); overflow-wrap: break-word; }
+.olumi-look .ok-not-held-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
 .olumi-look .ok-caption {
   margin: 0; color: var(--text-light); overflow-wrap: break-word;
 }

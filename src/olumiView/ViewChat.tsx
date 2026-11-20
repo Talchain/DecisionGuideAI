@@ -65,6 +65,7 @@ import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
 import { ReplyFacts } from './v12/chat/ReplyFacts'
+import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
 import { Hover, HoverButton } from './v12/chat/Hover'
 import { useAnchoredTip } from './look/Tip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
@@ -391,8 +392,10 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       <OkIcon id="version-tag" size={14} words={stampWords} decorative={false} testid={t.status === null || waiting ? 'view-chat-version-icon' : 'view-chat-status-icon'} />
     </span>
   )
+  const heldNot = notHeldOf(t.not_held)
+  const viewer = useViewStore((st) => st.view?.you ?? null)
   const tools = (
-    <ReplyFacts at={at} about={aboutCards}
+    <ReplyFacts at={at} about={aboutCards} held={heldNot === null ? null : <NotHeldItems n={heldNot} you={viewer} at={at} />} heldHeading={heldNot?.heading}
       rests={t.answer !== null && hasReceipts(t.answer.claims) ? <ResultReceipts claims={t.answer.claims} /> : null}
       why={t.answer === null || !leads ? null
         : <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} first={whyFirst[j]} /></li>)}</ul>}>
@@ -405,7 +408,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
       {said}{lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
-      {answer}{tools}
+      {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}{tools}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}
       {t.answer === null && t.problem !== null && t.said !== '' ? <AskAgain words={t.said} /> : null}

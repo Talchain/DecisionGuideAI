@@ -1871,6 +1871,14 @@ export type View = {
       card: string | null
       label: string
     }
+    not_held?: {
+      heading: string
+      shown: Array<{
+        text: string
+        writer: string | null
+      }>
+      more: number
+    }
   }>
   model_words: {
     changeFigure: string

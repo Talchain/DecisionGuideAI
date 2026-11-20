@@ -10235,6 +10235,47 @@
        "label"
       ],
       "additionalProperties": false
+     },
+     "not_held": {
+      "type": "object",
+      "properties": {
+       "heading": {
+        "type": "string"
+       },
+       "shown": {
+        "type": "array",
+        "items": {
+         "type": "object",
+         "properties": {
+          "text": {
+           "type": "string"
+          },
+          "writer": {
+           "type": [
+            "string",
+            "null"
+           ]
+          }
+         },
+         "required": [
+          "text",
+          "writer"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "more": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+       }
+      },
+      "required": [
+       "heading",
+       "shown",
+       "more"
+      ],
+      "additionalProperties": false
      }
     },
     "required": [

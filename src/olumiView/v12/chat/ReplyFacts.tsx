@@ -13,19 +13,22 @@ import { RESULTS_REST_ON } from '../../ResultReceipts'
 /** The why lines' heading, chrome (it was the fold's summary). */
 export const WHY_AND_WHAT_MOVES_IT = 'Why, and what moves it'
 
-export function ReplyFacts({ at, about, rests, why, children }: {
+export function ReplyFacts({ at, about, rests, why, held, heldHeading, children }: {
   at: string
   about: readonly AboutCard[]
   /** The receipts' body (ResultReceipts), or null when the reply used no figure. */
   rests: ReactNode | null
   /** The why lines' list, or null when the reply has none. */
   why: ReactNode | null
+  /** Core's `not_held` items (NotHeld.tsx) and its heading (the disclosure's part name), or null. */
+  held?: ReactNode | null
+  heldHeading?: string
   /** The rest of the row, in order: keep, show in the workspace, the version icon. */
   children?: ReactNode
 }): JSX.Element {
   const [open, setOpen] = useState(false)
   const body = useId()
-  const parts = [rests === null ? null : RESULTS_REST_ON, why === null ? null : WHY_AND_WHAT_MOVES_IT].filter((x): x is string => x !== null)
+  const parts = [rests === null ? null : RESULTS_REST_ON, why === null ? null : WHY_AND_WHAT_MOVES_IT, held == null ? null : (heldHeading ?? null)].filter((x): x is string => x !== null)
   return (
     <>
       <div className="ok-facts" data-testid="view-reply-tools">
@@ -40,6 +43,7 @@ export function ReplyFacts({ at, about, rests, why, children }: {
         <div id={body} className="ok-section ok-stack" data-reply-more={at} data-testid="view-reply-rests-body">
           {rests === null ? null : <section className="ok-stack" aria-label={RESULTS_REST_ON}><p className={`${typography.viewPanelHeading} text-text-header`}>{RESULTS_REST_ON}</p>{rests}</section>}
           {why === null ? null : <section className="ok-stack" aria-label={WHY_AND_WHAT_MOVES_IT}><p className={`${typography.viewPanelHeading} text-text-header`}>{WHY_AND_WHAT_MOVES_IT}</p>{why}</section>}
+          {held == null ? null : held}
         </div>
       )}
     </>
