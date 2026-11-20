@@ -29,21 +29,23 @@ const ROW = 'h3, [data-rest] > p, [data-rest-figure], [data-testid="reasoning-ex
 const rows = () => screen.getByTestId('view-reasoning').querySelectorAll(ROW).length
 const items = () => screen.getByTestId('reasoning-examine').querySelectorAll('li').length
 
-/** The most rows the tab draws at rest on a model with chances (european: 17 before; the panel at 1232x704 holds about 12 of these rows). */
-const AT_REST = 12
+/** The most rows the tab draws at rest on a model with chances: 10 rows beside the uncertainty groups, plus three per rest group (its label, core's
+ *  sentence and the group's first figure: every group's headline share is at rest, A4). S4 measures the real panel at 1232x704. */
+const AT_REST = (groups: number) => 10 + 3 * groups
 
 describe('Reasoning at rest fits the 1232x704 panel', () => {
-  it('european (the model that measured 724 px against a 561 px panel): at rest the lead and at most three more items, the first rest group with its first figure, the rest behind presses; opening them draws more rows', () => {
+  it('european (the model that measured 724 px against a 561 px panel): at rest the lead and at most three more items, every rest group with its first figure, the further figures behind presses; opening them draws more rows', () => {
     ready(read('european.view.json')); render(<ViewReasoningBlock />)
     const atRest = rows()
-    expect([atRest <= AT_REST, items() <= 4, document.querySelectorAll('[data-rest]').length, document.querySelectorAll('[data-rest-figure]').length], `rows at rest: ${atRest}`).toEqual([true, true, 1, 1])
+    const groups = document.querySelectorAll('[data-rest]').length
+    expect([atRest <= AT_REST(groups), items() <= 4, groups > 1, document.querySelectorAll('[data-rest-figure]').length], `rows at rest: ${atRest}`).toEqual([true, true, true, groups])
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))
     expect(rows(), 'CONTRAST: the folded rows are one press away, not deleted').toBeGreaterThan(atRest)
   })
   it('CONTRAST: a short model (bakery, one rest) draws it whole at rest, with no press to fold anything', () => {
     ready(read('bakery.view.json')); render(<ViewReasoningBlock />)
     const r = document.querySelectorAll('[data-rest]').length
-    expect([r, rows() <= AT_REST]).toEqual([1, true])
+    expect([r, rows() <= AT_REST(r)]).toEqual([1, true])
   })
 })
 

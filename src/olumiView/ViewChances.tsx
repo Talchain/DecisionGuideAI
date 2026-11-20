@@ -14,7 +14,7 @@ import type { ViewCard, ViewModel, ViewRow, ViewRun, ViewTurn } from './client'
 import { BEHIND_SHOWN, comparedGroupsOf, firstFew, markedOptions, newestNextOf, notesBesideTiming, optionCards, SHARPEN_SHOWN, sharpenKindOf, sharpenRowsOf, tippingOf, failureOf, restsOf, sizeLinesOf, worthLinesOf, type SharpenRow } from './layout'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { MoveTap, Words } from './ViewChat'
-import { shownModel, useViewStore } from './store'
+import { useViewStore } from './store'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from './whatif'
 import { InfoIcon } from './ds/icons'
 import { typography } from '../styles/typography'
@@ -485,8 +485,3 @@ export function HeldProposalLine() {
   )
 }
 
-/** The block on the olumi-core lane: the View's model as shown (`shownModel`: the approved one, or a held proposal's under its heading). */
-export function ViewChancesBlock() {
-  const model = useViewStore(shownModel), chat = useViewStore((s) => s.view?.chat ?? null)
-  return model === null ? null : <><HeldProposalLine /><ViewChances model={model} chat={chat} /></>
-}

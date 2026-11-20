@@ -6,7 +6,8 @@
  *     figures it moves most with, ✎ each; what would change which option leads, try it), then what is not in the result yet;
  *   - limits (alone, or under a chance): each option's state against each limit, core's line for it under;
  *   - nothing yet: what a result needs, ranked, one press each.
- * Core's long reading (its most-likely line, the comparisons, its notes) is one press away under "Why this reading", never at rest.
+ * Core's notes (`run.notes`: what the result leaves out, assumes or cannot say) are drawn at rest, whatever the state, as one quiet list under the
+ * chart (A2); core's long reading (its most-likely line, the comparisons) is one press away under "Why this reading", never at rest.
  * Above it all, the model's state is said once, in the Reasoning tab's own strip (`StateStrip`): a held proposal, or a what-if with its way back.
  * Every word about the person's model is core's, at its View path (`data-view`); the headings are the tab's own chrome.
  */
@@ -30,8 +31,22 @@ import { REASONING_LABELS, RestsOn, StartHere } from '../ViewReasoning'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 
-/** The tab's own chrome: the fold that holds core's long reading. */
-export const ANALYSIS_WORDS = { why: 'Why this reading' } as const
+/** The tab's own chrome: the fold that holds core's long reading, and the heading over core's notes (core sends no heading for `run.notes`). */
+export const ANALYSIS_WORDS = { why: 'Why this reading', leavesOut: 'What this leaves out' } as const
+
+/** Core's notes on the result (`run.notes`), each verbatim with its title on hover, as one quiet list; never split into caveats and questions (core sends no kind). */
+function LeavesOut({ model }: { model: ViewModel }) {
+  const notes = (model.run?.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '')
+  if (notes.length === 0) return null
+  return (
+    <section className="space-y-1" data-testid="analysis-leaves-out" aria-label={ANALYSIS_WORDS.leavesOut}>
+      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{ANALYSIS_WORDS.leavesOut}</h3>
+      <ul className={`${TYPE.meta} m-0 list-none space-y-1 p-0 text-text-light`}>
+        {notes.map(({ n, i }) => <li key={i} title={n.title === '' ? undefined : n.title} data-view={`run.notes.${i}.text`}>{n.text}</li>)}
+      </ul>
+    </section>
+  )
+}
 
 /** Each limit, then each option's state against it (core's `state_text`) and core's line for it under (its condition kept), its reading on hover;
  *  a press goes to the option's card. */
@@ -88,7 +103,7 @@ function ComparedLines({ run }: { run: NonNullable<ViewModel['run']> }) {
   )
 }
 
-/** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons, its notes. */
+/** Core's long reading, closed at rest: its most-likely line (with ✎ for the figure it rests on), what that rests on, its comparisons. */
 function WhyThisReading({ model }: { model: ViewModel }) {
   const [open, setOpen] = useState(false)
   const run = model.run ?? null
@@ -96,8 +111,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   const ml = run.most_likely ?? null
   const mlCard = ml?.estimate == null ? null : cardOf(model, ml.estimate)
   const compared = (run.compared ?? []).some((c) => c.line !== '')
-  const notes = (run.notes ?? []).map((n, i) => ({ n, i })).filter(({ n }) => n.text !== '')
-  if (ml == null && !compared && notes.length === 0) return null
+  if (ml == null && !compared) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
@@ -113,7 +127,6 @@ function WhyThisReading({ model }: { model: ViewModel }) {
           )}
           {ml?.rests_on_text == null || ml.rests_on_text === '' ? null : <p className="m-0 text-text-light" data-view="run.most_likely.rests_on_text">{ml.rests_on_text}</p>}
           {compared ? <ComparedLines run={run} /> : null}
-          {notes.map(({ n, i }) => <p key={i} className="m-0 text-text-light" title={n.title} data-view={`run.notes.${i}.text`}>{n.text}</p>)}
         </div>
       )}
     </section>
@@ -144,6 +157,7 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
     <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
       <WhatIfShown model={model} labelled={!stated} />
       {state === 'chance' ? <ChanceChart model={model} /> : null}
+      {state === 'chance' ? <LeavesOut model={model} /> : null}
       {state === 'chance' ? <LikelyOutcome model={model} /> : null}
       {state === 'chance' ? <WhatMovesIt model={model} /> : null}
       {state === 'chance' ? <TippingPerOption model={model} /> : null}
@@ -153,6 +167,7 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
           then on what a result would need (Codex 011: unknowns support a useful activity, not a repeated demand for figures). */}
       {state === 'none' ? <StartHere model={model} /> : null}
       <Limits model={model} />
+      {state === 'chance' ? null : <LeavesOut model={model} />}
       <ResultNeeds model={model} under={state !== 'none'} />
       {state === 'chance' ? null : <ToQuestions model={model} />}
       {/* Core's reading speaks of the chances shown; with none shown it would offer what no chance rests on (Paul's finding), so it is not drawn. */}

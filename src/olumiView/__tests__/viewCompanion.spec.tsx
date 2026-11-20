@@ -12,7 +12,6 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewModel } from '../client'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
 import { ViewChances } from '../ViewChances'
-import { ViewBriefBody } from '../ViewBrief'
 
 afterEach(cleanup)
 const DIR = path.resolve('src/olumiView/golden')
@@ -52,14 +51,11 @@ describe('R18 fix 1: the companion is a small second line under the chance, neve
     expect(container.querySelector('[data-row-companion]')).toBeNull()
     expect(container.querySelector(`[data-view="${card.id}.rows.${at}.value"]`)!.textContent).toBe('about 39% chance')
   })
-  it('the Analysis tab and the Summary draw it too (core words, hover = the full sentence)', () => {
+  it('the Analysis tab draws it too (core words, hover = the full sentence)', () => {
     const { model, card, at } = optionWith(COMPANION)
     const a = render(<ViewChances model={model} />).container
     const el = a.querySelector(`[data-view="${card.id}.rows.${at}.companion"]`)!
     expect([el.textContent, el.getAttribute('title')]).toEqual([COMPANION, TITLE])
-    cleanup()
-    const b = render(<ViewBriefBody model={model} />).container.querySelector(`[data-view-brief-companion="${card.id}.${at}"]`)!
-    expect([b.textContent!.trim(), b.getAttribute('title')]).toEqual([COMPANION, TITLE])
   })
 })
 

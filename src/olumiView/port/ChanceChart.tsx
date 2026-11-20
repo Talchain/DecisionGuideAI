@@ -7,8 +7,8 @@
  *   `title` on hover). The numbers only place marks; every word is core's;
  * - a press on an option selects and centres its card on the canvas; pointing at it rings the card.
  * At rest: each chance WITH its uncertainty (the whisker), the figure it moves with and core's sentence for what the two ends are (DL ruling #87;
- * Codex 008 item 3), so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead, 19 Nov: 279 px over). ONE press away: core's
- * worst-tenth sentence under each option, the low/high key and the marks' legend.
+ * Codex 008 item 3), so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead, 19 Nov: 279 px over). Core's worst-tenth sentence
+ * (`row.tail`) is drawn at rest under each option's bar (A1); ONE press away: the low/high key and the marks' legend.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
 import { useState } from 'react'
@@ -88,9 +88,9 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
 export const neverMet = (card: ViewCard, row: ChartRow['row']): boolean => card.headline?.state === 'fixed' && row.chance === 0
 
 /** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
-function Bar({ card, row, i, figure, given, axis = false, open }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean; open: boolean }) {
+function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean }) {
   const range = rangeOf(row)
-  const tail = open ? tailOf(row) : null
+  const tail = tailOf(row)
   return (
     <li data-chart-option={card.id}>
       <button type="button" onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
@@ -133,7 +133,6 @@ export function ChanceChart({ model }: { model: ViewModel }) {
   const marks = [...new Map(groups.flatMap((g) => g.rows.flatMap(({ row }) => [row.likely, row.olumi])).filter((m): m is NonNullable<typeof m> => m != null).map((m) => [m.glyph, m] as const)).values()]
   const sentence = ranged && run.sensitivity != null ? run.sensitivity.text : ''
   const lensTitle = run.lenses?.find((l) => l.id === 'goal')?.title
-  const tails = groups.some((g) => g.rows.some(({ row }) => tailOf(row) !== null))
   return (
     <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={run.lead ?? groups[0]!.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
       {groups.map((g, gi) => (
@@ -141,20 +140,20 @@ export function ChanceChart({ model }: { model: ViewModel }) {
           {g.lead && run.lead != null
             ? <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} title={lensTitle} data-view="run.lead">{run.lead}</h3>
             : <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={g.aim.at}>{g.aim.text}</h3>}
-          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} open={open} />)}</ul>
+          <ul className="m-0 list-none space-y-1 p-0">{g.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={gi === 0 && k === g.rows.findIndex((x) => !neverMet(x.card, x.row))} />)}</ul>
         </div>
       ))}
       {/* At rest, under the bars: the figure every whisker is for (when it is one) and core's sentence for what the two ends ARE, never folded
           (Codex 008 item 3: folded, the ends could read as a confidence interval). Then ONE press (a button, reachable by touch and keyboard, never
-          hover alone), offered whenever anything is folded: the low/high key, each mark's meaning in core's own title, and each option's tail. */}
-      {!ranged && marks.length === 0 && !tails ? null : (
-        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : marks.length > 0 ? 'analysis-chart-marks' : 'analysis-chart-tails'}>
+          hover alone), offered whenever anything is folded: the low/high key and each mark's meaning in core's own title. */}
+      {!ranged && marks.length === 0 ? null : (
+        <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} title={ranged ? run.sensitivity?.title : undefined} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
           {sentence === '' || !ranged ? null : <p className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</p>}
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="-mx-1 inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
             <FoldChevron open={open} />{CHART_WORDS.more}
           </button>
-          {!open || (!ranged && marks.length === 0) ? null : (
+          {!open ? null : (
             <div className="space-y-0.5 pb-1" data-testid="analysis-chart-fold">
               {!ranged ? null : (
                 <p className="m-0 flex items-center gap-2" aria-hidden="true" data-testid="analysis-chart-ends-key">

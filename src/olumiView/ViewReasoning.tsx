@@ -49,8 +49,7 @@ const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
 const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
-const REST_GROUPS = 1
-/** Figures drawn per group at rest: core orders them by share, so the first is the one that carries most of the uncertainty. */
+/** Figures drawn per group at rest (every group is drawn): core orders them by share, so the first is the one that carries most of that group's uncertainty. */
 const REST_FIGURES = 1
 const LIST_AT_REST = 4
 
@@ -72,22 +71,21 @@ function ShareBar({ f }: { f: Figure }) {
 /**
  * What the uncertainty rests on (core's `run.rests`): per option and aim, in core's order, each figure core names as a bar to its share of
  * the variation, Olumi's in Olumi's blue, a person's in ink; core's line beside it, and core's give ✎ at the figure's first appearance, so
- * the person can replace the guess that carries most of the uncertainty. Two groups at rest; the rest behind one press.
+ * the person can replace the guess that carries most of the uncertainty. Every group's first (largest) figure at rest; the further figures behind one press.
  */
 export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
   const [all, setAll] = useState(false)
   const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
   if (run === null || rests.length === 0) return null
   const given = new Set<string>()
-  const shown = all ? rests : rests.slice(0, REST_GROUPS)
   const figuresOf = (r: Rest) => (r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '')
-  // What is folded at rest: the groups after the first, and the figures after the first in each group shown.
-  const folded = rests.length - shown.length + shown.reduce((n, { r }) => n + (all ? 0 : Math.max(0, figuresOf(r).length - REST_FIGURES)), 0)
+  // What is folded at rest: the figures after the first in each group (A4: every group's headline share is drawn at rest, not only the first group's).
+  const folded = rests.reduce((n, { r }) => n + Math.max(0, figuresOf(r).length - REST_FIGURES), 0)
   const whose = new Set(rests.flatMap(({ r }) => (r.figures ?? []).map((f) => f.whose)))
   return (
     <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
       <h3 className={H} {...(run.rests_heading ? { 'data-view': 'run.rests_heading' } : {})}>{run.rests_heading || REASONING_LABELS.rests}</h3>
-      {shown.map(({ r, k }) => {
+      {rests.map(({ r, k }, g) => {
         const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
         return (
           <div key={r.id} className="space-y-1" data-rest={r.id}>
@@ -101,7 +99,9 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
             {(r.hover ?? '') !== ''
               ? <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.hover`}>{r.hover}</p>
               : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
-            <ul className="m-0 list-none space-y-1 p-0">
+            {/* Core's label for the figure list (`run.rests_figures_heading`, when it sends one), said once, above the first group's figures. */}
+            {g !== 0 || !run.rests_figures_heading ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
+            <ul className="m-0 list-none space-y-1 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
               {(all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f, j }) => {
                 const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
@@ -120,7 +120,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
           </div>
         )
       })}
-      {folded === 0 && !all ? null : (
+      {folded === 0 ? null : (
         <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} className={MORE} data-testid="reasoning-rests-more">
           {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(folded)}
         </button>

@@ -14,7 +14,6 @@ import type { View, ViewCard, ViewModel } from '../client'
 import { ViewCard as DrawnCard, ViewCardNode } from '../../canvas/nodes/ViewCardNode'
 import { useViewStore } from '../store'
 import { ViewChances } from '../ViewChances'
-import { ViewBriefBody } from '../ViewBrief'
 import { notesBesideTiming, readingOf } from '../layout'
 
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
@@ -91,13 +90,6 @@ describe('R19 timing: Olumi\'s assumptions once, the generic what-if note for th
     expect(c.querySelector('[data-testid="view-run-timing"]')).toBeNull()
     expect([...c.querySelectorAll('[data-view^="run.notes."]')].map((n) => n.textContent)).toContain(GENERIC)
   })
-  it('the Summary says the assumption once too, where the generic note was', () => {
-    const { model } = withTiming()
-    const c = render(<ViewBriefBody model={model} />).container
-    expect([...c.querySelectorAll('[data-view-brief-timing]')].map((p) => p.textContent)).toEqual([ASSUMPTION])
-    expect(c.textContent).not.toContain(GENERIC)
-    expect(c.textContent).toContain(OTHER_NOTE)
-  })
 })
 
 describe('R19 timing on the chance row: a small second line beside the companion', () => {
@@ -120,14 +112,12 @@ describe('R19 timing on the chance row: a small second line beside the companion
     const lines = [...container.querySelectorAll(`[data-row-companion="${key}"], [data-row-timing="${key}"]`)].map((e) => e.getAttribute(e.hasAttribute('data-row-companion') ? 'data-row-companion' : 'data-row-timing') && e.textContent)
     expect(lines).toEqual(["about 50% without Olumi's suggested risk", TIMING_LINE])
   })
-  it('negative: a row with no timing draws no timing element, and the Analysis tab and Summary draw core\'s line with its hover where there is one', () => {
+  it('negative: a row with no timing draws no timing element, and the Analysis tab draws core\'s line with its hover where there is one', () => {
     const { card, at, model } = withTiming()
     const plain = { ...card, rows: card.rows.map((r, i) => (i === at ? ({ ...r, timing: null, timing_title: null } as typeof r) : r)) }
     expect(render(<DrawnCard card={plain} />).container.querySelector('[data-row-timing]')).toBeNull(); cleanup()
     const a = render(<ViewChances model={model} />).container.querySelector(`[data-view="${card.id}.rows.${at}.timing"]`)!
-    expect([a.textContent, a.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE]); cleanup()
-    const b = render(<ViewBriefBody model={model} />).container.querySelector(`[data-view-brief-timing-row="${card.id}.${at}"]`)!
-    expect([b.textContent!.trim(), b.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE])
+    expect([a.textContent, a.getAttribute('title')]).toEqual([TIMING_LINE, TIMING_TITLE])
   })
 })
 

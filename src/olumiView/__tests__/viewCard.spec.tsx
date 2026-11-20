@@ -36,7 +36,7 @@ function at(model: ViewModel, p: string): unknown {
 // `values` (core e92f2a6): each option's outcome band for a figure, the v10 band's (the card's figure line already says it);
 // `rests_on` (ids and whose, for the Rests-on lens): deliberately exempt too.
 // A chance row's finding (`text`, at most two sentences) and its basis line (`rests_on_text`) (core 550ad5f, the R3 Analysis wall) are
-// the Analysis tab's and the Summary's words (ViewChances, ViewBrief: viewFindings.spec), not the card face's: exempt here, the
+// the Analysis tab's words (ViewChances: viewFindings.spec), not the card face's: exempt here, the
 // finding only on a chance row (a 'none' row's `text` is its face line). `rests_on` (row-level: the basis ids) is already exempt.
 // `author` (core 6192ad6b, `cards[].author: { by, text, title }`): who stated the card's figure. The Model tab draws it (an icon whose name
 // and hover are core's `text` and `title`: model/ModelCardRow.tsx AuthorMark, viewModelTab.spec); the canvas card has no slot for it
