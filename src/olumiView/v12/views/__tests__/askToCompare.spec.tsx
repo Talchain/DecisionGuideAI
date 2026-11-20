@@ -91,7 +91,7 @@ describe('Ask Olumi to compare these views', () => {
     expect('about' in posts[0]!).toBe(false)
     expect(direct).not.toHaveBeenCalled()
     expect(prefill).not.toHaveBeenCalled()
-    expect((go as HTMLButtonElement).disabled).toBe(true)
+    expect(go.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(go)
     expect(posts).toHaveLength(1)
   })

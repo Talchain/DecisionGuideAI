@@ -221,7 +221,7 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
   it('W3 CONTRAST: where core sends no next step its headline\'s own words are the line, and no reason is made up; a chance draws none of this', () => {
     const bare = { ...o, headline: { ...h, why: null, title: '', add: null } } as ViewCard
     const face = render(<SimpleFace card={bare} model={ASKED.model} noted={false} />).container
-    expect([face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent, face.querySelector<HTMLElement>(`[data-simple-state="${o.id}"]`)?.title]).toEqual([h.text, h.text])
+    expect([face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent, hover(face.querySelector<HTMLElement>(`[data-simple-state="${o.id}"]`)!)]).toEqual([h.text, h.text])
     cleanup()
     const chance = cardOf(FACE, 'second_oven')
     expect(chance.headline!.state).toBe('chance')
@@ -266,8 +266,8 @@ describe('a figure with no value yet, and one that waits', () => {
     // CHANGED BY DESIGN (the lead's D2, 17 Nov: worked steps closed at rest; was R7, drawn open in the card's flow): Simple says core's "waits on" words as the
     // one quiet line, the working is not drawn open, and what it waits on (core's `needs`, fields.ts needsOf) is the line's hover after core's title.
     const el = draw(ASKED, 'spend', 'simple'), simple = el.querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([simple.textContent, simple.title.split('\n')[0], simple.classList.contains('ok-two-lines')]).toEqual([spend.figure!.text, spend.figure!.title, true])
-    expect(simple.title.split('\n').slice(1), 'what it waits on, by core\'s labels').toEqual(needsOf(spend).needs.map((n) => n.label))
+    expect([simple.textContent, (hover(simple) ?? '').split('\n')[0], simple.classList.contains('ok-two-lines')]).toEqual([spend.figure!.text, spend.figure!.title, true])
+    expect((hover(simple) ?? '').split('\n').slice(1), 'what it waits on, by core\'s labels').toEqual(needsOf(spend).needs.map((n) => n.label))
     expect(el.querySelector('.ok-empty, [data-testid$="-empty-bar"]')).toBeNull()
     expect(el.querySelector('details.ok-steps-inline, [data-simple-below="spend"]'), 'the working is closed at rest').toBeNull()
     cleanup()
@@ -500,7 +500,7 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
     expect(spend.figure?.state).toBe('waits')
     const line = lineOf(draw(described(ASKED, 'spend'), 'spend', 'simple'))!
     expect([line.textContent, line.hasAttribute('data-simple-pending'), line.hasAttribute('data-simple-description')]).toEqual([spend.figure!.text, true, false])
-    expect(line.title.split('\n').at(-1)).toBe(DESC)
+    expect((hover(line) ?? '').split('\n').at(-1)).toBe(DESC)
   })
   it('P2 a chance keeps its condition (core\'s qualifier) as the line with a description sent', () => {
     // The served chance whose words carry a condition (the Q rows' own card); CONTRAST below: a chance with no condition has no state to keep.
@@ -563,12 +563,12 @@ describe('a card\'s own state is the quiet line; core\'s description is the line
   it('P5 (S4 details task 4) a card\'s quiet line wraps to two lines, never one cut with an ellipsis: no card draws ok-one-line; CONTRAST: the line is still there, whole in its hover', () => {
     const spend = cardOf(ASKED, 'spend')
     const line = lineOf(draw(ASKED, 'spend', 'simple'))!
-    expect([line.classList.contains('ok-one-line'), line.title.split('\n')[0]]).toEqual([false, spend.figure!.title])
+    expect([line.classList.contains('ok-one-line'), (hover(line) ?? '').split('\n')[0]]).toEqual([false, spend.figure!.title])
   })
   it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
     const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
     const line = twoLineOf(draw(described(APP, id), id, 'simple'))!
-    expect([line.textContent, line.hasAttribute('data-simple-description'), line.title]).toEqual([DESC, true, DESC])
+    expect([line.textContent, line.hasAttribute('data-simple-description'), hover(line)]).toEqual([DESC, true, DESC])
     // CHANGED BY DESIGN (v10 review item 3): a card with no sized figure may take two lines for this basis line, so its last words are not cut.
     expect([line.classList.contains('ok-two-lines'), line.classList.contains('ok-one-line')]).toEqual([true, false])
     cleanup()

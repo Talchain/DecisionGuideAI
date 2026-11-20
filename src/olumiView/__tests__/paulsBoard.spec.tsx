@@ -13,7 +13,7 @@ import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
-import { hoverWords } from './tipHelpers'
+import { hoverWords, tipOf } from './tipHelpers'
 import { useMe } from '../../olumiCore/me'
 import { RootLinkEdge, ROOT_LINK_STROKE } from '../previous/RootLinkEdge'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
@@ -377,18 +377,18 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     // away, whole (v12/detailed/marks.tsx RowWords); it is never cut, and it stays the hover.
     const lead = draw(v, opt.id).querySelector<HTMLElement>(`[data-core-lead="${opt.id}"]`)!
     const press = lead.querySelector<HTMLElement>(`[data-row-words="${opt.id}.rows.0"] button`)!
-    expect([press.getAttribute('aria-label'), await hoverWords(press), lead.title.startsWith(long), lead.textContent?.includes(long)]).toEqual([long, long, true, false])
+    expect([press.getAttribute('aria-label'), await hoverWords(press), (await tipOf(lead)).startsWith(long), lead.textContent?.includes(long)]).toEqual([long, long, true, false])
     fireEvent.click(press)
     expect(lead.querySelector('[role="note"]')?.textContent, 'one press shows it whole').toBe(long)
   })
 
-  it('FT14 any card\'s long face line (a challenge\'s paragraph) is drawn whole, never cut; core\'s words whole on hover too', () => {
+  it('FT14 any card\'s long face line (a challenge\'s paragraph) is drawn whole, never cut; core\'s words whole on hover too', async () => {
     const chal = EU.model!.cards.find((c) => c.family !== 'option' && c.figure === null && c.bound == null)!
     const para = 'A larger pre-seed round may raise the bar for the next raise: later investors expect progress in line with the money raised, so missing milestones could make follow-on funding harder. '.repeat(3).trim()
     const v = withCard(EU, chal.id, (c) => ({ ...c, face: { ...(c.face ?? {}), line: { text: para, words: 'olumi' } } as never }))
     const lead = draw(v, chal.id).querySelector<HTMLElement>(`[data-core-lead="${chal.id}"]`)!
     const clamp = lead.querySelector('[data-core-lead-clamp]')
-    expect([/line-clamp|truncate/.test(clamp?.className ?? ''), clamp?.textContent, lead.title.startsWith(para)]).toEqual([false, para, true])
+    expect([/line-clamp|truncate/.test(clamp?.className ?? ''), clamp?.textContent, (await tipOf(lead)).startsWith(para)]).toEqual([false, para, true])
     for (let a: Element | null = clamp ?? null; a !== null && a !== lead.parentElement; a = a.parentElement) expect(a.className, 'no clamp above it either').not.toMatch(/line-clamp|truncate/)
   })
 

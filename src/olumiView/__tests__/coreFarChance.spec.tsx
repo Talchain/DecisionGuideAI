@@ -73,12 +73,12 @@ describe('the far face draws a chance whole (DL-424)', () => {
   })
 
   // CATCH (fails before: the pill drew headline.text "No chance yet" and the reason sat behind a closed "Why not" details).
-  it('the full face of a withheld chance is ONE quiet line (R6, 16 Nov): core\'s next step, named by its data-view path, its why and the step the hover; no press, no pill, no "?"', () => {
+  it('the full face of a withheld chance is ONE quiet line (R6, 16 Nov): core\'s next step, named by its data-view path, its why and the step the hover; no press, no pill, no "?"', async () => {
     const { card, c } = mount('cut_monthly_spending_to_stretch_the_runway', 'full')
     const face = c.querySelector<HTMLElement>(`[data-core-lead="${card.id}"][data-ok-face="none"]`)!
     const line = face.querySelector<HTMLElement>('.ok-quiet')!
     expect(card.headline!.add, 'precondition: core sent a next step').toBeTruthy()
-    expect([line.textContent, line.getAttribute('data-view'), line.getAttribute('title')]).toEqual([card.headline!.add, `${card.id}.headline.add`, `${card.headline!.why}\n${card.headline!.add}`])
+    expect([line.textContent, line.getAttribute('data-view'), await tipOf(line)]).toEqual([card.headline!.add, `${card.id}.headline.add`, `${card.headline!.why}\n${card.headline!.add}`])
     // CATCH: no press, pill, "?", empty track, reason or "No chance yet" on the face itself; nothing on the face clamps.
     expect(face.querySelector('details, summary, .ok-pill, .ok-q, .ok-empty')).toBeNull()
     for (const e of face.querySelectorAll('*')) expect(e.className.toString()).not.toMatch(/line-clamp|truncate/)

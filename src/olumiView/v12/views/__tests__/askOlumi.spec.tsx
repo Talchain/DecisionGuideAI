@@ -142,7 +142,7 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     expect(posts[0]!.press).toBe('ask_about')
     expect(prefill).not.toHaveBeenCalled()
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sending)
-    expect(go.disabled).toBe(true)
+    expect(go.getAttribute('aria-disabled')).toBe('true')
     await answer(true)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.sent)
     // Contrast: a missing factor has no card: no about on the wire, and the person's selection is put back at once.
@@ -163,7 +163,7 @@ describe('sent on the press, through the chat\'s ask path (production path, fake
     await waitFor(() => expect(posts).toHaveLength(1))
     await answer(false)
     expect(screen.getByTestId(`${rowOf(FIGURE)}-ask-said`).textContent).toBe(ASK_SAID.failed)
-    expect(go.disabled).toBe(false)
+    expect(go.getAttribute('aria-disabled')).toBeNull()
     expect(useViewChat.getState().text).toBe(differenceQuestion(tm04, FIGURE))
     fireEvent.click(go)
     await waitFor(() => expect(posts).toHaveLength(2))

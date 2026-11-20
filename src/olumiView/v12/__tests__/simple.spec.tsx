@@ -180,7 +180,7 @@ describe('V12 Simple faces', () => {
 
   // CHANGED BY DESIGN (the lead's D2, 17 Nov: one quiet line, whole on hover; 18 Nov: an option's condition wraps to two lines, never hidden): the qualifier is the quiet line, its whole
   // words the hover; was: the number and the qualifier wrapped whole under the track.
-  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words whole under the track, the qualifier the one quiet line, the whole words its hover', () => {
+  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words whole under the track, the qualifier the one quiet line, the whole words its hover', async () => {
     const long = 'about 31% chance, on Olumi\'s assumption for \'Weeks until the second venue opens if nothing else changes\''
     const base = card('broader_entry'), h = base.headline!
     const c = { ...base, rows: base.rows.map((r) => (r.kind === 'chance' && (r as { aim_id?: string | null }).aim_id === h.aim_id ? { ...r, value: long } : r)) } as typeof base
@@ -189,7 +189,7 @@ describe('V12 Simple faces', () => {
     const words = container.querySelector<HTMLElement>('[data-simple-chance="broader_entry"]')!
     const qual = container.querySelector<HTMLElement>('[data-simple-qual="broader_entry"]')!
     expect([words.textContent, qual.textContent, qual.classList.contains('ok-two-lines')], 'core\'s words, every one, in order').toEqual([chanceParts(long).head, chanceParts(long).qualifier, true])
-    expect(qual.title.split('\n')[0], 'the whole words are the hover').toBe(long)
+    expect((await tipOf(qual)).split('\n')[0], 'the whole words are the hover').toBe(long)
     expect(words.className, 'the number\'s words wrap whole').not.toContain('line-clamp')
     expect(words.className).toContain('break-words')
     expect(words.className).toContain('min-w-0')

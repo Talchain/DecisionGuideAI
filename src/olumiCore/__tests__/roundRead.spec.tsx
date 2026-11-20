@@ -13,6 +13,7 @@ import { useViewStore } from '../../olumiView/store'
 import { RoundRead } from '../../olumiView/v12/views/RoundRead'
 import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { roundReadOf } from '../team/roundRead'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { setTeamFetch } from '../team/api'
 import { resetWrites } from '../team/writes'
 import { resetDifferences, type Difference, type Differences } from '../team/differences'
@@ -26,8 +27,17 @@ const FIG = cmp('diagnostic_time_to_contract', AIM), PAY = cmp('link:first_cash_
 const said = (id: number) => base.collab.shared.find((s) => s.id === id)!
 const quote = (id: string, view: number, text: string) => ({ id, view_id: view, holder_id: said(view).by_id, holder: said(view).by, text })
 /** Each option's chance drawn for a comparison, by option and holder: [option, holder, text, bar?, withheld title]. */
-const drawnChances = (el: Element) => [...el.querySelectorAll('[data-difference-option]')].flatMap((o) => [...o.querySelectorAll('[data-difference-chance]')].map((c) =>
-  [o.getAttribute('data-difference-option'), c.getAttribute('data-difference-chance'), c.lastElementChild!.textContent, c.querySelector('svg[data-chance]') !== null, c.getAttribute('title')]))
+const drawnChances = async (el: Element) => {
+  const out: Array<Array<string | boolean | null>> = []
+  for (const o of el.querySelectorAll('[data-difference-option]')) for (const c of o.querySelectorAll<HTMLElement>('[data-difference-chance]')) {
+    // The withheld reason is on the one Tip (a cell with no reason has no Tip), never a native title.
+    // A cell with a reason is a Hover (one focus stop); one without is plain, with no Tip to open.
+    const h = c.matches('[tabindex]') ? c : c.querySelector<HTMLElement>('[tabindex]')
+    const reason = h !== null ? await tipOf(h) : null
+    out.push([o.getAttribute('data-difference-option'), c.getAttribute('data-difference-chance'), c.lastElementChild!.textContent, c.querySelector('svg[data-chance]') !== null, reason])
+  }
+  return out
+}
 const coreChances = (d: Difference) => d.options.flatMap((o) => o.chances.map((c) => [o.option, c.holder_id, c.text, c.chance !== null, c.withheld?.reason ?? null]))
 const WRONG = 'This is the only difference that changes which option is most likely'
 
@@ -61,7 +71,7 @@ describe('what is drawn, in core\'s words only', () => {
 })
 
 describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
-  it('a crux on a comparison core says only MOVES the chances draws core\'s "moves" sentence; a claim in any field the contract does not name is never drawn; CONTRAST: the crux on a comparison core says CHANGES the leader draws core\'s changes sentence', () => {
+  it('a crux on a comparison core says only MOVES the chances draws core\'s "moves" sentence; a claim in any field the contract does not name is never drawn; CONTRAST: the crux on a comparison core says CHANGES the leader draws core\'s changes sentence', async () => {
     expect(PAY.status, 'precondition').toBe('moves')
     expect(FIG.status, 'precondition').toBe('changes')
     render(<RoundRead sid={base.id} onWrote={async () => true} view={withRead(read())} headings={core.headings} />)
@@ -73,11 +83,11 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
     expect(fig.getAttribute('data-difference-status')).toBe('changes')
     expect(fig.querySelector('[data-round-status]')!.textContent).toBe(FIG.status_text)
     // Each option's chance is core's, by option and holder, for each comparison (Codex B2 UI HOLD 3).
-    expect(drawnChances(pay)).toEqual(coreChances(PAY))
-    expect(drawnChances(fig)).toEqual(coreChances(FIG))
+    expect(await drawnChances(pay)).toEqual(coreChances(PAY))
+    expect(await drawnChances(fig)).toEqual(coreChances(FIG))
     expect(coreChances(FIG).length, 'precondition: chances to compare').toBeGreaterThan(2)
   })
-  it('one link on two aims is two comparisons by {record, goal}, each with its own core status (one withheld)', () => {
+  it('one link on two aims is two comparisons by {record, goal}, each with its own core status (one withheld)', async () => {
     render(<RoundRead sid={base.id} onWrote={async () => true} view={withRead(read())} headings={core.headings} />)
     const c2 = document.querySelector('[data-round-crux="c2"]') as HTMLElement
     expect([...c2.querySelectorAll('[data-round-comparison]')].map((e) => [e.getAttribute('data-round-comparison'), e.getAttribute('data-difference-status')])).toEqual([
@@ -86,7 +96,7 @@ describe('a wrong leader claim cannot be drawn (UI lead\'s condition)', () => {
     expect(PAY.status_text, 'precondition: two sentences').not.toBe(PAY2.status_text)
     expect([a!.querySelector('[data-round-status]')!.textContent, b!.querySelector('[data-round-status]')!.textContent]).toEqual([PAY.status_text, PAY2.status_text])
     // Withheld: core's words and its reason on hover, and no bar for a chance core did not give.
-    expect(drawnChances(b!)).toEqual(coreChances(PAY2))
+    expect(await drawnChances(b!)).toEqual(coreChances(PAY2))
     expect(coreChances(PAY2).some((c) => c[3] === false), 'precondition: a withheld chance').toBe(true)
     expect(b!.querySelectorAll('[data-chance-withheld]').length).toBe(coreChances(PAY2).filter((c) => c[3] === false).length)
   })

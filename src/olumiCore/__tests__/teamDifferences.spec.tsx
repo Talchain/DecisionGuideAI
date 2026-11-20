@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../olumiView/client'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { setPagePerson, setTeamFetch } from '../team/api'
 import { resetWrites } from '../team/writes'
 import { differencesShape, resetDifferences } from '../team/differences'
@@ -71,7 +72,7 @@ describe('where your explanations differ', () => {
     const card = await screen.findByTestId(at)
     const cell = card.querySelector('[data-difference-option="hold"] [data-difference-chance="1"]')!
     expect(cell.textContent).toContain("can't be told apart from the target")
-    expect([cell.getAttribute('title'), cell.querySelector('svg')]).toEqual([reason, null])
+    expect([await tipOf(cell as HTMLElement), cell.querySelector('svg')]).toEqual([reason, null])
     expect(card.querySelector('[data-difference-option="hold"] [data-difference-chance="2"]')!.textContent).toContain('0%')
   })
 
