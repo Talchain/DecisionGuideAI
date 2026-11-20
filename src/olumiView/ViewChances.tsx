@@ -262,7 +262,7 @@ function WorthLine({ l, i, tab }: { l: Science; i: number; tab?: OutputTab }) {
       </p>
       {/* Core's give words and ✎ on their own line under the worth line, never run on after it as one sentence (6 Nov side-by-side). */}
       {l.figure?.give == null ? null : <div className={typography.viewPanelMeta} data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} tab={tab} /></div>}
-    </div>
+    </Hov>
   )
 }
 

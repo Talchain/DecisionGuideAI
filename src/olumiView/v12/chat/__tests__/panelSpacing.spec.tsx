@@ -71,7 +71,7 @@ describe('P6 spacing: .ok-section and .ok-stack, from the brand tokens (computed
       expect([cs(el).borderTopWidth === '1px', cs(el).paddingTop === '12px', cs(el).display]).toEqual([false, false, 'block'])
     } finally { sheet.remove() }
   })
-  it('a ghost registry icon button in the facts row and the panel's top row carries no sizing utilities of its own (the registry\'s recipe is the one source)', () => {
+  it('a ghost registry icon button in the facts row and the panel\'s top row carries no sizing utilities of its own (the registry\'s recipe is the one source)', () => {
     const { getByTestId } = render(<ReplyFacts at="chat.0" about={[]} rests={<p>Receipts</p>} why={null} />)
     expect(getByTestId('view-reply-rests').className).not.toMatch(/(^|\s)(h|w)-\d/)
     expect(render(<OkIconButton id="commit-action" tone="ghost" testid="x" onClick={() => {}} />).getByTestId('x').className).not.toMatch(/(^|\s)(h|w)-\d/)
