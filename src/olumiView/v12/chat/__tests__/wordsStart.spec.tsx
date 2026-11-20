@@ -242,6 +242,20 @@ describe('3. Keep from core\'s typed prose on the floor row (CONTRACT 4; floor[]
     expect(q(c, 'view-actions-button')).not.toBeNull()
   })
 
+  it('P3 (the earlier-version check, kept): the ⋯ list offers only the questions core sends and disables each on an earlier version', async () => {
+    const v = inWords()
+    const c = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
+    await press(q(c, 'view-actions-button'))
+    const items = [...c.querySelectorAll<HTMLButtonElement>('[data-testid="view-session-method"]')]
+    expect(items.map((i) => i.dataset['method'])).toEqual(['else_do'])
+    expect(items[0]).toBeEnabled()
+    cleanup()
+    const c2 = show(inWords({ session: { ...v.session, methods: [METHOD(v)] } }))
+    act(() => useViewStore.setState({ at: 2 }))
+    await press(q(c2, 'view-actions-button'))
+    expect(c2.querySelector<HTMLButtonElement>('[data-testid="view-session-method"][data-method="else_do"]')).toBeDisabled()
+  })
+
   it('CONTRAST: the same reply WITHOUT prose (legacy, untyped, or a first draft\'s) offers no Keep at all', () => {
     const c = show(inWords({ floor: [ideasRow(21, SAID, undefined)] }))
     expect(keepIn(c, 21).map((li) => li.textContent)).toEqual([IDEA_A, IDEA_B])

@@ -24,6 +24,15 @@ import { UNDO_WORDS } from '../../edit/undo'
 const focus = vi.hoisted(() => vi.fn())
 vi.mock('../../../../canvas/utils/focusHelpers', async (orig) => ({ ...(await orig<object>()), focusNodeById: focus }))
 
+/** The one Tip's words for an element: pointer rest (after its delay) shows it; leaving closes it. Native `title` is no longer the hover. */
+const tipOf = async (el: HTMLElement): Promise<string | null> => {
+  fireEvent.pointerEnter(el)
+  await waitFor(() => expect(document.querySelector('[role="tooltip"]')).not.toBeNull())
+  const words = document.querySelector('[role="tooltip"]')!.textContent
+  fireEvent.pointerLeave(el)
+  return words
+}
+
 const fixture = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
 const SID = 's_cb215d057b96', UUID = '00000000-0000-4000-8000-cb215d057b96'
 let posts: { url: string; body: Record<string, unknown> }[] = []
@@ -51,13 +60,18 @@ describe('composer and reply wording', () => {
     expect(render(<ViewComposer />).container.querySelector('#view-chat-text')).toHaveAttribute('placeholder', COMPOSER_PLACEHOLDER)
     expect(COMPOSER_PLACEHOLDER).toBe('Ask about your thinking…')
   })
-  it('a reply with reasons discloses them under "Why, and what moves it", behind the facts row\'s one icon (P4)', () => {
+  it('a reply with reasons discloses them under "Why, and what moves it", behind the facts row\'s one icon (P4), which says expanded and names the body it controls', () => {
     show(fixture('after-find-first'))
     const { container } = render(<ViewChat />)
     const latest = container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!
+    const toggle = latest.querySelector<HTMLElement>('[data-testid="view-reply-rests"]')!
     expect(latest.querySelector('[data-testid="view-reply-rests-body"]'), 'closed at rest').toBeNull()
-    fireEvent.click(latest.querySelector('[data-testid="view-reply-rests"]')!)
-    expect(latest.querySelector('[data-testid="view-reply-rests-body"]')).toHaveTextContent('Why, and what moves it')
+    expect([toggle.getAttribute('aria-expanded'), toggle.hasAttribute('aria-pressed')], 'a disclosure is expanded, never pressed').toEqual(['false', false])
+    fireEvent.click(toggle)
+    const body = latest.querySelector('[data-testid="view-reply-rests-body"]')!
+    expect(body).toHaveTextContent('Why, and what moves it')
+    expect([toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')]).toEqual(['true', body.id])
+    expect(body.id).not.toBe('')
   })
 })
 
@@ -71,7 +85,8 @@ describe('"About <card> on the canvas"', () => {
     const chip = within(container.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')!).getByTestId('view-about-chip')
     // CHANGED BY DESIGN (v10 review item 6): one chip "N on the canvas" in the reply's icon row; the card's title is its hover.
     expect(chip).toHaveTextContent(aboutCountWords(1))
-    expect(chip).toHaveAttribute('title', aboutWords(card.heading))
+    expect(chip).not.toHaveAttribute('title')
+    expect(await tipOf(chip)).toBe(aboutWords(card.heading)) // the hover is the one Tip
     expect(chip.dataset['card']).toBe(card.id)
     await press(chip)
     expect(focus).toHaveBeenCalledWith(card.id)

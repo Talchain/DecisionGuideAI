@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../../client'
-import { FILLER_MOVE, NEEDS_ANALYSIS_WORDS, isMethodReply, isRealMove, menuOf, nextStepFor } from '../actions'
+import { FILLER_MOVE, NEEDS_ANALYSIS_WORDS, isMethodReply, isRealMove, menuOf, nextStepFor, replyMoveFor } from '../actions'
 
 const session = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -84,5 +84,21 @@ describe('method replies', () => {
     expect(isMethodReply(v, t)).toBe(true)
     expect(isMethodReply(v, { ...t, said: 'Something I typed' })).toBe(false)
     expect(isMethodReply(v, { ...t, answer: null })).toBe(false)
+  })
+})
+
+describe('the newest reply\'s move (the one predicate the chat tap and Journey share)', () => {
+  const v = session('goal-understand')
+  const withNext = (patch: Record<string, unknown>): View => ({ ...v, chat: v.chat.map((t, i) => (i === v.chat.length - 1 && t.answer !== null ? { ...t, answer: { ...t.answer, next: { ...t.answer.next, ...patch } } } : t)) }) as View
+  const last = v.chat.at(-1)!
+  it('a newest real move is the reply move, with its turn', () => {
+    const m = replyMoveFor(withNext({ newest: true, move: 'pre_mortem' }))
+    expect(m).toMatchObject({ turn: last.id, next: { move: 'pre_mortem' } })
+  })
+  it('the filler, a reply that is not the newest, and a move the chat refused as stale are none', () => {
+    expect(replyMoveFor(withNext({ newest: true, move: FILLER_MOVE }))).toBeNull()
+    expect(replyMoveFor(withNext({ newest: false, move: 'pre_mortem' }))).toBeNull()
+    expect(replyMoveFor(withNext({ newest: true, move: 'pre_mortem' }), (turn, move) => turn === last.id && move === 'pre_mortem')).toBeNull()
+    expect(replyMoveFor(withNext({ newest: true, move: 'pre_mortem' }), (turn) => turn !== last.id)).not.toBeNull() // contrast: another turn's refusal leaves it
   })
 })

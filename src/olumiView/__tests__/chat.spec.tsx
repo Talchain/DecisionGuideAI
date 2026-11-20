@@ -15,6 +15,16 @@ import { DraftingBoard } from '../DraftingBoard'
 import { withheldWords, leadLineOf } from '../previous/CoreCard'
 import { isOpen, setOpen } from './reviewRow'
 
+/** What the one Tip says for an icon control: nothing at the instant the pointer arrives, then its words once the 150 ms delay has run. */
+const hoverWords = async (el: HTMLElement): Promise<string | null> => {
+  fireEvent.pointerEnter(el)
+  expect(document.querySelector('[role="tooltip"]'), 'not at the instant of arrival').toBeNull()
+  const tip = await waitFor(() => { const t = document.querySelector('[role="tooltip"]'); if (t === null) throw new Error('no tip yet'); return t })
+  const words = tip.textContent
+  fireEvent.pointerLeave(el)
+  return words
+}
+
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
 /** Core's answer to an accepted brief (API v1.26): the job, running at its first stage. */
@@ -140,7 +150,7 @@ describe('the writes go straight to core, and the View is read again', () => {
 
   // CATCH (contract 3). Fails on the product before this change: ViewChat's NextStepCard drew <Proposal> open inside a "Next step" box, with
   // no <details data-testid="view-proposal-review">, so the query below was null and the "Next step" header was present.
-  it('at rest the pending review is ONE closed row in core\'s words (heading · on), with no header; opening it shows the words and the actions', () => {
+  it('at rest the pending review is ONE closed row in core\'s words (heading · on), with no header; opening it shows the words and the actions', async () => {
     const held = golden('proposal'), p = held.proposal!
     useViewStore.setState({ view: held })
     const { container } = renderTab()
@@ -160,7 +170,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     // CHANGED BY DESIGN (18 Nov, Paul: smallest possible buttons): Approve is a tick icon button, not words: its name and hover say Approve and what it approves;
     // Review, Approve and Set aside share one 28px height class (and the row's own button), so they sit on one centre line. The post is unchanged (row above).
     const approve = review.querySelector<HTMLElement>('[data-testid="view-approve"]')!
-    expect([approve.getAttribute('aria-label'), approve.getAttribute('title'), approve.textContent]).toEqual(['Approve these changes', 'Approve these changes', ''])
+    expect([approve.getAttribute('aria-label'), approve.getAttribute('title'), approve.textContent]).toEqual(['Approve these changes', null, ''])
+    expect(await hoverWords(approve), 'its hover is the one Tip, after 150 ms').toBe('Approve these changes')
     expect(approve.querySelector('svg.lucide-check'), 'a tick from the registry').not.toBeNull()
     const row28 = ['view-proposal-row', 'view-proposal-review-toggle', 'view-approve', 'view-set-aside'].map((t) => review.querySelector<HTMLElement>(`[data-testid="${t}"]`)!.className.split(/\s+/).filter((c) => /^(min-)?h-/.test(c)))
     expect(row28).toEqual([['min-h-7'], ['min-h-7'], ['min-h-7'], ['min-h-7']])
@@ -173,7 +184,7 @@ describe('the writes go straight to core, and the View is read again', () => {
 
   // 18 Nov, Paul's pictures of the compact controls: Approve was a CIRCLE (rounded-md is 12px here, so a 28px square drew round), the bar took two lines,
   // and Set aside's archive-with-cross was ambiguous. Bound to the lane's real card (identity: the testids), at rest (closed) and open.
-  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the registry\'s archive box', () => {
+  it('the proposal bar is ONE 28px row: heading, Review, Approve and Set aside are siblings that do not wrap; Approve is a 6px-radius square; Set aside is the registry\'s archive box', async () => {
     const held = golden('proposal')
     useViewStore.setState({ view: held })
     const { container } = renderTab()
@@ -188,7 +199,8 @@ describe('the writes go straight to core, and the View is read again', () => {
     expect(approve.className.split(/\s+/)).toContain('rounded-control')
     expect(approve.className).not.toMatch(/rounded-(md|full|pill|lg)/)
     const aside = bar.querySelector<HTMLElement>('[data-testid="view-set-aside"]')!
-    expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', 'Set aside'])
+    expect([aside.getAttribute('aria-label'), aside.getAttribute('title')]).toEqual(['Set aside', null])
+    expect(await hoverWords(aside), 'its hover is the one Tip, after 150 ms').toBe('Set aside')
     expect(aside.querySelector('svg.lucide-ban'), "the registry's set-aside (a plain not-applied ban): the cross means Close, and the tray (archive) looked like the composer's floating-window icon").not.toBeNull()
     expect(aside.querySelector('svg.lucide-x')).toBeNull()
     expect(aside.querySelector('svg.lucide-archive')).toBeNull()
@@ -368,7 +380,7 @@ describe('the writes go straight to core, and the View is read again', () => {
         expect([c.querySelector('[data-testid="view-drafting-words"]')?.textContent, c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent]).toEqual(['Building the model', '5 s'])
         await act(async () => { vi.advanceTimersByTime(3000) })
         expect(c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent).toBe('8 s')
-        expect(c.querySelector('[data-testid="view-chat-working"]')).toBeNull() // said once, on the board
+        expect(c.querySelector('[data-testid="view-chat-turn-wait"]')).toBeNull() // said once, on the board
         expect(c.querySelector('[data-testid="view-brief-intro"]')).toBeNull()
         expect(c.querySelector('#view-chat-text')?.hasAttribute('aria-describedby')).toBe(false)
         // 14 Nov (supersedes "takes no second Send"): the composer stays usable while the first model builds; a Send is a message to THIS scenario, never a second one (floorChat.spec).
@@ -377,8 +389,11 @@ describe('the writes go straight to core, and the View is read again', () => {
         c.remove()
         useViewChat.setState({ text: '', busy: true })
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
-        const m = render(<><DraftingBoard /><ViewComposer /></>).container
-        expect(m.querySelector('[data-testid="view-chat-working"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+        const m = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>).container
+        // P1: a write in flight with no brief is said by the thread's one waiting line: the loader, the words and the seconds, side by side.
+        expect(m.querySelector('[data-testid="view-chat-turn-wait"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`)
+        expect(m.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
+        expect(m.querySelector('[data-testid="view-composer"] [data-testid="thinking-indicator"]')).toBeNull() // not a second one in the composer
         expect(m.querySelector('[data-testid="view-drafting-board"]')).toBeNull()
       } finally { vi.useRealTimers(); useViewChat.setState({ busy: false, text: '' }) }
     })

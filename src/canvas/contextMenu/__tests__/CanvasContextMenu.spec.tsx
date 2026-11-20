@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { CanvasContextMenu } from '../CanvasContextMenu'
+import { CanvasContextMenu, CanvasContextMenuBase } from '../CanvasContextMenu'
+import { Eye } from 'lucide-react'
 import type { PaneTarget, NodeTarget, EdgeTarget, MultiTarget } from '../types'
 import type { Node, Edge } from '@xyflow/react'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
@@ -291,6 +292,33 @@ describe('CanvasContextMenu — shared-model authority', () => {
       expect(tooltip!.id).toBe('tooltip-toggle-view-mode')
       expect(toggle).toHaveAttribute('aria-describedby', 'tooltip-toggle-view-mode')
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('on the lane the row tip opens at 150 ms, not before (149 ms: none; 150 ms: there); off the lane it keeps 300 ms. An enabled submenu row starts no tip', () => {
+    const rows = [
+      { id: 'plain', label: 'Plain row', icon: Eye, tooltip: 'Plain row note', enabled: true, action: vi.fn() },
+      { id: 'sub', label: 'Submenu row', icon: Eye, tooltip: 'Submenu row note', enabled: true, hasSubmenu: true, action: vi.fn() },
+    ] as never
+    const useItems = () => ({ items: rows, overlay: null })
+    vi.useFakeTimers()
+    try {
+      vi.stubEnv('VITE_OLUMI_CORE', '1')
+      render(<CanvasContextMenuBase target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} useItems={useItems} />)
+      const plain = screen.getByText('Plain row').closest('button')!
+      fireEvent.mouseEnter(plain)
+      act(() => { vi.advanceTimersByTime(149) })
+      expect(document.querySelector('[role="tooltip"]'), 'not at 149 ms').toBeNull()
+      act(() => { vi.advanceTimersByTime(1) })
+      expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Plain row note')
+      fireEvent.mouseLeave(plain)
+      const sub = screen.getByText('Submenu row').closest('button')!
+      fireEvent.mouseEnter(sub)
+      act(() => { vi.advanceTimersByTime(150) })
+      expect(document.querySelector('[role="tooltip"]'), 'the submenu row starts no tip').toBeNull()
+    } finally {
+      vi.unstubAllEnvs()
       vi.useRealTimers()
     }
   })

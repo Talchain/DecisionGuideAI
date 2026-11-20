@@ -76,5 +76,15 @@ export function nextStepFor(view: View): NextStep | null {
   return view.proposal !== null ? { kind: 'approve' } : null
 }
 
+/**
+ * The newest reply's own move, when it is one the chat draws (MoveTap): core marks it `newest`, it names a real move (never the filler), and the chat
+ * has not refused it as stale (`isGone`, the chat's own exclusion). One predicate for the chat's tap and for Journey's "go to the next step".
+ */
+export function replyMoveFor(view: View, isGone: (turn: number, move: string) => boolean = () => false): { readonly turn: number; readonly next: Next } | null {
+  const t = view.chat.at(-1)
+  if (t?.answer == null || !t.answer.next.newest || !isRealMove(t.answer.next.move) || isGone(t.id, t.answer.next.move)) return null
+  return { turn: t.id, next: t.answer.next }
+}
+
 /** The method replies are the turns whose `said` is one of core's own menu questions, word for word. */
 export const isMethodReply = (view: View, t: ViewTurn): boolean => t.answer !== null && (sessionOf(view)?.methods.some((m) => m.id !== FIGURE_FIRST_ID && m.text === t.said) ?? false)

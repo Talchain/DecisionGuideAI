@@ -393,8 +393,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       rests={t.answer !== null && hasReceipts(t.answer.claims) ? <ResultReceipts claims={t.answer.claims} /> : null}
       why={t.answer === null || !leads ? null
         : <ul className="list-disc pl-4">{t.answer.why.map((w, j) => <li key={j}><Words parts={w} at={`${at}.answer.why.${j}`} first={whyFirst[j]} /></li>)}</ul>}>
-      {t.answer === null ? null : <ShowInWorkspace turn={t.id} next={t.answer.next} />}
       {idea === null ? null : <KeepIdea sid={idea.sid} turn={t.id} text={idea.text} />}
+      {t.answer === null ? null : <ShowInWorkspace turn={t.id} next={t.answer.next} />}
       {stamp}
     </ReplyFacts>
   )
@@ -524,17 +524,21 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 }
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
-export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']>; me: string | null; shown?: boolean }) {
-  const running = turn.status === 'answering'
+export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']> | null; me: string | null; shown?: boolean }) {
+  // `turn` null: the write is in flight and core has not yet accepted it. The SAME mount then carries through acceptance (one loader, one clock,
+  // no restart: ViewChat draws it at one place in the thread), with the page's one waiting sentence until core's own words arrive.
+  const running = turn === null || turn.status === 'answering'
   const busy = useViewChat((s) => s.busy)
-  const [now, setNow] = useState(() => Date.now())
+  const [born] = useState(() => Date.now())
+  const [now, setNow] = useState(born)
   useEffect(() => { if (!running) return; const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [running])
-  const from = Date.parse(turn.started), secs = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
+  const parsed = turn === null ? NaN : Date.parse(turn.started)
+  const from = Number.isFinite(parsed) ? Math.min(parsed, born) : born, secs = Math.max(0, Math.floor((now - from) / 1000))
   return (
-    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn.status} data-shown={shown ? '' : undefined}>
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn?.status ?? 'answering'} data-shown={shown ? '' : undefined}>
       <li className="space-y-1">
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
-        {shown ? null : turn.said === null
+        {shown || turn === null ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
           : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
@@ -543,11 +547,11 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
         {shown ? null : <div className="ok-waiting" data-testid="view-chat-turn-wait">
           {running ? <div aria-hidden="true" data-testid="view-chat-turn-loader"><ThinkingIndicator /></div> : null}
           <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} m-0 ${running ? 'text-text-light' : 'text-text-body'}`}>
-            <span data-view="turn.words" data-testid="view-chat-turn-words">{turn.words}</span>
-            {running && secs !== null ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
+            <span {...(turn === null ? {} : { 'data-view': 'turn.words' })} data-testid="view-chat-turn-words">{turn === null ? THINKING_WORDS : turn.words}</span>
+            {running ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
           </p>
         </div>}
-        {running || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
+        {running || turn === null || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
     </ol>
@@ -1784,7 +1788,7 @@ export function ViewChat() {
   useAnswersAsks()
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
-  const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at)
+  const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at), sid = useViewStore((s) => s.sid)
   const surface = useFindingSurface()
   const held = busy || past !== null
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
@@ -1924,7 +1928,8 @@ export function ViewChat() {
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
             {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
-            {view?.turn == null ? null : <TurnInFlight turn={view.turn} me={view.you_id} shown={turnAlreadyShown(view)} />}
+            {/* P1: ONE waiting mount from Send through acceptance: before core accepts, `turn` is null; the same element then takes core's turn (no remount, so the loader and its seconds never restart). */}
+            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
@@ -1993,28 +1998,9 @@ function ModelNoticeLine() {
   )
 }
 
-// A brief's drafting is said on the board in core's words (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
+// A brief's drafting is said on the board (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
+// While a message is in flight the thread's one waiting line (TurnInFlight) says it: the brand loader, the words and the seconds, from Send through acceptance.
 export const THINKING_WORDS = 'Olumi is thinking…'
-
-/**
- * While a write is in flight the composer is held and says why (lane audit 5.7), with the seconds since it started: a first draft takes
- * minutes, and a line that never moves reads as stuck (PL review, 4 Nov). Status only; nothing streams.
- */
-function Working() {
-  const [started] = useState(() => Date.now())
-  const [now, setNow] = useState(started)
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
-  const s = Math.floor((now - started) / 1000)
-  return (
-    // Paul, 19 Nov: the faint line alone was hard to see and dull; the older look's brand loader (the six node shapes in a colour wave,
-    // canvas/conversation/zones/ThinkingIndicator, still in use there; still under reduced motion) stands above it again.
-    // P1: only while no turn is answering (the thread's TurnInFlight shows the one loader then, so it does not restart as the turn begins).
-    <div className="ok-waiting py-2">
-      <div aria-hidden="true"><ThinkingIndicator /></div>
-      <p role="status" className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-chat-working">{THINKING_WORDS} <span data-testid="view-chat-working-seconds">{s} s</span></p>
-    </div>
-  )
-}
 
 /** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
 /** The composer's one sentence once there is something to ask about (V12 boards); the brief's example stays for the first brief. */
@@ -2084,8 +2070,6 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
     <div className={`${typography.viewPanelBody} px-4 pb-3 pt-2 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
-      {/* A brief's drafting is said on the board (DraftingBoard.tsx), once; a message being answered is said here. */}
-      {busy && !brief && !answering ? <Working /> : null}
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
           <span>{PAST_HELD}</span>

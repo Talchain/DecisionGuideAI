@@ -22,13 +22,12 @@ import { isEmpty, journeyOf, JOURNEY_WORDS as W, type JourneyContext } from '../
 
 const focused: string[] = []
 vi.mock('../../../../canvas/utils/focusHelpers', () => ({ focusNodeById: (id: string) => { focused.push(id) } }))
-let next: { kind: string; turn: number; move: string } | null = null
-// The chat's store, as ViewChat holds it: `gone` is the move the chat refused as stale (ViewChat `moveKey`: sid, turn, move joined by NUL).
+// The chat's store, as ViewChat holds it (the next-step predicate itself is the REAL replyMoveFor, not mocked): `gone` is the move the chat refused as stale (ViewChat `moveKey`: sid, turn, move joined by NUL).
 const chat = vi.hoisted(() => ({ store: null as unknown as { setState: (s: { gone: string | null }) => void } }))
 vi.mock('../../../ViewChat', () => {
   const useViewChat = create<{ gone: string | null }>()(() => ({ gone: null }))
   chat.store = useViewChat
-  return { useViewChat, moveKey: (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}`, nextStepOf: (_v: unknown, isGone?: (turn: number, move: string) => boolean) => (next !== null && isGone?.(next.turn, next.move) === true ? null : next) }
+  return { useViewChat, moveKey: (sid: string, turn: number, move: string) => `${sid}\u0000${turn}\u0000${move}` }
 })
 const outcomeForms: Array<[string, number]> = []
 vi.mock('../../../../olumiCore/team/outcomeNav', () => ({ goToOutcome: (sid: string, id: number) => { outcomeForms.push([sid, id]) } }))
@@ -63,20 +62,25 @@ const DISSENT = [
   { id: 'd_done', holder: 'Priya', position: 'p', holder_id: 'p', confirmed: { at: '2026-11-07T18:00:00Z', by_id: 'p', words: 'Priya’s invented confirmed words.', tell: 'An invented tell.' } },
 ]
 const KEPT = [{ id: 1, turn: 2, text: 'An invented idea.', by: 'olumi', kept_by: { id: 'p', name: 'Priya' }, at: '2026-11-07T16:00:00Z', concerns: [] }]
+// The newest reply's own move, as core sends it (`answer.next`): the fixture's last turn with its move and `newest` set. The default is no move.
+const chatWith = (move: string | null, newest: boolean) => base.chat.map((t, i) => i < base.chat.length - 1 ? t : { ...t, answer: { ...t.answer!, next: { ...t.answer!.next, move, newest } } })
+const TURN = base.chat.at(-1)!.id
 const full = (extra: Record<string, unknown> = {}): View => ({
   ...base,
+  chat: chatWith(null, false),
   model: { ...base.model!, run: { ...base.model!.run!, since: SINCE, waits_on: WAITS } },
   collab: { ...base.collab, commitments: [COMMITMENT()], dissent: DISSENT, can_reveal: true },
   kept: KEPT, proposal: { id: 9, heading: 'An invented proposal heading.' },
   ...extra,
 } as unknown as View)
 const CTX: JourneyContext = { at: null, keptNode: () => 'idea:kept:1', hasNext: false }
+const moveOn = (move: string | null, newest = true): View => full({ chat: chatWith(move, newest) })
 const show = (view: View, at: number | null = null) => useViewStore.setState({ uuid: 'u', sid: 's_0123456789ab', view, status: 'ready', error: null, stale: false, at })
 
 beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation((f: FrameRequestCallback) => { f(0); return 0 })
   useCanvasStore.setState({ nodes: [{ id: 'add_consulting' }, { id: 'time_to_contract' }, { id: 'contract_to_cash' }, { id: 'idea:kept:1' }] as never })
-  next = null; chat.store.setState({ gone: null })
+  chat.store.setState({ gone: null })
 })
 afterEach(() => { cleanup(); focused.length = 0; outcomeForms.length = 0; useReveal.getState().select(null); vi.restoreAllMocks() })
 
@@ -291,9 +295,8 @@ describe('#2 open items, each with its exact action', () => {
     expect(journeyOf(considered, CTX).open.some((o) => o.key.startsWith('consider:'))).toBe(false)
   })
   it('each opens its own thing: the waited-on card, that evidence in Team, the next step in the chat', () => {
-    next = { kind: 'move', turn: 3, move: 'm' }
     const force = vi.spyOn(useUIStore.getState(), 'forceActivateOutputTab')
-    show(full()); render(<JourneyRecord view={full()} at={null} />)
+    show(moveOn('what_would_change_your_mind')); render(<JourneyRecord view={moveOn('what_would_change_your_mind')} at={null} />)
     expect(screen.getByTestId('journey-no-outcome:501')).toHaveTextContent('review on 1 Dec 2026')
     fireEvent.click(screen.getByTestId('journey-wait:contract_to_cash'))
     expect(focused).toEqual(['contract_to_cash'])
@@ -301,7 +304,7 @@ describe('#2 open items, each with its exact action', () => {
     expect(useReveal.getState().evidence).toBe(29)
     fireEvent.click(screen.getByTestId('journey-next'))
     expect(force).toHaveBeenLastCalledWith('olumi')
-    cleanup(); next = null
+    cleanup()
     render(<JourneyRecord view={full()} at={null} />)
     expect(screen.queryByTestId('journey-next')).toBeNull() // contrast: no current Next step, no row
   })
@@ -315,24 +318,26 @@ describe('#2 open items, each with its exact action', () => {
     cleanup(); show({ ...full(), model: null } as unknown as View); render(<JourneyRecordBlock />)
     expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
   })
-  it('with a proposal waiting, its row is the way to it: the approve step is not offered again as "Go to the next step"', () => {
-    next = { kind: 'approve', turn: 3, move: 'm' }
+  it('with a proposal waiting, its row is the way to it and is not repeated as "Go to the next step"; a real reply move beside it is still offered', () => {
     show(full()); render(<JourneyRecord view={full()} at={null} />)
     expect(screen.getByTestId('journey-proposal')).toBeInTheDocument()
-    expect(screen.queryByTestId('journey-next')).toBeNull()
-    cleanup(); next = { kind: 'move', turn: 3, move: 'm' } // contrast: another step beside the proposal is still offered
-    render(<JourneyRecord view={full()} at={null} />)
-    expect(screen.getByTestId('journey-next')).toBeInTheDocument()
+    expect(screen.queryByTestId('journey-next')).toBeNull() // the proposal alone is not a reply move
+    cleanup(); show(moveOn('other_method')); render(<JourneyRecord view={moveOn('other_method')} at={null} />)
+    expect(screen.queryByTestId('journey-next')).toBeNull() // the filler move names no step
+    cleanup(); show(moveOn('what_would_change_your_mind', false)); render(<JourneyRecord view={moveOn('what_would_change_your_mind', false)} at={null} />)
+    expect(screen.queryByTestId('journey-next')).toBeNull() // a reply that is no longer the newest offers none
+    cleanup(); show(moveOn('what_would_change_your_mind')); render(<JourneyRecord view={moveOn('what_would_change_your_mind')} at={null} />)
+    expect(screen.getByTestId('journey-next')).toBeInTheDocument() // contrast: the real newest move, beside the proposal
   })
-  it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion)', () => {
-    next = { kind: 'move', turn: 3, move: 'm' }
-    show(full())
-    chat.store.setState({ gone: 's_0123456789ab\u00003\u0000m' })
-    render(<JourneyRecord view={full()} at={null} />)
+  it('a move the chat refused as stale is no next step here either (Codex NO-GO 4: the chat\'s own exclusion), against the real predicate', () => {
+    const v = moveOn('what_would_change_your_mind')
+    show(v)
+    chat.store.setState({ gone: `s_0123456789ab\u0000${TURN}\u0000what_would_change_your_mind` })
+    render(<JourneyRecord view={v} at={null} />)
     expect(screen.queryByTestId('journey-next')).toBeNull()
     cleanup()
-    chat.store.setState({ gone: 's_0123456789ab\u00004\u0000m' }) // contrast: another turn's refusal leaves this step offered
-    render(<JourneyRecord view={full()} at={null} />)
+    chat.store.setState({ gone: `s_0123456789ab\u0000${TURN + 1}\u0000what_would_change_your_mind` }) // contrast: another turn's refusal leaves this step offered
+    render(<JourneyRecord view={v} at={null} />)
     expect(screen.getByTestId('journey-next')).toBeInTheDocument()
   })
 })

@@ -111,9 +111,10 @@ describe('the composer says what is happening', () => {
   it('while a write is in flight it says Olumi is thinking', async () => {
     sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: 'olumi' }))
     await dock()
-    expect(screen.queryByTestId('view-chat-working')).toBeNull()
+    expect(screen.queryByTestId('view-chat-turn-wait')).toBeNull()
     await act(async () => { useViewChat.setState({ busy: true }) })
-    expect(screen.getByTestId('view-chat-working')).toHaveTextContent('Olumi is thinking…')
+    // P1: the thread's one waiting line (the loader, the words, the seconds) says it, from Send through acceptance.
+    expect(screen.getByTestId('view-chat-turn-wait')).toHaveTextContent('Olumi is thinking…')
   })
 
   it('a re-read that fails after a good View says so beside the conversation', async () => {

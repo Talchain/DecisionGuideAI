@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { OkIcon } from '../../look/icons'
+import { useAnchoredTip } from '../../look/Tip'
 import { useHasShowCamera } from './cameraPort'
 import { typography, useInputsOpen, useLevel, useViewStore } from './deps'
 import { leave, returnToBefore, showInWorkspace, useShown } from './show'
@@ -27,6 +28,7 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
   const shown = useShown((s) => s.turn === turn)
   const said = useShown((s) => (s.said !== null && s.said.turn === turn ? s.said.words : null))
   const busy = useShown((s) => s.busy && s.turn === turn)
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE)
   useEffect(() => () => leave(turn), [turn])
   // The show changes the reply above this control (its "About" chips name the unfolded cards), which can push the control out of the
   // panel's view just when it has become the way back. Through its own show and return, and never otherwise, it is kept in view.
@@ -42,8 +44,8 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid="show-in-workspace">
       <button ref={button} type="button" data-shown={shown || undefined} aria-busy={busy || undefined} data-testid="show-in-workspace-button"
-        onClick={() => { void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
-        title={shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}
+        onClick={() => { dismiss(); void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
+        {...handlers} aria-describedby={describedBy}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown
           ? <OkIcon id="show-in-workspace" variant="alt" size={14} decorative />
@@ -51,6 +53,7 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
         {/* v10 review item 6: an icon in the reply's one row; the words stay for readers and on hover (the Return words are drawn while shown). */}
         <span className={shown ? '' : 'sr-only'}>{shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}</span>
       </button>
+      {tip}
       {said === null ? null : <span role="status" className={`${typography.viewPanelMeta} text-text-body`} data-testid="show-in-workspace-said">{said}</span>}
     </div>
   )

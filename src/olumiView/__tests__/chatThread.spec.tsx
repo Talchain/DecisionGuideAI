@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
-import { NEXT_STEP_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
+import { NEXT_STEP_WORDS, THINKING_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 import { useUIStore } from '../../stores/uiStore'
 import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
 
@@ -97,6 +97,29 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(queryByTestId('view-chat-turn-seconds')).toBeNull()
     expect(getByTestId('view-chat-turn-words').textContent).toBe(failed.turn!.words)
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
+  })
+
+  it('CT4b P1 one waiting mount from Send through acceptance: the loader node is the same element (no remount, no restart), its seconds go on, and there is only ever one loader', async () => {
+    vi.useFakeTimers()
+    try {
+      useViewChat.setState({ busy: true })
+      show({ ...fixture, turn: null } as never)
+      const { getByTestId, container } = render(<ViewChat />)
+      const loader = getByTestId('view-chat-turn-loader')
+      expect(getByTestId('view-chat-turn-words').textContent).toBe(THINKING_WORDS) // before acceptance: the page's one waiting sentence
+      expect(getByTestId('view-chat-turn-wait').children.length, 'the loader, the words and the seconds are siblings in one row').toBe(2)
+      await act(async () => { vi.advanceTimersByTime(3000) })
+      expect(getByTestId('view-chat-turn-seconds').textContent).toBe(' 3 s')
+      // core accepts: the SAME loader element stands, core's words replace the page's, and the seconds do not go back to 0
+      act(() => show({ ...fixture, turn: running }))
+      expect(getByTestId('view-chat-turn-loader')).toBe(loader)
+      expect(getByTestId('view-chat-turn-words').textContent).toBe(running.words)
+      expect(Number.parseInt(getByTestId('view-chat-turn-seconds').textContent!, 10)).toBeGreaterThanOrEqual(3)
+      expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
+      // the end: the line stays, the loader and seconds go (contrast)
+      act(() => { useViewChat.setState({ busy: false }); show({ ...fixture, turn: failed.turn }) })
+      expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(0)
+    } finally { vi.useRealTimers(); useViewChat.setState({ busy: false }) }
   })
 
   it('CT8f CATCH (contract 3, Codex 15 Nov): a long brief before Olumi\'s first reply: the thread rests on the REPLY\'s first line, and the floor marker is the reply container', () => {
