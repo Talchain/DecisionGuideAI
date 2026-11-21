@@ -29,11 +29,11 @@ export function noChanceLineOf(h: Headline): { line: string; hover: string } {
 }
 
 /** Core's short break-even line for the measured aim, selected only by fields; every word stays core's. */
-export function tipsLineOf(card: ViewCard, h: Headline): { face: string; label: string | null; whole: string; i: number } | null {
+export function tipsLineOf(card: ViewCard, h: Headline): { face: string; label: string | null; whole: string; conditional: boolean; i: number } | null {
   for (let i = 0; i < card.rows.length; i++) {
     const r = card.rows[i]!
     if (r.kind === 'none' && r.aim_id === h.aim_id && r.tips_face != null && r.tips_face !== '') {
-      return { face: r.tips_face, label: r.tips_label ?? null, whole: r.tips ?? '', i }
+      return { face: r.tips_face, label: r.tips_label ?? null, whole: r.tips ?? '', conditional: Array.isArray(r.tips_premises) && r.tips_premises.length > 0, i }
     }
   }
   return null

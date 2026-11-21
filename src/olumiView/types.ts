@@ -192,6 +192,7 @@ export type View = {
         tips?: string
         tips_face?: string
         tips_label?: string
+        tips_premises?: readonly string[]
         draw_bounds?: {
           draws: number
           met: number

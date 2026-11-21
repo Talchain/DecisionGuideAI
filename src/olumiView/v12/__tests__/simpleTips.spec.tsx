@@ -6,6 +6,7 @@ import { cleanup, render } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { olumiKey } from '../../layout'
 import { typography } from '../../../styles/typography'
+import { colourClass, ICONS } from '../../look/icons'
 import { tipOf } from '../../__tests__/tipHelpers'
 import { SimpleFace } from '../SimpleFace'
 import { RowBelow } from '../detailed/marks'
@@ -17,8 +18,8 @@ vi.mock('../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ use
 vi.mock('../../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 const load = (file: string): View => JSON.parse(readFileSync(path.resolve(`src/olumiView/fixtures/${file}`), 'utf8'))
-const fixtures = ['pending', 'approved'].map((state) => ({ state, model: load(`break-even/break-even-${state}.view3.json`).model! }))
-const option = (model: ViewModel) => structuredClone(model.cards.find((c) => c.id === 'opt_dispatch')!)
+const fixtures = ['pending', 'approved'].flatMap((state) => [false, true].map((conditional) => ({ state, conditional, model: load(`break-even/break-even-${conditional ? 'cond-' : ''}${state}.view3.json`).model! })))
+const option = (model: ViewModel) => structuredClone(model.cards.find((c) => c.family === 'option' && c.rows.some((r) => r.kind === 'none' && r.aim_id === c.headline?.aim_id && !!r.tips_face))!)
 type TipRow = Extract<ViewCard['rows'][number], { kind: 'none' }> & { tips_face?: string; tips_label?: string }
 const tipRow = (card: ViewCard) => card.rows.find((r) => r.kind === 'none' && r.aim_id === card.headline!.aim_id)! as TipRow
 const draw = (card: ViewCard, model: ViewModel) => render(<SimpleFace card={card} model={model} noted={false} />).container
@@ -26,7 +27,7 @@ const tips = (el: Element) => el.querySelector<HTMLElement>('[data-simple-face="
 const count = (s: string, w: string) => s.split(w).length - 1
 afterEach(cleanup)
 
-for (const { state, model } of fixtures) describe(state, () => {
+for (const { state, conditional, model } of fixtures) describe(`${conditional ? 'conditional ' : ''}${state}`, () => {
   // AC1 must be RED at c5d802d6: that base renders the ordinary no-chance line, with no tips face.
   it('AC1 draws exactly one verbatim face, with the calculation mark before its words', async () => {
     const card = option(model), row = tipRow(card), i = card.rows.indexOf(row)
@@ -69,6 +70,24 @@ for (const { state, model } of fixtures) describe(state, () => {
     const footer = el.querySelector(`[data-simple-foot="${card.id}"]`)
     expect(footer).not.toBeNull()
     expect(line.contains(footer)).toBe(false)
+  })
+
+  it("AC6 a conditional threshold shows the registry's premise marker inside the line; unflagged rows show none", async () => {
+    const card = option(model), row = tipRow(card), el = draw(card, model), line = tips(el)!
+    const entry = ICONS['assumption-tag']
+    const markers = line.querySelectorAll<HTMLElement>(`[role="img"][aria-label="${entry.hover}"]`)
+    expect(markers).toHaveLength(conditional ? 1 : 0)
+    expect(line.getAttribute('data-simple-tips-conditional')).toBe(conditional ? card.id : null)
+    if (conditional) {
+      const marker = markers[0]!
+      expect(marker.classList.contains(colourClass(entry.colour))).toBe(true)
+      expect(marker.querySelector('svg')?.getAttribute('width')).toBe('14')
+      expect(marker.querySelector('svg')?.getAttribute('height')).toBe('14')
+      expect(marker.nextSibling?.nodeType).toBe(Node.TEXT_NODE)
+      expect(marker.nextSibling?.textContent).toBe(row.tips_face)
+      expect(marker.previousElementSibling?.querySelector('[data-olumi-mark]')).not.toBeNull()
+      expect(await tipOf(marker)).toBe(entry.hover)
+    }
   })
 
   it('AC3 hover preserves why and add whole, with tips exactly once', async () => {

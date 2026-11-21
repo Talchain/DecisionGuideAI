@@ -18,6 +18,7 @@
 import type { ReactNode } from 'react'
 import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
+import { OkIcon } from '../look/icons'
 import type { ViewCard, ViewModel } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceAtOf } from '../resultRange'
@@ -159,8 +160,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         // ("What-if: …", S2 01:3xZ); `tips_label` only marks it (data-simple-tips-whatif), never a second line.
         // CP-3 full-width (DL 21 Nov): the threshold and unit must fit two lines at 1.33.
         : { text: tip.face, title: tip.whole !== '' && !hover.includes(tip.whole) ? `${hover}\n${tip.whole}` : hover, row: true,
-            marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }) },
-            mark: key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span> }
+            marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }), ...(tip.conditional ? { 'data-simple-tips-conditional': id } : {}) },
+            mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? <OkIcon id="assumption-tag" size={14} decorative={false} className="mr-1 align-middle" /> : null}</> }
     }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''

@@ -1,0 +1,1788 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000006",
+ "title": "Support capacity",
+ "commit": "golden",
+ "signature": "[4,null,[],[],[\"Paul\"],[],[\"p_1\"]]",
+ "you": "Paul",
+ "you_id": "p_1",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": {
+  "id": 4,
+  "n": 1,
+  "label": "Version 1",
+  "changed": [],
+  "at": "2026-11-02T00:00:00.000Z",
+  "at_text": "2 Nov 2026"
+ },
+ "model": {
+  "question": {
+   "text": "How could cancellations fall?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "cancel_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Cancellation rate now",
+    "typed": false,
+    "detail": "Cancellation rate now · quantity · Theirs: “Our cancellation rate is 7%.” (Ana) · 7%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "7%",
+     "title": "7%",
+     "edit": {
+      "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70",
+      "ask": "For “Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+     },
+     "range": {
+      "low": 7,
+      "likely": 7,
+      "high": 7,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cancellation rate now",
+      "whole": true,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Ana’s figure",
+     "title": "Theirs: “Our cancellation rate is 7%.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Cancellation rate now",
+    "description": "Our cancellation rate is 7%.",
+    "kind": "driver",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "cancel_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Cancellation rate wanted",
+    "typed": false,
+    "detail": "Cancellation rate wanted · quantity · Theirs: “We want the cancellation rate down to 5%.” (Ana) · 5%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "5%",
+     "title": "5%",
+     "edit": {
+      "prompt": "New figure for “Cancellation rate wanted” in %: one number, or a range like 40 to 70",
+      "ask": "For “Cancellation rate wanted”, type it in %: one number, or a range like 40 to 70."
+     },
+     "range": {
+      "low": 5,
+      "likely": 5,
+      "high": 5,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cancellation rate wanted",
+      "whole": true,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Ana’s figure",
+     "title": "Theirs: “We want the cancellation rate down to 5%.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Cancellation rate wanted",
+    "description": "We want the cancellation rate down to 5%.",
+    "kind": "driver",
+    "aim": null,
+    "needs": [],
+    "bar_of": "aim_cancel"
+   },
+   {
+    "id": "opt_classes",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Evening classes",
+    "typed": false,
+    "detail": "Evening classes · option · Theirs: “We could add evening classes or hire a second coach.” (Ana)",
+    "col": 0,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "The new staff can be hired within a month.",
+      "title": "The new staff can be hired within a month. · prerequisite · Proposed by Olumi: Not stated; to be checked.",
+      "id": "n_staff",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Not stated; to be checked."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "aim_cancel",
+      "text": "The chance for 'Evening classes' cannot be worked out yet: rests on \"Effect of Evening classes\", which is unknown: Not sized yet. On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Evening classes’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+      "title": "The chance for 'Evening classes' cannot be worked out yet: rests on \"Effect of Evening classes\", which is unknown: Not sized yet.",
+      "tips": "On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Evening classes’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+      "tips_face": "At least about 2 percentage points less ‘Cancellation rate now’ meets this aim, assuming ‘Members leave mainly because the gym feels crowded’, provided ‘The new staff can be hired within a month’.",
+      "tips_premises": [
+       "n_crowded",
+       "n_staff"
+      ]
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "opt_classes_effect_on_cancel_now"
+     ],
+     "text": "1 figure",
+     "title": "Figure: Effect of Evening classes",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "opt_classes_effect_on_cancel_now",
+      "lever": "cancel_now_change",
+      "label": "Effect of Evening classes",
+      "figure": {
+       "text": "not sized yet",
+       "title": "Not sized yet."
+      },
+      "whose": "olumi",
+      "author": "Proposed by Olumi, not yet sized",
+      "read_by": [
+       {
+        "id": "f_cancel_now_with_route",
+        "kind": "calculation",
+        "output": "cancel_now_with_route",
+        "label": "Cancellation rate now with the route"
+       }
+      ]
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Evening classes",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by Ana",
+     "title": "Theirs: “We could add evening classes or hire a second coach.” (Ana)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_cancel",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance for 'Evening classes' cannot be worked out yet: rests on \"Effect of Evening classes\", which is unknown: Not sized yet.",
+     "range": null,
+     "why": "The chance for 'Evening classes' cannot be worked out yet: rests on \"Effect of Evening classes\", which is unknown: Not sized yet. On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Evening classes’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+     "add": null,
+     "shared": false
+    },
+    "title_short": "Evening classes",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": [
+     {
+      "id": "n_crowded",
+      "label": "Members leave mainly because the gym feels crowded.",
+      "edit": null
+     },
+     {
+      "id": "n_staff",
+      "label": "The new staff can be hired within a month.",
+      "edit": null
+     },
+     {
+      "id": "opt_classes_effect_on_cancel_now",
+      "label": "Effect of Evening classes",
+      "edit": {
+       "prompt": "New figure for “Effect of Evening classes” in %: one number, or a range like 40 to 70",
+       "ask": "For “Effect of Evening classes”, type it in %: one number, or a range like 40 to 70."
+      }
+     }
+    ]
+   },
+   {
+    "id": "opt_coach",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Second coach",
+    "typed": false,
+    "detail": "Second coach · option · Theirs: “We could add evening classes or hire a second coach.” (Ana)",
+    "col": 0,
+    "h": 130,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "⊢",
+      "text": "The new staff can be hired within a month.",
+      "title": "The new staff can be hired within a month. · prerequisite · Proposed by Olumi: Not stated; to be checked.",
+      "id": "n_staff",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Not stated; to be checked."
+      }
+     }
+    ],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "aim_cancel",
+      "text": "The chance for 'Second coach' cannot be worked out yet: rests on \"Effect of Second coach\", which is unknown: Not sized yet. On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Second coach’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+      "title": "The chance for 'Second coach' cannot be worked out yet: rests on \"Effect of Second coach\", which is unknown: Not sized yet.",
+      "tips": "On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Second coach’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+      "tips_face": "At least about 2 percentage points less ‘Cancellation rate now’ meets this aim, assuming ‘Members leave mainly because the gym feels crowded’, provided ‘The new staff can be hired within a month’.",
+      "tips_premises": [
+       "n_crowded",
+       "n_staff"
+      ]
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "opt_coach_effect_on_cancel_now"
+     ],
+     "text": "1 figure",
+     "title": "Figure: Effect of Second coach",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "opt_coach_effect_on_cancel_now",
+      "lever": "cancel_now_change",
+      "label": "Effect of Second coach",
+      "figure": {
+       "text": "not sized yet",
+       "title": "Not sized yet."
+      },
+      "whose": "olumi",
+      "author": "Proposed by Olumi, not yet sized",
+      "read_by": [
+       {
+        "id": "f_cancel_now_with_route",
+        "kind": "calculation",
+        "output": "cancel_now_with_route",
+        "label": "Cancellation rate now with the route"
+       }
+      ]
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Second coach",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by Ana",
+     "title": "Theirs: “We could add evening classes or hire a second coach.” (Ana)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_cancel",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance for 'Second coach' cannot be worked out yet: rests on \"Effect of Second coach\", which is unknown: Not sized yet.",
+     "range": null,
+     "why": "The chance for 'Second coach' cannot be worked out yet: rests on \"Effect of Second coach\", which is unknown: Not sized yet. On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Reduce cancellations’ is met if ‘Effect of Second coach’ is at most about −2 percentage points. It rests on the assumption ‘Members leave mainly because the gym feels crowded’. It holds only if ‘The new staff can be hired within a month’.",
+     "add": null,
+     "shared": false
+    },
+    "title_short": "Second coach",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": [
+     {
+      "id": "n_crowded",
+      "label": "Members leave mainly because the gym feels crowded.",
+      "edit": null
+     },
+     {
+      "id": "n_staff",
+      "label": "The new staff can be hired within a month.",
+      "edit": null
+     },
+     {
+      "id": "opt_coach_effect_on_cancel_now",
+      "label": "Effect of Second coach",
+      "edit": {
+       "prompt": "New figure for “Effect of Second coach” in %: one number, or a range like 40 to 70",
+       "ask": "For “Effect of Second coach”, type it in %: one number, or a range like 40 to 70."
+      }
+     }
+    ]
+   },
+   {
+    "id": "opt_now",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Carry on",
+    "typed": false,
+    "detail": "Carry on · option · Proposed by Olumi: The reference route.",
+    "col": 0,
+    "h": 98,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The reference route."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Reduce cancellations",
+      "aim_id": "aim_cancel",
+      "title": "With the model's figures, 'Carry on' never meets 'Reduce cancellations': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in Cancellation rate now', not yet confirmed. It rests on: Members leave mainly because the gym feels crowded.",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 7,
+       "median": 7,
+       "high": 7,
+       "unit": "%",
+       "text": "7%",
+       "title": "Under 'Carry on', 'Cancellation rate now with the route' is this in at least 8 times in 10. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in Cancellation rate now', not yet confirmed. It rests on: Members leave mainly because the gym feels crowded."
+      },
+      "driver": null,
+      "text": "With the model's figures, 'Carry on' never meets 'Reduce cancellations': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [
+        "cancel_now_change"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim and proposed figure for 'Change in Cancellation rate now'; 1 assumption.",
+      "if_approved": null,
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "baseline": true,
+    "rests_on": [
+     {
+      "id": "n_crowded",
+      "whose": "olumi",
+      "author": "Olumi inferred"
+     },
+     {
+      "id": "cancel_now",
+      "whose": "theirs",
+      "label": "Cancellation rate now",
+      "author": "Ana’s figure"
+     },
+     {
+      "id": "cancel_target",
+      "whose": "theirs",
+      "label": "Cancellation rate wanted",
+      "author": "Ana’s figure"
+     },
+     {
+      "id": "cancel_now_change",
+      "whose": "olumi",
+      "label": "Change in Cancellation rate now",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "sets": [],
+    "face": {
+     "title": {
+      "text": "Carry on",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: The reference route."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_cancel",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Carry on' never meets 'Reduce cancellations': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in Cancellation rate now', not yet confirmed. It rests on: Members leave mainly because the gym feels crowded.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    },
+    "title_short": "Carry on",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "aim_cancel",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Reduce cancellations",
+    "typed": false,
+    "detail": "Reduce cancellations · goal · Theirs: “We want the cancellation rate down to 5%.” (Ana)",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [
+     {
+      "glyph": "◇",
+      "text": "Members leave mainly because the gym feels crowded.",
+      "title": "Members leave mainly because the gym feels crowded. · assumption · Proposed by Olumi: Not stated; to be checked. · Assumed in this model",
+      "id": "n_crowded",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Proposed by Olumi: Not stated; to be checked."
+      }
+     }
+    ],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most 5%",
+     "title": "at most 5%",
+     "olumi": {
+      "glyph": "◐",
+      "title": "Partly Olumi’s: a person’s figure, Olumi’s reading of how it is counted"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Reduce cancellations",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Olumi’s wording of what Ana said",
+     "title": "Theirs: “We want the cancellation rate down to 5%.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Reduce cancellations",
+    "description": "We want the cancellation rate down to 5%.",
+    "kind": "aim",
+    "aim": "goal",
+    "needs": []
+   },
+   {
+    "id": "cancel_now_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in Cancellation rate now",
+    "typed": false,
+    "detail": "Change in Cancellation rate now · quantity · Proposed by Olumi: No change as things stand. · 0%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: No change as things stand."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0%",
+     "title": "0%",
+     "edit": {
+      "prompt": "New figure for “Change in Cancellation rate now” in %: one number, or a range like 40 to 70",
+      "ask": "For “Change in Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+     },
+     "range": {
+      "low": 0,
+      "likely": 0,
+      "high": 0,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": [
+     {
+      "option": "opt_now",
+      "text": "0%",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in Cancellation rate now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: No change as things stand."
+    },
+    "failed": [],
+    "title_short": "Change in Cancellation rate now",
+    "description": "No change as things stand.",
+    "kind": "driver",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "cancel_now_with_route",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Cancellation rate now with the route",
+    "typed": false,
+    "detail": "Cancellation rate now with the route · quantity · Proposed by Olumi: The measure now plus the change from the route. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The measure now plus the change from the route."
+    },
+    "change": null,
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Carry on: 7%",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. It rests on figures Olumi proposed. Carry on: 7%. Not worked out under Evening classes, Second coach. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "f_cancel_now_with_route"
+     ],
+     "text": "1 calculation",
+     "title": "How Cancellation rate now with the route is worked out",
+     "label": "Show 1 notes behind this",
+     "open": false,
+     "proposed": false,
+     "change": "",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "used": true,
+    "values": [
+     {
+      "option": "opt_now",
+      "text": "7%",
+      "p10": 7,
+      "p50": 7,
+      "p90": 7,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": null
+     }
+    ],
+    "worked": {
+     "form": "sum",
+     "steps": [
+      {
+       "id": "cancel_now",
+       "label": "Cancellation rate now",
+       "figure": {
+        "text": "7%",
+        "title": "7%",
+        "options": [
+         {
+          "option": "opt_classes",
+          "id": "cancel_now",
+          "text": "7%",
+          "title": "7%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our cancellation rate is 7%.” (Ana)"
+          },
+          "edit": {
+           "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70",
+           "ask": "For “Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+          }
+         },
+         {
+          "option": "opt_coach",
+          "id": "cancel_now",
+          "text": "7%",
+          "title": "7%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our cancellation rate is 7%.” (Ana)"
+          },
+          "edit": {
+           "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70",
+           "ask": "For “Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+          }
+         },
+         {
+          "option": "opt_now",
+          "id": "cancel_now",
+          "text": "7%",
+          "title": "7%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our cancellation rate is 7%.” (Ana)"
+          },
+          "edit": {
+           "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70",
+           "ask": "For “Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+          }
+         }
+        ]
+       },
+       "author": {
+        "by": "person",
+        "text": "Ana’s figure",
+        "title": "Theirs: “Our cancellation rate is 7%.” (Ana)"
+       },
+       "edit": {
+        "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70",
+        "ask": "For “Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+       },
+       "role": "term",
+       "sign": 1
+      },
+      {
+       "id": "cancel_now_change",
+       "label": "Change in Cancellation rate now",
+       "figure": {
+        "text": "0%",
+        "title": "0%",
+        "options": [
+         {
+          "option": "opt_classes",
+          "id": "opt_classes_effect_on_cancel_now",
+          "text": "not sized yet",
+          "title": "Not sized yet.",
+          "author": {
+           "by": "olumi",
+           "text": "Proposed by Olumi, not yet sized",
+           "title": "Proposed by Olumi: Olumi's unknown effect of ‘Evening classes’ on ‘Cancellation rate now’, down as stated."
+          },
+          "edit": {
+           "prompt": "New figure for “Effect of Evening classes” in %: one number, or a range like 40 to 70",
+           "ask": "For “Effect of Evening classes”, type it in %: one number, or a range like 40 to 70."
+          }
+         },
+         {
+          "option": "opt_coach",
+          "id": "opt_coach_effect_on_cancel_now",
+          "text": "not sized yet",
+          "title": "Not sized yet.",
+          "author": {
+           "by": "olumi",
+           "text": "Proposed by Olumi, not yet sized",
+           "title": "Proposed by Olumi: Olumi's unknown effect of ‘Second coach’ on ‘Cancellation rate now’, down as stated."
+          },
+          "edit": {
+           "prompt": "New figure for “Effect of Second coach” in %: one number, or a range like 40 to 70",
+           "ask": "For “Effect of Second coach”, type it in %: one number, or a range like 40 to 70."
+          }
+         },
+         {
+          "option": "opt_now",
+          "id": "cancel_now_change",
+          "text": "0%",
+          "title": "0%",
+          "author": {
+           "by": "olumi",
+           "text": "Olumi’s estimate",
+           "title": "Proposed by Olumi: No change as things stand."
+          },
+          "edit": {
+           "prompt": "New figure for “Change in Cancellation rate now” in %: one number, or a range like 40 to 70",
+           "ask": "For “Change in Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+          }
+         }
+        ]
+       },
+       "author": {
+        "by": "olumi",
+        "text": "Olumi’s estimate",
+        "title": "Proposed by Olumi: No change as things stand."
+       },
+       "edit": {
+        "prompt": "New figure for “Change in Cancellation rate now” in %: one number, or a range like 40 to 70",
+        "ask": "For “Change in Cancellation rate now”, type it in %: one number, or a range like 40 to 70."
+       },
+       "role": "term",
+       "sign": 1
+      }
+     ]
+    },
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Cancellation rate now with the route",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: The measure now plus the change from the route."
+    },
+    "failed": [],
+    "title_short": "Cancellation rate now with the route",
+    "description": "The measure now plus the change from the route.",
+    "kind": "result",
+    "aim": null,
+    "needs": []
+   }
+  ],
+  "links": [
+   {
+    "from": "cancel_now",
+    "to": "cancel_now_with_route",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: The measure now plus the change from the route.",
+    "role": "input",
+    "records": [
+     "f_cancel_now_with_route"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now"
+    },
+    "holds": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "cancel_now_with_route",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: The measure now plus the change from the route."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "cancel_now",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Cancellation rate now' raises 'Cancellation rate now with the route'. It moves it one for one: this is the model's own arithmetic."
+    },
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "cancel_now_change",
+    "to": "cancel_now_with_route",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "adds to · Proposed by Olumi: The measure now plus the change from the route.",
+    "role": "input",
+    "records": [
+     "f_cancel_now_with_route"
+    ],
+    "effect": null,
+    "remove": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now_change"
+    },
+    "holds": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now_change"
+    },
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "cancel_now_with_route",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: The measure now plus the change from the route."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "cancel_now_change",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Change in Cancellation rate now' raises 'Cancellation rate now with the route'. It moves it one for one: this is the model's own arithmetic."
+    },
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "opt_classes",
+    "to": "cancel_now_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Effect of Evening classes",
+    "role": "effect",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "opt_coach",
+    "to": "cancel_now_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Effect of Second coach",
+    "role": "effect",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "cancel_now_with_route",
+    "to": "aim_cancel",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "role": "measures",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "cancel_target",
+    "to": "aim_cancel",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "role": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Reduce cancellations’",
+   "lead": "Chance of ‘Reduce cancellations’, in this model on current information. Only one option has a calculated result for this aim; this is not a complete comparison.",
+   "all_withheld": false,
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Related records:",
+    "text": "4 related model records",
+    "items": [
+     {
+      "id": "n_crowded",
+      "text": "‘Members leave mainly because the gym feels crowded.’",
+      "title": "Members leave mainly because the gym feels crowded.",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "n_staff",
+      "text": "‘The new staff can be hired within a month.’",
+      "title": "The new staff can be hired within a month.",
+      "answer": false,
+      "unknown": null,
+      "edit": null
+     },
+     {
+      "id": "opt_classes_effect_on_cancel_now",
+      "text": "‘Effect of Evening classes’",
+      "title": "Not sized yet.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Effect of Evening classes” in %: one number, or a range like 40 to 70",
+       "ask": "For “Effect of Evening classes”, type it in %: one number, or a range like 40 to 70."
+      }
+     },
+     {
+      "id": "opt_coach_effect_on_cancel_now",
+      "text": "‘Effect of Second coach’",
+      "title": "Not sized yet.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": {
+       "prompt": "New figure for “Effect of Second coach” in %: one number, or a range like 40 to 70",
+       "ask": "For “Effect of Second coach”, type it in %: one number, or a range like 40 to 70."
+      }
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F7",
+     "kind": "middle",
+     "line": "'Carry on' · aim 'Reduce cancellations': 7%, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Carry on', for 'Reduce cancellations': 'Cancellation rate now with the route' 7%, against a target of at most 5%: misses it. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in Cancellation rate now', not yet confirmed. It rests on: Members leave mainly because the gym feels crowded.",
+     "aim": "aim_cancel",
+     "option": "opt_now",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "aim_cancel",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Reduce cancellations': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Reduce cancellations': this version was saved before Olumi kept the reason."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "finding": {
+    "text": "Only one option has a calculated result for 'Reduce cancellations'; this is not a complete comparison.",
+    "figure": null,
+    "needs": null,
+    "title": "Only one option has a calculated result for 'Reduce cancellations'; this is not a complete comparison."
+   },
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Reduce cancellations’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Reduce cancellations’ is likely to be (8 times in 10)."
+    }
+   ]
+  },
+  "edit_base": 4,
+  "holdable": [
+   {
+    "link": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now"
+    },
+    "from": "cancel_now",
+    "to": "cancel_now_with_route",
+    "text": "'Cancellation rate now' → 'Cancellation rate now with the route'",
+    "line": true,
+    "card": null
+   },
+   {
+    "link": {
+     "record": "f_cancel_now_with_route",
+     "part": "cancel_now_change"
+    },
+    "from": "cancel_now_change",
+    "to": "cancel_now_with_route",
+    "text": "'Change in Cancellation rate now' → 'Cancellation rate now with the route'",
+    "line": true,
+    "card": null
+   }
+  ],
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "effect",
+    "glyph": "→",
+    "text": "modelled effect"
+   },
+   {
+    "id": "input",
+    "glyph": "⊸",
+    "text": "input to"
+   },
+   {
+    "id": "size",
+    "glyph": "┄",
+    "text": "size"
+   },
+   {
+    "id": "doubted",
+    "glyph": "╌",
+    "text": "doubted"
+   },
+   {
+    "id": "unsettled",
+    "glyph": "⇄",
+    "text": "not settled"
+   },
+   {
+    "id": "measures",
+    "glyph": "━",
+    "text": "measures"
+   },
+   {
+    "id": "target",
+    "glyph": "⇥",
+    "text": "target"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "coaching_questions": [],
+  "questions": [],
+  "trial_questions": [],
+  "removed": [],
+  "aim": {
+   "quantity": "cancel_now_with_route",
+   "value": 5,
+   "unit": "%",
+   "text": "at most 5%",
+   "title": "5%",
+   "side": "at_most"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ],
+  "first_draft": false
+ },
+ "proposal": null,
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ],
+  "records": [
+   {
+    "id": "cancel_now",
+    "family": "quantity",
+    "label": "Cancellation rate now"
+   },
+   {
+    "id": "cancel_target",
+    "family": "quantity",
+    "label": "Cancellation rate wanted"
+   },
+   {
+    "id": "opt_classes",
+    "family": "option",
+    "label": "Evening classes"
+   },
+   {
+    "id": "opt_coach",
+    "family": "option",
+    "label": "Second coach"
+   },
+   {
+    "id": "opt_now",
+    "family": "option",
+    "label": "Carry on"
+   },
+   {
+    "id": "aim_cancel",
+    "family": "goal",
+    "label": "Reduce cancellations"
+   },
+   {
+    "id": "opt_classes_effect_on_cancel_now",
+    "family": "quantity",
+    "label": "Effect of Evening classes"
+   },
+   {
+    "id": "cancel_now_change",
+    "family": "quantity",
+    "label": "Change in Cancellation rate now"
+   },
+   {
+    "id": "cancel_now_with_route",
+    "family": "quantity",
+    "label": "Cancellation rate now with the route"
+   },
+   {
+    "id": "f_cancel_now_with_route",
+    "family": "relation",
+    "label": "how Cancellation rate now with the route is worked out"
+   },
+   {
+    "id": "opt_coach_effect_on_cancel_now",
+    "family": "quantity",
+    "label": "Effect of Second coach"
+   },
+   {
+    "id": "n_crowded",
+    "family": "assumption",
+    "label": "Members leave mainly because the gym feels crowded."
+   },
+   {
+    "id": "n_staff",
+    "family": "condition",
+    "label": "The new staff can be hired within a month."
+   }
+  ],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "view_figure_cards": [
+   {
+    "id": "cancel_now",
+    "label": "Cancellation rate now",
+    "prompt": "New figure for “Cancellation rate now” in %: one number, or a range like 40 to 70"
+   },
+   {
+    "id": "cancel_target",
+    "label": "Cancellation rate wanted",
+    "prompt": "New figure for “Cancellation rate wanted” in %: one number, or a range like 40 to 70"
+   },
+   {
+    "id": "cancel_now_change",
+    "label": "Change in Cancellation rate now",
+    "prompt": "New figure for “Change in Cancellation rate now” in %: one number, or a range like 40 to 70"
+   }
+  ],
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "cancel_now": "Please change “Cancellation rate now”: ",
+   "cancel_target": "Please change “Cancellation rate wanted”: ",
+   "opt_classes": "Please change “Evening classes”: ",
+   "opt_coach": "Please change “Second coach”: ",
+   "opt_now": "Please change “Carry on”: ",
+   "aim_cancel": "Please change “Reduce cancellations”: ",
+   "opt_classes_effect_on_cancel_now": "Please change “Effect of Evening classes”: ",
+   "cancel_now_change": "Please change “Change in Cancellation rate now”: ",
+   "cancel_now_with_route": "Please change “Cancellation rate now with the route”: ",
+   "f_cancel_now_with_route": "Please change “how Cancellation rate now with the route is worked out”: ",
+   "opt_coach_effect_on_cancel_now": "Please change “Effect of Second coach”: ",
+   "n_crowded": "Please change “Members leave mainly because the gym feels crowded.”: ",
+   "n_staff": "Please change “The new staff can be hired within a month.”: "
+  }
+ },
+ "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "pre_mortem",
+    "text": "Imagine it failed",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 1 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": {
+   "names": [
+    "Ana"
+   ],
+   "text": "Named in the brief but not matched to anyone on the team: Ana"
+  }
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this",
+   "earlier": "Written before this round began: it stays private to you and is not part of this round’s reveal.",
+   "reuse": "Use these words in this round"
+  }
+ }
+}
