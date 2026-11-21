@@ -1,0 +1,1813 @@
+{
+ "schema": "olumi.view/3",
+ "id": "s_000000000006",
+ "title": "Support capacity",
+ "commit": "golden",
+ "signature": "[null,900,[],[],[\"Paul\"],[],[\"p_1\"]]",
+ "you": "Paul",
+ "you_id": "p_1",
+ "members": [
+  {
+   "id": "p_1",
+   "name": "Paul"
+  }
+ ],
+ "version": null,
+ "model": {
+  "question": {
+   "text": "A dispatcher or route software?",
+   "decide_by": null,
+   "proposed": false,
+   "focus": false,
+   "badge": null
+  },
+  "whole": false,
+  "cards": [
+   {
+    "id": "late_now",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Late deliveries now",
+    "typed": false,
+    "detail": "Late deliveries now · quantity · Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana) · 9%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "9%",
+     "title": "9%",
+     "edit": null,
+     "range": {
+      "low": 9,
+      "likely": 9,
+      "high": 9,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Late deliveries now",
+      "whole": true,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Ana’s figure",
+     "title": "Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Late deliveries now",
+    "description": "Our late-delivery rate rose from 5% to 9% after we changed couriers.",
+    "kind": "driver",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "late_target",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Late rate wanted",
+    "typed": false,
+    "detail": "Late rate wanted · quantity · Theirs: “We want late deliveries back to 5%.” (Ana) · 5%",
+    "col": 1,
+    "h": 88,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "5%",
+     "title": "5%",
+     "edit": null,
+     "range": {
+      "low": 5,
+      "likely": 5,
+      "high": 5,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Late rate wanted",
+      "whole": true,
+      "words": "olumi"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Ana’s figure",
+     "title": "Theirs: “We want late deliveries back to 5%.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Late rate wanted",
+    "description": "We want late deliveries back to 5%.",
+    "kind": "driver",
+    "aim": null,
+    "needs": [],
+    "bar_of": "aim_late"
+   },
+   {
+    "id": "opt_dispatch",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Hire a dispatcher",
+    "typed": false,
+    "detail": "Hire a dispatcher · option · Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)",
+    "col": 0,
+    "h": 112,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "aim_late",
+      "text": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+      "title": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it.",
+      "tips": "As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+      "tips_face": "What-if: Cut ‘Late deliveries now’ by at least about 4 percentage points to meet this aim.",
+      "tips_label": "What-if on Olumi’s working"
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "eff_dispatch"
+     ],
+     "text": "1 figure",
+     "title": "+ Figure: Change in the late rate from a dispatcher",
+     "label": "Show 1 notes behind this, 1 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 figure",
+     "face": "1 figure",
+     "icon": ""
+    },
+    "values": null,
+    "rests_on": [],
+    "sets": [
+     {
+      "id": "eff_dispatch",
+      "lever": "late_change",
+      "label": "Change in the late rate from a dispatcher",
+      "figure": {
+       "text": "not sized yet",
+       "title": "No figure says how far a dispatcher moves it."
+      },
+      "whose": "olumi",
+      "author": "Proposed by Olumi, not yet sized",
+      "read_by": [
+       {
+        "id": "f_after",
+        "kind": "calculation",
+        "output": "late_after",
+        "label": "Late rate under the route"
+       }
+      ]
+     }
+    ],
+    "face": {
+     "title": {
+      "text": "Hire a dispatcher",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by Ana",
+     "title": "Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_late",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it.",
+     "range": null,
+     "why": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+     "add": null,
+     "shared": false
+    },
+    "title_short": "Hire a dispatcher",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": [
+     {
+      "id": "eff_dispatch",
+      "label": "Change in the late rate from a dispatcher",
+      "edit": null
+     }
+    ]
+   },
+   {
+    "id": "opt_software",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Buy route software",
+    "typed": false,
+    "detail": "Buy route software · option · Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)",
+    "col": 0,
+    "h": 84,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "none",
+      "aim_id": "aim_late",
+      "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
+      "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too."
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "sets": [],
+    "face": {
+     "title": {
+      "text": "Buy route software",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Olumi’s wording of what Ana said",
+     "title": "Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)"
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_late",
+     "state": "none",
+     "text": "No chance yet",
+     "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
+     "range": null,
+     "why": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
+     "add": "Add how ‘Buy route software’ changes ‘Late rate under the route’, or change the aim’s measure to include its route.",
+     "shared": false
+    },
+    "title_short": "Buy route software",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "opt_now",
+    "family": "option",
+    "glyph": "▣",
+    "heading": "Carry on as now",
+    "typed": false,
+    "detail": "Carry on as now · option · Proposed by Olumi: The reference route.",
+    "col": 0,
+    "h": 98,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The reference route."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [
+     {
+      "kind": "chance",
+      "value": "never met in this model",
+      "fixed": true,
+      "approx": "",
+      "olumi": {
+       "glyph": "◆",
+       "title": "Rests on Olumi’s proposals"
+      },
+      "likely": null,
+      "aim": "Late deliveries back to 5%",
+      "aim_id": "aim_late",
+      "title": "With the model's figures, 'Carry on as now' never meets 'Late deliveries back to 5%': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in the late rate from the route', not yet confirmed.",
+      "chance": 0,
+      "companion": null,
+      "companion_title": null,
+      "timing": null,
+      "timing_title": null,
+      "outcome": {
+       "low": 9,
+       "median": 9,
+       "high": 9,
+       "unit": "%",
+       "text": "9%",
+       "title": "Under 'Carry on as now', 'Late rate under the route' is this in at least 8 times in 10. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in the late rate from the route', not yet confirmed."
+      },
+      "driver": null,
+      "text": "With the model's figures, 'Carry on as now' never meets 'Late deliveries back to 5%': nothing uncertain reaches it, so this is fixed by those figures, not a chance.",
+      "rests_on": {
+       "reading": true,
+       "target": false,
+       "what_ifs": [],
+       "estimates": [
+        "late_change"
+       ],
+       "approx": []
+      },
+      "rests_on_text": "Rests on Olumi's reading of the aim and proposed figure for 'Change in the late rate from the route'.",
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      },
+      "estimate": null
+     }
+    ],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "baseline": true,
+    "rests_on": [
+     {
+      "id": "late_now",
+      "whose": "theirs",
+      "label": "Late deliveries now",
+      "author": "Ana’s figure"
+     },
+     {
+      "id": "late_target",
+      "whose": "theirs",
+      "label": "Late rate wanted",
+      "author": "Ana’s figure"
+     },
+     {
+      "id": "late_change",
+      "whose": "olumi",
+      "label": "Change in the late rate from the route",
+      "author": "Olumi’s estimate"
+     }
+    ],
+    "sets": [],
+    "face": {
+     "title": {
+      "text": "Carry on as now",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Proposed by Olumi",
+     "title": "Proposed by Olumi: The reference route."
+    },
+    "committed": null,
+    "failed": [],
+    "failed_reason": null,
+    "headline": {
+     "aim_id": "aim_late",
+     "state": "fixed",
+     "text": "never met in this model",
+     "title": "With the model's figures, 'Carry on as now' never meets 'Late deliveries back to 5%': nothing uncertain reaches it, so this is fixed by those figures, not a chance. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in the late rate from the route', not yet confirmed.",
+     "range": null,
+     "why": null,
+     "add": null,
+     "shared": false
+    },
+    "title_short": "Carry on as now",
+    "description": null,
+    "kind": "option",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "late_change",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Change in the late rate from the route",
+    "typed": false,
+    "detail": "Change in the late rate from the route · quantity · Proposed by Olumi: No change under the present course. · 0%",
+    "col": 1,
+    "h": 88,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: No change under the present course."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "0%",
+     "title": "0%",
+     "edit": null,
+     "range": {
+      "low": 0,
+      "likely": 0,
+      "high": 0,
+      "unit": "%"
+     }
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": null,
+    "unused": null,
+    "used": true,
+    "values": [
+     {
+      "option": "opt_software",
+      "text": "0%",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     },
+     {
+      "option": "opt_now",
+      "text": "0%",
+      "p10": 0,
+      "p50": 0,
+      "p90": 0,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     }
+    ],
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Change in the late rate from the route",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: No change under the present course."
+    },
+    "failed": [],
+    "title_short": "Change in the late rate from the route",
+    "description": "No change under the present course.",
+    "kind": "driver",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "late_after",
+    "family": "quantity",
+    "glyph": "●",
+    "heading": "Late rate under the route",
+    "typed": false,
+    "detail": "Late rate under the route · quantity · Proposed by Olumi: The rate now plus the route's change. · Worked out from the figures it depends on",
+    "col": 2,
+    "h": 116,
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi: The rate now plus the route's change."
+    },
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": {
+     "text": "Carry on as now: 9%",
+     "title": "Middle 80% of this model's calculated values, using the ranges shown; not a forecast; rounded to three figures. It rests on figures Olumi proposed. Carry on as now: 9%. Not worked out under Hire a dispatcher, Buy route software. Worked out from the figures it depends on.",
+     "edit": null
+    },
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": null,
+    "reason": null,
+    "badge": {
+     "records": [
+      "f_after"
+     ],
+     "text": "1 calculation",
+     "title": "+ How Late rate under the route is worked out",
+     "label": "Show 1 notes behind this, 1 proposed changes",
+     "open": false,
+     "proposed": true,
+     "change": "+",
+     "words": "1 calculation",
+     "face": "1 calculation",
+     "icon": ""
+    },
+    "unused": null,
+    "used": true,
+    "values": [
+     {
+      "option": "opt_now",
+      "text": "9%",
+      "p10": 9,
+      "p50": 9,
+      "p90": 9,
+      "if_absent": [],
+      "olumi": true,
+      "if_approved": {
+       "glyph": "↻",
+       "title": "if approved"
+      }
+     }
+    ],
+    "values_withheld": [
+     {
+      "option": "opt_software",
+      "text": "Not worked out: this option does not work through what the measure counts, so no figure is given for it.",
+      "cause": "not_covered"
+     }
+    ],
+    "worked": {
+     "form": "sum",
+     "steps": [
+      {
+       "id": "late_now",
+       "label": "Late deliveries now",
+       "figure": {
+        "text": "9%",
+        "title": "9%",
+        "options": [
+         {
+          "option": "opt_dispatch",
+          "id": "late_now",
+          "text": "9%",
+          "title": "9%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana)"
+          },
+          "edit": null
+         },
+         {
+          "option": "opt_software",
+          "id": "late_now",
+          "text": "9%",
+          "title": "9%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana)"
+          },
+          "edit": null
+         },
+         {
+          "option": "opt_now",
+          "id": "late_now",
+          "text": "9%",
+          "title": "9%",
+          "author": {
+           "by": "person",
+           "text": "Ana’s figure",
+           "title": "Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana)"
+          },
+          "edit": null
+         }
+        ]
+       },
+       "author": {
+        "by": "person",
+        "text": "Ana’s figure",
+        "title": "Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana)"
+       },
+       "edit": null,
+       "role": "term",
+       "sign": 1
+      },
+      {
+       "id": "late_change",
+       "label": "Change in the late rate from the route",
+       "figure": {
+        "text": "0%",
+        "title": "0%",
+        "options": [
+         {
+          "option": "opt_dispatch",
+          "id": "eff_dispatch",
+          "text": "not sized yet",
+          "title": "No figure says how far a dispatcher moves it.",
+          "author": {
+           "by": "olumi",
+           "text": "Proposed by Olumi, not yet sized",
+           "title": "Proposed by Olumi: Kept unknown."
+          },
+          "edit": null
+         },
+         {
+          "option": "opt_software",
+          "id": "late_change",
+          "text": "0%",
+          "title": "0%",
+          "author": {
+           "by": "olumi",
+           "text": "Olumi’s estimate",
+           "title": "Proposed by Olumi: No change under the present course."
+          },
+          "edit": null
+         },
+         {
+          "option": "opt_now",
+          "id": "late_change",
+          "text": "0%",
+          "title": "0%",
+          "author": {
+           "by": "olumi",
+           "text": "Olumi’s estimate",
+           "title": "Proposed by Olumi: No change under the present course."
+          },
+          "edit": null
+         }
+        ]
+       },
+       "author": {
+        "by": "olumi",
+        "text": "Olumi’s estimate",
+        "title": "Proposed by Olumi: No change under the present course."
+       },
+       "edit": null,
+       "role": "term",
+       "sign": 1
+      }
+     ]
+    },
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Late rate under the route",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "olumi",
+     "text": "Olumi’s estimate",
+     "title": "Proposed by Olumi: The rate now plus the route's change."
+    },
+    "failed": [],
+    "title_short": "Late rate under the route",
+    "description": "The rate now plus the route's change.",
+    "kind": "result",
+    "aim": null,
+    "needs": []
+   },
+   {
+    "id": "aim_late",
+    "family": "goal",
+    "glyph": "★",
+    "heading": "Late deliveries back to 5%",
+    "typed": false,
+    "detail": "Late deliveries back to 5% · goal · Theirs: “We want late deliveries back to 5%.” (Ana)",
+    "col": 3,
+    "h": 102,
+    "olumi": null,
+    "change": {
+     "glyph": "+",
+     "title": "Olumi suggests adding this",
+     "kind": "added"
+    },
+    "focus": false,
+    "challenged": false,
+    "doubt": false,
+    "figure": null,
+    "premises": [],
+    "rows": [],
+    "driver": null,
+    "status": null,
+    "bound": {
+     "text": "at most 5%",
+     "title": "at most 5%",
+     "olumi": {
+      "glyph": "◐",
+      "title": "Partly Olumi’s: a person’s figure, Olumi’s reading of how it is counted"
+     },
+     "measured": true
+    },
+    "reason": null,
+    "badge": null,
+    "values": null,
+    "rests_on": [],
+    "face": {
+     "title": {
+      "text": "Late deliveries back to 5%",
+      "whole": true,
+      "words": "name"
+     },
+     "line": null
+    },
+    "author": {
+     "by": "person",
+     "text": "Stated by Ana",
+     "title": "Theirs: “We want late deliveries back to 5%.” (Ana)"
+    },
+    "failed": [],
+    "title_short": "Late deliveries back to 5%",
+    "description": "We want late deliveries back to 5%.",
+    "kind": "aim",
+    "aim": "goal",
+    "needs": []
+   }
+  ],
+  "links": [
+   {
+    "from": "late_now",
+    "to": "late_after",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "adds to · Proposed by Olumi: The rate now plus the change a route makes.",
+    "role": "input",
+    "records": [
+     "f_after"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "late_after",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: The rate now plus the change a route makes."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "late_now",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Late deliveries now' raises 'Late rate under the route'. It moves it one for one: this is the model's own arithmetic."
+    },
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "late_change",
+    "to": "late_after",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": true,
+    "title": "adds to · Proposed by Olumi: The rate now plus the change a route makes.",
+    "role": "input",
+    "records": [
+     "f_after"
+    ],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": {
+     "sign": "increases",
+     "of": "more_of_from",
+     "target": "late_after",
+     "disputed": false,
+     "author": {
+      "by": "olumi",
+      "text": "Olumi inferred",
+      "title": "Proposed by Olumi: The rate now plus the change a route makes."
+     },
+     "strength": {
+      "state": "sized",
+      "figure": null,
+      "low": 1,
+      "likely": 1,
+      "high": 1,
+      "unit": null,
+      "per": "late_change",
+      "share": null,
+      "relative_to": null
+     },
+     "text": "In this model, a rise in 'Change in the late rate from the route' raises 'Late rate under the route'. It moves it one for one: this is the model's own arithmetic."
+    },
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "opt_dispatch",
+    "to": "late_change",
+    "kind": "through",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "worked out through Change in the late rate from a dispatcher",
+    "role": "effect",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "late_after",
+    "to": "aim_late",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "measured by",
+    "role": "measures",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "late_target",
+    "to": "aim_late",
+    "kind": "plain",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "target",
+    "role": "target",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   },
+   {
+    "from": "opt_software",
+    "to": "aim_late",
+    "kind": "reason",
+    "label": "",
+    "doubt": false,
+    "alert": false,
+    "proposed": false,
+    "title": "considered against this aim",
+    "role": "reason",
+    "records": [],
+    "effect": null,
+    "remove": null,
+    "holds": null,
+    "causal": null,
+    "direction": null,
+    "confidence": null,
+    "label_key": null
+   }
+  ],
+  "run": {
+   "aim": "chance of ‘Late deliveries back to 5%’",
+   "lead": "Chance of ‘Late deliveries back to 5%’, in this model on current information. Only one option has a calculated result for this aim; this is not a complete comparison.",
+   "all_withheld": false,
+   "coverage": [
+    {
+     "aim_id": "aim_late",
+     "option": "opt_software",
+     "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too."
+    }
+   ],
+   "most_likely": null,
+   "waits_on": {
+    "head": "Chance of meeting the goal",
+    "label": "Related records:",
+    "text": "1 related model record",
+    "items": [
+     {
+      "id": "eff_dispatch",
+      "text": "‘Change in the late rate from a dispatcher’",
+      "title": "No figure says how far a dispatcher moves it.",
+      "answer": false,
+      "unknown": ", which no one can size yet",
+      "edit": null
+     }
+    ]
+   },
+   "notes": [
+    {
+     "text": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result.",
+     "title": "A diamond beside a result means it rests on at least one Olumi proposal. A person's figure with a range added by Olumi is marked ◐; that range alone does not give its result a diamond. Changing a proposal or range can change the result."
+    }
+   ],
+   "readings": [],
+   "timing": [],
+   "science": [],
+   "sensitivity": {
+    "text": "These are the chances if that figure turns out among the lowest third of the values the model tries, and among the highest third.",
+    "title": "For each option: its chance of meeting the aim if the figure it depends on most comes out low, and if it comes out high. Worked out in this model, not a forecast."
+   },
+   "compared": [
+    {
+     "id": "F7",
+     "kind": "middle",
+     "line": "'Carry on as now' · aim 'Late deliveries back to 5%': 9%, misses it",
+     "hover": "With every figure at its most likely value and no risk happening, 'Carry on as now', for 'Late deliveries back to 5%': 'Late rate under the route' 9%, against a target of at most 5%: misses it. It rests on Olumi's reading of the aim, not yet confirmed. It rests on Olumi's proposed figures for 'Change in the late rate from the route', not yet confirmed.",
+     "aim": "aim_late",
+     "option": "opt_now",
+     "versus": null,
+     "status": "missed",
+     "olumi": {
+      "glyph": "◆",
+      "title": "Rests on Olumi’s proposals"
+     }
+    }
+   ],
+   "compared_headings": {
+    "middle": "With every figure at its most likely value, or the middle of its range where none is given",
+    "better": "Compared with carrying on",
+    "unresolved": "Can't be told apart from the target, with every figure at its most likely value, or the middle of its range where none is given"
+   },
+   "tipping": [],
+   "tipping_heading": "What would have to be true",
+   "tipping_aims": [
+    {
+     "aim": "aim_late",
+     "lines": [],
+     "silent": [
+      {
+       "crossing": null,
+       "reason": "not_recorded",
+       "text": "nothing is said about what would have to be true for 'Late deliveries back to 5%': this version was saved before Olumi kept the reason",
+       "line": "Nothing is said about what would have to be true for 'Late deliveries back to 5%': this version was saved before Olumi kept the reason."
+      }
+     ]
+    }
+   ],
+   "failure": [],
+   "failure_heading": "What could go wrong",
+   "rests": [],
+   "rests_heading": "How much rests on Olumi's guesses",
+   "rests_figures_heading": "Figure by figure",
+   "finding": {
+    "text": "Only one option has a calculated result for 'Late deliveries back to 5%'; this is not a complete comparison.",
+    "figure": null,
+    "needs": null,
+    "title": "Only one option has a calculated result for 'Late deliveries back to 5%'; this is not a complete comparison."
+   },
+   "lenses": [
+    {
+     "id": "goal",
+     "label": "Chance of meeting the aim",
+     "title": "In this model, on current information, each option’s chance of meeting ‘Late deliveries back to 5%’."
+    },
+    {
+     "id": "outcome",
+     "label": "Likely outcome",
+     "title": "In this model, on current information, what each option’s outcome for ‘Late deliveries back to 5%’ is likely to be (8 times in 10)."
+    }
+   ]
+  },
+  "edit_base": null,
+  "key": [
+   {
+    "id": "olumi",
+    "glyph": "◆",
+    "text": "Olumi"
+   },
+   {
+    "id": "approximate",
+    "glyph": "≈",
+    "text": "approximate"
+   },
+   {
+    "id": "assumption",
+    "glyph": "◇",
+    "text": "assumption"
+   },
+   {
+    "id": "dissent",
+    "glyph": "⚑",
+    "text": "dissent"
+   },
+   {
+    "id": "challenge",
+    "glyph": "!",
+    "text": "challenge"
+   },
+   {
+    "id": "focus",
+    "glyph": "◎",
+    "text": "focus"
+   },
+   {
+    "id": "option",
+    "glyph": "▣",
+    "text": "option"
+   },
+   {
+    "id": "figure",
+    "glyph": "●",
+    "text": "figure"
+   },
+   {
+    "id": "aim",
+    "glyph": "★",
+    "text": "aim"
+   },
+   {
+    "id": "limit",
+    "glyph": "□",
+    "text": "limit"
+   },
+   {
+    "id": "risk",
+    "glyph": "△",
+    "text": "risk"
+   },
+   {
+    "id": "claim",
+    "glyph": "❝",
+    "text": "claim"
+   },
+   {
+    "id": "evidence",
+    "glyph": "✓",
+    "text": "evidence"
+   },
+   {
+    "id": "prerequisite",
+    "glyph": "⊢",
+    "text": "prerequisite"
+   },
+   {
+    "id": "outside_model",
+    "glyph": "○",
+    "text": "outside the model"
+   },
+   {
+    "id": "worked_out",
+    "glyph": "=",
+    "text": "worked out"
+   },
+   {
+    "id": "cannot_work_out",
+    "glyph": "⊘",
+    "text": "cannot be worked out"
+   },
+   {
+    "id": "swing",
+    "glyph": "├─┤",
+    "text": "swing"
+   },
+   {
+    "id": "most_likely",
+    "glyph": "◉",
+    "text": "most likely"
+   },
+   {
+    "id": "works_toward",
+    "glyph": "↗",
+    "text": "works toward"
+   },
+   {
+    "id": "works_against",
+    "glyph": "↘",
+    "text": "works against"
+   },
+   {
+    "id": "both_ways",
+    "glyph": "⇅",
+    "text": "both ways"
+   },
+   {
+    "id": "added",
+    "glyph": "+",
+    "text": "added"
+   },
+   {
+    "id": "changed",
+    "glyph": "↻",
+    "text": "changed"
+   },
+   {
+    "id": "effect",
+    "glyph": "→",
+    "text": "modelled effect"
+   },
+   {
+    "id": "input",
+    "glyph": "⊸",
+    "text": "input to"
+   },
+   {
+    "id": "size",
+    "glyph": "┄",
+    "text": "size"
+   },
+   {
+    "id": "doubted",
+    "glyph": "╌",
+    "text": "doubted"
+   },
+   {
+    "id": "unsettled",
+    "glyph": "⇄",
+    "text": "not settled"
+   },
+   {
+    "id": "measures",
+    "glyph": "━",
+    "text": "measures"
+   },
+   {
+    "id": "target",
+    "glyph": "⇥",
+    "text": "target"
+   },
+   {
+    "id": "blue_range",
+    "glyph": "▬",
+    "text": "blue range: rests on a figure Olumi proposed"
+   }
+  ],
+  "coaching_questions": [],
+  "questions": [],
+  "trial_questions": [],
+  "removed": [],
+  "aim": {
+   "quantity": "late_after",
+   "value": 5,
+   "unit": "%",
+   "text": "at most 5%",
+   "title": "5%",
+   "side": "at_most"
+  },
+  "sharpen": [
+   {
+    "id": "risk_count",
+    "lead": "No risks captured yet.",
+    "emphasis": "Imagining the plan has failed, and asking why, often brings up risks before they arrive.",
+    "rationale": "Imagine the plan has already failed, then ask what went wrong. Looking back from a failure often brings up risks that planning misses.",
+    "move": "pre_mortem"
+   }
+  ],
+  "first_draft": true
+ },
+ "proposal": {
+  "id": 900,
+  "base": null,
+  "heading": "Olumi proposes 10 changes",
+  "on": "new scenario",
+  "removed": null,
+  "problem": null,
+  "marks": [],
+  "changes": [
+   {
+    "id": "late_now",
+    "top": false,
+    "text": "+ figure: Late deliveries now",
+    "detail": "Late deliveries now · figure · Theirs: “Our late-delivery rate rose from 5% to 9% after we changed couriers.” (Ana) · 9%",
+    "family": "quantity",
+    "olumi": null,
+    "together": null,
+    "needs": []
+   },
+   {
+    "id": "late_target",
+    "top": false,
+    "text": "+ figure: Late rate wanted",
+    "detail": "Late rate wanted · figure · Theirs: “We want late deliveries back to 5%.” (Ana) · 5%",
+    "family": "quantity",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "aim_late"
+     ],
+     "why": "read only by ‘Late deliveries back to 5%’ in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "aim_late",
+      "top": false,
+      "kind": "one_of",
+      "why": "read only by ‘Late deliveries back to 5%’ in this proposal: choose one of them too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "opt_dispatch",
+    "top": false,
+    "text": "+ option: Hire a dispatcher",
+    "detail": "Hire a dispatcher · option · Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)",
+    "family": "option",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "late_change",
+      "eff_dispatch"
+     ],
+     "why": "reads ‘Change in the late rate from the route’, ‘Change in the late rate from a dispatcher’, added in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "late_change",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Change in the late rate from the route’ in this proposal: choose it too, or leave this out"
+     },
+     {
+      "id": "eff_dispatch",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Change in the late rate from a dispatcher’ in this proposal: choose it too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "opt_software",
+    "top": false,
+    "text": "+ option: Buy route software",
+    "detail": "Buy route software · option · Theirs: “We could hire a dispatcher or buy route-planning software.” (Ana)",
+    "family": "option",
+    "olumi": null,
+    "together": null,
+    "needs": []
+   },
+   {
+    "id": "opt_now",
+    "top": false,
+    "text": "+ option: Carry on as now",
+    "detail": "Carry on as now · option · Proposed by Olumi: The reference route.",
+    "family": "option",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": null,
+    "needs": []
+   },
+   {
+    "id": "late_change",
+    "top": false,
+    "text": "+ figure: Change in the late rate from the route",
+    "detail": "Change in the late rate from the route · figure · Proposed by Olumi: No change under the present course. · 0%",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "opt_dispatch"
+     ],
+     "why": "read only by ‘Hire a dispatcher’ in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "opt_dispatch",
+      "top": false,
+      "kind": "one_of",
+      "why": "read only by ‘Hire a dispatcher’ in this proposal: choose one of them too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "eff_dispatch",
+    "top": false,
+    "text": "+ figure: Change in the late rate from a dispatcher",
+    "detail": "Change in the late rate from a dispatcher · figure · Proposed by Olumi: Kept unknown. · not sized yet · No figure says how far a dispatcher moves it.",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "opt_dispatch"
+     ],
+     "why": "read only by ‘Hire a dispatcher’ in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "opt_dispatch",
+      "top": false,
+      "kind": "one_of",
+      "why": "read only by ‘Hire a dispatcher’ in this proposal: choose one of them too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "late_after",
+    "top": false,
+    "text": "+ figure: Late rate under the route",
+    "detail": "Late rate under the route · figure · Proposed by Olumi: The rate now plus the route's change. · Worked out from the figures it depends on",
+    "family": "quantity",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "f_after",
+      "aim_late"
+     ],
+     "why": "read only by ‘how Late rate under the route is worked out’, ‘Late deliveries back to 5%’ in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "f_after",
+      "top": false,
+      "kind": "one_of",
+      "why": "read only by ‘how Late rate under the route is worked out’, ‘Late deliveries back to 5%’ in this proposal: choose one of them too, or leave this out"
+     },
+     {
+      "id": "aim_late",
+      "top": false,
+      "kind": "one_of",
+      "why": "read only by ‘how Late rate under the route is worked out’, ‘Late deliveries back to 5%’ in this proposal: choose one of them too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "f_after",
+    "top": false,
+    "text": "+ link: how Late rate under the route is worked out",
+    "detail": "how Late rate under the route is worked out · link · Proposed by Olumi: The rate now plus the change a route makes.",
+    "family": "relation",
+    "olumi": {
+     "glyph": "◆",
+     "title": "Proposed by Olumi"
+    },
+    "together": {
+     "ids": [
+      "late_after"
+     ],
+     "why": "reads ‘Late rate under the route’, added in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "late_after",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Late rate under the route’ in this proposal: choose it too, or leave this out"
+     },
+     {
+      "id": "late_now",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Late deliveries now’ in this proposal: choose it too, or leave this out"
+     },
+     {
+      "id": "late_change",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Change in the late rate from the route’ in this proposal: choose it too, or leave this out"
+     }
+    ]
+   },
+   {
+    "id": "aim_late",
+    "top": false,
+    "text": "+ aim: Late deliveries back to 5%",
+    "detail": "Late deliveries back to 5% · aim · Theirs: “We want late deliveries back to 5%.” (Ana)",
+    "family": "goal",
+    "olumi": null,
+    "together": {
+     "ids": [
+      "late_target",
+      "late_after"
+     ],
+     "why": "reads ‘Late rate wanted’, ‘Late rate under the route’, added in this proposal: approved together"
+    },
+    "needs": [
+     {
+      "id": "late_after",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Late rate under the route’ in this proposal: choose it too, or leave this out"
+     },
+     {
+      "id": "late_target",
+      "top": false,
+      "kind": "required",
+      "why": "needs ‘Late rate wanted’ in this proposal: choose it too, or leave this out"
+     }
+    ]
+   }
+  ],
+  "groups": null,
+  "from": null,
+  "verdict": null,
+  "actions": {
+   "keep": "Keep the original",
+   "use": "Use Olumi’s reading",
+   "approve": "Approve"
+  },
+  "to_read": {
+   "lines": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "groups": null,
+   "noted": null
+  }
+ },
+ "collab": {
+  "alone": true,
+  "heading": "Your private views",
+  "open": false,
+  "shared": [],
+  "mine": [],
+  "placeholder": "Your own private view",
+  "can_reveal": false,
+  "waiting": null,
+  "commitments": [],
+  "owners": [
+   {
+    "id": "p_1",
+    "name": "Paul"
+   }
+  ],
+  "records": [],
+  "dissent": [],
+  "effect_headings": {
+   "changes": "Changes which option is most likely",
+   "moves": "Moves the chances only",
+   "same": "Each option's chance unchanged from the model's own figures",
+   "refused": "Not run",
+   "leader": "Most likely with theirs",
+   "model_leader": "With the model's",
+   "most": "Moves most",
+   "if_absent": "Worked out without",
+   "no_leader": "No option clearly most likely with theirs",
+   "no_model_leader": "No option clearly most likely with the model's"
+  },
+  "suggested_triggers_caption": "Olumi's suggestion, and optional: use it only if it fits your reasoning, change it, or leave it out.",
+  "suggested_triggers": [],
+  "max_view_figures": 3,
+  "view_figures_limit_text": "Up to three figures go with one view.",
+  "private_view_prompt": null,
+  "link_route": "view"
+ },
+ "evidence": [],
+ "chat": [],
+ "model_words": {
+  "changeFigure": "Change figure",
+  "setFigure": "Set figure",
+  "tryIt": "Try without saving",
+  "cancel": "Cancel",
+  "rename": "Rename",
+  "saveName": "Save name",
+  "newName": "New name",
+  "showOnCanvas": "Show on canvas",
+  "addFigure": "Add a figure",
+  "name": "Name",
+  "figure": "Figure",
+  "unit": "Unit (optional)",
+  "add": "Add",
+  "figureHint": "One number, or a range like 150 to 400",
+  "removeLink": "Remove link",
+  "removeAsk": "Remove this link?",
+  "remove": "Remove",
+  "keep": "Keep",
+  "links": "Links",
+  "restsOn": "Rests on",
+  "whose": "Whose",
+  "about": "About",
+  "whatWouldChange": "What would change it",
+  "saving": "Saving…",
+  "reading": "Reading the model…",
+  "savingOther": "Another change is saving…",
+  "trying": "Trying it without saving…",
+  "changeTarget": "Change target",
+  "changeLimit": "Change limit",
+  "changeStrength": "Change strength",
+  "heldLead": "Olumi’s pending change is waiting for you.",
+  "heldBody": "Approve it in the chat, or set it aside to change the model yourself. Setting it aside applies nothing in it.",
+  "heldAside": "Set it aside",
+  "heldConfirm": "Set aside",
+  "heldKeep": "Keep it",
+  "heldFailed": "That did not go through. Nothing was set aside.",
+  "settingAside": "Setting it aside…",
+  "plain": "Plain",
+  "expert": "Expert",
+  "detail": "Detail",
+  "to": "to",
+  "from": "from",
+  "askChange": "Ask Olumi to change this",
+  "askOption": "Ask Olumi for another option",
+  "askOptionDraft": "Suggest another option we have not considered.",
+  "askRisk": "Ask Olumi what risks are missing",
+  "askRiskDraft": "Which risks are missing from this model?",
+  "askLink": "Ask Olumi about missing links",
+  "askLinkDraft": "Which links between these factors are missing or wrong?",
+  "failed": "That did not go through. Nothing was saved.",
+  "withdrawnHeld": "This cannot be saved while Olumi’s pending change waits. Your typing is kept.",
+  "withdrawnPast": "Go back to the latest version to save this. Your typing is kept.",
+  "withdrawn": "This cannot be saved here just now. Your typing is kept.",
+  "savedNotShown": "Saved, but Olumi could not show it just now. Reload the page to see it.",
+  "triedFailed": "That did not go through. Nothing was tried.",
+  "askChangeDraft": {
+   "late_now": "Please change “Late deliveries now”: ",
+   "late_target": "Please change “Late rate wanted”: ",
+   "opt_dispatch": "Please change “Hire a dispatcher”: ",
+   "opt_software": "Please change “Buy route software”: ",
+   "opt_now": "Please change “Carry on as now”: ",
+   "late_change": "Please change “Change in the late rate from the route”: ",
+   "eff_dispatch": "Please change “Change in the late rate from a dispatcher”: ",
+   "late_after": "Please change “Late rate under the route”: ",
+   "f_after": "Please change “how Late rate under the route is worked out”: ",
+   "aim_late": "Please change “Late deliveries back to 5%”: "
+  }
+ },
+ "brief": "Our team resolves 80 tickets a week. Keep current staffing or add one specialist? In 12 weeks we need at least 100 tickets a week. Total is today plus the specialists. Our team lead says a new hire may unsettle the team.",
+ "gated": true,
+ "session": {
+  "goal": null,
+  "set_by": null,
+  "goals": [
+   {
+    "id": "better_option",
+    "text": "Find a better option"
+   },
+   {
+    "id": "solve_problem",
+    "text": "Solve a problem"
+   },
+   {
+    "id": "decide_fast",
+    "text": "Decide quickly"
+   },
+   {
+    "id": "understand",
+    "text": "Understand the situation"
+   }
+  ],
+  "methods": [
+   {
+    "id": "differ",
+    "text": "Does anyone's figure change the answer?",
+    "first": false
+   },
+   {
+    "id": "find_first",
+    "text": "What should we find out first?",
+    "first": false
+   },
+   {
+    "id": "have_true",
+    "text": "What would have to be true?",
+    "first": false
+   },
+   {
+    "id": "go_wrong",
+    "text": "What could go wrong?",
+    "first": false
+   },
+   {
+    "id": "pre_mortem",
+    "text": "Imagine it failed",
+    "first": false
+   },
+   {
+    "id": "else_do",
+    "text": "What else could we do?",
+    "first": false
+   },
+   {
+    "id": "right_question",
+    "text": "Are we asking the right question?",
+    "first": false
+   },
+   {
+    "id": "push",
+    "text": "Which way does each option push our aims?",
+    "first": false
+   },
+   {
+    "id": "similar",
+    "text": "How do similar situations turn out?",
+    "first": false
+   },
+   {
+    "id": "rests",
+    "text": "How much rests on Olumi's guesses?",
+    "first": false
+   },
+   {
+    "id": "success",
+    "text": "What counts as success?",
+    "first": false
+   },
+   {
+    "id": "bias",
+    "text": "Is a bias at work here?",
+    "first": false
+   }
+  ],
+  "figure_first": null,
+  "pre_mortem": null
+ },
+ "evidence_words": {
+  "heading": "Evidence",
+  "close": "Close",
+  "bearsOn": "What it bears on",
+  "steps": {
+   "observation": "Observation",
+   "claim": "Claim",
+   "inference": "Causal inference",
+   "estimate": "Model estimate"
+  },
+  "stances": [
+   {
+    "id": "supports",
+    "text": "Supports it"
+   },
+   {
+    "id": "challenges",
+    "text": "Challenges it"
+   },
+   {
+    "id": "unclear",
+    "text": "Not clear yet"
+   }
+  ]
+ },
+ "reveal_words": {
+  "revealedTogether": "Revealed together",
+  "close": "Close",
+  "bringEvidence": "Bring evidence",
+  "keepOpen": "Keep it open"
+ },
+ "lens_words": {
+  "bar": "Lenses on the model",
+  "explore": "Explore",
+  "team": "Team",
+  "needsRun": "Run the analysis to see what would change it.",
+  "label": {
+   "full": "Model",
+   "tradeoffs": "Trade-offs",
+   "rests_on": "Rests on",
+   "premortem": "If it failed",
+   "what_changes": "What would change",
+   "what_if": "What if"
+  },
+  "hint": {
+   "full": "The model as you built it",
+   "tradeoffs": "What each option gains and gives up, along the links in your model",
+   "rests_on": "Every figure the model rests on, and who it came from",
+   "premortem": "Ways each option could fail, imagined by Olumi",
+   "what_changes": "What the last Run is most sensitive to",
+   "what_if": "Try a different value and see each option beside the saved model. Nothing is saved."
+  },
+  "rests_on_label": "Rests on, 1 to check or set"
+ },
+ "team_presence": {
+  "title": "Paul (you)",
+  "label": "Team: Paul (you)",
+  "members": [
+   {
+    "id": "p_1",
+    "text": "Paul (you)"
+   }
+  ],
+  "unjoined": null
+ },
+ "team_words": {
+  "failed": "That did not go through. Nothing was saved.",
+  "evidence": {
+   "add": "Add evidence",
+   "text": "What is the evidence?",
+   "source": "Where it comes from (optional)",
+   "sourcePlaceholder": "A link, or a plain note of where",
+   "choose": "Choose…",
+   "nothingYet": "Nothing in the model yet",
+   "stanceLegend": "It…",
+   "sharedNote": "Shared with the team as soon as you add it. It does not change the model.",
+   "cancel": "Cancel",
+   "consider": "Ask Olumi to consider this",
+   "consideredBy": "Considered, asked by:",
+   "sourcePrefix": "Source:"
+  },
+  "views": {
+   "held": "Give or skip your own view first: the others’ views show here once you have.",
+   "theirSkip": "Chose not to answer.",
+   "mySkip": "You chose not to answer.",
+   "private": "Private to you until everyone’s views are revealed",
+   "shareTitle": "Shows this view to the team now, before the others are revealed. Olumi does not read it until then.",
+   "share": "Share with the team now",
+   "give": "Add my view",
+   "skip": "I would rather not answer this",
+   "earlier": "Written before this round began: it stays private to you and is not part of this round’s reveal.",
+   "reuse": "Use these words in this round"
+  }
+ }
+}

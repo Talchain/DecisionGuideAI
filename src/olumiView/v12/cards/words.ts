@@ -28,6 +28,17 @@ export function noChanceLineOf(h: Headline): { line: string; hover: string } {
   return { line: h.add != null && h.add !== '' ? h.add : h.text, hover: hover !== '' ? hover : h.title !== '' ? h.title : h.text }
 }
 
+/** Core's short break-even line for the measured aim, selected only by fields; every word stays core's. */
+export function tipsLineOf(card: ViewCard, h: Headline): { face: string; label: string | null; whole: string; i: number } | null {
+  for (let i = 0; i < card.rows.length; i++) {
+    const r = card.rows[i]!
+    if (r.kind === 'none' && r.aim_id === h.aim_id && r.tips_face != null && r.tips_face !== '') {
+      return { face: r.tips_face, label: r.tips_label ?? null, whole: r.tips ?? '', i }
+    }
+  }
+  return null
+}
+
 /**
  * The reason every option shares, said ONCE on the aim card (DL, 17 Nov): where every option waits (`run.all_withheld`), the options that head aim
  * `aimId` with no chance, core's shared headline (`headline.shared`) and no step of their own (`headline.add`) say nothing each; the aim card says

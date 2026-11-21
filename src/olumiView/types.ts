@@ -190,6 +190,8 @@ export type View = {
         }>
         next_test?: string
         tips?: string
+        tips_face?: string
+        tips_label?: string
         draw_bounds?: {
           draws: number
           met: number

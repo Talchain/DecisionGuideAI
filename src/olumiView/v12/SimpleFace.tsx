@@ -24,12 +24,12 @@ import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
-import { barCardOf } from '../layout'
+import { barCardOf, olumiKey } from '../layout'
 import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
-import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords } from './cards/words'
+import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords } from './cards/words'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
@@ -114,7 +114,7 @@ export type SimpleFaceProps = {
 }
 
 /** The card's state line: core's words, their whole as the hover, and the data marks its readers bind by. */
-type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; /** Core's words wrap whole, never cut by the two-line clamp. */ readonly whole?: true }
+type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; /** Core's words wrap whole, never cut by the two-line clamp. */ readonly whole?: true; /** Olumi's mark, before the words, on a line that is Olumi's calculation. */ readonly mark?: ReactNode }
 
 export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
@@ -152,7 +152,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // Where every option waits for one shared reason, the aim card says it once and the options say nothing (words.ts sharedNoChanceOf).
       // Each option's own `add` line is whole, never clamped. (A waits item every option shares is core's to say once: it sends it on none of them.)
       const { line, hover } = noChanceLineOf(h)
-      state = { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
+      const tip = tipsLineOf(card, h), key = model === null ? null : olumiKey(model)
+      state = tip === null
+        ? { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
+        // CP-3: core's break-even, short (`tips_face`), replaces the next-step line; the whole sentence joins the hover. A what-if says so in its own words
+        // ("What-if: …", S2 01:3xZ); `tips_label` only marks it (data-simple-tips-whatif), never a second line.
+        : { text: tip.face, title: tip.whole !== '' && !hover.includes(tip.whole) ? `${hover}\n${tip.whole}` : hover,
+            marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }) },
+            mark: key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span> }
     }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
@@ -284,7 +291,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={quiet.title} {...quiet.marks}>{quiet.text}</Hover>}
+      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={quiet.title} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
