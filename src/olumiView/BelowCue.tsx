@@ -13,16 +13,15 @@ import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
 
-/** The cue's existing foot clearance: pressing brings the last row above the foot controls. */
+/** One press lifts the last row 96 px clear of the window's foot, above the floating cue. */
 export const FOOT_BAND = 96
 /** The top of the free canvas the board's next part is brought to: under the header and the lens row (ViewCanvas's frame top). */
 export const FREE_TOP = 120
 type Box = { y: number; h: number }
-/** How many cards are not wholly in view below the free canvas's foot, at the camera's place (DL-538: a goal cut at its foot counts). */
+/** How many cards extend past the window's foot, with half a pixel of tolerance. */
 export const cardsBelowOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => {
   let n = 0
-  // Half a pixel's tolerance (as cardsRightOf): the whole-board fit ends exactly on this line (FOOT_GUTTER = FOOT_BAND), so rounding is not a card below.
-  for (const c of cards) if ((c.y + c.h) * zoom + ty > height - FOOT_BAND + 0.5) n += 1
+  for (const c of cards) if ((c.y + c.h) * zoom + ty > height + 0.5) n += 1
   return n
 }
 /** How far one press pans the board up: to its foot, so one press brings the last row (the measure and the goal) wholly into view
@@ -72,16 +71,13 @@ export function useBesideZoom(): number {
   return left
 }
 
-/** Simple's existing threshold for counting cards below the foot controls; also used by band labels. */
-export const FOOT_EDGE = 80
-/** Simple's existing count of cards whose foot extends below that threshold. */
+/** Simple's count of cards whose bottoms extend past the window's foot. */
 export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
-  cards.filter((c) => (c.y + c.h) * zoom + ty > height - FOOT_EDGE).length
+  cards.filter((c) => (c.y + c.h) * zoom + ty > height + 0.5).length
 /** One press of the cue, in whole px: up by at least `panUpOf`, so the board's foot ends at or above the cue's band, never a fraction past it. */
 export const pressUpOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => Math.ceil(panUpOf(cards, ty, zoom, height))
 
-export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** Retains Simple's existing cue-counting threshold. */ edge?: boolean } = {}): JSX.Element | null {
-  // Keep the existing counting thresholds for Simple and Detailed.
+export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** Uses Simple's count. */ edge?: boolean } = {}): JSX.Element | null {
   const below = useStore((s) => (edge ? cardsBehindOf : cardsBelowOf)(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height)), right = useCardsRight()
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()

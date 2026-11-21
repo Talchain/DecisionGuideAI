@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cardsBelowOf, FOOT_BAND, FREE_TOP, panUpOf } from '../BelowCue'
+import { cardsBelowOf, FOOT_BAND, FREE_TOP, panUpOf, pressUpOf } from '../BelowCue'
 
 const F = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v4-face-boxes.json'), 'utf8'))
 const boxes = (F.w2000.full.nodes as { y: number; h: number }[]).map((b) => ({ y: b.y, h: b.h }))
@@ -14,28 +14,26 @@ const H = 707, ZOOM = 0.917, top = Math.min(...boxes.map((b) => b.y)), TY = FREE
 const foot = Math.max(...boxes.map((b) => b.y + b.h))
 
 describe('the "more cards below" cue (DL-538)', () => {
-  it('B1 a card cut at the free canvas\'s foot counts as below (a goal half in view was not counted)', () => {
-    const cut = { y: (H - FOOT_BAND - 40 - TY) / ZOOM, h: 100 }
+  it('B1 a card cut at the window foot counts as below', () => {
+    const cut = { y: (H - 40 - TY) / ZOOM, h: 100 }
     expect(cardsBelowOf([cut], TY, ZOOM, H)).toBe(1)
     expect(cardsBelowOf([{ y: top, h: 10 }], TY, ZOOM, H), 'CONTRAST: a card wholly in view').toBe(0)
   })
 
-  it('B1b v10d review: a board fitted to end exactly on the line (FOOT_GUTTER = FOOT_BAND) is not counted for rounding; a whole pixel past it is', async () => {
-    const { FOOT_GUTTER } = await import('../footClear')
-    expect(FOOT_GUTTER, 'the fit and the count share the line').toBe(FOOT_BAND)
-    const at = (over: number) => [{ y: (H - FOOT_BAND - TY) / ZOOM, h: 0 }].map((b) => ({ y: b.y + over / ZOOM, h: b.h }))
-    expect([cardsBelowOf(at(1e-9), TY, ZOOM, H), cardsBelowOf(at(0.4), TY, ZOOM, H), cardsBelowOf(at(1), TY, ZOOM, H)]).toEqual([0, 0, 1])
+  it('B1b counts a card bottom only when it is more than half a pixel past the window foot', () => {
+    const at = (offset: number) => [{ y: (H + offset - TY) / ZOOM - 100, h: 100 }]
+    expect([-1, 0, 0.4, 1].map((offset) => cardsBelowOf(at(offset), TY, ZOOM, H))).toEqual([0, 0, 0, 1])
   })
 
   it('B2 one press brings the board\'s foot (its last row: the measure and the goal) wholly into view, however far below it is', () => {
-    expect(foot * ZOOM + TY, 'precondition: the served board overflows at 1128').toBeGreaterThan(H - FOOT_BAND)
+    expect(cardsBelowOf(boxes, TY, ZOOM, H), 'precondition: the served board overflows at 1128').toBeGreaterThan(0)
     const after = TY - panUpOf(boxes, TY, ZOOM, H)
     expect(cardsBelowOf(boxes, after, ZOOM, H)).toBe(0)
     expect(foot * ZOOM + after).toBeCloseTo(H - FOOT_BAND, 3)
     expect(panUpOf(boxes, after, ZOOM, H), 'nothing more to bring up once the foot is in view').toBe(0)
     // a board twice as tall: still one press
     const tall = [...boxes, { y: foot + 900, h: 200 }]
-    expect(cardsBelowOf(tall, TY - panUpOf(tall, TY, ZOOM, H), ZOOM, H)).toBe(0)
+    expect(cardsBelowOf(tall, TY - pressUpOf(tall, TY, ZOOM, H), ZOOM, H)).toBe(0)
   })
 })
 

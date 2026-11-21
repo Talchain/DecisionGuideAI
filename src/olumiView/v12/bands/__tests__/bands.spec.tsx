@@ -374,11 +374,13 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
   })
 })
 
-describe('v10 item 7: a band label below the fold is skipped', () => {
-  const ls = [{ band: 'inputs', y: 100 }, { band: 'outcomes', y: 700 }]
-  it('B-fold the label whose row is under the foot fade (704 - 24) is not drawn; the one above it is', () => {
-    expect(labelsAboveFold(ls, 0, 1, 704).map((l) => l.band)).toEqual(['inputs'])
-    expect(labelsAboveFold(ls, -200, 1, 704).map((l) => l.band), 'panned up: both in view').toEqual(['inputs', 'outcomes'])
+describe('band label visibility at the window foot', () => {
+  const height = 704
+  const ls = [{ band: 'inputs', y: height - 10 }, { band: 'outcomes', y: height + 1 }]
+  it('shows a label 10 px above the foot and hides one at or past it', () => {
+    expect(labelsAboveFold(ls, 0, 1, height).map((l) => l.band)).toEqual(['inputs'])
+    expect(labelsAboveFold(ls, -1, 1, height).map((l) => l.band)).toEqual(['inputs'])
+    expect(labelsAboveFold(ls, -2, 1, height).map((l) => l.band)).toEqual(['inputs', 'outcomes'])
   })
   it('B-fold CONTRAST: before the pane is measured (height 0) every label is kept', () => {
     expect(labelsAboveFold(ls, 0, 1, 0).map((l) => l.band)).toEqual(['inputs', 'outcomes'])
