@@ -13,8 +13,7 @@ import { FOOT_CONTROLS } from './regions'
 import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
 
-/** The foot of the free canvas: the window's foot less the drawn foot band (FOOT_FADE_H), so the cue's press lands the last row wholly above
- *  the band's soft edge, and Detailed counts what reaches into it (v10d: was 64, which landed the row in the soft edge beside the controls). */
+/** The cue's existing foot clearance: pressing brings the last row above the foot controls. */
 export const FOOT_BAND = 96
 /** The top of the free canvas the board's next part is brought to: under the header and the lens row (ViewCanvas's frame top). */
 export const FREE_TOP = 120
@@ -73,31 +72,17 @@ export function useBesideZoom(): number {
   return left
 }
 
-/** The foot band (v10 review item 7; was an 88 px opaque band): the board is drawn down to a 96 px band whose top 16 px are a soft edge and
- *  the rest the canvas's ground. v10d (DL BUILD 3, 1232: "nothing legible under the foot controls; the fade reaches full strength before the
- *  controls' top edge"): the controls' top stands 76 px (the cue: 40 px up, 36 tall) to 78 px (the zoom row, measured at 1232 and 1.33) above
- *  the window's foot, so the ground is solid from 80 px. A card whose foot is below the solid part's top is counted as below. */
+/** Simple's existing threshold for counting cards below the foot controls; also used by band labels. */
 export const FOOT_EDGE = 80
-/** The drawn band's height: the solid ground under the controls and its soft edge. */
-export const FOOT_FADE_H = 96
-/** The soft part at the band's top. */
-export const FOOT_EDGE_SOFT = FOOT_FADE_H - FOOT_EDGE
-/** How the band draws: clear at its top, the canvas's own ground from 16 px down to the window's foot. */
-export const FOOT_EDGE_FADE = `linear-gradient(to bottom, transparent, var(--bg-canvas) ${FOOT_EDGE_SOFT}px, var(--bg-canvas))`
-/** The drawn fade's height (screen px). Arguments kept for callers. */
-export const footEdgeHeightOf = (_cards?: readonly Box[], _ty?: number, _zoom?: number, _height?: number): number => FOOT_FADE_H
-/** With the fade drawn (Simple), the cards not wholly in view above it: those whose foot is below the fade's top. After the cue's press (to the band, panUpOf,
- *  which stands above the fade) none is counted. */
+/** Simple's existing count of cards whose foot extends below that threshold. */
 export const cardsBehindOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number =>
   cards.filter((c) => (c.y + c.h) * zoom + ty > height - FOOT_EDGE).length
 /** One press of the cue, in whole px: up by at least `panUpOf`, so the board's foot ends at or above the cue's band, never a fraction past it. */
 export const pressUpOf = (cards: readonly Box[], ty: number, zoom: number, height: number): number => Math.ceil(panUpOf(cards, ty, zoom, height))
 
-export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** V12 Simple: while cards are below, the foot is a clean edge (the cards below are behind it; the cue counts them). */ edge?: boolean } = {}): JSX.Element | null {
-  // How many cards are not wholly in view below the foot: on Simple, every card behind the edge (cardsBehindOf); elsewhere, below the cue's band.
+export function BelowCue({ onPress, edge = false }: { /** The person's own move (ViewCanvas handOf): told before the board moves. */ onPress?: () => void; /** Retains Simple's existing cue-counting threshold. */ edge?: boolean } = {}): JSX.Element | null {
+  // Keep the existing counting thresholds for Simple and Detailed.
   const below = useStore((s) => (edge ? cardsBehindOf : cardsBelowOf)(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height)), right = useCardsRight()
-  const edgeW = useStore((s) => freeRight(s.width))
-  const edgeH = useStore((s) => footEdgeHeightOf(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height))
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
   // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
@@ -107,7 +92,6 @@ export function BelowCue({ onPress, edge = false }: { /** The person's own move 
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - pressUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height) }, { duration: 300 }) }
   return (<>
-    {edge && below > 0 ? <div aria-hidden="true" data-testid="view-foot-edge" className="pointer-events-none fixed bottom-0 left-0 z-[4]" style={{ width: edgeW, height: edgeH, background: FOOT_EDGE_FADE }} /> : null}
     <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
       {below === 0 ? null : <>
       <button type="button" onClick={up}

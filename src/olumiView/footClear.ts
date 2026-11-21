@@ -7,8 +7,8 @@
  */
 import type { Node, Viewport } from '@xyflow/react'
 
-/** The foot gutter, px above the window's foot: the drawn foot band (BelowCue FOOT_FADE_H, the solid ground under the controls and its soft
- *  edge), so a fitted board ends above it (v10d: was 88, the controls' 76 px plus REGION_GAP 12, which left a card's foot in the soft edge). */
+/** The foot gutter, px above the window's foot: layout clearance for the foot controls, so a fitted board ends above them.
+ *  No band is drawn across the canvas's foot; BelowCue is only a floating cue on the left. */
 export const FOOT_GUTTER = 96
 /** The part of a card that is read whole once any of it is drawn: its label and its figure line, flow px (at most the card's height). */
 export const LABEL_FIGURE_H = 96

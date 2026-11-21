@@ -91,9 +91,9 @@ export function makeShowCameraPort(c: CanvasSide): ShowCameraPort {
         const at = n.internals.positionAbsolute
         x0 = Math.min(x0, at.x); y0 = Math.min(y0, at.y); x1 = Math.max(x1, at.x + n.measured.width); y1 = Math.max(y1, at.y + n.measured.height)
       }
-      // On Simple a row is top-aligned, and the board's foot edge rises to the top of any card the foot cuts, hiding that whole row
-      // (BelowCue footEdgeHeightOf). So the box reaches down to the foot of every card that starts above the named cards' own foot:
-      // with the box in view none of those can be cut, and the edge stays below the cards being shown.
+      // On Simple a row is top-aligned. Extend the box to the foot of every card that starts above the named cards' own foot,
+      // so fitting the box also brings those cards fully into view. BelowCue is only a floating cue on the left;
+      // no band hides rows at the canvas's foot.
       if (levelOf(useViewStore.getState().sid) === 'simple') {
         const foot = y1
         for (const node of useCanvasStore.getState().nodes) {
