@@ -6,7 +6,6 @@ import type { ViewCard, ViewModel } from '../../client'
 import { cardLinks, drawKindOf, QUESTION } from '../../layout'
 import { linkRole } from '../contract'
 import { MODEL_GROUP_TITLE } from '../../../canvas/domain/vocabulary'
-import { cardKind } from '../fields/fields'
 
 export type BandId = 'options' | 'inputs' | 'outcomes' | 'aims' | 'points' | 'ideas'
 /** Top to bottom. Aims are always their own row, never sharing the outcomes row. The points raised stand under the causal story (options, drivers,
@@ -24,7 +23,7 @@ export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>
 }
 /** The band's label: fixed, except the outcomes band holding a risk, which is "Outcomes & risks", the product's own label for that row
  *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). The inputs band says "What drives
- *  it" always: only drivers stand there (`bandOf`); a card associated with the question by reasons alone stands under "Points raised" (Codex 019). */
+ *  it" always: only figures stand there (`bandOf`); every other card stands under "Points raised" (Codex 019's neutral label, now its own row). */
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
   // The ideas strip reads "Kept ideas" for every reader; each card says who kept it, from core's `kept_by` (ideaProvenance).
   if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
@@ -37,23 +36,13 @@ export const FOLD_AT = 15
 export const IDEA_PREFIX = 'idea:'
 export const FOLD_ID = 'group:inputs'
 
-/** The band a model card stands in: options; outcomes and risks (worked out); aims and limits; a driver (a figure, or a card in a causal link)
- *  an input; the rest are points raised. A note or a reported position (core's kind, fields.ts cardKind) is a point raised always, and so is any
- *  other card associated with the question by reasons alone (a link that is not a reason and not a size makes a cause; Codex 019): DL 21 Nov,
- *  Paul read the notes in "What drives it" as drivers. */
+/** The band a model card stands in: options; outcomes and risks (worked out); aims and limits; a figure an input (a driver); every other card is a
+ *  point raised (claims, left-out items, conditions, assumptions, positions and other notes), folded or not (SPEC-OVERNIGHT CP-2; Paul read the
+ *  notes drawn in "What drives it" as drivers). */
 export function bandOf(card: ViewCard, model: ViewModel): Exclude<BandId, 'ideas'> {
   const k = drawKindOf(card, model)
-  if (k === 'option') return 'options'
-  if (k === 'outcome' || k === 'risk') return 'outcomes'
-  if (k === 'goal' || k === 'constraint') return 'aims'
-  if (card.family === 'quantity') return 'inputs'
-  const kind = cardKind(card, model).kind
-  if (kind === 'note' || kind === 'position') return 'points'
-  return causalIds(model).has(card.id) ? 'inputs' : 'points'
+  return k === 'option' ? 'options' : k === 'outcome' || k === 'risk' ? 'outcomes' : k === 'goal' || k === 'constraint' ? 'aims' : card.family === 'quantity' ? 'inputs' : 'points'
 }
-/** The cards at either end of a causal link (a drawn link that is not a reason and not a size). */
-const causalIds = (model: ViewModel): ReadonlySet<string> =>
-  new Set(cardLinks(model).flatMap(({ link }) => (link.kind === 'reason' || linkRole(link) === 'size' ? [] : [link.from, link.to])))
 
 /** The ids of the input cards (the band rule 7 folds). */
 export const inputIdsOf = (model: ViewModel): string[] => model.cards.filter((c) => bandOf(c, model) === 'inputs').map((c) => c.id)

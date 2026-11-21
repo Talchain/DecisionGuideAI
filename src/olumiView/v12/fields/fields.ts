@@ -170,9 +170,9 @@ export function cardKind(card: ViewCard, model: ViewModel | null, view: View | n
  *   bandOf band | row      | what stands there today
  *   ------------|----------|-----------------------------------------------------------------------------------------------------------
  *   options     | options  | options
- *   inputs      | drives   | every figure that is not an outcome, and every other driver (a card in a causal link)
- *   points      | drives   | notes and reported positions (claims, evidence, conditions, assumptions, left out), and any card associated by
- *               |          | reasons alone (DL 21 Nov: its own band, "Points raised"; the contract has no row for it)
+ *   inputs      | drives   | every figure that is not an outcome
+ *   points      | drives   | every other card (claims, evidence, conditions, assumptions, left out, positions, notes): SPEC-OVERNIGHT CP-2,
+ *               |          | "Points raised"; the contract has no row for it, so it maps to the row it stood in
  *   outcomes    | happens  | outcomes (worked out) AND risks
  *   aims        | aims     | aims and limits
  *

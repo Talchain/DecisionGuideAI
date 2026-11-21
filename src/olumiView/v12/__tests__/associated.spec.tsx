@@ -20,8 +20,8 @@ const aim = { ...fx.model!.cards.find((c) => c.family === 'goal')!, id: 'aim_pur
 const reason = (from: string, to: string) => ({ ...fx.model!.links[0]!, from, to, kind: 'reason' })
 const qual = (links: unknown[]): ViewModel => ({ ...fx.model!, cards: [claim('claim_visitors'), claim('claim_learning'), aim], links } as unknown as ViewModel)
 
-describe('a card only associated by reasons stands under "Points raised", never "What drives it" (Codex 019; DL 21 Nov: its own band)', () => {
-  it('notes go to the points band whatever their links; a non-note card is a driver only in a causal link; figures stay drivers; the inputs band always says "What drives it"', () => {
+describe('a card that is not a figure stands under "Points raised", never "What drives it" (Codex 019; SPEC-OVERNIGHT CP-2: its own row; full rows in bands/__tests__/bandsPoints.spec.ts)', () => {
+  it('CHANGED BY DESIGN (CP-2 AC3): notes go to the points band whatever their links, a causal one included; figures stay drivers; the inputs band always says "What drives it"', () => {
     const m = qual([reason('claim_visitors', 'aim_purpose'), reason('claim_learning', 'aim_purpose')])
     expect(m.cards.filter((c) => c.family === 'claim').map((c) => bandOf(c, m))).toEqual(['points', 'points'])
     // A claim is a note: a causal link does not make it a driver (Paul read notes in the drivers' row as drivers).
