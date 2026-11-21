@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render, screen } from '@testing-library/react'
-import { Position, ReactFlowProvider } from '@xyflow/react'
+import { Position, ReactFlow, ReactFlowProvider, type Node } from '@xyflow/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
@@ -341,10 +341,17 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
       const incoming = (await draw({ ...core, links: [reverse] }, view)).edges.filter((e) => e.type === GROUP_LINK)
       expect(incoming.map((e) => [e.source, e.target])).toEqual([['spend', group]])
 
-      const { container } = render(<svg>{[...summary, ...incoming].map((e) => (
-        <GroupLinkEdge key={e.id} id={e.id} source={e.source} target={e.target} data={e.data}
-          sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} />
-      ))}</svg>)
+      const flowNodes: Node[] = [group, 'spend', 'within_budget'].map((id, index) => ({
+        id, position: { x: 100 * index, y: 100 * index }, data: {}, width: 100, height: 40,
+        handles: [
+          { type: 'source', position: Position.Bottom, x: 50, y: 40 },
+          { type: 'target', position: Position.Top, x: 50, y: 0 },
+        ],
+      }))
+      const { container } = render(<ReactFlow nodes={flowNodes} edges={[...summary, ...incoming]} edgeTypes={{ [GROUP_LINK]: GroupLinkEdge }} />)
+      expect(screen.getByRole('img', { name: '3 and spend: links both ways (3 links)' })).toHaveClass('react-flow__edge')
+      expect(screen.getByRole('img', { name: '3 to Within the £3,000 (1 link)' })).toHaveClass('react-flow__edge')
+      expect(screen.getByRole('img', { name: 'spend to 3 (1 link)' })).toHaveClass('react-flow__edge')
       const mixed = container.querySelectorAll('[data-mixed-direction]')
       expect(mixed).toHaveLength(1)
       expect(mixed[0]).toHaveAttribute('data-group-link', `group:${group}->spend`)

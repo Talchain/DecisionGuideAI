@@ -47,13 +47,22 @@ export function IdeaCard({ data }: NodeProps) {
 }
 
 type GroupData = { id: string; kind: GroupKind; kinds: readonly CardKindName[]; words: string | null; hover: string; challenged: number }
+export type FoldCardData = { count: number; sid: string | null; width: number; group?: GroupData }
 /** Said on a folded group that holds a challenge (groups.ts challengedIn). */
 export const groupChallenged = (n: number): string => `${n} challenged inside`
 /** D1c's count (Codex UI reviewer 008 v8: neutral words, not "not sized yet"); each card says its own state once its row is opened. */
 export const olumiMore = (n: number): string => `${n} more from Olumi`
 
+export function foldHeadingOf({ count, group }: Pick<FoldCardData, 'count' | 'group'>): [string, string?] {
+  if (group === undefined) return [`${count} inputs`]
+  if (group.kind === 'olumi') return [olumiMore(count)]
+  if (group.kind === 'notes') return [notesCount(count)]
+  return group.words === null ? [String(count)] : [String(count), group.words]
+}
+
 export function FoldCard({ id, data }: NodeProps) {
-  const { count, sid, width, group } = data as { count: number; sid: string | null; width: number; group?: GroupData }
+  const { count, sid, width, group } = data as FoldCardData
+  const [heading, words] = foldHeadingOf({ count, group })
   const firstDraftNow = useViewStore((s) => s.view !== null && firstDraft(s.view).firstDraft === true)
   const sides = useLinkSides()
   const updateNodeInternals = useUpdateNodeInternals()
@@ -73,8 +82,8 @@ export function FoldCard({ id, data }: NodeProps) {
         className={`flex items-center gap-1.5 rounded-md border bg-panel px-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
         {proposed || olumis ? <OlumiMark words={group.words} /> : null}
-        <span className="font-medium tabular-nums text-text-header">{proposed ? count : olumis ? olumiMore(count) : notesCount(count)}</span>
-        {proposed && group.words !== null ? <span className="min-w-0 truncate">{group.words}</span> : null}
+        <span className="font-medium tabular-nums text-text-header">{heading}</span>
+        {words !== undefined ? <span className="min-w-0 truncate">{words}</span> : null}
         {group.challenged > 0 ? <Hover role="img" focusable={false} data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} words={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></Hover> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
           {group.kinds.map((k) => <span key={k} className="inline-flex" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'calc(10px * var(--o-s, 1))' }}><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
@@ -85,7 +94,7 @@ export function FoldCard({ id, data }: NodeProps) {
   return (
     <>{handles}<HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
       words="Show these inputs in place" className="rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body" style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
-      {count} inputs
+      {heading}
     </HoverButton></>
   )
 }

@@ -17,7 +17,8 @@ import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
-import { VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
+import { foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/bands/BandNodes'
+import { groupLinkTitle } from './v12/bands/GroupLinkEdge'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
 import { FOLD_ID, inputIdsOf } from './v12/bands/bands'
@@ -181,7 +182,15 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
     // Its words describe it (React Flow's own description speaks of deleting a link, which this canvas never does).
     domAttributes: { 'aria-describedby': linkWordsIdOf(i) } }))
   // V12 Simple (D1): the links of a row's grouped cards run to its group card, one neutral connector per pair of ends (never a link's own edge).
-  const grouped = groupLinks.map((g) => ({ id: `group:${g.from}->${g.to}`, source: g.from, target: g.to, type: GROUP_LINK, data: g, focusable: false, selectable: false }))
+  const headings = new Map<string, string>([[QUESTION, model.question.text], ...model.cards.map((c) => [c.id, c.heading] as const)])
+  for (const extra of extras) {
+    if (extra.type === VIEW_FOLD) headings.set(extra.id, foldHeadingOf(extra.data as FoldCardData).join(' '))
+  }
+  const grouped = groupLinks.map((g) => {
+    const from = headings.get(g.from), to = headings.get(g.to), count = groupLinkTitle(g.count)
+    const ariaLabel = g.mixedDirection ? `${from} and ${to}: links both ways (${count})` : `${from} to ${to} (${count})`
+    return { id: `group:${g.from}->${g.to}`, source: g.from, target: g.to, type: GROUP_LINK, data: g, focusable: false, selectable: false, ariaLabel }
+  })
   // V12 Simple: the question draws no wires to the options.
   const roots = levelOf(useViewStore.getState().sid) === 'simple' ? [] : allOptionCards(model).map((c) => ({ id: `root:${c.id}`, source: QUESTION, target: c.id, type: ROOT_LINK, data: {}, focusable: false, selectable: false }))
   if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.id, e.data]), [...roots, ...edges, ...grouped].map((e) => [e.id, e.data]))) return false
