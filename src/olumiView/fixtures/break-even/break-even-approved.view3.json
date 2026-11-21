@@ -277,8 +277,8 @@
      {
       "kind": "none",
       "aim_id": "aim_late",
-      "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
-      "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too."
+      "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out yet. Nothing in the model yet says how 'Buy route software' would change 'Late rate under the route'.",
+      "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out yet. Nothing in the model yet says how 'Buy route software' would change 'Late rate under the route'."
      }
     ],
     "driver": null,
@@ -309,10 +309,10 @@
      "aim_id": "aim_late",
      "state": "none",
      "text": "No chance yet",
-     "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
+     "title": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out yet. Nothing in the model yet says how 'Buy route software' would change 'Late rate under the route'.",
      "range": null,
-     "why": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too.",
-     "add": "Add how ‘Buy route software’ changes ‘Late rate under the route’, or change the aim’s measure to include its route.",
+     "why": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out yet. Nothing in the model yet says how 'Buy route software' would change 'Late rate under the route'.",
+     "add": "Nothing in the model yet says how ‘Buy route software’ would change ‘Late rate under the route’.",
      "shared": false
     },
     "title_short": "Buy route software",
@@ -984,7 +984,7 @@
     {
      "aim_id": "aim_late",
      "option": "opt_software",
-     "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out: the measure, 'Late rate under the route', is worked out from 'Late deliveries now' and 'Change in the late rate from the route', and the model has no quantified path from 'Buy route software' to that measure. To compare it, add to the model how 'Buy route software' changes 'Late rate under the route', or measure 'Late deliveries back to 5%' so it counts this route too."
+     "text": "The chance that 'Buy route software' meets 'Late deliveries back to 5%' is not worked out yet. Nothing in the model yet says how 'Buy route software' would change 'Late rate under the route'."
     }
    ],
    "most_likely": null,
