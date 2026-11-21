@@ -14,7 +14,7 @@ import { useViewStore } from '../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
 import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
-import { ActionsMenu, placeMenu } from '../actionsMenu'
+import { ActionsMenu, FIRST_FOR_YOUR_GOAL, placeMenu } from '../actionsMenu'
 import { IdeaPanel } from '../bands/IdeaPanel'
 import { IDEA_PREFIX } from '../bands/bands'
 import { tipOf } from '../../__tests__/tipHelpers'
@@ -296,6 +296,7 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     const m = await open(BUILD)
     const presses = [...m.querySelectorAll<HTMLElement>('button')]
     expect(presses[0]?.dataset['testid']).toBe('view-build-model')
+    expect(presses[0]).toHaveFocus()
     expect(presses[0]?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(BUILD.label)
     // The row shape of every press under it: core's label, then core's own line for it drawn as the row's description (DL 08:5xZ), and its hover.
     expect(presses[0]?.querySelector('[data-testid="view-build-model-title"]')?.textContent).toBe(BUILD.title)
@@ -311,6 +312,53 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     expect(m.querySelector('[data-testid="view-build-model"]')).toBeNull()
     expect(m.querySelector('[data-testid="view-build-model-row"]')).toBeNull()
     expect([...m.querySelectorAll<HTMLElement>('[data-testid="view-actions-tools"] button')].map((b) => b.dataset['tool'])).toEqual(['edit_brief', 'review_inputs'])
+    expect(m.querySelector('[data-testid="view-tool-edit_brief"] [data-testid="brief"] svg')).toHaveAttribute('width', '16')
+    expect(m.querySelector('[data-testid="view-tool-review_inputs"] [data-testid="review-inputs"] svg')).toHaveAttribute('width', '16')
+  })
+})
+
+describe('question rows', () => {
+  const draw = async (ids: string[], first = 0) => {
+    const methods = ids.map((id, i) => ({ id, i, text: `An invented question ${i}`, first: i < first, prerequisite: null }))
+    const { getByTestId } = render(
+      <ActionsMenu menu={{ goal: null, methods, tools: [] }} held={false} goal={null} onMethod={() => undefined} onTool={() => undefined} />,
+    )
+    await press(getByTestId('view-actions-button'))
+    return getByTestId('view-session-menu')
+  }
+
+  it('draws a decorative registry icon for every known method and one fallback for an unfamiliar method', async () => {
+    const ids = ['differ', 'find_first', 'have_true', 'go_wrong', 'pre_mortem', 'else_do', 'right_question', 'push', 'similar', 'rests', 'success', 'bias', 'figure_first']
+    const questions = await draw([...ids, 'future_question', 'outside'])
+    const rows = [...questions.querySelectorAll('[data-method]')]
+    expect(rows.map((row) => row.getAttribute('data-method'))).toEqual([...ids, 'future_question', 'outside'])
+    const expectedIcons = [...ids.map((id) => `method-${id}`), 'method-other', 'method-other']
+    for (const [index, row] of rows.entries()) {
+      expect(row.querySelector(`[data-testid="${expectedIcons[index]}"][aria-hidden="true"].text-text-light svg`)).toHaveAttribute('width', '16')
+    }
+  })
+
+  it('labels just the leading run when all questions suit the goal', async () => {
+    const questions = await draw(['push', 'rests'], 2)
+    expect([...questions.querySelectorAll('p')].map((label) => label.textContent)).toEqual(['Ask Olumi', FIRST_FOR_YOUR_GOAL])
+    expect([...questions.querySelectorAll('[data-method]')].map((row) => row.getAttribute('data-method'))).toEqual(['push', 'rests'])
+  })
+
+  it('skips native and aria-disabled rows during keyboard navigation and closes on outside press', async () => {
+    const menu: Menu = { goal: null, methods: [], tools: ['edit_brief'] }
+    const goal = <><button disabled>Unavailable goal</button><button aria-disabled="true">Held goal</button></>
+    const { getByTestId, queryByTestId } = render(
+      <ActionsMenu menu={menu} held={false} goal={goal} onMethod={() => undefined} onTool={() => undefined} build={{ label: 'Build', title: 'Build a model', onPress: () => undefined }} />,
+    )
+    await press(getByTestId('view-actions-button'))
+    const build = getByTestId('view-build-model'), tool = getByTestId('view-tool-edit_brief')
+    expect(build).toHaveFocus()
+    fireEvent.keyDown(build, { key: 'ArrowDown' })
+    expect(tool).toHaveFocus()
+    fireEvent.keyDown(tool, { key: 'ArrowUp' })
+    expect(build).toHaveFocus()
+    fireEvent.mouseDown(document.body)
+    expect(queryByTestId('view-actions-menu')).toBeNull()
   })
 })
 
@@ -329,7 +377,13 @@ describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under s
     const marks = [...menu.querySelectorAll<HTMLElement>('[data-testid="view-method-prerequisite"]')]
     expect(marks.map((e) => e.closest<HTMLElement>('[data-method]')?.dataset['method'])).toEqual(['a', 'c', 'd'])
     // The mark's hover is the one Tip (the icon inside its question's button), never a native title.
-    for (const e of marks) expect([e.getAttribute('aria-label'), e.hasAttribute('title'), await tipOf(e)]).toEqual([SAID, false, SAID])
+    act(() => { (document.activeElement as HTMLElement).blur() })
+    for (const e of marks) {
+      expect(e.parentElement).toHaveAttribute('data-testid', 'view-session-method')
+      expect(e.parentElement?.lastElementChild).toBe(e)
+      expect(e).toHaveClass('ml-auto', 'text-text-light')
+      expect([e.getAttribute('aria-label'), e.hasAttribute('title'), await tipOf(e)]).toEqual([SAID, false, SAID])
+    }
   })
   it('contrast: one gated question keeps its own line, and no shared line is drawn', async () => {
     const menu = await draw([m('a', 0, SAID), m('b', 1, null)])

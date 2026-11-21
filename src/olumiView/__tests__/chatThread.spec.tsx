@@ -77,7 +77,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(getByTestId('view-composer').contains(button)).toBe(true)
     await act(async () => { fireEvent.click(button) })
     const menu = getByTestId('view-actions-menu')
-    expect(menu).toHaveClass('max-h-[60vh]', 'overflow-y-auto')
+    expect(menu).toHaveClass('overflow-y-auto')
+    expect(menu.style.maxHeight).toMatch(/^\d+(?:\.\d+)?px$/)
     expect(menu.contains(getByTestId('view-session-menu'))).toBe(true)
     expect(menu.contains(getByTestId('view-session-goal'))).toBe(true)
     expect(queryByTestId('v10-method-chips')).toBeNull()
@@ -465,7 +466,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(getByTestId('view-actions-button')).toHaveAttribute('aria-expanded', 'true')
     const first = getAllByTestId('view-session-method')[0]!
     const id = first.getAttribute('data-method')
-    await act(async () => { fireEvent.click(first.querySelector('span')!) })
+    await act(async () => { fireEvent.click(first.querySelector('[data-view]')!) })
     expect(queryByTestId('view-actions-menu')).toBeNull()
     expect(posts).toEqual([{ url: `/api/scenarios/${fixture.id}/method`, body: { method: id, op: expect.any(String) } }])
     // 18 Nov (menu brief UI-A): with an empty box and no card selected the icon waits for a card; it types nothing and sends nothing.

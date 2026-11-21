@@ -1756,8 +1756,8 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
 export const GOAL_QUESTION = 'What did you come here for?'
 
 /**
- * What the team came for (canon wave step 1; Paul: asked at the start, always changeable). With no goal: one small row of core's goals,
- * in core's order and words. With one: a compact chip of core's words for it, which reopens the row to change it, and a clear (null).
+ * What the team came for (canon wave step 1; Paul: asked at the start, always changeable). The picker shows core's goals in core's order
+ * and words. A chosen goal appears as a compact chip that reopens the picker and can be cleared.
  * Who set it is the chip's hover (`set_by`, a member's name). Nothing here touches the model.
  */
 function SessionGoal({ session, held }: { session: Session; held: boolean }) {
@@ -1771,26 +1771,30 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
           <OkIcon id="goal" size={14} decorative />
           <HoverButton words={session.set_by === null ? undefined : `Set by ${session.set_by}`} type="button" disabled={held} onClick={() => setChanging(true)}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
-            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
+            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
             <span data-view="session.goal.text">{goal.text}</span>
           </HoverButton>
           <HoverButton words={`Clear: ${goal.text}`} type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
             <OkIcon id="clear-goal" size={14} decorative inherit />
           </HoverButton>
         </span>
       </div>
     )
   }
-  // The question, then core's goals two by two: the dock is too narrow for four on one line, and a wrapped row reads ragged.
   return (
-    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-2" data-testid="view-session-goal">
-      <p id="view-session-goal-question" className={`${typography.chatMeta} text-text-light`}>{GOAL_QUESTION}</p>
-      <div className="grid grid-cols-2 gap-1.5">
+    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-1.5" data-testid="view-session-goal">
+      <p id="view-session-goal-question" className={`${typography.viewPanelMeta} flex items-center gap-2 px-2 py-1 text-text-light`}>
+        <OkIcon id="goal" size={14} decorative />
+        {GOAL_QUESTION}
+      </p>
+      <div className="grid auto-rows-fr grid-cols-2 gap-1.5">
         {session.goals.map((g, i) => (
           <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
-            className={VIEW_CHIP_CLASS} data-goal={g.id} data-testid="view-session-goal-option">
+            className="flex items-start justify-between gap-1.5 rounded-lg border border-field px-2.5 py-2 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:cursor-not-allowed disabled:text-text-light aria-pressed:bg-goal-light aria-pressed:hover:bg-goal-light"
+            data-goal={g.id} data-testid="view-session-goal-option">
             <span data-view={`session.goals.${i}.text`}>{g.text}</span>
+            {g.id === goal?.id && <OkIcon id="trigger-taken" size={14} decorative className="mt-0.5" />}
           </button>
         ))}
       </div>
@@ -1800,8 +1804,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
 
 /** The menu's name for assistive technology; on screen it is the question glyph (visual indicators, not default text: Paul, 24 Oct). */
 export const MENU_NAME = 'Questions to explore with Olumi'
-/** What the quiet emphasis on a question means, for its hover and for assistive technology. */
-export const FIRST_FOR_GOAL = 'Suits what you came here for'
+export { FIRST_FOR_YOUR_GOAL as FIRST_FOR_GOAL } from './v12/actionsMenu'
 
 /**
  * R25 spacing roles on this tab (plan v3 item 3; one value per role, alpha surfaces only): sections 16px (space-y-4, the tab's p-4);

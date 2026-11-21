@@ -5,6 +5,7 @@
  * 8c4fc92, no AI calls) after: a first model approved (`no-goal`), then `POST …/goal { goal: 'understand' }` (`goal-understand`), then
  * `POST …/method { method: 'find_first' }` (`after-find-first`).
  */
+import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -75,8 +76,13 @@ describe('with no goal: "What did you come here for?" and core\'s four goals', (
     const picker = c.querySelector('[data-testid="view-session-goal"]')!
     expect(picker).not.toBeNull()
     expect(picker.textContent).toContain('What did you come here for?')
-    expect(goalOptions(c).map((b) => b.dataset['goal'])).toEqual(['better_option', 'solve_problem', 'decide_fast', 'understand'])
+    expect(picker.querySelector('#view-session-goal-question svg')).toHaveAttribute('width', '14')
+    expect(goalOptions(c).map((b) => b.dataset['goal'])).toEqual(s.goals.map((g) => g.id))
     expect(goalOptions(c).map((b) => b.textContent)).toEqual(s.goals.map((g) => g.text))
+    for (const tile of goalOptions(c)) {
+      expect(tile).toHaveClass('text-left', 'items-start')
+      expect(tile).toHaveAttribute('aria-pressed', 'false')
+    }
     expect(c.querySelector('[data-testid="view-session-goal-chip"]')).toBeNull()
     expect(drawnExactly(c, view)).toBeGreaterThanOrEqual(4)
   })
@@ -123,6 +129,11 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
     const c = renderTab()
     await press(c.querySelector('[data-testid="view-session-goal-change"]')!)
     expect(goalOptions(c).map((b) => b.dataset['goal'])).toEqual(s.goals.map((g) => g.id))
+    const selected = goalOptions(c).filter((b) => b.getAttribute('aria-pressed') === 'true')
+    expect(selected.map((b) => b.dataset['goal'])).toEqual([s.goal?.id])
+    expect(selected[0]).toHaveClass('aria-pressed:bg-goal-light')
+    expect(selected[0]?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    await waitFor(() => expect(goalOptions(c)[0]).toHaveFocus())
   })
 })
 
@@ -157,6 +168,9 @@ describe('the menu: every question in the View\'s order, the goal\'s first quiet
     expect(methods(c).map((b) => b.dataset['method'])).toEqual(s.methods.map((m) => m.id))
     expect(methods(c).map((b) => b.querySelector('[data-view]')!.textContent)).toEqual(s.methods.map((m) => m.text))
     expect(methods(c)).toHaveLength(11)
+    const menu = c.querySelector('[data-testid="view-actions-menu"]')!
+    const classes = [menu, ...menu.querySelectorAll('[class]')].flatMap((el) => [...el.classList])
+    expect(classes.filter((cls) => /(?:^|[-:])(?:info|blue)(?:$|[-/])/.test(cls))).toEqual([])
     drawnExactly(c, view)
   })
 
@@ -168,7 +182,12 @@ describe('the menu: every question in the View\'s order, the goal\'s first quiet
     const c = renderTab()
     const drawn = methods(c)
     expect(drawn.map((b) => b.hasAttribute('data-first'))).toEqual(s.methods.map((m) => m.first))
-    expect(drawn.map((b) => b.querySelector('[data-testid="view-session-method-first"]') !== null)).toEqual(s.methods.map((m) => m.first))
+    expect(drawn.map((b) => b.querySelector('[data-testid="view-session-method-first"].sr-only')?.textContent?.trim() ?? null))
+      .toEqual(s.methods.map((m) => m.first ? '(Suits what you came here for)' : null))
+    const questions = c.querySelector('[data-testid="view-session-menu"]')!
+    expect(questions.firstElementChild?.textContent).toBe('Ask Olumi')
+    expect(drawn[0]?.previousElementSibling?.textContent).toBe('Suits what you came here for')
+    expect(drawn[5]?.previousElementSibling?.textContent).toBe('More questions')
     for (const b of drawn) expect(b.getAttribute('aria-disabled'), b.dataset['method']).toBeNull()
   })
 
@@ -177,6 +196,36 @@ describe('the menu: every question in the View\'s order, the goal\'s first quiet
     const c = renderTab()
     expect(methods(c)).toHaveLength(11)
     expect(methods(c).some((b) => b.hasAttribute('data-first'))).toBe(false)
+    const questions = c.querySelector('[data-testid="view-session-menu"]')!
+    expect([...questions.querySelectorAll('p')].map((label) => label.textContent)).toEqual(['Ask Olumi'])
+  })
+
+  it('moves the tab stop across goals, questions and tools in reading order, wraps and returns focus on Escape', () => {
+    show(fixture('no-goal'))
+    const c = renderTab()
+    const menu = c.querySelector('[data-testid="view-actions-menu"]')!
+    const tools = [...menu.querySelectorAll<HTMLButtonElement>('[data-tool]')]
+    expect(tools).toHaveLength(2)
+    const rows = [...goalOptions(c), ...methods(c), ...tools]
+    const focusIsOn = (row: HTMLButtonElement) => {
+      expect(row).toHaveFocus()
+      expect(rows.filter((b) => b.tabIndex === 0)).toEqual([row])
+    }
+    focusIsOn(rows[0]!)
+    for (const [index, row] of rows.entries()) {
+      fireEvent.keyDown(row, { key: 'ArrowDown' })
+      focusIsOn(rows[(index + 1) % rows.length]!)
+    }
+    const last = rows.at(-1)!
+    fireEvent.keyDown(rows[0]!, { key: 'ArrowUp' })
+    focusIsOn(last)
+    fireEvent.keyDown(last, { key: 'Home' })
+    focusIsOn(rows[0]!)
+    fireEvent.keyDown(rows[0]!, { key: 'End' })
+    focusIsOn(last)
+    fireEvent.keyDown(last, { key: 'Escape' })
+    expect(c.querySelector('[data-testid="view-actions-menu"]')).toBeNull()
+    expect(c.querySelector('[data-testid="view-actions-button"]')).toHaveFocus()
   })
 })
 

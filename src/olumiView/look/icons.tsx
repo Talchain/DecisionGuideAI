@@ -48,6 +48,8 @@ import {
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   GitBranch, MoveLeft, MoveRight, Spline, Type,
+  ClipboardList, CloudLightning, Dices, GitPullRequestArrow, Goal, KeyRound, LibraryBig, ListOrdered, MessageCircle,
+  MessageCircleMore, PenLine, ScanEye, ShieldQuestion, Signpost, UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 import { CheckCircle2, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
@@ -122,6 +124,28 @@ const e = (
   extra: Partial<Omit<IconEntry, 'Icon' | 'hover' | 'colour' | 'mode' | 'group'>> = {},
 ): IconEntry => ({ Icon, hover, colour, mode, group, ...extra })
 
+const sessionMethodIcons = {
+  'method-differ': e(UsersRound, 'Different perspectives', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-find_first': e(ListOrdered, 'What to find out first', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-have_true': e(KeyRound, 'What needs to be true', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-go_wrong': e(CloudLightning, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-pre_mortem': e(ShieldQuestion, 'Imagine it failed', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-else_do': e(GitPullRequestArrow, 'Explore alternatives', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-right_question': e(MessageCircleMore, 'Revisit the question', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-push': e(Signpost, 'How options move the aims', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-similar': e(LibraryBig, 'Similar situations', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-rests': e(Dices, 'What rests on guesses', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-success': e(Goal, 'What counts as success', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-bias': e(ScanEye, 'Look for bias', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-figure_first': e(PenLine, 'Give your figure first', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-other': e(MessageCircle, 'Explore with Olumi', '--text-light', 'icon-only', 'olumi-ask'),
+} as const
+
+export function sessionMethodIcon(id: string): keyof typeof sessionMethodIcons {
+  const key = `method-${id}`
+  return Object.prototype.hasOwnProperty.call(sessionMethodIcons, key) ? key as keyof typeof sessionMethodIcons : 'method-other'
+}
+
 export const ICONS = {
   // Olumi: blue is Olumi's, and only Olumi's
   'olumi-mark': e(OLUMI_STATIC, 'Olumi', '--info', 'icon-only', 'olumi-ask', { keepWords: "core's olumi.text is the hover and label where the reply's mark is drawn (data-view `${at}.answer.mark`)" }),
@@ -132,6 +156,7 @@ export const ICONS = {
   'method-opposite': e(FlipVertical2, 'The opposite', '--text-light', 'icon-only', 'olumi-ask'),
   'method-disprove': e(SearchX, 'What would disprove it', '--text-light', 'icon-only', 'olumi-ask'),
   'method-outside': e(Globe, 'Outside view', '--text-light', 'icon-only', 'olumi-ask'),
+  ...sessionMethodIcons,
   'method-mark': e(Wrench, 'Asked with a method', '--text-light', 'icon-only', 'kind'),
   'idea-keep': e(Lightbulb, 'Keep as an idea', '--text-light', 'icon-only', 'olumi-ask'),
   'idea-develop': e(Sprout, 'Develop this idea', '--text-light', 'icon-only', 'olumi-ask'),
@@ -148,6 +173,7 @@ export const ICONS = {
   approve: e(Check, 'Approve', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success', keepWords: "core's word where sent" }),
   'approve-ticked': e(CheckCheck, 'Approve only the changes you ticked', '--text-light', 'icon-plus-word', 'person-action'),
   'review-changes': e(ListChecks, 'Review the changes', '--text-header', 'icon-plus-word', 'person-action', { fill: '--success' }),
+  'review-inputs': e(ClipboardList, 'Review all inputs', '--text-light', 'icon-only', 'person-action'),
   'set-aside': e(Ban, 'Set aside', '--text-light', 'icon-only', 'person-action'),
   'skip-question': e(SkipForward, 'Skip', '--text-light', 'icon-only', 'person-action', { hoverColour: '--text-header' }),
   'next-step': e(Footprints, 'Next step', '--text-light', 'icon-only', 'person-action'),
