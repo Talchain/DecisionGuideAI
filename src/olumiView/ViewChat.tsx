@@ -59,7 +59,8 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type NextStep as V12NextStep, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { CommitFormFoot, RecordStepButton, closeUntouchedCommit } from './v12/team'
+import { CommitFormFoot, CommitFormSlot, RecordStepButton, closeUntouchedCommit, useSavedExpectationCount } from './v12/team/CommitForm'
+import { EXPECTATION_WORDS } from './v12/learning/ExpectationEntry'
 import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, keptIdeasOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
@@ -1807,6 +1808,7 @@ export function ViewChat() {
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at), sid = useViewStore((s) => s.sid)
+  const savedExpectationCount = useSavedExpectationCount()
   const surface = useFindingSurface()
   const held = busy || past !== null
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
@@ -1981,6 +1983,7 @@ export function ViewChat() {
               onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} /> },
         { id: 'kept', label: 'Kept ideas', icon: 'idea-keep', count: keptIdeasOf(view).length, content: <KeptIdeas /> },
         { id: 'intake', label: 'What you said', icon: 'file-read', count: view?.model == null ? 0 : intakeOf(view).length, content: <IntakeSheet /> },
+        { id: 'expectation', label: EXPECTATION_WORDS.expect, icon: 'committed', count: savedExpectationCount, content: <CommitFormSlot /> },
       ]} />
     </div>
   )

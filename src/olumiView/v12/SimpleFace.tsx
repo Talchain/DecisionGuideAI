@@ -16,8 +16,7 @@
  * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
-import { Tip, useAnchoredTip } from '../look/Tip'
+import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
 import { colourClass, ICONS, OkIcon } from '../look/icons'
 import type { ViewCard, ViewModel } from '../client'
@@ -119,16 +118,18 @@ export type SimpleFaceProps = {
 type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly row?: true; /** Core's words wrap whole, never cut by the two-line clamp. */ readonly whole?: true; /** Olumi's mark, before the words, on a line that is Olumi's calculation. */ readonly mark?: ReactNode }
 
 export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
-  // CardMarks' press disclosure, with the existing Tip keeping the full sentence outside the clamped line.
   const conditionalPanel = useId()
   const conditionalButton = useRef<HTMLButtonElement>(null)
-  const [conditionalRect, setConditionalRect] = useState<DOMRect | null>(null)
+  const conditionalPremise = useRef<HTMLParagraphElement>(null)
+  const [conditionalOpen, setConditionalOpen] = useState(false)
   useEffect(() => {
-    if (conditionalRect === null) return
-    const outside = (e: PointerEvent) => { if (!conditionalButton.current?.contains(e.target as Node)) setConditionalRect(null) }
+    if (!conditionalOpen) return
+    const outside = (e: PointerEvent) => {
+      if (e.target instanceof Node && !conditionalButton.current?.contains(e.target) && !conditionalPremise.current?.contains(e.target)) setConditionalOpen(false)
+    }
     document.addEventListener('pointerdown', outside, true)
     return () => document.removeEventListener('pointerdown', outside, true)
-  }, [conditionalRect])
+  }, [conditionalOpen])
   let conditionalWords: string | null = null
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
@@ -176,17 +177,17 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }), ...(tip.conditional ? { 'data-simple-tips-conditional': id } : {}) },
             mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? (
               <button ref={conditionalButton} type="button" className={`ok-dt-badge nodrag nopan mr-1.5 h-6 align-middle ${colourClass(ICONS['conditional-tag'].colour)}`}
-                aria-expanded={conditionalRect !== null} aria-controls={conditionalPanel} aria-describedby={conditionalRect === null ? undefined : conditionalPanel}
+                aria-expanded={conditionalOpen} aria-controls={conditionalPanel} aria-describedby={conditionalOpen ? conditionalPanel : undefined}
                 onFocus={(e) => e.stopPropagation()}
-                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setConditionalRect(null) }}
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setConditionalOpen(false) }}
                 onKeyDown={(e) => {
                   e.stopPropagation()
-                  if (e.key !== 'Escape' || e.target !== e.currentTarget || conditionalRect === null) return
+                  if (e.key !== 'Escape' || e.target !== e.currentTarget || !conditionalOpen) return
                   e.preventDefault()
-                  setConditionalRect(null)
+                  setConditionalOpen(false)
                   e.currentTarget.focus()
                 }}
-                onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setConditionalRect((current) => current === null ? rect : null); e.currentTarget.focus() }}>
+                onClick={(e) => { e.stopPropagation(); setConditionalOpen((open) => !open); e.currentTarget.focus() }}>
                 <OkIcon id="conditional-tag" size={14} />{ICONS['conditional-tag'].hover}
               </button>
             ) : null}</> }
@@ -321,7 +322,10 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={conditionalRect === null ? quiet.title : undefined} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
+      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={conditionalOpen ? undefined : quiet.title} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
+      {!conditionalOpen || conditionalWords === null ? null : (
+        <p ref={conditionalPremise} id={conditionalPanel} className="ok-quiet min-w-0 basis-full whitespace-pre-wrap">{conditionalWords}</p>
+      )}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
@@ -340,7 +344,6 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>
     {moreTip.tip}
-    {conditionalRect === null || conditionalWords === null ? null : createPortal(<Tip id={conditionalPanel} text={conditionalWords} anchorRect={conditionalRect} />, document.body)}
     </>
   )
 }

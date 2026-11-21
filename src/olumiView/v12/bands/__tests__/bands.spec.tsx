@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render, screen } from '@testing-library/react'
-import { ReactFlowProvider } from '@xyflow/react'
+import { Position, ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
@@ -27,6 +27,7 @@ import { showSimple, showWholeModel } from '../../simpleStore'
 import { tipOf } from '../../../__tests__/tipHelpers'
 import { setGroupOpen, setInputsOpen } from '../foldStore'
 import { groupIdOf } from '../groups'
+import { GroupLinkEdge } from '../GroupLinkEdge'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
@@ -315,7 +316,7 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     setInputsOpen(view.id, false)
     showWholeModel(view.id)
   })
-  it('D3 three folded inputs draw two summary links, and opening the group draws the real links', async () => {
+  it('D3 one-way folded links keep their arrows, a mixed pair draws one plain line, and opening the group draws the real links', async () => {
     const members = ['budget', 'oven_price', 'fitting']
     const group = groupIdOf('proposed', 'inputs')
     const forward = model.links.filter((l) => members.includes(l.from))
@@ -333,9 +334,27 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     try {
       const closed = await draw(core, view)
       expect(closed.nodes.find((n) => n.id === group)?.data).toMatchObject({ count: 3 })
-      expect(closed.edges.map((e) => [e.type, e.source, e.target]).sort()).toEqual([
+      const summary = closed.edges
+      expect(summary.map((e) => [e.type, e.source, e.target]).sort()).toEqual([
         [GROUP_LINK, group, 'spend'], [GROUP_LINK, group, 'within_budget'],
       ])
+      const incoming = (await draw({ ...core, links: [reverse] }, view)).edges.filter((e) => e.type === GROUP_LINK)
+      expect(incoming.map((e) => [e.source, e.target])).toEqual([['spend', group]])
+
+      const { container } = render(<svg>{[...summary, ...incoming].map((e) => (
+        <GroupLinkEdge key={e.id} id={e.id} source={e.source} target={e.target} data={e.data}
+          sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top} />
+      ))}</svg>)
+      const mixed = container.querySelectorAll('[data-mixed-direction]')
+      expect(mixed).toHaveLength(1)
+      expect(mixed[0]).toHaveAttribute('data-group-link', `group:${group}->spend`)
+      expect(mixed[0]).toHaveAttribute('data-group-link-count', '3')
+      expect(mixed[0]!.querySelector('.ok-link-line')).toBeInTheDocument()
+      expect(mixed[0]!.querySelector('[marker-start], [marker-end], marker')).toBeNull()
+      for (const id of [`group:${group}->within_budget`, `group:spend->${group}`]) {
+        const edge = container.querySelector(`[data-group-link="${id}"]`)
+        expect(edge?.querySelector('.ok-link-line')).toHaveAttribute('marker-end', expect.stringMatching(/^url\(#/))
+      }
       setGroupOpen(view.id, group)
       const open = await draw(core, view)
       expect(open.edges.map((e) => [e.type, e.source, e.target]).sort()).toEqual(

@@ -3,10 +3,12 @@
  * one was saved, and one button that opens the EXISTING outcome form for that commitment in the Team tab. Every person's word below is
  * invented. The View is `golden/european.view.json` with its commitments set inline, as `olumiCore/__tests__/teamNudges.spec.tsx` does.
  */
+import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import golden from '../../../golden/european.view.json'
 import type { View } from '../../../client'
+import { ViewChat } from '../../../ViewChat'
 import { useViewStore } from '../../../store'
 import { useReveal } from '../../../reveal'
 import { useUIStore } from '../../../../stores/uiStore'
@@ -175,7 +177,36 @@ describe('the saved-expectation card: its button opens the existing outcome form
 describe('the saved-expectation card: mounted in the Olumi tab\'s commit slot', () => {
   const slot = (v: View) => { served = v; useViewStore.setState({ view: v }); return render(<CommitFormSlot />) }
 
-  it('stands in the thread alone: the commitment form is docked under the thread (CommitFormFoot, DL 20 Nov), and folded it draws nothing (its entry is the composer icon)', () => {
+  it('opens the saved expectation and its record-outcome control in the chat foot row', () => {
+    render(<ViewChat />)
+    const chip = screen.getByRole('button', { name: `${EXPECTATION_WORDS.expect} · 1` })
+    const box = screen.getByTestId('view-chat-pinned')
+    expect(box).not.toBeVisible()
+    fireEvent.click(chip)
+    const entry = within(box).getByRole('region', { name: EXPECTATION_WORDS.expect })
+    expect(entry).toBeVisible()
+    expect(within(entry).getByTestId('expectation-entry-expect').textContent).toBe(mine().expect)
+    expect(within(entry).getByRole('button', { name: EXPECTATION_WORDS.record })).toBeVisible()
+  })
+
+  it('has no foot-row chip when the reader has no saved expectation to show', () => {
+    useViewStore.setState({ view: viewOf([beas(), mine({ outcomes: [OUTCOME] })]) })
+    render(<ViewChat />)
+    expect(screen.queryByTestId('view-chat-foot-expectation')).toBeNull()
+  })
+
+  it('adds the foot-row chip when a saved expectation appears in the scenario', async () => {
+    served = viewOf([])
+    useViewStore.setState({ view: served })
+    render(<ViewChat />)
+    expect(screen.queryByTestId('view-chat-foot-expectation')).toBeNull()
+
+    served = viewOf([mine()])
+    act(() => useViewStore.setState({ view: served }))
+    expect(await screen.findByTestId('view-chat-foot-expectation')).toBeVisible()
+  })
+
+  it('keeps the expectation in its own slot and the commitment form in its dock', () => {
     const a = slot(viewOf([mine()]))
     expect([screen.queryByTestId('expectation-entry') !== null, screen.queryByTestId('commit-form')]).toEqual([true, null])
     a.unmount()

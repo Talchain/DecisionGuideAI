@@ -11,7 +11,7 @@ import { useCanvasStore } from '../../../canvas/store'
 import { useEscapeLayer } from '../edit/escapeLayers'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
-import { ExpectationEntry } from '../learning/ExpectationEntry'
+import { ExpectationEntry, expectationOf } from '../learning/ExpectationEntry'
 import { seedWords } from '../../plainWords'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
@@ -224,7 +224,12 @@ export function closeUntouchedCommit(sid: string): void {
   putDraft<Draft>(`${sid}:commitment`, (prev) => prev !== undefined && prev.open && !prev.option && [prev.action, prev.expect, prev.reconsider].every((t) => t.trim() === '') ? { ...prev, open: false } : (prev as Draft))
 }
 
-/** The Olumi tab's thread mount: the person's saved expectation with no outcome yet (v12/learning), read from the page's own View, never past
+export function useSavedExpectationCount(): 0 | 1 {
+  const reach = useCommitReach()
+  return reach !== null && expectationOf(reach.view) !== null ? 1 : 0
+}
+
+/** The Olumi tab's foot-row mount: the person's saved expectation with no outcome yet (v12/learning), read from the page's own View, never past
  *  versions, and only for the person this page is for. The form that records the next one is docked under the thread (CommitFormFoot). */
 export function CommitFormSlot(): JSX.Element | null {
   const reach = useCommitReach()

@@ -118,11 +118,11 @@ export function withoutGrouped(model: ViewModel, groups: readonly Pick<CardGroup
 /** A group connector: an aggregate of the grouped cards' links between two drawn ends. It names no single relationship: no record, no removal, no
  *  title, sign, strength or place in the View's links, so nothing drawn for it can describe or act on one member (Codex P1, 17 Nov). Opening the
  *  group draws the real links with their own controls. */
-export type GroupLink = { readonly from: string; readonly to: string; readonly count: number }
+export type GroupLink = { readonly from: string; readonly to: string; readonly count: number; readonly mixedDirection?: true }
 
 /** The links of the groups' cards, run to the group card, and of an aim's bars (layout.ts barsOf), run to the aim: one connector per pair of drawn ends,
- *  none inside one group, none to an end not drawn, none where the pair already has a link of its own. Opposing group links take the direction
- *  with more members' links, using the direction out of the group on a tie. `drawn`: the node ids on the board. */
+ *  none inside one group, none to an end not drawn, none where the pair already has a link of its own. A one-way group connector keeps its direction;
+ *  opposing links share one undirected connector. `drawn`: the node ids on the board. */
 export function groupLinksOf(model: ViewModel, groups: readonly Pick<CardGroup, 'id' | 'cards'>[], drawn: ReadonlySet<string>, bars: ReadonlyMap<string, string> = new Map()): GroupLink[] {
   const into = new Map([...groups.flatMap((g) => g.cards.map((c) => [c, g.id] as const)), ...bars])
   const groupIds = new Set(groups.map((g) => g.id))
@@ -143,9 +143,10 @@ export function groupLinksOf(model: ViewModel, groups: readonly Pick<CardGroup, 
       links.push(link)
       continue
     }
-    const winsTie = fromGroup === toGroup ? link.from < link.to : fromGroup
-    if (link.count > reverse.count || (link.count === reverse.count && winsTie)) {
-      links.push({ ...link, count: link.count + reverse.count })
+    // Give the undirected connector a stable endpoint order independent of its members' counts.
+    const first = fromGroup === toGroup ? link.from < link.to : fromGroup
+    if (first) {
+      links.push({ ...link, count: link.count + reverse.count, mixedDirection: true })
     }
   }
   return links

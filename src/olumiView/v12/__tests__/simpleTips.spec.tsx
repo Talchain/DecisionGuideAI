@@ -109,7 +109,14 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
       expect(onCardKeyDown).not.toHaveBeenCalled()
       fireEvent.click(button)
       expect(button.getAttribute('aria-expanded')).toBe('true')
-      expect(document.getElementById(panel)?.textContent).toBe(row.tips)
+      const premise = document.getElementById(panel)!
+      const face = line.closest('[data-simple-card]')
+      expect(face?.contains(premise)).toBe(true)
+      expect(line.nextElementSibling).toBe(premise)
+      for (let el: HTMLElement | null = premise; el !== null; el = el.parentElement) {
+        expect(getComputedStyle(el).position).not.toBe('fixed')
+      }
+      expect(premise.textContent).toBe(row.tips)
       expect(count(document.body.textContent!, row.tips!)).toBe(1)
       expect(line.className).toBe(clamp)
       expect(line.classList.contains('ok-two-lines')).toBe(true)
