@@ -93,12 +93,12 @@ describe('Item 14 — SuggestedChips focus ring has offset', () => {
 // ---------------------------------------------------------------------------
 
 describe('Items 15, 16 — Empty-state shapes show light fill and align on row height', () => {
-  it('ThinkingIndicator lays shapes on a uniform 16px row', async () => {
+  it('ThinkingIndicator keeps the single mark in a 16 px slot', async () => {
     const { ThinkingIndicator } = await import('../zones/ThinkingIndicator')
     const { container } = render(<ThinkingIndicator />)
-    const row = container.querySelector('[data-testid="thinking-indicator"] > div') as HTMLElement | null
-    // Inline style should declare explicit height to align shape+arrow pairs.
-    expect(row?.getAttribute('style') ?? '').toContain('gap: 0')
+    const mark = container.querySelector('[data-testid="thinking-indicator"] > svg')
+    expect(mark?.getAttribute('width')).toBe('16')
+    expect(mark?.getAttribute('height')).toBe('16')
   })
 })
 

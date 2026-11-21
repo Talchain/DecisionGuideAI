@@ -83,7 +83,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(queryByTestId('v10-method-chips')).toBeNull()
   })
 
-  it('CT4 a turn in flight follows the last saved turn, with the brand loader only while running (P1: no pulsing dots)', () => {
+  it('CT4 a turn in flight follows the last saved turn and shows one mark while running', () => {
     show({ ...fixture, turn: running })
     const { getByTestId, queryByTestId } = render(<ViewChat />)
     follows(getByTestId('view-chat-latest'), getByTestId('view-chat-turn-job'))
@@ -91,7 +91,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(getByTestId('view-chat-turn-seconds').textContent).toMatch(/\d+ s/)
     const loader = getByTestId('view-chat-turn-loader')
     expect(loader.getAttribute('aria-hidden')).toBe('true')
-    expect(loader.querySelector('[data-testid="thinking-indicator"]'), 'the brand loader, beside core\'s words').not.toBeNull()
+    expect(loader.querySelectorAll('[data-testid="thinking-indicator"] svg > path.ok-thinking-mark')).toHaveLength(1)
     expect(queryByTestId('view-chat-dots'), 'the pulsing dots are gone').toBeNull()
     act(() => show({ ...fixture, turn: failed.turn }))
     expect(queryByTestId('view-chat-turn-loader')).toBeNull()
@@ -105,8 +105,9 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     try {
       useViewChat.setState({ busy: true })
       show({ ...fixture, turn: null } as never)
-      const { getByTestId, container } = render(<ViewChat />)
+      const { getByTestId, queryByTestId, container } = render(<><ViewChat /><ViewComposer /></>)
       const loader = getByTestId('view-chat-turn-loader')
+      expect(queryByTestId('view-composer-turn-line')).toBeNull()
       expect(getByTestId('view-chat-turn-words').textContent).toBe(THINKING_WORDS) // before acceptance: the page's one waiting sentence
       expect(getByTestId('view-chat-turn-wait').children.length, 'the loader, the words and the seconds are siblings in one row').toBe(2)
       await act(async () => { vi.advanceTimersByTime(3000) })
@@ -114,13 +115,33 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
       // core accepts: the SAME loader element stands, core's words replace the page's, and the seconds do not go back to 0
       act(() => show({ ...fixture, turn: running }))
       expect(getByTestId('view-chat-turn-loader')).toBe(loader)
+      expect(getByTestId('view-composer-turn-line')).toBeTruthy()
       expect(getByTestId('view-chat-turn-words').textContent).toBe(running.words)
       expect(Number.parseInt(getByTestId('view-chat-turn-seconds').textContent!, 10)).toBeGreaterThanOrEqual(3)
       expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
-      // the end: the line stays, the loader and seconds go (contrast)
+      // Core's failure status stays. The mark, seconds and composer line go.
       act(() => { useViewChat.setState({ busy: false }); show({ ...fixture, turn: failed.turn }) })
       expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(0)
+      expect(queryByTestId('view-composer-turn-line')).toBeNull()
     } finally { vi.useRealTimers(); useViewChat.setState({ busy: false }) }
+  })
+
+  it('removes the three skeleton lines on the first reply text for the open job', () => {
+    const active = { ...fixture, turn: running }
+    show(active)
+    const { getByTestId, queryByTestId } = render(<><ViewChat /><ViewComposer /></>)
+    expect(getByTestId('view-chat-reply-skeleton').children).toHaveLength(3)
+    const line = getByTestId('view-composer-turn-line')
+    const floorRow = { ...running, said: running.said ?? 'What if demand falls?', text: 'Here is the first part of the reply.' }
+    act(() => show({ ...active, floor: [{ ...floorRow, job: running.job + 1 }] }))
+    expect(getByTestId('view-chat-reply-skeleton').children).toHaveLength(3)
+    act(() => show({ ...active, floor: [floorRow] }))
+    expect(getByTestId('view-floor-reply').textContent).toContain(floorRow.text)
+    expect(queryByTestId('view-chat-reply-skeleton')).toBeNull()
+    expect(getByTestId('view-composer-turn-line')).toBe(line)
+    act(() => show({ ...active, floor: [floorRow], turn: null }))
+    expect(queryByTestId('view-chat-reply-skeleton')).toBeNull()
+    expect(queryByTestId('view-composer-turn-line')).toBeNull()
   })
 
   it('CT8f CATCH (contract 3, Codex 15 Nov): a long brief before Olumi\'s first reply: the thread rests on the REPLY\'s first line, and the floor marker is the reply container', () => {

@@ -2,22 +2,30 @@
  * Tests for ThinkingIndicator.
  *
  * Verifies:
- * - Renders 6 node shapes (17 SVGs total: 2 layers per shape + 5 dashed arrows)
+ * - Renders one mark and respects reduced motion
  * - Shows label text when provided
  * - Hides label when not provided
  * - Does not show retry while the request is still in flight
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { ThinkingIndicator } from '../zones/ThinkingIndicator'
 
 describe('ThinkingIndicator', () => {
-  it('renders 6 node shapes (17 SVGs: 2 layers per shape + 5 dashed arrows)', () => {
-    const { container } = render(<ThinkingIndicator />)
-    // 6 shapes × 2 layers = 12 shape SVGs + 5 DashedArrow SVGs between shapes = 17 total.
-    const svgs = container.querySelectorAll('[data-testid="thinking-indicator"] svg')
-    expect(svgs.length).toBe(17)
+  it.each([false, true])('renders one mark with reduced motion set to %s', (matches) => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    try {
+      render(<ThinkingIndicator />)
+      const mark = screen.getByTestId('thinking-indicator')
+      const paths = mark.querySelectorAll('svg > path')
+      expect(mark.querySelectorAll('svg')).toHaveLength(1)
+      expect(paths).toHaveLength(1)
+      expect(paths[0]).toHaveClass(matches ? 'ok-thinking-mark-static' : 'ok-thinking-mark-morph')
+      if (matches) expect(paths[0]).not.toHaveClass('ok-thinking-mark-morph')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('shows label when provided', () => {

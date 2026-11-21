@@ -49,8 +49,8 @@ import { notesOpenOn } from '../v12/qualitativeNotes'
 import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
 import { isBaseline, limitLeadOf } from '../v12/contract'
-import { cardKind, cardTitle, firstDraft as firstDraftOf, type CardKindName } from '../v12/fields/fields'
-import { cardKindOf, dsKindOf, isAssumptionShape, type DsKind } from '../v12/cards/kind'
+import { cardDsKindOf, cardKind, cardTitle, firstDraft as firstDraftOf } from '../v12/fields/fields'
+import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
@@ -181,10 +181,6 @@ export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id:
   return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
 }
 
-/** Core's card kind (fields.ts) in the design system's kinds, which draw the frame's hue and the marker (olumiLook.css `data-ok-kind`). A note and another
- *  person's position have no shape of their own in the design system: they keep the factor's, as today's rule draws them. */
-const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
-
 function CoreCardImpl(props: NodeProps): JSX.Element {
   const id = props.id
   const model = useViewStore((s) => s.view?.model ?? null)
@@ -217,7 +213,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // D4: the kind is core's (`card.kind`, fields.ts cardKind; today's rule where an older core sends none), drawn in the design system's kinds.
   // A limit (core's `card.aim` 'limit', else its family: fields.ts aimOf) is a line to stay within, never a goal: its own mark and frame (DL, 17 Nov).
   const coreKind = card === null ? null : cardKind(card, model, viewNow)
-  const dsKind = coreKind === null ? dsKindOf(null, drawKind) : coreKind.kind === 'aim' && coreKind.aim === 'limit' ? 'constraint' : DS_OF_KIND[coreKind.kind]
+  const dsKind = coreKind === null ? dsKindOf(null, drawKind) : cardDsKindOf(coreKind)
   const width = (props.data as { width?: number }).width
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
   // Core's face title (FL1: the person's words, Olumi's caption, or the name), as the retired card drew it; the heading stays the card's

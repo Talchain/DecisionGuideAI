@@ -1,19 +1,19 @@
 /**
  * E4 "What you said" (DL 19 Nov; field shape Codex 12:26Z, URL 2), mounted through the real chat panel (ViewChat) and bound to core's typed field
  * `view.intake.figures[]` by source. What a row says about the model is read from `record` alone: an id (in the model, shows that record),
- * null (not in the model yet), "unknown" (no claim). Each row names what fails if the change is reverted.
+ * null (not in the model yet), "unknown" (no claim).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer } from '../../../ViewChat'
-import { CLOSE_INTAKE, IN_MODEL, NOT_IN_MODEL, OPEN_INTAKE, resetRemovedIntake, SHOW_RECORD, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
+import { CLOSE_INTAKE, NOT_IN_MODEL, OPEN_INTAKE, resetRemovedIntake, SHOW_RECORD, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
 import { tipOnFocus } from '../../../__tests__/tipHelpers'
 
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => null }))
@@ -40,21 +40,29 @@ const open = (c: HTMLElement) => act(() => {
   if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip)
   fireEvent.click(q(c, 'view-intake-toggle')!)
 })
-const marks = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-intake-source]')].map((e) => [e.getAttribute('data-intake-source'), e.querySelector('[data-intake-mark]')?.textContent ?? null])
+const sentences = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-intake-source]')]
+const marks = (c: HTMLElement) => sentences(c).map((row) => [
+  row.getAttribute('data-intake-source'),
+  row.querySelector('[data-intake-mark]')?.getAttribute('data-intake-mark') ?? null,
+])
 
 beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); setTeamFetch((async () => new Response('{}', { status: 201 })) as never); pressed.ids = [] })
 afterEach(() => { cleanup(); resetRemovedIntake() })
 
 describe('E4 What you said (view.intake)', () => {
-  it('each figure is listed in its quote, folded at rest, marked by `record` alone: id = in your model, null = not yet, "unknown" = no claim; CONTRAST: without the field no sheet', () => {
+  it('folds the sheet at rest and lists sentences with missing figures first, then the rest in brief order', () => {
     const v = base(), c = mount(withIntake(v, FIGS(v)))
     expect([q(c, 'view-intake') !== null, q(c, 'view-intake-rows'), q(c, 'view-intake-missing')?.textContent]).toEqual([true, null, `1 ${NOT_IN_MODEL}`])
     expect(q(c, 'view-chat-foot-intake')).toHaveAttribute('aria-expanded', 'false')
     expect(q(c, 'view-chat-foot-intake')).toHaveTextContent('3')
     expect(q(c, 'view-chat-scroll')!.contains(q(c, 'view-intake')!)).toBe(false)
     open(c)
-    expect(marks(c)).toEqual([['brief:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null]])
-    expect(c.querySelector('[data-intake-source="1:0:18"]')?.textContent, 'unknown: the words, with their uncertainty, and nothing else').toBe('“maybe an invented 10%”')
+    expect(marks(c)).toEqual([['0:30:44', 'absent'], ['brief:4:20', 'present'], ['1:0:18', null]])
+    const [absent, , unknown] = sentences(c)
+    const chip = within(absent!).getByText('Not in your model yet')
+    expect(chip).toHaveClass('border-dashed', 'border-warning', 'text-warning-ink')
+    expect(within(unknown!).getByRole('button')).toHaveAccessibleName('maybe an invented 10%, 1 figure')
+    expect(unknown!.querySelector('[data-intake-mark]')).toBeNull()
     cleanup()
     expect(q(mount(v), 'view-intake'), 'CONTRAST: no intake, no sheet').toBeNull()
   })
@@ -62,18 +70,50 @@ describe('E4 What you said (view.intake)', () => {
     const v = base(), [a, b, u] = FIGS(v)
     const c = mount(withIntake(v, [{ ...a!, record: UNKNOWN }, { ...b!, record: v.model!.cards[0]!.id }, { ...u!, record: null }]))
     open(c)
-    expect(marks(c)).toEqual([['brief:4:20', null], ['0:30:44', IN_MODEL], ['1:0:18', NOT_IN_MODEL]])
+    expect(marks(c)).toEqual([['1:0:18', 'absent'], ['brief:4:20', null], ['0:30:44', 'present']])
   })
-  it('a record id links to that record: pressing "in your model" reaches the workspace with that id', () => {
-    const v = base(), id = v.model!.cards[0]!.id, c = mount(withIntake(v, FIGS(v)))
+  it('shows the card’s heading, figure text and canvas kind shape, and presses the workspace path with its id', () => {
+    const v = base(), card = v.model!.cards[0]!, c = mount(withIntake(v, FIGS(v)))
     open(c)
-    act(() => { fireEvent.click(c.querySelector<HTMLElement>(`[data-intake-show="${id}"]`)!) })
-    expect(pressed.ids).toEqual([id])
+    const row = sentences(c)[1]!
+    expect(within(row).getByRole('button', { expanded: false })).toBeInTheDocument()
+    const heading = within(row).getByText(card.heading)
+    const chip = heading.closest('button')!
+    expect(chip).toHaveAttribute('data-intake-show', card.id)
+    expect(heading).toHaveClass('line-clamp-1')
+    expect(within(chip).getByText(card.figure!.text)).toBeInTheDocument()
+    expect(chip.querySelector('svg circle')).toHaveAttribute('fill', 'var(--factor)')
+    const sheet = q(c, 'view-intake')!
+    expect(within(sheet).queryByText(/^in your model$/i)).toBeNull()
+    expect(sheet.querySelector('.underline')).toBeNull()
+    fireEvent.click(chip)
+    expect(pressed.ids).toEqual([card.id])
+  })
+  it('previews one line and unfolds the full verbatim quote on press, one sentence at a time', () => {
+    const v = base(), [present, absent] = FIGS(v)
+    const quote = 'We can handle 40 a week.\n  Only if both people are here.'
+    const c = mount(withIntake(v, [{ ...present!, quote }, absent!]))
+    open(c)
+    const [missingRow, presentRow] = sentences(c)
+    const preview = within(presentRow!).getByText('We can handle 40 a week.')
+    const toggle = within(presentRow!).getByRole('button', { expanded: false })
+    expect(preview).toHaveClass('line-clamp-1')
+    expect(toggle).toContainElement(preview)
+    expect(presentRow).not.toHaveTextContent('Only if both people are here.')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    const full = document.getElementById(toggle.getAttribute('aria-controls')!)
+    expect(full?.textContent).toBe(quote)
+    expect(full).toHaveClass('whitespace-pre-wrap')
+    expect(presentRow!.querySelector('[data-intake-show]')).toBeInTheDocument()
+    fireEvent.click(within(missingRow!).getByRole('button', { expanded: false }))
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(full).not.toBeInTheDocument()
   })
   it('core dbf5aba7 shape: a figure whose row is not known (source null) shows its words with no claim; CONTRAST: a malformed source is dropped, not guessed', () => {
     const v = base(), c = mount(withIntake(v, [...FIGS(v), { source: null, quote: 'an invented unplaced 12', unit: null, stated: null, record: UNKNOWN }, { source: { row: -1, start: 0, end: 2 }, quote: 'an invented bad 7', unit: null, stated: null, record: null } as unknown as IntakeFigure]))
     open(c)
-    expect(marks(c)).toEqual([['brief:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null], ['none:3:an invented unplaced 12', null]])
+    expect(marks(c)).toEqual([['0:30:44', 'absent'], ['brief:4:20', 'present'], ['1:0:18', null], ['none:3:an invented unplaced 12', null]])
     expect(q(c, 'view-intake-missing')?.textContent, 'the dropped row is not counted').toBe(`1 ${NOT_IN_MODEL}`)
   })
   it('never before the first model: with no model the sheet is not drawn; CONTRAST: the same intake with a model is', () => {
@@ -92,26 +132,29 @@ describe('E4 What you said (view.intake)', () => {
     const more = [...FIGS(v), { source: at(2, 0, 9), quote: 'an invented third figure of 5', unit: null, stated: null, record: null }]
     expect(q(mount(withIntake(v, more)), 'view-intake'), 'a new figure is a new list').not.toBeNull()
   })
-  it('one sentence is drawn once: figures with the same source row and quote are grouped, one status line per distinct status with its count; the head count stays per figure; CONTRAST: another row is another sentence', () => {
+  it('groups figures by sentence and source row, deduplicates card and missing chips, and counts every figure', () => {
     const v = base(), id = v.model!.cards[0]!.id, one = { unit: null, stated: null } as const
     const same = 'an invented question sentence'
     const figs: IntakeFigure[] = [
       { ...one, source: at(0, 0, 4), quote: same, record: null }, { ...one, source: at(0, 5, 9), quote: same, record: null }, { ...one, source: at(0, 10, 14), quote: same, record: id },
+      { ...one, source: at(0, 15, 19), quote: same, record: id },
       { ...one, source: at(1, 0, 4), quote: same, record: null },
     ]
     const c = mount(withIntake(v, figs))
     expect(q(c, 'view-intake-missing')?.textContent).toBe(`3 ${NOT_IN_MODEL}`)
     open(c)
-    const lis = [...c.querySelectorAll<HTMLElement>('[data-intake-source]')]
-    expect(lis.map((l) => l.textContent)).toEqual([`“${same}”${NOT_IN_MODEL} · 2${IN_MODEL}`, `“${same}”${NOT_IN_MODEL}`])
-    expect(lis[0]!.querySelectorAll('[data-intake-show]')).toHaveLength(1)
-    act(() => { fireEvent.click(lis[0]!.querySelector<HTMLElement>(`[data-intake-show="${id}"]`)!) })
-    expect(pressed.ids).toEqual([id])
+    const rows = sentences(c)
+    expect(rows.map((row) => row.getAttribute('data-intake-source'))).toEqual(['0:0:4', '1:0:4'])
+    expect(within(rows[0]!).getByRole('button', { name: `${same}, 4 figures` })).toBeInTheDocument()
+    expect(within(rows[1]!).getByRole('button', { name: `${same}, 1 figure` })).toBeInTheDocument()
+    expect(within(rows[0]!).getAllByText('Not in your model yet')).toHaveLength(1)
+    expect(rows[0]!.querySelectorAll(`[data-intake-show="${id}"]`)).toHaveLength(1)
+    expect(rows[1]!.querySelector('[data-intake-show]')).toBeNull()
   })
 })
 
 describe('E4 hover and disclosure (panel system: one Tip, a fold that names its region)', () => {
-  it('the fold toggle and each "in your model" press say their words through the one Tip on REAL keyboard focus, never a native title; the toggle names its rows by a unique id only while they are drawn', async () => {
+  it('the fold toggle and the card chip use the shared Tip on keyboard focus, and the toggle names its rows while they are drawn', async () => {
     const v = base(), card = v.model!.cards[0]!, c = mount(withIntake(v, FIGS(v)))
     const toggle = q(c, 'view-intake-toggle')!
     expect([toggle.hasAttribute('title'), toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')], 'closed: expanded false, nothing named').toEqual([false, 'false', null])

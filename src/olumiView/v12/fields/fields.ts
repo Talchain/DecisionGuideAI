@@ -21,7 +21,7 @@
 import type { View, ViewCard, ViewLink, ViewModel } from '../../client'
 import { askKindOf } from '../../layout'
 import { bandOf, type BandId } from '../bands/bands'
-import { cardKindOf, type CardShape } from '../cards/kind'
+import { cardKindOf, type CardShape, type DsKind } from '../cards/kind'
 import { linkRole, type LinkRole } from '../contract'
 
 // ─── The additive wire fields (declared locally) ─────────────────────────────────────────────────────────────────────────────────────
@@ -157,6 +157,13 @@ export function cardKind(card: ViewCard, model: ViewModel | null, view: View | n
   const shape = cardKindOf(card, model, view).shape
   const kind = kindOfShape(card, shape)
   return { kind, ...(kind === 'aim' ? aimOf(card) : { aim: null, aimSource: null }), source: 'inferred', state, shape }
+}
+
+/** The design system shape and colour for a card's kind. Notes and positions share the factor's shape. */
+const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
+
+export function cardDsKindOf({ kind, aim }: CardKindAnswer): DsKind {
+  return kind === 'aim' && aim === 'limit' ? 'constraint' : DS_OF_KIND[kind]
 }
 
 // ─── 2. card.row ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

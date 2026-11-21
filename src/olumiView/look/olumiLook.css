@@ -525,8 +525,70 @@ input[type='checkbox'] { accent-color: var(--success); }
    brand --space-* tokens. Applied to the panel sections the system rebuilds (the reply's facts), not scattered through nested groups. */
 .ok-section { border-top: 1px solid var(--border-default); padding-top: var(--space-3); }
 .ok-stack { display: grid; gap: var(--space-2); }
-/* P1 waiting: the brand loader, core's words and the seconds sit side by side. The loader keeps its own reduced-motion rule (ThinkingIndicator). */
 .ok-waiting { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ok-thinking-indicator { display: grid; justify-items: center; gap: var(--space-2); }
+.ok-thinking-mark { fill: var(--goal); }
+
+.ok-reply-skeleton { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
+.ok-reply-skeleton > span {
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--border-default);
+}
+.ok-reply-skeleton > :nth-child(1) { width: 100%; }
+.ok-reply-skeleton > :nth-child(2) { width: 88%; }
+.ok-reply-skeleton > :nth-child(3) { width: 64%; }
+
+.ok-composer-turn-line {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--info);
+  pointer-events: none;
+  transform-origin: left center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ok-thinking-mark-morph { animation: ok-thinking-morph 7.2s var(--ease-in-out) infinite; }
+  .ok-composer-turn-line { animation: ok-composer-turn-draw var(--duration-slow) var(--ease-in-out) both; }
+}
+@keyframes ok-composer-turn-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+/* Eight clockwise cubic segments per shape, starting at the top. Repeat each keyframe to hold the shape. */
+@keyframes ok-thinking-morph {
+  /* Goal */
+  0%, 6%, 100% {
+    d: path("M 6 1 C 6 1 8.5 3.5 8.5 3.5 C 8.5 3.5 11 6 11 6 C 11 6 8.5 8.5 8.5 8.5 C 8.5 8.5 6 11 6 11 C 6 11 3.5 8.5 3.5 8.5 C 3.5 8.5 1 6 1 6 C 1 6 3.5 3.5 3.5 3.5 C 3.5 3.5 6 1 6 1 Z");
+    fill: var(--goal);
+  }
+  /* Decision */
+  16.667%, 22.667% {
+    d: path("M 6 1.5 C 6 1.5 8.75 1.5 8.75 1.5 C 8.75 1.5 11.5 6 11.5 6 C 11.5 6 8.75 10.5 8.75 10.5 C 8.75 10.5 6 10.5 6 10.5 C 6 10.5 3.25 10.5 3.25 10.5 C 3.25 10.5 0.5 6 0.5 6 C 0.5 6 3.25 1.5 3.25 1.5 C 3.25 1.5 6 1.5 6 1.5 Z");
+    fill: var(--text-light);
+  }
+  /* Option */
+  33.333%, 39.333% {
+    d: path("M 6 1 C 6 1 11 1 11 1 C 11 1 11 6 11 6 C 11 6 11 11 11 11 C 11 11 6 11 6 11 C 6 11 1 11 1 11 C 1 11 1 6 1 6 C 1 6 1 1 1 1 C 1 1 6 1 6 1 Z");
+    fill: var(--option);
+  }
+  /* Factor */
+  50%, 56% {
+    d: path("M 6 1 C 7.326 1 8.598 1.527 9.536 2.464 C 10.473 3.402 11 4.674 11 6 C 11 7.326 10.473 8.598 9.536 9.536 C 8.598 10.473 7.326 11 6 11 C 4.674 11 3.402 10.473 2.464 9.536 C 1.527 8.598 1 7.326 1 6 C 1 4.674 1.527 3.402 2.464 2.464 C 3.402 1.527 4.674 1 6 1 Z");
+    fill: var(--factor);
+  }
+  /* Risk */
+  66.667%, 72.667% {
+    d: path("M 6 1 C 6 1 11.5 1 11.5 1 C 11.5 1 9.85 4 9.85 4 C 9.85 4 7.65 8 7.65 8 C 7.65 8 6 11 6 11 C 6 11 4.35 8 4.35 8 C 4.35 8 2.15 4 2.15 4 C 2.15 4 0.5 1 0.5 1 C 0.5 1 6 1 6 1 Z");
+    fill: var(--danger);
+  }
+  /* Outcome */
+  83.333%, 89.333% {
+    d: path("M 6 1 C 6 1 7.65 4 7.65 4 C 7.65 4 9.85 8 9.85 8 C 9.85 8 11.5 11 11.5 11 C 11.5 11 6 11 6 11 C 6 11 0.5 11 0.5 11 C 0.5 11 2.15 8 2.15 8 C 2.15 8 4.35 4 4.35 4 C 4.35 4 6 1 6 1 Z");
+    fill: var(--success);
+  }
+}
 /* P4 reply facts: one compact grey icon row under a reply. */
 .ok-facts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); color: var(--text-light); }
 /* The "Latest" control under the thread: the registry's ghost icon button on a panel surface with a border-token line. */

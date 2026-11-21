@@ -534,7 +534,7 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 }
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
-export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<View['turn']> | null; me: string | null; shown?: boolean }) {
+export function TurnInFlight({ turn, me, shown = false, replyVisible = false }: { turn: NonNullable<View['turn']> | null; me: string | null; shown?: boolean; replyVisible?: boolean }) {
   // `turn` null: the write is in flight and core has not yet accepted it. The SAME mount then carries through acceptance (one loader, one clock,
   // no restart: ViewChat draws it at one place in the thread), with the page's one waiting sentence until core's own words arrive.
   const running = turn === null || turn.status === 'answering'
@@ -550,15 +550,14 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
   const parsed = turn === null ? NaN : Date.parse(turn.started)
   const from = Number.isFinite(parsed) ? parsed : sent, secs = Math.max(0, Math.floor((now - from) / 1000))
   return (
-    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn?.status ?? 'answering'} data-shown={shown ? '' : undefined}>
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn?.status ?? 'answering'} data-shown={shown ? '' : undefined} data-reply-visible={replyVisible ? '' : undefined}>
       <li className="space-y-1">
         {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone. */}
-        {shown || turn === null ? null : turn.said === null
+        {shown || replyVisible || turn === null ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
           : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
-        {/* P1 (system spec): the brand loader (the six node shapes in a colour wave; still under reduced motion) stands beside core's words and the seconds. One signal: no pulsing dots. */}
         {shown ? null : <div className="ok-waiting" data-testid="view-chat-turn-wait">
           {running ? <div aria-hidden="true" data-testid="view-chat-turn-loader"><ThinkingIndicator /></div> : null}
           <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} m-0 ${running ? 'text-text-light' : 'text-text-body'}`}>
@@ -566,6 +565,13 @@ export function TurnInFlight({ turn, me, shown = false }: { turn: NonNullable<Vi
             {running ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
           </p>
         </div>}
+        {running && !replyVisible ? (
+          <div className="ok-reply-skeleton" data-testid="view-chat-reply-skeleton" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+        ) : null}
         {running || turn === null || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
@@ -1854,7 +1860,7 @@ export function ViewChat() {
     if (!follows.current) { setAway(true); return }
     // A job the saved row already draws (its message and failure; only Try again added) is not the newest message: his message is
     // (DL 1128 fault 3: following the job's Try again scrolled his own message out of view above the pinned proposal).
-    const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown])')
+    const job = el.querySelector<HTMLElement>('[data-testid="view-chat-turn-job"]:not([data-shown]):not([data-reply-visible])')
     // Contract 3 (Codex 15 Nov): the newest REPLY's first line, never the person's message drawn above it in the same turn.
     const latest = el.querySelector<HTMLElement>('[data-testid="view-chat-latest"]')
     // The answer first, the early reply only where there is no answer yet (one query each: a comma list would pick DOM order, and the early
@@ -1891,7 +1897,13 @@ export function ViewChat() {
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
   // The model-less floor and the early answer redraw the thread too (14 Nov): a new reply there is followed like a new turn.
-  const floorKey = floorShown(view).map((f) => f.job).join(',') + '|' + (earlyOf(view?.draft) === null ? 0 : 1) + (view?.draft?.status ?? '')
+  const floor = floorShown(view)
+  const floorKey = floor.map((f) => f.job).join(',') + '|' + (earlyOf(view?.draft) === null ? 0 : 1) + (view?.draft?.status ?? '')
+  // The View can show initial text while the job is still open. Match it by job, or by the job's linked chat row.
+  const entry = job === null ? undefined : entriesOf(view?.draft)?.find((row) => row.job === job && row.proposal !== null)
+  const savedReply = entry === undefined ? undefined : view?.chat.find((row) => row.id === entry.proposal && row.by_id === entry.by_id)
+  const replyVisible = isAnswering(view) && (floor.some((row) => row.job === job && row.unanswered === undefined) ||
+    (savedReply !== undefined && (earlyOf(savedReply) !== null || savedReply.answer?.answer.some((part) => 'text' in part && part.text.trim() !== '') === true)))
   const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
   const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
   // The person's own save is what they look for (DL journey (4)): each new notice (a new object, even for the same version) makes its
@@ -1899,7 +1911,7 @@ export function ViewChat() {
   // makes nothing due. Declared first: it runs before the rest below.
   const notice = useModelNotice((s) => s.notice)
   useEffect(() => { if (notice !== null) receiptDue.current = true }, [notice])
-  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, notice, sinceTo, floorKey])
+  useEffect(followNewest, [turns, lastTurn, job, followNewest, floating, noticeKey, notice, sinceTo, floorKey, replyVisible])
   // Replies and cards can grow without adding a turn (pre-screen 4b92d394 row 15).
   useEffect(() => {
     if (typeof ResizeObserver === 'undefined' || content.current === null) return
@@ -1944,9 +1956,9 @@ export function ViewChat() {
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
-            {view === null ? null : <ViewConversation chat={view.chat} floor={floorShown(view)} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
+            {view === null ? null : <ViewConversation chat={view.chat} floor={floor} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
             {/* P1: ONE waiting mount from Send through acceptance: before core accepts, `turn` is null; the same element then takes core's turn (no remount, so the loader and its seconds never restart). */}
-            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} />}
+            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} replyVisible={replyVisible} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
@@ -2092,6 +2104,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
+        {answering ? <span className="ok-composer-turn-line" data-testid="view-composer-turn-line" aria-hidden="true" /> : null}
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
         <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} useQuiet={useDetailsOpenFor} />
         {/* A challenge waiting for its card says so here, in words (the pressed icon alone is not enough on touch or by keyboard). */}
