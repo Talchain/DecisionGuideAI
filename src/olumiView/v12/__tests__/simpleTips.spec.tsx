@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { olumiKey } from '../../layout'
 import { typography } from '../../../styles/typography'
@@ -40,6 +40,7 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
     expect(await tipOf(mark)).toBe(olumiKey(model)!.text)
     const copy = line.cloneNode(true) as HTMLElement
     copy.querySelector('[data-olumi-mark]')!.remove()
+    copy.querySelector('button')?.remove()
     expect(copy.textContent).toBe(row.tips_face)
     expect(line.firstElementChild!.contains(mark)).toBe(true)
   })
@@ -72,21 +73,51 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
     expect(line.contains(footer)).toBe(false)
   })
 
-  it("AC6 a conditional threshold shows the registry's premise marker inside the line; unflagged rows show none", async () => {
+  it("AC6 a conditional threshold discloses its full premise through the registry's icon and word; unflagged rows show no button", () => {
     const card = option(model), row = tipRow(card), el = draw(card, model), line = tips(el)!
-    const entry = ICONS['assumption-tag']
-    const markers = line.querySelectorAll<HTMLElement>(`[role="img"][aria-label="${entry.hover}"]`)
-    expect(markers).toHaveLength(conditional ? 1 : 0)
+    const entry = ICONS['conditional-tag']
+    const buttons = line.querySelectorAll<HTMLButtonElement>('button')
+    expect(buttons).toHaveLength(conditional ? 1 : 0)
     expect(line.getAttribute('data-simple-tips-conditional')).toBe(conditional ? card.id : null)
     if (conditional) {
-      const marker = markers[0]!
-      expect(marker.classList.contains(colourClass(entry.colour))).toBe(true)
-      expect(marker.querySelector('svg')?.getAttribute('width')).toBe('14')
-      expect(marker.querySelector('svg')?.getAttribute('height')).toBe('14')
-      expect(marker.nextSibling?.nodeType).toBe(Node.TEXT_NODE)
-      expect(marker.nextSibling?.textContent).toBe(row.tips_face)
-      expect(marker.previousElementSibling?.querySelector('[data-olumi-mark]')).not.toBeNull()
-      expect(await tipOf(marker)).toBe(entry.hover)
+      const button = buttons[0]!, clamp = line.className
+      expect(entry.mode).toBe('icon-plus-word')
+      expect(entry.hover).toBe('Conditional')
+      expect(button.textContent).toBe(entry.hover)
+      expect(button.classList.contains(colourClass(entry.colour))).toBe(true)
+      expect(button.querySelector('svg')?.classList.contains('lucide-git-branch')).toBe(true)
+      expect(button.querySelector('svg')?.getAttribute('width')).toBe('14')
+      expect(button.querySelector('svg')?.getAttribute('height')).toBe('14')
+      expect(button.nextSibling?.nodeType).toBe(Node.TEXT_NODE)
+      expect(button.nextSibling?.textContent).toBe(row.tips_face)
+      expect(button.previousElementSibling?.querySelector('[data-olumi-mark]')).not.toBeNull()
+      expect(button.tabIndex).toBe(0)
+      expect(button.classList.contains('h-6')).toBe(true)
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      const panel = button.getAttribute('aria-controls')!
+      expect(panel).toBeTruthy()
+      expect(document.getElementById(panel)).toBeNull()
+      button.focus()
+      fireEvent.click(button)
+      expect(button.getAttribute('aria-expanded')).toBe('true')
+      expect(document.getElementById(panel)?.textContent).toBe(row.tips)
+      expect(count(document.body.textContent!, row.tips!)).toBe(1)
+      expect(line.className).toBe(clamp)
+      expect(line.classList.contains('ok-two-lines')).toBe(true)
+      expect(button.nextSibling?.textContent).toBe(row.tips_face)
+      fireEvent.keyDown(button, { key: 'Escape' })
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(document.getElementById(panel)).toBeNull()
+      expect(document.activeElement).toBe(button)
+      fireEvent.click(button)
+      fireEvent.click(button)
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(document.activeElement).toBe(button)
+      fireEvent.click(button)
+      fireEvent.pointerDown(document.body)
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(document.getElementById(panel)).toBeNull()
+      expect(document.activeElement).toBe(button)
     }
   })
 
@@ -99,7 +130,7 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
     expect(hover).toContain(card.headline.why)
     expect(hover).toContain(card.headline.add)
     expect(hover.split(row.tips!).length - 1).toBe(1)
-    expect(line.textContent).toBe(row.tips_face)
+    expect(line.lastChild?.textContent).toBe(row.tips_face)
     expect(el.querySelector('[data-simple-face="no-chance"]')).toBeNull()
   })
 

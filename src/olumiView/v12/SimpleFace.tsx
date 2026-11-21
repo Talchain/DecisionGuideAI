@@ -15,10 +15,11 @@
  * on one line, whole on hover: core's `description` where it sends one (fields.ts cardTitle), else the card's state line above (the chance's qualifier,
  * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
-import type { ReactNode } from 'react'
-import { useAnchoredTip } from '../look/Tip'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { Tip, useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
-import { OkIcon } from '../look/icons'
+import { colourClass, ICONS, OkIcon } from '../look/icons'
 import type { ViewCard, ViewModel } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceAtOf } from '../resultRange'
@@ -118,6 +119,20 @@ export type SimpleFaceProps = {
 type StateLine = { readonly text: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly row?: true; /** Core's words wrap whole, never cut by the two-line clamp. */ readonly whole?: true; /** Olumi's mark, before the words, on a line that is Olumi's calculation. */ readonly mark?: ReactNode }
 
 export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
+  // CardMarks' press disclosure, with the existing Tip keeping the full sentence outside the clamped line.
+  const conditionalPanel = useId()
+  const conditionalButton = useRef<HTMLButtonElement>(null)
+  const [conditionalRect, setConditionalRect] = useState<DOMRect | null>(null)
+  useEffect(() => {
+    if (conditionalRect === null) return
+    const close = () => { setConditionalRect(null); conditionalButton.current?.focus() }
+    const outside = (e: PointerEvent) => { if (!conditionalButton.current?.contains(e.target as Node)) close() }
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } }
+    document.addEventListener('pointerdown', outside, true)
+    document.addEventListener('keydown', escape, true)
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape, true) }
+  }, [conditionalRect])
+  let conditionalWords: string | null = null
   const id = card.id
   const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
@@ -154,6 +169,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // Each option's own `add` line is whole, never clamped. (A waits item every option shares is core's to say once: it sends it on none of them.)
       const { line, hover } = noChanceLineOf(h)
       const tip = tipsLineOf(card, h), key = model === null ? null : olumiKey(model)
+      if (tip?.conditional) conditionalWords = tip.whole
       state = tip === null
         ? { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
         // CP-3: core's break-even, short (`tips_face`), replaces the next-step line; the whole sentence joins the hover. A what-if says so in its own words
@@ -161,7 +177,14 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         // CP-3 full-width (DL 21 Nov): the threshold and unit must fit two lines at 1.33.
         : { text: tip.face, title: tip.whole !== '' && !hover.includes(tip.whole) ? `${hover}\n${tip.whole}` : hover, row: true,
             marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }), ...(tip.conditional ? { 'data-simple-tips-conditional': id } : {}) },
-            mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? <OkIcon id="assumption-tag" size={14} decorative={false} className="mr-1 align-middle" /> : null}</> }
+            mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? (
+              <button ref={conditionalButton} type="button" className={`ok-more nodrag nopan mr-1 inline-flex h-6 min-w-6 items-center gap-1 rounded-sm align-middle ${colourClass(ICONS['conditional-tag'].colour)}`}
+                aria-expanded={conditionalRect !== null} aria-controls={conditionalPanel} aria-describedby={conditionalRect === null ? undefined : conditionalPanel}
+                onFocus={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setConditionalRect((current) => current === null ? rect : null); e.currentTarget.focus() }}>
+                <OkIcon id="conditional-tag" size={14} />{ICONS['conditional-tag'].hover}
+              </button>
+            ) : null}</> }
     }
   } else if (bands.length > 0 || held.length > 0) {
     const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
@@ -293,7 +316,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={quiet.title} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
+      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={conditionalRect === null ? quiet.title : undefined} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
@@ -312,6 +335,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>
     {moreTip.tip}
+    {conditionalRect === null || conditionalWords === null ? null : createPortal(<Tip id={conditionalPanel} text={conditionalWords} anchorRect={conditionalRect} />, document.body)}
     </>
   )
 }

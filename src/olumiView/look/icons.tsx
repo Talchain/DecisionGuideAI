@@ -47,7 +47,7 @@ import {
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
-  MoveLeft, MoveRight, Spline, Type,
+  GitBranch, MoveLeft, MoveRight, Spline, Type,
   type LucideIcon,
 } from 'lucide-react'
 import { CheckCircle2, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
@@ -183,6 +183,7 @@ export const ICONS = {
   'effect-up': e(TrendingUp, 'Increases', '--text-light', 'icon-only', 'kind'),
   'effect-down': e(TrendingDown, 'Decreases', '--text-light', 'icon-only', 'kind'),
   'assumption-tag': e(CircleDashed, 'Assumption', '--text-light', 'icon-only', 'kind'),
+  'conditional-tag': e(GitBranch, 'Conditional', '--text-light', 'icon-plus-word', 'kind'),
   'baseline-tag': e(Flag, 'The option you already have', '--text-body', 'icon-plus-word', 'kind'),
   'limit-tag': e(LimitShape, 'Limit', '--text-light', 'icon-plus-word', 'kind'),
   'what-if': e(ArrowRightLeft, 'What if', '--text-header', 'icon-only', 'kind'),
