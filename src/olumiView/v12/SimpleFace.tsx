@@ -178,7 +178,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
         : { text: tip.face, title: tip.whole !== '' && !hover.includes(tip.whole) ? `${hover}\n${tip.whole}` : hover, row: true,
             marks: { 'data-simple-face': 'tips', 'data-view': `${id}.rows.${tip.i}.tips_face`, ...(tip.label === null ? {} : { 'data-simple-tips-whatif': id }), ...(tip.conditional ? { 'data-simple-tips-conditional': id } : {}) },
             mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? (
-              <button ref={conditionalButton} type="button" className={`ok-more nodrag nopan mr-1 inline-flex h-6 min-w-6 items-center gap-1 rounded-sm align-middle ${colourClass(ICONS['conditional-tag'].colour)}`}
+              <button ref={conditionalButton} type="button" className={`ok-dt-badge nodrag nopan mr-1.5 h-6 align-middle ${colourClass(ICONS['conditional-tag'].colour)}`}
                 aria-expanded={conditionalRect !== null} aria-controls={conditionalPanel} aria-describedby={conditionalRect === null ? undefined : conditionalPanel}
                 onFocus={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setConditionalRect((current) => current === null ? rect : null); e.currentTarget.focus() }}>
