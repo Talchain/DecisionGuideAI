@@ -1,56 +1,43 @@
-/**
- * V12 Simple bands (pure). Which band a drawn card stands in, the fixed band words, which figures no link touches, and which cards lie on a
- * selected card's causal path. Geometry and picking only: the words here are the boards' notation chrome (decided by the lead), never core's.
- */
+/** Card grouping, labels, fold state and causal-path highlighting for Simple. */
 import type { ViewCard, ViewModel } from '../../client'
 import { cardLinks, drawKindOf, QUESTION } from '../../layout'
 import { linkRole } from '../contract'
 import { MODEL_GROUP_TITLE } from '../../../canvas/domain/vocabulary'
 
 export type BandId = 'options' | 'inputs' | 'outcomes' | 'aims' | 'points' | 'ideas'
-/** Top to bottom. Aims are always their own row, never sharing the outcomes row. The points raised stand under the causal story (options, drivers,
- *  what happens, aims), never inside it (DL 21 Nov, Paul read notes in the drivers' row as drivers). */
+/** Points raised sit below the causal rows so supporting notes cannot be read as drivers. */
 export const BAND_ORDER: readonly BandId[] = ['options', 'inputs', 'outcomes', 'aims', 'points', 'ideas']
 export type BandShape = 'square' | 'pill' | 'double' | 'diamond' | 'note' | 'idea'
-/** Decided UI chrome (Funding-Working / Main boards): the label and the small shape icon of each band. */
 export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>> = {
   options: { label: 'Options you could take', shape: 'square' },
   inputs: { label: 'What drives it (uncertain)', shape: 'pill' },
   outcomes: { label: 'What happens (worked out)', shape: 'double' },
   aims: { label: 'Aims', shape: 'diamond' },
   points: { label: 'Points raised', shape: 'note' },
-  ideas: { label: 'Kept ideas', shape: 'idea' }, // neutral for every reader, as the panel's heading (Codex root 10:34:38Z; DL 11:3xZ)
+  ideas: { label: 'Kept ideas', shape: 'idea' },
 }
-/** The band's label: fixed, except the outcomes band holding a risk, which is "Outcomes & risks", the product's own label for that row
- *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). The inputs band says "What drives
- *  it" always: only figures stand there (`bandOf`); every other card stands under "Points raised" (Codex 019's neutral label, now its own row). */
+/** Give outcomes a risk-aware label when the band actually contains a risk. */
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
-  // The ideas strip reads "Kept ideas" for every reader; each card says who kept it, from core's `kept_by` (ideaProvenance).
   if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
   return BANDS[band].label
 }
-/** Group an inputs band folds at (rule 7). */
 export const FOLD_AT = 15
 
-/** Node ids of cards this lane adds beside the model's: the kept ideas and the folded inputs' group. */
+/** Synthetic IDs for the kept-ideas strip and the folded inputs group. */
 export const IDEA_PREFIX = 'idea:'
 export const FOLD_ID = 'group:inputs'
 
-/** The band a model card stands in: options; outcomes and risks (worked out); aims and limits; a figure an input (a driver); every other card is a
- *  point raised (claims, left-out items, conditions, assumptions, positions and other notes), folded or not (SPEC-OVERNIGHT CP-2; Paul read the
- *  notes drawn in "What drives it" as drivers). */
+/** An unlinked quantity still belongs to inputs. Supporting notes belong to Points raised. */
 export function bandOf(card: ViewCard, model: ViewModel): Exclude<BandId, 'ideas'> {
   const k = drawKindOf(card, model)
   return k === 'option' ? 'options' : k === 'outcome' || k === 'risk' ? 'outcomes' : k === 'goal' || k === 'constraint' ? 'aims' : card.family === 'quantity' ? 'inputs' : 'points'
 }
 
-/** The ids of the input cards (the band rule 7 folds). */
 export const inputIdsOf = (model: ViewModel): string[] => model.cards.filter((c) => bandOf(c, model) === 'inputs').map((c) => c.id)
 
-/** Whether Simple folds the inputs: 15 or more of them. */
 export const foldsInputs = (model: ViewModel): boolean => inputIdsOf(model).length >= FOLD_AT
 
-/** The model with the folded inputs and every link that touches one left out (what the board draws while they are folded). */
+/** Omit folded inputs and their incident links from layout. */
 export function withoutInputs(model: ViewModel): ViewModel {
   const gone = new Set(inputIdsOf(model))
   return { ...model, cards: model.cards.filter((c) => !gone.has(c.id)), links: model.links.filter((l) => !gone.has(l.from) && !gone.has(l.to)) }

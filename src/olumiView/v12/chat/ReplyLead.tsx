@@ -8,10 +8,7 @@ import { pressCard } from '../../reasoning/tabRing'
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 
-/** The one disclosure a reply's full answer sits under (DL 11:06:45Z, Paul 11:02Z): page chrome, the only words here that are not core's. */
 export const FULL_ANSWER = 'Full answer'
-
-/** The words of the mark a world action carries (an action about what is outside the model): Olumi's own general contribution, never a claim from the model. */
 
 /**
  * One of the lead's actions, core's words on one line. On a record or a finding the line is a button that reaches that card as every other press
@@ -22,8 +19,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
   const model = useViewStore((st) => st.view?.model ?? null)
   const on = a.on
   if ('world' in on) {
-    // Olumi's own suggestion is marked as Olumi's where it is read (DL 20 Nov, slice-3 proof: the mark alone did not say it): core's basis is a quiet line under
-    // the words, said once at rest, so the mark beside it is decorative and the words carry no Tip repeating it.
+    // Put the basis at rest for world actions, where there is no card link.
     return (
       <li className="ok-lead-action" data-lead-action="world">
         <OkIcon id="olumi-contributes" size={14} decorative /><span className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</span>
@@ -44,11 +40,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
   )
 }
 
-/**
- * A reply's short lead, then its full answer folded beneath, closed at rest (Paul 11:02Z: "stop fighting reply length with wording"). The lead is
- * core's (`lead.opening`, then `lead.points`, then `lead.actions` when core sends any; Paul's reply shape: a sentence or two, then the bullets; DL ruling 20 Nov after Codex), drawn verbatim; the full answer is whatever the caller draws today, unchanged. Nothing is cut, counted or
- * written here. `big`: the newest reply's short opening is the panel's one 18 px line (the caller decides, as for any reply's opening).
- */
+/** Render Core's lead in order and fold the caller's full reply when one is supplied. */
 export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lead; at: string; big?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; /** Absent or null: there is nothing to fold, so no "Full answer" is drawn. */ children?: ReactNode }) {
   return (
     <>
@@ -64,7 +56,7 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
             {lead.actions.map((a, i) => <ActionLine key={i} a={a} at={`${at}.lead.actions.${i}`} />)}
           </ul>
         )}
-        {/* K1 (core c918fe31): what the reply mentions that the model does not hold, one quiet line after the actions, core's words verbatim (never a point). */}
+        {/* Show Core's unheld-figure summary after the actions. */}
         {lead.not_held === undefined ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.lead.not_held`}>{lead.not_held}</p>}
         {keep}
       </div>

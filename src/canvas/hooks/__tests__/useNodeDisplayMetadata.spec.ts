@@ -404,7 +404,6 @@ describe('useNodeDisplayMetadata — factor sensitivityRank', () => {
 // key). The prior inline map omitted `sensitivity`, so every row collapsed to 0
 // and the badge fell back to alphabetical order.
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // Lane C4 (influence-scale disclosure): the hook must surface WHICH basis
 // produced `influence` (the shared display model already resolves it) so the
 // canvas "I: NN%" pill can disclose the set-relative scale exactly like the

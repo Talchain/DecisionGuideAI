@@ -470,7 +470,6 @@ const CODE_TEMPLATES: Record<string, TemplateFactory> = {
   // A remedy pointing at a control whose effect evaporates on reopen is worse
   // than none, because the user believes it worked.
   // ══════════════════════════════════════════════════════════════════════════
-  // ══════════════════════════════════════════════════════════════════════════
   // ⭐⭐ WHY THIS NAMES A QUANTITY AND NOT "goal-fit results" (trap 21).
   // WITNESSED on served `475ee1c7`, Reasoning tab, one screen: this template's
   // title rendered "…so goal-fit results were withheld rather than guessed"

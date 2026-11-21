@@ -104,8 +104,7 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
     </Hover>
   )
 }
-/** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
- *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
+/** Render Core's withheld-result threshold and next check where the visible result omits them. */
 export function RowBelow({ r, at, shown }: { r: RowT; at: string; shown: string }): JSX.Element | null {
   if (r.kind !== 'none') return null
   // `shown` = the words each caller actually draws at rest (Codex 12:12Z): a ResultRow's words over ROW_WORDS_MAX are a closed press (atRest),

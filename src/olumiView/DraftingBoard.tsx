@@ -1,18 +1,6 @@
 /**
- * WHILE A BRIEF IS DRAFTING, THE BOARD SAYS SO, IN CORE'S WORDS (plan v3: the drafting state checked in a real browser; AI jobs, core API
- * v1.26, 8 Nov). Core accepts a brief at once and drafts it in the server; the View's `draft` carries the job's state. The empty board shows
- * `draft.words` verbatim (the stage while it runs, "Reading the brief" → "Building the model" → "Running the analysis and guidance"; the
- * plain reason when it failed or was lost), announced as a status, with the seconds since the brief was ACCEPTED (core's `started`, so a
- * reload or another device counts from the same moment; a line that never moves reads as stuck, PL 4 Nov). Nothing streams, nothing is
- * estimated, and no word here is the page's own but the Try again control. A failed or lost draft offers Try again: a new attempt on the
- * saved brief (a new op); so does a stopped one, whose words core says ('You stopped this draft…'). While it drafts, its author sees core's
- * Stop (`draft.stop`, label and hover verbatim; core API v1.34): it stops the job and the View is read again. The poller reads the View about every 1.5 s while it drafts (poll.ts).
- *
- * BEFORE ANY MODEL, THE BOARD OFFERS TO BUILD ONE, IN CORE'S WORDS (UI lead finding and DL GO, 17 Nov 23:42:40Z; Codex's journey named it
- * too): a scenario started in words left the canvas completely empty while the panel held the whole answer, and core's offer to build a
- * model sat only inside the "more" menu. Where core sends that offer (`build_model`, ViewChat.buildOfferOf) and nothing is drafting, the
- * empty board draws it: core's label as its one press (the same write as the menu's row, ViewChat.buildModel) and core's own line for it
- * under the press. No sentence here is the page's. The press starts a draft, and the drafting state above takes the board.
+ * Render Core's first-draft status, controls and build offer before a model exists.
+ * Elapsed time uses the server's acceptance timestamp, so it survives reloads.
  */
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'

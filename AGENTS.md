@@ -41,3 +41,7 @@ Established in Brief 5.2 close-out (2026-04-20) to prevent "complete but partial
 2. **Every deferral has a trigger or a closed-not-planned disposition.** No vague "future opportunity" parking. Registered follow-ups state the specific change or discovery that unblocks them; closed items state the re-open condition. Owner or surface area named.
 
 3. **Final-review docs pass the consistency check before close-out ships.** Run `bash scripts/check-closeout-doc-consistency.sh docs/brief-<N>-final-review.md` (added in Brief 5.2 close-out round 2). It flags stale status tokens (`(pending)`, `(this commit)`, `non-interactive` where the final contract is interactive, `awaiting push` when the branch has landed). Doc must be green before handing off.
+
+## Source comments
+
+Keep comments that explain a current invariant, a scientific assumption, a compatibility constraint or a decision that is hard to infer from the code. Verify behavioural claims against the implementation, tests and current contract. Fix misleading comments when editing the code they describe. Put decisions that need a record in the relevant design document or pull request. Preserve tooling directives and compatibility notes while they still apply.

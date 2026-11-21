@@ -68,7 +68,6 @@ export type FieldLink = ViewLink & LinkFields
 export type ViewHeadline = NonNullable<ViewCard['headline']>
 export type HeadlineFields = { of?: string }
 export type FieldHeadline = ViewHeadline & HeadlineFields
-/** The model field core adds (993eb784: `first_draft: v.version === null`, never null). */
 export type ModelFields = { first_draft?: boolean }
 
 // ─── Shared reading ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -256,11 +255,9 @@ export type LinkBasis = 'reason' | 'role-line' | 'calculation' | 'typed-causal' 
 export interface LinkLookAnswer {
   /** The direction of the causal belief; null where the link is not a causal belief. */
   readonly direction: Direction | null
-  /** How sure the belief is, as core sends it; null where core sends null or nothing (an older core sends nothing: there is no legacy
-   *  confidence). Never read from `doubt` (DL 12 Nov: dashed means provisional) nor from `causal.strength.state` (that is sizing). */
+  /** Confidence comes from the wire field. Provisional styling and effect size do not imply it. */
   readonly confidence: Confidence | null
-  /** Always null: core does not size links for width (ruling item 4, NOT YET; 993eb784 sends no weight). Null weight is a real state,
-   *  never a default strength. */
+  /** Link width ignores incoming weight. weightState still exposes its presence. */
   readonly weight: null
   /** Whether the link is a causal belief (`direction` is not null). */
   readonly causal: boolean
@@ -294,7 +291,7 @@ function inferredDirection(link: ViewLink): { direction: Direction | null; basis
   return { direction: null, basis: 'untyped' }
 }
 
-/** How a link is drawn by meaning (ruling item 4): core's direction and confidence where sent (993eb784), else today's rule (`LinkBasis`). */
+/** Use the typed direction where present and infer a direction only for older payloads without the field. */
 export function linkLook(link: ViewLink): LinkLookAnswer {
   const directionState = stateOf(link, 'direction', isDirection), confidenceState = stateOf(link, 'confidence', isConfidence)
   const w = valueOf(link, 'weight'), weightState = w === undefined ? 'absent' : w === null ? 'null' : 'ignored'

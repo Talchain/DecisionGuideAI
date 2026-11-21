@@ -1,15 +1,6 @@
 /**
- * E4 "What you said" (DL 19 Nov; field shape Codex 12:26Z, ruling 12:29Z; Paul's UX test, URL 2): an intake preview the person may skip, never
- * an assent. It lists each figure core read from the person's words, as core quotes it (`quote`: an exact span of what they wrote, their labels
- * and any uncertainty kept), keyed by where it sits in their words (`source`). What it says about the model is read from ONE typed field, `record`:
- * - a record id: the figure is present in the model (not a claim that any calculation uses it); pressing shows that record in the workspace;
- * - null: "not in your model yet" (core sends null only where it can prove completeness for that source);
- * - "unknown": the figure and its words only, with NO claim about the model: no mark, not counted, no link.
- * Never from the words.
- *
- * Core serves `view.intake` only where the experiment runs; without it nothing is drawn. It is drawn only once a model exists, below the
- * thread, so it never stands before the first model. Folded at rest to one row; removable like Olumi's questions (page and viewer only,
- * nothing written). Chrome words only.
+ * Preview figures using quotes and source addresses from Core.
+ * A record ID means the model holds the figure. Null means absent. Unknown makes no claim about the model.
  */
 import { useId, useState } from 'react'
 import { typography } from '../../../styles/typography'
@@ -21,13 +12,12 @@ import type { View } from '../../client'
 import { pressCard } from '../../reasoning/tabRing'
 import { recordReach, showRecord } from '../showInWorkspace/show'
 
-/** The field core serves (wip/x-e4-intake, Codex 12:26Z): one row per figure in the person's words. */
 export interface IntakeFigure {
   /** Where the figure stands in the stored words: the row its line was typed in ('brief' for the brief) and its offsets; null where the row is not known. */
   readonly source: { readonly row: number | 'brief'; readonly start: number; readonly end: number } | null
   readonly quote: string
   readonly unit: string | null
-  /** Core's reading of the stated value and bound (core dbf5aba7): not drawn; the quote says it in the person's words. */
+  /** Structured reading kept by Core. The preview displays the original quote. */
   readonly stated?: unknown
   readonly record: string | null
 }
