@@ -6,12 +6,14 @@
  */
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
-import type { NodeProps } from '@xyflow/react'
+import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { useEffect } from 'react'
 import type { NodeType } from '../../../canvas/domain/nodes'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import type { KeptIdea } from './keptIdeas'
 import { firstDraft, type CardKindName } from '../fields/fields'
 import { useViewStore } from '../../store'
+import { useLinkSides } from '../../canvas'
 import { OlumiMark } from '../cards/marks'
 import { setGroupOpen, setInputsOpen } from './foldStore'
 import { ReplyBlocks, replyWordsOf } from '../../EarlyAnswer'
@@ -50,16 +52,23 @@ export const groupChallenged = (n: number): string => `${n} challenged inside`
 /** D1c's count (Codex UI reviewer 008 v8: neutral words, not "not sized yet"); each card says its own state once its row is opened. */
 export const olumiMore = (n: number): string => `${n} more from Olumi`
 
-export function FoldCard({ data }: NodeProps) {
+export function FoldCard({ id, data }: NodeProps) {
   const { count, sid, width, group } = data as { count: number; sid: string | null; width: number; group?: GroupData }
   const firstDraftNow = useViewStore((s) => s.view !== null && firstDraft(s.view).firstDraft === true)
+  const sides = useLinkSides()
+  const updateNodeInternals = useUpdateNodeInternals()
+  useEffect(() => { updateNodeInternals(id) }, [id, sides.into, sides.out, updateNodeInternals])
+  const handles = <>
+    <Handle type="target" position={sides.into as Position} isConnectable={false} className="invisible" />
+    <Handle type="source" position={sides.out as Position} isConnectable={false} className="invisible" />
+  </>
   if (group !== undefined) {
     // D1: one press opens the row's group in place for this visit; the grouped cards' headings are the hover. Olumi's group is framed in Olumi's blue, dashed
     // (a proposal not yet the person's) inside an approved model; on a first draft everything is proposed, so nothing is marked for it (R3); the notes stack
     // in the panel's border.
     const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow, olumis = group.kind === 'olumi'
     return (
-      <HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
+      <>{handles}<HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
         onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover}
         className={`flex items-center gap-1.5 rounded-md border bg-panel px-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
@@ -70,13 +79,13 @@ export function FoldCard({ data }: NodeProps) {
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
           {group.kinds.map((k) => <span key={k} className="inline-flex" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'calc(10px * var(--o-s, 1))' }}><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
         </span>
-      </HoverButton>
+      </HoverButton></>
     )
   }
   return (
-    <HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
+    <>{handles}<HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
       words="Show these inputs in place" className="rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body" style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
       {count} inputs
-    </HoverButton>
+    </HoverButton></>
   )
 }

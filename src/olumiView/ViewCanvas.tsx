@@ -39,7 +39,8 @@ import { boardKeyOf, CORE_LANE_FIT_FLOOR, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOT
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, settleIdsOf, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
-import type { View } from './client'
+import type { View, ViewCard } from './client'
+import { whoseOf } from './v12/cards/marks'
 import { FOOT_GUTTER, restClearOfFoot, zoomClearOfFoot } from './footClear'
 import { CoreCard } from './previous/CoreCard'
 import { useReplyInView, type Activity } from './replyInView'
@@ -85,7 +86,7 @@ import { useQualitativeNotes } from './v12/qualitativeNotes'
 import { clearLayoutUndo } from './v12/edit/undo'
 import { BandLayer } from './v12/bands/BandLayer'
 import { causalPathOf } from './v12/bands/bands'
-import { fadeOffPath, focusIdOf, useFocusPath } from './v12/bands/focusPath'
+import { markPath, focusIdOf, useFocusPath } from './v12/bands/focusPath'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
 import { keptIdeasOf } from './v12/ideas'
@@ -392,20 +393,23 @@ function ViewFlow() {
   useQualitativeNotes(useViewStore((s) => s.sid), view)
   const chipCards = useMemo(() => new Set(revealOf(view)?.cardChips.keys() ?? []), [view])
   const simple = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s)) === 'simple'
-  // The path lit while a card is hovered, else while one is selected (R1: production's rule; the cards and links off it fade, only then).
+  // The path lit while a card is hovered, else while one is selected (Paul, 21 Nov: highlight the path; everything else stays unchanged).
   const hovered = useViewHover((h) => h.id)
   const lit = useMemo(() => {
     if (!simple || view?.model == null) return null
     return causalPathOf(drawnModelOf(view.model), focusIdOf(stored, hovered, VIEW_CARD))
   }, [stored, hovered, simple, view])
-  // The lit path is a module-wide store the links read: written while this canvas stands, dropped when it goes (a later canvas never inherits a fade).
+  // The lit path is a module-wide store the links read: written while this canvas stands, dropped when it goes (a later canvas never inherits a highlight).
   useEffect(() => { useFocusPath.setState({ path: lit }); return () => useFocusPath.setState({ path: null }) }, [lit])
   const nodes = useMemo(() => {
     const base = withOpenCard(withChipsAbove(stored, chipCards), openCard)
     // V12 Simple: the board is drawn at the type scale it was laid out for (layout.ts simpleScaleOf), the same on every card: heights then do not
     // change as the person zooms, so nothing re-flows under their hand. Both variables, the canvas's and the look's own (--o-s is substituted at the root).
     const scaled = !simple ? base : base.map((n) => { const s = (n.data as { scale?: number }).scale; return s === undefined ? n : { ...n, style: { ...n.style, '--canvas-label-scale': s, '--o-s': s } as CSSProperties } })
-    return fadeOffPath(scaled, lit, QUESTION)
+    return markPath(scaled, lit, QUESTION, (n) => {
+      const card = (n.data as { card?: ViewCard }).card
+      return card != null && whoseOf(card) === 'olumi' ? 'olumi' : 'person'
+    })
   }, [stored, chipCards, openCard, simple, lit])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])

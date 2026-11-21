@@ -13,7 +13,7 @@ import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, TONE_TOKEN, linkStyle, toneOf } from '../styles'
 import { effectMidpoint } from '../geometry'
 import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
-import { LINK_OFF_PATH_OPACITY as EDGE_OFF_PATH_OPACITY, useFocusPath } from '../../bands/focusPath'
+import { useFocusPath } from '../../bands/focusPath'
 import { TIP_DELAY } from '../../../look/Tip'
 import { ICONS } from '../../../look/icons'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../../../../canvas/utils/goalChanceDriverLinks'
@@ -214,22 +214,42 @@ describe('effectMidpoint', () => {
   it('a card beside: right edge to left edge', () => { expect(effectMidpoint({ x: 0, y: 0, w: 100, h: 40 }, { x: 200, y: 0, w: 100, h: 40 })).toEqual({ x: 150, y: 20 }) })
 })
 
-describe('the lit path (R1, 16 Nov): links fade only while a path is lit', () => {
+describe('the lit path (21 Nov): highlight without fading', () => {
   const l = (from: string, to: string) => ({ ...withCausal('increases'), from, to }) as ViewLink
-  it('at rest nothing fades; with a path lit, a link whose ends are not both on it fades to production\'s 0.18, one on the path does not', () => {
-    const state = (c: HTMLElement) => [g(c).classList.contains('ok-link-off-path'), g(c).hasAttribute('data-off-path')]
+  const expectNoFade = (c: HTMLElement) => {
+    for (const el of c.querySelectorAll('*')) {
+      expect(el.classList.contains('v12-off-path')).toBe(false)
+      expect(el.classList.contains('ok-link-off-path')).toBe(false)
+      expect(Number(applied(el).opacity ?? 1)).toBeGreaterThanOrEqual(1)
+      expect(Number((el as HTMLElement).style?.opacity || el.getAttribute('opacity') || 1)).toBeGreaterThanOrEqual(1)
+    }
+  }
+  it('keeps off-path links unchanged, emphasises on-path links by 1 px in their normal colour, and clears the emphasis at rest', () => {
     const rest = draw(l('a', 'b'))
-    expect(state(rest)).toEqual([false, false])
+    const normal = applied(line(rest))
+    expectNoFade(rest)
     cleanup()
     useFocusPath.setState({ path: new Set(['a', 'b']) })
-    expect(state(draw(l('a', 'b'))), 'on the path').toEqual([false, false])
+    const on = draw(l('a', 'b'))
+    const highlighted = applied(line(on))
+    expect(g(on).getAttribute('data-on-path')).toBe('true')
+    expect(highlighted.stroke).toBe(normal.stroke)
+    expect(Number.parseFloat(highlighted.strokeWidth!)).toBe(Number.parseFloat(normal.strokeWidth!) + 1)
+    expectNoFade(on)
     cleanup()
-    expect(state(draw(l('a', 'z'))), 'one end off the path: the fade is the token CSS class (olumiLook.css .ok-link-off-path, 0.18), not an inline opacity').toEqual([true, true])
-    expect(g(draw(l('a', 'z'))).style.opacity).toBe('')
+    for (const [from, to] of [['a', 'z'], ['z', 'b'], ['z', 'w']]) {
+      const off = draw(l(from!, to!))
+      expect(applied(line(off))).toEqual(normal)
+      expect(g(off).hasAttribute('data-on-path')).toBe(false)
+      expect(Number.parseFloat(highlighted.strokeWidth!)).toBeGreaterThan(Number.parseFloat(applied(line(off)).strokeWidth!))
+      expectNoFade(off)
+      cleanup()
+    }
     useFocusPath.setState({ path: null })
-    cleanup()
-    expect(state(draw(l('a', 'z'))), 'reset when focus clears').toEqual([false, false])
-    expect(EDGE_OFF_PATH_OPACITY).toBe(0.18)
+    const cleared = draw(l('a', 'b'))
+    expect(applied(line(cleared))).toEqual(normal)
+    expect(g(cleared).hasAttribute('data-on-path')).toBe(false)
+    expectNoFade(cleared)
   })
 })
 
@@ -508,9 +528,9 @@ describe('presentation is token CSS (panel-visual system, no styles in component
     const reasonDoubt = draw({ ...first, kind: 'reason', role: 'reason', causal: null, doubt: true, alert: false, proposed: false } as unknown as ViewLink)
     expect(applied(line(reasonDoubt)).strokeDasharray, 'a doubted reason link is dashed, not dotted').toBe(DOUBT_DASH)
   })
-  it('the halos, the off-path fade and the words\' box are classes in olumiLook.css; the fade\'s transition is gated on reduced motion; the halo widths are the stylesheet\'s', () => {
-    for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-off-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit', '.ok-link-hidden', '.ok-link-leader', '.ok-link-end', '.ok-link-chip', '.ok-link-ctl']) expect(css, sel).toContain(sel)
-    expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^}]*\.ok-link \{ transition: opacity/)
+  it('the halos, path emphasis and words\' box use stylesheet classes; card outline transitions respect reduced motion', () => {
+    for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-on-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit', '.ok-link-hidden', '.ok-link-leader', '.ok-link-end', '.ok-link-chip', '.ok-link-ctl']) expect(css, sel).toContain(sel)
+    expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^}]*transition: background-color 120ms ease, outline-color 120ms ease/)
     expect([declared('ok-link-halo-alert')['stroke-width'], declared('ok-link-halo-proposed')['stroke-width']]).toEqual([px(PLAIN_WIDTH + 8), px(PLAIN_WIDTH + 6)])
     const c = draw(withCausal('increases', { alert: true }))
     const words = document.body.querySelector('[data-view-link-words]') as HTMLElement

@@ -80,8 +80,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const hovered = useViewHover((h) => h.id)
-  // A path is lit while a card is hovered or selected (focusPath.ts): the links off it fade to production's 0.18, and only then.
-  const offPath = useFocusPath((f) => f.path !== null && !(f.path.has(source) && f.path.has(target)))
+  // A path is lit while a card is hovered or selected (focusPath.ts): emphasise its links without dimming any others.
+  const onPath = useFocusPath((f) => f.path !== null && f.path.has(source) && f.path.has(target))
   // R3: on a first draft (a proposal and no approved version) everything is proposed, so a proposal is no mark on a link.
   const firstDraft = useViewStore((s) => s.view !== null && firstDraftOf(s.view).firstDraft === true)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
@@ -221,7 +221,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const tone = toneOf(stroke)
   const dash = link.doubt ? DOUBT_DASH : null
   const dotted = !coloured && (link.kind === 'reason' || role === 'reason')
-  const width = styled?.width ?? PLAIN_WIDTH
+  const width = (styled?.width ?? PLAIN_WIDTH) + (onPath ? 1 : 0)
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   // THE LINK'S ONE HOVER (L2; Codex review-links-2): every link says its core words through the lane's one Tip (look/Tip.tsx `useAnchoredTip`: 150 ms, Escape,
   // closes on leave and blur), by pointer on the line, its mark or its words, and by keyboard focus on the link. They are core's: the title, the typed belief's
@@ -286,12 +286,12 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-off-path={offPath || undefined} className={`ok-link ok-link-tone-${tone}${offPath ? ' ok-link-off-path' : ''}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
+    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
       ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
       {haloProposed ? <path data-link-halo-path="proposed" d={path} className={haloAlert ? 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner' : 'ok-link-halo ok-link-halo-proposed'} /> : null}
-      <BaseEdge id={id} path={path} className={`ok-link-line${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+      <BaseEdge id={id} path={path} className={`ok-link-line${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
       />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}

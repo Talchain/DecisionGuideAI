@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { olumiKey } from '../../layout'
 import { typography } from '../../../styles/typography'
@@ -74,7 +74,14 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
   })
 
   it("AC6 a conditional threshold discloses its full premise through the registry's icon and word; unflagged rows show no button", () => {
-    const card = option(model), row = tipRow(card), el = draw(card, model), line = tips(el)!
+    const card = option(model), row = tipRow(card)
+    const onCardKeyDown = vi.fn()
+    const { container } = render(
+      <div onKeyDown={onCardKeyDown}>
+        <SimpleFace card={card} model={model} noted={false} />
+      </div>,
+    )
+    const line = tips(container)!
     const entry = ICONS['conditional-tag']
     const buttons = line.querySelectorAll<HTMLButtonElement>('button')
     expect(buttons).toHaveLength(conditional ? 1 : 0)
@@ -98,6 +105,8 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
       expect(panel).toBeTruthy()
       expect(document.getElementById(panel)).toBeNull()
       button.focus()
+      fireEvent.keyDown(button, { key: 'Enter' })
+      expect(onCardKeyDown).not.toHaveBeenCalled()
       fireEvent.click(button)
       expect(button.getAttribute('aria-expanded')).toBe('true')
       expect(document.getElementById(panel)?.textContent).toBe(row.tips)
@@ -118,6 +127,20 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
       expect(button.getAttribute('aria-expanded')).toBe('false')
       expect(document.getElementById(panel)).toBeNull()
       expect(document.activeElement).toBe(button)
+
+      const onEscape = vi.fn()
+      const { getByRole } = render(<button type="button" onKeyDown={onEscape}>Next control</button>)
+      const next = getByRole('button', { name: 'Next control' })
+      fireEvent.click(button)
+      expect(button.getAttribute('aria-expanded')).toBe('true')
+      act(() => next.focus())
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(document.getElementById(panel)).toBeNull()
+      expect(document.activeElement).toBe(next)
+      expect(fireEvent.keyDown(next, { key: 'Escape' })).toBe(true)
+      expect(onEscape).toHaveBeenCalledOnce()
+      expect(button.getAttribute('aria-expanded')).toBe('false')
+      expect(document.activeElement).toBe(next)
     }
   })
 

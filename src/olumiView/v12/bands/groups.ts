@@ -110,7 +110,7 @@ export function cardGroupsOf(model: ViewModel, view: View | null, keep: Readonly
 
 /** The model with the groups' cards left out. Its links stay as they are: a link with an end not drawn is not drawn (layout.ts cardLinks), so every
  *  drawn link keeps its place in the list (`i`), the one the lenses number by. */
-export function withoutGrouped(model: ViewModel, groups: readonly CardGroup[]): ViewModel {
+export function withoutGrouped(model: ViewModel, groups: readonly Pick<CardGroup, 'cards'>[]): ViewModel {
   const gone = new Set(groups.flatMap((g) => g.cards))
   return gone.size === 0 ? model : { ...model, cards: model.cards.filter((c) => !gone.has(c.id)) }
 }
@@ -121,9 +121,11 @@ export function withoutGrouped(model: ViewModel, groups: readonly CardGroup[]): 
 export type GroupLink = { readonly from: string; readonly to: string; readonly count: number }
 
 /** The links of the groups' cards, run to the group card, and of an aim's bars (layout.ts barsOf), run to the aim: one connector per pair of drawn ends,
- *  none inside one group, none to an end not drawn, none where the pair already has a link of its own. `drawn`: the node ids on the board. */
-export function groupLinksOf(model: ViewModel, groups: readonly CardGroup[], drawn: ReadonlySet<string>, bars: ReadonlyMap<string, string> = new Map()): GroupLink[] {
+ *  none inside one group, none to an end not drawn, none where the pair already has a link of its own. Opposing group links take the direction
+ *  with more members' links, using the direction out of the group on a tie. `drawn`: the node ids on the board. */
+export function groupLinksOf(model: ViewModel, groups: readonly Pick<CardGroup, 'id' | 'cards'>[], drawn: ReadonlySet<string>, bars: ReadonlyMap<string, string> = new Map()): GroupLink[] {
   const into = new Map([...groups.flatMap((g) => g.cards.map((c) => [c, g.id] as const)), ...bars])
+  const groupIds = new Set(groups.map((g) => g.id))
   const out = new Map<string, GroupLink>()
   const have = new Set(model.links.map((k) => `${k.from}>${k.to}`))
   for (const link of model.links) {
@@ -133,7 +135,20 @@ export function groupLinksOf(model: ViewModel, groups: readonly CardGroup[], dra
     const key = `${from}>${to}`
     out.set(key, { from, to, count: (out.get(key)?.count ?? 0) + 1 })
   }
-  return [...out.values()]
+  const links: GroupLink[] = []
+  for (const link of out.values()) {
+    const fromGroup = groupIds.has(link.from), toGroup = groupIds.has(link.to)
+    const reverse = fromGroup || toGroup ? out.get(`${link.to}>${link.from}`) : undefined
+    if (reverse === undefined) {
+      links.push(link)
+      continue
+    }
+    const winsTie = fromGroup === toGroup ? link.from < link.to : fromGroup
+    if (link.count > reverse.count || (link.count === reverse.count && winsTie)) {
+      links.push({ ...link, count: link.count + reverse.count })
+    }
+  }
+  return links
 }
 
 /** What a folded group holds that is challenged: its cards core marks `challenged` and the links at them that carry core's alert. A folded group

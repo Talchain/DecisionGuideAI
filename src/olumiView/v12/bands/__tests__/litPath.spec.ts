@@ -1,17 +1,17 @@
-/**
- * The lit path on the cards (R1, 16 Nov: production's rule): the cards off the path of the hovered card, else of the selected one, fade to 0.25 and
- * only then; nothing is faded at rest. The link side is bound in v12/links/__tests__/links.spec.tsx ('the lit path'); this is the card side,
- * on the pure functions ViewCanvas uses (focusPath.ts), bound by node id.
- */
 import { describe, expect, it } from 'vitest'
-import { CARD_OFF_PATH_OPACITY, fadeOffPath, focusIdOf, type Fadeable } from '../focusPath'
+import { markPath, focusIdOf, type Focusable } from '../focusPath'
 
 const Q = 'page:question', CARD = 'viewCard'
-const nodes: Fadeable[] = [
+const nodes: Focusable[] = [
   { id: Q, type: 'viewQuestion' }, { id: 'a', type: CARD }, { id: 'b', type: CARD }, { id: 'c', type: CARD, selected: true },
   { id: 'idea:1', type: 'viewIdea' }, { id: 'group:inputs', type: 'viewFold' },
 ]
-const faded = (out: Fadeable[]) => out.filter((n) => n.style?.opacity !== undefined).map((n) => n.id)
+const expectNoFade = (out: Focusable[]) => {
+  for (const n of out) {
+    expect(Number(n.style?.opacity ?? 1), n.id).toBeGreaterThanOrEqual(1)
+    expect((n.className ?? '').split(/\s+/), n.id).not.toContain('v12-off-path')
+  }
+}
 
 describe('which card lights the path', () => {
   it('LP1 the hovered card, else the selected one; hover wins over selection', () => {
@@ -25,22 +25,39 @@ describe('which card lights the path', () => {
   })
 })
 
-describe('which cards fade', () => {
-  it('LP2 at rest (no path) no node carries an opacity or the off-path class, and the same array comes back', () => {
-    const out = fadeOffPath(nodes, null, Q)
-    expect([out === nodes, faded(out), out.some((n) => (n.className ?? '').includes('v12-off-path'))]).toEqual([true, [], false])
+describe('which cards are marked', () => {
+  it('LP2 records the supplied card colour role only on on-path nodes and preserves DOM attributes', () => {
+    const cards: (Focusable & { olumi: boolean })[] = [{ id: 'a', olumi: true, domAttributes: { 'aria-describedby': 'note' } }, { id: 'b', olumi: false }, { id: 'c', olumi: true }]
+    const out = markPath(cards, new Set(['a', 'b']), Q, (n) => n.olumi ? 'olumi' : 'person')
+    expect(out.map((n) => n.domAttributes?.['data-path-tone'])).toEqual(['olumi', 'person', undefined])
+    expect(out[0]!.domAttributes?.['aria-describedby']).toBe('note')
+    expect(out[2]).toBe(cards[2])
   })
-  it('LP2 with a path lit: every node off it fades to 0.25 (class v12-off-path); the question and the nodes on the path never do', () => {
-    const out = fadeOffPath(nodes, new Set(['a', 'b']), Q)
-    expect(faded(out)).toEqual(['c', 'idea:1', 'group:inputs'])
-    expect(out.find((n) => n.id === 'c')!.style!.opacity, 'production\'s own 0.25').toBe(0.25)
-    expect(CARD_OFF_PATH_OPACITY).toBe(0.25)
-    expect(out.find((n) => n.id === 'c')!.className).toContain('v12-off-path')
-    for (const id of [Q, 'a', 'b']) expect(out.find((n) => n.id === id)!.style?.opacity, `${id} stays`).toBeUndefined()
+  it('LP2 at rest returns the same array without marking any node', () => {
+    const out = markPath(nodes, null, Q)
+    expect(out).toBe(nodes)
+    expect(out.some((n) => n.className?.includes('v12-on-path'))).toBe(false)
+    expectNoFade(out)
   })
-  it('LP2 a kept idea and the folded inputs\' group are on no causal path, so they fade with the rest while a path is lit (deliberate: they are not the lit card\'s reasoning); a node\'s own style and class are kept', () => {
-    const out = fadeOffPath([{ id: 'x', type: CARD, className: 'mine', style: { color: 'red' } }, { id: 'idea:1', type: 'viewIdea' }], new Set(['z']), Q)
-    expect(out[0]).toMatchObject({ id: 'x', className: 'mine v12-off-path', style: { color: 'red', opacity: 0.25 } })
-    expect(faded(out)).toEqual(['x', 'idea:1'])
+  it('LP2 marks on-path cards; the question and every off-path node stay unchanged', () => {
+    const out = markPath(nodes, new Set([Q, 'a', 'b']), Q)
+    expect(out.filter((n) => n.className?.includes('v12-on-path')).map((n) => n.id)).toEqual(['a', 'b'])
+    for (const id of [Q, 'c', 'idea:1', 'group:inputs']) {
+      expect(out.find((n) => n.id === id)).toBe(nodes.find((n) => n.id === id))
+    }
+    expectNoFade(out)
+  })
+  it('LP2 preserves existing classes and styles on-path and every property off-path', () => {
+    const styled: Focusable[] = [
+      { id: 'x', type: CARD, className: 'mine', style: { color: 'red' } },
+      { id: 'y', type: CARD, className: 'other', style: { color: 'green' } },
+      { id: 'idea:1', type: 'viewIdea' },
+    ]
+    const out = markPath(styled, new Set(['x']), Q)
+    expect(out[0]).toEqual({ ...styled[0], className: 'mine v12-on-path' })
+    expect(out[0]!.style).toBe(styled[0]!.style)
+    expect(out[1]).toBe(styled[1])
+    expect(out[2]).toBe(styled[2])
+    expectNoFade(out)
   })
 })

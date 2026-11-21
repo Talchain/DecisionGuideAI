@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render, screen } from '@testing-library/react'
+import { ReactFlowProvider } from '@xyflow/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
@@ -20,11 +21,12 @@ import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../Ban
 import { KeyLines, KEY_MARK_IDS, keyExtrasOf, keyLinesOf, keyPresent } from '../KeyPill'
 import { ICONS } from '../../../look/icons'
 import { EFFECT_STROKES, INK } from '../../links/styles'
-import { boardOf, drawViewCanvas, ROOT_LINK } from '../../../canvas'
+import { boardOf, drawViewCanvas, GROUP_LINK, ROOT_LINK, VIEW_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
 import { showSimple, showWholeModel } from '../../simpleStore'
 import { tipOf } from '../../../__tests__/tipHelpers'
-import { setInputsOpen } from '../foldStore'
+import { setGroupOpen, setInputsOpen } from '../foldStore'
+import { groupIdOf } from '../groups'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
@@ -274,7 +276,7 @@ describe('bands: 15 or more inputs fold in place (rule 7)', () => {
     const { y } = await placed(folded, extras)
     expect(y(FOLD_ID)).toBeGreaterThan(Math.max(...allOptionCards(folded).map((c) => y(c.id))))
     expect(y(FOLD_ID)).toBeLessThan(Math.min(...folded.cards.filter((c) => bandOf(c, folded) === 'outcomes').map((c) => y(c.id))))
-    const { container } = render(<FoldCard {...({ data: { count: 20, sid: 's', width: 200 } } as unknown as Parameters<typeof FoldCard>[0])} />)
+    const { container } = render(<ReactFlowProvider><FoldCard {...({ id: FOLD_ID, data: { count: 20, sid: 's', width: 200 } } as unknown as Parameters<typeof FoldCard>[0])} /></ReactFlowProvider>)
     expect(container.querySelector('[data-testid="view-inputs-fold"]')).toHaveTextContent('20 inputs')
   })
 })
@@ -285,8 +287,8 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
   const many: ViewModel = { ...model, cards: [...model.cards, ...Array.from({ length: FOLD_AT }, (_, i) => ({ ...input, id: `extra_${i}`, heading: `Extra ${i}` }))] }
   const draw = async (core: ViewModel, v: View) => {
     useViewStore.setState({ uuid: 'u', sid: v.id, view: { ...v, model: core }, status: 'ready' } as never)
-    const { model: m, extras } = boardOf(core)
-    drawViewCanvas(m, await causalPlaces(m, new Map(), { row: simpleStageRow(1650), extras }), extras)
+    const { model: m, extras, links } = boardOf(core)
+    drawViewCanvas(m, await causalPlaces(m, new Map(), { row: simpleStageRow(1650), extras }), extras, links)
     return useCanvasStore.getState()
   }
   it('D1 Simple: the question draws no wires to the options, and a kept idea is a card in its band; Detailed keeps the wires', async () => {
@@ -304,12 +306,45 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     const closed = await draw(many, view)
     expect(closed.nodes.some((n) => n.id === 'extra_0')).toBe(false)
     expect(closed.nodes.find((n) => n.id === FOLD_ID)?.type).toBe(VIEW_FOLD)
+    expect(closed.edges).toEqual(expect.arrayContaining([expect.objectContaining({ source: FOLD_ID, target: 'within_budget', type: GROUP_LINK })]))
     setInputsOpen(view.id, true)
     const open = await draw(many, view)
     expect(open.nodes.some((n) => n.id === 'extra_0')).toBe(true)
     expect(open.nodes.some((n) => n.id === FOLD_ID)).toBe(false)
+    expect(open.edges.some((e) => e.source === FOLD_ID || e.target === FOLD_ID)).toBe(false)
     setInputsOpen(view.id, false)
     showWholeModel(view.id)
+  })
+  it('D3 three folded inputs draw two summary links, and opening the group draws the real links', async () => {
+    const members = ['budget', 'oven_price', 'fitting']
+    const group = groupIdOf('proposed', 'inputs')
+    const forward = model.links.filter((l) => members.includes(l.from))
+    const reverse = { ...forward[0]!, from: 'spend', to: 'fitting', kind: 'plain' as const }
+    const core = {
+      ...model,
+      cards: model.cards
+        .filter((c) => [...members, 'spend', 'within_budget'].includes(c.id))
+        .map((c) => members.includes(c.id)
+          ? { ...c, kind: 'driver' as const, author: { by: 'olumi' as const, text: '', title: '' }, change: { kind: 'added' as const, glyph: '+', title: '' } }
+          : { ...c, author: { by: 'person' as const, text: '', title: '' } }),
+      links: [...forward, reverse],
+    }
+    showSimple(view.id)
+    try {
+      const closed = await draw(core, view)
+      expect(closed.nodes.find((n) => n.id === group)?.data).toMatchObject({ count: 3 })
+      expect(closed.edges.map((e) => [e.type, e.source, e.target]).sort()).toEqual([
+        [GROUP_LINK, group, 'spend'], [GROUP_LINK, group, 'within_budget'],
+      ])
+      setGroupOpen(view.id, group)
+      const open = await draw(core, view)
+      expect(open.edges.map((e) => [e.type, e.source, e.target]).sort()).toEqual(
+        core.links.map((l) => [VIEW_LINK, l.from, l.to]).sort(),
+      )
+    } finally {
+      setGroupOpen(view.id, group, false)
+      showWholeModel(view.id)
+    }
   })
 })
 

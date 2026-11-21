@@ -9,7 +9,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { render, screen } from '@testing-library/react'
-import type { NodeProps } from '@xyflow/react'
+import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard, ViewModel } from '../../../client'
 import { cardGroupsOf, foldKeepOf, groupIdOf, groupKindOf } from '../groups'
 import { FoldCard, olumiMore } from '../BandNodes'
@@ -78,7 +78,7 @@ describe('D1c: which approved cards fold behind "N more from Olumi" on Simple', 
 describe('D1c: the count card', () => {
   it('F7 says "N more from Olumi" with Olumi\'s mark, framed as a saved card (not the dashed proposal frame)', () => {
     const group = { id: groupIdOf('olumi', 'inputs'), kind: 'olumi', kinds: ['driver'], words: null, hover: 'Oven price', challenged: 0 }
-    render(<FoldCard {...({ data: { count: 2, sid: 's_x', width: 220, group } } as unknown as NodeProps)} />)
+    render(<ReactFlowProvider><FoldCard {...({ id: group.id, data: { count: 2, sid: 's_x', width: 220, group } } as unknown as NodeProps)} /></ReactFlowProvider>)
     const b = screen.getByTestId('view-group-card')
     expect(b.textContent).toContain(olumiMore(2))
     expect(olumiMore(2)).toBe('2 more from Olumi')

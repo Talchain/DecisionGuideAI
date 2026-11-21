@@ -125,12 +125,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const [conditionalRect, setConditionalRect] = useState<DOMRect | null>(null)
   useEffect(() => {
     if (conditionalRect === null) return
-    const close = () => { setConditionalRect(null); conditionalButton.current?.focus() }
-    const outside = (e: PointerEvent) => { if (!conditionalButton.current?.contains(e.target as Node)) close() }
-    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } }
+    const outside = (e: PointerEvent) => { if (!conditionalButton.current?.contains(e.target as Node)) setConditionalRect(null) }
     document.addEventListener('pointerdown', outside, true)
-    document.addEventListener('keydown', escape, true)
-    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', escape, true) }
+    return () => document.removeEventListener('pointerdown', outside, true)
   }, [conditionalRect])
   let conditionalWords: string | null = null
   const id = card.id
@@ -180,7 +177,15 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             mark: <>{key === null ? null : <span className="mr-1 inline-flex align-middle"><OlumiMark words={key.text} /></span>}{tip.conditional ? (
               <button ref={conditionalButton} type="button" className={`ok-dt-badge nodrag nopan mr-1.5 h-6 align-middle ${colourClass(ICONS['conditional-tag'].colour)}`}
                 aria-expanded={conditionalRect !== null} aria-controls={conditionalPanel} aria-describedby={conditionalRect === null ? undefined : conditionalPanel}
-                onFocus={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+                onFocus={(e) => e.stopPropagation()}
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setConditionalRect(null) }}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key !== 'Escape' || e.target !== e.currentTarget || conditionalRect === null) return
+                  e.preventDefault()
+                  setConditionalRect(null)
+                  e.currentTarget.focus()
+                }}
                 onClick={(e) => { e.stopPropagation(); const rect = e.currentTarget.getBoundingClientRect(); setConditionalRect((current) => current === null ? rect : null); e.currentTarget.focus() }}>
                 <OkIcon id="conditional-tag" size={14} />{ICONS['conditional-tag'].hover}
               </button>

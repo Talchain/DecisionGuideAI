@@ -20,7 +20,7 @@ import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
 import { VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
-import { withoutInputs } from './v12/bands/bands'
+import { FOLD_ID, inputIdsOf } from './v12/bands/bands'
 import { cardGroupsOf, foldActiveNow, foldKeepOf, groupLinksOf, withoutGrouped, type FoldActive, type GroupLink } from './v12/bands/groups'
 import { useWhatIf } from './whatif'
 import { useWhatIfFocus } from './v12/inspect/whatIfFocus'
@@ -214,10 +214,9 @@ export function boardOf(core: ViewModel, open: Readonly<Record<string, boolean>>
   const folded = inputsFolded(sid, drawn, open)
   // D1c keeps the active cards drawn: the canvas hook passes the ids it subscribes to (useViewCanvas); any other caller reads them once.
   const groups = cardGroupsOf(drawn, view, foldKeepOf(view, active ?? foldActiveNow(view))).filter((g) => !groupOpen(sid, g.id, open) && !(folded && g.band === 'inputs'))
-  const grouped = withoutGrouped(drawn, groups)
-  // One numbering for every drawn link and every rerouted one: the drawn model's (rule 7's fold leaves the links in place; cardLinks skips an undrawn end).
-  const model = folded ? { ...withoutInputs(grouped), links: drawn.links } : grouped, extras = extrasOf(view, sid, folded ? drawn : null, groups)
-  return { model, extras, links: groupLinksOf(drawn, groups, new Set([QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)]), bars) }
+  const folds = folded ? [...groups, { id: FOLD_ID, cards: inputIdsOf(drawn) }] : groups
+  const model = withoutGrouped(drawn, folds), extras = extrasOf(view, sid, folded ? drawn : null, groups)
+  return { model, extras, links: groupLinksOf(drawn, folds, new Set([QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)]), bars) }
 }
 
 /**
