@@ -8,7 +8,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View, ViewCard, ViewModel } from '../../client'
-import { BANDS, bandLabelOf, INPUTS_ASSOCIATED_LABEL } from '../bands/bands'
+import { BANDS, bandLabelOf, bandOf } from '../bands/bands'
 import { RestsOn, RESTS_ON } from '../cards/RestsOn'
 import { isQualitative } from '../qualitativeNotes'
 import { tipOf } from '../../__tests__/tipHelpers'
@@ -20,15 +20,18 @@ const aim = { ...fx.model!.cards.find((c) => c.family === 'goal')!, id: 'aim_pur
 const reason = (from: string, to: string) => ({ ...fx.model!.links[0]!, from, to, kind: 'reason' })
 const qual = (links: unknown[]): ViewModel => ({ ...fx.model!, cards: [claim('claim_visitors'), claim('claim_learning'), aim], links } as unknown as ViewModel)
 
-describe('a band of cards only associated by reasons', () => {
-  it('reads "Points raised", not "What drives it"; contrast: a causal link to one of them restores the causal label', () => {
-    expect(bandLabelOf('inputs', qual([reason('claim_visitors', 'aim_purpose'), reason('claim_learning', 'aim_purpose')]))).toBe(INPUTS_ASSOCIATED_LABEL)
-    expect(bandLabelOf('inputs', qual([{ ...reason('claim_visitors', 'aim_purpose'), kind: 'plain' }]))).toBe(BANDS.inputs.label)
-    expect(bandLabelOf('inputs', fx.model!)).toBe(BANDS.inputs.label) // the effects fixture's figures drive its outcomes
-    expect(bandLabelOf('aims', qual([]))).toBe(BANDS.aims.label)
-    // A figure in the band keeps the driver wording even with no causal link (a quantitative input).
+describe('a card only associated by reasons stands under "Points raised", never "What drives it" (Codex 019; DL 21 Nov: its own band)', () => {
+  it('notes go to the points band whatever their links; a non-note card is a driver only in a causal link; figures stay drivers; the inputs band always says "What drives it"', () => {
+    const m = qual([reason('claim_visitors', 'aim_purpose'), reason('claim_learning', 'aim_purpose')])
+    expect(m.cards.filter((c) => c.family === 'claim').map((c) => bandOf(c, m))).toEqual(['points', 'points'])
+    // A claim is a note: a causal link does not make it a driver (Paul read notes in the drivers' row as drivers).
+    const causal = qual([{ ...reason('claim_visitors', 'aim_purpose'), kind: 'plain' }])
+    expect(bandOf(causal.cards[0]!, causal)).toBe('points')
+    // A figure is a driver with no link at all.
     const fig = { ...fx.model!.cards.find((c) => c.family === 'quantity')! }
-    expect(bandLabelOf('inputs', { ...qual([]), cards: [...qual([]).cards, fig] } as ViewModel)).toBe(BANDS.inputs.label)
+    const withFig = { ...qual([]), cards: [...qual([]).cards, fig] } as ViewModel
+    expect(bandOf(fig, withFig)).toBe('inputs')
+    expect([bandLabelOf('inputs', fx.model!), bandLabelOf('inputs', m), bandLabelOf('points', m), bandLabelOf('aims', m)]).toEqual([BANDS.inputs.label, BANDS.inputs.label, 'Points raised', BANDS.aims.label])
   })
 })
 

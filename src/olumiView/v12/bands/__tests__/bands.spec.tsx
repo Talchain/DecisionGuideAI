@@ -49,8 +49,8 @@ describe('bands: where a card stands', () => {
     expect(bandOf(model.cards.find((c) => c.id === 'within_budget')!, model)).toBe('aims')
   })
   it('B2 the band words are the decided chrome', () => {
-    expect(Object.values(BANDS).map((b) => b.label)).toEqual(['Options you could take', 'What drives it (uncertain)', 'What happens (worked out)', 'Aims', 'Kept ideas'])
-    expect(Object.values(BANDS).map((b) => b.shape)).toEqual(['square', 'pill', 'double', 'diamond', 'idea'])
+    expect(Object.values(BANDS).map((b) => b.label)).toEqual(['Options you could take', 'What drives it (uncertain)', 'What happens (worked out)', 'Aims', 'Points raised', 'Kept ideas'])
+    expect(Object.values(BANDS).map((b) => b.shape)).toEqual(['square', 'pill', 'double', 'diamond', 'note', 'idea'])
   })
   it('B2b D5 (17 Nov): the row holding a risk is "Outcomes & risks" (the product\'s own label), never "worked out"; CONTRAST: without the risk it keeps its label', () => {
     expect(bandLabelOf('outcomes', model)).toBe(MODEL_GROUP_TITLE.outcomesRisks)

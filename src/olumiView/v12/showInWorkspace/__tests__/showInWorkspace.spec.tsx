@@ -47,7 +47,14 @@ const golden = read('golden/s_ce285b3617bb.view.json')
 const closed = read('fixtures/j1/bookshop-v1.core-5d8a009b.view3.json')
 const opened = read('fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json')
 const growth = read('fixtures/sc01/growth16.core-5d8a009b.view3.json')
-const european = read('fixtures/real/european-22cards.view3.json')
+/** INVENTED padding (DL 21 Nov): the fixture's notes now stand in their own row, leaving 10 drivers; copies of `starting_customers` (no links, no
+ *  badge) bring the inputs back to the 15 at which Simple folds them, so the fold is still exercised on the real board's other cards. */
+const padded = (v: View): View => {
+  const out = JSON.parse(JSON.stringify(v)) as View, seed = out.model!.cards.find((c) => c.id === 'starting_customers')!
+  for (let i = 0; inputIdsOf(drawnModelOf(out.model!)).length < 15; i++) out.model!.cards.push({ ...(JSON.parse(JSON.stringify(seed)) as typeof seed), id: `invented_driver_${i}`, badge: null })
+  return out
+}
+const european = padded(read('fixtures/real/european-22cards.view3.json'))
 const hiring = read('fixtures/real/hiring.view3.json')
 const proposalShape = read('golden/proposal.view.json').proposal!
 
@@ -1054,7 +1061,7 @@ describe('S10 beside the canvas\'s own framing: a model of the ONE loop the moun
 
 // ── S11 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S11 Simple\'s row groups (golden turn 14: core\'s own reply names a note the inputs row\'s notes group holds)', () => {
-  const SID = golden.id, NOTES = 'group:notes:inputs', next = nextOf(golden, 14)
+  const SID = golden.id, NOTES = 'group:notes:points', next = nextOf(golden, 14)
   const THREE = ['reported_cash_and_spend_basis', 'opening_cash', 'monthly_burn']
   it('what the plan calls folded is what the board leaves out: for every card of three real Views on Simple, with the inputs and the groups each shut and opened, a fold is asked for exactly when boardOf does not draw the card', () => {
     let folded = 0, drawnNow = 0
@@ -1156,18 +1163,18 @@ describe('S11 Simple\'s row groups (golden turn 14: core\'s own reply names a no
     expect(rf.at.has('starting_customers'), 'the inputs are still on the board').toBe(true)
     expect(rf.at.has('entry_interpretation')).toBe(false)
   })
-  it('a group in the folded inputs\' row (european-22cards): Show opens both folds and moves to the note; Return shuts both', async () => {
+  it('a note on a board whose inputs are folded (european-22cards padded): the note stands in its own row, so Show opens its group alone, never the inputs, and moves to the note; Return shuts the group (DL 21 Nov)', async () => {
     const S = european.id, note = pointing(next, 'entry_interpretation', ['entry_interpretation'])
     install(european); setLevel('simple', S); lay()
     const c = mount(1, note)
     await press(c.button()!); await run(300)
-    expect(useInputsOpen.getState().open[S]).toBe(true)
+    expect(useInputsOpen.getState().open[S]).toBeUndefined()
     expect(groupOpen(S, NOTES)).toBe(true)
     expect(rf.sets).toStrictEqual([])
     lay(); await run(400)
     expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(['entry_interpretation']), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
     await press(c.button()!); await run(100)
-    expect([useInputsOpen.getState().open[S], groupOpen(S, NOTES)]).toStrictEqual([false, false])
+    expect([useInputsOpen.getState().open[S], groupOpen(S, NOTES)]).toStrictEqual([undefined, false])
     lay(); await run(200)
     expect(rf.at.has('entry_interpretation')).toBe(false)
     expect(rf.sets[1]).toStrictEqual({ to: V0, opts: { duration: 0 }, holds: true })
@@ -1259,7 +1266,7 @@ describe('S12 one move after an unfold: the board says where it is framing to (g
   })
   /** The three cards' box on the opened board, before any row has laid it out (the fake canvas's places are fixed by the board's order). */
   function boxOf0(): Box {
-    install(golden); setLevel('simple', SID); act(() => { setGroupOpen(SID, 'group:notes:inputs') }); lay()
+    install(golden); setLevel('simple', SID); act(() => { setGroupOpen(SID, 'group:notes:points') }); lay()
     const box = boxOf(THREE)
     act(() => { useInputsOpen.setState({ open: {} }) })
     return box

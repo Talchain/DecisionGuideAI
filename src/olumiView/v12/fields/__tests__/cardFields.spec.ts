@@ -159,12 +159,13 @@ describe('cardRow', () => {
     const rows: [ViewModel, string, string, string][] = [
       [T08, 'opt_push', 'options', 'options'],
       [T08, 'f_rent_ask', 'inputs', 'drives'],
-      [T08, 'ev_offer', 'inputs', 'drives'],
+      // DL 21 Nov: notes stand in their own row ("Points raised"), which the contract maps to the row they stood in before.
+      [T08, 'ev_offer', 'points', 'drives'],
       [T08, 'annual_rent', 'outcomes', 'happens'],
       [T08, 'risk_landlord_holds', 'outcomes', 'happens'],
       [T09, 'aim_pay', 'aims', 'aims'],
       [T10, 'lim_budget', 'aims', 'aims'],
-      [T11, 'assume_payer', 'inputs', 'drives'],
+      [T11, 'assume_payer', 'points', 'drives'],
     ]
     for (const [model, id, band, row] of rows) {
       const card = cardOf(model, id)

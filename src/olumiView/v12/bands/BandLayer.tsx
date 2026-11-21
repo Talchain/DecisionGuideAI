@@ -30,6 +30,7 @@ function Shape({ shape }: { shape: BandShape }) {
         : shape === 'pill' ? <rect x="2" y="7" width="20" height="10" rx="5" {...p} />
         : shape === 'double' ? <><rect x="2.5" y="5.5" width="19" height="13" rx="2" {...p} /><rect x="5.5" y="8.5" width="13" height="7" rx="1" {...p} /></>
         : shape === 'diamond' ? <path d="M12 3 21 12 12 21 3 12Z" {...p} />
+        : shape === 'note' ? <path d="M4 5h16v11H10l-4 3.5V16H4Z" {...p} />
         : <rect x="3" y="6" width="18" height="12" rx="2" strokeDasharray="3 2.5" {...p} />}
     </svg>
   )

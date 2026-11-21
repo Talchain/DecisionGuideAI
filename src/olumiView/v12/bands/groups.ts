@@ -41,7 +41,7 @@ export const GROUP_ID_PREFIX = 'group:'
 export const groupIdOf = (kind: GroupKind, band: GroupBand): string => `${GROUP_ID_PREFIX}${kind}:${band}`
 /** The band a group card stands in, from its id; null for any other id. */
 export function groupBandOf(id: string): GroupBand | null {
-  const m = /^group:(?:proposed|notes|olumi):(options|inputs|outcomes|aims)$/.exec(id)
+  const m = /^group:(?:proposed|notes|olumi):(options|inputs|outcomes|aims|points)$/.exec(id)
   return m === null ? null : (m[1] as GroupBand)
 }
 

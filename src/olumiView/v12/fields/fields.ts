@@ -170,8 +170,9 @@ export function cardKind(card: ViewCard, model: ViewModel | null, view: View | n
  *   bandOf band | row      | what stands there today
  *   ------------|----------|-----------------------------------------------------------------------------------------------------------
  *   options     | options  | options
- *   inputs      | drives   | every figure that is not an outcome, and every card that is not an option, outcome, risk or aim
- *               |          | (claims, evidence, conditions, assumptions, notes)
+ *   inputs      | drives   | every figure that is not an outcome, and every other driver (a card in a causal link)
+ *   points      | drives   | notes and reported positions (claims, evidence, conditions, assumptions, left out), and any card associated by
+ *               |          | reasons alone (DL 21 Nov: its own band, "Points raised"; the contract has no row for it)
  *   outcomes    | happens  | outcomes (worked out) AND risks
  *   aims        | aims     | aims and limits
  *
@@ -179,7 +180,8 @@ export function cardKind(card: ViewCard, model: ViewModel | null, view: View | n
  * Kind and row come from two different existing rules and can disagree on an older View (a quantity with a bound is kind `aim` by
  * `cardKindOf` but sits in a figure band by `bandOf`); they are not reconciled here.
  */
-export const ROW_OF_BAND: Readonly<Record<Exclude<BandId, 'ideas'>, CardRow>> = { options: 'options', inputs: 'drives', outcomes: 'happens', aims: 'aims' }
+/** The points raised (DL 21 Nov) have no row of their own in the contract's four: they map to the row they stood in before ('drives'). */
+export const ROW_OF_BAND: Readonly<Record<Exclude<BandId, 'ideas'>, CardRow>> = { options: 'options', inputs: 'drives', outcomes: 'happens', aims: 'aims', points: 'drives' }
 
 export interface CardRowAnswer {
   readonly row: CardRow

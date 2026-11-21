@@ -27,7 +27,14 @@ const opened = read('fixtures/j1/bookshop-v1-open.core-5d8a009b.view3.json')
 const growth = read('fixtures/sc01/growth16.core-5d8a009b.view3.json')
 const hiring = read('fixtures/real/hiring.view3.json')
 const appLaunch = read('fixtures/version-at/app-launch.core-ad57a105.view3.json')
-const european = read('fixtures/real/european-22cards.view3.json')
+/** INVENTED padding (DL 21 Nov): the fixture's notes now stand in their own row, leaving 10 drivers; copies of `starting_customers` (no links, no
+ *  badge) bring the inputs back to the 15 at which Simple folds them, so the fold is still exercised on the real board's other cards. */
+const padded = (v: View): View => {
+  const out = JSON.parse(JSON.stringify(v)) as View, seed = out.model!.cards.find((c) => c.id === 'starting_customers')!
+  for (let i = 0; inputIdsOf(drawnModelOf(out.model!)).length < 15; i++) out.model!.cards.push({ ...(JSON.parse(JSON.stringify(seed)) as typeof seed), id: `invented_driver_${i}`, badge: null })
+  return out
+}
+const european = padded(read('fixtures/real/european-22cards.view3.json'))
 
 const nextOf = (view: View, turn: number): Next => view.chat.find((t) => t.id === turn)!.answer!.next
 /** A reply's next step in the real shape, pointing at the ids given (the words are the real turn's own). */
@@ -223,7 +230,7 @@ describe('T5 Simple\'s folded inputs', () => {
 })
 
 describe('T12 Simple\'s row groups: a card behind a closed group card is shown once that group is opened', () => {
-  const NOTES = 'group:notes:inputs'
+  const NOTES = 'group:notes:points'
   const next = nextOf(golden, 14)
   const THREE = ['reported_cash_and_spend_basis', 'opening_cash', 'monthly_burn']
   /** Simple with these folds opened: foldStore's record as its own writers write it (a group's key is the store's own, never spelt here). */
@@ -255,18 +262,18 @@ describe('T12 Simple\'s row groups: a card behind a closed group card is shown o
     const elsewhere = { ...onSimple(hiring, { groups: [NOTES] }), sid: golden.id }
     expect(planShow(golden, next, elsewhere)!.groups).toStrictEqual([NOTES])
   })
-  it('a group in the folded inputs\' row (european-22cards): the fixture folds its inputs and `entry_interpretation` is one of the notes', () => {
+  it('a note on a board whose inputs are folded (european-22cards padded): the fixture folds its inputs, and `entry_interpretation` is a note in the points row, not an input (DL 21 Nov)', () => {
     const drawn = drawnModelOf(european.model!)
     expect(inputsFolded(european.id, drawn, {})).toBe(true)
-    expect(inputIdsOf(drawn)).toContain('entry_interpretation')
+    expect(inputIdsOf(drawn)).not.toContain('entry_interpretation')
     expect(cardGroupsOf(drawn, european).find((g) => g.id === NOTES)!.cards).toContain('entry_interpretation')
   })
-  it('that note needs BOTH folds opened; with either one opened, the other alone; with both, nothing', () => {
+  it('that note needs only its group opened, whether or not the inputs are; with the group open, nothing (CONTRAST: an input on the folded board still needs the inputs fold)', () => {
     const note = pointing(next, 'entry_interpretation', ['entry_interpretation'])
-    expect(planShow(european, note, simple(european))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: true, groups: [NOTES] })
+    expect(planShow(european, note, simple(european))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: false, groups: [NOTES] })
     expect(planShow(european, note, onSimple(european, { inputs: true }))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: false, groups: [NOTES] })
-    expect(planShow(european, note, onSimple(european, { groups: [NOTES] }))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: true, groups: [] })
-    expect(planShow(european, note, onSimple(european, { inputs: true, groups: [NOTES] }))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: false, groups: [] })
+    expect(planShow(european, note, onSimple(european, { groups: [NOTES] }))).toStrictEqual({ cards: ['entry_interpretation'], open: [], inputs: false, groups: [] })
+    expect(planShow(european, pointing(next, 'starting_customers', ['starting_customers']), simple(european))).toStrictEqual({ cards: ['starting_customers'], open: [], inputs: true, groups: [] })
   })
   it('INVENTED: a record behind the badge of a card the group holds: that badge opens AND the group its card stands behind; contrast: on Detailed the badge alone', () => {
     const v = clone(golden)
