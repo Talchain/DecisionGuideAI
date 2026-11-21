@@ -264,7 +264,7 @@ describe('PL-1083 (1): a thread squeezed to nothing is clipped, never drawn over
   const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   it('while readings are held the thread\'s wrapper has no floor and hides what overflows it', () => {
     // Contract 3: only while the review is open (its body shown), as its rows are only then on screen.
-    const sel = "[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] {"
+    const sel = "[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] {"
     const i = css.indexOf(sel)
     expect(i).toBeGreaterThanOrEqual(0)
     expect(css.slice(i, css.indexOf('}', i))).toMatch(/min-height: 0;\s*overflow: hidden/)

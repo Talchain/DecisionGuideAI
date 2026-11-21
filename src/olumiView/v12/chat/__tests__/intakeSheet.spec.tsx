@@ -35,7 +35,11 @@ const FIGS = (v: View): IntakeFigure[] => [
   { source: at(0, 30, 44), quote: 'an invented limit of 3 people', unit: 'person', stated: { value: { point: 3 }, bound: 'at_most' }, record: null },
   { source: at(1, 0, 18), quote: 'maybe an invented 10%', unit: '%', stated: null, record: UNKNOWN },
 ]
-const open = (c: HTMLElement) => act(() => { fireEvent.click(q(c, 'view-intake-toggle')!) })
+const open = (c: HTMLElement) => act(() => {
+  const chip = q(c, 'view-chat-foot-intake')!
+  if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip)
+  fireEvent.click(q(c, 'view-intake-toggle')!)
+})
 const marks = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-intake-source]')].map((e) => [e.getAttribute('data-intake-source'), e.querySelector('[data-intake-mark]')?.textContent ?? null])
 
 beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); setTeamFetch((async () => new Response('{}', { status: 201 })) as never); pressed.ids = [] })
@@ -45,6 +49,9 @@ describe('E4 What you said (view.intake)', () => {
   it('each figure is listed in its quote, folded at rest, marked by `record` alone: id = in your model, null = not yet, "unknown" = no claim; CONTRAST: without the field no sheet', () => {
     const v = base(), c = mount(withIntake(v, FIGS(v)))
     expect([q(c, 'view-intake') !== null, q(c, 'view-intake-rows'), q(c, 'view-intake-missing')?.textContent]).toEqual([true, null, `1 ${NOT_IN_MODEL}`])
+    expect(q(c, 'view-chat-foot-intake')).toHaveAttribute('aria-expanded', 'false')
+    expect(q(c, 'view-chat-foot-intake')).toHaveTextContent('3')
+    expect(q(c, 'view-chat-scroll')!.contains(q(c, 'view-intake')!)).toBe(false)
     open(c)
     expect(marks(c)).toEqual([['brief:4:20', IN_MODEL], ['0:30:44', NOT_IN_MODEL], ['1:0:18', null]])
     expect(c.querySelector('[data-intake-source="1:0:18"]')?.textContent, 'unknown: the words, with their uncertainty, and nothing else').toBe('“maybe an invented 10%”')

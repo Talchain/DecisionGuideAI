@@ -376,15 +376,16 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
   })
 
-  // CHANGED BY DESIGN (17 Nov, the calm panel): the pinned proposal is ONE line at the thread's FOOT, above the composer, so Olumi's question (in the
-  // thread) comes before it again. Was (sx-panel): the pinned card at the TOP, the question after it. Reverting moves the card back to the top and fails this row.
-  it('CT8c (DL-538): Olumi\'s question stays in the thread; the pinned proposal sits below the thread, at the foot', () => {
+  it('CT8c: questions and proposal are outside the thread, behind closed foot-row chips', () => {
     const asked = { ...proposal, model: { ...proposal.model!, coaching_questions: ['What would success look like here?'] } } as View
     show(asked)
     const { getByTestId } = render(<ViewChat />)
-    expect(getByTestId('view-chat-scroll').contains(getByTestId('view-model-question'))).toBe(true)
-    expect(getByTestId('view-chat-scroll').contains(getByTestId('view-chat-pinned'))).toBe(false)
-    follows(getByTestId('view-model-question'), getByTestId('view-chat-pinned'))
+    const scroll = getByTestId('view-chat-scroll'), box = getByTestId('view-chat-pinned')
+    expect(scroll.contains(getByTestId('view-model-question'))).toBe(false)
+    expect(scroll.contains(box)).toBe(false)
+    expect(box).toHaveAttribute('hidden')
+    for (const id of ['asks', 'proposal']) expect(getByTestId(`view-chat-foot-${id}`)).toHaveAttribute('aria-expanded', 'false')
+    follows(scroll, getByTestId('view-chat-foot-row'))
   })
 
   // Growth can land on an existing turn, without a new job (pre-screen 4b92d394 row 15).
@@ -486,11 +487,10 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(getByTestId('view-model-question-text').textContent).toBe(question)
     expect(getByTestId('view-model-question-text-1').textContent).toBe('What evidence could change your view?')
     follows(getByTestId('view-model-question-text'), getByTestId('view-model-question-text-1'))
-    // CHANGED BY DESIGN (17 Nov, the calm panel): the step (approval) is one line at the thread's foot, so the questions come before it. Was (sx-panel): after it.
-    follows(getByTestId('view-model-question'), getByTestId('view-next-step'))
+    expect(getByTestId('view-chat-pinned').contains(getByTestId('view-model-question'))).toBe(true)
     expect(posts).toEqual([])
   })
-  it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each painted whole and reachable in the panel\'s scroll; the fourth is not drawn', () => {
+  it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each reachable in the foot panel; the fourth is not drawn', () => {
     const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
     const qs = real.model!.coaching_questions!
     expect(qs.length, 'precondition: core sends more than three').toBeGreaterThan(3)
@@ -499,14 +499,15 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     const scroll = getByTestId('view-chat-scroll')
     // CHANGED BY DESIGN (17 Nov, calm panel mock v2, Paul: ONE question at a time with progressive disclosure of the rest): was all three painted at once.
     // Now the first is painted and the other two are in the page, in core's words, hidden until Skip (or a progress dash) reaches them.
+    fireEvent.click(getByTestId('view-chat-foot-asks'))
     fireEvent.click(getByTestId('view-question-toggle')) // CHANGED 18 Nov (audit chat-3): the card is one quiet row at rest; Skip is behind the chevron
     for (const at of [0, 1, 2]) {
       if (at > 0) fireEvent.click(getByTestId('view-question-skip'))
       const el = getByTestId(at === 0 ? 'view-model-question-text' : `view-model-question-text-${at}`)
       expect([el.textContent, el.getAttribute('data-view')], `question ${at}`).toEqual([qs[at], `model.coaching_questions.${at}`])
-      // painted: rendered in the open panel, not hidden or clipped by a class; reachable: inside the panel's own scroll
-      expect(scroll.contains(el), `question ${at} is in the panel's scroll`).toBe(true)
-      for (let e: HTMLElement | null = el; e !== null && e !== scroll; e = e.parentElement) expect(e.hidden || /\b(hidden|sr-only|truncate|line-clamp-\d)\b/.test(e.className), `question ${at}: ${e.tagName} hides it`).toBe(false)
+      // The selected question is visible in the foot panel's own scroll, outside the conversation.
+      expect(scroll.contains(el), `question ${at} is outside the thread`).toBe(false)
+      for (let e: HTMLElement | null = el; e !== null && e !== getByTestId('view-chat-pinned'); e = e.parentElement) expect(e.hidden || /\b(hidden|sr-only|truncate|line-clamp-\d)\b/.test(e.className), `question ${at}: ${e.tagName} hides it`).toBe(false)
     }
     expect(queryByTestId('view-model-question-text-3')).toBeNull()
     expect(queryByText(qs[3]!)).toBeNull()
@@ -593,9 +594,9 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
   // CATCH (fails on the old css: the three :has rules were `.ok-pinned [data-reading-row]` / `.ok-pinned:has([data-reading-row])`, so a CLOSED
   // review holding reading rows still hid More ways, clipped the thread and let the box shrink). CONTRAST: the old selectors now match nothing.
   it('NS1b the readings rules apply only while the review is OPEN: More ways hides, the thread yields and the box shrinks only while it is open', () => {
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
-    expect(rule('.ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row])')).toMatch(/flex-shrink: 1/)
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
+    expect(rule("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
+    expect(rule(".ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row])")).toMatch(/flex-shrink: 1/)
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
     expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
     expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')

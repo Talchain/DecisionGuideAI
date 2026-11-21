@@ -395,6 +395,8 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     // The heading is drawn once (the row's own line), not again inside the body.
     expect(c.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
     expect(screen.queryByText('Next step'), 'no "Next step" header for this kind').toBeNull()
+    expect(row()).not.toBeVisible()
+    fireEvent.click(screen.getByTestId('view-chat-foot-proposal'))
     expect(row()).toBeVisible()
     // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1, UI owner 16 Nov: "one filled button ... never below the fold, never folded away"): closed, the
     // card keeps Approve and Set aside in view; the changes still wait for a press. Was: the actions were hidden with the list.
@@ -421,6 +423,7 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
   it('CATCH: pressing the row opens it and a second press closes it again; a new proposal starts closed (before: no row to press)', () => {
     show(golden)
     const row = screen.getByTestId('view-proposal-row')
+    fireEvent.click(screen.getByTestId('view-chat-foot-proposal'))
     fireEvent.click(row)
     expect(isOpen(review())).toBe(true)
     expect(screen.getByTestId('view-changes')).toBeVisible()
@@ -451,9 +454,9 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
 
   it('CATCH: the stylesheet\'s readings rules apply only while the review is open (before: bare `.ok-pinned [data-reading-row]` hid More ways and squeezed the thread at rest)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look', 'olumiLook.css'), 'utf8')
-    expect(css).toContain(".ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }")
-    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }")
-    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }")
+    expect(css).toContain(".ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }")
+    expect(css).toContain("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }")
     // CONTRAST: the old, unconditional selectors are gone.
     expect(css).not.toContain(".ok-pinned:has([data-reading-row])")
     expect(css).not.toContain(":has(.ok-pinned [data-reading-row])")

@@ -43,7 +43,6 @@ import { readingsRest, restTop } from './readingsRest'
 import { V10_METHODS, withMethodPrefix } from '../presentation/V10MethodChips'
 import { endRing, pointRing, restRing } from './ring'
 import { Button } from '../components/ui/Button'
-import { VIEW_NOTE_SLOT } from './note'
 import { storiesHeadingOf, storiesOf } from './k5'
 import { FIGURE_FIRST_CLOSED, FigureFirstEntryPanel, FigureFirstShownPanel, FigureFirstSideBySide, useFigureFirst } from './ViewFigureFirst'
 import { noteSaved, noticeWords, useModelNotice } from './notice'
@@ -60,16 +59,16 @@ import { SinceVersion } from '../olumiCore/compare'
 import { ActionsMenu } from './v12/actionsMenu'
 import { FIGURE_FIRST_ID, isRealMove, menuOf, nextStepFor, type NextStep as V12NextStep, type ToolId } from './v12/actions'
 import { KeepIdea } from './v12/KeepIdea'
-import { CommitFormFoot, CommitFormSlot, RecordStepButton, closeUntouchedCommit } from './v12/team'
+import { CommitFormFoot, RecordStepButton, closeUntouchedCommit } from './v12/team'
 import { answerQuestion } from './reasoning/answer'
-import { approachOf, approachesOf, floorEntryOf, ideaTextOf, isCoachedReply } from './v12/ideas'
+import { approachOf, approachesOf, floorEntryOf, ideaTextOf, keptIdeasOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
 import { ReplyFacts } from './v12/chat/ReplyFacts'
 import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
 import { Hover, HoverButton } from './look/Hover'
 import { useAnchoredTip } from './look/Tip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
-import { IntakeSheet } from './v12/chat/IntakeSheet'
+import { IntakeSheet, intakeOf } from './v12/chat/IntakeSheet'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { ICONS, OkIcon, OkIconButton } from './look/icons'
 import { FoldChevron } from './look/FoldChevron'
@@ -77,6 +76,7 @@ import { SelectionPill } from '../canvas/components/SelectionPill'
 import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedRename'
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
+import { ChatFootRow } from './v12/chat/ChatFootRow'
 import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -1861,13 +1861,13 @@ export function ViewChat() {
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
     let top = newest === null ? maxScroll : newest.offsetTop - 16
     // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"; as the old look): the thread never carries past the newest
-    // reply's (or job's) first line. The Next step is not in the thread (it sits above it, PANEL-SPEC 1). The person's own save (below) still
+    // reply's (or job's) first line. Supporting material stays outside the thread. The person's own save (below) still
     // wins: its receipt is what they look for.
     if (newest !== null) top = Math.min(top, newest.offsetTop - 16)
     // DL journey (4): a save's receipt and what it changed (ModelNoticeLine, after the newest line) come into view as the step does: whole,
     // or from its top where it is taller than the thread.
     const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
-    // It wins over the Next step below it (the person's own save is what they look for); the step stays a scroll away.
+    // The person's own save is what they look for; it remains a conversation turn.
     if (saved !== null) {
       const first = top, own = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
       // Where the receipt would slice the reply (its top lands inside the reply's body), the reply's first line wins: a half-cut headline
@@ -1935,9 +1935,8 @@ export function ViewChat() {
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
       {surface !== 'panel' ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
-      {/* The thread keeps room for its newest lines beside a pinned proposal (DL-538); the proposal shrinks and scrolls first. */}
-      {/* DL 06:57Z (2): beside a pinned proposal the thread keeps a smaller floor, so the step's own words and its buttons are never cut. */}
-      <div className={`relative flex flex-1 ${pinned ? 'min-h-[min(18vh,128px)]' : 'min-h-0'} flex-col`} data-thread-wrap="">
+      {/* Only conversation turns live in the thread; supporting panels open at its foot. */}
+      <div className="relative flex flex-1 min-h-0 flex-col" data-thread-wrap="">
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto px-3 py-4">
           <div ref={content} className="space-y-6">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
@@ -1949,34 +1948,6 @@ export function ViewChat() {
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
-            {/* V12 Solo-Return: the ideas kept on this scenario, with where each came from and who kept it. */}
-            <KeptIdeas />
-            {/* E4 (DL 19 Nov, URL 2): what the person said, figure by figure, and whether the model uses it: only where core serves view.intake, only once a model exists. */}
-            <IntakeSheet />
-            {/* ORDER-UI-5 (2), DL-408: Olumi's questions on this model, at most three, each in core's words whole, in one block. First core's
-                questions about its own trial figures (model.trial_questions, SEAM-13 c2 13bd106e: the waits_on item shape, an aim's baseline
-                first): each opens that figure's own editor (`id`, with core's `edit`, the one the card offers); with no edit (a proposal is
-                held) it is words. Then core's other questions (coaching_questions, words only: no id, so none is guessed from the words).
-                An older core sends no trial_questions: as before. */}
-            {/* 17 Nov (calm panel mock v2): the questions are ONE card, one question at a time with the rest behind it (v12/chat/OlumiAsks). */}
-            {/* Codex 21:12Z (17 Nov): the card is bound to its scenario (a new scenario is a new card: no draft or place carried over), and the
-                answer sent is the person's words ALONE. Core's question is Olumi's; sending it inside the person's message would make the AI's
-                wording and figures the person's. Core already holds the question it asked. */}
-            <OlumiAsks
-              key={view?.id ?? ''}
-              scope={view?.id ?? ''}
-              questions={chatQuestionsOf(view?.model)}
-              body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
-              held={held}
-              // A question core sent typed (CONTRACT §3) carries its id (`answers`): the answer is bound to it on core's answer route (same op for the same words; a refusal is core's). Else today's message.
-              // The question card draws no method row of its own (batch 2): the composer's one row is the place for a method.
-              onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} />
-            <CommitFormSlot />
-            {/* Olumi's note, when the canvas has no free spot for it (OlumiAttentionCard): here, never over a card. */}
-            <div {...{ [VIEW_NOTE_SLOT]: '' }} />
-            {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
-            {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
-            {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
           </div>
         </div>
       </div>
@@ -1986,14 +1957,31 @@ export function ViewChat() {
           <OkIconButton id="go-latest" tone="ghost" words="Go to the latest message" testid="view-chat-to-latest" className="ok-to-latest" onClick={toLatest} />
         </div>
       ) : null}
-      {/* 17 Nov (the calm panel): Olumi's waiting proposal is ONE line pinned at the thread's foot, just above the composer, never over the
-          conversation: the thread above it keeps its own scroll. Opened, its list grows upward inside this box (its own scroll). */}
-      {view === null || step === null || !pinned ? null
-        : <div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"><NextStepCard view={view} busy={busy} /></div>}
-      {/* "Record what you will do" (DL 20 Nov, the 1232 and 1.33 limit): docked here, just above the composer whose icon opens it, never in the
-          thread. Inside the thread the open form scrolled Olumi's newest reply out of view; here the thread shrinks above it, keeps its floor
-          and rests on that reply's first line (followNewest), and the form takes the rest, scrolling in its own box only past that (olumiLook.css .ok-form-foot). */}
-      <div className="ok-form-foot" data-testid="view-chat-form"><CommitFormFoot /></div>
+      {/* Person-opened forms dock above the quiet row; none belongs to the conversation. */}
+      <div className="ok-form-foot" data-testid="view-chat-form">
+        <CommitFormFoot />
+        {ffMine && ffOpen ? <FigureFirstEntryPanel held={held} onGive={give} onShow={show} onClose={closeFigureFirst} /> : null}
+        {ffMine && ffShown ? <FigureFirstShownPanel onClose={() => useFigureFirst.setState({ shown: null })} /> : null}
+        {ff?.given == null ? null : <FigureFirstSideBySide given={ff.given} headings={ff.headings} />}
+      </div>
+      {/* CatchUp only opens the history panel, with no inline open area. Use the permitted foot-row fallback
+          for kept ideas and intake rather than rewriting CatchUp and its history-panel contract. */}
+      <ChatFootRow key={view?.id ?? ''} sources={[
+        { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
+          content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
+        { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: chatQuestionsOf(view?.model).length,
+          content: <OlumiAsks
+              key={view?.id ?? ''}
+              scope={view?.id ?? ''}
+              questions={chatQuestionsOf(view?.model)}
+              body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
+              held={held}
+              // A question core sent typed (CONTRACT §3) carries its id (`answers`): the answer is bound to it on core's answer route (same op for the same words; a refusal is core's). Else today's message.
+              // The question card draws no method row of its own (batch 2): the composer's one row is the place for a method.
+              onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} /> },
+        { id: 'kept', label: 'Kept ideas', icon: 'idea-keep', count: keptIdeasOf(view).length, content: <KeptIdeas /> },
+        { id: 'intake', label: 'What you said', icon: 'file-read', count: view?.model == null ? 0 : intakeOf(view).length, content: <IntakeSheet /> },
+      ]} />
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).

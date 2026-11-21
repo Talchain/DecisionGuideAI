@@ -126,6 +126,8 @@ describe('2. the pending proposal is ONE line at the thread\'s foot, above the c
     const view = golden('proposal'), p = view.proposal!
     const c = mount(view)
     const box = q(c, 'view-chat-pinned')!, scroll = q(c, 'view-chat-scroll')!, composer = q(c, 'view-composer')!
+    expect(box).toHaveAttribute('hidden')
+    fireEvent.click(q(c, 'view-chat-foot-proposal')!)
     expect(scroll.contains(box)).toBe(false) // never inside the thread it must not cover
     expect(scroll.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // below the thread
     expect(box.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // just above the composer
@@ -144,6 +146,7 @@ describe('2. the pending proposal is ONE line at the thread\'s foot, above the c
   it('opening Review shows the change list ABOVE the line, inside the same box; Approve and Set aside stay in the line', () => {
     const c = mount(golden('proposal'))
     const box = q(c, 'view-chat-pinned')!
+    fireEvent.click(q(c, 'view-chat-foot-proposal')!)
     expect(q(box, 'view-changes')).toBeNull()
     fireEvent.click(q(box, 'view-proposal-review-toggle')!)
     const list = q(box, 'view-changes')!, line = q(box, 'view-proposal-actions')!
@@ -309,7 +312,11 @@ describe('6. one type scale: 12/18 reading, 12/16 meta, 12 medium heading, 18 me
 describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   const asked = () => golden('s_ce285b3617bb')
   const visible = (c: ParentNode) => [...c.querySelectorAll<HTMLElement>('[data-view^="model.coaching_questions"]')].filter((e) => !e.hidden && e.closest('[hidden]') === null)
-  const open = (card: HTMLElement) => { fireEvent.click(q(card, 'view-question-toggle')!); return card }
+  const open = (card: HTMLElement) => {
+    const chip = card.closest('[data-testid="view-chat"]')!.querySelector<HTMLElement>('[data-testid="view-chat-foot-asks"]')!
+    if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip)
+    fireEvent.click(q(card, 'view-question-toggle')!); return card
+  }
   it('REMOVE (Paul, 19 Nov: "not just collapse, but remove"): the card has a remove press; pressed, the card is gone, not folded; CONTRAST: the chevron only folds it', () => {
     try {
     const c = mount(asked())
@@ -550,8 +557,8 @@ describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold
   it('D. with the form open the thread keeps its floor, also when the proposal\'s review is open (its rule drops the floor to 0; Codex on 6fb97f42): the both-open rule restores it and comes after', () => {
     const css = readFileSync(path.join(DIR, 'look/olumiLook.css'), 'utf8')
     const FLOOR = /min-height:\s*min\(18vh,\s*128px\)/
-    const reviewOpen = css.indexOf("[data-testid='view-chat']:has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0")
-    const both = /\[data-testid='view-chat'\]:has\(\.ok-pinned \[data-review-body\]:not\(\[hidden\]\) \[data-reading-row\]\):has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
+    const reviewOpen = css.indexOf("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0")
+    const both = /\[data-testid='view-chat'\]:has\(\.ok-pinned:not\(\[hidden\]\) \[data-foot-source=proposal\]:not\(\[hidden\]\) \[data-review-body\]:not\(\[hidden\]\) \[data-reading-row\]\):has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
     const formOnly = /\[data-testid='view-chat'\]:has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
     expect([reviewOpen > -1, both !== null && FLOOR.test(both[1]!), both !== null && both.index > reviewOpen, formOnly !== null && FLOOR.test(formOnly[1]!)]).toEqual([true, true, true, true])
   })

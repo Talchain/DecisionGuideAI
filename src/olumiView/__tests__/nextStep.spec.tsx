@@ -312,7 +312,7 @@ describe('the readings rule places nothing while the one-row review is closed', 
   it('contrast: the readings :has rules in olumiLook.css require the review\'s body shown (the thread and More ways keep their room while closed)', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
     const rules = css.split('\n').filter((l) => /:has\(.*\[data-reading-row\]\)/.test(l))
-    expect(rules).toHaveLength(3)
+    expect(rules).toHaveLength(4)
     for (const r of rules) expect(r).toContain('[data-review-body]:not([hidden]) [data-reading-row]')
   })
 })
@@ -397,6 +397,8 @@ describe('S4 (19 Nov): nothing is said twice; one clear next action', () => {
     const c = show(golden('proposal'))
     expect(step(c)!.getAttribute('data-step')).toBe('approve')
     expect(step(c)!.querySelector('[data-testid="view-next-move"], [data-testid="view-next-method"], [data-testid="view-next-invite"]')).toBeNull()
+    expect(filled(c)).toHaveLength(0) // proposal controls wait behind the foot chip
+    fireEvent.click(c.querySelector('[data-testid="view-chat-foot-proposal"]')!)
     expect(filled(c).map((b) => b.getAttribute('data-testid'))).toEqual(['view-approve'])
     cleanup()
     const d = show(sessionView('after-find-first'))

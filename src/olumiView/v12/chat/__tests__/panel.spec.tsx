@@ -15,11 +15,12 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import type { View, ViewTurn } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useUIStore } from '../../../../stores/uiStore'
 import { REST_ITEMS, REVIEW_CHANGES, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
+import { VIEW_NOTE_SLOT } from '../../../note'
 import { typography } from '../../../../styles/typography'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
@@ -57,12 +58,14 @@ const LATER_OPEN = 'Counting the turned-away walkers is the quickest way to size
 const ITEMS = ['Keep a tally by the door for four Sundays.', 'Note the time each group leaves.', 'Ask the bakery for a Saturday slot.', 'Check last spring’s takings.', 'Ask the two staff which day suits.', 'Price a lunch-only menu.']
 const LATER = [LATER_OPEN, '', ...ITEMS.map((x) => `- ${x}`), '', 'Bring the tally back and Olumi will put it on the covers card.'].join('\n')
 
-describe('1. one next step, at the top, with its button in view at rest', () => {
-  it('a waiting proposal: its card sits above the conversation, closed, with Approve drawn at rest; the change list waits for a press', () => {
+describe('1. the proposal waits behind one foot-row chip', () => {
+  it('a waiting proposal: its chip opens the existing collapsed review below the conversation; the change list waits for another press', () => {
     const view = golden('proposal'), p = view.proposal!
     const c = show(view)
     const top = q(c, 'view-chat-pinned')!, scroll = q(c, 'view-chat-scroll')!
-    expect(top).not.toBeNull()
+    expect(top).toHaveAttribute('hidden')
+    fireEvent.click(q(c, 'view-chat-foot-proposal')!)
+    expect(top).not.toHaveAttribute('hidden')
     // CHANGED BY DESIGN (17 Nov, the calm panel): the pending proposal is one line at the thread's FOOT, below the thread and never inside it (was: above it).
     expect(before(scroll, top)).toBe(true) // below the thread, never over it
     expect(scroll.contains(top)).toBe(false)
@@ -254,5 +257,42 @@ describe('5 and 6. no form unless asked; the composer keeps its tools', () => {
     expect(['assumption', 'opposite', 'disconfirming', 'outside'].map((k) => q(c, `view-composer-method-${k}`) !== null)).toEqual([true, true, true, true])
     expect(q(c, 'view-actions-button')).not.toBeNull()
     expect(q(c, 'view-composer-send')).not.toBeNull()
+  })
+})
+
+
+describe('the conversation ends at its newest turn', () => {
+  it('the newest reply is the thread’s last child; asks/proposal/note are foot-row chips, closed at rest', async () => {
+    const view = golden('proposal')
+    const c = show({ ...view, turn: null, model: { ...view.model!, coaching_questions: ['What evidence is missing?'] } })
+    const scroll = q(c, 'view-chat-scroll')!, turns = q(c, 'view-chat-turns')!, latest = q(c, 'view-chat-latest')!
+    expect(scroll.firstElementChild!.lastElementChild).toBe(turns)
+    expect(turns.lastElementChild).toBe(latest)
+    expect(latest.querySelector('[data-testid="view-chat-answer"]')).not.toBeNull()
+    expect(q(c, 'view-chat-foot-note')).toBeNull()
+    // The existing portal supplies the note after the chat has mounted.
+    const slot = c.querySelector<HTMLElement>(`[${VIEW_NOTE_SLOT}]`)!
+    const note = document.createElement('section')
+    note.textContent = 'A note from the existing canvas surface'
+    act(() => { slot.append(note) })
+    await waitFor(() => expect(q(c, 'view-chat-foot-note')).not.toBeNull())
+    const row = q(c, 'view-chat-foot-row')!
+    for (const id of ['proposal', 'asks', 'note']) {
+      const chip = q(c, `view-chat-foot-${id}`)!
+      expect(row.contains(chip)).toBe(true)
+      expect(chip).toHaveAttribute('aria-expanded', 'false')
+    }
+    expect(q(c, 'view-chat-pinned')).toHaveAttribute('hidden')
+    for (const id of ['view-next-step', 'view-model-question']) {
+      expect(scroll.contains(q(c, id)!)).toBe(false)
+      expect(q(c, id)).not.toBeVisible()
+    }
+    expect(scroll.contains(slot)).toBe(false)
+    expect(scroll.firstElementChild!.lastElementChild).toBe(turns)
+    // A later saved reply still goes last, even while supporting material is present.
+    const last = view.chat[view.chat.length - 1]!
+    act(() => useViewStore.setState({ view: { ...view, turn: null, chat: [...view.chat, { ...last, id: last.id + 1000, said: 'A later message' }] } }))
+    expect(turns.lastElementChild).toBe(q(c, 'view-chat-latest'))
+    expect(scroll.firstElementChild!.lastElementChild).toBe(turns)
   })
 })

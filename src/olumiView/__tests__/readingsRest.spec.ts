@@ -65,20 +65,20 @@ describe('PL-1083 (1), new look, DL 12:5xZ (A), contract 3: what yields while th
   const { readFileSync } = await import('node:fs')
   const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const rule = (sel: string) => { const i = css.indexOf(sel + ' {'); return i < 0 ? null : css.slice(i, css.indexOf('}', i) + 1) }
-  const HELD_OPEN = ':has(.ok-pinned [data-review-body]:not([hidden]) [data-reading-row])'
+  const HELD_OPEN = ':has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row])'
   it('first More ways hides (review open)', () => expect(rule("[data-testid='view-chat']" + HELD_OPEN + " > [data-testid='view-more-ways']")).toMatch(/display: none/))
   it('then the thread may shrink below its floor (review open)', () => expect(rule("[data-testid='view-chat']" + HELD_OPEN + ' > [data-thread-wrap]')).toMatch(/min-height: 0/))
-  it('the box shrinks rather than run past the composer (review open)', () => expect(rule('.ok-pinned:has([data-review-body]:not([hidden]) [data-reading-row])')).toMatch(/flex-shrink: 1/))
+  it('the box shrinks rather than run past the composer (review open)', () => expect(rule('.ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row])')).toMatch(/flex-shrink: 1/))
   it('CONTRAST: every such rule is keyed on a held reading row, so nothing changes when none is held', () => {
-    const lines = css.split('\n').filter((l) => /view-more-ways|data-thread-wrap/.test(l) && l.includes('{'))
-    expect(lines.length).toBeGreaterThan(0)
+    const lines = css.split('\n').filter((l) => /view-more-ways|data-thread-wrap/.test(l) && l.includes('[data-reading-row]') && l.includes('{'))
+    expect(lines).toHaveLength(3)
     for (const line of lines) expect(line).toContain(HELD_OPEN)
   })
   // CATCH (fails on 41354eb1: its rules were `:has(.ok-pinned [data-reading-row])` / `.ok-pinned:has([data-reading-row])`, no open-review condition):
   // a held reading row inside a CLOSED review moves nothing, so the thread and More ways keep their room at rest.
   it('CATCH: no rule keys on a held row without the review being open', () => {
     const keyed = css.split('\n').filter((l) => l.includes('[data-reading-row]') && l.includes('{'))
-    expect(keyed.length).toBe(3)
+    expect(keyed.length).toBe(4)
     for (const line of keyed) expect(line).toContain('[data-review-body]:not([hidden]) [data-reading-row]')
     expect(css).not.toMatch(/\.ok-pinned \[data-reading-row\]/)
     expect(css).not.toMatch(/\.ok-pinned:has\(\[data-reading-row\]\)/)
@@ -129,7 +129,7 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
   })
   it('CATCH: the pinned box lost its 112 px floor, so a one-row review does not reserve a taller box', () => {
     // CHANGED BY DESIGN (17 Nov, the calm panel): the pinned box sits at the thread's foot, just above the composer (was, sx-panel: at the top under the tabs); same classes.
-    expect(chat).toContain('<div className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned">')
+    expect(readFileSync('src/olumiView/v12/chat/ChatFootRow.tsx', 'utf8')).toContain('className="ok-pinned shrink-0 overflow-y-auto" data-testid="view-chat-pinned"')
     expect(chat).not.toContain('min-h-[112px]')
   })
   it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {
