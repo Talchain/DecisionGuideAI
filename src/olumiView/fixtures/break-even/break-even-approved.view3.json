@@ -172,7 +172,7 @@
       "text": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
       "title": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it.",
       "tips": "On the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
-      "tips_face": "Cut ‘Late deliveries now’ by at least about 4 percentage points to meet this aim."
+      "tips_face": "At least about 4 percentage points less ‘Late deliveries now’ meets this aim."
      }
     ],
     "driver": null,

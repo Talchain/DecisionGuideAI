@@ -168,11 +168,11 @@
      {
       "kind": "none",
       "aim_id": "aim_late",
-      "text": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+      "text": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. In this what-if, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
       "title": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it.",
-      "tips": "As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
-      "tips_face": "What-if: Cut ‘Late deliveries now’ by at least about 4 percentage points to meet this aim.",
-      "tips_label": "What-if on Olumi’s working"
+      "tips": "In this what-if, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+      "tips_face": "What-if: at least about 4 percentage points less ‘Late deliveries now’ meets this aim.",
+      "tips_label": "What-if"
      }
     ],
     "driver": null,
@@ -238,7 +238,7 @@
      "text": "No chance yet",
      "title": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it.",
      "range": null,
-     "why": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. As a what-if on Olumi’s proposed working, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
+     "why": "The chance for 'Hire a dispatcher' cannot be worked out yet: rests on \"Change in the late rate from a dispatcher\", which is unknown: No figure says how far a dispatcher moves it. In this what-if, on the figures given, worked out Olumi’s way and on Olumi’s reading of the aim, ‘Late deliveries back to 5%’ is met if ‘Change in the late rate from a dispatcher’ is at most about −4 percentage points.",
      "add": null,
      "shared": false
     },

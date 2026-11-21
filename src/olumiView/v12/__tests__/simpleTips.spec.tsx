@@ -23,6 +23,7 @@ type TipRow = Extract<ViewCard['rows'][number], { kind: 'none' }> & { tips_face?
 const tipRow = (card: ViewCard) => card.rows.find((r) => r.kind === 'none' && r.aim_id === card.headline!.aim_id)! as TipRow
 const draw = (card: ViewCard, model: ViewModel) => render(<SimpleFace card={card} model={model} noted={false} />).container
 const tips = (el: Element) => el.querySelector<HTMLElement>('[data-simple-face="tips"]')
+const count = (s: string, w: string) => s.split(w).length - 1
 afterEach(cleanup)
 
 for (const { state, model } of fixtures) describe(state, () => {
@@ -45,7 +46,7 @@ for (const { state, model } of fixtures) describe(state, () => {
   it('AC1b a what-if is said in the face itself; tips_label only marks it, never a second line', () => {
     const card = option(model), row = tipRow(card), el = draw(card, model), line = tips(el)!
     expect(el.querySelector('[data-simple-tips-label]')).toBeNull()
-    if (row.tips_label != null) expect([line.getAttribute('data-simple-tips-whatif'), el.textContent!.includes(row.tips_label)]).toEqual([card.id, false])
+    if (row.tips_label != null) expect([line.getAttribute('data-simple-tips-whatif'), count(el.textContent!, row.tips_label)]).toEqual([card.id, count(row.tips_face!, row.tips_label)])
     else expect(line.hasAttribute('data-simple-tips-whatif')).toBe(false)
     expect(state === 'pending' ? row.tips_label != null : row.tips_label == null).toBe(true)
   })
@@ -58,6 +59,16 @@ for (const { state, model } of fixtures) describe(state, () => {
     expect(line.classList.contains('ok-two-lines')).toBe(true)
     for (const cls of typography.viewValue.split(' ')) expect(line.classList.contains(cls)).toBe(false)
     expect(line.textContent?.split('%').length).toBe(row.tips_face!.split('%').length)
+  })
+
+  it('AC5 the tips line takes the full row; the footer stays, below it', () => {
+    const card = option(model), el = draw(card, model), line = tips(el)!
+    expect(line.classList.contains('basis-full')).toBe(true)
+    expect(line.classList.contains('flex-[1_1_7rem]')).toBe(false)
+    expect(line.classList.contains('ok-two-lines')).toBe(true)
+    const footer = el.querySelector(`[data-simple-foot="${card.id}"]`)
+    expect(footer).not.toBeNull()
+    expect(line.contains(footer)).toBe(false)
   })
 
   it('AC3 hover preserves why and add whole, with tips exactly once', async () => {
@@ -106,6 +117,13 @@ it('AC4 chance keeps its gauge ahead of tips (existing chance fixture)', () => {
   expect(el.querySelector('[data-simple-face="gauge"]')).not.toBeNull()
   expect(el.querySelector('[data-simple-chance]')).not.toBeNull()
   expect(tips(el)).toBeNull()
+})
+it('AC5 a non-tips quiet line keeps its flex basis (existing chance fixture)', () => {
+  const chanceModel = load('core-38eebca9/european.view3.json').model!
+  const card = structuredClone(chanceModel.cards.find((c) => c.family === 'option' && c.headline?.state === 'chance')!)
+  const el = draw(card, chanceModel), line = el.querySelector(`[data-simple-qual="${card.id}"]`)!
+  expect(line).not.toBeNull()
+  expect(line.classList.contains('flex-[1_1_7rem]')).toBe(true)
 })
 it('AC4 fixed keeps its own line ahead of tips', () => {
   const card = option(model)
