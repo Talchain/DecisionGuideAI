@@ -178,14 +178,14 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * core's is read or written here.
  */
 export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[] } = {}): Promise<Map<string, SimplePlace>> {
+  // Simple uses model bands and card order. Only Detailed needs layoutGraph's positions.
+  if (options.row?.simple === true) return simplePlaces(model, size, options.row, options.extras)
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
   // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
   // previous layout's own cap.
   const maxPerRow = Math.max(options.row?.perRow ?? MAX_CARDS_PER_ROW, allOptionCards(model).length)
-  // V12 Simple: bands as wide as the stage allows (simplePlaces); the layout's tiers are kept, each one row for it to read the order from.
-  if (options.row?.simple === true) return simplePlaces(model, nodes, edges, size, options.row, options.spacing, options.extras)
   const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   if (direction !== 'DOWN' && direction !== 'UP') return places
@@ -247,45 +247,38 @@ const rowWidth = (k: number, w: number): number => k * w + (k - 1) * SIMPLE_GAP_
 export const simpleScaleOf = (boardW: number, roomW: number | undefined): number =>
   labelCounterScale(roomW === undefined || roomW <= 0 ? 1 : Math.min(1, roomW / Math.max(1, boardW)))
 /**
- * V12 Simple places: the previous layout's own tiers (its y rows: options, inputs, outcomes, aims, each laid as ONE row here) kept in order and
- * each card in its band; a band wraps into balanced rows past `perRow` cards. Each band is ordered by the mean place of its cards' parents in the
- * rows above (the simple crossing rule; the layout's own order breaks ties), and every row is centred on the board. Rows stack with the
- * measured heights, so no two cards overlap. Geometry only.
+ * V12 Simple places: each band starts in core's card order, followed by any extras in their given order. Options keep that order.
+ * Other bands use the mean ordinal of each card's parents in the bands above. A card with no parent above uses its starting ordinal,
+ * and the starting order breaks ties. Wrapping, centring and measured heights determine the pixel positions after ordering.
  */
-async function simplePlaces(model: ViewModel, nodes: Node[], edges: Edge[], size: ReadonlyMap<string, Size>, row: SimpleRow, spacing?: number, extras: readonly SimpleExtra[] = []): Promise<Map<string, SimplePlace>> {
-  const laid = await layoutGraph(nodes, edges, { direction: 'DOWN', spacing, preserveLocked: false, maxPerRow: Math.max(1, model.cards.length + 1) })
-  const at = new Map(laid.nodes.map((n) => [n.id, n.position]))
-  // V12 bands: a card stands in its band (options, inputs, outcomes, aims, then kept ideas), each a row of its own and never sharing one: the
-  // aims are not beside the outcomes. Within a band the previous layout's own order (its row, then across) is kept.
+function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: SimpleRow, extras: readonly SimpleExtra[] = []): Map<string, SimplePlace> {
+  // Map iteration keeps core's card order (including option letters), followed by extras.
   const bandOfId = new Map<string, BandId>([...model.cards.map((c) => [c.id, bandOf(c, model)] as const), ...extras.map((e) => [e.id, e.band] as const)])
-  const placeOf = (id: string) => at.get(id) ?? { x: Infinity, y: Infinity }
-  // The options read A, B, C… left to right: core's option card order, the order their letters follow (v12/cards/letters.ts), never the layout's
-  // own x, which moves when a card elsewhere folds or opens (v9 look, 17 Nov: opening "2 more from Olumi" swapped option B and option A).
-  const cardAt = new Map(model.cards.map((c, i) => [c.id, i] as const))
-  const bands = BAND_ORDER.map((b) => {
-    const ids = [...bandOfId].filter(([, k]) => k === b).map(([id]) => id).sort((a, c) => Math.round(placeOf(a).y) - Math.round(placeOf(c).y) || placeOf(a).x - placeOf(c).x)
-    return b === 'options' ? [...ids].sort((a, c) => (cardAt.get(a) ?? Number.MAX_SAFE_INTEGER) - (cardAt.get(c) ?? Number.MAX_SAFE_INTEGER)) : ids
-  }).filter((ids) => ids.length > 0)
-  const shapes = bands.map((b) => simpleBand(row, b.length))
+  const bands = BAND_ORDER.map((band) => ({ band, ids: [...bandOfId].filter(([, k]) => k === band).map(([id]) => id) }))
+    .filter(({ ids }) => ids.length > 0)
+  const shapes = bands.map(({ ids }) => simpleBand(row, ids.length))
   const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), simpleQuestionW(model, row))
   const scale = simpleScaleOf(boardW, row.roomW)
   const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 90)
   const parents = new Map<string, string[]>()
   for (const { link } of cardLinks(model)) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
   const out = new Map<string, SimplePlace>()
-  const centre = new Map<string, number>()
+  const ordinal = new Map<string, number>()
   const qW = simpleQuestionW(model, row)
   out.set(QUESTION, { x: (boardW - qW) / 2, y: 0, w: qW, s: scale })
   let y = heightOf(QUESTION) + SIMPLE_GAP_Y
-  bands.forEach((band, bi) => {
+  bands.forEach(({ band, ids }, bi) => {
     const { sizes, w } = shapes[bi]!
-    const key = (id: string): number => { const xs = (parents.get(id) ?? []).flatMap((p) => (centre.has(p) ? [centre.get(p)!] : [])); return xs.length === 0 ? placeOf(id).x : xs.reduce((a, b) => a + b, 0) / xs.length }
-    const first = new Map(band.map((id, i) => [id, i]))
-    const ordered = band.some((id) => (parents.get(id) ?? []).some((p) => centre.has(p))) ? [...band].sort((a, b) => key(a) - key(b) || first.get(a)! - first.get(b)!) : band
+    const ordered = band === 'options' ? ids : ids.map((id, index) => {
+      const positions = (parents.get(id) ?? []).flatMap((p) => ordinal.has(p) ? [ordinal.get(p)!] : [])
+      const order = positions.length === 0 ? index : positions.reduce((a, b) => a + b, 0) / positions.length
+      return { id, index, order }
+    }).sort((a, b) => a.order - b.order || a.index - b.index).map(({ id }) => id)
+    ordered.forEach((id, index) => ordinal.set(id, index))
     let i = 0
     for (const k of sizes) {
       const rowIds = ordered.slice(i, i + k), left = (boardW - rowWidth(rowIds.length, w)) / 2
-      rowIds.forEach((id, j) => { out.set(id, { x: left + j * (w + SIMPLE_GAP_X), y, w, s: scale }); centre.set(id, left + j * (w + SIMPLE_GAP_X) + w / 2) })
+      rowIds.forEach((id, j) => { out.set(id, { x: left + j * (w + SIMPLE_GAP_X), y, w, s: scale }) })
       i += k
       y += Math.max(...rowIds.map(heightOf)) + SIMPLE_GAP_Y
     }

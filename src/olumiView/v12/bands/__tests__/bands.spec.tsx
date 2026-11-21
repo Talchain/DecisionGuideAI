@@ -78,6 +78,45 @@ describe('bands: Simple layout', () => {
     expect(maxY(of('inputs'))).toBeLessThan(minY(of('outcomes')))
     expect(maxY(of('outcomes'))).toBeLessThan(minY(of('aims')))
   })
+  it('S4 keeps each Simple band in the same order across widths and measured heights', async () => {
+    const options = ['option-a', 'option-b', 'option-c']
+    // Core lists a child of C before the children of A. The crossing rule should move it after them.
+    const inputs = ['c1', 'b1', 'a1', 'ab', 'c2', 'a2', 'b2', 'ac']
+    const inputParents = [[2], [1], [0], [0, 1], [2], [0], [1], [0, 2]]
+    const option = model.cards.find((c) => c.id === 'second_oven')!
+    const input = model.cards.find((c) => c.id === 'budget')!
+    const link = (from: string, to: string): ViewModel['links'][number] => ({ ...model.links[0]!, from, to, kind: 'reason' })
+    const m: ViewModel = {
+      ...model,
+      cards: [
+        ...options.map((id) => ({ ...option, id })),
+        ...inputs.map((id) => ({ ...input, id })),
+        model.cards.find((c) => c.id === 'within_budget')!,
+        model.cards.find((c) => c.id === 'sell_360')!,
+      ],
+      links: [
+        ...inputs.flatMap((id, i) => inputParents[i]!.map((parent) => link(options[parent]!, id))),
+        link('b2', 'within_budget'),
+        link('b1', 'sell_360'),
+      ],
+    }
+    const expected = [options, ['a1', 'a2', 'ab', 'b1', 'b2', 'ac', 'c1', 'c2'], ['sell_360', 'within_budget']]
+    for (const width of [600, 1000, 1232, 2000]) {
+      const row = simpleStageRow(width)
+      for (const variedHeights of [false, true]) {
+        const size = new Map(m.cards.map((c, i) => [c.id, { width: row.cardW, height: variedHeights ? H + (i % 4) * 35 : H }] as const))
+        const places = await causalPlaces(m, size, { row })
+        const order = ['options', 'inputs', 'aims'].map((band) => m.cards
+          .filter((c) => bandOf(c, m) === band)
+          .map((c) => c.id)
+          .sort((a, b) => {
+            const left = places.get(a)!, right = places.get(b)!
+            return left.y - right.y || left.x - right.x
+          }))
+        expect(order, `${width}px, varied heights: ${variedHeights}`).toEqual(expected)
+      }
+    }
+  })
   it('B5 CHANGED BY DESIGN (Paul 17 Nov, compact centred rows): each present band has one label, over its OWN first row\'s left edge, in the 48 unit row gap (R1)', async () => {
     const { places, y } = await placed(model)
     const nodes = [...places].map(([id, position]) => ({ id, position }))
