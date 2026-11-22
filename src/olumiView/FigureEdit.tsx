@@ -88,7 +88,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     </>
   )
   return (
-    <div className="nodrag nopan grid gap-1" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
+    <div className="nodrag nopan grid gap-2" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) { setOpen(false); setError(null) } }}>
       <p className={typography.viewLabel}>{ASIDE_WORDS.first}</p>
       <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
@@ -216,7 +216,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
     {opener ?? null}
     {/* D2 (strategy canvas audit, 10 Nov; the design owner's call): on a card the editor opens as a panel under the card, out of the card's
         flow, so opening it never changes the card's height and never re-lays out the board; elsewhere it stays in place. */}
-    <form className={`nodrag nopan grid gap-1 ${panel ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-md border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={panel ? id : undefined} data-testid={`${place}-form-${id}`}
+    <form className={`nodrag nopan grid gap-2 ${panel ? 'absolute left-0 top-full z-30 mt-1 w-[280px] rounded-md border border-panel-border bg-panel p-3 shadow-2' : ''}`} data-figure-edit-panel={panel ? id : undefined} data-testid={`${place}-form-${id}`}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' ? tryIt() : save()) }}
       onKeyDown={(e) => { if (onCanvas && e.key === 'Escape') return; e.stopPropagation(); if (e.key === 'Escape' && !sending) { setOpen(false); setError(null) } }}>
       {asideFor ? <p className={`${typography.viewLabel} text-text-light`} data-testid={`${place}-aside-done-${id}`}>{ASIDE_WORDS.done}</p> : null}

@@ -231,7 +231,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const tipWords = said !== '' ? said : mark === null ? '' : ICONS_HOVER(mark)
   const gRef = useRef<SVGGElement | null>(null)
   const markEl = useRef<HTMLSpanElement | null>(null)
-  const linkTip = useAnchoredTip(tipWords)
+  const linkTip = useAnchoredTip(tipWords, 'peek')
   const tipNow = useRef(linkTip); tipNow.current = linkTip
   // The hook anchors on `event.currentTarget`, which here is the link's `<g>` (or a focus target outside it), so the Tip is anchored by a stand-in that answers
   // with the mark's rect when the mark is on screen, else the pointer's own point (or the link's box for focus).

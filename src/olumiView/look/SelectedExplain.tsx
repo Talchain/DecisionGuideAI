@@ -48,7 +48,7 @@ export function SelectedExplain({ view, id, testid = 'selected-explain' }: { vie
         </section>
       )}
       {moved.length === 0 ? null : (
-        <section data-testid={`${testid}-steps`}>
+        <section className="space-y-4" data-testid={`${testid}-steps`}>
           {moved.map((m) => <WorkedSteps key={m} view={view} id={m} mine={own} option={card.id} />)}
         </section>
       )}

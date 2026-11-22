@@ -114,11 +114,11 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
   const note2 = sizeEdit === null ? null : sizeEdit.note
 
   return (
-    <form className="grid gap-1" data-testid="inspector-your-figure" data-value-row={`${kind}:${id}`} aria-busy={sending || undefined}
+    <form className="grid gap-2" data-testid="inspector-your-figure" data-value-row={`${kind}:${id}`} aria-busy={sending || undefined}
       onSubmit={(e) => { e.preventDefault(); void (primary === 'try' && !size ? tryIt() : save()) }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
       {fresh ? <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="inspector-figure-aside">{ASIDE_WORDS.done}</p> : null}
       {fields.map((f, i) => (
-        <div key={f.key} className="grid gap-1">
+        <div key={f.key} className="grid gap-2">
           <Hover as="label" focusable={false} {...{ htmlFor: `inspector-figure-${kind}-${id}-${f.key}` }} className={`${typography.viewPanelMeta} font-medium text-text-header`} words={f.hint}>{f.label}</Hover>
           <input id={`inspector-figure-${kind}-${id}-${f.key}`} ref={i === 0 ? first : undefined} data-testid={`inspector-figure-${f.key}`} autoComplete="off" spellCheck={false} value={values[f.key] ?? ''} readOnly={sending} placeholder={size ? f.hint : undefined}
             onChange={(e) => set(f.key, e.target.value)}
@@ -136,7 +136,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
       ) : null}
       {/* The buttons are drawn once there is something to send: a Set (or Try) beside an empty field is a control dimmed at rest with no reason. Enter in the field still submits. */}
       {!typedAny ? null : (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-2">
           <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={primary === 'try' && !size ? btn : VIEW_CHIP_PRIMARY_CLASS}>
             {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
           {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={primary === 'try' ? `order-first ${VIEW_CHIP_PRIMARY_CLASS}` : btn}>{VALUE_WORDS.tryIt}</button>}

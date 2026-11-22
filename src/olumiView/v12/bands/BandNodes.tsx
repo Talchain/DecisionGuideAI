@@ -78,8 +78,8 @@ export function FoldCard({ id, data }: NodeProps) {
     const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow, olumis = group.kind === 'olumi'
     return (
       <>{handles}<HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
-        onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover}
-        className={`flex items-center gap-1.5 rounded-md border bg-panel px-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
+        onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover} tipSpacing="list"
+        className={`flex items-center gap-1.5 rounded-md border bg-panel p-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
         {proposed || olumis ? <OlumiMark words={group.words} /> : null}
         <span className="font-medium tabular-nums text-text-header">{heading}</span>
