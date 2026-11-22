@@ -148,7 +148,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       visual = (
         <Hover as="div" focusable={false} className="min-w-0 basis-full" data-simple-face="gauge" words={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
-          <p className={`${typography.viewValue} mt-1 min-w-0 break-words text-text-header`} data-simple-chance={id}>
+          <p className={`${typography.viewValue} min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
             {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} /></span>}
           </p>
@@ -328,7 +328,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       )}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
-      <div className="ml-auto flex flex-none items-center gap-1.5" data-simple-foot={id}>
+      <div className="ml-auto flex flex-none items-center gap-2" data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         {kind.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
         {card.family === 'condition' ? <ConditionTag id={id} /> : null}

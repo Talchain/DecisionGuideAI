@@ -465,7 +465,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {simple ? <SimpleFace card={card} model={model} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
-              <div className="nodrag grid min-w-0 flex-1 gap-0.5" data-card-try={id} data-simple-try={id}>
+              <div className="nodrag grid min-w-0 flex-1 gap-2" data-card-try={id} data-simple-try={id}>
                 <Hover as="p" focusable={false} className={`${typography.viewValue} break-words text-text-header`} words={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}</Hover>
                 {card.figure == null || card.figure.text === '' ? null
                   : <Hover as="p" focusable={false} className={`${typography.viewLabel} break-words text-text-light`} words={card.figure.title !== '' ? card.figure.title : card.figure.text} data-simple-saved={id}>{WHAT_IF_COPY.saved}: {card.figure.text}<NotSavedTag id={id} /></Hover>}
@@ -492,7 +492,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.
-            <div className="nodrag grid gap-1 rounded-md border border-panel-border bg-panel px-3 py-2" data-card-try={id}>
+            <div className="nodrag grid gap-2 rounded-md border border-panel-border bg-panel p-3" data-card-try={id}>
               <Hover as="p" focusable={false} className={`${typography.viewValue} text-text-header`} words={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></Hover>
               {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
@@ -507,7 +507,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           )}
           {card.family === 'option' ? <><OptionMarkLine card={id} />{setAside ? null : <ConditionalBar card={card} />}</> : null}
           {/* The team's revealed views, its evidence and core's strategy mark on the card they are about (./RevealMarks, ./strategy). */}
-          <span className="flex flex-wrap items-center gap-1 empty:hidden">
+          <span className="flex flex-wrap items-center gap-2 empty:hidden">
             {card.committed == null ? null : <Hover focusable={false} className={`${typography.viewLabel} text-text-light`} words={`Committed by: ${card.committed.by} · ${card.committed.at}`} data-committed={id}>Committed by: <span data-view={`${id}.committed.by`}>{card.committed.by}</span></Hover>}
             {/* K5 If it failed: one mark per Olumi failure story resting on this card, core's number with Olumi's glyph, the story on hover; on an
                 option, the story most within the team's control, in core's words. All Olumi's (../k5.ts). */}
