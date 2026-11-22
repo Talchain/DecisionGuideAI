@@ -40,7 +40,7 @@ export const COMMITMENT_WORDS = {
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const SUB = `${TYPE.meta} m-0 text-text-light`
 const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
-const PRESS = 'flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+const PRESS = 'flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
 
 type Commitment = View['collab']['commitments'][number]
 
@@ -95,12 +95,12 @@ export function TowardsCommitment({ view }: { view: View }) {
   }
   if (reach === null && dissent.length + commitments.length + differ.length === 0) return null
   return (
-    <section className="space-y-3" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
+    <section className="space-y-4" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
       <h3 className={H}>{COMMITMENT_WORDS.heading}</h3>
       {differ.length === 0 || differences === null ? null : (
-        <div className="space-y-1" data-testid="reasoning-commitment-differ">
+        <div className="space-y-2" data-testid="reasoning-commitment-differ">
           <p className={SUB}>{differences.heading}</p>
-          <ul className="m-0 list-none space-y-2 p-0">
+          <ul className="m-0 list-none space-y-3 p-0">
             {differ.map(({ key, card, d }) => (
               <li key={key} className={`${TYPE.body} space-y-1 px-1`} data-difference={key}>
                 {card === null
@@ -121,9 +121,9 @@ export function TowardsCommitment({ view }: { view: View }) {
         </div>
       )}
       {dissent.length === 0 ? null : (
-        <div className="space-y-1" data-testid="reasoning-commitment-dissent">
+        <div className="space-y-2" data-testid="reasoning-commitment-dissent">
           <p className={SUB}>{COMMITMENT_WORDS.open}</p>
-          <ul className="m-0 list-none p-0">
+          <ul className="m-0 list-none divide-y divide-panel-border p-0">
             {dissent.map((d) => (
               <li key={d.id} data-dissent={d.id}>
                 <button type="button" className={`${PRESS} ${TYPE.body} text-text-body`} onClick={() => pressCard(d.id)}>
@@ -136,9 +136,9 @@ export function TowardsCommitment({ view }: { view: View }) {
         </div>
       )}
       {commitments.length === 0 ? null : (
-        <div className="space-y-1" data-testid="reasoning-commitment-recorded">
+        <div className="space-y-2" data-testid="reasoning-commitment-recorded">
           <p className={SUB}>{COMMITMENT_WORDS.recorded}</p>
-          <ul className="m-0 list-none space-y-2 p-0">{commitments.map((k) => <Recorded key={k.id} k={k} view={view} />)}</ul>
+          <ul className="m-0 list-none space-y-3 p-0">{commitments.map((k) => <Recorded key={k.id} k={k} view={view} />)}</ul>
         </div>
       )}
       {reach === null ? null : (

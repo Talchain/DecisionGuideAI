@@ -94,11 +94,11 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
   return (
     <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
       <h3 className={H} {...(run.rests_heading ? { 'data-view': 'run.rests_heading' } : {})}>{run.rests_heading || REASONING_LABELS.rests}</h3>
-      <div className="space-y-2" id={moreId} data-testid="reasoning-rests-groups">
+      <div className="space-y-3" id={moreId} data-testid="reasoning-rests-groups">
       {shownGroups.map(({ r, k }, g) => {
         const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
         return (
-          <div key={r.id} className="space-y-1" data-rest={r.id}>
+          <div key={r.id} className="space-y-2" data-rest={r.id}>
             <p className={`${TYPE.meta} m-0 text-text-light`}>
               {option === undefined ? null : <span data-view={`${option.id}.heading`}>{option.heading}</span>}
               {option !== undefined && aim !== undefined ? ' · ' : null}
@@ -111,7 +111,7 @@ export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null 
               : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
             {/* Core's label for the figure list (`run.rests_figures_heading`, when it sends one), said once, above the first group that has figures. */}
             {g !== firstWithFigures || !run.rests_figures_heading ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
-            {figuresOf(r).length === 0 ? null : <ul className="m-0 list-none space-y-1 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
+            {figuresOf(r).length === 0 ? null : <ul className="m-0 list-none space-y-3 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
               {(all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f, j }) => {
                 const give = f.give != null && !given.has(f.id)
                 if (give) given.add(f.id)
@@ -185,13 +185,13 @@ function Row({ e }: { e: Examine }) {
     </Hover>
   )
   const words = wordsEl()
-  const whole = `flex min-h-7 w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+  const whole = `flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
   if (e.kind === 'challenge') return <li {...rowData(e)}><Hover as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hover></li>
   // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
   // message box is a quiet secondary press, never the row's primary action.
   if (e.kind === 'question') return (
-    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+    <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
       <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></Hover>
@@ -199,14 +199,14 @@ function Row({ e }: { e: Examine }) {
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
   if (e.kind === 'widen') return (
-    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+    <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
       <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></Hover>
     </li>
   )
   return (
-    <li className="flex items-start gap-2 px-1 py-1.5" {...rowData(e)}>
+    <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1 space-y-1">{wordsEl(w.hover)}<span className="block"><Act e={e} /></span></span>
     </li>
@@ -219,7 +219,7 @@ function Examined({ items }: { items: Examine[] }) {
   if (items.length === 0) return null
   const shown = all ? items : items.slice(0, LIST_AT_REST)
   return (
-    <section className="space-y-1" data-testid="reasoning-examine" aria-label={REASONING_LABELS.examine}>
+    <section className="space-y-2" data-testid="reasoning-examine" aria-label={REASONING_LABELS.examine}>
       <h3 className={`${H} flex items-center gap-2`}>{REASONING_LABELS.examine}<span className={`${TYPE.meta} font-normal tabular-nums text-text-light`} data-count>{items.length}</span></h3>
       <ul id={listId} className="m-0 list-none divide-y divide-panel-border p-0">{shown.map((e) => <Row key={e.key} e={e} />)}</ul>
       {items.length <= LIST_AT_REST ? null : (
@@ -282,12 +282,12 @@ export function StartHere({ model }: { model: ViewModel }) {
   if (e === undefined) return null
   const w = wordsOf(e)
   return (
-    <section key={e.key} className="space-y-2 rounded-md bg-panel-hover px-3 py-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
+    <section key={e.key} className="space-y-3 rounded-md bg-panel-hover p-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
       <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
       <Hover as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hover>
       {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
-      <div className="flex flex-wrap items-center gap-2 pt-1"><LeadAct e={e} /></div>
+      <div className="flex flex-wrap items-center gap-2"><LeadAct e={e} /></div>
     </section>
   )
 }
@@ -300,7 +300,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const view = useViewStore((s) => s.view)
   const items = examineOf(model, methods, words, new Set((view?.collab.dissent ?? []).map((d) => d.id)))
   return (
-    <div className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-5 px-3 py-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
+    <div className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
       <WhatIfShown model={model} labelled={!stated} />
       <RestsOn model={model} run={run} />
       <Examined items={items} />

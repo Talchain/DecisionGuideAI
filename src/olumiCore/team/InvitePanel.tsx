@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { teamApi, TeamApiError, type Invite } from './api'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
-import { BODY, CARD, ERR, FIELD, GO, LABEL, META } from './ui'
+import { BODY, ERR, FIELD, GO, LABEL, META } from './ui'
 import { useDraft } from './drafts'
 import { holdStep } from './flow'
 
@@ -45,23 +45,25 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
   }
 
   return (
-    <section data-testid="team-invite" aria-label="Bring a colleague in" className="grid gap-2">
+    <section data-testid="team-invite" aria-label="Bring a colleague in" className="space-y-4">
       {made !== null && (
-        <div className={CARD} data-testid="team-invite-made">
+        <div className="space-y-3 rounded-md border border-panel-border p-3" data-testid="team-invite-made">
           <p className={BODY}>{made.name}’s own private link. Send it to them yourself; Olumi shows it only now.</p>
           <input readOnly className={FIELD} value={made.link} data-testid="team-invite-link" onFocus={(e) => e.currentTarget.select()} aria-label={`${made.name}’s private link`} />
         </div>
       )}
-      <div className="grid gap-2">
-        <label htmlFor="team-invite-name" className={LABEL}>Their name</label>
-        <input id="team-invite-name" data-testid="team-invite-name" className={FIELD} value={name} disabled={busy || sending || locked} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <label htmlFor="team-invite-name" className={LABEL}>Their name</label>
+          <input id="team-invite-name" data-testid="team-invite-name" className={FIELD} value={name} disabled={busy || sending || locked} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+        </div>
         <div className="flex flex-wrap items-center gap-3"><button type="button" className={GO} data-testid="team-invite-go" disabled={busy || sending || locked || name.trim() === ''} onClick={() => void invite()}><OkIcon id="invite" size={14} decorative />Make their link</button>
           {/* Why it waits (DL ruling 9 Nov: a disabled button says why). */}
           {busy || sending || locked || name.trim() !== '' ? null : <span className={META} data-testid="team-invite-why">Type their name first</span>}</div>
         {locked ? <p role="alert" className={ERR} data-testid="team-invite-error">{MAY_HAVE_SAVED}</p> : error && <p role="alert" className={ERR} data-testid="team-invite-error">{error}</p>}
       </div>
       {invites.length > 0 && (
-        <ul className="m-0 grid list-none gap-1 p-0" data-testid="team-invites">
+        <ul className="m-0 list-none space-y-3 p-0" data-testid="team-invites">
           {invites.map((i) => (
             <li key={i.id} data-testid={`team-invite-${i.id}`} className={`${META} flex items-center gap-2`}>
               <span>{i.name} · invited by {i.by} · {i.status}</span>

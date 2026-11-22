@@ -47,19 +47,19 @@ export function TeamTab(): JSX.Element {
   const opened = useReveal((s) => s.selected)
   const openedEvidence = useReveal((s) => s.evidence)
   if (shown !== null && sid && past === null && revealDockShown(shown, opened)) {
-    return <div data-testid="team-tab" className="grid min-h-full pb-6"><RevealDock view={shown} /></div>
+    return <div data-testid="team-tab" className="grid min-h-full"><RevealDock view={shown} /></div>
   }
   if (shown !== null && sid && past === null && evidenceDockShown(shown, openedEvidence)) {
-    return <div data-testid="team-tab" className="grid min-h-full pb-6"><EvidenceDock view={shown} /></div>
+    return <div data-testid="team-tab" className="grid min-h-full"><EvidenceDock view={shown} /></div>
   }
 
   return (
-    <div data-testid="team-tab" className="grid gap-4 pb-6">
+    <div data-testid="team-tab" className="space-y-4">
       {shown === null && <h2 className={H} data-testid="team-views-heading">Team</h2>}
       {!sid && <p className={BODY} data-testid="team-none">Start a model in the chat first. The team works on a model that is already saved.</p>}
       {sid && status === 'loading' && view === null && <p className={BODY} data-testid="team-loading">Reading your team’s page…</p>}
       {sid && view === null && status === 'error' && (
-        <div className="grid gap-2" data-testid="team-error">
+        <div className="grid gap-3" data-testid="team-error">
           <p role="alert" className={ERR}>{error}</p>
           <Button size="sm" variant="secondary" onClick={() => void refresh()}>Try again</Button>
         </div>
@@ -123,14 +123,14 @@ function Step({ id, n, state, open, summary, onToggle, compact = false, children
   return (
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-open={open ? '' : undefined} aria-label={STEP_WORDS[id]} className="grid">
       <button type="button" aria-expanded={open} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={() => { tip.dismiss(); onToggle() }} {...tip.handlers} aria-describedby={tip.describedBy}
-        className="flex min-h-[32px] w-full min-w-0 items-center gap-2 rounded-sm text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+        className="flex w-full min-w-0 items-center gap-2 rounded-sm py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>
         <span className={`${typography.viewPanelHeading} flex-none ${open || state === 'now' ? 'text-text-header' : 'text-text-body'}`}>{STEP_WORDS[id]}</span>
         {!open && <span className={`${META} min-w-0 break-words py-0.5`} data-testid={`team-step-${id}-summary`}>{summary}</span>}
       </button>
       {tip.tip}
-      <div id={body} hidden={!open} className={open ? 'grid gap-3 pb-3 pt-2' : 'hidden'} data-testid={body}>{children}</div>
+      <div id={body} hidden={!open} className={open ? 'space-y-3 pt-3' : 'hidden'} data-testid={body}>{children}</div>
     </section>
   )
 }
@@ -163,7 +163,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   const bodies: Record<StepId, JSX.Element | (JSX.Element | null | false)[]> = {
     invite: [view.collab.alone && <p key="lead" className={BODY} data-testid="team-alone">{STEP_WORDS.aloneLead}</p>, <InvitePanel key="invite" sid={sid} />],
     view: (
-      <fieldset disabled={past} className="contents">
+      <fieldset disabled={past} className="min-w-0 space-y-4">
         {!past && <FirstArrival view={view} />}
         <ViewEntry sid={sid} view={view} onWrote={refresh} />
         {/* "My whole view, in words": its question, aim, options and links, folded behind its own button. */}
@@ -173,7 +173,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
     ),
     reveal: <fieldset disabled={past} className="contents"><RevealStep sid={sid} view={view} onWrote={refresh} /></fieldset>,
     differ: <fieldset disabled={past} className="contents"><WhereWeDiffer sid={sid} view={view} onWrote={refresh} /></fieldset>,
-    commit: <fieldset disabled={past} className="contents"><SavedActions sid={sid} view={view} /><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="form" /></fieldset>,
+    commit: <fieldset disabled={past} className="min-w-0 space-y-4"><SavedActions sid={sid} view={view} /><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="form" /></fieldset>,
     outcome: view.collab.commitments.length === 0
       ? <p className={META} data-testid="team-outcome-later">{STEP_WORDS.outcomeLater}</p>
       : <fieldset disabled={past} className="contents"><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="list" /></fieldset>,
@@ -181,7 +181,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
 
   return (
     <>
-      <div className="grid gap-2">
+      <div className="space-y-2">
         <h2 className={H} data-testid="team-views-heading">{view.collab.heading}</h2>
         <Members view={view} />
       </div>
@@ -196,7 +196,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       <StrategyOverviewSection view={view} />
       {/* One <li> per step, always under this list in the same order (Codex review 2 #4): a finished step shrinking to a name never remounts its
           body, so the one-time invite link and every draft survive. Rows take the full width; shrunk names share one line. */}
-      <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 gap-y-1 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
+      <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
         {STEP_ORDER.map((id) => (
           <li key={id} id={`team-step-${id}-item`} hidden={folded(id)} className={done.includes(id) ? '' : 'basis-full'}>
             <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
@@ -207,15 +207,15 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
         {(foldedCount > 0 || showLater) && (
           <li className="basis-full">
             <button type="button" aria-expanded={showLater} aria-controls={laterIds.length > 0 ? laterIds.join(' ') : undefined} data-testid="team-steps-later" onClick={() => setShowLater((x) => !x)}
-              className={`${META} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+              className={`${META} inline-flex items-center gap-1 rounded-sm py-2.5 text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
               {STEP_WORDS.whereThisGoes}
             </button>
           </li>
         )}
       </ol>
       {/* Evidence and the record stand outside the flow: evidence can come at any step (and the reveal dock's "Bring evidence" lands here). */}
-      <div className="grid gap-4 pt-2">
-        <fieldset disabled={past} className="contents"><EvidencePanel sid={sid} view={view} onWrote={refresh} /></fieldset>
+      <div className="space-y-4">
+        <fieldset disabled={past} className="min-w-0"><EvidencePanel sid={sid} view={view} onWrote={refresh} /></fieldset>
         <ComparePanel sid={sid} view={view} />
       </div>
     </>

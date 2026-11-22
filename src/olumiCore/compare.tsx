@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
 import { useViewStore } from '../olumiView/store'
@@ -72,12 +72,17 @@ const olumiLine = (l: Compared['changes'][number]): boolean => l.olumi ?? l.mark
  *  first list where the surface names the version's people itself (the version history's record). */
 export function ComparedLists({ c, id = 'team-compare', who = true }: { c: Compared; id?: string; who?: boolean }): JSX.Element {
   const list = (items: JSX.Element[], empty: string, part: string) => (items.length
-    ? <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={`${id}-${part}`}>{items}</ul>
+    ? <ul className="m-0 grid list-none gap-3 p-0" data-testid={`${id}-${part}`}>{items}</ul>
     : <p className={META} data-testid={`${id}-${part}-none`}>{empty}</p>)
   // Inline (the Team tab's and the version history's, already inside their own sections): a heading line, then the list.
-  const part = (name: string, heading: string, body: JSX.Element, tag: ReactNode = null) => <Fragment key={name}><p className={`${BODY} flex flex-wrap items-center gap-2 text-text-header`}>{heading}{tag}</p>{body}</Fragment>
+  const part = (name: string, heading: string, body: JSX.Element, tag: ReactNode = null) => (
+    <div key={name} className="space-y-2">
+      <p className={`${BODY} flex flex-wrap items-center gap-2 text-text-header`}>{heading}{tag}</p>
+      {body}
+    </div>
+  )
   return (
-    <div className="grid gap-2" data-testid={`${id}-out`}>
+    <div className="space-y-4" data-testid={`${id}-out`}>
       {who && part('versions', 'Who proposed and approved',
         list(c.versions.map((v) => <li key={v.n} className={BODY}><span className="text-text-header">Version {v.n}:</span> {whoOf(v)}</li>), 'None', 'versions'))}
       {part('changes', 'What changed', list(c.changes.map((l, i) => <ChangeItem key={i} l={l} />), 'No change to the model', 'changes'))}
@@ -123,7 +128,7 @@ export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; la
   // A new version (another member's approval) moves the default pair to the new latest, read again.
   useEffect(() => { if (auto) { setFrom(null); setTo(null); void go(latest - 1, latest) } }, [auto, sid, latest]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="grid gap-2" data-testid={`${id}-picker`}>
+    <div className="space-y-3" data-testid={`${id}-picker`}>
       <div className="flex flex-wrap items-center gap-2">
         <select aria-label="Earlier version" data-testid={`${id}-from`} className={PICK} value={f} disabled={busy} onChange={(e) => setFrom(Number(e.target.value))}>
           {versions.map((n) => <option key={n} value={n}>version {n}</option>)}
@@ -204,7 +209,7 @@ export function SinceVersion({ since, movedFirst = false, dense = false }: { sin
         )
       })()}
       {since.sole !== null || since.changed.length === 0 ? null : (
-        <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-since-changed">
+        <ul className="m-0 grid list-none gap-3 p-0" data-testid="core-compare-since-changed">
           {since.changed.map((c, i) => (
             <li key={c.id} className={`${META} ${c.whose === 'olumi' ? 'text-info' : ''}`} data-since-changed={c.id} data-since-whose={c.whose ?? ''} data-view={`run.since.changed.${i}.label`}>{c.label}</li>
           ))}
@@ -253,7 +258,7 @@ function PeopleViewsPress(): JSX.Element | null {
   return <div><button type="button" className={QUIET} data-testid="core-compare-people" onClick={() => useCompare.getState().show()}><OkIcon id="compare-views" size={14} decorative />{COMPARE_WORDS.control}</button></div>
 }
 
-const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-[minmax(0,1fr)] gap-3 px-3 py-3 pb-6'
+const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3'
 
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
@@ -300,9 +305,10 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   const self = base === latest ? sid : `${sid}@${base}`
   // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only); pressed again, the form closes.
   const whatIfPress = !canSave ? null : (
-    <div className="grid gap-2">
-      <div><button type="button" className={`${BODY} inline-flex min-h-[24px] items-center gap-1.5 rounded-md text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} aria-controls={saving ? formId : undefined} onClick={() => setSaving((x) => !x)}>
-        <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}</button></div>
+    <div className="space-y-3">
+      <button type="button" className={`${BODY} inline-flex items-center gap-1.5 rounded-md py-2.5 text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} aria-controls={saving ? formId : undefined} onClick={() => setSaving((x) => !x)}>
+        <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}
+      </button>
       {saving ? <div id={formId}><WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /></div> : null}
     </div>
   )
@@ -324,7 +330,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
 }
 
 /** A fold's summary line: the one chevron, then core's words in body ink (a control, not a caption). */
-const FOLD_ROW = `${FOLD_SUMMARY} ${typography.caption} min-h-[24px] cursor-pointer py-1 text-text-body`
+const FOLD_ROW = `${FOLD_SUMMARY} ${typography.viewPanelMeta} cursor-pointer py-2.5 text-text-body`
 
 /**
  * One press to more of core's own rows: a quiet summary line, the rows under it. The native `<details>` stays the source of truth (its `open`,
@@ -337,7 +343,7 @@ function Fold({ id, summary, children }: { id: string; summary: string; children
     // A plain block while closed (a closed grid still spaced its hidden rows); the rows sit under the summary once open.
     <details data-testid={id} className="group" onToggle={(e) => setOpen(e.currentTarget.open)}>
       <summary className={FOLD_ROW} aria-expanded={open} aria-controls={rows}><FoldChevron />{summary}</summary>
-      <div id={rows} className="mt-1.5">{children}</div>
+      <div id={rows} className="mt-3">{children}</div>
     </details>
   )
 }
@@ -379,9 +385,9 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
   // Core's line for the largest move in its own comparison, said once (its tail credits a single change, or says none is credited).
   const told = since === null ? null : [...since.lines.map((l, i) => ({ l, i }))].filter(({ l }) => lineMoved(l)).sort((a, b) => sizeOfLine(b.l) - sizeOfLine(a.l) || a.i - b.i)[0] ?? null
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="core-compare-out" aria-live="polite">
+    <div className="grid grid-cols-1 gap-4" data-testid="core-compare-out" aria-live="polite">
       <Changes c={c} since={since} />
-      <section className="grid gap-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
+      <section className="space-y-2" aria-label={moved.length === 0 ? undefined : 'What moved'} data-testid="core-compare-moved">
         {/* No heading that promises movement over nothing (18 Nov audit compare-model-02): what did not move is counted below, as it was. */}
         {/* The label is drawn only where it labels something: the moved list, on its heading line. Nothing moved, the counted line says it. */}
         {moved.length === 0 ? null : <div className="flex flex-wrap items-center gap-2"><h4 className={H}>What moved</h4><SeparateRuns /></div>}
@@ -394,7 +400,7 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
           : still === 0 ? null : (
             // Counted at rest; core's own rows one press away, each with its words in both versions.
             <Fold id="core-compare-still" summary={notMoved(still)}>
-              <ul className="m-0 grid list-none gap-1.5 p-0">
+              <ul className="m-0 grid list-none gap-3 p-0">
                 {c.results.map((r, i) => ({ r, i })).filter(({ r }) => !movedOf(r)).map(({ r, i }) => (
                   <li key={i} className={`${META} break-words`} data-compare-still-row={i}><span className="text-text-body">{what(r)}</span>: <SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</li>
                 ))}
@@ -405,10 +411,10 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
       {told === null ? null : (
         // Where a reading moved: the one useful press where core credits no single change, and core's own line for every result one press
         // away (the largest move first), each in its own words, so no one result's line stands for the rest.
-        <section className="grid gap-2" aria-label="What Olumi credits" data-testid="core-compare-credit" data-sole={since!.sole ?? ''}>
+        <section className="space-y-2" aria-label="What Olumi credits" data-testid="core-compare-credit" data-sole={since!.sole ?? ''}>
           {since!.sole === null ? <AskWhich /> : null}
           <Fold id="core-compare-readings" summary={since!.lines.length === 1 ? 'Olumi’s reading' : `Olumi’s reading of each result (${since!.lines.length})`}>
-            <ul className="m-0 grid list-none gap-1.5 p-0">
+            <ul className="m-0 grid list-none gap-3 p-0">
               {[told, ...since!.lines.map((l, i) => ({ l, i })).filter(({ i }) => i !== told.i)].map(({ l, i }) => (
                 <li key={i} className={`${META} break-words`} data-view={`run.since.lines.${i}.line`}>{l.line}</li>
               ))}
@@ -418,7 +424,7 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
       )}
       {c.versions.length === 0 ? null : (
         <Fold id="core-compare-who" summary="Who proposed and approved">
-          <ul className="m-0 grid list-none gap-1 p-0">{c.versions.map((v) => <li key={v.n} className={`${META} break-words`}><span className="text-text-body">Version {v.n}:</span> {whoOf(v)}</li>)}</ul>
+          <ul className="m-0 grid list-none gap-3 p-0">{c.versions.map((v) => <li key={v.n} className={`${META} break-words`}><span className="text-text-body">Version {v.n}:</span> {whoOf(v)}</li>)}</ul>
         </Fold>
       )}
     </div>
@@ -428,7 +434,7 @@ function VersionDiff({ sid, from, to, since }: { sid: string; from: number; to: 
 /** One moved result: what it is (core's `label`) and its words before and after, in core's own words (separate runs: no track). */
 function MovedResult({ r, i }: { r: Move; i: number }): JSX.Element {
   return (
-    <li className="grid gap-1" data-compare-result={i} data-compare-move={r.move}>
+    <li className="space-y-2" data-compare-result={i} data-compare-move={r.move}>
       <p className={`${BODY} break-words text-text-header`}>{what(r)}</p>
       <p className={`${META} break-words`}><SideText s={r.before} /> → <SideText s={r.after} /> ({moveWords(r)})</p>
     </li>
@@ -458,7 +464,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
   const named = !typed && since !== null && since.changed.length > 0 ? since.changed : null
   const onCanvas = (id: string) => Array.isArray(cards) && cards.some((x) => x.id === id)
   const linesOf = (some: Compared['changes'], at: number) => (
-    <ul className="m-0 grid list-none gap-1.5 p-0" data-testid={at === 0 ? 'core-compare-lines' : 'core-compare-lines-more'}>
+    <ul className="m-0 grid list-none gap-3 p-0" data-testid={at === 0 ? 'core-compare-lines' : 'core-compare-lines-more'}>
       {some.map((l, j) => {
         const i = at + j
         const body = (
@@ -473,7 +479,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
           <li key={i} className={`${BODY} flex min-w-0 items-start gap-1.5`} data-compare-line={i} data-compare-line-record={rid ?? undefined}>
             {rid !== null && onCanvas(rid)
               // One tip for the one focus stop: what the press does, then core's own words for the mark inside it (the icon alone would be pointer-only here).
-              ? <HoverButton type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={rid} words={l.mark?.title ? `${SHOW_ON_CANVAS}\n${l.mark.title}` : SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, rid) }}>{body}</HoverButton>
+              ? <HoverButton type="button" className={`${BODY} flex w-full min-w-0 items-start gap-1.5 rounded-md py-2.5 text-left hover:bg-panel-hover`} data-compare-card={rid} words={l.mark?.title ? `${SHOW_ON_CANVAS}\n${l.mark.title}` : SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, rid) }}>{body}</HoverButton>
               : body}
           </li>
         )
@@ -482,7 +488,7 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
   )
   const lines = linesOf(c.changes, 0)
   return (
-    <section className="grid gap-2" aria-label="What changed" data-testid="core-compare-changes">
+    <section className="space-y-2" aria-label="What changed" data-testid="core-compare-changes">
       <h4 className={H}>What changed</h4>
       {named === null
         ? (c.changes.length === 0 ? <p className={META} data-testid="core-compare-changes-none">No change to the model</p>
@@ -492,13 +498,13 @@ function Changes({ c, since }: { c: Compared; since: Since | null }): JSX.Elemen
             : lines)
         : (
           <>
-            <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-compare-named">
+            <ul className="m-0 grid list-none gap-3 p-0" data-testid="core-compare-named">
               {named.map((x, i) => {
                 const body = <><span className="mt-0.5 flex-none"><Whose olumi={x.whose === 'olumi'} theirs={x.whose === 'theirs'} /></span><span className="min-w-0 break-words" data-view={`run.since.changed.${i}.label`}>{x.label}</span></>
                 return (
                   <li key={x.id} data-since-changed={x.id} data-since-whose={x.whose ?? ''}>
                     {onCanvas(x.id)
-                      ? <HoverButton type="button" className={`${BODY} flex min-h-[24px] w-full min-w-0 items-start gap-1.5 rounded-md text-left hover:bg-panel-hover`} data-compare-card={x.id} words={SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</HoverButton>
+                      ? <HoverButton type="button" className={`${BODY} flex w-full min-w-0 items-start gap-1.5 rounded-md py-2.5 text-left hover:bg-panel-hover`} data-compare-card={x.id} words={SHOW_ON_CANVAS} onClick={() => { if (sid !== null) showCard(sid, x.id) }}>{body}</HoverButton>
                       : <p className={`${BODY} flex min-w-0 items-start gap-1.5`}>{body}</p>}
                   </li>
                 )
@@ -530,7 +536,7 @@ function AskWhich(): JSX.Element {
   const [placed, setPlaced] = useState(false)
   const ask = () => { void import('../olumiView/ViewChat').then((m) => { m.prefillComposer(ASK_WHICH.request); setPlaced(true) }) }
   return (
-    <div className="grid justify-items-start gap-1" data-testid="core-compare-ask">
+    <div className="grid justify-items-start gap-3" data-testid="core-compare-ask">
       <Button size="sm" variant="primary" data-testid="core-compare-ask-go" onClick={ask}>
         <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative inherit />{ASK_WHICH.label}</span>
       </Button>

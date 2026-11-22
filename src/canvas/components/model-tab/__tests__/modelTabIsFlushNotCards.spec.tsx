@@ -69,7 +69,7 @@ describe('1. ModelTabV2Panel is a flush section, not a bordered card', () => {
     const panel = screen.getByTestId('model-tab-v2-panel')
     const tokens = classTokens(panel)
     // Separated by space: its own bottom padding, no bottom rule.
-    expect(tokens).toContain('pb-2.5')
+    expect(tokens).toContain('pb-4')
     expect(tokens).not.toContain('border-b')
     // The regression itself: a card carries BOTH the full `border` utility
     // and `rounded-lg`. Neither may survive.

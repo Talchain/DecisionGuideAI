@@ -25,7 +25,7 @@ import { Hover } from '../look/Hover'
 export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'History of this model', changed: 'Changed in this version', removed: 'Removed' } as const
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)]
-const HEAD = `${typography.panelHeader} m-0 mb-1 text-text-header`
+const HEAD = `${typography.viewPanelHeading} m-0 text-text-header`
 const LINE = `${typography.viewPanelBody} m-0 break-words text-text-body`
 const QUIET = `${typography.viewPanelMeta} m-0 break-words text-text-light`
 
@@ -44,11 +44,11 @@ function Limits({ model }: { model: ViewModel }) {
   // kind of each card (`aim`: goal or limit) decides the heading's words.
   const label = rows.every((c) => cardKind(c, model).aim === 'limit') ? MODEL_SECTION_LABELS.limits : MODEL_SECTION_LABELS.aimsAndLimits
   return (
-    <section aria-label={label} data-testid="view-model-limits" className="py-2.5">
+    <section aria-label={label} data-testid="view-model-limits" className="space-y-2">
       <h3 className={HEAD}>{label}</h3>
-      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+      <ul className="m-0 list-none divide-y divide-panel-border p-0">
         {rows.map((c) => (
-          <li key={c.id} data-model-limit={c.id}>
+          <li key={c.id} className="py-2.5" data-model-limit={c.id}>
             <CardLink id={c.id}>{c.heading}</CardLink>
             <p className={LINE}>
               {c.bound!.olumi ? <Hover words={c.bound!.olumi.title} className="text-text-light" data-model-limit-olumi={c.id}>{c.bound!.olumi.glyph} </Hover> : null}
@@ -69,19 +69,19 @@ function Structure({ model }: { model: ViewModel }) {
   if (blocked.length === 0 && waits === null) return null
   const isCard = (id: string) => model.cards.some((c) => c.id === id)
   return (
-    <section aria-label={MODEL_SECTION_LABELS.structure} data-testid="view-model-structure" className="py-2.5">
+    <section aria-label={MODEL_SECTION_LABELS.structure} data-testid="view-model-structure" className="space-y-2">
       <h3 className={HEAD}>{MODEL_SECTION_LABELS.structure}</h3>
       {blocked.length === 0 ? null : (
-        <ul className="m-0 flex list-none flex-col gap-1.5 p-0" data-model-structure="blocked">
+        <ul className="m-0 list-none space-y-3 p-0" data-model-structure="blocked">
           {blocked.map((t) => <li key={t} className={LINE}>{t}</li>)}
         </ul>
       )}
       {waits === null ? null : (
-        <div className="pt-1.5" data-model-structure="waits">
+        <div className="space-y-2 pt-2" data-model-structure="waits">
           <p className={QUIET}><span data-view="model.run.waits_on.head">{waits.head}</span> <span data-view="model.run.waits_on.text">{waits.text}</span></p>
-          <ul className="m-0 flex list-none flex-col gap-1 p-0 pt-1">
+          <ul className="m-0 list-none divide-y divide-panel-border p-0">
             {waits.items.map((it) => (
-              <li key={it.id} data-model-waits={it.id}>
+              <li key={it.id} className="py-2.5" data-model-waits={it.id}>
                 {isCard(it.id) ? <CardLink id={it.id}>{it.text}</CardLink> : <Hover words={it.title} className={LINE}>{it.text}</Hover>}
               </li>
             ))}
@@ -96,8 +96,8 @@ function ModelCard({ model }: { model: ViewModel }) {
   const sharpen = model.sharpen ?? []
   if (sharpen.length === 0) return null
   return (
-    <Accordion title={MODEL_SECTION_LABELS.card} testId="view-model-card" flush className="py-1">
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+    <Accordion title={MODEL_SECTION_LABELS.card} testId="view-model-card" flush>
+      <ul className="m-0 list-none space-y-3 p-0">
         {sharpen.map((s) => (
           <li key={s.id} data-model-sharpen={s.id}>
             <p className={LINE}>{s.lead} {s.emphasis}</p>
@@ -117,30 +117,32 @@ function Audit({ model, version }: { model: ViewModel; version: View['version'] 
   const changed = version == null ? [] : cardsOfRecords(model, version.changed).map((id) => model.cards.find((c) => c.id === id)!)
   if (version == null && readings.length + notes.length + removed.length === 0) return null
   return (
-    <Accordion title={MODEL_SECTION_LABELS.audit} testId="view-model-audit" flush className="py-1">
-      <div className="flex flex-col gap-2">
+    <Accordion title={MODEL_SECTION_LABELS.audit} testId="view-model-audit" flush>
+      <div className="space-y-4">
         {version == null ? null : (
           <div data-model-audit="version">
             <p className={LINE}><span data-view="version.label">{version.label}</span>{version.at_text ? <span className="text-text-light"> · <span data-view="version.at_text">{version.at_text}</span></span> : null}</p>
             {changed.length === 0 ? null : (
-              <div className="pt-1" data-model-audit="changed">
+              <div className="space-y-2 pt-2" data-model-audit="changed">
                 <p className={QUIET}>{MODEL_SECTION_LABELS.changed}</p>
-                <ul className="m-0 list-none p-0">{changed.map((c) => <li key={c.id} data-model-audit-changed={c.id}><CardLink id={c.id}>{c.heading}</CardLink></li>)}</ul>
+                <ul className="m-0 list-none divide-y divide-panel-border p-0">{changed.map((c) => <li key={c.id} className="py-2.5" data-model-audit-changed={c.id}><CardLink id={c.id}>{c.heading}</CardLink></li>)}</ul>
               </div>
             )}
           </div>
         )}
         {removed.length === 0 ? null : (
-          <ul className="m-0 list-none p-0" data-model-audit="removed">
-            <li className={QUIET}>{MODEL_SECTION_LABELS.removed}</li>
-            {removed.map((r) => <li key={r.id} className={LINE} data-model-audit-removed={r.id}>{r.heading}{r.title !== r.heading ? <span className={`${QUIET} block`}>{r.title}</span> : null}</li>)}
-          </ul>
+          <div className="space-y-2">
+            <p className={QUIET}>{MODEL_SECTION_LABELS.removed}</p>
+            <ul className="m-0 list-none space-y-3 p-0" data-model-audit="removed">
+              {removed.map((r) => <li key={r.id} className={LINE} data-model-audit-removed={r.id}>{r.heading}{r.title !== r.heading ? <span className={`${QUIET} block`}>{r.title}</span> : null}</li>)}
+            </ul>
+          </div>
         )}
         {readings.length === 0 ? null : (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0" data-model-audit="readings">{readings.map((t) => <li key={t} className={LINE}>{t}</li>)}</ul>
+          <ul className="m-0 list-none space-y-3 p-0" data-model-audit="readings">{readings.map((t) => <li key={t} className={LINE}>{t}</li>)}</ul>
         )}
         {notes.length === 0 ? null : (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0" data-model-audit="notes">{notes.map((t) => <li key={t} className={QUIET}>{t}</li>)}</ul>
+          <ul className="m-0 list-none space-y-3 p-0" data-model-audit="notes">{notes.map((t) => <li key={t} className={QUIET}>{t}</li>)}</ul>
         )}
       </div>
     </Accordion>
@@ -150,7 +152,7 @@ function Audit({ model, version }: { model: ViewModel; version: View['version'] 
 /** The previous tab's sections under the outline, in its order: Limits, structural issues, the model card, the audit. */
 export function ModelSections({ model, version }: { model: ViewModel; version: View['version'] }): JSX.Element {
   return (
-    <div data-testid="view-model-sections">
+    <div className="space-y-4" data-testid="view-model-sections">
       <Limits model={model} />
       <Structure model={model} />
       <ModelCard model={model} />
