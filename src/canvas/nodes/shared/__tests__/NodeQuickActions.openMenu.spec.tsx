@@ -25,14 +25,14 @@
  *
  * That clicking the button emits a `contextmenu` event which REACHES AN
  * ANCESTOR — because that is exactly what React Flow listens for, and it is
- * the whole mechanism. What they do NOT assert is that a menu appears: that
- * needs `ReactFlowGraph`'s handler mounted and is covered by the context-menu
- * specs. Saying so here rather than implying the stronger claim, because "the
- * button opens the menu" and "the button emits the event the menu is bound to"
- * are different statements and only the second is tested at this level.
+ * the whole mechanism. The integration fixture also mounts the real canvas
+ * menu and exercises dismissal through the opener and Escape.
  */
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { CanvasContextMenu } from '../../../contextMenu/CanvasContextMenu'
+import { contextMenuOpener, type ContextTarget } from '../../../contextMenu/types'
 import { NodeQuickActions } from '../NodeQuickActions'
 
 vi.mock('../../../store', () => ({
@@ -41,10 +41,31 @@ vi.mock('../../../store', () => ({
     { getState: () => ({ nodes: [{ id: 'n1', type: 'factor', data: { label: 'Runway' } }] }) },
   ),
 }))
-vi.mock('../../../stores/guidanceStore', () => ({
+vi.mock('../../../stores/guidanceStore', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../stores/guidanceStore')>()),
   useGuidanceStore: vi.fn(() => null),
 }))
-vi.mock('../../../ToastContext', () => ({ useShowToastSafe: () => vi.fn() }))
+vi.mock('../../../ToastContext', () => ({ useShowToast: () => vi.fn(), useShowToastSafe: () => vi.fn() }))
+vi.mock('../../../hooks/useModelEditAuthority', () => ({
+  useModelEditAuthority: () => ({ proposeFactorValue: vi.fn() }),
+}))
+
+function CanvasMenuHost() {
+  const [target, setTarget] = useState<ContextTarget | null>(null)
+  return (
+    <div onContextMenu={(event) => {
+      event.preventDefault()
+      setTarget({
+        kind: 'node', nodeId: 'n1', nodeType: 'factor',
+        node: { id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Runway' } },
+        screenPos: { x: event.clientX, y: event.clientY }, opener: contextMenuOpener(event),
+      })
+    }}>
+      <NodeQuickActions nodeId="n1" nodeType="factor" label="Runway" alwaysVisible />
+      {target && <CanvasContextMenu target={target} onClose={() => setTarget(null)} screenToFlowPosition={(p) => p} />}
+    </div>
+  )
+}
 
 const renderInHost = () => {
   const onContextMenu = vi.fn((e: Event) => e.preventDefault())
@@ -72,6 +93,7 @@ describe('NodeQuickActions — opening the node menu without a right-click', () 
   })
   afterEach(() => {
     cleanup()
+    vi.unstubAllEnvs()
   })
 
   it('renders a menu affordance named for the node', () => {
@@ -91,6 +113,32 @@ describe('NodeQuickActions — opening the node menu without a right-click', () 
     const { onContextMenu } = renderInHost()
     fireEvent.click(screen.getByTestId('node-action-menu-n1'))
     expect(onContextMenu).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns focus to the actual node action opener when the canvas menu closes on Escape', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    render(<CanvasMenuHost />)
+    const opener = screen.getByTestId('node-action-menu-n1')
+    fireEvent.click(opener)
+    const firstRow = screen.getByRole('menuitem', { name: 'Open details' })
+    expect(document.activeElement).toBe(firstRow)
+    fireEvent.keyDown(firstRow, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(document.activeElement).toBe(opener)
+  })
+
+  it('keeps the canvas menu open on opener pointer-down and closes it on the click', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    render(<CanvasMenuHost />)
+    const opener = screen.getByTestId('node-action-menu-n1')
+    fireEvent.click(opener)
+    const menu = screen.getByRole('menu', { name: 'Canvas context menu' })
+    fireEvent.pointerDown(opener.querySelector('svg')!)
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toBe(menu)
+    fireEvent.click(opener)
+    expect(screen.queryByRole('menu')).toBeNull()
+    fireEvent.click(opener)
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toBeInTheDocument()
   })
 
   it('the emitted event BUBBLES — the property the whole mechanism rests on', () => {

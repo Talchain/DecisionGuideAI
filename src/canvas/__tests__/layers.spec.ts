@@ -21,16 +21,16 @@ describe('canvas stacking order', () => {
     }
   })
 
-  it('the order: the box < dock < band < chrome menu < edge popover < inspector < menu backdrop < menu < submenu < menu tooltip < hover preview', () => {
+  it('the order: the box < dock < band < chrome menu < edge popover < inspector < menu < submenu < menu tooltip < hover preview', () => {
     const L = CANVAS_LAYER
-    const chain = [L.sheet, L.dock, L.overlayBand, L.chromeMenu, L.edgeEditPopover, L.inspector, L.contextMenuBackdrop, L.contextMenu, L.submenu, L.menuTooltip, L.hoverPreview]
+    const chain = [L.sheet, L.dock, L.overlayBand, L.chromeMenu, L.edgeEditPopover, L.inspector, L.contextMenu, L.submenu, L.menuTooltip, L.hoverPreview]
     for (let i = 1; i < chain.length; i++) expect(chain[i]).toBeGreaterThan(chain[i - 1]!)
-    expect(L.setValuePopover).toBeGreaterThan(L.contextMenuBackdrop)
+    expect(L.setValuePopover).toBeGreaterThan(L.submenu)
   })
 
   it('a modal dialog sits above every canvas overlay (the box, the inspector and the whole menu family), below the hover preview', () => {
     const L = CANVAS_LAYER
-    for (const k of ['sheet', 'overlayBand', 'chromeMenu', 'edgeEditPopover', 'inspector', 'contextMenuBackdrop', 'contextMenu', 'submenu', 'menuTooltip', 'setValuePopover'] as const) {
+    for (const k of ['sheet', 'overlayBand', 'chromeMenu', 'edgeEditPopover', 'inspector', 'contextMenu', 'submenu', 'menuTooltip', 'setValuePopover'] as const) {
       expect(L.modalBackdrop, k).toBeGreaterThan(L[k])
     }
     expect(L.hoverPreview).toBeGreaterThan(L.modalBackdrop)
@@ -43,7 +43,7 @@ describe('canvas stacking order', () => {
 
   it('RATCHET: the migrated overlay files carry no literal z-index of their own', () => {
     const files = [
-      'contextMenu/CanvasContextMenu.tsx', 'contextMenu/Submenu.tsx', 'contextMenu/MenuTooltip.tsx', 'contextMenu/SetValuePopover.tsx',
+      '../olumiView/look/Menu.tsx', 'contextMenu/MenuTooltip.tsx', 'contextMenu/SetValuePopover.tsx',
       // Surfaces step B: the one Tip, the lane's one box and the left rail's Lenses menu are on this scale too.
       '../olumiView/look/Tip.tsx', '../olumiView/v12/edit/LaneInspector.tsx', '../olumiView/v12/lenses/LensesMenu.tsx',
       'components/InspectorModal.tsx', 'components/ConfirmDialog.tsx', 'edges/EdgeEditPopover.tsx',

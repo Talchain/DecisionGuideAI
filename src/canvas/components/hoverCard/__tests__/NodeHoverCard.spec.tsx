@@ -3,12 +3,13 @@
  * never beside the inspector, placed clear of the neighbouring cards.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, act } from '@testing-library/react'
+import { render, fireEvent, act, screen } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../../../nodes/BaseNode'
 import { nodeHoverFacts, NOT_ON_RECORD } from '../NodeHoverCard'
 import { placeHoverCard, HOVER_CARD_OPEN_DELAY_MS, HOVER_CARD_SURFACE_CLASS } from '../hoverCardPlacement'
 import { TOOLTIP_SURFACE_CLASS } from '../../../../components/Tooltip'
+import { Menu, MenuItem } from '../../../../olumiView/look/Menu.tsx'
 
 const state: Record<string, unknown> = {}
 vi.mock('@xyflow/react', async () => {
@@ -128,6 +129,23 @@ describe('card hover pop-up — what it shows', () => {
       vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS - 100)
     })
     expect(document.querySelector('[data-testid="node-hover-card"]')).toBeNull()
+  })
+
+  it('hides an existing card preview when a menu opens and suppresses new hover intent while it is open', () => {
+    expect(hoverCard({ id: 'fac_price', nodeType: 'factor', data: PRICE })).not.toBeNull()
+    const menu = render(
+      <Menu anchor={{ x: 100, y: 200 }} label="Canvas context menu" onClose={vi.fn()}>
+        <MenuItem id="details" label="Open details" />
+      </Menu>,
+    )
+    const title = screen.getByTestId('node-title')
+    expect(screen.queryByTestId('node-hover-card')).toBeNull()
+    fireEvent.mouseLeave(title)
+    fireEvent.mouseEnter(title)
+    act(() => { vi.advanceTimersByTime(HOVER_CARD_OPEN_DELAY_MS + 50) })
+    expect(screen.queryByTestId('node-hover-card')).toBeNull()
+    menu.unmount()
+    expect(screen.getByTestId('node-hover-card')).toBeInTheDocument()
   })
 
   it('never opens on a SELECTED card — CONTRAST: the same card unselected opens (row above)', () => {

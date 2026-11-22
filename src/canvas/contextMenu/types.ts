@@ -44,7 +44,14 @@ export interface MultiTarget {
   screenPos: { x: number; y: number }
 }
 
-export type ContextTarget = PaneTarget | NodeTarget | EdgeTarget | MultiTarget
+export type ContextTarget = (PaneTarget | NodeTarget | EdgeTarget | MultiTarget) & { opener?: HTMLElement }
+
+/** The card button dispatches the ordinary contextmenu event with the button as its target. */
+export function contextMenuOpener(event: { target: EventTarget | null; button: number }): HTMLElement | undefined {
+  return event.button === 0 && event.target instanceof HTMLElement && event.target.matches('[data-card-menu-opener]')
+    ? event.target
+    : undefined
+}
 
 // ---------------------------------------------------------------------------
 // Menu items

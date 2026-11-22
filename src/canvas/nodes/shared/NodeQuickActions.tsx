@@ -6,6 +6,7 @@ import { useShowToastSafe } from '../../ToastContext'
 import { askAI, buildAskAIPrompt, CHALLENGE_KINDS } from '../../contextMenu/actions'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { usePresentation } from '../../../presentation/v10'
+import { dismissMenuFromOpener } from '../../../olumiView/look/menuArbiter'
 import type { NodeType } from '../../domain/nodes'
 import Tooltip from '../../../components/Tooltip'
 import {
@@ -349,9 +350,10 @@ export const NodeQuickActions = memo(function NodeQuickActions({
    * Coordinates are the button's own bottom-right corner, so the menu opens
    * where the finger or cursor already is rather than at the node's origin.
    */
-  const handleOpenMenu = useCallback((e: React.MouseEvent) => {
+  const handleOpenMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
-    const el = e.currentTarget as HTMLElement
+    const el = e.currentTarget
+    if (dismissMenuFromOpener(el)) return
     const rect = el.getBoundingClientRect()
     el.dispatchEvent(
       new MouseEvent('contextmenu', {
@@ -520,6 +522,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         <button
           type="button"
           onClick={handleOpenMenu}
+          data-card-menu-opener=""
           onPointerDown={stopPointer}
           /* ⭐ 20px VISUAL, 24px TARGET (now 25 and 29: the contract box, gap
              34) — and as of this change ALL of them, not

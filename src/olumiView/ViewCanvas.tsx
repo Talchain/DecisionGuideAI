@@ -10,13 +10,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
-  Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, type Node, type NodeChange, type Viewport,
+  Background, BackgroundVariant, ReactFlow, ReactFlowProvider, getNodesBounds, useReactFlow, useStore, useStoreApi, type Node, type NodeChange, type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import './look/olumiLook.css'
 import { useCanvasStore } from '../canvas/store'
 import { CanvasContextMenu } from '../canvas/contextMenu/CanvasContextMenu'
-import type { ContextTarget } from '../canvas/contextMenu/types'
+import { contextMenuOpener, type ContextTarget } from '../canvas/contextMenu/types'
 import type { NodeType } from '../canvas/domain/nodes'
 import { isStructuralEdge } from '../canvas/domain/edgeUtils'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
@@ -413,12 +413,21 @@ function ViewFlow() {
   }, [stored, chipCards, openCard, simple, lit])
   const edges = useCanvasStore((s) => s.edges)
   const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
-  // The previous product's right-click menu on the lane's canvas: its own items, those that reach core (ask Olumi in the chat, the card's
-  // figure), the rest left out (useMenuItems.ts, lane.ts). Nothing is written here: every item asks Olumi in the chat.
   // The menu is one of the five surfaces the one surface store holds (v12/edit/inspectorStore): opening it closes what else was open.
   const menu = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
   const closeMenu = useCallback(() => { useLaneInspector.getState().close('menu') }, [])
   const setMenu = useCallback((t: ContextTarget) => { useLaneInspector.getState().show({ kind: 'menu', target: t }) }, [])
+  const flowStore = useStoreApi()
+  useEffect(() => {
+    if (menu === null) return
+    const selection = useCanvasStore.subscribe((next, prev) => {
+      if (next.selection !== prev.selection) closeMenu()
+    })
+    const camera = flowStore.subscribe((next, prev) => {
+      if (next.transform !== prev.transform) closeMenu()
+    })
+    return () => { selection(); camera() }
+  }, [menu, closeMenu, flowStore])
   const { screenToFlowPosition } = useReactFlow()
   const userMoved = useRef(false)
   // Each move the person makes themselves: a card waiting to be brought in front never overrides one (checker, slice 2a).
@@ -525,7 +534,7 @@ function ViewFlow() {
           const m = useViewStore.getState().view?.model, card = m?.cards.find((c) => c.id === n.id)
           const nodeType = (n.id === QUESTION || card === undefined || m === undefined ? 'decision' : drawKindOf(card, m as Parameters<typeof drawKindOf>[1])) as NodeType
           useCanvasStore.getState().selectNodeWithoutHistory(n.id)
-          setMenu({ kind: 'node', nodeId: n.id, nodeType, node: n, screenPos: { x: e.clientX, y: e.clientY } })
+          setMenu({ kind: 'node', nodeId: n.id, nodeType, node: n, opener: contextMenuOpener(e), screenPos: { x: e.clientX, y: e.clientY } })
         }}
         onEdgeContextMenu={(e, edge) => {
           e.preventDefault()

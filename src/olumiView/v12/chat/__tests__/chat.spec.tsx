@@ -17,7 +17,7 @@ import { approachesOf, keptIdeasOf, isKept } from '../../ideas'
 import { aboutCardsOf, aboutCountWords, aboutWords } from '../AboutChip'
 import { methodOfSaid } from '../MethodChip'
 import { KeptIdeas, keptIdeasWords, provenanceOf } from '../KeptIdeas'
-import { CardMenuHeader, kindWordsOf, proposedByOlumi } from '../CardMenuHeader'
+import { CardMenuHeader, kindWordsOf } from '../CardMenuHeader'
 import { NOTHING_TO_UNDO, undoNameOf } from '../../UndoControl'
 import { UNDO_WORDS } from '../../edit/undo'
 
@@ -225,20 +225,22 @@ describe('Undo\'s accessible name carries its reason', () => {
 })
 
 describe('the card menu header', () => {
-  it('names the card\'s kind and marks a card Olumi proposed', () => {
+  it('shows the card heading beside its kind shape', () => {
     const v = fixture('after-find-first')
-    const olumiCard = { ...v.model!.cards[0]!, id: 'o1', family: 'quantity', author: { by: 'olumi', text: 'Olumi', title: '' } }
-    const mine = { ...v.model!.cards[0]!, id: 'm1', family: 'option', author: { by: 'person', text: 'You', title: '' } }
+    const olumiCard = { ...v.model!.cards[0]!, id: 'o1', heading: 'Lead time', family: 'quantity', author: { by: 'olumi', text: 'Olumi', title: '' } }
+    const mine = { ...v.model!.cards[0]!, id: 'm1', heading: 'Pilot', family: 'option', author: { by: 'person', text: 'You', title: '' } }
     show({ ...v, model: { ...v.model!, cards: [...v.model!.cards, olumiCard, mine] as never } })
     const a = render(<CardMenuHeader nodeId="o1" />)
     expect(a.getByTestId('lane-menu-kind')).toHaveTextContent('Factor')
-    expect(a.getByTestId('lane-menu-proposed')).toHaveTextContent('Proposed')
+    expect(a.getByTestId('lane-menu-header')).toHaveTextContent('Lead time')
+    expect(a.getByTestId('lane-menu-header').querySelector('svg')).toBeInTheDocument()
+    expect(a.queryByText('Proposed')).toBeNull()
     a.unmount()
     const b = render(<CardMenuHeader nodeId="m1" />)
     expect(b.getByTestId('lane-menu-kind')).toHaveTextContent('Option')
-    expect(b.queryByTestId('lane-menu-proposed')).toBeNull()
+    expect(b.getByTestId('lane-menu-header')).toHaveTextContent('Pilot')
     b.unmount()
     expect(render(<CardMenuHeader nodeId="nothing" />).container).toBeEmptyDOMElement()
-    expect([kindWordsOf({ family: 'relation' }), proposedByOlumi({ author: null, olumi: null })]).toEqual([null, false])
+    expect(kindWordsOf({ family: 'relation' })).toBeNull()
   })
 })

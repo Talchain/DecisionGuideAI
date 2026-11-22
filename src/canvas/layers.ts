@@ -18,7 +18,7 @@
  *   · chromeMenu (1200)   — a menu opened from the canvas's own chrome (the left rail's Lenses): above the band and the box.
  *   · edgeEditPopover (3000) — editing a link, anchored to the board.
  *   · inspector (5000)    — the floating node inspector.
- *   · contextMenu (5010/5011/5012) — the "…" / right-click menu and its
+ *   · contextMenu (5011/5012) — the "…" / right-click menu and its
  *                           submenu open ON TOP of whatever is selected, the
  *                           inspector included: the menu is the newest,
  *                           shortest-lived surface.
@@ -28,9 +28,7 @@
  *                           sits above every canvas overlay, the inspector and
  *                           the menu included. (It was 5000, tied with the
  *                           inspector, so DOM order decided.)
- *   · hoverPreview (9999) — the node hover preview; the menu's backdrop takes
- *                           the pointer while a menu is open, so the two never
- *                           compete. (Surfaces step B meant to lower it under the menus and dialogs; at 1500x904 at 1.33 the
+ *   · hoverPreview (9999) — the node hover preview. (Surfaces step B meant to lower it under the menus and dialogs; at 1500x904 at 1.33 the
  *                           question card's preview then stood under the top bar (3000), so it stays here until its placement
  *                           keeps clear of the bar.)
  *
@@ -46,7 +44,6 @@ export const CANVAS_LAYER = {
   chromeMenu: 1200,
   edgeEditPopover: 3000,
   inspector: 5000,
-  contextMenuBackdrop: 5010,
   contextMenu: 5011,
   submenu: 5012,
   menuTooltip: 5013,
@@ -63,7 +60,6 @@ export const CANVAS_LAYER_CLASS: Readonly<Record<Exclude<CanvasLayer, 'dock'>, s
   chromeMenu: 'z-[1200]',
   edgeEditPopover: 'z-[3000]',
   inspector: 'z-[5000]',
-  contextMenuBackdrop: 'z-[5010]',
   contextMenu: 'z-[5011]',
   submenu: 'z-[5012]',
   menuTooltip: 'z-[5013]',

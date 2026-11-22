@@ -28,7 +28,7 @@ export function isTypingTarget(t: EventTarget | null): boolean {
 /**
  * The canvas's open surface as an Escape layer (escapeLayers.ts: newest layer first, so a Record form opened earlier never takes a press meant for a details
  * box opened after it). A press that a menu, a dialog or a field of another surface handled never gets here. A canvas surface is open: it closes (unless it is
- * saving). The right-click menu's own key handler (its open submenu closes first) marks its press handled, so that press does not get here.
+ * saving). The shared menu registers its own chain with the stack.
  */
 function escapeSurface(): void {
   const store = useLaneInspector.getState(), open = store.current
@@ -58,7 +58,7 @@ export function LaneEditingLayer(): JSX.Element {
   // The canvas going away leaves nothing open over the next one.
   useEffect(() => () => useLaneInspector.setState({ current: null }), [])
   const shown = useLaneInspector((st) => st.current)
-  useEscapeLayer(shown !== null, escapeSurface, shown?.n)
+  useEscapeLayer(shown !== null && shown.kind !== 'menu', escapeSurface, shown?.n)
   const seen = useRef<{ sid: string | null; n: number | null }>({ sid, n })
   useEffect(() => {
     if (seen.current.sid === sid && seen.current.n !== null && n !== null && n !== seen.current.n) noteSavedVersion()

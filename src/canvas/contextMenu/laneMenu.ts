@@ -154,7 +154,7 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
 export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx): MenuItemDef[] {
   const size = link?.size?.edit ?? null, remove = link?.remove ?? null, rows: MenuItemDef[] = []
   if (isSizeEdit(size) && link !== undefined) rows.push(...figureRow(c, 'size', LANE_MENU_WORDS.setStrength, size.prompt, { kind: 'link', id: edgeIdOf(link) }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
-  if (remove !== null && remove !== undefined) rows.push(...editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, 'remove-link', 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove })))
+  if (remove !== null && remove !== undefined) rows.push(...editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, 'remove-link', 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove }), { destructive: true }))
   return rows
 }
 export const edgeIdOf = (l: Pick<ViewLink, 'from' | 'to' | 'kind'>): string => `${l.from}->${l.to}:${l.kind}`

@@ -50,16 +50,24 @@ export function useEscapeFloor(open: boolean, close: Close): void {
   useLayer(open, close, undefined, true)
 }
 
+/** Register a surface that already owns its own open lifecycle. */
+export function registerEscapeLayer(close: Close): () => void {
+  return addLayer({ current: close }, false)
+}
+
+function addLayer(close: Layer['close'], floor: boolean): () => void {
+  const layer: Layer = { id: ++next, close, floor }
+  stack.push(layer)
+  return () => {
+    const at = stack.findIndex((l) => l.id === layer.id)
+    if (at >= 0) stack.splice(at, 1)
+  }
+}
+
 function useLayer(open: boolean, close: Close, again: unknown, floor: boolean): void {
   const closeRef = useRef(close)
   closeRef.current = close
   useEffect(() => {
-    if (!open) return undefined
-    const layer: Layer = { id: ++next, close: closeRef, floor }
-    stack.push(layer)
-    return () => {
-      const at = stack.findIndex((l) => l.id === layer.id)
-      if (at >= 0) stack.splice(at, 1)
-    }
-  }, [open, again])
+    if (open) return addLayer(closeRef, floor)
+  }, [open, again, floor])
 }

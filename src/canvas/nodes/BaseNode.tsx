@@ -11,7 +11,7 @@ import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
  * - Smooth transitions
  */
 
-import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
+import { memo, useState, useCallback, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import { nodeTitleChannels } from './shared/nodeRenameAffordance'
 import { useSavedModelProgramState } from './shared/savedModelProgram'
 import { nodeCardTitle } from './shared/nodeCardTitle'
@@ -116,6 +116,7 @@ import {
 import Tooltip from '../../components/Tooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { isMenuOpen, subscribeMenuOpen } from '../../olumiView/look/menuArbiter'
 import { anySurfaceOpen, useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { NodeHoverCard } from '../components/hoverCard/NodeHoverCard'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../components/hoverCard/hoverCardPlacement'
@@ -494,10 +495,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const hoverCard = usePopoverHover(HOVER_CARD_OPEN_DELAY_MS)
   // Surfaces step 2 (18 Nov): the pop-up is never up while the figure editor, the edit form, the details panel, the right-click menu or the add form is open.
   const surfaceOpen = useLaneInspector(anySurfaceOpen)
+  const menuOpen = useSyncExternalStore(subscribeMenuOpen, isMenuOpen, isMenuOpen)
   // Surfaces step A: a lane card (CoreCard sets `data.peek`) previews in the ONE box the details panel pins, so its hover names the store's peek and the
   // separate pop-up is not mounted for it. A press selects the card before its click opens the details: the peek holds through that, so the box never blinks.
   const lanePeek = (data as { peek?: boolean } | undefined)?.peek === true
-  const peekShown = hoverCard.showPopover && !renamingOnCard // (as the pop-up: never over a name being typed on the card)
+  const peekShown = hoverCard.showPopover && !renamingOnCard && !menuOpen
   // A card ALREADY selected when the pointer comes to rest on it has no preview (as the pop-up had none: its words are in the selection row, said once).
   // One selected DURING the rest (the press that pins it) keeps its preview, so `selected` is read when the rest begins and is not a dependency.
   const selectedNow = useRef(selected)
@@ -3205,7 +3207,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         nodeId={id}
         nodeType={nodeType}
         data={data as Record<string, unknown> | undefined}
-        visible={hoverCard.showPopover && !selected && !renamingOnCard && !surfaceOpen && !lanePeek}
+        visible={peekShown && !selected && !surfaceOpen && !lanePeek}
         anchorRef={hoverCard.nodeElRef}
       />
       {/* ⭐ A 3px DARK PORT, NOT A 12px KIND DISC (contract v3.1 FRAME-04:

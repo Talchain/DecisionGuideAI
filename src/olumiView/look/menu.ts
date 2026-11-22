@@ -1,14 +1,7 @@
-/**
- * THE LANE'S ONE MENU SHELL (surfaces step B, 18 Nov). On the lane every menu that floats over the canvas wears the same box and the same row, whoever opens it (a card's
- * right-click, its submenu, the left rail's "+" and Lenses, the lens bar's Explore): one radius, border, ground, padding and shadow; rows py-2.5
- * with the shell's inner radius; a hairline between groups. The audit found four boxes (rounded-md or rounded-lg; py-2, p-1 or p-1.5) and two rows
- * (h-9 px-4, min-h-[32px] px-3). Entries, their words and what they do are each menu's own: only the shell is shared. Where a menu stands, how wide it
- * is and its layer stay with its opener.
- */
 import { typography } from '../../styles/typography'
 
 /** The menu's own box. */
-export const MENU_SHELL = `rounded-md border border-panel-border bg-panel p-1 shadow-2 ${typography.viewPanelBody}`
+export const MENU_SHELL = `rounded-md border border-panel-border bg-panel p-1.5 shadow-2 ${typography.viewPanelBody}`
 /** One row of it (its colour, and its focused, checked and disabled states, are the menu's). */
 export const MENU_ROW = 'rounded-sm px-3 py-2.5'
 /** The hairline between two groups of rows. */

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { CanvasContextMenu, CanvasContextMenuBase } from '../CanvasContextMenu'
 import { Eye } from 'lucide-react'
@@ -177,10 +177,19 @@ function expectLocalSemanticActionsInert(): void {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('VITE_OLUMI_CORE', '0')
 })
+afterEach(() => { vi.unstubAllEnvs() })
 
 describe('CanvasContextMenu — shared-model authority', () => {
   const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
+
+  it('mounts the lane menu and focuses its first row in the opening render', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    render(<CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toHaveClass('p-1.5')
+    expect(screen.getByRole('menuitem', { name: 'Ask Olumi' })).toHaveFocus()
+  })
 
   it('keeps the readable pane tools and withholds every local semantic edit', () => {
     render(
@@ -224,12 +233,6 @@ describe('CanvasContextMenu — shared-model authority', () => {
   })
 
   it('renders the REASON beside a disabled row, not just the grey', () => {
-    // ⚠ THE TOP-LEVEL MENU NEVER RENDERED `disabledReason` BEFORE THIS LANE,
-    // while `Submenu.tsx` always did — so "Nothing to undo" was computed,
-    // attached to the row and never shown. A greyed row with no reason is the
-    // same defect one level down, and it is on the path this fix depends on.
-    //
-    // jsdom proves TEXT PRESENCE only, never visibility (trap 3).
     render(
       <CanvasContextMenu
         target={paneTarget}
@@ -257,6 +260,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
       />,
     )
     const askAi = screen.getByText('Ask Olumi').closest('button')!
+    expect(askAi.querySelector('svg')).toHaveClass('text-info')
     fireEvent.click(askAi)
 
     // A9 — the submenu's z-index moved from 101 to 952 (above OutputsDock's
@@ -268,7 +272,11 @@ describe('CanvasContextMenu — shared-model authority', () => {
     expect(submenu!.className).toContain('border-panel-border')
     const question = screen.getByText("What's missing from this model?").closest('button')!
     expect(question).not.toHaveAttribute('aria-disabled')
-    expect(askAi.className).toContain('focus-visible:ring-primary/50')
+    expect(askAi).toHaveAttribute('aria-expanded', 'true')
+    expect(askAi).toHaveAttribute('aria-controls', submenu!.id)
+    fireEvent.click(askAi)
+    expect(submenu).not.toBeInTheDocument()
+    expect(askAi).toHaveFocus()
   })
 
   it('keeps tooltip identity coherent on an available presentation control', () => {
@@ -289,17 +297,17 @@ describe('CanvasContextMenu — shared-model authority', () => {
       // is scoped to the document rather than to `container`.
       const tooltip = document.querySelector('[role="tooltip"]')
       expect(tooltip).not.toBeNull()
-      expect(tooltip!.id).toBe('tooltip-toggle-view-mode')
-      expect(toggle).toHaveAttribute('aria-describedby', 'tooltip-toggle-view-mode')
+      expect(tooltip!.id).toBeTruthy()
+      expect(toggle).toHaveAttribute('aria-describedby', tooltip!.id)
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('on the lane the row tip opens at 150 ms, not before (149 ms: none; 150 ms: there); off the lane it keeps 300 ms. An enabled submenu row starts no tip', () => {
+  it('opens the lane row tip after 150 ms and leaves a fitting submenu label without a tip', () => {
     const rows = [
       { id: 'plain', label: 'Plain row', icon: Eye, tooltip: 'Plain row note', enabled: true, action: vi.fn() },
-      { id: 'sub', label: 'Submenu row', icon: Eye, tooltip: 'Submenu row note', enabled: true, hasSubmenu: true, action: vi.fn() },
+      { id: 'sub', label: 'Submenu row', icon: Eye, tooltip: 'Submenu row note', enabled: true, hasSubmenu: true, submenuItems: [], action: vi.fn() },
     ] as never
     const useItems = () => ({ items: rows, overlay: null })
     vi.useFakeTimers()
@@ -340,13 +348,14 @@ describe('CanvasContextMenu — shared-model authority', () => {
     it('an arrow key opens the row tip at 150 ms (149: none), through the one timer, and moving on drops the old one', () => {
       open()
       try {
-        fireEvent.keyDown(document, { key: 'ArrowDown' })
+        fireEvent.keyDown(document.activeElement!, { key: 'End' })
+        fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
         act(() => { vi.advanceTimersByTime(149) })
         expect(tipText(), 'not at 149 ms').toBeNull()
         act(() => { vi.advanceTimersByTime(1) })
         expect(tipText()).toBe('Plain row note')
-        expect(screen.getByText('Plain row').closest('button')).toHaveAttribute('aria-describedby', 'tooltip-plain')
-        fireEvent.keyDown(document, { key: 'ArrowDown' })
+        expect(screen.getByText('Plain row').closest('button')).toHaveAttribute('aria-describedby', screen.getByRole('tooltip').id)
+        fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' })
         expect(tipText(), 'the old tip goes at once when the focus moves on').toBeNull()
         act(() => { vi.advanceTimersByTime(150) })
         expect(tipText()).toBe('Other row note')
@@ -357,7 +366,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
       open()
       try {
         const plain = screen.getByText('Plain row').closest('button')!
-        act(() => { plain.focus() })
+        act(() => { plain.blur(); plain.focus() })
         expect(document.activeElement).toBe(plain)
         act(() => { vi.advanceTimersByTime(149) })
         expect(tipText(), 'not at 149 ms').toBeNull()
@@ -422,7 +431,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
         screenToFlowPosition={screenToFlowPosition}
       />,
     )
-    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

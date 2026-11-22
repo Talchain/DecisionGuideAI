@@ -57,7 +57,7 @@ import type { CEEAnalysisReady } from '../adapters/cee/types'
 import { CanvasContextMenu } from './contextMenu/CanvasContextMenu'
 import { isStructuralEdge } from './domain/edgeUtils'
 import { useConnectGesture, openNewCausalLinkStrengthEditor } from './hooks/useConnectGesture'
-import type { ContextTarget } from './contextMenu/types'
+import { contextMenuOpener, type ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
@@ -1727,6 +1727,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Shift+F10: Open context menu at focused element position
   const handleKeyboardContextMenu = useCallback((screenPos: { x: number; y: number }) => {
+    const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : undefined
     const { selection, nodes: storeNodes } = useCanvasStore.getState()
 
     if (selection.nodeIds.size > 1 || (selection.nodeIds.size > 0 && selection.edgeIds.size > 0) || selection.edgeIds.size > 1) {
@@ -1735,6 +1736,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         nodeIds: [...selection.nodeIds],
         edgeIds: [...selection.edgeIds],
         screenPos,
+        opener,
       })
     } else if (selection.nodeIds.size === 1) {
       const nodeId = [...selection.nodeIds][0]
@@ -1746,6 +1748,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           nodeType: ((node.data as any)?.kind ?? node.type ?? 'factor') as NodeType,
           node,
           screenPos,
+          opener,
         })
       }
     } else if (selection.edgeIds.size === 1) {
@@ -1762,10 +1765,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           edge,
           isStructural: isStructuralEdge(edge, getNodeKind),
           screenPos,
+          opener,
         })
       }
     } else {
-      setContextMenuTarget({ kind: 'pane', screenPos })
+      setContextMenuTarget({ kind: 'pane', screenPos, opener })
     }
   }, [])
 
@@ -2478,6 +2482,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     // Nor for a card drawn from the living model alone: there is no store node to edit.
     if (livingOnlyOf(node?.data) !== null) return
     const screenPos = { x: event.clientX, y: event.clientY }
+    const opener = contextMenuOpener(event)
     if (node) {
       const { selection } = useCanvasStore.getState()
       if (selection.nodeIds.size > 1) {
@@ -2486,6 +2491,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           nodeIds: [...selection.nodeIds],
           edgeIds: [...selection.edgeIds],
           screenPos,
+          opener,
         })
       } else {
         // Select this node if not already selected
@@ -2498,6 +2504,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           nodeType: ((node.data?.kind ?? node.type ?? 'factor') as NodeType),
           node,
           screenPos,
+          opener,
         })
       }
     }
@@ -2544,6 +2551,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleCloseContextMenu = useCallback(() => {
     setContextMenuTarget(null)
   }, [])
+
+  useEffect(() => {
+    if (contextMenuTarget === null) return
+    const selection = useCanvasStore.subscribe((next, prev) => {
+      if (next.selection !== prev.selection) handleCloseContextMenu()
+    })
+    const camera = flowStoreApi.subscribe((next, prev) => {
+      if (next.transform !== prev.transform) handleCloseContextMenu()
+    })
+    return () => { selection(); camera() }
+  }, [contextMenuTarget, flowStoreApi, handleCloseContextMenu])
 
   // Stable callbacks for CanvasViewportControls — declared unconditionally before
   // any debug-mode early returns to satisfy Rules of Hooks.

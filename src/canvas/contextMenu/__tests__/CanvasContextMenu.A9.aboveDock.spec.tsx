@@ -15,7 +15,7 @@
  *      stacking context") rather than left nested whatever ReactFlow-adjacent
  *      ancestor a future refactor puts it under.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CanvasContextMenu } from '../CanvasContextMenu'
 import type { PaneTarget, NodeTarget } from '../types'
@@ -72,7 +72,9 @@ const DOCK_Z_INDEX = 900
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('VITE_OLUMI_CORE', '0')
 })
+afterEach(() => { vi.unstubAllEnvs() })
 
 describe('the context menu paints above the dock', () => {
   const paneTarget: PaneTarget = { kind: 'pane', screenPos: { x: 100, y: 200 } }
@@ -94,14 +96,10 @@ describe('the context menu paints above the dock', () => {
     expect(zIndexOf(menu)).toBeGreaterThan(DOCK_Z_INDEX)
   })
 
-  it('the backdrop that dismisses the menu is also above the dock', () => {
-    const { container } = render(
-      <CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />,
-    )
-    const backdrop = document.querySelector('[role="presentation"].fixed.inset-0')
-    expect(backdrop, 'PRECONDITION: the backdrop must be found').not.toBeNull()
-    expect(container.contains(backdrop)).toBe(false)
-    expect(zIndexOf(backdrop!)).toBeGreaterThan(DOCK_Z_INDEX)
+  it('has no full-window backdrop', () => {
+    render(<CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toBeTruthy()
+    expect(document.querySelector('[role="presentation"].fixed.inset-0')).toBeNull()
   })
 })
 

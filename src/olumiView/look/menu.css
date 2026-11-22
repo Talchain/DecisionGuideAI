@@ -1,0 +1,21 @@
+/* Exact menu widths and the viewport gutter have no matching spacing utilities. */
+.olumi-menu {
+  max-width: min(320px, calc(100vw - 1rem));
+}
+
+.olumi-menu:not(.olumi-menu-older) {
+  width: 232px;
+}
+
+.olumi-menu-older {
+  min-width: min(220px, calc(100vw - 1rem));
+}
+
+.olumi-menu-older.olumi-menu-child {
+  min-width: min(180px, calc(100vw - 1rem));
+}
+
+/* The system symbol fallback stack is specific to menu glyphs. */
+.olumi-menu-symbol {
+  font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
+}
