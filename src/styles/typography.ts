@@ -310,7 +310,7 @@ export const typography = {
   viewPanelHeading: 'text-xs font-medium font-sans leading-4',   // 12/500/16 — a block's one heading (colour --text-header by the caller)
   viewPanelBody: 'text-xs font-sans leading-[18px]',              // 12/18 — reading text, the chat included (V12 spec §1, 16 Nov: 14px was too big for the panel)
   viewPanelTabular: 'text-xs font-sans leading-[18px] tabular-nums', // 12/18 — numbers in columns
-  viewPanelHeadline: 'text-lg font-medium font-sans leading-snug', // 18/500 — the sparing headline (V12 spec §1: no 600)
+  viewPanelHeadline: 'text-sm font-medium font-sans leading-5', // 14/500/20 — the panel's lead sentence (Paul 22 Nov: 18 px read 'way too big' for a sentence; 18 stays for short titles)
   panelHeader: 'text-sm font-medium font-sans leading-snug',      // 14px/500 — section titles, winner name, key emphasis (Paul, 30 Sep: 600 dominated the panel)
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata
