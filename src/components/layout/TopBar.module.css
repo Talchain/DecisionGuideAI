@@ -209,92 +209,12 @@
   position: relative;
 }
 
-.dropdownMenu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 220px;
-  background: var(--bg-panel, #FEFEFE);
-  border: 1px solid var(--border-default, #EEE6D8);
-  border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.06);
-  padding: 6px;
-  z-index: 4000;
-}
-
-.dropdownMenuButton {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  font-size: 12px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 120ms ease;
-  color: var(--text-body, #3F3F3E);
-}
-
-.dropdownMenuButton:hover {
-  background: var(--bg-panel-hover, #FEF9F3);
-}
-
-.dropdownMenuButton:focus-visible {
-  outline: 2px solid var(--info);
-  outline-offset: -2px;
-}
-
-.dropdownMenuButton svg {
-  color: var(--text-light, #6E6B6B);
-  flex-shrink: 0;
-}
-
-.dropdownMenuDivider {
-  /* Groups are separated by space, not a rule (DS v5 §6). */
-  margin: 6px 0;
-  border: none;
-}
-
-.dropdownMenuLabel {
-  padding: 8px 10px 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-light, #6E6B6B);
-}
-
 /* Canvas settings (flattened in kebab menu) */
-.settingsRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-body, #3F3F3E);
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-}
-
-.settingsRow:hover {
-  color: var(--text-header, #262626);
-}
-
 .settingsCheckbox {
   width: 14px;
   height: 14px;
   accent-color: var(--info, #277A9D);
   cursor: pointer;
-}
-
-.settingsSliderRow {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-body, #3F3F3E);
-  padding: 4px 10px 8px;
 }
 
 .settingsSlider {
@@ -304,13 +224,6 @@
   background: var(--border-default, #EEE6D8);
   accent-color: var(--info, #277A9D);
   cursor: pointer;
-}
-
-.settingsSliderLabels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--text-light, #6E6B6B);
 }
 
 /* A.15: Stage lifecycle pill — true pill shape (999px radius, 2px border) */

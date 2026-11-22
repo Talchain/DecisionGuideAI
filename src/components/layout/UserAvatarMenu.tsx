@@ -143,13 +143,13 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-56 rounded-md bg-panel shadow-2 border border-[rgba(38,38,38,0.08)] z-[100]" role="menu">
-          <div className="px-4 py-3">
+        <div className="absolute right-0 top-full mt-2 w-56 space-y-4 rounded-md border border-panel-border bg-panel p-3 shadow-2 z-[100]" role="menu">
+          <div className="space-y-3">
             <p className={`${typography.label} text-text-header truncate`}>{person?.name ?? ''}</p>
             {words && <p className={`${typography.bodySmall} text-text-light`}>{words}</p>}
           </div>
           {/* PoC accounts (src/olumiCore/accounts/): back to My scenarios, the organisation and the account page from a scenario. */}
-          <div className="py-1">
+          <div className="divide-y divide-panel-border">
             {LANE_PAGES.map(({ label, to, Icon }) => (
               <button
                 key={to}
@@ -157,14 +157,14 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
                 role="menuitem"
                 data-testid={`olumi-core-go-${to === '/' ? 'home' : to.slice(1)}`}
                 onClick={() => { setOpen(false); navigate(to) }}
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+                className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
               >
                 <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
                 <span className={typography.bodySmall}>{label}</span>
               </button>
             ))}
           </div>
-          <div className="py-1">
+          <div className="divide-y divide-panel-border">
             {NOTICES.map(({ label, href }) => {
               const Icon = href === '/privacy' ? ShieldCheck : FileText
               return (
@@ -177,7 +177,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
                   title="Opens in a new tab"
                   data-testid={`olumi-core-notice-${href.slice(1)}`}
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+                  className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
                 >
                   <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
                   <span className={typography.bodySmall}>{label}</span>
@@ -185,25 +185,25 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
               )
             })}
           </div>
-          <div className="py-1">
+          <div className="divide-y divide-panel-border">
             <button
               type="button"
               role="menuitem"
               data-testid="olumi-core-sign-out"
               disabled={busy}
               onClick={() => void handleSignOut()}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast disabled:opacity-50"
+              className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast disabled:opacity-50"
             >
               <LogOut className="h-4 w-4" />
               <span className={typography.bodySmall}>Sign out</span>
             </button>
-            {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.caption} px-4 pb-2 text-danger`}>{error}</p>}
+            {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.viewPanelMeta} pb-2 text-danger`}>{error}</p>}
             <button
               type="button"
               role="menuitem"
               data-testid="olumi-core-delete-my-data"
               onClick={() => { setOpen(false); setError(null); setDeleting(true) }}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
+              className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               <span className={typography.bodySmall}>Delete my data</span>
@@ -260,22 +260,22 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-56 rounded-md bg-panel shadow-2 border border-[rgba(38,38,38,0.08)] z-[100]"
+          className="absolute right-0 top-full mt-2 w-56 space-y-4 rounded-md border border-panel-border bg-panel p-3 shadow-2 z-[100]"
           role="menu"
         >
           {/* Header */}
-          <div className="px-4 py-3">
+          <div className="space-y-3">
             <p className={`${typography.label} text-text-header truncate`}>{displayName}</p>
             <p className={`${typography.bodySmall} text-text-light truncate`}>{email}</p>
           </div>
 
           {/* Menu items */}
-          <div className="py-1">
+          <div className="divide-y divide-panel-border">
             <button
               type="button"
               role="menuitem"
               onClick={() => { setOpen(false); navigate('/') }}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+              className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
             >
               <LayoutGrid className="h-4 w-4 text-text-light" />
               <span className={typography.bodySmall}>My scenarios</span>
@@ -284,19 +284,19 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               type="button"
               role="menuitem"
               onClick={() => { setOpen(false); navigate('/profile') }}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
+              className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
             >
               <Settings className="h-4 w-4 text-text-light" />
               <span className={typography.bodySmall}>Profile settings</span>
             </button>
           </div>
 
-          <div className="py-1">
+          <div className="divide-y divide-panel-border">
             <button
               type="button"
               role="menuitem"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
+              className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
             >
               <LogOut className="h-4 w-4" />
               <span className="flex flex-col">

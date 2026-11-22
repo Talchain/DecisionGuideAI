@@ -87,7 +87,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
   const finding = modelFindingOf(model) === null ? findingOf(model) : null
   const editQuestion = () => { if (q.text.trim() !== '') requestAsk({ text: q.text, label: q.text, source: 'frame' }) }
   return (
-    <div className="mx-auto grid max-w-[880px] gap-5 px-6 pb-12 pt-16" data-testid="frame-page">
+    <div className="mx-auto grid max-w-[880px] gap-4 px-6 pb-12 pt-16" data-testid="frame-page">
       <section className="grid gap-2" aria-label={FRAME_WORDS.question}>
         <div className="flex items-start gap-2">
           <h2 className={`${typography.viewPanelBody} m-0 min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="frame-question">{q.text}</h2>
@@ -102,16 +102,16 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
       ) : (
         <>
           {aims.length + limits.length === 0 ? null : (
-            <section className="grid gap-3" aria-label={FRAME_WORDS.matters}>
+            <section className="grid gap-4" aria-label={FRAME_WORDS.matters}>
               <h3 className={H}>{FRAME_WORDS.matters}</h3>
-              {aims.length === 0 ? null : <div className="grid gap-1"><span className={LABEL}>{FRAME_WORDS.aims}</span><ul className="m-0 grid list-none gap-2 p-0" data-testid="frame-aims">{aims.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
-              {limits.length === 0 ? null : <div className="grid gap-1"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-2 p-0" data-testid="frame-limits">{limits.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
+              {aims.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.aims}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-aims">{aims.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
+              {limits.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-limits">{limits.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
             </section>
           )}
           {finding === null ? (surface === 'frame' ? <FindingLine model={model} at="frame" onFocusFigure={onClose} /> : null)
             : <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="frame-finding">{finding.join(' ')}</p>}
           {routes.length === 0 ? null : (
-            <section className="grid gap-1" aria-label={FRAME_WORDS.routes}>
+            <section className="grid gap-2" aria-label={FRAME_WORDS.routes}>
               <h3 className={H}>{FRAME_WORDS.routes}</h3>
               {model.run?.lead == null || !routes.some((c) => runScoped(c, model)) ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-view="run.lead">{model.run.lead}</p>}
               <ul className="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="frame-routes">

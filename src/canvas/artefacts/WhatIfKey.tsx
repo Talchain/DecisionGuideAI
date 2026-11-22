@@ -110,7 +110,7 @@ function Cell({ cell }: { cell: { display: string | null; provisional: boolean; 
   return (
     <span className="text-text-header">
       {cell.display}
-      {cell.provisional && <span className={`${typography.panelMeta} ml-1 text-text-light`}>{WHAT_IF_COPY.provisional}</span>}
+      {cell.provisional && <span className={`${typography.viewPanelMeta} ml-1 text-text-light`}>{WHAT_IF_COPY.provisional}</span>}
     </span>
   )
 }
@@ -207,9 +207,9 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
 
   return (
     <div data-testid="what-if-key" className="space-y-3">
-      <p className={`${typography.panelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p>
+      <p className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p>
       <div className="flex flex-col gap-2">
-        <label className={`${typography.panelMeta} flex flex-col gap-1 text-text-light`}>
+        <label className={`${typography.viewPanelMeta} flex flex-col gap-2 text-text-light`}>
           {WHAT_IF_COPY.factor}
           <select
             data-testid="what-if-factor"
@@ -220,7 +220,7 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
             {choices.map((c) => <option key={c.id} value={c.id}>{`${c.label} (${figureText({ value: c.saved, unit: c.unit })})`}</option>)}
           </select>
         </label>
-        <label className={`${typography.panelMeta} flex flex-col gap-1 text-text-light`}>
+        <label className={`${typography.viewPanelMeta} flex flex-col gap-2 text-text-light`}>
           {WHAT_IF_COPY.value}
           <span className="flex items-center gap-2">
             <input
@@ -259,24 +259,24 @@ export function WhatIfKey({ folded }: { folded: boolean }) {
       </div>
       {notice !== null && <p data-testid="what-if-notice" role="status" className={`${typography.panelBody} text-text-body`}>{notice}</p>}
       {outcome?.status === 'refused' && (outcome.nextStep !== undefined || outcome.questions !== undefined) && (
-        <div data-testid="what-if-why" className={`${typography.panelBody} space-y-1 text-text-body`}>
+        <div data-testid="what-if-why" className={`${typography.panelBody} space-y-2 text-text-body`}>
           {outcome.nextStep !== undefined && <p>{outcome.nextStep}</p>}
-          {outcome.questions !== undefined && <ul className="list-disc space-y-0.5 pl-4">{outcome.questions.map((q) => <li key={q}>{q}</li>)}</ul>}
+          {outcome.questions !== undefined && <ul className="list-disc space-y-3 pl-4">{outcome.questions.map((q) => <li key={q}>{q}</li>)}</ul>}
         </div>
       )}
       {outcome?.status === 'ran' && (
         <div data-testid="what-if-result" className="space-y-2">
-          {!outcome.paired && <p data-testid="what-if-not-paired" className={`${typography.panelMeta} text-text-light`}>{WHAT_IF_COPY.notPaired}</p>}
-          <ul className="space-y-2">
+          {!outcome.paired && <p data-testid="what-if-not-paired" className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.notPaired}</p>}
+          <ul className="space-y-3">
             {outcome.options.flatMap((row) => {
               const label = optionLabel(row.option_id)
               if (label === null) return []
               return [(
-                <li key={row.option_id} data-testid={`what-if-row-${row.option_id}`} className={`${typography.panelBody} space-y-0.5`}>
+                <li key={row.option_id} data-testid={`what-if-row-${row.option_id}`} className={`${typography.panelBody} space-y-2`}>
                   <p className="text-text-header">{label}</p>
                   <p><span className="text-text-light">{WHAT_IF_COPY.saved}: </span><Cell cell={row.saved} /></p>
                   <p><span className="text-text-light">{WHAT_IF_COPY.whatIf}: </span><Cell cell={row.what_if} /></p>
-                  {row.variation_words !== null && <p className={`${typography.panelMeta} text-text-light`}>{row.variation_words}</p>}
+                  {row.variation_words !== null && <p className={`${typography.viewPanelMeta} text-text-light`}>{row.variation_words}</p>}
                 </li>
               )]
             })}

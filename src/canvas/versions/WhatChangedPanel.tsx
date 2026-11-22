@@ -200,7 +200,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
             </p>
           )}
           <p
-            className={`${typography.panelMeta} text-text-light`}
+            className={`${typography.viewPanelMeta} text-text-light`}
             data-testid="versions-storage-disclosure"
           >
             {VERSION_STORAGE_DISCLOSURE}
@@ -231,7 +231,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="version-from"
-                  className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                  className={`${typography.viewPanelMeta} text-text-light w-10 shrink-0`}
                 >
                   From
                 </label>
@@ -251,7 +251,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="version-to"
-                  className={`${typography.panelMeta} text-text-light w-10 shrink-0`}
+                  className={`${typography.viewPanelMeta} text-text-light w-10 shrink-0`}
                 >
                   To
                 </label>
@@ -279,7 +279,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                 No differences between these two versions.
               </p>
             ) : (
-              <ul className="space-y-1.5" data-testid="what-changed-list">
+              <ul className="space-y-3" data-testid="what-changed-list">
                 {lines.map((line) => (
                   <li key={line.key} className="flex items-start gap-2">
                     <span
@@ -298,13 +298,13 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
 
         {versions.length > 0 && (
           <PanelSection title="All versions">
-            <ul className="space-y-1">
+            <ul className="divide-y divide-panel-border">
               {versions.map((version) => {
                 const originLabel = versionOriginLabel(version.origin)
                 return (
                   <li
                     key={version.id}
-                    className="flex items-center justify-between gap-2"
+                    className="flex items-center justify-between gap-2 py-2.5"
                     data-testid="version-row"
                     data-version-origin={version.origin}
                   >
@@ -312,7 +312,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                       <span className={`${typography.panelBody} text-text-body truncate`}>
                         {version.name}
                       </span>
-                      <span className={`${typography.panelMeta} text-text-light ml-2`}>
+                      <span className={`${typography.viewPanelMeta} text-text-light ml-2`}>
                         {formatTimestamp(version.createdAt)}
                       </span>
                       {/* WHO MADE THIS ROW. Shown only for captures the product
@@ -320,7 +320,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
                           account for. A manual save needs no explanation. */}
                       {originLabel !== null && (
                         <span
-                          className={`${typography.panelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}
+                          className={`${typography.viewPanelMeta} text-text-light ml-2 px-1.5 py-0.5 rounded border border-panel-border`}
                           data-testid="version-origin-badge"
                         >
                           {originLabel}

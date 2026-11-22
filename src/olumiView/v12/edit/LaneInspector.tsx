@@ -258,7 +258,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         <Connections card={c} />
         {/* 6. Where it comes from: core's own account, folded. */}
         {!pinned || !hasFrom ? null : (
-          <details className="space-y-1.5" data-testid="lane-inspector-from">
+          <details className="space-y-3" data-testid="lane-inspector-from">
             <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} cursor-pointer text-text-light`}><FoldChevron />{BOX_WORDS.from}</summary>
             {/* Olumi's own account of what it proposed (its mark is in the header, and the value says whose it is): whole here, in Olumi's blue. */}
             {olumiSaid === null ? null : <p className="m-0 break-words text-info" data-testid="lane-inspector-source">{olumiSaid}</p>}

@@ -115,9 +115,9 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
   const noteRecords = useNoteRecords()
   const assumptions = useMemo(() => [...noteRecords.values()].filter((n) => n.family === 'assumptions'), [noteRecords])
   const assumptionList = assumptions.length === 0 ? null : (
-    <section data-testid={`${RESTS_ON_KEY_TESTID}-assumptions`} className="space-y-1">
-      <h3 className={`${typography.panelMeta} text-text-light`}>{RESTS_ON_COPY.assumptions(assumptions.length)}</h3>
-      <ul className="m-0 list-none space-y-1 p-0">
+    <section data-testid={`${RESTS_ON_KEY_TESTID}-assumptions`} className="space-y-2">
+      <h3 className={`${typography.viewPanelMeta} text-text-light`}>{RESTS_ON_COPY.assumptions(assumptions.length)}</h3>
+      <ul className="m-0 list-none space-y-3 p-0">
         {assumptions.map((a) => (
           <li key={a.id} data-testid={`${RESTS_ON_KEY_TESTID}-assumption-${a.id}`} className={`${typography.panelBody} text-text-body`}>
             {a.text}{a.author === 'olumi' ? <span className="text-text-light"> · Olumi’s</span> : null}
@@ -156,7 +156,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
           data-column={item.column}
           aria-label={name}
           title={name}
-          className={`${typography.panelMeta} inline-flex h-7 min-w-[28px] items-center justify-center rounded-full border px-2 tabular-nums transition-colors duration-200 ${
+          className={`${typography.viewPanelMeta} inline-flex h-7 min-w-[28px] items-center justify-center rounded-full border px-2 tabular-nums transition-colors duration-200 ${
             isUnsettled(item.column) ? 'border-info/40 bg-info-light text-text-header' : 'border-panel-border text-text-body'
           } ${settledJustNow.has(key) ? 'ring-2 ring-info/40' : ''} ${ACTION_FOCUS}`}
           onClick={() => link?.focus()}
@@ -171,25 +171,25 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
     )
   }
   const headline = (
-    <div className="space-y-1">
+    <div className="space-y-3">
       <p data-testid={`${RESTS_ON_KEY_TESTID}-headline`} className={`${typography.panelQuestion} text-text-header`}>
         {RESTS_ON_COPY.restsOn(items.length)}
       </p>
       <p className={`${typography.panelBody} text-text-body`}>{restsOnHeadline(counts)}</p>
-      {!map.hasGoal && !folded ? <p className={`${typography.panelMeta} text-text-light`}>{ASSUMPTION_MAP_COPY.noGoal}</p> : null}
+      {!map.hasGoal && !folded ? <p className={`${typography.viewPanelMeta} text-text-light`}>{ASSUMPTION_MAP_COPY.noGoal}</p> : null}
     </div>
   )
   // v10: folded, the legend names each author once. Open, the groups below already name them, so they only gain the glyph.
-  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="" className={isV10 ? 'space-y-2' : undefined}>{headline}{isV10 ? <V10RestsOnLegend counts={counts} /> : null}</div>
+  if (folded) return <div data-testid={RESTS_ON_KEY_TESTID} data-folded="" className={isV10 ? 'space-y-3' : undefined}>{headline}{isV10 ? <V10RestsOnLegend counts={counts} /> : null}</div>
   return (
     <div data-testid={RESTS_ON_KEY_TESTID} className="space-y-3">
       {headline}
       {pickedItem ? (
-        <div data-testid={`${RESTS_ON_KEY_TESTID}-picked`} className="rounded-xl border border-panel-border px-3 pb-2 pt-2.5">
+        <div data-testid={`${RESTS_ON_KEY_TESTID}-picked`} className="rounded-xl border border-panel-border p-3">
           <div className="flex items-start gap-2">
             <span
               aria-hidden="true"
-              className={`${typography.panelMeta} mt-px inline-flex h-5 min-w-[20px] flex-none items-center justify-center rounded-full border px-1 tabular-nums ${
+              className={`${typography.viewPanelMeta} mt-px inline-flex h-5 min-w-[20px] flex-none items-center justify-center rounded-full border px-1 tabular-nums ${
                 isUnsettled(pickedItem.column) ? 'border-info/40 bg-info-light text-text-header' : 'border-panel-border text-text-light'
               }`}
             >
@@ -197,7 +197,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className={`${typography.panelBody} text-text-header`}>{pickedItem.label}</p>
-              <p className={`${typography.panelMeta} text-text-light`}>
+              <p className={`${typography.viewPanelMeta} text-text-light`}>
                 {ASSUMPTION_MAP_COPY.columns[pickedItem.column]}
                 {/* The owner's source words add something only where the state does not already say it: whose words
                     ("from your brief") or that nobody recorded one. */}
@@ -207,7 +207,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
               {pickedJustNow ? (
                 <span
                   data-testid={`${RESTS_ON_KEY_TESTID}-just-now`}
-                  className={`${typography.panelMeta} mt-1 inline-flex rounded-full border border-info/30 px-2 py-0.5 text-text-body`}
+                  className={`${typography.viewPanelMeta} mt-1 inline-flex rounded-full border border-info/30 px-2 py-0.5 text-text-body`}
                 >
                   {RESTS_ON_COPY.justNow[pickedJustNow]}
                 </span>
@@ -232,7 +232,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
           <button
             type="button"
             data-testid={`${RESTS_ON_KEY_TESTID}-all`}
-            className={`${typography.panelMeta} ${action('quiet')} px-0 no-underline hover:text-text-body`}
+            className={`${typography.viewPanelMeta} ${action('quiet')} px-0 no-underline hover:text-text-body`}
             onClick={() => useCanvasStore.getState().clearSelection()}
           >
             {RESTS_ON_COPY.all}
@@ -240,13 +240,13 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
         </div>
       ) : (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-4">
             {RESTS_ON_ORDER.map((column) => {
               const group = items.filter((item) => item.column === column)
               if (group.length === 0) return null
               return (
                 <section key={column} data-testid={`${RESTS_ON_KEY_TESTID}-group-${column}`} className="flex items-start gap-2">
-                  <h3 className={`${typography.panelMeta} w-[104px] flex-none pt-1.5 text-text-light`}>
+                  <h3 className={`${typography.viewPanelMeta} w-[104px] flex-none pt-1.5 text-text-light`}>
                     {isV10 ? <span className="mr-1 inline-flex align-middle"><V10AuthorGlyph column={column} /></span> : null}
                     {ASSUMPTION_MAP_COPY.columns[column]}
                   </h3>
@@ -255,7 +255,7 @@ export function RestsOnKey({ folded = false }: { folded?: boolean }) {
               )
             })}
           </div>
-          <p className={`${typography.panelMeta} text-text-light`}>{RESTS_ON_COPY.pick} {ASSUMPTION_MAP_COPY.optionsNote}</p>
+          <p className={`${typography.viewPanelMeta} text-text-light`}>{RESTS_ON_COPY.pick} {ASSUMPTION_MAP_COPY.optionsNote}</p>
           {assumptionList}
         </>
       )}

@@ -58,9 +58,9 @@ export function ViewPreMortemKey(): JSX.Element | null {
   const Icon = LENS_ICON.premortem
   return (
     <section aria-label={label} data-testid="view-premortem-key" data-mine={mine ? '' : undefined}
-      className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
+      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
       style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, width: 'min(420px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
-      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
+      <header className="flex items-center gap-2">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? label : entry.heading}</h2>
         <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
@@ -68,7 +68,7 @@ export function ViewPreMortemKey(): JSX.Element | null {
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 pb-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto">
         {entry !== null ? <PreMortemEntry gate={entry} /> : !mine ? (
           <>
             <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-first">{typed ? PREMORTEM_COPY.waiting : PREMORTEM_COPY.first}</p>
@@ -89,7 +89,7 @@ export function ViewPreMortemKey(): JSX.Element | null {
         ) : (
           <ol className="space-y-3" data-testid="view-premortem-stories">
             {stories.map((st) => (
-              <li key={st.n} data-story={st.n} className="space-y-0.5">
+              <li key={st.n} data-story={st.n} className="space-y-3">
                 <p className={`${typography.viewPanelBody} text-text-body`}>
                   <span className="text-info" title={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </span>
                   <span data-testid="view-premortem-story-text">{st.text}</span>

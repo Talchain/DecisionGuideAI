@@ -36,7 +36,7 @@ function Cell({ option, aim }: { option: ViewCard; aim: string }): JSX.Element {
   const mark = row === undefined || row.kind === 'none' || row.olumi === null ? null
     : <>{NBSP}<span title={row.olumi.title} aria-label={row.olumi.title} data-view={`${at}.olumi.glyph`}>{row.olumi.glyph}</span></>
   return (
-    <td className={`${typography.viewPanelBody} border border-panel-border px-2 py-1.5 align-top`} title={row?.title} data-view-row={row === undefined ? undefined : at}
+    <td className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top`} title={row?.title} data-view-row={row === undefined ? undefined : at}
       data-tradeoff-cell={`${option.id}.${aim}`}>
       {row === undefined ? null : row.kind === 'none' ? <span data-view={`${at}.text`}>{row.text}</span>
         : <span className={typography.viewPanelTabular}>{row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}<span data-view={`${at}.value`}>{row.value}</span>{mark}</span>}
@@ -51,14 +51,14 @@ export function TradeOffsGrid({ model }: { model: ViewModel }): JSX.Element {
     <table className="w-full border-collapse text-left" data-testid="view-tradeoffs-grid">
       <thead>
         <tr>
-          <td className="border border-panel-border" />
-          {aims.map((a) => <th key={a.id} scope="col" className={`${typography.viewPanelMeta} border border-panel-border px-2 py-1.5 align-bottom text-text-header`} data-tradeoff-aim={a.id}>{a.heading}</th>)}
+          <td className="border border-panel-border py-2.5" />
+          {aims.map((a) => <th key={a.id} scope="col" className={`${typography.viewPanelMeta} border border-panel-border px-2 py-2.5 align-bottom text-text-header`} data-tradeoff-aim={a.id}>{a.heading}</th>)}
         </tr>
       </thead>
       <tbody>
         {options.map((o) => (
           <tr key={o.id}>
-            <th scope="row" className={`${typography.viewPanelBody} border border-panel-border px-2 py-1.5 align-top text-text-header`} data-tradeoff-option={o.id}>{o.heading}</th>
+            <th scope="row" className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top text-text-header`} data-tradeoff-option={o.id}>{o.heading}</th>
             {aims.map((a) => <Cell key={a.id} option={o} aim={a.id} />)}
           </tr>
         ))}
@@ -76,9 +76,9 @@ export function ViewTradeOffsKey(): JSX.Element | null {
   const Icon = LENS_ICON.tradeoffs
   return (
     <section aria-label={label} data-testid="view-tradeoffs-key"
-      className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
+      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
       style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxWidth: 'min(640px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
-      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
+      <header className="flex items-center gap-2">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{label}</h2>
         <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-tradeoffs-key-close"
@@ -86,7 +86,7 @@ export function ViewTradeOffsKey(): JSX.Element | null {
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-4"><TradeOffsGrid model={model} /></div>
+      <div className="min-h-0 flex-1 overflow-auto"><TradeOffsGrid model={model} /></div>
     </section>
   )
 }

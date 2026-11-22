@@ -81,9 +81,9 @@ export function ViewWhatIfKey(): JSX.Element | null {
     <>
     <WhatIfBar label={view.lens_words.label.what_if} canKeep={current !== null} keeping={keeping} onKeep={() => void keep()} onDiscard={clearWhatIf} />
     <section aria-label={view.lens_words.label.what_if} data-testid="view-whatif-key"
-      className="pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow-2"
+      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
       style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxHeight: 'min(52vh, 460px)' }}>
-      <header className="flex items-center gap-2 px-4 pb-2 pt-3">
+      <header className="flex items-center gap-2">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{view.lens_words.label.what_if}</h2>
         <button type="button" onClick={() => setFolded((f) => !f)} aria-label={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} aria-expanded={!folded}
@@ -96,11 +96,11 @@ export function ViewWhatIfKey(): JSX.Element | null {
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </header>
-      <div className={`${typography.viewPanelBody} min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4`}>
+      <div className={`${typography.viewPanelBody} min-h-0 flex-1 space-y-4 overflow-y-auto`}>
         {legend}
         {folded ? null : picked === null ? <p data-testid="view-whatif-key-none">{WHAT_IF_COPY.noFactors}</p> : (
-          <form className="grid gap-2" data-testid="view-whatif-key-form" onSubmit={(e) => { e.preventDefault(); void run() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
-            <label className="grid gap-1">
+          <form className="grid gap-3" data-testid="view-whatif-key-form" onSubmit={(e) => { e.preventDefault(); void run() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
+            <label className="grid gap-2">
               <span className="text-text-light">{WHAT_IF_COPY.factor}</span>
               <select value={picked.id} data-testid="view-whatif-key-factor" disabled={running}
                 onChange={(e) => { setPick(e.target.value); setTyped(''); setError(null) }}
@@ -109,7 +109,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
               </select>
             </label>
             {picked.figure === null ? null : <p><span className="text-text-light">{WHAT_IF_COPY.saved}: </span><span title={picked.figure.title}>{picked.figure.text}</span></p>}
-            <label className="grid gap-1">
+            <label className="grid gap-2">
               <span className="text-text-light">{picked.figure!.edit!.prompt}</span>
               <input data-testid="view-whatif-key-typed" autoComplete="off" spellCheck={false} value={typed} disabled={running}
                 onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}

@@ -17,7 +17,6 @@ import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type 
 import { Compass } from 'lucide-react'
 import { useUIStore, type OutputTab } from '../stores/uiStore'
 import { typography } from '../styles/typography'
-import { MENU_SHELL } from './look/menu'
 import { HIT_44 } from '../styles/hitArea'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
@@ -176,15 +175,15 @@ function NavBar({ barRef, place, W }: { barRef: RefObject<HTMLDivElement>; place
         </button>
         {!open ? null : (
           <div ref={menu} role="menu" aria-label={W.explore} data-testid={`${LENS_BAR_TESTID}-explore-menu`}
-            className={`absolute left-0 top-full z-10 mt-2 grid w-[300px] gap-0.5 ${MENU_SHELL}`}>
+            className={`absolute left-0 top-full z-10 mt-2 grid w-[300px] divide-y divide-panel-border rounded-md border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
             {EXPLORE.map((id) => {
               const Icon = LENS_ICON[id], waiting = id === 'what_changes' && waits, count = id === 'rests_on' ? olumi : 0, on = id === lens
               return (
                 <button key={id} type="button" role="menuitemradio" aria-checked={on} aria-disabled={waiting || undefined} data-testid={`${LENS_BAR_TESTID}-${id}`}
                   onClick={() => { if (waiting) return; useViewLens.setState({ lens: id }); setOpen(false); exploreBtn.current?.focus() }}
-                  className={`grid w-full grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-2 rounded-md px-3 py-2 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
+                  className={`grid w-full grid-cols-[14px_minmax(0,1fr)_auto] items-start gap-2 rounded-md px-3 py-2.5 text-left ${waiting ? 'cursor-default' : 'cursor-pointer hover:bg-panel-hover'} ${on ? 'bg-[var(--panel-tab-active-bg)]' : ''} ${ACTION_FOCUS}`}>
                   <Icon aria-hidden="true" strokeWidth={1.75} className="mt-[2px] h-3.5 w-3.5 text-text-light" />
-                  <span className="grid min-w-0 gap-0.5">
+                  <span className="grid min-w-0 gap-2">
                     <span className={`${typography.viewPanelMeta} font-medium ${waiting ? 'text-text-light' : 'text-text-header'}`}>{W.label[id]}</span>
                     <span className={`${typography.viewPanelMeta} text-text-light`}>{waiting ? W.needsRun : W.hint[id]}</span>
                   </span>

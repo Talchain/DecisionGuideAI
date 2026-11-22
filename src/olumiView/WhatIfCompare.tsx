@@ -16,16 +16,16 @@ export function Compare({ model, shown }: { model: ViewModel; shown: NonNullable
   // Core's own reason it could not run this what-if is the words on the card (N3), never a sentence of the UI's.
   if (v.blocked !== null) return <p data-testid="view-whatif-key-blocked">{v.blocked}</p>
   return (
-    <div className="space-y-2" data-testid="view-whatif-key-compare">
+    <div className="space-y-4" data-testid="view-whatif-key-compare">
       {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
       {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
       {optionCards(model).map((card) => {
         const rows = tried.get(card.id)
         return rows === undefined ? null : (
-          <div key={card.id} data-whatif-key-option={card.id}>
+          <div key={card.id} className="space-y-2" data-whatif-key-option={card.id}>
             <p className={`${typography.panelHeader} text-text-header`}>{card.heading}</p>
-            <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.saved}: </span><div>{card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}</div></div>
-            <div className="flex gap-1"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.whatIf}: </span><div>{rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${card.id}` }} row={row} i={i} />)}</div></div>
+            <div className="flex gap-2"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.saved}: </span><div className="space-y-3">{card.rows.map((row, i) => <Row key={i} card={card} row={row} i={i} />)}</div></div>
+            <div className="flex gap-2"><span className="shrink-0 whitespace-nowrap text-text-light">{WHAT_IF_COPY.whatIf}: </span><div className="space-y-3">{rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${card.id}` }} row={row} i={i} />)}</div></div>
             {/* SCI-13: core's size line for each aim beside the what-if's chance rows, verbatim (ViewChances WhatIfSizeLines). */}
             <WhatIfSizeLines variant={v} option={card.id} />
           </div>

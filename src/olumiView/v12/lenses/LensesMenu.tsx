@@ -35,7 +35,7 @@ const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
 /** Where the menu and a layer's panel stand: beside the rail, on the chrome menus' layer. */
 const at = `absolute left-full top-0 ml-3 nodrag nopan ${CANVAS_LAYER_CLASS.chromeMenu}`
-const pop = `${at} rounded-lg border border-panel-border bg-panel shadow-2 ${typography.viewPanelBody}`
+const pop = `${at} rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`
 
 export function LensesMenu(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
@@ -80,14 +80,16 @@ export function LensesMenu(): JSX.Element | null {
       {menu ? (
         <div role="menu" aria-label={NO_LAYER_LABEL} className={`${at} ${MENU_SHELL} w-[240px]`} data-testid={`${LENSES_TESTID}-menu`}>
           {/* Paul, 18 Nov: Simple | Detailed lives here, with the other ways to look at the model, not in a panel of its own at the canvas foot. */}
-          <div role="group" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
-            <p role="presentation" className={`${typography.viewPanelMeta} px-3 pb-0.5 pt-1 text-text-light`}>{LEVEL_WORDS.group}</p>
-            {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
-              <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
-                className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
-                <span className="min-w-0 truncate">{label}</span>
-              </HoverButton>
-            ))}
+          <div role="group" className="space-y-2" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
+            <p role="presentation" className={`${typography.viewPanelMeta} text-text-light`}>{LEVEL_WORDS.group}</p>
+            <div className="divide-y divide-panel-border">
+              {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
+                <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
+                  className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
+                  <span className="min-w-0 truncate">{label}</span>
+                </HoverButton>
+              ))}
+            </div>
           </div>
           {entries.length <= 1 ? null : <div role="separator" className={MENU_SEPARATOR} />}
           {entries.length <= 1 ? null : entries.map((e, i) => (
@@ -106,12 +108,12 @@ export function LensesMenu(): JSX.Element | null {
   )
 }
 
-const th = `${typography.viewPanelMeta} border-b border-panel-border px-2 py-1.5 text-left font-medium text-text-header`
-const td = `${typography.viewPanelTabular} border-b border-panel-border px-2 py-1.5 align-top`
+const th = `${typography.viewPanelMeta} border-b border-panel-border px-2 py-2.5 text-left font-medium text-text-header`
+const td = `${typography.viewPanelTabular} border-b border-panel-border px-2 py-2.5 align-top`
 
 function Head({ title, tag = null, count = null, onClose }: { title: string; tag?: string | null; count?: string | null; onClose: () => void }): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-panel-border px-3 py-2">
+    <div className="flex items-center justify-between gap-2 border-b border-panel-border">
       <h2 className={`${typography.viewPanelBody} min-w-0 flex-1 font-medium text-text-header`}>{title}</h2>
       {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
       {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
@@ -174,7 +176,7 @@ function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[]
 function FigureList({ view, ids }: { view: View; ids: ReadonlyMap<string, readonly { id: string; heading: string }[]> }): JSX.Element {
   const model = view.model!
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-3">
       {[...ids].map(([id, options]) => {
         const c = model.cards.find((x) => x.id === id)!
         return (
@@ -204,14 +206,14 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
     title = c?.heading ?? ''
     const words = c?.headline?.text ?? c?.driver?.text ?? null
     body = (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {words === null ? null : <p className={typography.viewPanelMeta}>{words}</p>}
         <p className={typography.viewPanelMeta}>Cards this option sets, what each leads to, and what it rests on.</p>
       </div>
     )
   } else if (layer === 'sensitivity') {
     body = (
-      <div className="space-y-2">
+      <div className="space-y-3">
         {model.run !== null ? <Hover as="p" className={typography.viewPanelMeta} words={model.run.sensitivity.title}>{model.run.sensitivity.text}</Hover> : null}
         {model.cards.filter((c) => c.driver != null && c.status === null).map((c) => <p key={c.id} data-layer-row={c.id}><span className="text-text-header">{c.heading}</span><br /><Hover words={c.driver!.title}>{c.driver!.text}</Hover></p>)}
       </div>
@@ -228,14 +230,14 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
     const e = evidenceOf(view)
     const by = (b: Basis) => figureCards(model).filter((c) => e.basis.get(c.id) === b)
     body = (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <p className={typography.viewPanelMeta} data-testid={`${LENSES_TESTID}-evidence-summary`}>{e.grounded} of {e.figures} figures rest on supporting evidence.{e.challenged > 0 ? ` ${e.challenged} ${e.challenged === 1 ? 'is' : 'are'} challenged by evidence.` : ''}{e.olumiLinks > 0 ? ` ${e.olumiLinks} links carry Olumi’s direction.` : ''}</p>
         {BASIS_ORDER.map((b) => {
           const items = by(b)
           return items.length === 0 ? null : (
-            <section key={b} data-basis={b}>
+            <section key={b} data-basis={b} className="space-y-2">
               <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`}>{BASIS_LABEL[b]}</h3>
-              <ul>{items.map((c) => { const id = c.id; return <li key={id} data-layer-row={id}>{c.heading}{c.author != null ? <Hover className={`${typography.viewPanelMeta} ml-2 ${b === 'assumed' ? 'text-info' : b === 'challenged' ? 'text-text-header' : ''}`} words={c.author.title}>{c.author.text}</Hover> : null}</li> })}</ul>
+              <ul className="space-y-3">{items.map((c) => { const id = c.id; return <li key={id} data-layer-row={id}>{c.heading}{c.author != null ? <Hover className={`${typography.viewPanelMeta} ml-2 ${b === 'assumed' ? 'text-info' : b === 'challenged' ? 'text-text-header' : ''}`} words={c.author.title}>{c.author.text}</Hover> : null}</li> })}</ul>
             </section>
           )
         })}
@@ -244,9 +246,9 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
   }
 
   return (
-    <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
+    <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] space-y-3 overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
       <Head title={title} tag={tag} count={count} onClose={onClose} />
-      <div className="p-3">{body}</div>
+      {body}
     </div>
   )
 }

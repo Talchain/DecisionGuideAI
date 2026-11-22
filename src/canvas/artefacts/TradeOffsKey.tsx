@@ -115,7 +115,7 @@ function LinkPill({ mark }: { mark: RestsOnMark }) {
       data-n={mark.n}
       data-column={mark.column}
       title={restsOnMarkerLabel(mark)}
-      className={`inline-flex h-4 min-w-4 flex-none items-center justify-center rounded-full border px-1 text-[10px] leading-none tabular-nums ${
+      className={`${typography.viewPanelMeta} inline-flex h-4 min-w-4 flex-none items-center justify-center rounded-full border px-1 tabular-nums ${
         isUnsettled(mark.column) ? 'border-info/40 bg-info-light text-text-header' : 'border-panel-border bg-panel text-text-light'
       }`}
     >
@@ -142,10 +142,10 @@ function LinkRow({ edgeId, label, item, mark = null }: { edgeId: string; label: 
   return (
     // The link, then its figure card UNDER it: side by side in the 320px key, the card's buttons squeezed the link's name
     // to a few pixels and ran over it (served 22 Oct, "Also in your model").
-    <li data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={item?.column ?? ''} className="flex flex-col gap-1">
+    <li data-testid={`${TRADE_OFFS_KEY_TESTID}-link`} data-edge={edgeId} data-column={item?.column ?? ''} className="flex flex-col gap-3">
       <button
         type="button"
-        className={`${typography.panelMeta} w-full rounded-lg px-1.5 py-1 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+        className={`${typography.viewPanelMeta} w-full rounded-lg px-1.5 py-2.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
         onClick={() => link?.focus()}
         onMouseEnter={() => { if (link) light.on(link) }}
         onMouseLeave={light.off}
@@ -163,7 +163,7 @@ function LinkRow({ edgeId, label, item, mark = null }: { edgeId: string; label: 
 
 function RouteLinks({ route, marks }: { route: TradeOffRoute; marks: ReadonlyMap<string, RestsOnMark> }) {
   return (
-    <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="space-y-1.5 pb-1 pt-2">
+    <ul data-testid={`${TRADE_OFFS_KEY_TESTID}-links`} className="divide-y divide-panel-border">
       {route.steps.map((step, i) => step.edgeId === null ? null
         : <LinkRow key={step.edgeId} edgeId={step.edgeId} label={`${route.steps[i - 1].label} → ${step.label}`} item={step.link} mark={marks.get(step.edgeId) ?? null} />)}
     </ul>
@@ -175,15 +175,15 @@ function AlsoInModel({ risks, limits }: { risks: readonly ModelRisk[]; limits: r
   if (risks.length === 0 && limits.length === 0) return null
   const line = `${typography.panelBody} px-1.5 text-text-body`
   return (
-    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-also`} className="space-y-1">
-      <h3 className={`${typography.panelMeta} text-text-light`}>{TRADE_OFFS_COPY.alsoInModel}</h3>
-      <ul className="space-y-1.5">
+    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-also`} className="space-y-2">
+      <h3 className={`${typography.viewPanelMeta} text-text-light`}>{TRADE_OFFS_COPY.alsoInModel}</h3>
+      <ul className="space-y-3">
         {risks.flatMap((risk) => risk.links.length === 0
           ? [<li key={risk.id} data-testid={`${TRADE_OFFS_KEY_TESTID}-risk`} className={line}>{risk.label}</li>]
           : risk.links.map(({ toLabel, item }) => <LinkRow key={item.target.id} edgeId={item.target.id} label={`${risk.label} → ${toLabel}`} item={item} />))}
         {limits.map((limit) => (
           <li key={limit.id} data-testid={`${TRADE_OFFS_KEY_TESTID}-limit`} className={line}>
-            {limit.text}<span className={`${typography.panelMeta} block text-text-light`}>{TRADE_OFFS_COPY.limit}</span>
+            {limit.text}<span className={`${typography.viewPanelMeta} block text-text-light`}>{TRADE_OFFS_COPY.limit}</span>
           </li>
         ))}
       </ul>
@@ -203,8 +203,8 @@ function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, mark
 }) {
   if (routes.length === 0) return null
   return (
-    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-group-${effect}`} className="space-y-1">
-      <h3 className={`${typography.panelMeta} flex items-center gap-1 text-text-light`}>
+    <section data-testid={`${TRADE_OFFS_KEY_TESTID}-group-${effect}`} className="space-y-2">
+      <h3 className={`${typography.viewPanelMeta} flex items-center gap-1 text-text-light`}>
         {heading}
         {flag ? (
           <span data-testid={flag.testId} title={flag.text} className="inline-flex text-warning">
@@ -213,17 +213,17 @@ function RouteGroup({ heading, routes, picked, onPick, effect, flag = null, mark
           </span>
         ) : null}
       </h3>
-      <ul className="space-y-1">
+      <ul className="divide-y divide-panel-border">
         {routes.map((route) => {
           const open = route.key === picked
           return (
-            <li key={route.key} className={`rounded-xl border ${open ? 'border-panel-border bg-panel-hover/40' : 'border-transparent'}`}>
+            <li key={route.key} className={open ? 'bg-panel-hover/40' : undefined}>
               <button
                 type="button"
                 data-testid={`${TRADE_OFFS_KEY_TESTID}-route`}
                 data-route={route.key}
                 aria-expanded={open}
-                className={`${typography.panelBody} w-full rounded-xl px-2 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
+                className={`${typography.panelBody} w-full rounded-xl px-2 py-2.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}
                 onClick={() => onPick(open ? null : route.key)}
               >
                 <Chain steps={route.steps} />
@@ -275,7 +275,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p data-testid={`${TRADE_OFFS_KEY_TESTID}-option`} className={`${typography.panelQuestion} text-text-header`}>{option.label}</p>
-          <p className={`${typography.panelMeta} text-text-light`}>
+          <p className={`${typography.viewPanelMeta} text-text-light`}>
             {option.againstLabel ? TRADE_OFFS_COPY.against(option.againstLabel) : TRADE_OFFS_COPY.againstToday}
           </p>
         </div>
@@ -303,7 +303,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
   if (folded) {
     // A legend only for routes that are there: an option with none says why, folded or not (A/B 21 Oct).
     return (
-      <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} data-folded="" className="space-y-2">
+      <div data-testid={TRADE_OFFS_KEY_TESTID} data-option={option.optionId} data-folded="" className="space-y-3">
         {header}
         {empty ?? <p data-testid={`${TRADE_OFFS_KEY_TESTID}-legend`} className={`${typography.panelBody} text-text-body`}>{TRADE_OFFS_COPY.legend(goal)}</p>}
       </div>
@@ -317,7 +317,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
       {empty !== null ? empty : unsorted ? (
         <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.unsorted(goal)} routes={option.routes} picked={pickedRoute} onPick={setPickedRoute} effect="unsorted" />
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-4">
           <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gains(goal)} routes={of('gains')} picked={pickedRoute} onPick={setPickedRoute} effect="gains"
             flag={of('gives_up').length === 0 ? { testId: `${TRADE_OFFS_KEY_TESTID}-nothing-given-up`, text: TRADE_OFFS_COPY.nothingGivenUp } : null} />
           <RouteGroup marks={marks} heading={TRADE_OFFS_COPY.group.gives_up(goal)} routes={of('gives_up')} picked={pickedRoute} onPick={setPickedRoute} effect="gives_up" />
@@ -338,7 +338,7 @@ export function TradeOffsKey({ folded = false }: { folded?: boolean }) {
           {TRADE_OFFS_COPY.ask}
         </button>
       ) : null}
-      <p className={`${typography.panelMeta} text-text-light`}>{TRADE_OFFS_COPY.note(goal)}</p>
+      <p className={`${typography.viewPanelMeta} text-text-light`}>{TRADE_OFFS_COPY.note(goal)}</p>
     </div>
   )
 }
