@@ -18,7 +18,7 @@ export function NotHeldLine({ n, at }: { n: NotHeldOf; at: string }): JSX.Elemen
 export function NotHeldItems({ n, you, at }: { n: NotHeldOf; you: string | null; at: string }): JSX.Element {
   return (
     <section className="ok-stack" aria-label={n.heading} data-testid="view-not-held-items">
-      <ul className="ok-not-held-list">
+      <ul className="m-0 list-none space-y-3 p-0">
         {n.shown.map((s, i) => (
           <li key={i} data-view={`${at}.not_held.shown.${i}`}>
             <span>{s.text}</span>{s.writer === null || s.writer === you ? null : <> <span className="ok-by" data-testid="view-not-held-writer">{s.writer}</span></>}

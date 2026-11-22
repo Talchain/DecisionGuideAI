@@ -83,7 +83,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
     } finally { setSending(false) }
   }
   return (
-    <section className={`${typography.viewPanelBody} space-y-2 rounded-md border border-info/30 bg-panel p-2`} data-testid="view-model-question" aria-label={head} data-asked={i + 1} data-asked-of={n} data-open={open ? '' : undefined}>
+    <section className={`${typography.viewPanelBody} space-y-3 rounded-md border border-info/30 bg-panel p-3`} data-testid="view-model-question" aria-label={head} data-asked={i + 1} data-asked-of={n} data-open={open ? '' : undefined}>
       <p className="sr-only">{head}</p>
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex-none"><OkIcon id="olumi-mark" size={14} decorative /></span>
@@ -100,7 +100,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           onClick={() => { removed.add(setKey); bump((x) => x + 1) }} />
       </div>
       {!open ? null : (
-        <div id="view-question-open" className="space-y-2" data-testid="view-question-open">
+        <div id="view-question-open" className="space-y-3" data-testid="view-question-open">
           {n === 1 ? null : (
             <div className="flex items-center gap-2">
               <span role="group" aria-label="Progress" className="flex items-center gap-1" data-testid="view-question-dashes">

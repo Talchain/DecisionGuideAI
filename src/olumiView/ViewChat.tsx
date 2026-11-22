@@ -373,7 +373,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
           </ReplyLead>
         : leads
         // Codex UI reviewer P1 (shared note 15:35:01Z, DL): a reply with no lead is drawn whole, never folded; only a valid lead's "Full answer" folds.
-        ? <div data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} /></div>
+        ? <div className="space-y-3" data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} /></div>
         : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* P2 (system spec): the reply's own next step is drawn ONCE, here, at the end of the reply; there is no second copy at the top of the panel. */}
@@ -407,7 +407,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     </ReplyFacts>
   )
   return (
-    <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-2">
+    <li data-view-turn={at} data-testid={latest ? 'view-chat-latest' : undefined} className="space-y-4">
       {said}
       {/* K1/K6 (core d903f2af, `chat[].receipt`): why code filled nothing in from this person's answer, served on their own turn only; one quiet line under their words, core's words verbatim. */}
       {t.receipt === undefined ? null : <p className={`${typography.viewPanelMeta} text-text-light m-0`} data-testid="view-receipt" data-receipt={t.receipt.why} data-view={`${at}.receipt`}>{t.receipt.words}</p>}
@@ -428,7 +428,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
 /** The conversation, oldest first, as the View holds it. */
 export function ViewTurns({ chat }: { chat: View['chat'] }) {
   return (
-    <ol className={`${typography.viewPanelBody} space-y-6`} data-testid="view-chat-turns">
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {chat.map((t, i) => <Turn key={t.id} t={t} at={`chat.${i}`} />)}
     </ol>
   )
@@ -478,9 +478,9 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   // A saved message whose reply failed or was lost (core `floor[].unanswered`): their words, then core's own sentence for that job as a quiet
   // line. No reply, no Keep and no Try again here: only the newest turn (`turn`) retries, and it is never also in the floor.
   const un = f.unanswered
-  const text = <section className="space-y-2 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section>
+  const text = <section className="space-y-3 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section>
   return (
-    <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-2">
+    <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-4">
       <div className={`${styles.messageBubbleUser} ok-said`} data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
         {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-testid="view-said-by">{f.by}</p>}
         {f.press === undefined ? <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p> : <PressedLine press={f.press} at={`floor.${f.job}`} />}
@@ -507,7 +507,7 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
   let newestSaved: number | null = null
   for (let i = rows.length - 1; i >= 0 && newestSaved === null; i--) newestSaved = rows[i]!.index
   return (
-    <ol className={`${typography.viewPanelBody} space-y-6`} data-testid="view-chat-turns">
+    <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turns">
       {rows.map((row, position) => {
         const latest = position === rows.length - 1
         if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
@@ -1948,7 +1948,7 @@ export function ViewChat() {
       {/* Only conversation turns live in the thread; supporting panels open at its foot. */}
       <div className="relative flex flex-1 min-h-0 flex-col" data-thread-wrap="">
         <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto px-3 py-4">
-          <div ref={content} className="space-y-6">
+          <div ref={content} className="space-y-4">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}

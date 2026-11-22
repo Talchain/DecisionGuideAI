@@ -63,7 +63,7 @@ export function ChatFootRow({ sources }: { sources: readonly Source[] }): JSX.El
         </div>
       ))}
     </div>
-    {available.length === 0 ? null : <div ref={row} className="shrink-0 overflow-x-auto px-3 py-1" data-testid="view-chat-foot-row">
+    {available.length === 0 ? null : <div ref={row} className="shrink-0 overflow-x-auto px-3 py-2" data-testid="view-chat-foot-row">
       <div className="flex items-center gap-1 whitespace-nowrap">
         {available.map((source) => {
           const label = source.id === 'proposal' && source.count === 1 ? source.label : `${source.label} · ${source.count}`

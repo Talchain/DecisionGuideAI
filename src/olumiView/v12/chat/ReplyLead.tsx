@@ -52,7 +52,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
 export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lead; at: string; big?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; /** Absent or null: there is nothing to fold, so no "Full answer" is drawn. */ children?: ReactNode }) {
   return (
     <>
-      <div className="space-y-2" data-testid="view-reply-lead">
+      <div className="space-y-3" data-testid="view-reply-lead">
         <p className={big ? `group/item m-0 ${typography.viewPanelHeadline} text-text-header` : 'group/item m-0 text-text-header'} data-view={`${at}.lead.opening`} data-reply-opening="">{richText(lead.opening)}</p>
         {lead.points.length === 0 ? null : (
           <ul className="m-0 !list-none !pl-3" data-reply-list="" data-testid="view-reply-lead-points">
@@ -60,7 +60,7 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
           </ul>
         )}
         {lead.actions === undefined || lead.actions.length === 0 ? null : (
-          <ul className="ok-lead-actions" data-testid="view-reply-lead-actions">
+          <ul className="m-0 list-none space-y-3 p-0" data-testid="view-reply-lead-actions">
             {lead.actions.map((a, i) => <ActionLine key={i} a={a} at={`${at}.lead.actions.${i}`} />)}
           </ul>
         )}
@@ -71,7 +71,7 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
       {children == null ? null : (
         <details className="ok-reply-more" data-testid="view-reply-full">
           <summary>{FULL_ANSWER}</summary>
-          <div className="space-y-2" data-testid="view-reply-full-body">{children}</div>
+          <div className="space-y-3" data-testid="view-reply-full-body">{children}</div>
         </details>
       )}
     </>

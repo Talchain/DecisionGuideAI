@@ -19,8 +19,8 @@ export const MORE_ACTIONS = 'More ways to think about this'
 
 const ENABLED_ROW = 'button:not(:disabled):not([aria-disabled="true"])'
 const SECTION = 'py-1.5 first:pt-0 last:pb-0'
-const SECTION_LABEL = `${typography.viewPanelMeta} px-2 py-1 text-text-light`
-const ITEM = 'flex min-h-8 w-full items-start rounded-md px-2 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:text-text-light disabled:cursor-not-allowed aria-disabled:text-text-light aria-disabled:cursor-not-allowed'
+const SECTION_LABEL = `${typography.viewPanelMeta} mb-2 px-2 text-text-light`
+const ITEM = 'flex min-h-8 w-full items-start rounded-md px-2 py-2.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:text-text-light disabled:cursor-not-allowed aria-disabled:text-text-light aria-disabled:cursor-not-allowed'
 const ICON_ROW = `${ITEM} gap-2.5`
 const TOOL_ICONS = { edit_brief: 'brief', review_inputs: 'review-inputs' } as const
 
@@ -118,7 +118,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
           onKeyDown={moveFocus}
           onFocus={(e) => { if (e.target instanceof HTMLButtonElement && e.target.matches(ENABLED_ROW)) setTabStop(e.currentTarget, e.target) }}
           style={place}
-          className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto rounded-xl border border-panel-border bg-panel p-1.5 shadow-lg`}>
+          className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto rounded-xl border border-panel-border bg-panel p-3 shadow-lg`}>
           {/* Core's offer to build a model, first (pair v4 render, 08:3xZ: last in the tools it sat 776 px down an 813 px list, below the fold at 1232, 1.33
               and 2000): the one press that changes what the scenario is, in view on opening, above what the person came for and core's questions. */}
           {build === undefined ? null : (
@@ -145,7 +145,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
               return (
                 <Fragment key={m.id}>
                   {hasFirstRun && index === 0 && <p className={SECTION_LABEL}>{FIRST_FOR_YOUR_GOAL}</p>}
-                  {hasFirstRun && index === firstMore && <p className={`${SECTION_LABEL} mt-1`}>More questions</p>}
+                  {hasFirstRun && index === firstMore && <p className={`${SECTION_LABEL} mt-3`}>More questions</p>}
                   <HoverButton type="button" disabled={held} onClick={() => { setOpen(false); onMethod(m.id) }} words={undefined}
                     className={ICON_ROW} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
                     <OkIcon id={icon} size={16} decorative testid={icon} className="mt-0.5" />

@@ -34,7 +34,7 @@ export function KeptIdeas(): JSX.Element | null {
       <summary className={`${typography.viewPanelHeading} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 text-text-header`} data-testid="view-kept-ideas-summary">
         <OkIcon id="idea-keep" size={14} decorative />{keptIdeasWords(ideas.length)}
       </summary>
-      <ul className="m-0 mt-2 list-none space-y-2 p-0">
+      <ul className="m-0 mt-3 list-none space-y-3 p-0">
         {ideas.map((i) => (
           <li key={i.id} className="flex items-start gap-1.5" data-testid="view-kept-idea" data-idea={i.id}>
             <OkIcon id="idea-keep" size={14} decorative className="mt-0.5" />
