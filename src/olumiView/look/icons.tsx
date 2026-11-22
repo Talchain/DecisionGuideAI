@@ -48,7 +48,7 @@ import {
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   GitBranch, MoveLeft, MoveRight, Spline, Type,
-  ClipboardList, CloudLightning, Dices, GitPullRequestArrow, Goal, KeyRound, LibraryBig, ListOrdered, MessageCircle,
+  ClipboardList, CloudLightning, Dices, Goal, Route, KeyRound, LibraryBig, ListOrdered, MessageCircle,
   MessageCircleMore, PenLine, ScanEye, ShieldQuestion, Signpost, UsersRound,
   type LucideIcon,
 } from 'lucide-react'
@@ -130,7 +130,7 @@ const sessionMethodIcons = {
   'method-have_true': e(KeyRound, 'What needs to be true', '--text-light', 'icon-only', 'olumi-ask'),
   'method-go_wrong': e(CloudLightning, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
   'method-pre_mortem': e(ShieldQuestion, 'Imagine it failed', '--text-light', 'icon-only', 'olumi-ask'),
-  'method-else_do': e(GitPullRequestArrow, 'Explore alternatives', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-else_do': e(Route, 'Explore alternatives', '--text-light', 'icon-only', 'olumi-ask'),
   'method-right_question': e(MessageCircleMore, 'Revisit the question', '--text-light', 'icon-only', 'olumi-ask'),
   'method-push': e(Signpost, 'How options move the aims', '--text-light', 'icon-only', 'olumi-ask'),
   'method-similar': e(LibraryBig, 'Similar situations', '--text-light', 'icon-only', 'olumi-ask'),
