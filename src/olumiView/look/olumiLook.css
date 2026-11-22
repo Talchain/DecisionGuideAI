@@ -54,6 +54,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
 .olumi-look .ok-face {
   display: flex; flex-direction: column; gap: calc(8px * var(--o-s)); color: var(--text-body);
+  margin-top: calc(4px * var(--o-s));
   font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
 /* A figure stated beside a worked-out one (StatedFigure): a quiet status line, as the worked-out value is. */
@@ -458,7 +459,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-mini { position: relative; display: block; height: calc(4px * var(--o-s)); border-radius: 999px; background: var(--border-default); overflow: hidden; }
 .olumi-look .ok-dt-mini > i { display: block; height: 100%; background: var(--text-light); border-radius: 999px; }
 /* An option's other aims: the aim's marker, a mini track, core's value; the aim's name on hover (said on its own card). */
-.olumi-look .ok-dt-aims { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-aims { display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-aim {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(48px * var(--o-s)), 1fr) auto auto; align-items: center;
   column-gap: calc(6px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4; color: var(--text-body);
@@ -467,10 +468,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-aim-val { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .olumi-look .ok-dt-aim[data-aim-row='none'] .ok-dt-aim-val { font-weight: 400; color: var(--text-light); white-space: normal; }
 /* What every option says alike, said once here: core's words. */
-.olumi-look .ok-dt-said { display: grid; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-said { display: grid; gap: calc(8px * var(--o-s)); }
 .olumi-look .ok-dt-said-line { display: flex; align-items: center; gap: calc(6px * var(--o-s)); margin: 0; color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: 1.4; }
 /* The question's rail: the options by letter on one 0..100% scale (quarter ticks), a dot and core's range whisker, core's number at the right. */
-.olumi-look .ok-dt-rail { position: relative; display: grid; gap: calc(6px * var(--o-s)); margin-top: calc(8px * var(--o-s)); max-width: calc(560px * var(--o-s)); }
+.olumi-look .ok-dt-rail { position: relative; display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(8px * var(--o-s)); max-width: calc(560px * var(--o-s)); }
 .olumi-look .ok-dt-rail-row {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(0, 1fr) calc(120px * var(--o-s)); align-items: center;
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
@@ -487,12 +488,12 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-row { grid-template-columns: calc(12px * var(--o-s)) minmax(calc(120px * var(--o-s)), 1fr) calc(260px * var(--o-s)); }
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-axis { right: calc(268px * var(--o-s)); }
 /* A row whose words outrun the words column: the lane keeps its place on the axis and the words go under it, across the rail (never cut). */
-.olumi-look .ok-dt-rail-stack { row-gap: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-rail-stack { row-gap: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-rail-stack .ok-dt-rail-val { grid-column: 2 / -1; grid-row: 2; }
 /* Core's words on a rail row are never cut: they wrap inside their column (no nowrap, no ellipsis, no clipping box; lookRecipes.spec). */
 .olumi-look .ok-dt-rail-val { min-width: 0; font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 /* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
-.olumi-look .ok-dt-strips { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-strips { display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-strip {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(64px * var(--o-s)), 1fr) minmax(0, 55%); align-items: center;
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;

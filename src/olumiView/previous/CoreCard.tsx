@@ -361,7 +361,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // option carries the same qualifier the question's rail says it once (said.ts sharedQualifier) and the card keeps the mark beside the number.
       const qualified = qual !== null && qual !== '' && said.qualifier === null
       return (
-        <Hover as="div" focusable={false} data-core-lead={id} data-ok-face="chance" words={hover}>
+        <Hover as="div" focusable={false} className="flex flex-col gap-2" data-core-lead={id} data-ok-face="chance" words={hover}>
           <p className="ok-chance"><span data-core-lead-clamp={id}>{head ?? h.text}</span>
             {row?.likely == null ? null : <Glyph at={`${id}.likely`} mark={row.likely} className="ok-mark" />}
             {row?.olumi == null || qualified ? null : <span className="ok-dt-num-mark" data-view={`${id}.row.olumi`}><OlumiMark words={row.olumi.title} /></span>}{trail}</p>
@@ -375,7 +375,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // The result leads at its own size; the condition it holds on (core's words after it, whole) is its own quiet line, as a chance's qualifier is.
       const fx = fixedParts(h.text)
       return (
-        <Hover as="div" focusable={false} data-core-lead={id} data-ok-face="fixed" words={hover}>
+        <Hover as="div" focusable={false} className="flex flex-col gap-2" data-core-lead={id} data-ok-face="fixed" words={hover}>
           <p className="ok-fixed"><span data-core-lead-clamp={id}>{fx.head}</span>{trail}</p>
           {/* Two lines at rest: the question's rail says the condition whole (charts.tsx), and it is this line's hover. */}
           {fx.condition === null ? null : <Hover as="p" focusable={false} className="ok-qual ok-two-lines" words={fx.condition} data-view={`${id}.headline.condition`}>{fx.condition}</Hover>}
@@ -391,7 +391,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       const hi = h.aim_id == null ? -1 : card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === h.aim_id)
       const headRow = hi === -1 ? null : { r: card.rows[hi] as Parameters<typeof RowBelow>[0]['r'], i: hi }
       return (
-        <Hover as="div" focusable={false} data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} words={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
+        <Hover as="div" focusable={false} className="flex flex-col gap-2" data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} words={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
           {once ? null : <Hover as="p" focusable={false} className="ok-quiet" words={why} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</Hover>}
           {/* A7(a), Codex 12:08Z: the headline's own aim is drawn here, not in AimRows (otherRows leaves it out), so its typed withheld row's switch
               sentence and input to check are read here, once, at rest under the line. By field (the row whose aim_id is the headline's). */}

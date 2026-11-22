@@ -146,7 +146,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // mark beside the number where the chance rests on Olumi's figures (`rows[].olumi`). No figure is read from the words; none is dropped or reordered.
       const parts = words === null ? null : chanceParts(words), row = headlineChanceRow(card)
       visual = (
-        <Hover as="div" focusable={false} className="min-w-0 basis-full" data-simple-face="gauge" words={h.title !== '' ? h.title : h.text}>
+        <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-2" data-simple-face="gauge" words={h.title !== '' ? h.title : h.text}>
           <ChanceBand card={card} />
           <p className={`${typography.viewValue} min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {parts === null ? `${Math.round(at * 100)}%` : parts.head}
@@ -197,7 +197,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     visual = (
       // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
       // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
-      <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-px" data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+      <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-2" data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.length === 0 ? null : (
           <div className="relative grid gap-px" data-simple-axis={id}>
             {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2" style={{ left: `${axisInfo.goalAt}%`, borderColor: 'var(--goal)' }} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
@@ -268,7 +268,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
-      <Hover focusable={false} words={card.figure?.title || words || undefined} className="min-w-0 basis-full" data-simple-scale={id}>
+      <Hover focusable={false} words={card.figure?.title || words || undefined} className="flex min-w-0 basis-full flex-col gap-1" data-simple-scale={id}>
         {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
         {scale}
       </Hover>
@@ -317,7 +317,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
   return (
     <>
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
       {...(more.length === 0 ? {} : { tabIndex: 0, 'aria-describedby': moreTip.describedBy, ...moreTip.handlers })}>
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
