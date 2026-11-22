@@ -1,8 +1,3 @@
-/**
- * E4 "What you said" (DL 19 Nov; field shape Codex 12:26Z, URL 2), mounted through the real chat panel (ViewChat) and bound to core's typed field
- * `view.intake.figures[]` by source. What a row says about the model is read from `record` alone: an id (in the model, shows that record),
- * null (not in the model yet), "unknown" (no claim).
- */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -13,7 +8,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
 import { useViewStore } from '../../../store'
 import { ViewChat, ViewComposer } from '../../../ViewChat'
-import { CLOSE_INTAKE, NOT_IN_MODEL, OPEN_INTAKE, resetRemovedIntake, SHOW_RECORD, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
+import { resetRemovedIntake, SHOW_RECORD, UNKNOWN, type IntakeFigure } from '../IntakeSheet'
 import { tipOnFocus } from '../../../__tests__/tipHelpers'
 
 vi.mock('../../../../canvas/hooks/useSelectionContext', () => ({ useSelectionContext: () => null }))
@@ -40,132 +35,112 @@ const open = (c: HTMLElement) => act(() => {
   if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip)
   fireEvent.click(q(c, 'view-intake-toggle')!)
 })
-const sentences = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-intake-source]')]
-const marks = (c: HTMLElement) => sentences(c).map((row) => [
-  row.getAttribute('data-intake-source'),
-  row.querySelector('[data-intake-mark]')?.getAttribute('data-intake-mark') ?? null,
-])
+const summary = (c: HTMLElement) => q(c, 'view-intake-summary')?.textContent
+const reviewRows = (c: HTMLElement) => within(q(c, 'view-intake-rows')!)
 
-beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); setTeamFetch((async () => new Response('{}', { status: 201 })) as never); pressed.ids = [] })
-afterEach(() => { cleanup(); resetRemovedIntake() })
-
-describe('E4 What you said (view.intake)', () => {
-  it('folds the sheet at rest and lists sentences with missing figures first, then the rest in brief order', () => {
-    const v = base(), c = mount(withIntake(v, FIGS(v)))
-    expect([q(c, 'view-intake') !== null, q(c, 'view-intake-rows'), q(c, 'view-intake-missing')?.textContent]).toEqual([true, null, `1 ${NOT_IN_MODEL}`])
-    expect(q(c, 'view-chat-foot-intake')).toHaveAttribute('aria-expanded', 'false')
-    expect(q(c, 'view-chat-foot-intake')).toHaveTextContent('3')
-    expect(q(c, 'view-chat-scroll')!.contains(q(c, 'view-intake')!)).toBe(false)
-    open(c)
-    expect(marks(c)).toEqual([['0:30:44', 'absent'], ['brief:4:20', 'present'], ['1:0:18', null]])
-    const [absent, , unknown] = sentences(c)
-    const chip = within(absent!).getByText('Not in your model yet')
-    expect(chip).toHaveClass('border-dashed', 'border-warning', 'text-warning-ink')
-    expect(within(unknown!).getByRole('button')).toHaveAccessibleName('maybe an invented 10%, 1 figure')
-    expect(unknown!.querySelector('[data-intake-mark]')).toBeNull()
-    cleanup()
-    expect(q(mount(v), 'view-intake'), 'CONTRAST: no intake, no sheet').toBeNull()
-  })
-  it('the mark follows the typed record, never the words: the same quotes with records rotated rotate their marks', () => {
-    const v = base(), [a, b, u] = FIGS(v)
-    const c = mount(withIntake(v, [{ ...a!, record: UNKNOWN }, { ...b!, record: v.model!.cards[0]!.id }, { ...u!, record: null }]))
-    open(c)
-    expect(marks(c)).toEqual([['1:0:18', 'absent'], ['brief:4:20', null], ['0:30:44', 'present']])
-  })
-  it('shows the card’s heading, figure text and canvas kind shape, and presses the workspace path with its id', () => {
-    const v = base(), card = v.model!.cards[0]!, c = mount(withIntake(v, FIGS(v)))
-    open(c)
-    const row = sentences(c)[1]!
-    expect(within(row).getByRole('button', { expanded: false })).toBeInTheDocument()
-    const heading = within(row).getByText(card.heading)
-    const chip = heading.closest('button')!
-    expect(chip).toHaveAttribute('data-intake-show', card.id)
-    expect(heading).toHaveClass('line-clamp-1')
-    expect(within(chip).getByText(card.figure!.text)).toBeInTheDocument()
-    expect(chip.querySelector('svg circle')).toHaveAttribute('fill', 'var(--factor)')
-    const sheet = q(c, 'view-intake')!
-    expect(within(sheet).queryByText(/^in your model$/i)).toBeNull()
-    expect(sheet.querySelector('.underline')).toBeNull()
-    fireEvent.click(chip)
-    expect(pressed.ids).toEqual([card.id])
-  })
-  it('previews one line and unfolds the full verbatim quote on press, one sentence at a time', () => {
-    const v = base(), [present, absent] = FIGS(v)
-    const quote = 'We can handle 40 a week.\n  Only if both people are here.'
-    const c = mount(withIntake(v, [{ ...present!, quote }, absent!]))
-    open(c)
-    const [missingRow, presentRow] = sentences(c)
-    const preview = within(presentRow!).getByText('We can handle 40 a week.')
-    const toggle = within(presentRow!).getByRole('button', { expanded: false })
-    expect(preview).toHaveClass('line-clamp-1')
-    expect(toggle).toContainElement(preview)
-    expect(presentRow).not.toHaveTextContent('Only if both people are here.')
-    fireEvent.click(toggle)
-    expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    const full = document.getElementById(toggle.getAttribute('aria-controls')!)
-    expect(full?.textContent).toBe(quote)
-    expect(full).toHaveClass('whitespace-pre-wrap')
-    expect(presentRow!.querySelector('[data-intake-show]')).toBeInTheDocument()
-    fireEvent.click(within(missingRow!).getByRole('button', { expanded: false }))
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(full).not.toBeInTheDocument()
-  })
-  it('core dbf5aba7 shape: a figure whose row is not known (source null) shows its words with no claim; CONTRAST: a malformed source is dropped, not guessed', () => {
-    const v = base(), c = mount(withIntake(v, [...FIGS(v), { source: null, quote: 'an invented unplaced 12', unit: null, stated: null, record: UNKNOWN }, { source: { row: -1, start: 0, end: 2 }, quote: 'an invented bad 7', unit: null, stated: null, record: null } as unknown as IntakeFigure]))
-    open(c)
-    expect(marks(c)).toEqual([['0:30:44', 'absent'], ['brief:4:20', 'present'], ['1:0:18', null], ['none:3:an invented unplaced 12', null]])
-    expect(q(c, 'view-intake-missing')?.textContent, 'the dropped row is not counted').toBe(`1 ${NOT_IN_MODEL}`)
-  })
-  it('never before the first model: with no model the sheet is not drawn; CONTRAST: the same intake with a model is', () => {
-    const v = base()
-    expect(q(mount(withIntake({ ...v, model: null } as View, FIGS(v))), 'view-intake')).toBeNull()
-    cleanup()
-    expect(q(mount(withIntake(v, FIGS(v))), 'view-intake')).not.toBeNull()
-  })
-  it('REMOVE: pressed, the sheet is gone, not folded; CONTRAST: the chevron only folds it; a new figure brings it back', () => {
-    const v = base(), c = mount(withIntake(v, FIGS(v)))
-    open(c); open(c)
-    expect([q(c, 'view-intake') !== null, q(c, 'view-intake-rows')]).toEqual([true, null])
-    act(() => { fireEvent.click(q(c, 'view-intake-remove')!) })
-    expect(q(c, 'view-intake')).toBeNull()
-    cleanup()
-    const more = [...FIGS(v), { source: at(2, 0, 9), quote: 'an invented third figure of 5', unit: null, stated: null, record: null }]
-    expect(q(mount(withIntake(v, more)), 'view-intake'), 'a new figure is a new list').not.toBeNull()
-  })
-  it('groups figures by sentence and source row, deduplicates card and missing chips, and counts every figure', () => {
-    const v = base(), id = v.model!.cards[0]!.id, one = { unit: null, stated: null } as const
-    const same = 'an invented question sentence'
-    const figs: IntakeFigure[] = [
-      { ...one, source: at(0, 0, 4), quote: same, record: null }, { ...one, source: at(0, 5, 9), quote: same, record: null }, { ...one, source: at(0, 10, 14), quote: same, record: id },
-      { ...one, source: at(0, 15, 19), quote: same, record: id },
-      { ...one, source: at(1, 0, 4), quote: same, record: null },
-    ]
-    const c = mount(withIntake(v, figs))
-    expect(q(c, 'view-intake-missing')?.textContent).toBe(`3 ${NOT_IN_MODEL}`)
-    open(c)
-    const rows = sentences(c)
-    expect(rows.map((row) => row.getAttribute('data-intake-source'))).toEqual(['0:0:4', '1:0:4'])
-    expect(within(rows[0]!).getByRole('button', { name: `${same}, 4 figures` })).toBeInTheDocument()
-    expect(within(rows[1]!).getByRole('button', { name: `${same}, 1 figure` })).toBeInTheDocument()
-    expect(within(rows[0]!).getAllByText('Not in your model yet')).toHaveLength(1)
-    expect(rows[0]!.querySelectorAll(`[data-intake-show="${id}"]`)).toHaveLength(1)
-    expect(rows[1]!.querySelector('[data-intake-show]')).toBeNull()
-  })
+beforeEach(() => {
+  useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+  setTeamFetch((async () => new Response('{}', { status: 201 })) as never)
+  pressed.ids = []
+})
+afterEach(() => {
+  cleanup()
+  resetRemovedIntake()
+  setTeamFetch(null)
 })
 
-describe('E4 hover and disclosure (panel system: one Tip, a fold that names its region)', () => {
-  it('the fold toggle and the card chip use the shared Tip on keyboard focus, and the toggle names its rows while they are drawn', async () => {
-    const v = base(), card = v.model!.cards[0]!, c = mount(withIntake(v, FIGS(v)))
-    const toggle = q(c, 'view-intake-toggle')!
-    expect([toggle.hasAttribute('title'), toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')], 'closed: expanded false, nothing named').toEqual([false, 'false', null])
-    expect(await tipOnFocus(toggle)).toBe(OPEN_INTAKE)
+describe('What you said review', () => {
+  it('shows the missing figure count, then opens to the verbatim dashed sentence before the linked card', () => {
+    const v = base(), [present, absent, unknown] = FIGS(v)
+    const quote = 'We can use 3 people.\n  That is the limit for now.'
+    const c = mount(withIntake(v, [present!, { ...absent!, quote }, unknown!]))
+    const foot = q(c, 'view-chat-foot-intake')!
+    expect(foot).toHaveAttribute('aria-expanded', 'false')
+    expect(foot).toHaveTextContent('2')
+    fireEvent.click(foot)
+    const sheet = q(c, 'view-intake')!
+    const toggle = within(sheet).getByRole('button', { name: 'Review', expanded: false })
+    expect(toggle).toHaveClass('bg-success')
+    expect(toggle).not.toHaveAttribute('aria-controls')
+    expect(summary(c)).toBe('1 figure not in your model yet')
+    expect(q(c, 'view-intake-rows')).toBeNull()
+    expect(q(c, 'view-chat-scroll')).not.toContainElement(sheet)
+
+    fireEvent.click(toggle)
+    const rows = reviewRows(c)
+    const gapHeading = rows.getByRole('heading', { name: 'Not in your model yet' })
+    const [gap, linked] = rows.getAllByRole('listitem')
+    expect(gapHeading.compareDocumentPosition(gap!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(gap).toHaveClass('underline', 'decoration-dashed', 'whitespace-pre-wrap')
+    expect(gap?.textContent).toBe(quote)
+    expect(within(gap!).queryByRole('button')).toBeNull()
+    expect(within(linked!).getByRole('button')).toHaveAttribute('data-intake-show', present!.record)
+    expect(rows.queryByText(unknown!.quote)).toBeNull()
+    expect(toggle).toHaveAccessibleName('Hide figures')
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveAttribute('aria-controls', q(c, 'view-intake-rows')!.id)
+    fireEvent.click(toggle)
+    expect(q(c, 'view-intake-rows')).toBeNull()
+  })
+
+  it('counts individual figures, renders one gap per source sentence and shows each card once across sentences', () => {
+    const v = base(), [present, absent] = FIGS(v)
+    const c = mount(withIntake(v, [
+      present!,
+      { ...present!, source: at(1, 0, 8), quote: '40 again here.' },
+      absent!,
+      { ...absent!, source: at(0, 45, 50) },
+      { ...absent!, source: at(2, 30, 44) },
+    ]))
     open(c)
-    const rows = q(c, 'view-intake-rows')!
-    expect(rows.id, 'a unique id, not a fixed one').not.toBe('view-intake-rows')
-    expect([toggle.getAttribute('aria-expanded'), toggle.getAttribute('aria-controls')]).toEqual(['true', rows.id])
-    expect(await tipOnFocus(toggle)).toBe(CLOSE_INTAKE)
-    const present = c.querySelector<HTMLElement>(`[data-intake-show="${card.id}"]`)!
-    expect(present.hasAttribute('title')).toBe(false)
-    expect(await tipOnFocus(present)).toBe(`${SHOW_RECORD}: ${card.heading}`)
+    expect(summary(c)).toBe('3 figures not in your model yet')
+    const rows = reviewRows(c)
+    expect(rows.getAllByText(absent!.quote)).toHaveLength(2)
+    expect(rows.getAllByRole('button')).toHaveLength(1)
+    expect(rows.queryByText(present!.quote)).toBeNull()
+  })
+
+  it('counts linked figures when there are no gaps and opens the card through the existing show path', async () => {
+    const v = base(), card = v.model!.cards[0]!, [present, , unknown] = FIGS(v)
+    const c = mount(withIntake(v, [present!, { ...present!, source: at(2, 0, 8) }, unknown!]))
+    open(c)
+    expect(summary(c)).toBe('2 figures from what you said')
+    const rows = reviewRows(c)
+    expect(rows.queryByRole('heading')).toBeNull()
+    const row = rows.getByRole('button')
+    expect(row).toHaveAttribute('data-intake-show', card.id)
+    expect(within(row).getByText(card.heading)).toBeInTheDocument()
+    expect(within(row).getByText(card.figure!.text)).toHaveClass('text-right', 'tabular-nums')
+    expect(row.querySelector('svg circle')).toHaveAttribute('fill', 'var(--factor)')
+    expect(await tipOnFocus(row)).toBe(`${SHOW_RECORD}: ${card.heading}`)
+    fireEvent.click(row)
+    expect(pressed.ids).toEqual([card.id])
+  })
+
+  it('omits unknown and malformed figures from the sheet and the foot count', () => {
+    const v = base(), [, , unknown] = FIGS(v)
+    const invalid = { ...unknown!, source: at(-1, 0, 2), record: null }
+    const c = mount(withIntake(v, [unknown!, { ...unknown!, source: null }, invalid]))
+    expect(q(c, 'view-chat-foot-intake')).toBeNull()
+    expect(q(c, 'view-intake')).toBeNull()
+  })
+
+  it('offers the review once a model exists', () => {
+    const v = base()
+    expect(q(mount(withIntake({ ...v, model: null } as View, FIGS(v))), 'view-chat-foot-intake')).toBeNull()
+    cleanup()
+    expect(q(mount(withIntake(v, FIGS(v))), 'view-chat-foot-intake')).not.toBeNull()
+  })
+
+  it('removes the sheet and shows it again for a new list of figures', () => {
+    const v = base(), c = mount(withIntake(v, FIGS(v)))
+    open(c)
+    fireEvent.click(q(c, 'view-intake-remove')!)
+    expect(q(c, 'view-intake')).toBeNull()
+    cleanup()
+    const more = [...FIGS(v), { source: at(2, 0, 9), quote: 'an invented third figure of 5', unit: null, record: null }]
+    const next = mount(withIntake(v, more))
+    open(next)
+    expect(q(next, 'view-intake')).not.toBeNull()
   })
 })

@@ -1,17 +1,26 @@
-import { typography } from '../../../styles/typography'
+import { useEffect, useState } from 'react'
+import type { DsKind } from '../../../olumiView/v12/cards/kind'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
 
-export function ThinkingIndicator({ label }: { label?: string | null }) {
+export const DEFAULT_THINKING_KINDS: readonly DsKind[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
+
+export function ThinkingIndicator({ label, kinds }: { label?: string | null; kinds?: readonly DsKind[] }) {
+  const sequence = kinds?.length ? kinds : DEFAULT_THINKING_KINDS
   const reducedMotion = usePrefersReducedMotion()
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    if (reducedMotion || sequence.length < 2) return
+    const timer = setInterval(() => setStep((previous) => previous + 1), 900)
+    return () => clearInterval(timer)
+  }, [reducedMotion, sequence.length])
+
+  const kind = sequence[reducedMotion ? 0 : step % sequence.length]!
   return (
-    <div className="ok-thinking-indicator" data-testid="thinking-indicator">
-      <svg width="16" height="16" viewBox="0 0 12 12" aria-hidden="true">
-        <path
-          className={reducedMotion ? 'ok-thinking-mark ok-thinking-mark-static' : 'ok-thinking-mark ok-thinking-mark-morph'}
-          d="M 6 1 L 11 6 L 6 11 L 1 6 Z"
-        />
-      </svg>
-      {label && <span className={`text-text-light ${typography.chatMeta}`} data-testid="thinking-label">{label}</span>}
-    </div>
+    <span className="ok-thinking-indicator" data-testid="thinking-indicator" data-kind={kind}>
+      <NodeShapeIndicator key={kind} nodeKind={kind} size={14} className={reducedMotion ? undefined : 'ok-thinking-shape'} />
+      {label && <span className="ok-thinking-words" data-testid="thinking-label">{label}</span>}
+    </span>
   )
 }

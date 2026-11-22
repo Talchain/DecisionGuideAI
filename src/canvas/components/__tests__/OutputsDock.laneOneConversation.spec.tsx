@@ -114,7 +114,7 @@ describe('the composer says what is happening', () => {
     expect(screen.queryByTestId('view-chat-turn-wait')).toBeNull()
     await act(async () => { useViewChat.setState({ busy: true }) })
     // P1: the thread's one waiting line (the loader, the words, the seconds) says it, from Send through acceptance.
-    expect(screen.getByTestId('view-chat-turn-wait')).toHaveTextContent('Olumi is thinking…')
+    expect(screen.getByTestId('view-chat-turn-wait')).toHaveTextContent('Olumi is answering')
   })
 
   it('a re-read that fails after a good View says so beside the conversation', async () => {

@@ -93,12 +93,12 @@ describe('Item 14 — SuggestedChips focus ring has offset', () => {
 // ---------------------------------------------------------------------------
 
 describe('Items 15, 16 — Empty-state shapes show light fill and align on row height', () => {
-  it('ThinkingIndicator keeps the single mark in a 16 px slot', async () => {
+  it('ThinkingIndicator draws a single 14 px mark', async () => {
     const { ThinkingIndicator } = await import('../zones/ThinkingIndicator')
     const { container } = render(<ThinkingIndicator />)
     const mark = container.querySelector('[data-testid="thinking-indicator"] > svg')
-    expect(mark?.getAttribute('width')).toBe('16')
-    expect(mark?.getAttribute('height')).toBe('16')
+    expect(mark?.getAttribute('width')).toBe('14')
+    expect(mark?.getAttribute('height')).toBe('14')
   })
 })
 

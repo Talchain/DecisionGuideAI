@@ -90,7 +90,7 @@ export function BriefPanel(): JSX.Element | null {
           )}
           {/* A reply sent from this panel is a turn core holds (the View's `turn`): their words, core's status while it runs, and core's plain
               reason with Try again when it ends unanswered, here where it was sent (the same turn the Olumi tab draws, ViewChat TurnInFlight). */}
-          {view.turn == null ? null : <div ref={turnAt} className="px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight turn={view.turn} me={view.you_id ?? null} /></div>}
+          {view.turn == null ? null : <div ref={turnAt} className="px-3.5 pb-2 pt-1" data-testid="brief-panel-turn"><TurnInFlight view={view} turn={view.turn} me={view.you_id ?? null} /></div>}
         </div>
       )}
     </section>

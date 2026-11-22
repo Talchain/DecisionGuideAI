@@ -19,6 +19,7 @@ import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { Button } from '../components/ui/Button'
 import { ThinkingIndicator } from '../canvas/conversation/zones/ThinkingIndicator'
+import { boardKindsOf } from './boardKindsOf'
 import { useBesideZoom } from './BelowCue'
 import { buildModel, buildOfferOf, stopDraft, tryAgain, useViewChat } from './ViewChat'
 import { OkIcon } from './look/icons'
@@ -95,7 +96,8 @@ function BuildOffer({ offer, secondary }: { offer: { label: string; title: strin
 }
 
 function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): JSX.Element {
-  const brief = useViewStore((s) => s.view?.brief ?? null)
+  const view = useViewStore((s) => s.view)
+  const brief = view?.brief ?? null
   const running = draft.status === 'drafting'
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
@@ -107,9 +109,8 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
   return (
     <div className={secondary ? WRAP_SECONDARY : WRAP} style={secondary ? { left, right } : { right }} data-testid="view-drafting-board" data-draft={draft.status} data-secondary={secondary ? '' : undefined}>
       <div role="status" aria-live="polite" className={`pointer-events-auto space-y-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm ${secondary ? 'max-h-[40vh] max-w-[360px] overflow-y-auto' : early === null ? 'max-w-[420px]' : 'max-h-[80vh] max-w-[560px] overflow-y-auto'}`}>
-        {/* The same mark as the thread's waiting line, above core's drafting words. */}
-        {running ? <div aria-hidden="true" data-testid="view-drafting-loader"><ThinkingIndicator /></div> : null}
         <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
+          {running ? <span aria-hidden="true" data-testid="view-drafting-loader"><ThinkingIndicator kinds={boardKindsOf(view)} /></span> : null}
           <span data-view="draft.words" data-testid="view-drafting-words">{draft.words}</span>
         </p>
         {early === null ? null : <EarlyAnswer text={early} testid="view-drafting-early" />}

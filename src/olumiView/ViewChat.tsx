@@ -69,6 +69,7 @@ import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
 import { Hover, HoverButton } from './look/Hover'
 import { useAnchoredTip } from './look/Tip'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
+import { boardKindsOf } from './boardKindsOf'
 import { IntakeSheet, intakeOf } from './v12/chat/IntakeSheet'
 import { ShowInWorkspace } from './v12/showInWorkspace/ShowInWorkspace'
 import { ICONS, OkIcon, OkIconButton } from './look/icons'
@@ -522,9 +523,8 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
 }
 
 /**
- * A turn Olumi is answering in core, or that ended unanswered (core API v1.28: the View's `turn`). Their words, then core's line verbatim
- * (`turn.words`) as a status, with the seconds since core accepted it (`started`, so a reload counts from the same moment). A failed or lost
- * turn shows core's plain reason and Try again (the same words, a new op). No word here is the page's own but the Try again control.
+ * An in-flight or unanswered turn. Core's status is shown verbatim after acceptance. At five seconds the clock appears, counted from
+ * Send before acceptance and from core's start after it. A failed or lost turn shows core's reason and can offer Try again.
  */
 /** A completed job may also be the newest saved chat row (Codex d9d66e579, ported): match exact fields, never infer failure from prose. */
 export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
@@ -534,7 +534,7 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 }
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
-export function TurnInFlight({ turn, me, shown = false, replyVisible = false }: { turn: NonNullable<View['turn']> | null; me: string | null; shown?: boolean; replyVisible?: boolean }) {
+export function TurnInFlight({ turn, me, view, shown = false, replyVisible = false }: { turn: NonNullable<View['turn']> | null; me: string | null; view?: View | null; shown?: boolean; replyVisible?: boolean }) {
   // `turn` null: the write is in flight and core has not yet accepted it. The SAME mount then carries through acceptance (one loader, one clock,
   // no restart: ViewChat draws it at one place in the thread), with the page's one waiting sentence until core's own words arrive.
   const running = turn === null || turn.status === 'answering'
@@ -558,20 +558,13 @@ export function TurnInFlight({ turn, me, shown = false, replyVisible = false }: 
           : <div className={`${styles.messageBubbleUser} ok-said`}>{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
-        {shown ? null : <div className="ok-waiting" data-testid="view-chat-turn-wait">
-          {running ? <div aria-hidden="true" data-testid="view-chat-turn-loader"><ThinkingIndicator /></div> : null}
-          <p role="status" aria-live="polite" className={`${typography.viewPanelMeta} m-0 ${running ? 'text-text-light' : 'text-text-body'}`}>
-            <span {...(turn === null ? {} : { 'data-view': 'turn.words' })} data-testid="view-chat-turn-words">{turn === null ? THINKING_WORDS : turn.words}</span>
-            {running ? <span aria-hidden="true" className="tabular-nums" data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
+        {shown || replyVisible ? null : (
+          <p role="status" aria-live="polite" className={`${typography.viewPanelBody} m-0 ok-waiting`} data-testid="view-chat-turn-wait">
+            {running ? <span aria-hidden="true" data-testid="view-chat-turn-loader"><ThinkingIndicator kinds={boardKindsOf(view)} /></span> : null}
+            <span {...(turn === null ? {} : { 'data-view': 'turn.words' })} className={running ? 'ok-thinking-words' : 'text-text-body'} data-testid="view-chat-turn-words">{turn === null ? THINKING_WORDS : turn.words}</span>
+            {running && secs >= 5 ? <span aria-hidden="true" className={`${typography.viewPanelMeta} whitespace-nowrap tabular-nums text-text-light`} data-testid="view-chat-turn-seconds"> {secs} s</span> : null}
           </p>
-        </div>}
-        {running && !replyVisible ? (
-          <div className="ok-reply-skeleton" data-testid="view-chat-reply-skeleton" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-        ) : null}
+        )}
         {running || turn === null || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
           : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
@@ -1961,7 +1954,7 @@ export function ViewChat() {
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
             {view === null ? null : <ViewConversation chat={view.chat} floor={floor} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
             {/* P1: ONE waiting mount from Send through acceptance: before core accepts, `turn` is null; the same element then takes core's turn (no remount, so the loader and its seconds never restart). */}
-            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} replyVisible={replyVisible} />}
+            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight view={view} turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} replyVisible={replyVisible} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
@@ -1997,7 +1990,7 @@ export function ViewChat() {
               // The question card draws no method row of its own (batch 2): the composer's one row is the place for a method.
               onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} /> },
         { id: 'kept', label: 'Kept ideas', icon: 'idea-keep', count: keptIdeasOf(view).length, content: <KeptIdeas /> },
-        { id: 'intake', label: 'What you said', icon: 'file-read', count: view?.model == null ? 0 : intakeOf(view).length, content: <IntakeSheet /> },
+        { id: 'intake', label: 'What you said', icon: 'file-read', count: intakeOf(view).length, content: <IntakeSheet /> },
         { id: 'expectation', label: EXPECTATION_WORDS.expect, icon: 'committed', count: savedExpectationCount, content: <CommitFormSlot /> },
       ]} />
     </div>
@@ -2026,7 +2019,7 @@ function ModelNoticeLine() {
 
 // A brief's drafting is said on the board (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
 // While a message is in flight the thread's one waiting line (TurnInFlight) says it: the brand loader, the words and the seconds, from Send through acceptance.
-export const THINKING_WORDS = 'Olumi is thinking…'
+export const THINKING_WORDS = 'Olumi is answering'
 
 /** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
 /** The composer's one sentence once there is something to ask about (V12 boards); the brief's example stays for the first brief. */
@@ -2107,7 +2100,6 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
-        {answering ? <span className="ok-composer-turn-line" data-testid="view-composer-turn-line" aria-hidden="true" /> : null}
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
         <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} useQuiet={useDetailsOpenFor} />
         {/* A challenge waiting for its card says so here, in words (the pressed icon alone is not enough on touch or by keyboard). */}

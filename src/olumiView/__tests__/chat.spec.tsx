@@ -376,7 +376,7 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(localStorage.getItem(`olumi-core-sc:${uuid}`)).toBeNull()
     })
 
-    it('while a brief drafts (core API v1.26), the board says so once in core\'s words with the seconds since core accepted it; the composer holds the sent brief without its instructions and stays usable (a Send is a message, not a second scenario); a message says Olumi is thinking in the composer (PL 4 Nov; Paul 7 Nov)', async () => {
+    it('while a brief drafts (core API v1.26), the board says so once in core\'s words with the seconds since core accepted it; the composer holds the sent brief without its instructions and stays usable (a Send is a message, not a second scenario); a message shows the answering line in the thread (PL 4 Nov; Paul 7 Nov)', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
       vi.setSystemTime(Date.parse('2026-11-08T15:00:05.000Z'))
       try {
@@ -388,7 +388,6 @@ describe('the writes go straight to core, and the View is read again', () => {
         const board = c.querySelector('[data-testid="view-drafting-board"] [role="status"]')!
         expect(board.getAttribute('aria-live')).toBe('polite')
         expect(c.querySelector('[data-view="draft.words"]')?.textContent).toBe('Building the model') // core's words, verbatim
-        // P1 (system spec): the brand loader stands above core's words (it replaced the pulsing dot); the seconds are counted from core's `started`, not from this page.
         expect(board.querySelector('[data-testid="view-drafting-loader"] [data-testid="thinking-indicator"]')).not.toBeNull()
         expect([c.querySelector('[data-testid="view-drafting-words"]')?.textContent, c.querySelector('[data-testid="view-drafting-seconds"]')?.textContent]).toEqual(['Building the model', '5 s'])
         await act(async () => { vi.advanceTimersByTime(3000) })
@@ -403,8 +402,8 @@ describe('the writes go straight to core, and the View is read again', () => {
         useViewChat.setState({ text: '', busy: true })
         useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view: golden('pricing'), error: null, status: 'ready' })
         const m = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>).container
-        // P1: a write in flight with no brief is said by the thread's one waiting line: the loader, the words and the seconds, side by side.
-        expect(m.querySelector('[data-testid="view-chat-turn-wait"] [role="status"]')?.textContent).toBe(`${THINKING_WORDS} 0 s`) // the words and seconds; the wrap also holds the loader's own keyframes
+        expect(m.querySelector('[data-testid="view-chat-turn-wait"][role="status"]')?.textContent).toBe(THINKING_WORDS)
+        expect(m.querySelector('[data-testid="view-chat-turn-seconds"]')).toBeNull()
         expect(m.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
         expect(m.querySelector('[data-testid="view-composer"] [data-testid="thinking-indicator"]')).toBeNull() // not a second one in the composer
         expect(m.querySelector('[data-testid="view-drafting-board"]')).toBeNull()
