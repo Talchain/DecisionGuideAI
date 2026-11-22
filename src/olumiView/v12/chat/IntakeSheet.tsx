@@ -78,7 +78,7 @@ export function IntakeSheet(): JSX.Element | null {
   const records = new Set(rows.flatMap((row) => row.record === null ? [] : [row.record]))
 
   return (
-    <section className={`${typography.viewPanelBody} space-y-2 rounded-md border border-panel-border bg-panel p-2`} data-testid="view-intake" aria-label={INTAKE_HEAD} data-open={open ? '' : undefined}>
+    <section className={`${typography.viewPanelBody} space-y-3 rounded-md border border-panel-border bg-panel p-3`} data-testid="view-intake" aria-label={INTAKE_HEAD} data-open={open ? '' : undefined}>
       <div className="flex items-center gap-2">
         <p className="m-0 min-w-0 flex-1 text-text-body" data-testid="view-intake-summary">{summary}</p>
         <button type="button" aria-expanded={open} aria-controls={open ? rowsId : undefined} data-testid="view-intake-toggle"
@@ -88,13 +88,13 @@ export function IntakeSheet(): JSX.Element | null {
         <OkIconButton id="cancel-close" tone="ghost" testid="view-intake-remove" words={REMOVE_INTAKE} onClick={() => { removed.add(key); bump((x) => x + 1) }} />
       </div>
       {open ? (
-        <div id={rowsId} className="space-y-2 border-t border-panel-border pt-2" data-testid="view-intake-rows">
+        <div id={rowsId} className="space-y-4 border-t border-panel-border pt-3" data-testid="view-intake-rows">
           {quotes.size > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-2">
               <h3 className={`${typography.viewPanelHeading} text-text-header`}>{NOT_IN_MODEL}</h3>
-              <ul className="m-0 list-none space-y-2 p-0">
+              <ul className="m-0 list-none space-y-3 p-0">
                 {[...quotes].map(([source, quote]) => (
-                  <li key={source} className="whitespace-pre-wrap break-words text-text-body underline decoration-dashed decoration-field underline-offset-4">{quote}</li>
+                  <li key={source} className="whitespace-pre-wrap break-words leading-6 text-text-body underline decoration-dashed decoration-field underline-offset-4">{quote}</li>
                 ))}
               </ul>
             </div>
@@ -107,7 +107,7 @@ export function IntakeSheet(): JSX.Element | null {
                 return (
                   <li key={id}>
                     <HoverButton type="button" data-intake-show={id} onClick={() => show(id)} words={card ? `${SHOW_RECORD}: ${heading}` : undefined}
-                      className="flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+                      className="flex w-full items-center gap-2 rounded-md px-1 py-2.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
                       {card ? <NodeShapeIndicator nodeKind={cardDsKindOf(cardKind(card, model, view))} size={14}
                         dashedOutline={isAssumptionShape(cardKindOf(card, model, view).shape)} /> : null}
                       <span className="min-w-0 flex-1 break-words">{heading}</span>
