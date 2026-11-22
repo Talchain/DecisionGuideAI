@@ -25,7 +25,7 @@ import { Hover } from '../look/Hover'
 export const MODEL_SECTION_LABELS = { limits: 'Limits', aimsAndLimits: 'Aims and limits', structure: 'Structural issues', card: 'Model card', audit: 'History of this model', changed: 'Changed in this version', removed: 'Removed' } as const
 
 const uniq = (xs: readonly string[]): string[] => [...new Set(xs)]
-const HEAD = `${typography.viewPanelHeading} m-0 text-text-header`
+const HEAD = `${typography.panelHeader} m-0 text-text-header`
 const LINE = `${typography.viewPanelBody} m-0 break-words text-text-body`
 const QUIET = `${typography.viewPanelMeta} m-0 break-words text-text-light`
 
