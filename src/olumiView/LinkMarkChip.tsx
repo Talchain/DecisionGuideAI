@@ -34,7 +34,7 @@ export const useLineMarked = (i: number, link: Pick<ViewLink, 'holds'>): boolean
 export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; link: ViewLink; path: string; cards: readonly Box[]; midX: number; midY: number }): JSX.Element | null {
   // Drawn once per link, on the first line holding it; on an earlier version nothing is drawn (it is shown as it was, without the dock).
   const mark = useViewStore((s) => (s.at === null ? lineMarkAt(s.view, i, link.holds) : null))
-  const hover = useAnchoredTip(mark === null ? undefined : markHover(mark))
+  const hover = useAnchoredTip(mark === null ? undefined : markHover(mark), 'peek')
   const [size, setSize] = useState({ w: 0, h: 0 })
   const seen = useRef<ResizeObserver | null>(null)
   const chipRef = useRef<HTMLElement | null>(null)
@@ -69,7 +69,7 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
 }
 
 export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
-  const hover = useAnchoredTip(markHover(mark))
+  const hover = useAnchoredTip(markHover(mark), 'peek')
   const people = [...new Map(mark.stances.map((s) => [s.by_id, s.by] as const)).entries()]
   return (
     <>

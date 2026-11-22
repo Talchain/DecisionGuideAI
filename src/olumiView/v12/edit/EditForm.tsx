@@ -184,19 +184,19 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
     <form ref={box} role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
       style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>
-      <div className="min-h-0 space-y-2 overflow-y-auto">
+      <div className="min-h-0 space-y-3 overflow-y-auto">
       <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
       {needsFigure ? (
-        <label className="block space-y-1"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
+        <label className="block space-y-2"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
           <select data-testid="lane-edit-concern" value={values['concern'] ?? ''} disabled={sending} onChange={(e) => set('concern', e.target.value)} className={inputClass}>
             <option value="">{FORM_WORDS.pick}</option>
             {(spec.kind === 'item' ? spec.pickFigure ?? [] : []).map((f) => <option key={f.id} value={f.id}>{f.heading}</option>)}
           </select></label>
       ) : null}
       {fields.map((f, i) => (
-        <label key={f.key} className="block space-y-1"><span className={typography.viewPanelMeta}>{f.label}</span>
+        <label key={f.key} className="block space-y-2"><span className={typography.viewPanelMeta}>{f.label}</span>
           <input ref={i === 0 && !needsFigure ? first : undefined} autoComplete="off" value={values[f.key] ?? ''} disabled={sending} placeholder={f.hint} data-testid={`lane-edit-${f.key}`}
             onChange={(e) => set(f.key, e.target.value)} className={inputClass} /></label>
       ))}

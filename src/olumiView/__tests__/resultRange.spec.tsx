@@ -299,9 +299,9 @@ describe('what the result rests on: core\'s own line for the entry, whatever the
 })
 
 describe('the card keeps its height', () => {
-  it('H1 the track keeps its 3px height and 3px + 2px margins (the band and the mark are out of flow), so the card does not grow by them', () => {
+  it('H1 the track keeps its 3px height and takes no margin of its own (the 8px gap of the face spaces it; the band and the mark are out of flow), so the card does not grow by them', () => {
     const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    expect(css).toMatch(/\.olumi-look \.ok-track \{[^}]*height: 3px;[^}]*margin: calc\(3px \* var\(--o-s\)\) 0 calc\(2px \* var\(--o-s\)\);/)
+    expect(css).toMatch(/\.olumi-look \.ok-track \{[^}]*height: 3px;[^}]*margin: 0;/)
     for (const sel of ['.ok-band', '.ok-mark-chance']) expect(css).toMatch(new RegExp(`\\.ok-track > \\${sel} \\{[^}]*position: absolute;`))
   })
 })

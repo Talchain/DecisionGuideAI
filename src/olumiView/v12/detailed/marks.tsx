@@ -31,7 +31,7 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   const said = [change, b.words || b.face || b.text].filter((x) => x != null && x !== '').join(' ')
   const words = [said, b.title].filter((x) => x != null && x !== '').join('\n')
   return (
-    <Hover as="button" words={words} type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
+    <Hover as="button" words={words} tipSpacing="list" type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
       data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
       <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
       {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}

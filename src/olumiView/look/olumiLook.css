@@ -53,7 +53,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 
 /* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
 .olumi-look .ok-face {
-  display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--text-body);
+  display: flex; flex-direction: column; gap: calc(8px * var(--o-s)); color: var(--text-body);
+  margin-top: calc(4px * var(--o-s));
   font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
 /* A figure stated beside a worked-out one (StatedFigure): a quiet status line, as the worked-out value is. */
@@ -99,7 +100,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-status { color: var(--text-light); }
 .olumi-look .ok-status b { font-weight: 500; color: var(--text-body); }
 /* Whose it is: at the card's foot, Olumi's in Olumi's blue with core's ◆, the person's in body ink; then the count. */
-.olumi-look .ok-foot { margin-top: calc(4px * var(--o-s)); display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-foot { margin-top: calc(4px * var(--o-s)); display: flex; flex-direction: column; gap: calc(8px * var(--o-s)); }
 .olumi-look .ok-by { color: var(--text-body); }
 .olumi-look .ok-by-olumi { color: var(--info); }
 .olumi-look .ok-count { color: var(--text-light); }
@@ -112,21 +113,21 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .react-flow__node [data-testid="anchor-body-rail-beside"]:has(> .ok-face) { padding-right: 0 !important; }
 
 /* Worked steps (slice 2): closed by default, so a card's height on the board is unchanged; each step one line of core's words. */
-.olumi-look .ok-steps > ol { margin-top: calc(4px * var(--o-s)); display: grid; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-steps > ol { margin-top: calc(8px * var(--o-s)); display: grid; gap: calc(12px * var(--o-s)); }
 .olumi-look .ok-steps li { color: var(--text-body); }
 .olumi-look .ok-steps li b { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-step-name { color: var(--text-light); }
 .olumi-look .ok-step-join { color: var(--text-body); font-weight: 500; }
 
 /* An option's limits (slice 3): in the aim's own structure, one quiet line each under the headline. */
-.olumi-look .ok-limits { display: grid; gap: calc(4px * var(--o-s)); }
-.olumi-look .ok-limit { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); color: var(--text-body); }
+.olumi-look .ok-limits { display: grid; gap: calc(12px * var(--o-s)); }
+.olumi-look .ok-limit { display: flex; flex-direction: column; gap: calc(8px * var(--o-s)); color: var(--text-body); }
 .olumi-look p.ok-limit { display: block; }
 .olumi-look .ok-limit b { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-limit-name { color: var(--text-light); }
 
 /* Height (DL-529, the first open at 2000 must stay on the full face): things that can share a line do. */
-.olumi-look .ok-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: calc(10px * var(--o-s)); row-gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-row { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: calc(10px * var(--o-s)); row-gap: calc(8px * var(--o-s)); }
 .olumi-look .ok-row:empty { display: none; }
 .olumi-look .ok-row > .ok-count, .olumi-look .ok-row > p { margin: 0; }
 /* The worked steps open OUTSIDE the card's flow, under their summary (as the figure editor does, D2): the card's height and the board never
@@ -143,7 +144,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   padding: calc(12px * var(--o-s));
 }
 /* R7 (16 Nov): a card whose figure waits draws its working open, IN the card's flow (its height is part of the board's layout), not as a pop-out. */
-.olumi-look .ok-steps.ok-steps-inline[open] > ol { position: static; width: auto; margin: calc(4px * var(--o-s)) 0 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.olumi-look .ok-steps.ok-steps-inline[open] > ol { position: static; width: auto; margin: calc(8px * var(--o-s)) 0 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 
 /* No card's name is clipped (DL-529 for the aim and the question; DL-538 for every card, now the stage narrows the cards: the target
    wraps each name whole at about 145px). */
@@ -171,7 +172,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* A card that carries marks at its foot (the What would change driver, a goal's marks) keeps their row, so no mark sits on its words. */
 .olumi-look .react-flow__node [role='group'][aria-label]:has(> [data-testid*='-bottom-marks-'] > *) { padding-bottom: calc(31px * var(--o-s)) !important; }
 /* An option's chance at true scale: core's number (rows[].chance), no multiplier, no marker, no leader styling. */
-.olumi-look .ok-track { display: block; position: relative; height: 3px; border-radius: 999px; background: var(--border-default); margin: calc(3px * var(--o-s)) 0 calc(2px * var(--o-s)); }
+.olumi-look .ok-track { display: block; position: relative; height: 3px; border-radius: 999px; background: var(--border-default); margin: 0; }
 .olumi-look .ok-track > span { display: block; height: 100%; background: var(--text-light); border-radius: 999px; position: relative; }
 /* Core's range as a band behind the fill and the chance marked on it: both out of flow, so the track keeps its height and margins. An open end
    ("under", "over") runs to the track's end with a squared edge there, never a rounded one that would read as a limit. */
@@ -187,7 +188,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-track[tabindex]:hover > .ok-range-tip, .olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip { display: block !important; }
 .olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-header); border-radius: 999px; }
 /* How much of the result rests on Olumi's estimates against the person's own figures: Olumi's blue, the ink, the rest left as the track. */
-.olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--o-s)); max-width: 100%; text-align: left; }
+.olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(4px * var(--o-s)); max-width: 100%; text-align: left; }
 .olumi-look .ok-share-bar { display: flex; width: 100%; height: 3px; border-radius: 999px; background: var(--border-default); overflow: hidden; }
 .olumi-look .ok-share-bar > i { display: block; height: 100%; }
 .olumi-look .ok-share-olumi { background: var(--info); }
@@ -305,13 +306,13 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* A long headline sentence scrolls inside the card, so the thread keeps its room at 1128. */
 .ok-selected { max-height: 24vh; overflow-y: auto; }
 /* A selected option's explanation (journey 3): what it changes, what it rests on, how the figure it moves is worked out. */
-.ok-explain { display: grid; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--text-body); line-height: 18px; }
-.ok-explain ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; }
-.ok-explain-head { margin: 0 0 4px; font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--text-header); }
+.ok-explain { display: grid; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--text-body); line-height: 18px; }
+.ok-explain ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; }
+.ok-explain-head { margin: 0 0 8px; font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--text-header); }
 .ok-explain-glyph { color: var(--text-light); }
 .ok-explain b { color: var(--text-header); font-weight: 500; }
 .ok-explain .ok-by-olumi { color: var(--info); }
-.ok-explain .ok-steps[open] > ol { position: static; margin: 4px 0 0; padding-left: 12px; }
+.ok-explain .ok-steps[open] > ol { position: static; margin: 8px 0 0; padding-left: 12px; }
 .ok-step-own { background: var(--bg-panel-hover); border-radius: 8px; }
 /* With an option's explanation in it, the selected card takes more of the panel (it still scrolls inside itself). */
 .ok-selected:has([data-testid='selected-explain']) { max-height: 45vh; }
@@ -375,9 +376,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-letter { display: inline-flex; flex: none; align-items: center; line-height: 1; }
 /* The aim's bound in Simple (a quiet outlined pill that may shrink). Assumption, baseline, limit and condition are registry icons (.ok-kind-mark), no longer words. */
 .olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
-.olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(3px * var(--o-s)); min-width: 0; }
+.olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); min-width: 0; }
 /* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
-.olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(6px * var(--o-s)); min-width: 0; }
+.olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(8px * var(--o-s)); min-width: 0; }
 /* Core's words for a gap, whole and wrapped (R6: no word is cut); the long reason is the card's hover. */
 .olumi-look .ok-quiet { margin: 0; color: var(--text-light); overflow-wrap: break-word; }
 .olumi-look .ok-not-held-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-1); }
@@ -458,7 +459,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-mini { position: relative; display: block; height: calc(4px * var(--o-s)); border-radius: 999px; background: var(--border-default); overflow: hidden; }
 .olumi-look .ok-dt-mini > i { display: block; height: 100%; background: var(--text-light); border-radius: 999px; }
 /* An option's other aims: the aim's marker, a mini track, core's value; the aim's name on hover (said on its own card). */
-.olumi-look .ok-dt-aims { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-aims { display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-aim {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(48px * var(--o-s)), 1fr) auto auto; align-items: center;
   column-gap: calc(6px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4; color: var(--text-body);
@@ -467,10 +468,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-aim-val { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .olumi-look .ok-dt-aim[data-aim-row='none'] .ok-dt-aim-val { font-weight: 400; color: var(--text-light); white-space: normal; }
 /* What every option says alike, said once here: core's words. */
-.olumi-look .ok-dt-said { display: grid; gap: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-said { display: grid; gap: calc(8px * var(--o-s)); }
 .olumi-look .ok-dt-said-line { display: flex; align-items: center; gap: calc(6px * var(--o-s)); margin: 0; color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: 1.4; }
 /* The question's rail: the options by letter on one 0..100% scale (quarter ticks), a dot and core's range whisker, core's number at the right. */
-.olumi-look .ok-dt-rail { position: relative; display: grid; gap: calc(6px * var(--o-s)); margin-top: calc(8px * var(--o-s)); max-width: calc(560px * var(--o-s)); }
+.olumi-look .ok-dt-rail { position: relative; display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(8px * var(--o-s)); max-width: calc(560px * var(--o-s)); }
 .olumi-look .ok-dt-rail-row {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(0, 1fr) calc(120px * var(--o-s)); align-items: center;
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
@@ -487,12 +488,12 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-row { grid-template-columns: calc(12px * var(--o-s)) minmax(calc(120px * var(--o-s)), 1fr) calc(260px * var(--o-s)); }
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-axis { right: calc(268px * var(--o-s)); }
 /* A row whose words outrun the words column: the lane keeps its place on the axis and the words go under it, across the rail (never cut). */
-.olumi-look .ok-dt-rail-stack { row-gap: calc(2px * var(--o-s)); }
+.olumi-look .ok-dt-rail-stack { row-gap: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-rail-stack .ok-dt-rail-val { grid-column: 2 / -1; grid-row: 2; }
 /* Core's words on a rail row are never cut: they wrap inside their column (no nowrap, no ellipsis, no clipping box; lookRecipes.spec). */
 .olumi-look .ok-dt-rail-val { min-width: 0; font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 /* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
-.olumi-look .ok-dt-strips { display: grid; gap: calc(4px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
+.olumi-look .ok-dt-strips { display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-strip {
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(64px * var(--o-s)), 1fr) minmax(0, 55%); align-items: center;
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;

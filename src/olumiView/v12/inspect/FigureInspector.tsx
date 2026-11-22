@@ -41,10 +41,10 @@ export function WhatItMoves({ figure }: { figure: string }): JSX.Element | null 
   const rows = model === null ? [] : movesOf(model, figure)
   if (rows.length === 0) return null
   return (
-    <section aria-label={INSPECTOR_WORDS.moves} data-testid="inspector-moves" className="space-y-1.5">
+    <section aria-label={INSPECTOR_WORDS.moves} data-testid="inspector-moves" className="space-y-3">
       <h3 className={`${typography.viewPanelMeta} font-medium text-text-header`}>{INSPECTOR_WORDS.moves}</h3>
       {rows.map((r) => (
-        <div key={r.id} data-moves-option={r.id} className="space-y-1">
+        <div key={r.id} data-moves-option={r.id} className="space-y-2">
           <p className="text-text-header">{r.option}</p>
           {r.high !== null && r.low !== null ? (
             <>{r.now === null ? null : <Bar label={INSPECTOR_WORDS.now} p={r.now} />}<Bar label={INSPECTOR_WORDS.ifHigh} p={r.high} /><Bar label={INSPECTOR_WORDS.ifLow} p={r.low} /></>
@@ -79,7 +79,7 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
     } finally { setBusy(false) }
   }
   return (
-    <form className="grid gap-1" data-testid="inspector-your-figure" onSubmit={(e) => { e.preventDefault(); void save() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
+    <form className="grid gap-2" data-testid="inspector-your-figure" onSubmit={(e) => { e.preventDefault(); void save() }} onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation() }}>
       <Hover as="label" focusable={false} {...{ htmlFor: `inspector-figure-${card.id}` }} className={`${typography.viewPanelMeta} font-medium text-text-header`} words={edit.ask}>{INSPECTOR_WORDS.yourFigure}: {edit.prompt}</Hover>
       <input id={`inspector-figure-${card.id}`} data-testid="inspector-figure-typed" autoComplete="off" spellCheck={false} value={typed} disabled={busy}
         onChange={(e) => { setTyped(e.target.value); if (note !== null) setNote(null) }}

@@ -91,18 +91,18 @@ function Committed({ card }: { card: string }): JSX.Element | null {
   )
 }
 
-function Connections({ card }: { card: ViewCard }): JSX.Element | null {
+function Connections({ card, peek }: { card: ViewCard; peek: boolean }): JSX.Element | null {
   const model = useViewStore((s) => s.view?.model ?? null)
   const edges = useCanvasStore((s) => s.edges)
   const groups = useMemo(() => (model === null ? [] : connectionsOf(model, card, edges)), [model, card, edges])
   if (groups.length === 0) return null
   return (
-    <dl className="m-0 space-y-1.5" data-testid="lane-inspector-connections">
+    <dl className={`m-0 ${peek ? 'space-y-4' : 'space-y-3'}`} data-testid="lane-inspector-connections">
       {groups.map((g) => (
         <div key={g.heading} className={row} data-connections={g.heading}>
           <dt className={rowLabel}>{g.heading}</dt>
           <dd className="m-0 min-w-0">
-            <ul className="m-0 list-none space-y-0.5 p-0">
+            <ul className={`m-0 list-none p-0 ${peek ? 'space-y-3' : 'space-y-2'}`}>
               {g.items.map((i) => (
                 <li key={i.id} className="flex items-start gap-1.5 text-text-body" data-connected={i.id} data-connected-kind={i.kind}>
                   <NodeShapeIndicator nodeKind={i.kind} size={10} className="mt-1 flex-none" /><span className="min-w-0 break-words">{i.name}</span>
@@ -149,7 +149,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
   if (target === null || (card === null && link === null)) return null
-  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-2 overflow-hidden`
+  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-3 overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => (
     <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
@@ -162,7 +162,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         <h2 className={`${typography.panelHeader} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{link.title}</h2>
         {closeX}
       </div>
-      <div className="min-h-0 space-y-2 overflow-y-auto">
+      <div className="min-h-0 space-y-3 overflow-y-auto">
         {link.size === undefined ? null : <Hover as="p" className="m-0 text-text-body" words={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</Hover>}
         <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size?.edit ?? null, subject: link.size?.text ?? '' }} />
         {link.causal?.author == null ? null : <Hover as="p" className={`${typography.viewPanelMeta} m-0 text-text-light`} words={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</Hover>}
@@ -209,7 +209,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className={`${typography.panelHeader} break-words text-text-header`} data-testid="lane-inspector-title">{c.heading}</h2>
-          <p className={`${typography.viewPanelMeta} m-0 mt-0.5 flex flex-wrap items-center gap-1.5 text-text-light`} data-testid="lane-inspector-kind">
+          <p className={`${typography.viewPanelMeta} m-0 mt-2 flex flex-wrap items-center gap-1.5 text-text-light`} data-testid="lane-inspector-kind">
             <NodeShapeIndicator nodeKind={kind} size={10} />{kindWord}
             {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={14} decorative /></span>}
             {/* Whose the card is. Where the value's own source is this same line (a quantity's figure), it is said once, beside the value. */}
@@ -219,14 +219,14 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         </div>
         {pinned ? closeX : null}
       </div>
-      <div className="min-h-0 space-y-2 overflow-y-auto">
-        {/* 2. Value and whose it is; pinned, what it rests on, its chart, the one editor and what it moves. */}
+      <div className={`min-h-0 overflow-y-auto ${pinned ? 'space-y-3' : 'space-y-4'}`}>
+        {/* 2. Value and whose it is; pinned, what it rests on, its chart and the one editor. */}
         {value === null ? null : (
           <div className={row} data-testid="lane-inspector-value">
             <span className={rowLabel}>{BOX_WORDS.value}</span>
             <div className="min-w-0 break-words">
               {perOption === null ? <span className="text-text-header" data-testid="lane-inspector-figure">{value.text}</span> : (
-                <ul className="m-0 list-none space-y-0.5 p-0 text-text-header" data-testid="lane-inspector-figure">
+                <ul className="m-0 list-none space-y-3 p-0 text-text-header" data-testid="lane-inspector-figure">
                   {perOption.map((o) => (
                     <li key={o.option} data-option-value={o.option} data-option-withheld={o.withheld || undefined}>
                       {o.heading === '' ? null : `${o.heading}: `}<span className={o.withheld ? 'text-text-light' : undefined}>{o.text}</span>
@@ -249,25 +249,27 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
             {option && c.headline?.add != null && c.headline.add !== '' ? <p className="m-0 whitespace-pre-wrap break-words text-text-body" data-testid="lane-inspector-add">{c.headline.add}</p> : null}
             {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(c, r)}</div>}
             {c.figure === null ? null : <ValueRow key={c.id} item={{ kind: 'card', id: c.id, edit: c.figure.edit ?? null, subject: c.heading, olumis: isOlumis(c) }} />}
-            {c.figure === null ? null : <WhatItMoves figure={c.id} />}
           </>
         )}
-        {/* 3. A commitment. 4. Where the team differs. 5. What it is connected to. */}
-        {option ? <Committed card={c.id} /> : null}
-        <WhereYouDiffer card={c.id} peek={!pinned} open={section === 'differ'} />
-        <Connections card={c} />
-        {/* 6. Where it comes from: core's own account, folded. */}
-        {!pinned || !hasFrom ? null : (
-          <details className="space-y-3" data-testid="lane-inspector-from">
-            <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} cursor-pointer text-text-light`}><FoldChevron />{BOX_WORDS.from}</summary>
-            {/* Olumi's own account of what it proposed (its mark is in the header, and the value says whose it is): whole here, in Olumi's blue. */}
-            {olumiSaid === null ? null : <p className="m-0 break-words text-info" data-testid="lane-inspector-source">{olumiSaid}</p>}
-            {c.detail === '' ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-detail">{c.detail}</p>}
-            {figureSaid === null ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-figure-said">{figureSaid}</p>}
-            {also.map((x) => <p key={x} className="m-0 break-words text-text-body" data-testid="lane-inspector-also">{x}</p>)}
-            {view === null ? null : <SelectedExplain view={view} id={c.id} testid="lane-inspector-explain" />}
-          </details>
-        )}
+        <div className="space-y-4 empty:hidden">
+          {!pinned || c.figure === null ? null : <WhatItMoves figure={c.id} />}
+          {/* 3. A commitment. 4. Where the team differs. 5. What it is connected to. */}
+          {option ? <Committed card={c.id} /> : null}
+          <WhereYouDiffer card={c.id} peek={!pinned} open={section === 'differ'} />
+          <Connections card={c} peek={!pinned} />
+          {/* 6. Where it comes from: core's own account, folded. */}
+          {!pinned || !hasFrom ? null : (
+            <details className="space-y-3" data-testid="lane-inspector-from">
+              <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} cursor-pointer py-2.5 text-text-light`}><FoldChevron />{BOX_WORDS.from}</summary>
+              {/* Olumi's own account of what it proposed (its mark is in the header, and the value says whose it is): whole here, in Olumi's blue. */}
+              {olumiSaid === null ? null : <p className="m-0 break-words text-info" data-testid="lane-inspector-source">{olumiSaid}</p>}
+              {c.detail === '' ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-detail">{c.detail}</p>}
+              {figureSaid === null ? null : <p className="m-0 break-words text-text-body" data-testid="lane-inspector-figure-said">{figureSaid}</p>}
+              {also.map((x) => <p key={x} className="m-0 break-words text-text-body" data-testid="lane-inspector-also">{x}</p>)}
+              {view === null ? null : <SelectedExplain view={view} id={c.id} testid="lane-inspector-explain" />}
+            </details>
+          )}
+        </div>
       </div>
       {/* 7. One row of actions, outside the scrolling body so it is never cut off. */}
       {!pinned ? null : (

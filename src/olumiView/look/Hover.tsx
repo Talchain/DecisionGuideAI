@@ -13,10 +13,11 @@
  * `HoverButton` is `Hover as="button"`. `GlyphMark` is core's mark (glyph and title) drawn as an image named by its title.
  */
 import type { ButtonHTMLAttributes, ElementType, HTMLAttributes, ReactNode } from 'react'
-import { useAnchoredTip } from './Tip'
+import { useAnchoredTip, type TipSpacing } from './Tip'
 
 type HoverProps = {
   words: string | undefined | null
+  tipSpacing?: TipSpacing
   as?: ElementType
   focusable?: boolean
   disabled?: boolean
@@ -24,11 +25,11 @@ type HoverProps = {
   children?: ReactNode
 } & HTMLAttributes<HTMLElement> & { [k: `data-${string}`]: string | number | boolean | undefined }
 
-export function Hover({ words, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
+export function Hover({ words, tipSpacing, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
   const As: ElementType = as
   const isButton = as === 'button'
   const has = words !== undefined && words !== null && words !== ''
-  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(has ? words : undefined)
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(has ? words : undefined, tipSpacing)
   const props: Record<string, unknown> = { ...rest }
   if (isButton && disabled === true) props['aria-disabled'] = true
   if (onClick !== undefined || has || isButton) {
@@ -65,7 +66,7 @@ export function Hover({ words, as = 'span', focusable = true, disabled, children
 }
 
 /** A labelled button with a hover: the button keeps its own look and name; the words come through the one Tip instead of a native title. */
-export function HoverButton({ words, ...rest }: { words: string | undefined | null } & ButtonHTMLAttributes<HTMLButtonElement>): JSX.Element {
+export function HoverButton({ words, ...rest }: Pick<HoverProps, 'words' | 'tipSpacing'> & ButtonHTMLAttributes<HTMLButtonElement>): JSX.Element {
   return <Hover as="button" words={words} {...(rest as Omit<HoverProps, 'words' | 'as'>)} />
 }
 

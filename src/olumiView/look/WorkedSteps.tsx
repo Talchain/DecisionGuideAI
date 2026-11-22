@@ -92,7 +92,7 @@ function CoreWorked({ card, worked, option, mine, open, inline }: { card: ViewCa
   return (
     <details className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${card.id}.worked`} data-worked-form={worked.form} open={open}>
       <Hover as="summary" words={WORKED_OUT} focusable={false}><span>{WORKED_OUT}</span></Hover>
-      <ol>
+      <ol className="grid gap-3">
         {worked.steps.map((s, i) => {
           const row = option === undefined ? null : s.figure.options.find((o) => o.option === option) ?? null
           const fig = row ?? s.figure, editId = row?.id ?? s.id
@@ -130,7 +130,7 @@ export function WorkedSteps({ view, id, mine, option, open, inline }: { view: Vi
       {worked.map(({ relation, steps }) => (
         <details key={relation.id} className={`ok-steps nodrag nowheel ${inline ? 'ok-steps-inline' : ''}`} data-view={`${id}.worked.${relation.id}`} open={open}>
           <Hover as="summary" words={relation.label} focusable={false}><span>{relation.label}</span></Hover>
-          <ol>
+          <ol className="grid gap-3">
             {steps.map(({ link, from, effectCard }, i) => {
               const effect = (link as { effect?: { text: string; title: string } | null }).effect ?? null
               const base = link.kind === 'plain'
