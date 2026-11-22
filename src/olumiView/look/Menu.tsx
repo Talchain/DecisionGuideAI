@@ -20,7 +20,7 @@ interface MenuBoundary {
 }
 type Look = 'lane' | 'older'
 type Anchor = HTMLElement | VirtualElement | Point
-type Surface = { element: HTMLDivElement; back?: () => void }
+type Surface = { element: HTMLElement; back?: () => void }
 
 interface MenuProps {
   anchor: Anchor
@@ -138,7 +138,7 @@ function MenuSurface({ anchor, label, placement, iconColumn, request, id, back, 
   }, [anchor])
   const overflow = () => ({ boundary: chain.boundary?.rect() ?? 'clippingAncestors' as const, padding: 8 })
   const { refs, x, y, isPositioned } = useFloating({
-    open: true, placement, strategy: 'fixed', elements: { reference },
+    open: true, placement, strategy: 'fixed',
     whileElementsMounted: (ref, menu, update) => {
       const cleanup = autoUpdate(ref, menu, update, { animationFrame: true })
       if (!chain.boundary || typeof ResizeObserver === 'undefined') return cleanup
@@ -165,6 +165,7 @@ function MenuSurface({ anchor, label, placement, iconColumn, request, id, back, 
       })),
     ],
   })
+  useLayoutEffect(() => { refs.setPositionReference(reference) }, [refs, reference])
   const latestBack = useRef(back)
   latestBack.current = back
 

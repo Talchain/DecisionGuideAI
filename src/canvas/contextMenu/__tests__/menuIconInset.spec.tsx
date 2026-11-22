@@ -22,8 +22,8 @@ const target: PaneTarget = { kind: 'pane', screenPos: { x: 10, y: 10 } }
 const row = (id: string, extra: Partial<Extract<MenuEntry, { id: string }>> = {}): MenuEntry => ({ id, label: id, tooltip: id, enabled: true, action: () => undefined, ...extra }) as MenuEntry
 
 describe('lane context menu icons', () => {
-  beforeEach(() => vi.stubEnv('VITE_OLUMI_CORE', '1'))
-  afterEach(() => vi.unstubAllEnvs())
+  beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
+  afterEach(() => { vi.unstubAllEnvs() })
 
   it('an iconless row has the 14 px inset an iconed row\'s icon takes, and the iconed row draws the registry icon at 14 with the one stroke', () => {
     const items: MenuEntry[] = [row('with-icon', { iconId: 'add' }), row('without-icon'), row('with-submenu', { iconId: 'olumi-mark', hasSubmenu: true, submenuItems: [] })]
