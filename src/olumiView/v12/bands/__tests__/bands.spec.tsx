@@ -4,6 +4,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as coreLane from '../../../../olumiCore/lane'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -11,9 +12,9 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { Position, ReactFlow, ReactFlowProvider, type Node } from '@xyflow/react'
 import type { View, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
-import { aimsOf, allOptionCards, causalPlaces, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
+import { aimsOf, allOptionCards, causalPlaces, drawKindOf, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
 import { BANDS, bandLabelOf, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs, type BandId } from '../bands'
-import { bandLabelsOf, labelsAboveFold } from '../BandLayer'
+import { bandKindsOf, bandLabelsOf, labelsAboveFold } from '../BandLayer'
 import { MODEL_GROUP_TITLE } from '../../../../canvas/domain/vocabulary'
 import { extrasOf } from '../extras'
 import { keptIdeasOf } from '../keptIdeas'
@@ -28,6 +29,7 @@ import { tipOf } from '../../../__tests__/tipHelpers'
 import { setGroupOpen, setInputsOpen } from '../foldStore'
 import { groupIdOf } from '../groups'
 import { GroupLinkEdge } from '../GroupLinkEdge'
+import type { FieldCard } from '../../fields/fields'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
@@ -53,7 +55,11 @@ describe('bands: where a card stands', () => {
   })
   it('B2 the band words are the decided chrome', () => {
     expect(Object.values(BANDS).map((b) => b.label)).toEqual(['Options you could take', 'What drives it (uncertain)', 'What happens (worked out)', 'Aims', 'Points raised', 'Kept ideas'])
-    expect(Object.values(BANDS).map((b) => b.shape)).toEqual(['square', 'pill', 'double', 'diamond', 'note', 'idea'])
+    expect(bandKindsOf('options', model)).toEqual(['option'])
+    expect(bandKindsOf('inputs', model)).toEqual(['factor'])
+    expect(bandKindsOf('outcomes', model)).toEqual(expect.arrayContaining(['outcome', 'risk']))
+    expect(bandKindsOf('aims', model)).toEqual(expect.arrayContaining(['goal', 'constraint']))
+    expect(bandKindsOf('ideas', model)).toEqual([])
   })
   it('B2b D5 (17 Nov): the row holding a risk is "Outcomes & risks" (the product\'s own label), never "worked out"; CONTRAST: without the risk it keeps its label', () => {
     expect(bandLabelOf('outcomes', model)).toBe(MODEL_GROUP_TITLE.outcomesRisks)
@@ -63,6 +69,33 @@ describe('bands: where a card stands', () => {
 })
 
 describe('bands: Simple layout', () => {
+  it('uses the studio producer kind for members, with legacy placement only when the key is removed', async () => {
+    vi.spyOn(coreLane, 'isOlumiCoreLane').mockReturnValue(true)
+    const studio = JSON.parse(readFileSync(path.resolve('src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json'), 'utf8')) as View
+    const model = studio.model!
+    const members = model.cards.find((card) => card.id === 'members')! as FieldCard
+    const absent = { ...members }
+    delete absent.kind
+    for (const [card, expectedBand, shape, peer] of [
+      [members, 'outcomes', 'outcome', 'takings'],
+      [absent, 'inputs', 'factor', 'class_fee'],
+      [{ ...members, kind: null }, 'points', 'factor', 'mood_members'],
+    ] as const) {
+      const current = { ...model, cards: model.cards.map((c) => c.id === card.id ? card : c) }
+      const { places } = await placed(current)
+      const labels = bandLabelsOf([...places].map(([id, position]) => ({ id, position })), current)
+      expect(members.kind).toBe('result')
+      expect(bandOf(card, current)).toBe(expectedBand)
+      expect(drawKindOf(card, current)).toBe(shape)
+      expect(bandKindsOf(expectedBand, current)).toContain(shape)
+      const bandTop = labels.find((label) => label.band === expectedBand)!.y
+      expect(places.get(card.id)!.y).toBeGreaterThanOrEqual(bandTop)
+      const next = labels.find((label) => label.y > bandTop)?.y ?? Infinity
+      expect(places.get(card.id)!.y).toBeLessThan(next)
+      expect(bandOf(current.cards.find((c) => c.id === peer)!, current)).toBe(expectedBand)
+    }
+  })
+
   it('B3 aims stand in a row of their own: no aim shares a row with any other card, and the aims are the lowest row', async () => {
     const { y } = await placed(model)
     const aims = aimsOf(model), others = model.cards.map((c) => c.id).filter((id) => !aims.includes(id))

@@ -22,6 +22,7 @@ import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
+import { isDashedCardKind } from '../v12/cards/kind'
 import { OkIcon } from '../look/icons'
 import { FoldChevron } from '../look/FoldChevron'
 import { useAnchoredTip } from '../look/Tip'
@@ -168,7 +169,7 @@ export function ModelCardRow({ card, number, kind, model }: {
     <li data-model-item={card.id}>
       <div data-model-row={card.id} data-open={open} onClick={select}
         className={`group flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-fast hover:bg-panel-hover ${open ? 'ring-1 ring-inset ring-border-emphasis' : ''}`}>
-        <span aria-hidden="true" className="mt-1.5 flex w-4 flex-none justify-center"><NodeShapeIndicator nodeKind={kind} size={11} /></span>
+        <span aria-hidden="true" className="mt-1.5 flex w-4 flex-none justify-center"><NodeShapeIndicator nodeKind={kind} dashedOutline={isDashedCardKind(card)} size={11} /></span>
         <span className="min-w-0 flex-1">
           {editing?.what === 'rename' ? <RenameEditor mine={editing} /> : (
             <span className="flex items-baseline gap-1.5">

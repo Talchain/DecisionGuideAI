@@ -345,14 +345,11 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .react-flow__node:has([data-ok-kind='factor']) { --ok-kc: var(--factor); }
 .olumi-look .react-flow__node:has([data-ok-kind='option']) { --ok-kc: var(--option); }
 .olumi-look .react-flow__node:has([data-ok-kind='goal']) { --ok-kc: var(--goal); }
-.olumi-look .react-flow__node:has([data-ok-kind='decision']) { --ok-kc: var(--text-header); }
+.olumi-look .react-flow__node:has([data-ok-kind='decision']) { --ok-kc: var(--text-light); }
 .olumi-look .react-flow__node:has([data-ok-kind='risk']) { --ok-kc: var(--danger); }
 .olumi-look .react-flow__node:has([data-ok-kind='outcome']) { --ok-kc: var(--success); }
 /* A limit (17 Nov): the constraint kind's grey frame and outlined-square marker, never the goal's yellow diamond. */
 .olumi-look .react-flow__node:has([data-ok-kind='constraint']) { --ok-kc: var(--text-light); }
-/* A condition (C5, 20 Nov; core's `condition` family): neutral, the constraint's grey, never a risk's or a challenge's orange. Orange stays core's own `challenged` field (the card's own
-   class below wins). It follows the kind rules so it overrides the factor hue the board draws it as. */
-.olumi-look .react-flow__node:has([data-ok-condition]) { --ok-kc: var(--text-light); }
 /* The frame is the kind's full hue, 1 px, solid (R2); where the frame says something else (Olumi's blue, challenge orange) the card's own class wins. */
 .olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc); }
 

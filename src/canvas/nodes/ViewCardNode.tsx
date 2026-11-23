@@ -16,12 +16,13 @@ import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
-import { askKindOf, CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
+import { CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
 import { clearWhatIf } from '../../olumiView/whatif'
 import { reducedFaceSize } from '../../olumiView/camera'
 import { ReducedFace } from './ReducedFace'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
+import { isDashedCardKind } from '../../olumiView/v12/cards/kind'
 import { panelSide } from './panelSide'
 import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
@@ -203,7 +204,7 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = askKindOf(card.family), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { reducedPx?: number; tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = drawKindOf(card, null), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { reducedPx?: number; tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
@@ -304,7 +305,7 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
       <p data-view-title={id} className={(card.family === 'option' && card.driver !== null) || (card.family !== 'option' && more) ? 'pr-4' : undefined}>
         <span className="sr-only" data-view={`${id}.glyph`}>{card.glyph}</span>
         {/* J1 gate (the prototype's card): the card's kind as its shape, inline before its heading. */}
-        <span className="mr-1.5 inline-flex align-[-2px] leading-none" aria-hidden="true" data-card-shape={id}><NodeShapeIndicator nodeKind={kind} size={14} /></span>
+        <span className="mr-1.5 inline-flex align-[-2px] leading-none" aria-hidden="true" data-card-shape={id}><NodeShapeIndicator nodeKind={kind} dashedOutline={isDashedCardKind(card)} size={14} /></span>
         {/* Core's detail ("… · quantity · Theirs: …") is its page's hover text, not a line: on the heading, whole (DL 4 Nov, Paul's rule). */}
         {/* FL1 (core `face`): the face's title, said once (their words, Olumi's, or the card's own name); `heading` stays the whole label,
             read by a screen reader where the title is shorter. A core before `face` draws the heading as before. */}
@@ -515,7 +516,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
   // The card's role in core's model (`drawKindOf`): its shape on the canvas, the same on every version.
   const view = useViewStore((st) => st.view)
   const model = view?.model ?? null
-  const kind = model === null ? askKindOf(card.family) : drawKindOf(card, model)
+  const kind = drawKindOf(card, model)
   // While core's View shows a pending proposal, its Run is the proposal's: each Run-derived line says "If approved" (DL ruling, R4).
   const ifApproved = useMemo(() => ifApprovedMarkOf(view), [view])
   // The aims whose shared reason the panel says once for this option (layout.ts sharedAimsOf): its card leaves those rows to it.
@@ -566,7 +567,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
           opacity 0); pointer over the card, focus inside it, selection or Olumi's note about it draws them. */}
       {reducedPx === 0 && (selected === true || noted || near) ? (
         <div data-olumi-controls="">
-          <NodeQuickActions nodeId={id} nodeType={askKindOf(card.family)} label={card.heading} placement="below" alwaysVisible menu={false} />
+          <NodeQuickActions nodeId={id} nodeType={kind} label={card.heading} placement="below" alwaysVisible menu={false} />
         </div>
       ) : null}
       <Slot name={VIEW_CARD_SLOTS.rail} className="absolute left-0 top-full empty:hidden" />

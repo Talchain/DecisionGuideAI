@@ -215,9 +215,21 @@ describe('mounted on the lane: the real route is called', () => {
       context(pane)
       fireEvent.click(await screen.findByRole('menuitem', { name: 'Add' }))
     }
-    const names = ['Figure', 'Option', 'Risk', 'Claim', 'Open question']
+    const suggestions = [
+      ['Figure', 'factor', 'text-factor'],
+      ['Option', 'option', 'text-option'],
+      ['Risk', 'risk', 'text-danger'],
+      ['Claim', 'factor', 'text-factor'],
+      ['Open question', 'factor', 'text-factor'],
+    ] as const
     const figure = await screen.findByRole('menuitem', { name: 'Figure' })
-    expect(within(figure.closest('[role="menu"]')!).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(names)
+    const menu = within(figure.closest('[role="menu"]')!)
+    expect(menu.getAllByRole('menuitem').map((item) => item.textContent)).toEqual(suggestions.map(([name]) => name))
+    for (const [name, kind, colour] of suggestions) {
+      const mark = menu.getByRole('menuitem', { name }).querySelector('svg')
+      expect(mark).toHaveAttribute('data-node-shape', kind)
+      expect(mark).toHaveClass(colour)
+    }
     fireEvent.click(figure)
     expect(screen.getByTestId('lane-edit-form')).toHaveAttribute('data-kind', 'figure-add')
     const label = screen.getByTestId('lane-edit-label')

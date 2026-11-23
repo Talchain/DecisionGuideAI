@@ -50,7 +50,7 @@ import { useLevel } from '../v12/simpleStore'
 import { nextNoteOf } from '../note'
 import { isBaseline, limitLeadOf } from '../v12/contract'
 import { cardDsKindOf, cardKind, cardTitle, firstDraft as firstDraftOf } from '../v12/fields/fields'
-import { cardKindOf, dsKindOf, isAssumptionShape } from '../v12/cards/kind'
+import { cardKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
@@ -209,21 +209,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The card is the one the node carries (canvas.ts drawViewCanvas: core's own card, never a copy), else the View's: one snapshot with the node.
   const carried = (props.data as { card?: ViewCard }).card
   const card = id === QUESTION ? null : carried ?? model?.cards.find((c) => c.id === id) ?? null
-  // On the lane's own canvas the node carries core's card or question (canvas.ts drawViewCanvas), no kind: the kind is the one the board
-  // draws it as (layout.ts drawKindOf), the name core's heading or question, and the width the one the lane's layout placed it at.
+  // Hosted nodes carry Core's record, so the layout can supply the same kind to every face.
   const hosted = (props.data as { kind?: string }).kind === undefined
   const viewNow = useViewStore((s) => s.view)
-  // V12 (canvas rule 5): the card's shape by kind and, for a calculated card, its state: read from the View's structure (v12/cards/kind.ts),
-  // drawn by the look (olumiLook.css, `data-ok-shape` / `data-ok-state`). The option's letter is core's option card order (cards/letters.ts).
+  // The face uses the card's kind and calculation state to decide which details to show.
   const shape = useMemo(() => (card === null ? null : cardKindOf(card, model, viewNow)), [card, model, viewNow])
-  // The design system's kind (shape says what a thing is) feeds the face's shape badge and border hue only (data-ok-kind, olumiLook.css). The
-  // BaseNode keeps the board's own kind: its behaviour (anchor card, far title, missing-threshold overlay) is keyed on it and does not change.
-  const drawKind = id === QUESTION ? 'decision' : card !== null && model !== null ? drawKindOf(card, model) : 'factor'
+  // The lane uses its layout kind for BaseNode's behaviour, the connector glyph at every zoom and the frame hue.
+  const drawKind = id === QUESTION ? 'decision' : card !== null ? drawKindOf(card, model) : 'factor'
   const kind = ((props.data as { kind?: string }).kind ?? drawKind) as NodeType
-  // D4: the kind is core's (`card.kind`, fields.ts cardKind; today's rule where an older core sends none), drawn in the design system's kinds.
-  // A limit (core's `card.aim` 'limit', else its family: fields.ts aimOf) is a line to stay within, never a goal: its own mark and frame (DL, 17 Nov).
-  const coreKind = card === null ? null : cardKind(card, model, viewNow)
-  const dsKind = coreKind === null ? dsKindOf(null, drawKind) : cardDsKindOf(coreKind)
+  const dsKind = isOlumiCoreLane() || card === null ? drawKind : cardDsKindOf(cardKind(card, model, viewNow))
   const width = (props.data as { width?: number }).width
   const olumiLook = hosted && isOlumiCoreLane()
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
@@ -471,10 +465,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
         // date and the chance sentence are the panel's, the date also its hover.
-        ? <Hover as="div" focusable={false} className="ok-face" data-ok-family="question" words={question?.decide_by?.text}>{findingLine}{badgeLine}{earlierLine}</Hover>
+        ? <Hover as="div" focusable={false} className="ok-face" data-ok-kind="decision" data-ok-family="question" words={question?.decide_by?.text}>{findingLine}{badgeLine}{earlierLine}</Hover>
         // Detailed (17 Nov): the options' chances on one rail by letter (each option's name is said on its own card), what every option says alike
         // said once, and the date, the folded notes and the saved results as marks on one row.
-        : <div className="ok-face" data-ok-family="question" data-ok-detailed="">
+        : <div className="ok-face" data-ok-kind="decision" data-ok-family="question" data-ok-detailed="">
             {findingLine}
             <Rail qualifier={said.qualifier} />
             <SaidOnce lines={said.question} at="question" />

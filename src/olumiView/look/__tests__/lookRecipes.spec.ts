@@ -51,11 +51,9 @@ describe("the look's recipes, each written once", () => {
     expect([...new Set(css.match(/--o-[a-z-]+/g) ?? [])]).toEqual(['--o-s'])
     expect(css.match(/rgba?\(|#[0-9a-fA-F]{3,8}\b/g)).toBeNull()
   })
-  it('C5 a condition card\'s frame hue is the neutral grey, set after the kind rules so it wins, and never an orange; C7 the pencil is hidden at rest only for the other actions, and a pinned box still hides it', () => {
-    const order = rules.map((r) => r.selectors.join(','))
-    const cond = rules.find((r) => r.selectors.some((x) => x.includes('[data-ok-condition]')))!
-    expect(cond.body.trim()).toBe('--ok-kc: var(--text-light);')
-    expect(order.indexOf(cond.selectors.join(','))).toBeGreaterThan(order.findIndex((x) => x.includes("[data-ok-kind='constraint']")))
+  it('the frame uses the DS kind hue for notes and conditions; C7 the pencil is hidden at rest only for the other actions, and a pinned box still hides it', () => {
+    expect(rules.find((r) => r.selectors.some((x) => x.includes("[data-ok-kind='factor']")))?.body.trim()).toBe('--ok-kc: var(--factor);')
+    expect(rules.some((r) => r.selectors.some((x) => x.includes('[data-ok-condition]')))).toBe(false)
     const hide = rules.find((r) => r.selectors.some((x) => x.includes('[data-card-action]:not(')))!
     expect(hide.selectors.some((x) => x.includes('[data-card-edit-cue]'))).toBe(true)
     const pinned = rules.find((r) => r.selectors.some((x) => x.includes("data-state='pinned'") && x.includes('[data-card-action]')))!

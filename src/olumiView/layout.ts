@@ -18,6 +18,8 @@ import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW,
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { cardDsKindOf, cardKind, declaredCardKind, type FieldCard } from './v12/fields/fields'
 
 /** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
 export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
@@ -694,7 +696,7 @@ export const FAMILY_ROW_GAP = 32
  *  5 aims and limits (drawn beside the question instead, `flankHead`). */
 export const familyTierOf = (c: ViewCard, model: ViewModel): number => {
   const k = drawKindOf(c, model)
-  return k === 'option' ? 1 : isDriver(c, model) ? 2 : k === 'outcome' || k === 'risk' ? 4 : k === 'goal' || k === 'constraint' ? 5 : 3
+  return k === 'option' ? 1 : k === 'factor' && isDriver(c, model) ? 2 : k === 'outcome' || k === 'risk' ? 4 : k === 'goal' || k === 'constraint' ? 5 : 3
 }
 /** On an option card, the row index of its first chance (drawn as the big line, the previous PoC's face); -1 when it has none. */
 export const leadChanceIndex = (card: ViewCard): number => (card.family === 'option' ? card.rows.findIndex((r) => r.kind === 'chance') : -1)
@@ -840,8 +842,8 @@ export const worthLinesOf = <T extends { kind: string }>(science: readonly T[]):
  * figure core works out from others (a `through` link arrives at it) is an outcome, any other figure a factor; the rest as `askKindOf`.
  * Never by whether it can be edited now: core withdraws every edit while a proposal is held and on a past version (R1 P1).
  */
-export const drawKindOf = (c: ViewCard, model: ViewModel): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' => {
-  if (c.family !== 'quantity') return askKindOf(c.family)
+export const legacyDrawKindOf = (c: ViewCard, model: ViewModel | null): 'factor' | 'outcome' | 'risk' | 'goal' | 'option' | 'constraint' => {
+  if (model === null || c.family !== 'quantity') return askKindOf(c.family)
   // R24 (core 0a5f8e69: options → drivers → outcome → aim): a figure the options set is a driver, drawn as a factor in its own row; the
   // figures the drivers feed are the outcomes the aims read. No board before R24 has a driver (every golden and real fixture), so for
   // those the rule is the one before: a figure a `through` link arrives at is worked out from others, an outcome.
@@ -849,6 +851,21 @@ export const drawKindOf = (c: ViewCard, model: ViewModel): 'factor' | 'outcome' 
   if (model.links.some((l) => l.to === c.id && l.kind === 'through')) return 'outcome'
   return model.links.some((l) => l.to === c.id && isDriverId(l.from, model)) ? 'outcome' : 'factor'
 }
+/** The rendered kind also feeds Detailed layout, the Model outline and the canvas context target. */
+export function drawKindOf(card: ViewCard, model: ViewModel | null): ReturnType<typeof legacyDrawKindOf> {
+  if (!isOlumiCoreLane()) return legacyDrawKindOf(card, model)
+  const kind = declaredCardKind(card)
+  if (kind !== undefined) return cardDsKindOf(cardKind(card, model))
+  const legacy = legacyDrawKindOf(card, model)
+  // Older Views can still distinguish a limit from a goal without changing their band.
+  if (legacy === 'goal' || legacy === 'constraint') {
+    const aim = (card as FieldCard).aim
+    if (aim === 'limit') return 'constraint'
+    if (aim === 'goal') return 'goal'
+  }
+  return legacy
+}
+
 const familyOf = (model: ViewModel, id: string): string | undefined => model.cards.find((c) => c.id === id)?.family
 /**
  * A driver (R24, DL 7 Nov "show drivers"): a figure every `through` link into which comes from an option (the options set it), which feeds
@@ -993,10 +1010,6 @@ export function modelOutlineOf(model: ViewModel, filter: string) {
   const ids: OutlineGroupId[] = [...groups.filter((g) => g.cards.length > 0 || g.id === 'goal' || g.id === 'factors').map((g) => g.id), ...(model.links.length === 0 ? [] : ['relationships' as const])]
   return { searching: needle !== '', groups, links, ids }
 }
-/** The canvas kinds among a group's cards that Outcomes & risks marks (outcome, risk), each once, in the cards' order. */
-export const outcomeRiskKinds = (model: ViewModel, cards: readonly ViewCard[]): ('outcome' | 'risk')[] =>
-  [...new Set(cards.map((c) => drawKindOf(c, model)))].filter((k): k is 'outcome' | 'risk' => k === 'outcome' || k === 'risk')
-
 // ── The Analysis tab's sections (Paul, 6 Nov: the previous PoC's boxed sections; ViewChances.tsx draws them, picking is done only here) ──
 /** How many worth lines "Behind this result" shows before "+N more" holds the rest (the previous PoC's "+3 more"). */
 export const BEHIND_SHOWN = 2

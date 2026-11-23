@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -21,7 +21,7 @@ import { foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/ba
 import { groupLinkTitle } from './v12/bands/GroupLinkEdge'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
-import { FOLD_ID, inputIdsOf } from './v12/bands/bands'
+import { bandOf, FOLD_ID, inputIdsOf } from './v12/bands/bands'
 import { cardGroupsOf, foldActiveNow, foldKeepOf, groupLinksOf, withoutGrouped, type FoldActive, type GroupLink } from './v12/bands/groups'
 import { useWhatIf } from './whatif'
 import { useWhatIfFocus } from './v12/inspect/whatIfFocus'
@@ -79,7 +79,7 @@ let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
 const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
 let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }

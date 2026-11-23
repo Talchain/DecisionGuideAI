@@ -141,11 +141,11 @@ describe('cardKind', () => {
     expect(cardKind(bare, null)).toMatchObject({ kind: 'driver', shape: 'input' })
   })
 
-  it('NULL and UNRECOGNISED: answered as an older core would, and the state says which', () => {
+  it('NULL and UNRECOGNISED: use a neutral kind and record what the key held', () => {
     const card = cardOf(T08, 'annual_rent')
-    expect(cardKind(withFields(card, { kind: null }), T08)).toEqual({ kind: 'result', aim: null, aimSource: null, source: 'inferred', state: 'null', shape: 'calculated' })
-    expect(cardKind(withFields(card, { kind: 'factor' }), T08)).toMatchObject({ kind: 'result', source: 'inferred', state: 'unrecognised' })
-    expect(cardKind(withFields(cardOf(T08, 'f_rent_ask'), { kind: null }), T08).kind, 'CONTRAST: another record').toBe('driver')
+    expect(cardKind(withFields(card, { kind: null }), T08)).toEqual({ kind: 'note', aim: null, aimSource: null, source: 'inferred', state: 'null', shape: null })
+    expect(cardKind(withFields(card, { kind: 'factor' }), T08)).toMatchObject({ kind: 'note', source: 'inferred', state: 'unrecognised', shape: null })
+    expect(cardKind(withFields(cardOf(T08, 'f_rent_ask'), { kind: null }), T08).kind, 'a different family and topology keep the same neutral kind').toBe('note')
   })
 })
 

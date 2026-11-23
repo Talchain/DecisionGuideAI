@@ -26,6 +26,7 @@ import { StrategyHerePill, StrategyViewLines } from './strategy/StrategyViewLine
 import { viewLinesOf } from './strategy/strategy'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { drawKindOf } from './layout'
+import { isDashedCardKind } from './v12/cards/kind'
 import { differencesKey, readDifferences, stepDifference, useDifferences } from '../olumiCore/team/differences'
 import { runWrite } from '../olumiCore/team/writes'
 import { TeamApiError } from '../olumiCore/team/api'
@@ -207,7 +208,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
         <div className="grid gap-0.5">
           <h2 ref={head} tabIndex={-1} className={`${H} flex items-center gap-2 outline-none`} data-testid="reveal-dock-heading">
             {/* The comp's panel: the card's own shape before its name, so the panel reads as that card's. */}
-            {shown === undefined || model == null || (chip?.record !== undefined && chip.record !== shown.id) ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} size={12} /></span>}
+            {shown === undefined || model == null || (chip?.record !== undefined && chip.record !== shown.id) ? null : <span aria-hidden="true" className="inline-flex flex-none" data-reveal-dock-shape=""><NodeShapeIndicator nodeKind={drawKindOf(shown, model)} dashedOutline={isDashedCardKind(shown)} size={12} /></span>}
             {heading}
           </h2>
           <p className={`${META} flex items-center gap-1.5`}><OkIcon id="views" size={14} decorative />{view.reveal_words.revealedTogether}</p>

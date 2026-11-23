@@ -25,12 +25,6 @@ export const IDEA_H = 60, FOLD_H = 44
 const BOARD_TEXT = 'box-border min-h-[var(--band-card-min-height)] text-[length:calc(12px*var(--o-s,1))] leading-[1.5] w-[var(--band-card-width)]'
 /** The product's own count of notes (canvas/nodes/shared/NodeNotesMark). */
 export const notesCount = (n: number): string => `${n} ${n === 1 ? 'note' : 'notes'}`
-/** A grouped kind's marker: the design system's shape for it (cards/kind.ts dsKindOf), a note outlined and dashed as an assumption is. */
-const MARKER: Readonly<Record<CardKindName, { kind: NodeType; dashed: boolean }>> = {
-  driver: { kind: 'factor', dashed: false }, result: { kind: 'outcome', dashed: false }, risk: { kind: 'risk', dashed: false }, note: { kind: 'factor', dashed: true },
-  option: { kind: 'option', dashed: false }, aim: { kind: 'goal', dashed: false }, position: { kind: 'factor', dashed: false },
-}
-
 /** Fixed notation words: who an idea is from and who kept it. The person's name is core's. */
 export const ideaProvenance = (i: KeptIdea): string => `${i.olumis ? "Olumi's idea" : 'An idea'}${i.keptBy === null ? '' : ` · kept by ${i.keptBy.name}`}`
 
@@ -47,7 +41,7 @@ export function IdeaCard({ data }: NodeProps) {
   )
 }
 
-type GroupData = { id: string; kind: GroupKind; kinds: readonly CardKindName[]; words: string | null; hover: string; challenged: number }
+type GroupData = { id: string; kind: GroupKind; kinds: readonly CardKindName[]; marks: readonly { kind: NodeType; dashed: boolean }[]; words: string | null; hover: string; challenged: number }
 export type FoldCardData = { count: number; sid: string | null; width: number; group?: GroupData }
 /** Said on a folded group that holds a challenge (groups.ts challengedIn). */
 export const groupChallenged = (n: number): string => `${n} challenged inside`
@@ -87,15 +81,15 @@ export function FoldCard({ id, data }: NodeProps) {
         {words !== undefined ? <span className="min-w-0 truncate">{words}</span> : null}
         {group.challenged > 0 ? <Hover role="img" focusable={false} data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} words={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></Hover> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
-          {group.kinds.map((k) => <span key={k} className="inline-flex h-[calc(10px*var(--o-s,1))] w-[calc(10px*var(--o-s,1))]"><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
+          {group.marks.map(({ kind, dashed }) => <span key={`${kind}:${dashed}`} className="inline-flex h-[calc(10px*var(--o-s,1))] w-[calc(10px*var(--o-s,1))]"><NodeShapeIndicator nodeKind={kind} dashedOutline={dashed} size={12} className="h-full w-full" /></span>)}
         </span>
       </HoverButton></>
     )
   }
   return (
     <>{handles}<HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
-      words="Show these inputs in place" className={`${BOARD_TEXT} rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body`} style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${FOLD_H}px` } as CSSProperties}>
-      {heading}
+      words="Show these inputs in place" className={`${BOARD_TEXT} inline-flex items-center justify-center gap-1.5 rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body`} style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${FOLD_H}px` } as CSSProperties}>
+      <NodeShapeIndicator nodeKind="factor" size={12} />{heading}
     </HoverButton></>
   )
 }

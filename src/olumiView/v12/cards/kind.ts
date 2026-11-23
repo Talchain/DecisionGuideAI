@@ -1,17 +1,8 @@
-/**
- * V12 card shapes by kind (canvas rule 5, the boards' shape language). Read from the View's structure only, never from its words:
- *  - option: a square-cornered rectangle in the option colour;
- *  - input: an uncertain figure the model takes as given: a rounded pill;
- *  - calculated: a figure worked out from inputs: a double outline, `pending` while it waits on an input (`figure.state` waits) and
- *    `withheld` where core could not calculate it for an option (contract.ts withheldValues);
- *  - aim: an aim or limit: a diamond mark with its label;
- *  - assumption: a dashed pill with its tag;
- *  - risk: a warning-triangle mark;
- *  - other: any other card, drawn as before.
- * "Input with a range" has no field of its own, so every figure that is not calculated is an input, as the boards draw them.
- */
+/** Card face categories and the calculation state the View supplies. Declared kinds take precedence on the Core lane. */
 import type { View, ViewCard, ViewModel } from '../../client'
-import { drawKindOf } from '../../layout'
+import { legacyDrawKindOf } from '../../layout'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { declaredCardKind } from '../fields/fields'
 import { isWorkedOut } from '../../look/WorkedSteps'
 import { withheldValues } from '../contract'
 
@@ -27,17 +18,31 @@ const OPTION = plain('option'), INPUT = plain('input'), AIM = plain('aim'), ASSU
 function isCalculated(card: ViewCard, model: ViewModel | null, view: View | null): boolean {
   if (card.worked != null || card.figure?.state === 'waits') return true
   if (view !== null && isWorkedOut(view, card.id)) return true
-  return model !== null && drawKindOf(card, model) === 'outcome'
+  return legacyDrawKindOf(card, model) === 'outcome'
 }
 
 /** The card's shape, and for a calculated card its state. `view` adds the relation records where the caller has them. */
 export function cardKindOf(card: ViewCard, model: ViewModel | null, view: View | null = null): CardKind {
+  const declared = isOlumiCoreLane() ? declaredCardKind(card) : undefined
+  switch (declared) {
+    case 'option': return OPTION
+    case 'driver': return INPUT
+    case 'result': return calculatedKind(card)
+    case 'aim': return AIM
+    case 'risk': return RISK
+    case 'note': return card.family === 'assumption' ? ASSUMPTION : OTHER
+    case 'position':
+    case null: return OTHER
+  }
   if (card.family === 'option') return OPTION
   if (card.bound != null || card.family === 'goal' || card.family === 'limit') return AIM
   if (card.family === 'assumption') return ASSUMPTION
   if (card.family === 'risk') return RISK
   if (card.family !== 'quantity') return OTHER
-  if (!isCalculated(card, model, view)) return INPUT
+  return isCalculated(card, model, view) ? calculatedKind(card) : INPUT
+}
+
+function calculatedKind(card: ViewCard): CardKind {
   return { shape: 'calculated', state: card.figure?.state === 'waits' ? 'pending' : withheldValues(card).length > 0 ? 'withheld' : 'done' }
 }
 
@@ -69,5 +74,10 @@ export function dsKindOf(shape: CardShape | null | undefined, drawKind?: string 
   }
 }
 
-/** An assumption is unverified: the DS doubt meaning, so its shape outline is dashed. */
+/** An assumption is unverified, so its shape carries a dashed outline. */
+export function isDashedCardKind(card: ViewCard): boolean {
+  const kind = isOlumiCoreLane() ? declaredCardKind(card) : undefined
+  return card.family === 'assumption' && (kind === undefined || kind === 'note')
+}
+
 export const isAssumptionShape = (shape: CardShape | null | undefined): boolean => shape === 'assumption'

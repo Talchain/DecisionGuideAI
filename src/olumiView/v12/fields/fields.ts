@@ -10,7 +10,7 @@
  * Each adapter reads core's field when it is sent and says so (`source: 'view'`). Where an older core does not send it, it falls back to
  * the rule the face uses today, by CALLING that rule where one is exported (`cardKindOf`, `bandOf`, `linkRole`, `askKindOf`), and says so
  * (`source: 'inferred'`). Every wire value is checked against its closed set: a value this page was not built for is never taken for one
- * it was (a bad kind or row answers as an older core would; an unknown direction or confidence is `'unknown'`, never a sign).
+ * it was (a supplied unknown kind has neutral placement; an unknown direction or confidence is `'unknown'`, never a sign).
  *
  * `state` says what the wire held: a value from the set (`present`), an explicit `null`, nothing at all (`absent`), or a value outside the
  * set (`unrecognised`). Explicit null and absent are kept apart everywhere: null is core's answer, absent is an older core.
@@ -146,23 +146,31 @@ function aimOf(card: ViewCard): { aim: AimKind | null; aimSource: FieldSource | 
   return { aim: inferred, aimSource: inferred === null ? null : 'inferred' }
 }
 
-/** The card's semantic kind: core's `card.kind` (993eb784), else today's shape mapped (`KIND_OF_SHAPE`). `model` and `view` go to `cardKindOf`
- *  as given. A null kind (never sent by the producer) is answered as an older core would, and its state says null. */
+/** Undefined means an older View omitted the key. Null means a supplied value has no known kind. */
+export function declaredCardKind(card: ViewCard): CardKindName | null | undefined {
+  if (!Object.prototype.hasOwnProperty.call(card, 'kind')) return undefined
+  const kind = valueOf(card, 'kind')
+  return isCardKind(kind) ? kind : null
+}
+
+/** Read Core's kind, or use the legacy shape only when the key is missing. */
 export function cardKind(card: ViewCard, model: ViewModel | null, view: View | null = null): CardKindAnswer {
-  const state = stateOf(card, 'kind', isCardKind)
-  if (state === 'present') {
-    const kind = valueOf(card, 'kind') as CardKindName
-    return { kind, ...(kind === 'aim' ? aimOf(card) : { aim: null, aimSource: null }), source: 'view', state, shape: null }
+  const kindOnWire = declaredCardKind(card)
+  if (kindOnWire === null) {
+    return { kind: 'note', aim: null, aimSource: null, source: 'inferred', state: valueOf(card, 'kind') === null ? 'null' : 'unrecognised', shape: null }
+  }
+  if (kindOnWire !== undefined) {
+    return { kind: kindOnWire, ...(kindOnWire === 'aim' ? aimOf(card) : { aim: null, aimSource: null }), source: 'view', state: 'present', shape: null }
   }
   const shape = cardKindOf(card, model, view).shape
   const kind = kindOfShape(card, shape)
-  return { kind, ...(kind === 'aim' ? aimOf(card) : { aim: null, aimSource: null }), source: 'inferred', state, shape }
+  return { kind, ...(kind === 'aim' ? aimOf(card) : { aim: null, aimSource: null }), source: 'inferred', state: 'absent', shape }
 }
 
 /** The design system shape and colour for a card's kind. Notes and positions share the factor's shape. */
-const DS_OF_KIND: Readonly<Record<CardKindName, DsKind>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
+const DS_OF_KIND: Readonly<Record<CardKindName, Exclude<DsKind, 'decision'>>> = { option: 'option', driver: 'factor', result: 'outcome', risk: 'risk', aim: 'goal', position: 'factor', note: 'factor' }
 
-export function cardDsKindOf({ kind, aim }: CardKindAnswer): DsKind {
+export function cardDsKindOf({ kind, aim }: Pick<CardKindAnswer, 'kind' | 'aim'>): Exclude<DsKind, 'decision'> {
   return kind === 'aim' && aim === 'limit' ? 'constraint' : DS_OF_KIND[kind]
 }
 
@@ -184,8 +192,7 @@ export function cardDsKindOf({ kind, aim }: CardKindAnswer): DsKind {
  *   aims        | aims     | aims and limits
  *
  * `bandOf` never answers `ideas` for a model card (kept ideas are the lane's own nodes), so no row stands for it.
- * Kind and row come from two different existing rules and can disagree on an older View (a quantity with a bound is kind `aim` by
- * `cardKindOf` but sits in a figure band by `bandOf`); they are not reconciled here.
+ * The band reads Core's kind on the lane. Older Views keep their original placement.
  */
 /** The points raised (DL 21 Nov) have no row of their own in the contract's four: they map to the row they stood in before ('drives'). */
 export const ROW_OF_BAND: Readonly<Record<Exclude<BandId, 'ideas'>, CardRow>> = { options: 'options', inputs: 'drives', outcomes: 'happens', aims: 'aims', points: 'drives' }

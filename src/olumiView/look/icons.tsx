@@ -12,7 +12,7 @@
  *  - MessageCircleQuestion was "Ask about this" and "Asked with a method": it stays the ask; the method mark is Wrench.
  *  - Unlink was "Remove link" and "No link touches this figure": it stays the action; the state is Link2Off.
  *  - Square was Stop, the limit tag and the option band square: it stays Stop only; the limit tag and the band shapes draw core's own
- *    NodeShapeIndicator (constraint, dashed outline), which is not a Lucide icon.
+ *    NodeShapeIndicator (constraint, outlined square), which is not a Lucide icon.
  *  - AlertTriangle carried four meanings: split into challenged (AlertTriangle), went wrong (AlertOctagon), unsaved (CloudOff) and a stale
  *    analysis (RefreshCwOff). Colour no longer carries the difference alone.
  *  - X was cancel, close, "Keep this link" and "Clear goal": X stays the generic dismiss; keep-link is Pin and clear-goal is Eraser.
@@ -109,7 +109,7 @@ const BandShapes = ({ size = 12, className, ...rest }: IconDrawProps) => (
 )
 const LimitShape = ({ size = 12, className, ...rest }: IconDrawProps) => (
   <span className={`inline-flex ${className ?? ''}`} {...rest}>
-    <NodeShapeIndicator nodeKind="constraint" size={Number(size)} dashedOutline />
+    <NodeShapeIndicator nodeKind="constraint" size={Number(size)} />
   </span>
 )
 const Hairline = ({ className, ...rest }: IconDrawProps) => (

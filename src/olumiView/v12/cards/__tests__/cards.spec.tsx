@@ -15,6 +15,8 @@ import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useMe } from '../../../../olumiCore/me'
+import * as coreLane from '../../../../olumiCore/lane'
+import { useCanvasStore } from '../../../../canvas/store'
 import { CoreCard } from '../../../previous/CoreCard'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
@@ -108,6 +110,29 @@ describe('option letters: one source, core\'s option card order', () => {
 })
 
 describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
+  it('draws the studio producer result in its DS shape and colour on Simple, Detailed and at far zoom', () => {
+    const studio = JSON.parse(readFileSync(path.resolve('src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json'), 'utf8')) as View
+    const lane = vi.spyOn(coreLane, 'isOlumiCoreLane').mockReturnValue(true)
+    const previous = useCanvasStore.getState().lodRung
+    try {
+      for (const [level, rung] of [['simple', 'full'], ['working', 'full'], ['working', 'line']] as const) {
+        useCanvasStore.setState({ lodRung: rung })
+        const root = draw(studio, 'members', level)
+        const mark = root.querySelector('[data-testid="node-type-glyph"] svg')
+        expect(mark).toHaveAttribute('data-node-shape', 'outcome')
+        expect(mark).toHaveClass('text-success')
+        expect(mark?.querySelector('polygon')).toHaveAttribute('fill', 'var(--success)')
+        if (rung === 'line') expect(root.querySelector('[data-testid="node-title"]')).toHaveAttribute('data-lod-far-title', 'true')
+        else expect(faceOf(root, 'members')).toHaveAttribute('data-ok-kind', 'outcome')
+        cleanup()
+      }
+    } finally {
+      lane.mockRestore()
+      cleanup()
+      useCanvasStore.setState({ lodRung: previous })
+    }
+  })
+
   const kind = (v: View, id: string) => cardKindOf(cardOf(v, id), v.model, v)
 
   it('K1 option, input, calculated (done and pending), aim, assumption and risk are told apart by family, working and state, never by words', () => {

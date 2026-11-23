@@ -14,7 +14,9 @@ import { KeyLines } from './v12/bands/KeyPill'
 /** A key item that names a card kind is drawn with the card's own marker (the shape on the canvas), by core's item id; core's words stay the
  *  label. Every other item keeps core's glyph (17 Nov: a limit read as a goal; the key now shows the limit's outlined square, the aim's diamond). */
 const KIND_MARK: Readonly<Record<string, { kind: NodeType; dashed?: boolean }>> = {
-  option: { kind: 'option' }, aim: { kind: 'goal' }, limit: { kind: 'constraint' }, risk: { kind: 'risk' }, figure: { kind: 'factor' }, assumption: { kind: 'factor', dashed: true },
+  option: { kind: 'option' }, aim: { kind: 'goal' }, limit: { kind: 'constraint' }, risk: { kind: 'risk' },
+  figure: { kind: 'factor' }, worked_out: { kind: 'outcome' }, assumption: { kind: 'factor', dashed: true },
+  claim: { kind: 'factor' }, evidence: { kind: 'factor' }, dissent: { kind: 'factor' }, prerequisite: { kind: 'factor' }, outside_model: { kind: 'factor' },
 }
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void }

@@ -6,12 +6,13 @@
  */
 import type { ViewCard, ViewModel } from '../../client'
 import { drawKindOf } from '../../layout'
+import { isDashedCardKind } from '../cards/kind'
 
 export const CONNECTION_WORDS = { changes: 'Changes', affects: 'Affects', drivenBy: 'Driven by' } as const
 /** Names drawn per group; the rest are counted. */
 export const CONNECTIONS_SHOWN = 3
 
-export type Connected = { readonly id: string; readonly name: string; readonly kind: ReturnType<typeof drawKindOf> }
+export type Connected = { readonly id: string; readonly name: string; readonly kind: ReturnType<typeof drawKindOf>; readonly dashed: boolean }
 export type ConnectionGroup = { readonly heading: string; readonly items: readonly Connected[]; readonly more: number }
 type Drawn = { readonly source: string; readonly target: string; readonly data?: unknown }
 /** A drawn link that says one card bears on another. A reason link (a card that explains a link, evidence for a card) is not that, and neither end of one is listed. */
@@ -24,14 +25,14 @@ export function connectionsOf(model: ViewModel, card: ViewCard, edges: readonly 
     for (const id of new Set(ids)) {
       const c = byId.get(id)
       if (c === undefined || c.id === card.id || c.heading === '' || !keep(c)) continue
-      out.push({ id: c.id, name: c.heading, kind: drawKindOf(c, model) })
+      out.push({ id: c.id, name: c.heading, kind: drawKindOf(c, model), dashed: isDashedCardKind(c) })
     }
     return out
   }
   const group = (heading: string, all: Connected[]): ConnectionGroup | null => (all.length === 0 ? null : { heading, items: all.slice(0, CONNECTIONS_SHOWN), more: Math.max(0, all.length - CONNECTIONS_SHOWN) })
   const drawn = edges.filter(bears)
-  const to = named(drawn.filter((e) => e.source === card.id).map((e) => e.target), (c) => c.family !== 'option')
-  if (card.family === 'option') return [group(CONNECTION_WORDS.changes, to)].filter((g): g is ConnectionGroup => g !== null)
-  const from = named(drawn.filter((e) => e.target === card.id).map((e) => e.source), (c) => c.family !== 'option')
+  const to = named(drawn.filter((e) => e.source === card.id).map((e) => e.target), (c) => drawKindOf(c, model) !== 'option')
+  if (drawKindOf(card, model) === 'option') return [group(CONNECTION_WORDS.changes, to)].filter((g): g is ConnectionGroup => g !== null)
+  const from = named(drawn.filter((e) => e.target === card.id).map((e) => e.source), (c) => drawKindOf(c, model) !== 'option')
   return [group(CONNECTION_WORDS.affects, to), group(CONNECTION_WORDS.drivenBy, from)].filter((g): g is ConnectionGroup => g !== null)
 }

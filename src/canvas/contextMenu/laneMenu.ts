@@ -8,6 +8,9 @@
  * Nothing here imports a legacy writer (`actions.ts`' graph mutations, `runCanvasUndo`, `handleLayoutWithRecovery`): the builder gets its
  * effects as callbacks, so a spec can say exactly which route each row reaches.
  */
+import { createElement } from 'react'
+import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
+import type { DsKind } from '../../olumiView/v12/cards/kind'
 import type { IconId } from '../../olumiView/look/icons'
 import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
 import type { EditGate } from '../../olumiView/v12/edit/editGate'
@@ -68,6 +71,19 @@ function editRow(c: { gate: EditGate; act: Pick<LaneMenuCtx['act'], 'open'> }, i
   return g.ok ? [{ id, label, ...(iconId === undefined ? {} : { iconId }), tooltip, enabled: true, action: () => c.act.open(spec(g)), ...extra }] : []
 }
 
+function kindIcon(nodeKind: DsKind): NonNullable<MenuItemDef['icon']> {
+  return ({ size, className }: { size?: number; className?: string }) => createElement(NodeShapeIndicator, { nodeKind, size, className })
+}
+
+const ADD_KIND_ICONS = {
+  figure: kindIcon('factor'),
+  choice: kindIcon('option'),
+  risk: kindIcon('risk'),
+  claim: kindIcon('factor'),
+  question: kindIcon('factor'),
+  outcome: kindIcon('outcome'),
+}
+
 /** Dividers never lead, trail or double. */
 function tidyDividers(entries: ReadonlyArray<MenuEntry>): MenuEntry[] {
   const kept: MenuEntry[] = []
@@ -98,9 +114,9 @@ export function addMenuRows(c: Pick<LaneMenuCtx, 'gate' | 'model'>, open: LaneMe
   const figures = figureCards(c.model).map((f) => ({ id: f.id, heading: f.heading }))
   const item = (id: string, label: string, kind: 'choice' | 'risk' | 'claim' | 'question', tip: string): MenuItemDef[] =>
     editRow(ctx, id, label, undefined, tip, (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: kind, concerns: [], about: null, pickFigure: kind === 'risk' ? figures : null }),
-      kind === 'risk' && figures.length === 0 ? { enabled: false, disabledReason: 'Add a figure for this risk to affect.' } : {})
+      { icon: ADD_KIND_ICONS[kind], ...(kind === 'risk' && figures.length === 0 ? { enabled: false, disabledReason: 'Add a figure for this risk to affect.' } : {}) })
   return [
-    ...editRow(ctx, 'add-factor', LANE_MENU_WORDS.figure, undefined, 'A figure of your own, with its value', (g) => ({ kind: 'figure-add', sid: g.sid, base: g.base })),
+    ...editRow(ctx, 'add-factor', LANE_MENU_WORDS.figure, undefined, 'A figure of your own, with its value', (g) => ({ kind: 'figure-add', sid: g.sid, base: g.base }), { icon: ADD_KIND_ICONS.figure }),
     ...item('add-option', LANE_MENU_WORDS.option, 'choice', 'A route you could take'),
     ...item('add-risk', LANE_MENU_WORDS.risk, 'risk', 'Something that could go wrong, on a figure it would move'),
     ...item('add-claim', LANE_MENU_WORDS.claim, 'claim', 'A statement you hold about this'),
@@ -133,7 +149,7 @@ function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuC
   const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c)] : []
   const prefill = c.act.prefill, name = card?.heading ?? ''
   const asks: MenuEntry[] = card !== null && !isQuestion && prefill !== undefined ? [
-    { id: 'ask-add-outcome', label: LANE_MENU_WORDS.addOutcome, iconId: 'add', tooltip: 'Ask Olumi to add an outcome that follows from this', enabled: true, action: () => prefill(`Add an outcome that follows from ${name}: `, LANE_MENU_WORDS.addOutcome, id) },
+    { id: 'ask-add-outcome', label: LANE_MENU_WORDS.addOutcome, icon: ADD_KIND_ICONS.outcome, tooltip: 'Ask Olumi to add an outcome that follows from this', enabled: true, action: () => prefill(`Add an outcome that follows from ${name}: `, LANE_MENU_WORDS.addOutcome, id) },
     { id: 'ask-cut', label: LANE_MENU_WORDS.cut, iconId: 'cut', tooltip: 'Ask Olumi to take this out of the model', enabled: true, action: () => prefill(`Take ${name} out of the model, because `, LANE_MENU_WORDS.cut, id) },
     { id: 'ask-other-edits', label: LANE_MENU_WORDS.otherEdits, iconId: 'olumi-mark', tooltip: 'Ask Olumi for another change to this', enabled: true, action: () => prefill(`About ${name}: `, LANE_MENU_WORDS.otherEdits, id) },
   ] : []
@@ -156,8 +172,8 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
     } else if (edit != null) {
       edits.push(...figureRow(c, 'change-figure', LANE_MENU_WORDS.change, edit.prompt, { kind: 'card', id: card.id }, (g) => ({ kind: 'figure-edit', sid: g.sid, base: g.base, record: card.id, edit })))
     }
-    if (card.family === 'quantity') edits.push(...editRow(c, 'add-risk', LANE_MENU_WORDS.addRisk, 'add', 'A risk on this figure', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'risk', concerns: [card.id], about: card.heading, pickFigure: null })))
-    edits.push(...editRow(c, 'add-claim', LANE_MENU_WORDS.addClaim, 'add', 'A statement you hold about this', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'claim', concerns: [card.id], about: card.heading, pickFigure: null })))
+    if (card.family === 'quantity') edits.push(...editRow(c, 'add-risk', LANE_MENU_WORDS.addRisk, undefined, 'A risk on this figure', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'risk', concerns: [card.id], about: card.heading, pickFigure: null }), { icon: ADD_KIND_ICONS.risk }))
+    edits.push(...editRow(c, 'add-claim', LANE_MENU_WORDS.addClaim, undefined, 'A statement you hold about this', (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: 'claim', concerns: [card.id], about: card.heading, pickFigure: null }), { icon: ADD_KIND_ICONS.claim }))
   }
   return edits
 }

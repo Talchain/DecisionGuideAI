@@ -39,6 +39,7 @@ import { kindWordsOf } from '../chat/CardMenuHeader'
 import { useViewStore } from '../../store'
 import { useDriverOf } from '../../lens'
 import { drawKindOf, triableCards } from '../../layout'
+import { isDashedCardKind } from '../cards/kind'
 import { coreHoverValueOf, leadLineOf } from '../../previous/CoreCard'
 import { isSizeEdit, type EditSpec } from './EditForm'
 import { OLDER_DETAILS_FORM_ANCHOR, openLaneForm, openLinkRemoval } from './structuralEdits'
@@ -109,7 +110,7 @@ function Connections({ card, peek }: { card: ViewCard; peek: boolean }): JSX.Ele
             <ul className={`m-0 list-none p-0 ${peek ? 'space-y-3' : 'space-y-2'}`}>
               {g.items.map((i) => (
                 <li key={i.id} className="flex items-start gap-1.5 text-text-body" data-connected={i.id} data-connected-kind={i.kind}>
-                  <NodeShapeIndicator nodeKind={i.kind} size={10} className="mt-1 flex-none" /><span className="min-w-0 break-words">{i.name}</span>
+                  <NodeShapeIndicator nodeKind={i.kind} dashedOutline={i.dashed} size={10} className="mt-1 flex-none" /><span className="min-w-0 break-words">{i.name}</span>
                 </li>
               ))}
               {g.more > 0 ? <li className={`${typography.viewPanelMeta} text-text-light`} data-connections-more={g.more}>{`+${g.more}`}</li> : null}
@@ -155,10 +156,11 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   if (target === null || (card === null && link === null)) return null
   const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-3 overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
-  const chip = (r: (typeof rows)[number]) => (
-    <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={() => { setMore(false); r.action() }}
-      className={VIEW_CHIP_CLASS}>{r.label}</HoverButton>
-  )
+  const chip = (r: (typeof rows)[number]) => {
+    const Icon = r.icon
+    return <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={() => { setMore(false); r.action() }}
+      className={VIEW_CHIP_CLASS}>{Icon && <Icon size={14} />}{r.label}</HoverButton>
+  }
 
   if (link !== null) return (
     <aside ref={box} role="complementary" aria-label="Details" data-testid="lane-inspector" data-state="pinned" data-kind="link" className={frame}>
@@ -176,7 +178,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   )
 
   const c = card!
-  const kind = model === null ? 'factor' : drawKindOf(c, model), kindWord = kindWordsOf(c)
+  const kind = drawKindOf(c, model), kindWord = kindWordsOf(c, kind)
   const value = valueOf(c)
   // A calculated card's value is one per option, each with core's own mark where a held proposal moves it (optionValues.ts): the preview and the pinned
   // box both draw it so, never the joined line alone, which loses which value a proposal moves (final-pair P1, 18 Nov). Null: the one line, as before.
@@ -215,7 +217,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
           {pinned && canRenameCard(c) ? <RenameHeading key={c.id} card={c} gate={ctx.gate} />
             : <h2 className={`${typography.panelHeader} break-words text-text-header`} data-testid="lane-inspector-title">{c.heading}</h2>}
           <p className={`${typography.viewPanelMeta} m-0 mt-2 flex flex-wrap items-center gap-1.5 text-text-light`} data-testid="lane-inspector-kind">
-            <NodeShapeIndicator nodeKind={kind} size={10} />{kindWord}
+            <NodeShapeIndicator nodeKind={kind} dashedOutline={isDashedCardKind(c)} size={10} />{kindWord}
             {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={14} decorative /></span>}
             {/* Whose the card is. Where the value's own source is this same line (a quantity's figure), it is said once, beside the value. */}
             {authorAtValue ? null : <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />}

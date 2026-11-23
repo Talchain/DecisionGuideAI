@@ -23,7 +23,7 @@ import { OkIcon } from './look/icons'
 import { FoldChevron } from './look/FoldChevron'
 import { Hover } from './look/Hover'
 import type { ViewCard, ViewModel } from './client'
-import { cardNumbersOf, drawKindOf, modelOutlineOf, outcomeRiskKinds, type OutlineGroupId } from './layout'
+import { cardNumbersOf, drawKindOf, modelOutlineOf, type OutlineGroupId } from './layout'
 import { shownModel, useViewStore } from './store'
 import { ModelCardRow } from './model/ModelCardRow'
 import { LinkRow } from './model/LinkRow'
@@ -47,12 +47,10 @@ const SHAPE: Partial<Record<GroupId, 'goal' | 'option' | 'factor'>> = { goal: 'g
 /** A group's kind mark, the canvas's own shape in its family colour (the previous PoC's outline, `GroupKindMark`). */
 function KindMark({ id, cards, model }: { id: GroupId; cards: readonly ViewCard[]; model: ViewModel }) {
   if (id === 'relationships') return <span aria-hidden="true" className="inline-flex text-text-light"><OkIcon id="model-relationship" size={14} decorative inherit /></span>
-  if (id === 'outcomes-risks') {
-    const kinds = outcomeRiskKinds(model, cards)
-    return kinds.length === 0 ? null : <span className="inline-flex items-center gap-0.5">{kinds.map((k) => <NodeShapeIndicator key={k} nodeKind={k} size={8} />)}</span>
-  }
-  const k = SHAPE[id]
-  return k === undefined ? null : <NodeShapeIndicator nodeKind={k} size={8} />
+  const kinds = new Set(cards.map((card) => drawKindOf(card, model)))
+  const fallback = SHAPE[id]
+  if (kinds.size === 0 && fallback !== undefined) kinds.add(fallback)
+  return <span className="inline-flex items-center gap-0.5">{[...kinds].map((kind) => <NodeShapeIndicator key={kind} nodeKind={kind} size={8} />)}</span>
 }
 
 /** One group: a heading row that opens and closes it (chevron, kind mark, title, count), a note under it whether open or closed (what a

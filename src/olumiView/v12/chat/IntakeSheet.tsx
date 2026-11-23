@@ -11,8 +11,8 @@ import { HoverButton } from '../../look/Hover'
 import { useViewStore } from '../../store'
 import type { View } from '../../client'
 import { pressCard } from '../../reasoning/tabRing'
-import { cardKindOf, isAssumptionShape } from '../cards/kind'
-import { cardDsKindOf, cardKind } from '../fields/fields'
+import { isDashedCardKind } from '../cards/kind'
+import { drawKindOf } from '../../layout'
 import { recordReach, showRecord } from '../showInWorkspace/show'
 
 /** The field core serves (wip/x-e4-intake, Codex 12:26Z): one row per figure in the person's words. */
@@ -108,8 +108,7 @@ export function IntakeSheet(): JSX.Element | null {
                   <li key={id}>
                     <HoverButton type="button" data-intake-show={id} onClick={() => show(id)} words={card ? `${SHOW_RECORD}: ${heading}` : undefined}
                       className="flex w-full items-center gap-2 rounded-md px-1 py-2.5 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
-                      {card ? <NodeShapeIndicator nodeKind={cardDsKindOf(cardKind(card, model, view))} size={14}
-                        dashedOutline={isAssumptionShape(cardKindOf(card, model, view).shape)} /> : null}
+                      {card ? <NodeShapeIndicator nodeKind={drawKindOf(card, model)} size={14} dashedOutline={isDashedCardKind(card)} /> : null}
                       <span className="min-w-0 flex-1 break-words">{heading}</span>
                       {card?.figure?.text ? <span className="min-w-0 break-words text-right tabular-nums text-text-light">{card.figure.text}</span> : null}
                     </HoverButton>

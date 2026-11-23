@@ -11,6 +11,7 @@ import { typography } from '../styles/typography'
 import { SelectedExplain } from './look/SelectedExplain'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import { drawKindOf } from './layout'
+import { isDashedCardKind } from './v12/cards/kind'
 import { detailsOf, useLaneInspector } from './v12/edit/inspectorStore'
 
 /**
@@ -74,6 +75,10 @@ export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactN
  */
 function SelectedKind({ id }: { id: string }): JSX.Element | null {
   const kind = useViewStore((s) => { const m = s.view?.model, c = m?.cards.find((x) => x.id === id); return m == null || c === undefined ? null : drawKindOf(c, m) })
-  return kind === null ? null : <span className="inline-flex flex-none" data-testid="selection-kind-shape" data-kind={kind}><NodeShapeIndicator nodeKind={kind} size={12} /></span>
+  const dashed = useViewStore((s) => {
+    const card = s.view?.model?.cards.find((c) => c.id === id)
+    return card !== undefined && isDashedCardKind(card)
+  })
+  return kind === null ? null : <span className="inline-flex flex-none" data-testid="selection-kind-shape" data-kind={kind}><NodeShapeIndicator nodeKind={kind} dashedOutline={dashed} size={12} /></span>
 }
 export const selectedKindMark = (s: { id: string; kind: 'node' | 'edge' }): ReactNode => (s.kind === 'node' ? <SelectedKind id={s.id} /> : null)

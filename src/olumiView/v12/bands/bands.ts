@@ -3,7 +3,9 @@
  * selected card's causal path. Geometry and picking only: the words here are the boards' notation chrome (decided by the lead), never core's.
  */
 import type { ViewCard, ViewModel } from '../../client'
-import { cardLinks, drawKindOf, QUESTION } from '../../layout'
+import { cardLinks, drawKindOf, legacyDrawKindOf, QUESTION } from '../../layout'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { declaredCardKind, type CardKindName } from '../fields/fields'
 import { linkRole } from '../contract'
 import { MODEL_GROUP_TITLE } from '../../../canvas/domain/vocabulary'
 
@@ -11,22 +13,18 @@ export type BandId = 'options' | 'inputs' | 'outcomes' | 'aims' | 'points' | 'id
 /** Top to bottom. Aims are always their own row, never sharing the outcomes row. The points raised stand under the causal story (options, drivers,
  *  what happens, aims), never inside it (DL 21 Nov, Paul read notes in the drivers' row as drivers). */
 export const BAND_ORDER: readonly BandId[] = ['options', 'inputs', 'outcomes', 'aims', 'points', 'ideas']
-export type BandShape = 'square' | 'pill' | 'double' | 'diamond' | 'note' | 'idea'
-/** Decided UI chrome (Funding-Working / Main boards): the label and the small shape icon of each band. */
-export const BANDS: Readonly<Record<BandId, { label: string; shape: BandShape }>> = {
-  options: { label: 'Options you could take', shape: 'square' },
-  inputs: { label: 'What drives it (uncertain)', shape: 'pill' },
-  outcomes: { label: 'What happens (worked out)', shape: 'double' },
-  aims: { label: 'Aims', shape: 'diamond' },
-  points: { label: 'Points raised', shape: 'note' },
-  ideas: { label: 'Kept ideas', shape: 'idea' }, // neutral for every reader, as the panel's heading (Codex root 10:34:38Z; DL 11:3xZ)
+export const BANDS: Readonly<Record<BandId, { label: string }>> = {
+  options: { label: 'Options you could take' },
+  inputs: { label: 'What drives it (uncertain)' },
+  outcomes: { label: 'What happens (worked out)' },
+  aims: { label: 'Aims' },
+  points: { label: 'Points raised' },
+  ideas: { label: 'Kept ideas' },
 }
-/** The band's label: fixed, except the outcomes band holding a risk, which is "Outcomes & risks", the product's own label for that row
- *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). The inputs band says "What drives
- *  it" always: only figures stand there (`bandOf`); every other card stands under "Points raised" (Codex 019's neutral label, now its own row). */
+/** Name the risk explicitly when one shares the outcomes band. */
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
   // The ideas strip reads "Kept ideas" for every reader; each card says who kept it, from core's `kept_by` (ideaProvenance).
-  if (band === 'outcomes' && model !== null && model.cards.some((c) => c.family === 'risk' && bandOf(c, model) === 'outcomes')) return MODEL_GROUP_TITLE.outcomesRisks
+  if (band === 'outcomes' && model !== null && model.cards.some((c) => bandOf(c, model) === 'outcomes' && drawKindOf(c, model) === 'risk')) return MODEL_GROUP_TITLE.outcomesRisks
   return BANDS[band].label
 }
 /** Group an inputs band folds at (rule 7). */
@@ -36,11 +34,21 @@ export const FOLD_AT = 15
 export const IDEA_PREFIX = 'idea:'
 export const FOLD_ID = 'group:inputs'
 
-/** The band a model card stands in: options; outcomes and risks (worked out); aims and limits; a figure an input (a driver); every other card is a
- *  point raised (claims, left-out items, conditions, assumptions, positions and other notes), folded or not (SPEC-OVERNIGHT CP-2; Paul read the
- *  notes drawn in "What drives it" as drivers). */
-export function bandOf(card: ViewCard, model: ViewModel): Exclude<BandId, 'ideas'> {
-  const k = drawKindOf(card, model)
+type CardBand = Exclude<BandId, 'ideas'>
+const ROW_OF_KIND: Readonly<Record<CardKindName, CardBand>> = {
+  option: 'options', result: 'outcomes', risk: 'outcomes', aim: 'aims', driver: 'inputs', position: 'points', note: 'points',
+}
+
+/** A supplied but unknown kind stands among the points raised. An omitted key leaves placement to the legacy rule. */
+export function rowOfKind(card: ViewCard): CardBand | undefined {
+  const kind = declaredCardKind(card)
+  return kind === undefined ? undefined : ROW_OF_KIND[kind ?? 'note']
+}
+
+export function bandOf(card: ViewCard, model: ViewModel): CardBand {
+  const row = isOlumiCoreLane() ? rowOfKind(card) : undefined
+  if (row !== undefined) return row
+  const k = legacyDrawKindOf(card, model)
   return k === 'option' ? 'options' : k === 'outcome' || k === 'risk' ? 'outcomes' : k === 'goal' || k === 'constraint' ? 'aims' : card.family === 'quantity' ? 'inputs' : 'points'
 }
 

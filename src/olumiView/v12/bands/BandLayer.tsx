@@ -4,34 +4,34 @@
  * nodes as placed; no word here is core's: they are the boards' fixed notation chrome.
  */
 import { useMemo, type CSSProperties } from 'react'
+import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
+import { typography } from '../../../styles/typography'
 import { useStore, ViewportPortal, type Node } from '@xyflow/react'
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import { useCanvasStore } from '../../../canvas/store'
 import type { ViewModel } from '../../client'
-import { drawnModelOf, SIMPLE_LABEL_GAP } from '../../layout'
+import { drawKindOf, drawnModelOf, SIMPLE_LABEL_GAP } from '../../layout'
 import { KIND_GLYPH_PX } from '../../../canvas/utils/nodeLayoutConstants'
 import { useViewStore } from '../../store'
 import { levelOf, useSimpleLevel } from '../simpleStore'
-import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId, type BandShape } from './bands'
+import { bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinkedIds, type BandId } from './bands'
 import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
 
 /** What the unlinked mark says, on hover and to a reader: the mark itself is an icon, quiet, so four of them do not read as four faults (DL look, 17 Nov). */
 export const NOT_LINKED = 'No link touches this figure'
 
-function Shape({ shape }: { shape: BandShape }) {
-  const p = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6 }
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" data-band-shape={shape}>
-      {shape === 'square' ? <rect x="3" y="6" width="18" height="12" rx="2" {...p} />
-        : shape === 'pill' ? <rect x="2" y="7" width="20" height="10" rx="5" {...p} />
-        : shape === 'double' ? <><rect x="2.5" y="5.5" width="19" height="13" rx="2" {...p} /><rect x="5.5" y="8.5" width="13" height="7" rx="1" {...p} /></>
-        : shape === 'diamond' ? <path d="M12 3 21 12 12 21 3 12Z" {...p} />
-        : shape === 'note' ? <path d="M4 5h16v11H10l-4 3.5V16H4Z" {...p} />
-        : <rect x="3" y="6" width="18" height="12" rx="2" strokeDasharray="3 2.5" {...p} />}
-    </svg>
-  )
+/** A band can hold two shapes, such as results and risks or aims and limits. */
+export function bandKindsOf(band: BandId, model: ViewModel | null): ReturnType<typeof drawKindOf>[] {
+  if (model === null || band === 'ideas') return []
+  return [...new Set(model.cards.filter((card) => bandOf(card, model) === band).map((card) => drawKindOf(card, model)))]
+}
+
+function IdeaMark() {
+  return <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" data-band-shape="idea">
+    <rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" strokeDasharray="3 2.5" />
+  </svg>
 }
 
 /** The band a drawn node stands in, by id. */
@@ -82,8 +82,11 @@ export function BandLayer() {
       <div className="pointer-events-none" data-testid="view-band-layer">
         {labels.map(({ band, x, y }) => (
           <div key={band} data-band-label={band} style={{ '--band-x': `${x}px`, '--band-y': `${y - SIMPLE_LABEL_GAP}px`, '--band-marker-overhang': `${KIND_GLYPH_PX / 2}px`, '--o-s': scale } as CSSProperties}
-            className="ok-band-label pointer-events-none absolute z-[3] flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 leading-tight">
-            <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
+            className={`${typography.viewPanelMeta} ok-band-label pointer-events-none absolute z-[3] flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 leading-tight`}>
+            <span className="inline-flex shrink-0 items-center gap-0.5">
+              {band === 'ideas' ? <IdeaMark /> : bandKindsOf(band, model).map((kind) => <NodeShapeIndicator key={kind} nodeKind={kind} size={14} />)}
+            </span>
+            {bandLabelOf(band, model)}
             {band === 'inputs' && expanded ? <HoverButton type="button" data-testid="view-inputs-unfold" className="pointer-events-auto ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
               words="Fold these inputs into one group" aria-label="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}><OkIcon id="fold-group" variant="alt" size={14} decorative inherit /></HoverButton> : null}
           </div>
