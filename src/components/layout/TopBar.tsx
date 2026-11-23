@@ -1,8 +1,8 @@
 import { Hover, HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_BAR, TOOLBAR_BAR_SEPARATOR, TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_STATUS, TOOLBAR_TITLE } from '../../olumiView/look/toolbar'
 import { typography } from '../../styles/typography'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { registerMenu } from '../../olumiView/look/menuArbiter'
 import Tooltip from '../Tooltip'
 import styles from './TopBar.module.css'
 import { UserAvatarMenu } from './UserAvatarMenu'
@@ -18,7 +18,6 @@ import { FrameOpener } from '../../olumiView/v12/frame/FrameStage'
 import { StrategyOverviewOpener } from '../../olumiView/strategy/overview/StrategyOverviewOpener'
 import { ownerPanelHash } from '../../collab/panelRoute'
 import { useCanvasStore } from '../../canvas/store'
-import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { useUIStore } from '../../stores/uiStore'
 import { useViewStore } from '../../olumiView/store'
 import { useIsConfirmedOwner, useIsViewer } from '../../lib/viewerMode'
@@ -163,36 +162,18 @@ export const TopBar = ({
     }
   }
 
-  // USER AGENCY over an assistant-raised surface. These dismissals are
-  // deliberately unconditional on WHO raised the menu: the assistant may put
-  // it on screen, and Escape / click-outside must always take it back.
-  useEffect(() => {
-    if (!showMenu) return
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current) return
-      if (!menuRef.current.contains(event.target as Node)) {
-        closeMenu()
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showMenu, closeMenu])
-  // Escape is the one shared rule's (v12/edit/escapeLayers.ts): the top-most open layer closes once. Still unconditional on who raised the menu.
-  useEscapeLayer(showMenu, closeMenu)
-
-  // Close kebab menu when another menu claims exclusivity
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const source = (e as CustomEvent).detail?.source
-      if (source !== 'kebab') closeMenu()
-    }
-    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
-    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [closeMenu])
+  // The older dropdown keeps its markup and registers when the store opens it, including assistant requests.
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    if (lane || !showMenu || !menu) return
+    return registerMenu({
+      opener: null,
+      lane: false,
+      contains: (target) => menu.contains(target),
+      dismiss: closeMenu,
+      escape: closeMenu,
+    })
+  }, [lane, showMenu, closeMenu])
 
   // KEEP THE STORE TRUTHFUL ABOUT WHAT IS ON SCREEN. An overlay surface is
   // anchored to a control; if that control is not mounted, a raised surface is
@@ -213,18 +194,6 @@ export const TopBar = ({
     },
     [],
   )
-
-  // Claim exclusivity whenever OUR menu becomes raised — by a user click OR by
-  // an assistant gesture that never passes through a click handler. Announcing
-  // from the state transition rather than from `onToggle` is what makes the two
-  // paths equivalent; sibling menus (LeftSidebar's lens, UserAvatarMenu) still
-  // own their state and only learn about us through this event.
-  useEffect(() => {
-    if (!showMenu) return
-    window.dispatchEvent(
-      new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'kebab' } }),
-    )
-  }, [showMenu])
 
   // Help action handlers - emit custom events for ReactFlowGraph to handle
   const handleShowKeyboardLegend = useCallback(() => {
@@ -507,11 +476,7 @@ export const TopBar = ({
         {/* Kebab menu */}
         <KebabMenu
           isOpen={showMenu}
-          onToggle={() => {
-            // The exclusivity announcement rides the state transition (effect
-            // above), so the user path and the assistant path behave alike.
-            setOverlaySurface(showMenu ? null : 'top_bar_menu')
-          }}
+          onToggle={() => setOverlaySurface(showMenu ? null : 'top_bar_menu')}
           onClose={closeMenu}
           // The name control is a SIBLING now, not this bar's own state, so the
           // request travels by the same window-event idiom the bar already uses

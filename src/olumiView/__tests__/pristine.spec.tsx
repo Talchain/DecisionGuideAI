@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
+import { typography } from '../../styles/typography'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { lensBarPlace, ViewLensBar } from '../ViewLensBar'
@@ -77,7 +78,7 @@ describe('the lens bar: icons only, directly right of the pill on its row, and t
     for (const b of radios) {
       const id = b.getAttribute('data-testid')!.slice('lens-bar-'.length) as keyof typeof v.lens_words.label
       expect(b.querySelector('svg'), id).not.toBeNull()
-      expect(b.querySelector('[data-lens-label]')!.className, id).toBe('sr-only')
+      expect(b.querySelector('[data-lens-label]')!.className, id).toBe(`sr-only ${typography.viewPanelMeta}`)
       const hover = b.getAttribute('aria-disabled') === 'true' ? v.lens_words.needsRun : v.lens_words.label[id]
       expect(laneTipOf(b), id).toBe(hover)
       expect(b.getAttribute('aria-label'), id).toBe(id === 'rests_on' ? v.lens_words.rests_on_label : v.lens_words.label[id])

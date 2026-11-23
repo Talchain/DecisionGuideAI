@@ -57,7 +57,7 @@
  * fails when its handler stops working.
  */
 
-import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { memo, useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { useStore } from '@xyflow/react'
 import { TOOLBAR_RAIL, TOOLBAR_RAIL_SEPARATOR } from '../../olumiView/look/toolbar'
@@ -69,8 +69,7 @@ import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewLegend } from '../../olumiView/ViewLegend'
 import { Menu, MenuItem } from '../../olumiView/look/Menu.tsx'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
-import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
-import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
+import { dismissMenuFromOpener, registerMenu } from '../../olumiView/look/menuArbiter'
 import styles from './CanvasFloatingToolbar.module.css'
 
 interface CanvasViewportControlsProps {
@@ -109,34 +108,19 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
     if (returnFocus) moreRef.current?.focus()
   }, [])
 
-  // One menu at a time across the chrome (the canvas tools' lens, the top
-  // bar's menus): announce on open, close when another claims the screen.
-  useEffect(() => {
-    if (lane || !menuOpen) return
-    window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'viewport' } }))
+  useLayoutEffect(() => {
+    const wrapper = wrapRef.current
+    if (lane || !menuOpen || !wrapper) return
+    const unregister = registerMenu({
+      opener: moreRef.current,
+      lane: false,
+      contains: (target) => wrapper.contains(target),
+      dismiss: () => closeMenu(false),
+      escape: () => closeMenu(true),
+    })
     menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus()
-    const onPointer = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenuOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); closeMenu(true) }
-    }
-    document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
+    return unregister
   }, [lane, menuOpen, closeMenu])
-
-  useEffect(() => {
-    if (lane) return
-    const handler = (e: Event) => {
-      if ((e as CustomEvent).detail?.source !== 'viewport') setMenuOpen(false)
-    }
-    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
-    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [lane])
 
   // Arrow keys move between items — the menu pattern the role promises.
   const onMenuKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {

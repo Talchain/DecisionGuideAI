@@ -6,18 +6,17 @@
  * who is signed in (private link or account), My scenarios, Organisation and Account (PoC accounts), the terms and the privacy notice, Sign out, and Delete my data.
  */
 
-import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OkIcon } from '../../olumiView/look/icons'
 import { Menu, MenuItem, MenuSeparator } from '../../olumiView/look/Menu.tsx'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
-import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
+import { dismissMenuFromOpener, registerMenu } from '../../olumiView/look/menuArbiter'
 import { HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
-import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import { sanitiseUserId } from '../../lib/guestIdentity'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useMe } from '../../olumiCore/me'
@@ -38,34 +37,6 @@ interface UserAvatarMenuProps {
    * 32px avatar the scenario list and profile headers were designed around.
    */
   size?: 'default' | 'compact'
-}
-
-/** Closes an open menu on a press outside it, on Escape, and when another menu claims the screen (MENU_EXCLUSIVE_EVENT). */
-function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: RefObject<HTMLDivElement>) {
-  useEffect(() => {
-    if (!open) return
-    const onClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    const onEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    document.addEventListener('keydown', onEscape)
-    return () => {
-      document.removeEventListener('mousedown', onClickOutside)
-      document.removeEventListener('keydown', onEscape)
-    }
-  }, [open, setOpen, ref])
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const source = (e as CustomEvent).detail?.source
-      if (source !== 'avatar') setOpen(false)
-    }
-    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
-    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [setOpen])
 }
 
 /**
@@ -194,7 +165,18 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useMenuDismiss(open, setOpen, ref)
+  useLayoutEffect(() => {
+    const wrapper = ref.current
+    if (!open || !wrapper) return
+    const close = () => setOpen(false)
+    return registerMenu({
+      opener: null,
+      lane: false,
+      contains: (target) => wrapper.contains(target),
+      dismiss: close,
+      escape: close,
+    })
+  }, [open])
 
   const handleSignOut = useCallback(async () => {
     setOpen(false)
@@ -211,13 +193,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => {
-          const next = !open
-          setOpen(next)
-          if (next) {
-            window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
-          }
-        }}
+        onClick={() => setOpen((current) => !current)}
         className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
         aria-label="Account menu"
         aria-expanded={open}

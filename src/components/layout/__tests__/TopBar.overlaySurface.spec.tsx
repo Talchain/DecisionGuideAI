@@ -29,9 +29,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../TopBar'
-import { MENU_EXCLUSIVE_EVENT } from '../LeftSidebar'
+import { isMenuOpen, registerMenu } from '../../../olumiView/look/menuArbiter'
 import { ToastProvider } from '../../../canvas/ToastContext'
 import { useUIStore, type OverlaySurfaceId } from '../../../stores/uiStore'
+
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null, profile: null, signOut: vi.fn() }),
+}))
 
 /**
  * A surface id this bar does NOT own.
@@ -78,12 +82,18 @@ function assistantRaises(surface: 'top_bar_menu') {
   })
 }
 
+function registerOtherMenu(dismiss = vi.fn()) {
+  return registerMenu({ opener: null, lane: false, contains: () => false, dismiss, escape: vi.fn() })
+}
+
 describe('TopBar kebab menu — lifted into uiStore', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_OLUMI_CORE', '0')
     useUIStore.setState({ activeOverlaySurface: null, overlaySurfaceOrigin: null })
   })
   afterEach(() => {
     cleanup()
+    vi.unstubAllEnvs()
     useUIStore.setState({ activeOverlaySurface: null, overlaySurfaceOrigin: null })
   })
 
@@ -130,41 +140,25 @@ describe('TopBar kebab menu — lifted into uiStore', () => {
     expect(screen.getByRole('banner')).not.toHaveAttribute('data-overlay-origin')
   })
 
-  it('does not lower a surface it does not own', () => {
+  it('does not lower a foreign surface when its registered menu is replaced', () => {
     renderTopBar()
+    assistantRaises('top_bar_menu')
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    // Replace the store's surface and the menu chain in the same commit, while
+    // the arbiter still holds the kebab's close callback.
     act(() => {
       useUIStore.setState({
         activeOverlaySurface: FOREIGN_SURFACE,
         overlaySurfaceOrigin: 'user',
       })
+      const unregister = registerOtherMenu()
+      unregister()
     })
 
-    // ⚠ THE PATH MATTERS. Escape and click-outside are registered only while
-    // THIS bar's menu is open, so firing them here would prove nothing — the
-    // listeners are not even attached (a guard agreeing with itself). The
-    // exclusivity listener IS attached unconditionally, so it is the one path
-    // that can reach this bar's close while a sibling's surface is raised.
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }),
-      )
-    })
-
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(useUIStore.getState().activeOverlaySurface).toBe(FOREIGN_SURFACE)
     expect(useUIStore.getState().overlaySurfaceOrigin).toBe('user')
-
-    // PRECONDITION PINNED IN-TEST: the very same event, in this very render,
-    // DOES lower this bar's own surface. Without this the assertion above
-    // would also pass if the listener had silently stopped firing.
-    act(() => {
-      useUIStore.getState().setOverlaySurface('top_bar_menu')
-    })
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }),
-      )
-    })
-    expect(useUIStore.getState().activeOverlaySurface).toBeNull()
   })
 
   it('marks the banner with the origin so a surface the assistant raised is attributable', () => {
@@ -220,59 +214,39 @@ describe('TopBar kebab menu — lifted into uiStore', () => {
     assistantRaises('top_bar_menu')
     expect(screen.getByRole('menu')).toBeInTheDocument()
 
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(useUIStore.getState().activeOverlaySurface).toBeNull()
   })
 
-  // ── The cross-menu exclusivity bridge still works ────────────────────────
-  // LeftSidebar's lens menu and UserAvatarMenu still hold their own local
-  // state (not this lane's files) and coordinate over this window event. The
-  // lifted kebab must keep honouring it in BOTH directions, or lifting one
-  // surface would silently create two competing exclusivity mechanisms.
-  it('closes when ANOTHER menu claims exclusivity', () => {
+  it('closes when another menu registers with the arbiter', () => {
     renderTopBar()
     assistantRaises('top_bar_menu')
     expect(screen.getByRole('menu')).toBeInTheDocument()
 
     act(() => {
-      window.dispatchEvent(
-        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }),
-      )
+      const unregister = registerOtherMenu()
+      unregister()
     })
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(useUIStore.getState().activeOverlaySurface).toBeNull()
   })
 
-  it('stays open when the exclusivity claim is its OWN', () => {
+  it('registers and replaces the previous menu when the assistant raises it', () => {
     renderTopBar()
-    assistantRaises('top_bar_menu')
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'kebab' } }),
-      )
-    })
-
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-    expect(useUIStore.getState().activeOverlaySurface).toBe('top_bar_menu')
-  })
-
-  it('announces its own exclusivity claim when the ASSISTANT raises it, so sibling menus close', () => {
-    renderTopBar()
-    const seen: string[] = []
-    const listener = (e: Event) => {
-      seen.push(String((e as CustomEvent).detail?.source))
-    }
-    window.addEventListener(MENU_EXCLUSIVE_EVENT, listener)
+    const dismiss = vi.fn()
+    const unregister = registerOtherMenu(dismiss)
     try {
       assistantRaises('top_bar_menu')
+      expect(dismiss).toHaveBeenCalledTimes(1)
+      expect(dismiss).toHaveBeenCalledWith('replaced')
+      expect(isMenuOpen()).toBe(true)
+      expect(screen.getByRole('menu')).toBeInTheDocument()
     } finally {
-      window.removeEventListener(MENU_EXCLUSIVE_EVENT, listener)
+      unregister()
     }
-    expect(seen).toContain('kebab')
   })
 
   it('reflects the store on first paint rather than defaulting closed', () => {

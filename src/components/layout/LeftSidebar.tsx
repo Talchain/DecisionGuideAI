@@ -6,9 +6,6 @@ import { isOlumiCoreLane } from '../../olumiCore/lane'
 import styles from './CanvasFloatingToolbar.module.css'
 import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcuts'
 
-/** Custom event: request all open menus to close (except the source). */
-export const MENU_EXCLUSIVE_EVENT = 'menu:exclusive'
-
 interface LeftSidebarProps {
   /** Lane-owned add control; its availability stays with its writer. */
   className?: string

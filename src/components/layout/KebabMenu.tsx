@@ -240,11 +240,7 @@ export function KebabMenu({
 
   return (
     <>
-      <div className={styles.menuDropdown} ref={menuRef}
-        onMouseDown={lane ? (event) => {
-          // TopBar's older outside-press listener cannot see portalled descendants.
-          if ((event.target as Element).closest('[data-olumi-menu]')) event.stopPropagation()
-        } : undefined}>
+      <div className={styles.menuDropdown} ref={menuRef}>
         {lane ? (
           <HoverButton ref={setOpener} type="button" words="More options" className={TOOLBAR_ICON}
             onClick={(event) => {
