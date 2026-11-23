@@ -44,6 +44,10 @@ const IMPORTANT_DECLARATION = /([\w-]+)\s*:[^;{}]*?!\s*important\b/gi
 const BLUE = /(?:^|\s)(?<token>(?:[^\s]+:)?!?(?:bg|text|border|ring|fill|stroke|outline|decoration|from|to|via|accent|shadow|caret|divide|placeholder)-(?:info|primary)(?:-[\w-]+)?(?:\/(?:\d+|\[[^\s]+?\]))?)(?=$|[\s!])/g
 const PANEL = /^(?:article|aside|details|div|form|main|nav|section)$/
 const PANEL_PADDING = /(?:^|[\s:])!?(p(?:x)?-4)(?=$|[\s!])/g
+const COPY_PROPS = new Set(['words', 'label', 'aria-label', 'placeholder', 'tip'])
+const UI_WORDS = /—|(?<=[\p{L}\p{N}]\s*)&(?=\s*[\p{L}\p{N}])|(?<![\p{L}\p{N}_])(?:color|behavior|center|organize|analyze|favorite|gray|recommend|best|winner|you\s+should|go\s+with)(?![\p{L}\p{N}_])/giu
+const WORD = /[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu
+const PRODUCT_NAMES = new Set(['Olumi', "Olumi's", 'Olumi’s'])
 
 // Only an object literal whose every property explicitly names a CSS variable is exempt.
 // Computed keys, spreads and variables can introduce ordinary properties and still count.
@@ -111,6 +115,56 @@ function isStringSegment(node) {
   return ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
 }
 
+function jsxCopy(text) {
+  return text.replace(/&(?:amp|#0*38|#x0*26);/gi, '&')
+    .replace(/&(?:mdash|#0*8212|#x0*2014);/gi, '—')
+    .replace(/&apos;/g, "'")
+}
+
+// Follow the values an expression can render, leaving conditions, calls and View reads alone.
+function readCopy(node, read, started = false) {
+  if (!node) return started
+  if (ts.isJsxText(node) || isStringSegment(node)) return read(node, started)
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node)) {
+    return readCopy(node.expression, read, started)
+  }
+  if (ts.isConditionalExpression(node)) {
+    const whenTrue = readCopy(node.whenTrue, read, started)
+    const whenFalse = readCopy(node.whenFalse, read, started)
+    return whenTrue && whenFalse
+  }
+  if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) {
+      readCopy(node.right, read, started)
+    } else if (op === ts.SyntaxKind.PlusToken) {
+      return readCopy(node.right, read, readCopy(node.left, read, started))
+    } else if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+      const left = readCopy(node.left, read, started)
+      const right = readCopy(node.right, read, started)
+      return left && right
+    }
+  }
+  if (ts.isTemplateExpression(node)) {
+    return node.templateSpans.reduce((seen, span) =>
+      read(span.literal, readCopy(span.expression, read, seen)), read(node.head, started))
+  }
+  return started
+}
+
+function isViewCopy(opening) {
+  return opening.attributes.properties.some((prop) => ts.isJsxAttribute(prop) && prop.name.getText() === 'data-view')
+}
+
+function isViewChild(node) {
+  // Fragments can group a marked element's content. A nested element owns its own copy.
+  for (let parent = node.parent; parent; parent = parent.parent) {
+    if (ts.isJsxElement(parent)) return isViewCopy(parent.openingElement)
+  }
+  return false
+}
+
 /** Collect the lane's syntax-sensitive rules in a single traversal. Each hit has a source offset. */
 export function scanLaneSource(file, text) {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
@@ -126,6 +180,29 @@ export function scanLaneSource(file, text) {
       ts.forEachChild(node, (child) => scanStrings(child, regex, rule))
     }
   }
+  const copyText = (node) => ts.isJsxText(node) || ts.isJsxAttribute(node.parent) ? jsxCopy(node.text) : node.text
+  const checkWords = (node) => {
+    for (const [match] of copyText(node).matchAll(UI_WORDS)) {
+      add('v12-ui-words', node, match.toLowerCase().replace(/\s+/g, ' '))
+    }
+  }
+  const checkCase = (node, started) => {
+    for (const [word] of copyText(node).matchAll(WORD)) {
+      if (started && /^\p{Lu}/u.test(word) && !PRODUCT_NAMES.has(word)) {
+        add('v12-sentence-case', node, word)
+      }
+      started = true
+    }
+    return started
+  }
+  const checkCaseChildren = (started, child) => {
+    if (ts.isJsxElement(child)) {
+      // An inline element can hold part of a heading or button's text.
+      return isViewCopy(child.openingElement) ? started : child.children.reduce(checkCaseChildren, started)
+    }
+    if (ts.isJsxFragment(child)) return child.children.reduce(checkCaseChildren, started)
+    return readCopy(child, checkCase, started)
+  }
   function visit(node) {
     if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
         ts.isIdentifier(node.expression) && node.expression.text === 'typography') {
@@ -138,8 +215,17 @@ export function scanLaneSource(file, text) {
     }
     if (file.endsWith('.tsx') && (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))) {
       const tag = node.tagName.getText(source)
-      for (const attribute of node.attributes.properties.filter(ts.isJsxAttribute)) {
+      const attributes = node.attributes.properties.filter(ts.isJsxAttribute)
+      const localCopy = !isViewCopy(node)
+      const role = attributes.find((attribute) => attribute.name.getText(source) === 'role')?.initializer
+      const sentenceCase = /^(?:h[1-6]|button|Button|HoverButton|OkIconButton)$/.test(tag) ||
+        (role && ts.isStringLiteral(role) && /^(?:heading|button)$/.test(role.text))
+      for (const attribute of attributes) {
         const name = attribute.name.getText(source)
+        if (localCopy && COPY_PROPS.has(name)) {
+          readCopy(attribute.initializer, checkWords)
+          if (sentenceCase && (name === 'label' || name === 'aria-label')) readCopy(attribute.initializer, checkCase)
+        }
         if (/^[a-z][\w-]*$/.test(tag)) {
           if (name === 'style' && !customPropertiesOnly(attribute)) add('v12-inline-style', attribute, `<${tag} style>`)
           if (name === 'title') add('v12-native-title', attribute, `<${tag} title>`)
@@ -147,6 +233,15 @@ export function scanLaneSource(file, text) {
         if (name === 'className' && PANEL.test(tag) && attribute.initializer) {
           scanStrings(attribute.initializer, PANEL_PADDING, 'v12-panel-padding')
         }
+      }
+      if (localCopy && sentenceCase && ts.isJsxOpeningElement(node)) {
+        node.parent.children.reduce(checkCaseChildren, false)
+      }
+    }
+    if (file.endsWith('.tsx') && (ts.isJsxText(node) || ts.isJsxExpression(node))) {
+      const parent = node.parent
+      if ((ts.isJsxFragment(parent) || ts.isJsxElement(parent)) && !isViewChild(node)) {
+        readCopy(node, checkWords)
       }
     }
     if (isStringSegment(node)) {

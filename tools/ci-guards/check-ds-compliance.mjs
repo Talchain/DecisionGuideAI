@@ -250,6 +250,8 @@ const CLASSES = [
     laneSource: true,
   },
   laneSourceClass('v12-panel-padding', '16px p-4 or px-4 utilities on lane panel elements', { mode: 'report', tsxOnly: true }),
+  laneSourceClass('v12-ui-words', 'Em dashes, ampersands between words, American spellings or banned phrases in lane JSX copy', { tsxOnly: true }),
+  laneSourceClass('v12-sentence-case', 'Capitalised words after the first in lane JSX headings and buttons', { mode: 'report', tsxOnly: true }),
   {
     id: 'emoji-icon',
     mode: 'report', // never gates — precise migration is deferred (see report)

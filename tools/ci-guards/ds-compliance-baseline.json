@@ -4755,6 +4755,13 @@
         }
       }
     },
+    "v12-ui-words": {
+      "mode": "ratchet",
+      "description": "Em dashes, ampersands between words, American spellings or banned phrases in lane JSX copy",
+      "total": 0,
+      "byFile": {},
+      "signatures": {}
+    },
     "emoji-icon": {
       "mode": "report",
       "description": "Emoji / unicode-symbol used as a rendered icon (icon:/symbol:/glyph: with emoji)",

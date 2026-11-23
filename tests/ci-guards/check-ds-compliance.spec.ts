@@ -14,7 +14,7 @@
  */
 import { describe, it, expect, afterAll } from 'vitest'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -92,6 +92,62 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(status).toBe(0)
     const items = JSON.parse(out).netNew['v12-blue-css-var'].items
     expect(items.map(({ token }: { token: string }) => token).sort()).toEqual(['var(--info)', 'var(--info-ink)'])
+  })
+
+  it('ratchets UI words in JSX text and copy props, while leaving Core words and code alone', () => {
+    const root = path.join(tmp, 'ui-words')
+    mkdirSync(path.join(root, 'olumiView'), { recursive: true })
+    writeFileSync(path.join(root, 'olumiView', 'copy.tsx'), `
+declare const view: { label: string; kind: string }
+declare function Control(props: { words: string; label: string; tip: string }): JSX.Element
+
+export const copy = <>
+  <p>Color &amp; behavior &mdash; center, organize, analyze, favorite, gray.</p>
+  <p>{'YOU SHOULD plan — then go with the change.'}</p>
+  <Control words="We recommend a review" label="The BEST result" tip={\`A winner for \${view.label}\`} />
+  <input aria-label="Plans &amp; evidence" placeholder={view.kind === 'winner' ? view.label : 'Choose a color'} />
+  <p data-view="summary"><>Core can say best &amp; favorite — it owns these words</></p>
+  <p data-title="recommend" data-value="winner">{view.label}</p>
+  <p>Recommended, bested and winners are separate words.</p>
+  {/* best & favorite — neither is UI copy */}
+</>
+`)
+    const { status, stdout } = run(['--root', root, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(1)
+    const result = JSON.parse(stdout).netNew['v12-ui-words']
+    expect(result.mode).toBe('ratchet')
+    expect(result.items.flatMap(({ token, delta }: { token: string; delta: number }) => Array<string>(delta).fill(token)).sort()).toEqual([
+      '&', '&', '—', '—', 'analyze', 'behavior', 'best', 'center', 'color', 'color',
+      'favorite', 'go with', 'gray', 'organize', 'recommend', 'winner', 'you should',
+    ].sort())
+  })
+
+  it('reports sentence case on headings and buttons without gating', () => {
+    const root = path.join(tmp, 'sentence-case')
+    mkdirSync(path.join(root, 'olumiView'), { recursive: true })
+    writeFileSync(path.join(root, 'olumiView', 'headings.tsx'), `
+declare const view: { title: string }
+declare const held: boolean
+
+export const headings = <>
+  <h2><span>Review</span> Model Assumptions</h2>
+  <button>{held ? 'Wait for Olumi' : 'Open Details'}</button>
+  <button aria-label="Show History" />
+  <div role="heading" aria-level={2}>A Different view</div>
+  <h3>Ask Olumi about it</h3>
+  <h3>{view.title}</h3>
+  <h3 data-view="title">Core Titles Stay</h3>
+  <p>This Title Case is outside the rule.</p>
+  {/* <button>Ignore Comments</button> */}
+</>
+`)
+    const { status, stdout } = run(['--root', root, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(0)
+    const result = JSON.parse(stdout).netNew['v12-sentence-case']
+    expect(result.mode).toBe('report')
+    expect(result.items.map(({ token }: { token: string }) => token).sort()).toEqual([
+      'Assumptions', 'Details', 'Different', 'History', 'Model',
+    ])
   })
 
   it('CLEAN: a violation-free tree passes under --enforce', () => {
