@@ -7,6 +7,14 @@ import { linkCards } from '../../layout'
 
 type Headline = NonNullable<ViewCard['headline']>
 
+export function bareReasonOfRow(r: ViewRow): string | null {
+  return r.kind === 'none' && r.bare_fallback === true ? r.title || null : null
+}
+
+export function bareReasonOfHeadline(h: Headline): string | null {
+  return h.state === 'none' && h.bare_fallback === true && !h.add ? h.title || null : null
+}
+
 export function withheldCardIds(model: ViewModel | null, rows: readonly (ViewRow | undefined)[]): string[] {
   const refs = rows.flatMap((r) => r?.kind === 'none' ? (r.blocked_by ?? []).filter(({ role }) => role !== 'link').map(({ ref }) => ref) : [])
   if (model === null || refs.length === 0) return []

@@ -16,7 +16,7 @@ import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
 import { figureRange } from '../contract'
-import { withheldCardIds } from '../cards/words'
+import { bareReasonOfRow, withheldCardIds } from '../cards/words'
 import { ringFrom } from '../../reasoning/tabRing'
 import type { Said } from './said'
 
@@ -124,15 +124,14 @@ export function RowWords({ words, at, reason, ring }: { words: string; at: strin
   )
 }
 
-/** The Detailed option's own withheld status. A row-only status retains its existing long-text control as the fallback. */
-export function WithheldLead({ text, hover, reason, blockers, path, row }: {
-  text: string; hover?: string; reason?: string; blockers: readonly string[]; path: string; row?: string
+/** A headline-less option's row keeps its existing long-text control. */
+export function WithheldLead({ text, blockers, row }: {
+  text: string; blockers: readonly string[]; row: string
 }): JSX.Element {
-  const ring = useWithheldRing(blockers)
+  const holder = useWithheldRing(blockers)
+  const ring = blockers.length === 0 ? undefined : holder
   return (
-    <Hover as="p" focusable={false} className={reason ? `ok-quiet ${withheldReasonClass}` : 'ok-quiet'} words={hover} data-view={path} {...(blockers.length === 0 ? {} : ring.pointer)}>
-      {row === undefined || reason ? reason ?? text : <RowWords words={text} at={row} ring={blockers.length === 0 ? undefined : ring} />}
-    </Hover>
+    <p className="ok-quiet" data-view={`${row}.text`} {...ring?.pointer}><RowWords words={text} at={row} ring={ring} /></p>
   )
 }
 
@@ -162,7 +161,7 @@ export function RowBelow({ r, at, shown }: { r: RowT; at: string; shown: string 
   return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
 }
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')
-const reasonOf = (r: ViewRow) => isOlumiCoreLane() && r.kind === 'none' ? r.title || undefined : undefined
+const reasonOf = (r: ViewRow) => isOlumiCoreLane() ? bareReasonOfRow(r) ?? undefined : undefined
 /** What a ResultRow/RowWords draws at rest: its words, or nothing when they sit behind a closed press. */
 const atRest = (words: string, reason: string | undefined) => reason ?? (words.length <= ROW_WORDS_MAX ? words : '')
 const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) => x != null && x !== '' && a.indexOf(x) === j).join('\n')
@@ -175,12 +174,9 @@ const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) =>
  * cards and the question's rail carry it.
  */
 export function AimResults({ aim, model, shared }: { aim: ViewCard; model: ViewModel | null; shared: ReadonlyMap<string, Said> }): JSX.Element | null {
-  if (model === null) return null
-  const line = shared.get(aim.id)
+  if (shared.has(aim.id) || model === null) return null
   const letters = optionLetters(model)
-  const rows = model.cards.filter((c) => c.family === 'option').flatMap((c) => otherRows(c)
-    .filter(({ r }) => r.aim_id === aim.id && (line === undefined || (line.rows !== undefined && !line.rows.includes(r))))
-    .map((x) => ({ c, ...x })))
+  const rows = model.cards.filter((c) => c.family === 'option').flatMap((c) => otherRows(c).filter(({ r }) => r.aim_id === aim.id).map((x) => ({ c, ...x })))
   if (rows.length === 0) return null
   return (
     <div className="ok-dt-aims" data-aim-results={aim.id}>
@@ -204,16 +200,14 @@ export function AimRows({ card, model, shared }: { card: ViewCard; model: ViewMo
   return (
     <div className="ok-dt-aims" data-view={`${card.id}.limits`}>
       {rows.map(({ r, i }) => {
-        const line = shared.get(r.aim_id!)
-        const represented = r.kind === 'none' && line !== undefined && (line.rows === undefined || line.rows.includes(r))
-        const words = represented ? '' : rowWords(r)
-        const reason = represented ? undefined : reasonOf(r)
+        const words = r.kind === 'none' && shared.has(r.aim_id!) ? '' : rowWords(r)
+        const reason = shared.has(r.aim_id!) ? undefined : reasonOf(r)
         const at = `${card.id}.rows.${i}`
         return (
           <Fragment key={i}>
             <ResultRow r={r} at={at} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, 'question' in r ? r.question : undefined)}
-              reason={reason} blockers={!represented && isOlumiCoreLane() ? withheldCardIds(model, [r]) : []}
-              lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': (represented || (line !== undefined && line.rows === undefined)) || undefined }} />
+              reason={reason} blockers={!shared.has(r.aim_id!) && isOlumiCoreLane() ? withheldCardIds(model, [r]) : []}
+              lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': shared.has(r.aim_id!) || undefined }} />
             <RowBelow r={r} at={at} shown={atRest(words, reason)} />
           </Fragment>
         )
@@ -239,13 +233,10 @@ function SaidLine({ line, at }: { line: Said; at: string }): JSX.Element {
   const holder = useWithheldRing(line.blockers ?? [])
   const ring = line.blockers?.length ? holder : undefined
   return (
-    <>
-      <Hover as="p" className="ok-dt-said-line" words={line.title} {...ring?.pointer} {...ring?.focus}>
-        <RowWords words={line.text} at={at} reason={line.reason} ring={ring} />
-        {line.olumi == null ? null : <span data-said-olumi={at}><OlumiMark words={line.olumi.title} /></span>}
-      </Hover>
-      {line.add ? <p className="ok-dt-said-line">{line.add}</p> : null}
-    </>
+    <Hover as="p" className="ok-dt-said-line" words={line.title} {...ring?.pointer} {...ring?.focus}>
+      <RowWords words={line.text} at={at} reason={line.reason} ring={ring} />
+      {line.olumi == null ? null : <span data-said-olumi={at}><OlumiMark words={line.olumi.title} /></span>}
+    </Hover>
   )
 }
 

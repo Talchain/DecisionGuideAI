@@ -30,7 +30,7 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnce, WithheldLead } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnce, useWithheldRing, WithheldLead } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -56,7 +56,7 @@ import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
-import { chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
+import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
 import { fixedParts } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
@@ -179,6 +179,16 @@ export function questionRingOf(model: Parameters<typeof chatQuestionsOf>[0], id:
   if (qs.length < 2) return null
   const i = qs.findIndex((q) => q.id === id)
   return i < 0 ? null : { n: i + 1, text: qs[i]!.text }
+}
+
+function DetailedWithheldHeadline({ id, h, line, why, reason, blockers }: {
+  id: string; h: NonNullable<ViewCard['headline']>; line: string; why: string; reason?: string; blockers: readonly string[]
+}): JSX.Element {
+  const ring = useWithheldRing(blockers)
+  const pointer = blockers.length === 0 ? undefined : ring.pointer
+  return reason === undefined
+    ? <Hover as="p" focusable={false} className="ok-quiet" words={why} {...pointer} data-view={`${id}.headline.${h.add != null && h.add !== '' ? 'add' : 'text'}`}>{line}</Hover>
+    : <Hover as="p" focusable={false} className={`ok-quiet ${typography.viewPanelMeta} text-text-light`} words={why} {...pointer} data-view={`${id}.headline.title`}>{reason}</Hover>
 }
 
 function CoreCardImpl(props: NodeProps): JSX.Element {
@@ -348,11 +358,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     if (card.family === 'option' && card.headline == null) {
       const row = card.rows[0]
       if (row?.kind !== 'none' || row.aim_id != null || !card.rows.every((r) => r.kind === 'none')) return null
-      const reason = isOlumiCoreLane() ? row.title || undefined : undefined
       return (
         <Hover as="div" focusable={false} data-core-lead={id} data-ok-face="none" words={lead}>
-          <WithheldLead text={lead} reason={reason} row={`${id}.rows.0`} path={`${id}.rows.0.${reason ? 'title' : 'text'}`}
-            blockers={isOlumiCoreLane() ? withheldCardIds(model, [row]) : []} />
+          <WithheldLead text={lead} row={`${id}.rows.0`} blockers={isOlumiCoreLane() ? withheldCardIds(model, [row]) : []} />
         </Hover>
       )
     }
@@ -397,17 +405,16 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       // Said once on the aim (said.ts) only where that line says exactly this option's own line and hover; an option whose reason differs keeps its own.
       const once = saysNoChanceOnce(said.none, h)
       const lane = isOlumiCoreLane()
-      const hi = !lane && h.aim_id == null ? -1 : headlineWithheldRowIndex(card)
-      const headRow = card.rows[hi]
-      const reason = lane ? headRow?.title || undefined : undefined
+      const hi = h.aim_id == null ? -1 : card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === h.aim_id)
+      const headRow = hi === -1 ? null : { r: card.rows[hi] as Parameters<typeof RowBelow>[0]['r'], i: hi }
+      const reason = lane ? bareReasonOfHeadline(h) ?? undefined : undefined
       return (
         <Hover as="div" focusable={false} className="flex flex-col gap-2" data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} words={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
-          {once ? null : <WithheldLead text={line} hover={why} reason={reason} blockers={lane ? withheldCardIds(model, [headRow]) : []}
-            path={reason ? `${id}.rows.${hi}.title` : `${id}.headline.${h.add ? 'add' : 'text'}`} />}
-          {!once && reason && h.add ? <p className="ok-quiet" data-view={`${id}.headline.add`}>{h.add}</p> : null}
+          {once ? null : <DetailedWithheldHeadline id={id} h={h} line={line} why={why} reason={reason}
+            blockers={lane ? withheldCardIds(model, [card.rows[headlineWithheldRowIndex(card)]]) : []} />}
           {/* A7(a), Codex 12:08Z: the headline's own aim is drawn here, not in AimRows (otherRows leaves it out), so its typed withheld row's switch
               sentence and input to check are read here, once, at rest under the line. By field (the row whose aim_id is the headline's). */}
-          {headRow === undefined || (h.aim_id == null && !reason) ? null : <RowBelow r={headRow} at={`${id}.rows.${hi}`} shown={once ? '' : reason ?? line} />}
+          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} shown={once ? '' : reason ?? line} />}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </Hover>
       )

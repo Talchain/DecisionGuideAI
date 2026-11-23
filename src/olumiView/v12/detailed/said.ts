@@ -13,7 +13,7 @@
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import type { ViewCard, ViewModel } from '../../client'
 import { limitLeadOf } from '../contract'
-import { chanceParts, headlineWithheldRowIndex, noChanceLineOf, sharedNoChanceOf, withheldCardIds } from '../cards/words'
+import { bareReasonOfHeadline, bareReasonOfRow, chanceParts, headlineWithheldRowIndex, noChanceLineOf, sharedNoChanceOf, withheldCardIds } from '../cards/words'
 
 type Row = ViewCard['rows'][number]
 type Headline = NonNullable<ViewCard['headline']>
@@ -26,9 +26,7 @@ export type Said = {
   readonly at: string | null
   readonly olumi?: Mark | null
   readonly reason?: string
-  readonly add?: string | null
   readonly blockers?: readonly string[]
-  readonly rows?: readonly Row[]
 }
 
 const optionsOf = (model: ViewModel | null): ViewCard[] => (model?.cards ?? []).filter((c) => c.family === 'option')
@@ -55,9 +53,10 @@ export function sharedNoChance(model: ViewModel | null): Said | null {
   if (represented.length === 0) return null
   if (!isOlumiCoreLane()) return said
   const rows = represented.map((c) => c.rows[headlineWithheldRowIndex(c)])
-  const reason = rows[0]?.title || ''
-  if (!rows.every((r) => (r?.title || '') === reason)) return null
-  return { ...said, reason: reason || undefined, add: reason ? represented[0]!.headline!.add : null, blockers: withheldCardIds(model, rows) }
+  const reasons = represented.map((c) => bareReasonOfHeadline(c.headline!))
+  if (reasons.some((r) => r !== null) && !reasons.every((r) => r === reasons[0])) return null
+  const reason = reasons[0] ?? null
+  return { ...said, reason: reason !== null && reasons.every((value) => value === reason) ? reason : undefined, blockers: withheldCardIds(model, rows) }
 }
 
 function candidateNoChance(model: ViewModel | null): Said | null {
@@ -103,6 +102,7 @@ const readOf = (r: Row) => {
 export function sharedRowStates(model: ViewModel | null): ReadonlyMap<string, Said> {
   const opts = optionsOf(model), out = new Map<string, Said>()
   if (opts.length < 2) return out
+  const lane = isOlumiCoreLane()
   const aims = new Set(opts.flatMap((c) => c.rows.flatMap((r) => (r.aim_id != null && r.aim_id !== (c.headline?.aim_id ?? null) ? [r.aim_id] : []))))
   for (const aim of aims) {
     const rows = opts.flatMap((c) => {
@@ -110,13 +110,16 @@ export function sharedRowStates(model: ViewModel | null): ReadonlyMap<string, Sa
       return r === undefined ? [] : [r]
     })
     if (rows.length !== opts.length) continue
-    const words = rows.map(noneWords)
+    const reasons = lane ? rows.map(bareReasonOfRow) : []
+    const words = rows.map((r, i) => reasons[i] ?? noneWords(r))
     if (words.some((w) => w === null) || !words.every((w) => w === words[0])) continue
     const read = rows.map(readOf), one = read[0]!
     if (read.some((x) => x.likely !== null || x.title !== one.title || x.question !== one.question || x.olumi?.glyph !== one.olumi?.glyph || x.olumi?.title !== one.olumi?.title)) continue
+    const firstReason = reasons[0] ?? null
+    const reason = firstReason !== null && reasons.every((value) => value === firstReason) ? firstReason : undefined
     const hover = [one.title, one.question].filter((x, j, a) => x !== '' && a.indexOf(x) === j).join('\n')
     out.set(aim, { text: words[0]!, title: hover !== '' ? hover : words[0]!, at: model!.cards.some((c) => c.id === aim) ? aim : null, olumi: one.olumi,
-      ...(isOlumiCoreLane() ? { reason: one.title || undefined, blockers: withheldCardIds(model, rows), rows } : {}) })
+      ...(lane ? { reason, blockers: withheldCardIds(model, rows) } : {}) })
   }
   return out
 }

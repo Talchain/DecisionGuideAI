@@ -9,7 +9,7 @@ import type { View, ViewCard, ViewRow } from '../../client'
 import { CoreCard } from '../../previous/CoreCard'
 import { attCards } from '../../ring'
 import { useViewStore } from '../../store'
-import { AimResults, ROW_WORDS_MAX } from '../detailed/marks'
+import { AimResults } from '../detailed/marks'
 import { SimpleFace } from '../SimpleFace'
 import { setDefaultLevel, useSimpleLevel } from '../simpleStore'
 
@@ -21,6 +21,8 @@ vi.mock('@xyflow/react', async (real) => ({ ...(await real<object>()), Handle: (
 vi.mock('../../ring', async (real) => ({ ...(await real<object>()), attCards: vi.fn() }))
 
 const load = (name: string): View => JSON.parse(readFileSync(`src/olumiView/fixtures/core-38eebca9/${name}.view3.json`, 'utf8'))
+const loadProducer = (name: 'studio' | 'app-launch' | 'bakery-asked'): View =>
+  JSON.parse(readFileSync(`src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-${name}.view3.json`, 'utf8'))
 const cardOf = (view: View, id: string) => view.model!.cards.find((c) => c.id === id)!
 type NoneRow = Extract<ViewRow, { kind: 'none' }>
 const rowOf = (card: ViewCard, i = 0) => card.rows[i]! as NoneRow
@@ -37,6 +39,12 @@ const detail = (view: View, id: string) => {
 }
 const simple = (view: View, card: ViewCard) => <SimpleFace card={card} model={view.model!} noted={false} />
 const classes = (el: HTMLElement) => Array.from(el.querySelectorAll('*'), (node) => node.getAttribute('class'))
+// Leave the producer's fields intact while exercising the option's own line.
+const keepOneOption = (view: View, id: string) => {
+  view.model!.cards = view.model!.cards.filter((c) => c.family !== 'option' || c.id === id)
+  return cardOf(view, id)
+}
+
 const headlineFixture = () => {
   const view = load('bakery-asked')
   const card = cardOf(view, 'second_oven')
@@ -58,27 +66,137 @@ afterEach(() => {
 })
 
 describe('Issue 7 withheld reasons and card blockers', () => {
-  it('(a) draws the whole Detailed title at rest with the next step in a separate element', async () => {
-    const { view, card, row } = headlineFixture()
-    const add = 'Check the signed delivery schedule.'
-    const reason = 'The chance is withheld because the delivery schedule leaves the available production time unspecified.'
-    expect(reason.length).toBeGreaterThan(ROW_WORDS_MAX)
-    row.title = reason
-    card.headline = { ...card.headline!, add }
-    const face = detail(view, card.id).querySelector<HTMLElement>('[data-ok-face="none"]')!
-    const line = at(face, `${card.id}.rows.0.title`)
-    expect(line.textContent).toBe(reason)
+  it('(a) draws the flagged Detailed row title at rest and leaves out the fallback words', () => {
+    const view = loadProducer('studio')
+    const option = keepOneOption(view, 'evening_classes'), row = rowOf(option)
+    const path = `${option.id}.rows.0`
+    const drawn = at(detail(view, row.aim_id!), path)
+    const line = at(drawn, `${path}.title`)
+    expect(line.textContent).toBe(row.title)
     expect(line.className).toContain(typography.viewPanelMeta)
     expect(line.classList.contains('text-text-light')).toBe(true)
-    expect(at(face, `${card.id}.headline.add`).textContent).toBe(add)
-    expect(line.nextElementSibling).toBe(at(face, `${card.id}.headline.add`))
-    expect(face.querySelector('[data-row-words-long]')).toBeNull()
-    expect(face.textContent).not.toContain(card.headline.text)
+    expect(drawn.textContent).not.toContain(row.text)
     expect(line.hasAttribute('tabindex')).toBe(false)
-    expect(await tipOf(line)).toBe(`${card.headline.why}\n${add}`)
+    expect(drawn.tabIndex).toBe(0)
   })
 
-  it.each([null, ''])('(a) retains the Detailed status and its existing add fallback when the title is %s', (title) => {
+  it('(b) draws the title in place of text when a flagged headline has no add', () => {
+    const view = loadProducer('app-launch'), card = cardOf(view, 'option_scheduled')
+    const h = card.headline!
+    const shared = detail(view, h.aim_id!).querySelector<HTMLElement>(`[data-said-once-on="${h.aim_id}"]`)!
+    expect(shared.textContent).toBe(h.title)
+    cleanup()
+    keepOneOption(view, card.id)
+    const face = detail(view, card.id).querySelector<HTMLElement>('[data-ok-face="none"]')!
+    const line = at(face, `${card.id}.headline.title`)
+    expect(line.textContent).toBe(h.title)
+    expect(face.textContent).not.toContain(h.text)
+    expect(at(face, `${card.id}.headline.add`)).toBeNull()
+    expect(line.hasAttribute('tabindex')).toBe(false)
+  })
+
+  it('(h) says a flagged headline once only where every represented option draws the same line; a mixed set keeps each option\'s own line', () => {
+    // Positive: the producer's equal flagged headlines are said once on their aim.
+    const aim = 'allow_readiness_work', ids = ['option_scheduled', 'option_delay', 'option_isolate']
+    const equal = loadProducer('app-launch'), title = cardOf(equal, ids[0]!).headline!.title
+    const once = detail(equal, aim).querySelector<HTMLElement>(`[data-said-once-on="${aim}"]`)!
+    expect(once.textContent).toContain(title)
+    cleanup()
+    // Mixed control (SYNTHETIC inputs, recorded): one emitted flag removed (option_delay), and distinct valid blocker refs on each
+    // option's headline row (rows[2]) so the rings can be told apart. Every other emitted field is left as the producer wrote it.
+    const mixed = loadProducer('app-launch')
+    delete cardOf(mixed, 'option_delay').headline!.bare_fallback
+    const refs: Record<string, string> = { option_scheduled: 'release_offset', option_delay: 'repair_duration', option_isolate: 'validation_duration' }
+    for (const id of ids) rowOf(cardOf(mixed, id), 2).blocked_by = [figure(refs[id]!)]
+    const aimFace = detail(mixed, aim)
+    expect(aimFace.querySelector(`[data-said-once-on="${aim}"]`)?.textContent ?? '').not.toContain(title)
+    cleanup()
+    for (const id of ids) {
+      const card = cardOf(mixed, id), h = card.headline!
+      const face = detail(mixed, id).querySelector<HTMLElement>('[data-ok-face="none"]')!
+      const line = id === 'option_delay' ? at(face, `${id}.headline.text`) : at(face, `${id}.headline.title`)
+      expect(line.textContent).toBe(id === 'option_delay' ? h.text : h.title)
+      fireEvent.pointerEnter(line)
+      expectRing(refs[id]!)
+      fireEvent.pointerLeave(line)
+      expectRing()
+      cleanup()
+    }
+  })
+
+  it('(c) keeps the add line and base hover exactly with a flagged headline that has an add', async () => {
+    const view = loadProducer('bakery-asked'), card = keepOneOption(view, 'second_oven')
+    const h = card.headline!
+    const face = detail(view, card.id).querySelector<HTMLElement>('[data-ok-face="none"]')!
+    const line = at(face, `${card.id}.headline.add`)
+    expect(face.textContent).toBe(h.add)
+    expect(line.textContent).toBe(h.add)
+    expect(at(face, `${card.id}.headline.title`)).toBeNull()
+    const flaggedHTML = face.outerHTML
+    expect(await tipOf(line)).toBe(`${h.why}\n${h.add}`)
+    cleanup()
+    delete h.bare_fallback
+    const base = detail(view, card.id).querySelector<HTMLElement>('[data-ok-face="none"]')!
+    expect(base.outerHTML).toBe(flaggedHTML)
+  })
+
+  it('(d) keeps base row and headline words when the flags are removed from the same producer fixture', () => {
+    const view = loadProducer('app-launch'), option = keepOneOption(view, 'option_scheduled')
+    const row = rowOf(option), h = option.headline!, path = `${option.id}.rows.0`
+    delete row.bare_fallback
+    delete h.bare_fallback
+    const aim = detail(view, row.aim_id!)
+    expect(at(aim, path).querySelector('[data-row-words]')?.textContent).toBe(row.text)
+    expect(at(aim, `${path}.title`)).toBeNull()
+    cleanup()
+    const face = detail(view, option.id)
+    expect(at(face, `${option.id}.headline.text`).textContent).toBe(h.text)
+    expect(at(face, `${option.id}.headline.title`)).toBeNull()
+  })
+
+  it('(e) keeps the base long-text control for an unflagged mixed reason', () => {
+    const view = loadProducer('studio'), option = keepOneOption(view, 'evening_classes')
+    const row = rowOf(option), path = `${option.id}.rows.0`
+    // Core W3 combines the studio fixture's shared line with a separate option-specific blocker.
+    const mixed = `${row.title} The evening classes have a separate unresolved condition.`
+    delete row.bare_fallback
+    row.text = row.title = mixed
+    const drawn = at(detail(view, row.aim_id!), path)
+    const button = drawn.querySelector<HTMLButtonElement>('[data-row-words-long] button')!
+    expect(drawn.textContent).not.toContain(mixed)
+    expect(at(drawn, `${path}.title`)).toBeNull()
+    expect(button.getAttribute('aria-label')).toBe(mixed)
+    fireEvent.click(button)
+    expect(drawn.querySelector('[role="note"]')?.textContent).toBe(mixed)
+  })
+
+  it('(f) shares equal flagged row titles with exactly their card blockers and keeps distinct titles visible', () => {
+    const view = loadProducer('app-launch'), aim = 'boss_discussion'
+    const scheduled = cardOf(view, 'option_scheduled'), delayed = cardOf(view, 'option_delay'), isolated = cardOf(view, 'option_isolate')
+    const first = rowOf(scheduled), second = rowOf(delayed), third = rowOf(isolated)
+    first.blocked_by = [figure('release_offset')]
+    second.blocked_by = [figure('repair_duration'), figure('release_offset')]
+    third.blocked_by = [figure('validation_duration')]
+    const sharedRoot = detail(view, aim)
+    const selector = `[data-said-once-on="${aim}"] .ok-dt-said-line`
+    const shared = sharedRoot.querySelectorAll<HTMLElement>(selector)
+    expect([...shared].map((line) => line.textContent)).toEqual([first.title])
+    expect(shared[0]!.querySelector('[data-row-words-long]')).toBeNull()
+    expect(sharedRoot.querySelector('[data-aim-result]')).toBeNull()
+    fireEvent.pointerEnter(shared[0]!)
+    expectRing('release_offset', 'repair_duration', 'validation_duration')
+    fireEvent.pointerLeave(shared[0]!)
+    expectRing()
+    cleanup()
+    second.title = rowOf(delayed, 1).title
+    third.title = rowOf(isolated, 2).title
+    const split = detail(view, aim)
+    expect(split.querySelector(selector)).toBeNull()
+    expect([...split.querySelectorAll('[data-aim-result] [data-row-words]')].map((line) => line.textContent))
+      .toEqual([first.title, second.title, third.title])
+  })
+
+  it.each([null, ''])('(g) rings the unflagged Detailed status when the row title is %s', (title) => {
     const { view, card, row } = headlineFixture()
     Object.assign(row, { title })
     const root = detail(view, card.id)
@@ -94,11 +212,11 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     expect(at(withAdd, `${card.id}.headline.text`)).toBeNull()
   })
 
-  it('(b) draws one long shared title and rings only the options that use its line', () => {
+  it('(g) rings only the options that use an unflagged shared headline', () => {
     const view = load('app-launch')
     const first = cardOf(view, 'option_scheduled'), second = cardOf(view, 'option_delay'), third = cardOf(view, 'option_isolate')
-    const title = 'The release review cannot be evaluated until the team establishes how much validation time remains.'
-    rowOf(first).title = rowOf(second).title = title
+    rowOf(first).title = 'The scheduled option has its own row title.'
+    rowOf(second).title = 'The delayed option has its own row title.'
     rowOf(third).title = 'This option has a separate reason.'
     third.headline = { ...third.headline!, why: 'The last option has its own explanation.' }
     rowOf(first).blocked_by = [figure('release_offset')]
@@ -106,17 +224,14 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     rowOf(third).blocked_by = [figure('validation_duration')]
     const aim = 'boss_discussion', root = detail(view, aim)
     const shared = root.querySelector<HTMLElement>(`[data-said-once-on="${aim}"] .ok-dt-said-line`)!
-    expect(title.length).toBeGreaterThan(ROW_WORDS_MAX)
-    expect(shared.textContent).toBe(title)
-    expect(shared.parentElement!.textContent).toBe(title)
-    expect(shared.querySelector('[data-row-words-long]')).toBeNull()
+    expect(shared.textContent).toBe(first.headline!.text)
     fireEvent.pointerEnter(shared)
     expectRing('release_offset', 'repair_duration')
     fireEvent.pointerLeave(shared)
     expectRing()
   })
 
-  it('(a, c) keeps the existing long-text button for a headline-less row until Core supplies a title', () => {
+  it('(g) rings a headline-less row from its long-text button or short pointer-only line', () => {
     const { view, card, row } = headlineFixture()
     card.headline = null
     row.aim_id = null
@@ -127,17 +242,18 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     act(() => button.focus())
     expectRing('sales_target')
     cleanup()
-    row.title = row.text
-    const reason = detail(view, card.id)
-    const title = at(reason, `${card.id}.rows.0.title`)
-    expect(title.textContent).toBe(row.title)
-    expect(title.hasAttribute('tabindex')).toBe(false)
-    expect(reason.querySelector('[data-row-words-long]')).toBeNull()
-    fireEvent.pointerEnter(title)
+    row.text = 'Confirm the delivery date.'
+    row.title = 'The full explanation stays off the row.'
+    const short = detail(view, card.id)
+    const line = at(short, `${card.id}.rows.0.text`)
+    expect(line.textContent).toBe(row.text)
+    expect(line.hasAttribute('tabindex')).toBe(false)
+    expect(short.querySelector('[data-row-words-long]')).toBeNull()
+    fireEvent.pointerEnter(line)
     expectRing('sales_target')
   })
 
-  it('(b, c) rings only the represented secondary rows from their shared keyboard stop', () => {
+  it('(g) rings only the represented secondary rows from their shared keyboard stop', () => {
     const view = load('bakery-asked'), aim = 'within_budget'
     const first = rowOf(cardOf(view, 'second_oven'), 1), second = rowOf(cardOf(view, 'longer_hours'), 1)
     first.blocked_by = [figure('oven_price')]
@@ -145,8 +261,8 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     cardOf(view, 'second_oven').rows.push({ ...first, title: 'A separate withheld row.', blocked_by: [figure('fitting')] })
     const root = detail(view, aim)
     const shared = root.querySelector<HTMLElement>(`[data-said-once-on="${aim}"] .ok-dt-said-line`)!
-    expect(shared.textContent).toBe(first.title)
-    expect(root.querySelector('[data-aim-result="second_oven"]')?.textContent).toContain('A separate withheld row.')
+    expect(shared.textContent).toBe(first.state_text)
+    expect(root.querySelector('[data-aim-result="second_oven"]')).toBeNull()
     act(() => shared.focus())
     expect(document.activeElement).toBe(shared)
     expectRing('oven_price', 'budget')
@@ -263,7 +379,7 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     const simpleWithRefs = render(simple(view, card)).container
     expect(detailed.textContent).toBe(baseline)
     expect(simpleWithRefs.textContent).toBe(simpleBase)
-    fireEvent.pointerEnter(at(detailed, `${card.id}.rows.0.title`))
+    fireEvent.pointerEnter(at(detailed, `${card.id}.headline.text`))
     fireEvent.pointerEnter(simpleWithRefs.querySelector('[data-simple-face="no-chance"]')!)
     expect(ring).not.toHaveBeenCalled()
     // Positive contrast makes this case fail on the base as well.
