@@ -44,6 +44,9 @@ describe('the lane has no local-record controls', () => {
     expect(screen.queryByTestId('scenario-switcher-menu')).toBeNull()
     expect(screen.queryByText('Your scenarios are listed under My scenarios.')).toBeNull()
     expect(screen.getByTestId('scenario-name-text')).toHaveTextContent('The open scenario')
+    // Paul 23 Nov: the name is 12px regular on the lane, not 14px medium.
+    expect(screen.getByTestId('scenario-switcher-pill')).toHaveClass('text-xs')
+    expect(screen.getByTestId('scenario-switcher-pill')).not.toHaveClass('font-medium')
     expect(screen.queryByText(LOCAL)).toBeNull()
   })
   it('contrast, off the lane: the chevron, the menu and the same controls are there', () => {

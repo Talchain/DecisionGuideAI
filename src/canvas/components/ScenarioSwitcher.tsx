@@ -12,7 +12,6 @@
  * TopBar's separate plain-title control is gone. See `displayName`/`onRename`.
  */
 
-import { TOOLBAR_TITLE } from '../../olumiView/look/toolbar'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import { OkIcon } from '../../olumiView/look/icons'
@@ -407,7 +406,7 @@ export function ScenarioSwitcher({
           /* contract v3.1 `.app-project{display:flex;align-items:center;gap:8px;
              font-size:13px}` (DESIGN-GAP #5): the model title sits in the bar
              unboxed — no bordered pill, 13px regular ink, a muted ⌄. */
-          className={lane ? `flex min-w-0 items-center gap-1.5 px-2 ${TOOLBAR_TITLE}` : "flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"}
+          className={lane ? `flex min-w-0 items-center gap-1.5 px-2 ${typography.viewPanelBody} text-text-header` : "flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"}
           data-testid="scenario-switcher-pill"
         >
           <OkIcon id="scenario" decorative />
