@@ -20,7 +20,7 @@ import { optionBands, useV10Lane, valueBars, ViewCardV10 } from '../v10'
 import { driverRange, ViewChances } from '../ViewChances'
 import { ViewReasoning } from '../ViewReasoning'
 import { optionCards } from '../layout'
-import { tipOf } from './tipHelpers'
+import { laneTipOf, tipOf } from './tipHelpers'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -284,7 +284,7 @@ describe('v10 on the core lane', () => {
     const card = model.cards.find((c) => c.id === straddles)!
     useCanvasStore.setState({ nodes: model.cards.filter((c) => c.family === 'option').map((c) => ({ id: c.id, type: 'viewCard', position: { x: 0, y: 0 }, data: { card: c, label: c.heading } })) as never })
     const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
-    expect(container.querySelector(`[data-testid="view-option-band-aim-${card.id}"]`)?.getAttribute('title')).toBe(aim.text)
+    expect(laneTipOf(container.querySelector<HTMLElement>(`[data-testid="view-option-band-aim-${card.id}"]`)!)).toBe(aim.text)
     expect(container.querySelector(`[data-testid="view-option-band-meet-${card.id}"]`)).not.toBeNull()
     expect(container.querySelector(`[data-testid="view-option-band-miss-${card.id}"]`)).not.toBeNull()
     // Never an aim in another unit: the bands are then exactly the plain ones, with no aim line.
@@ -307,7 +307,7 @@ describe('v10 on the core lane', () => {
     const { container } = render(<ReactFlowProvider><ViewCardV10 {...({ id: card.id, data: { card, label: card.heading }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>)
     const band = container.querySelector(`[data-testid="view-values-${card.id}"]`)!
     expect(band.closest('[data-slot="values-band"]')).not.toBeNull()
-    expect(vs.map((v) => container.querySelector(`[data-testid="view-values-${card.id}-${v.option}"]`)?.getAttribute('title'))).toEqual(vs.map((v) => v.text))
+    expect(vs.map((v) => laneTipOf(container.querySelector<HTMLElement>(`[data-testid="view-values-${card.id}-${v.option}"]`)!))).toEqual(vs.map((v) => v.text))
     // Nothing without values, or when every option's range is one point (no spread to draw).
     expect(valueBars({ ...card, values: null })).toEqual([])
     expect(valueBars({ ...card, values: vs.map((v) => ({ ...v, p10: 5, p50: 5, p90: 5 })) })).toEqual([])

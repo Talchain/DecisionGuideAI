@@ -3,6 +3,7 @@
  * aim (`rows[].aim_id`: chance, limit or none), drawn in core's words with core's title as hover and core's mark. Order and headings are
  * core's (the options' cards, the aims' cards, in the rows' order). No word, number, sort or rank of DGAI's own. Fixtures: every golden.
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
@@ -44,7 +45,7 @@ describe('the Trade-offs grid: each option against each aim, in core\'s rows', (
         const cell = c.querySelector(`[data-tradeoff-cell="${o.id}.${a.id}"]`)
         expect(cell?.getAttribute('data-view-row'), `${o.id} × ${a.id}`).toBe(`${o.id}.rows.${i}`)
         expect(cell?.textContent, `${o.id} × ${a.id}: words`).toBe(wordsOf(row))
-        expect(cell?.getAttribute('title'), `${o.id} × ${a.id}: hover`).toBe(row.title)
+        expect(laneTipOf(cell as HTMLElement), `${o.id} × ${a.id}: hover`).toBe(row.title || null)
       }
     })
   }

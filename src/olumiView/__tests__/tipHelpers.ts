@@ -1,6 +1,7 @@
 /** Test helpers for the one Tip (look/Tip.tsx): what an element says on hover, and what it says on REAL keyboard focus. Native `title` is never the hover. */
 import { act, fireEvent, waitFor } from '@testing-library/react'
-import { expect } from 'vitest'
+import { expect, vi } from 'vitest'
+import { TIP_DELAY } from '../look/Tip'
 
 const open = (): HTMLElement | null => document.querySelector<HTMLElement>('[role="tooltip"]')
 
@@ -31,4 +32,27 @@ export const hoverWords = async (el: HTMLElement): Promise<string | null> => {
   const words = tip.textContent
   fireEvent.pointerLeave(el)
   return words
+}
+
+/** Assert the lane contract and read the Tip attached to this exact anchor. */
+export function laneTipOf(el: HTMLElement, event: 'hover' | 'focus' = 'hover'): string | null {
+  expect(el.hasAttribute('title')).toBe(false)
+  const alreadyFake = vi.isFakeTimers()
+  if (!alreadyFake) vi.useFakeTimers()
+  try {
+    if (event === 'hover') fireEvent.pointerEnter(el)
+    else {
+      act(() => { el.focus() })
+      expect(document.activeElement).toBe(el)
+    }
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const id = el.getAttribute('aria-describedby')?.split(' ').at(-1)
+    const tip = id === undefined ? null : document.getElementById(id)
+    if (tip !== null) expect(tip.getAttribute('data-testid')).toBe('lane-tip')
+    return tip?.textContent ?? null
+  } finally {
+    if (event === 'hover') fireEvent.pointerLeave(el)
+    else act(() => { el.blur() })
+    if (!alreadyFake) vi.useRealTimers()
+  }
 }

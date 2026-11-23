@@ -3,6 +3,7 @@
  * below its card, the others are initials in theirs; selecting one opens the dock with the person's words, Olumi's model consequence and the
  * other views, and Olumi's one line at the foot. Bound by identity: view ids, card ids and core's exact words from a real View.
  */
+import { laneTipOf } from './tipHelpers'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -149,7 +150,7 @@ describe('on the canvas and in the dock', () => {
     const chip = screen.getByTestId(`reveal-initials-${DIAG}`).querySelector(`[data-reveal-initial="${PRIYA.id}"]`) as HTMLElement
     expect(chip).toHaveTextContent('P')
     expect(PRIYA.figures[0]!.mark_label).toBe(`Priya · ${PRIYA.figures[0]!.label}: ${PRIYA.figures[0]!.text} · ${real.collab.effect_headings.moves}`)
-    expect([chip.getAttribute('title'), chip.getAttribute('aria-label')]).toEqual([PRIYA.figures[0]!.mark_label, PRIYA.figures[0]!.mark_label])
+    expect([laneTipOf(chip), chip.getAttribute('aria-label')]).toEqual([PRIYA.figures[0]!.mark_label, PRIYA.figures[0]!.mark_label])
     fireEvent.click(chip)
     expect(useReveal.getState().selected).toBe(PRIYA.id)
     expect(force).toHaveBeenCalledWith('team')
@@ -290,7 +291,7 @@ describe('core’s marks with stance, reading, options and evidence (real View, 
     expect(a!.querySelector('[data-reveal-chip-text]')!.className).not.toContain('sr-only')
     expect(b!.querySelector('[data-reveal-chip-text]')!.className).toContain('sr-only')
     expect(b!.getAttribute('aria-label')).toContain('Priya and Tom added evidence')
-    expect(b!.getAttribute('title')).toContain('Priya and Tom added evidence')
+    expect(laneTipOf(b!)).toContain('Priya and Tom added evidence')
   })
 
   it('opening a chip selects its card on the canvas, as clicking the card would (design session, 7 Nov)', () => {

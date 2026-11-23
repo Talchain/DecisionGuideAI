@@ -2,7 +2,7 @@ import { typography } from '../../../styles/typography'
 import { createContext, useContext, useState, useEffect, useLayoutEffect, useCallback, type ReactNode, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { History } from 'lucide-react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { cardMark, type CardMarkDefinition, type CardMarkId } from './cardMarks'
 import { SOURCE_MARK_GLYPH_CLASSES } from './EstimateMarker'
 import { useNodeKeyboardScope, NODE_KEYBOARD_SCOPE_ATTR } from '../nodeKeyboardScope'
@@ -73,8 +73,8 @@ export function CardMark({ id, testId, words, description, className = '', level
   const mark = cardMark(id)
   const label = words ?? mark.words
   const tooltipWords = description && !description.includes(label) ? `${label} · ${description}` : description || label
-  return <BottomCardMark><Tooltip asChild content={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${/\btext-text-/.test(className) ? '' : id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
+  return <BottomCardMark><CardTooltip words={tooltipWords}><span className="inline-flex"><span data-testid={testId} data-card-mark={mark.id} data-factor-id={factorId} aria-label={label} aria-description={description} role="img" tabIndex={0} className={`${typography.edgeLabel} inline-flex shrink-0 items-center whitespace-nowrap ${/\btext-text-/.test(className) ? '' : id === 'not-analysed' ? 'text-text-body' : 'text-text-light'} ${className}`}>
     <CardMarkShape mark={mark} level={level} cell={cell} />
     {caption !== undefined && <span aria-hidden="true" data-testid={testId ? `${testId}-caption` : undefined} className="ml-0.5 tabular-nums">{caption}</span>}
-  </span></span></Tooltip></BottomCardMark>
+  </span></span></CardTooltip></BottomCardMark>
 }

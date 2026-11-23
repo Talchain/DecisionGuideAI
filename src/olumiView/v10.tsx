@@ -28,6 +28,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Tooltip from '../components/Tooltip'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { Hover } from './look/Hover'
 import { OkIcon } from './look/icons'
 import { NODE_TOOLTIP_DELAY_MS } from '../canvas/nodes/shared/nodeTooltip'
 import { V10_CHANGE_COPY } from '../presentation/V10ChangeLens'
@@ -57,20 +59,23 @@ export function useV10Lane(): void {
 /** v10's "What would change" badge for one card, from core's `driver`: its sentence verbatim on hover or focus, with Olumi's mark. */
 export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
   if (card.driver === null) return null
+  const anchor = {
+    'data-testid': `view-driver-${card.id}`,
+    'data-node-tooltip': 'true',
+    role: 'img',
+    tabIndex: 0,
+    'aria-label': V10_CHANGE_COPY.driverAria,
+    className: 'nodrag pointer-events-auto relative z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1',
+  }
+  const glyph = <OkIcon id="why-moves" size={14} decorative inherit />
+  if (isOlumiCoreLane()) return <Hover {...anchor} words={card.driver.text}>{glyph}</Hover>
   const disclosure = (
     <span className="inline-flex items-start gap-1.5">
       <OkIcon id="olumi-mark" size={14} decorative testid={`view-driver-mark-${card.id}`} className="mt-[2px]" />
       <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
     </span>
   )
-  return (
-    <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}>
-      <span data-testid={`view-driver-${card.id}`} data-node-tooltip="true" role="img" tabIndex={0} aria-label={V10_CHANGE_COPY.driverAria}
-        className="nodrag pointer-events-auto relative z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1">
-        <OkIcon id="why-moves" size={14} decorative inherit />
-      </span>
-    </Tooltip>
-  )
+  return <Tooltip asChild content={disclosure} delay={NODE_TOOLTIP_DELAY_MS}><span {...anchor}>{glyph}</span></Tooltip>
 }
 
 /** One option's band on the shared axis: percent positions, and core's line for it with its path in the View. */
@@ -133,7 +138,7 @@ export function useOptionBands(): ReadonlyMap<string, OptionBand> {
 /** v10's outcome band (#/canvas2's look), drawn from core: the bar and tick on the shared axis, and core's line beneath, its hover core's. */
 export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   return (
-    <div className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} title={band.title === '' ? band.text : `${band.text}\n${band.title}`}>
+    <Hover as="div" className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} words={band.title === '' ? band.text : `${band.text}\n${band.title}`}>
       <div className="relative" role="img" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borderRadius: 3 }}>
         {band.aim === null ? (
           <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
@@ -145,7 +150,7 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
               style={{ left: `${band.aim.miss.left}%`, width: `${band.aim.miss.width}%`, background: 'var(--option)', opacity: 0.35, borderRadius: 3 }} />}
             {band.aim.meet === null ? null : <div className="absolute top-0 h-full" data-testid={`view-option-band-meet-${id}`}
               style={{ left: `${band.aim.meet.left}%`, width: `${band.aim.meet.width}%`, background: 'var(--option)', borderRadius: 3 }} />}
-            <div className="absolute" data-testid={`view-option-band-aim-${id}`} title={band.aim.text}
+            <Hover as="div" className="absolute" data-testid={`view-option-band-aim-${id}`} words={band.aim.text}
               style={{ left: `${band.aim.pct}%`, top: -3, bottom: -3, width: 2, marginLeft: -1, background: 'var(--goal)' }} />
           </>
         )}
@@ -154,10 +159,10 @@ export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
             style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
         )}
       </div>
-      {/* The band's words on hover (first in the wrapper's title, core's hover after them), as the bar's label and in the DOM for readers, not a
+      {/* The band's words on hover (first in the wrapper's Tip, core's hover after them), as the bar's label and in the DOM for readers, not a
           line on the face (option a2). */}
       <span className="sr-only" data-view={band.at}>{band.text}</span>
-    </div>
+    </Hover>
   )
 }
 
@@ -185,12 +190,12 @@ export function valueBars(card: ViewCard): readonly ValueBar[] {
 /** One bar's row: the option's number as the canvas numbers it (O1, …), and its range; Olumi's blue where `blue` (core's key names it). */
 function ValueBarRow({ cardId, bar, blue }: { cardId: string; bar: ValueBar; blue: boolean }) {
   return (
-    <div className="flex items-center gap-1.5" title={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
+    <Hover as="div" className="flex items-center gap-1.5" words={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
       <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
         <div className="absolute top-0 h-full" data-values-range style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: blue ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
         {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
       </div>
-    </div>
+    </Hover>
   )
 }
 

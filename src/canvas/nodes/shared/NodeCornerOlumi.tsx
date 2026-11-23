@@ -24,7 +24,7 @@
  * contains the badge's inner half, so hovering the corner reveals it in the same frame.
  */
 import { memo, useCallback } from 'react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useShowToastSafe } from '../../ToastContext'
@@ -81,7 +81,7 @@ export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected 
       : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto [@media(pointer:coarse)]:opacity-100 [@media(pointer:coarse)]:pointer-events-auto'
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={name}>
+    <CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={name}>
       <button
         type="button"
         onClick={handleClick}
@@ -101,6 +101,6 @@ export const NodeCornerOlumi = memo(function NodeCornerOlumi({ nodeId, selected 
       >
         <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={GLYPH_PX} />
       </button>
-    </Tooltip>
+    </CardTooltip>
   )
 })

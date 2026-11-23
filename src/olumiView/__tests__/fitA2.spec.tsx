@@ -2,6 +2,7 @@
  * Option a2: the restored layout keeps cards separate and aims last; the option face keeps the first aim's chance in
  * the big line, every other aim small and whole (R25: no cut text), and the outcome band's words in the DOM and on hover rather than a face line.
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -91,7 +92,7 @@ describe('the option face', () => {
     expect(words.className).toContain('sr-only')
     expect(c.querySelector('[role="img"]')!.getAttribute('aria-label')).toBe(band.text)
     // On hover (Codex fit-a2 r1: the hover held only core's explanation, so the range's numbers were nowhere on screen): the words first.
-    expect(c.querySelector('[data-testid="view-option-band-o1"]')!.getAttribute('title')).toBe(`${band.text}\n${band.title}`)
+    expect(laneTipOf(c.querySelector<HTMLElement>('[data-testid="view-option-band-o1"]')!)).toBe(`${band.text}\n${band.title}`)
   })
   it('catch: a long second chance (core\'s conditional wording) is held inside the card, whole, its marks beside it', () => {
     // Codex fit-a2 r1: a one-line second chance could not shrink or wrap, so a long one ran past the 220 px card and pushed its marks out.

@@ -15,7 +15,7 @@
  * the marker can never disagree about whether a signal exists.
  */
 import { SearchCheck, type LucideIcon } from 'lucide-react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { useCanvasStore } from '../../store'
 import { openNodeInspector } from './openNodeInspector'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
@@ -98,7 +98,7 @@ export function NodeRailIcon({
 }) {
   const toneClass = NODE_RAIL_TONE_CLASS[tone]
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
+    <CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={label}>
       <button
         type="button"
         data-testid={testId}
@@ -115,7 +115,7 @@ export function NodeRailIcon({
       >
         <Icon aria-hidden="true" size={NODE_RAIL_GLYPH_PX} className={NODE_RAIL_GLYPH_CLASSES} />
       </button>
-    </Tooltip>
+    </CardTooltip>
   )
 }
 

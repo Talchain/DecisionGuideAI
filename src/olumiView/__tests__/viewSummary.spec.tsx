@@ -4,6 +4,7 @@
  * olumi-core's summaryOf from its View goldens), never from words written here.
  * Replaces viewBrief.spec: the top bar no longer mounts the View-fed side panel.
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -243,7 +244,7 @@ describe('the top bar\'s Summary on the lane', () => {
     const { container } = render(<SummaryDocument summary={s} />)
     const part = s.blocks.flatMap((b) => b.parts).find((p) => p.mark)!
     const mark = within(container).getAllByRole('img').find((m) => m.getAttribute('aria-label') === part.mark!.title)!
-    expect(mark.getAttribute('title')).toBe(part.mark!.title)
+    expect(laneTipOf(mark)).toBe(part.mark!.title)
     expect(mark.textContent).toBe(part.mark!.glyph)
   })
 })

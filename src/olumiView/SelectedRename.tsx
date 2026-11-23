@@ -1,4 +1,5 @@
 /** Selection details shared with the sheet. The lane's Rename shortcut opens the sheet heading. */
+import { Hover } from './look/Hover'
 import type { ReactNode } from 'react'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
@@ -25,7 +26,7 @@ export function CardWords({ id, ids, only }: { id: string; ids?: { author: strin
   const here = ids === undefined
   return (
     <>
-      {only === 'basis' || author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} title={author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</span>}
+      {only === 'basis' || author === null ? null : <Hover className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} words={author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</Hover>}
       {only === 'author' || said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={here ? `${id}.headline.title` : undefined} data-testid={ids?.basis ?? 'selected-headline-title'}>{said}</p>}
     </>
   )

@@ -113,7 +113,9 @@ import {
   cornerMarksTitleSpacerCss,
   titleFirstWordPx,
 } from './shared/canvasGlyphScale'
-import Tooltip from '../../components/Tooltip'
+import { CardTooltip } from './shared/CardTooltip'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { Hover } from '../../olumiView/look/Hover'
 import { NODE_TOOLTIP_DELAY_MS } from './shared/nodeTooltip'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { isMenuOpen, subscribeMenuOpen } from '../../olumiView/look/menuArbiter'
@@ -1007,6 +1009,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
 
   // A core card (olumiView/previous/CoreCard.tsx): what is missing is said by core, in the card's body, never by this frame's own rule; and
   // its name is core's, drawn whole at full size (nothing of core's is cut; only the zoomed-out face shows less, and says so).
+  const lane = isOlumiCoreLane()
   const isCoreCard = (data as { core?: boolean } | undefined)?.core === true
   // DS type scale (12 / 14 / 18, Paul 7 Nov 2026): a core card sets its title and values at 14 and its labels at 12 (the view* tokens); the old
   // non-core canvas keeps its node* tokens.
@@ -2228,7 +2231,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
 
       {/* Context menu: Assumption flag badge (Hard rule 3 — UI-only annotation) */}
       {Boolean(data?.flagged_as_assumption) && (
-        <BottomCardMark><div
+        <BottomCardMark><Hover as="div" words={lane ? "Flagged as assumption" : undefined}
           /* ⭐ NEUTRAL RING, NOT AMBER (contract v3.1 ICON-10). This is the
              USER's own annotation; amber on the canvas means an AI sign
              disagreement (Paul pt 9), and the edge's twin of this badge already
@@ -2237,7 +2240,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
              box stays unscaled on purpose — at `-top-2 -left-2` a counter-scaled
              box would push into the title. */
           className="flex h-5 w-5 items-center justify-center rounded-full bg-panel border border-panel-border shadow-1"
-          title="Flagged as assumption"
+          title={lane ? undefined : "Flagged as assumption"}
           /* Paul 23 Sep contract feedback point 12: an icon needs a name a
              screen reader can read, not a `title` alone — the same pattern as
              the edited-since-run dot in the corner stack. */
@@ -2247,7 +2250,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-card-mark="flagged-assumption"
         >
           <FlagIcon size={12} aria-hidden="true" className="text-text-body" />
-        </div></BottomCardMark>
+        </Hover></BottomCardMark>
       )}
 
       {/* Connection handles */}
@@ -2931,7 +2934,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             scale, so the header height does not move. */}
         {/* Paul, 27 Oct: a card's icons sit on its bottom row only, so the chevron draws there; its click is unchanged. */}
         {description && (
-          <BottomCardMark><Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={isExpanded ? 'Collapse description' : 'Expand description'}>
+          <BottomCardMark><CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={isExpanded ? 'Collapse description' : 'Expand description'}>
             <button
               type="button"
               onClick={handleExpandToggle}
@@ -2947,7 +2950,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 <ChevronDown size={14} aria-hidden="true" className={CANVAS_GLYPH_SIZE_CLASSES[14]} />
               )}
             </button>
-          </Tooltip></BottomCardMark>
+          </CardTooltip></BottomCardMark>
         )}
       </div>
 
@@ -3128,9 +3131,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               `title` carries the untruncated string, the same sighted-hover
               treatment the node title gets when its clamp ellipsises it. */}
           {(lodBodyLine !== null || lodBody.unconfirmedEstimate) && (
-            <div
+            <Hover as="div"
               data-testid="node-lod-line"
-              title={lodBodyLine ?? undefined}
+              words={lane ? lodBodyLine : undefined}
+              data-node-tooltip={lane && lodBodyLine ? true : undefined}
+              title={lane ? undefined : lodBodyLine ?? undefined}
               /*
                * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
                * two specs outside this file are why. `BaseNode.lodBodyLine`
@@ -3170,9 +3175,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                   ⚠ `est.` keeps the card's word order (value, then mark) so
                   the two zoom rungs read as one sentence rather than two. */}
               {lodBody.unconfirmedEstimate && (
-                <span
+                <Hover
                   data-testid="node-lod-estimate-mark"
-                  title={ESTIMATE_SUBJECT_TITLE.value}
+                  words={lane ? ESTIMATE_SUBJECT_TITLE.value : undefined}
+                  data-node-tooltip={lane ? true : undefined}
+                  title={lane ? undefined : ESTIMATE_SUBJECT_TITLE.value}
                   /* ⭐ BODY INK, THE SAME INK AS THE FIGURE IT QUALIFIES
                      (contract v3.1 T15: text ≥ 4.5:1 on its actual ground). It
                      was body ink only ON the line rung's kind fill, where
@@ -3184,9 +3191,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                   className={`${labelType} !leading-tight text-text-body italic shrink-0`}
                 >
                   {UNCONFIRMED_ESTIMATE_TOKEN}
-                </span>
+                </Hover>
               )}
-            </div>
+            </Hover>
           )}
         </div>
       ) : null}

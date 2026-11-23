@@ -3,6 +3,7 @@
  * data: each glyph and its words, in the page's order). Nothing is written here: no glyph, no meaning, no order of DGAI's. With no key in
  * the View (no model yet) it draws nothing. Off the lane the legacy `CanvasLegendPopover` stays.
  */
+import { Hover } from './look/Hover'
 import { useEffect, useRef } from 'react'
 import { typography } from '../styles/typography'
 import { useViewStore } from './store'
@@ -55,10 +56,10 @@ export function ViewLegend({ open, onOpenChange }: Props) {
           ))}
         </ul>
         {sensitivity === null ? null : (
-          <p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap-1.5`} title={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
+          <Hover as="p" className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap-1.5`} words={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
             <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(130,120,187,0.55)] bg-[rgba(130,120,187,0.18)]" />
             <span>{sensitivity.text}</span>
-          </p>
+          </Hover>
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { resolveBiasSignal } from '../../shared/biasSignalTitles'
@@ -40,7 +40,7 @@ export const NodeBiasMarks = memo(function NodeBiasMarks({ nodeId, label, reason
   const words = `${finding.label} ${BIAS_MARK_REFLECTIVE}`
   return (
     <BottomCardMark>
-      <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={words}>
+      <CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={words}>
         <button
           type="button"
           data-testid={`node-bias-${nodeId}`}
@@ -64,7 +64,7 @@ export const NodeBiasMarks = memo(function NodeBiasMarks({ nodeId, label, reason
         >
           <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
         </button>
-      </Tooltip>
+      </CardTooltip>
     </BottomCardMark>
   )
 })

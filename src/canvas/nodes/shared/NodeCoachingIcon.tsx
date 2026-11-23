@@ -55,7 +55,7 @@
  * hidden by the common gate; incomplete templates keep their editable drawer.
  */
 import { memo, useCallback } from 'react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { useCanvasStore } from '../../store'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { requestAsk, canReceiveAsk } from '../../ui/inspector-v2/askSemantic'
@@ -232,7 +232,7 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
   const { accessibleName, tooltip } = coachingIconLabels(chip, nodeLabel)
 
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={tooltip}>
+    <CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={tooltip}>
       <button
         type="button"
         /* Discreet at rest (the rail's `.icon-btn` grey, #777B77 — gap 34; it
@@ -256,6 +256,6 @@ export const NodeCoachingIcon = memo(function NodeCoachingIcon({ nodeId, chips }
             "one glyph for an ask") — the conflict is named at the constant. */}
         <COACHING_ICON_GLYPH.Icon aria-hidden="true" size={NODE_RAIL_AI_GLYPH_PX} className={NODE_RAIL_AI_GLYPH_CLASSES} />
       </button>
-    </Tooltip>
+    </CardTooltip>
   )
 })

@@ -25,6 +25,7 @@
 
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react'
+import { HoverButton } from '../../olumiView/look/Hover'
 import { OkIcon } from '../../olumiView/look/icons'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
@@ -3409,8 +3410,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
           data-testid="outputs-dock-rail-tablist"
         >
           {OUTPUT_TABS.map(tab => {
+            const lane = isOlumiCoreLane()
             return (
-              <button
+              <HoverButton
+                words={lane ? tab.label : undefined}
                 key={tab.id}
                 type="button"
                 id={railTabDomId(tab.id)}
@@ -3449,10 +3452,10 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 }`}
                 style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
                 aria-label={tab.label}
-                title={tab.label}
+                title={lane ? undefined : tab.label}
               >
-                <OkIcon id={LANE_TAB_ICON[tab.id]} decorative inherit={tab.id !== 'olumi'} />
-              </button>
+                <OkIcon id={LANE_TAB_ICON[tab.id]} size={lane ? 14 : undefined} decorative inherit={tab.id !== 'olumi'} />
+              </HoverButton>
             )
           })}
         </div>

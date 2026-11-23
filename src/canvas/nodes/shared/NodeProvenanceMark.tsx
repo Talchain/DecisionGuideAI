@@ -9,7 +9,7 @@ import type { NodeType } from '../../domain/nodes'
 import {
   PROVENANCE_ICON_SIZE_CLASSES,
 } from '../../domain/valueProvenanceIcon'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { useCanvasStore } from '../../store'
 import { resolveNodeTypeLiteral } from '../../domain/nodes'
@@ -571,7 +571,7 @@ function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProv
   const markId = sourceCardMarkId(kind)
   const Icon = cardMark(markId).Icon
   return (
-    <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
+    <CardTooltip words={label} delay={NODE_TOOLTIP_DELAY_MS}>
       <span
         data-testid="node-provenance-mark"
         data-node-tooltip="true"
@@ -590,7 +590,7 @@ function renderMark(claim: Exclude<NodeProvenanceClaim, 'none'>, kind: ValueProv
             it a screen reader would announce the mark twice. */}
         <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
       </span>
-    </Tooltip>
+    </CardTooltip>
   )
 }
 

@@ -30,6 +30,7 @@
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Hover, HoverButton } from '../../../olumiView/look/Hover'
 import { OkIcon, type IconId } from '../../../olumiView/look/icons'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
@@ -73,7 +74,7 @@ export const railTabDomId = (id: OutputTab): string => `outputs-dock-rail-tab-${
 export const DOCK_PANEL_DOM_ID = 'outputs-dock-panel'
 
 /**
- * v10 review item 8: on the olumi-core lane an unselected dock tab is its icon alone (name in `title` and `aria-label`), the selected tab
+ * v10 review item 8: on the olumi-core lane an unselected dock tab is its icon alone (a light Tip and an accessible name), the selected tab
  * icon plus word. Same icon map as the collapsed rail in `OutputsDock`; Olumi keeps its own mark.
  */
 export const LANE_TAB_ICON: Readonly<Record<OutputTab, IconId>> = {
@@ -370,16 +371,16 @@ export function WorkspaceShellTabStrip({
   // The olumi-core lane has no overflow menu (18 Nov), so its ⓘ is a row control at every width: it is never left with nowhere to live.
   const inspectInRow = inspect !== undefined && (coreLane || width >= SHELL_TABSTRIP_INSPECT_IN_ROW_FROM_PX)
   const inspectControl = inspectInRow ? (
-    <button
+    <HoverButton words={coreLane ? INSPECT_ANALYSIS_LABEL : undefined}
       type="button"
       onClick={inspect}
       className={ROW_ICON_CONTROL}
       aria-label={INSPECT_ANALYSIS_LABEL}
-      title={INSPECT_ANALYSIS_LABEL}
+      title={coreLane ? undefined : INSPECT_ANALYSIS_LABEL}
       data-testid="dock-inspect-analysis"
     >
-      <OkIcon id="inspect" decorative inherit />
-    </button>
+      <OkIcon id="inspect" size={coreLane ? 14 : undefined} decorative inherit />
+    </HoverButton>
   ) : null
 
   // Roving focus: moving selection with the keyboard must move focus with it,
@@ -491,8 +492,11 @@ export function WorkspaceShellTabStrip({
       >
         {shown.map(surface => {
           const isActive = activeTab === surface.id
+          const verifyWords = surface.id === 'diagnostics' && factorsToVerify > 0
+            ? `${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify` : undefined
           return (
-            <button
+            <HoverButton
+              words={coreLane ? [surface.label, verifyWords].filter(Boolean).join('\n') : undefined}
               key={surface.id}
               type="button"
               id={tabDomId(surface.id)}
@@ -523,7 +527,7 @@ export function WorkspaceShellTabStrip({
               // written to prevent. `flex-auto` is `flex: 1 1 auto` —
               // content-sized, growing to fill the row and shrinking
               // PROPORTIONALLY only when the content genuinely does not fit.
-              title={surface.label}
+              title={coreLane ? undefined : surface.label}
               // Vision spec §3 (23 Oct): the Olumi tab is the brand mark alone, so its name is the label.
               aria-label={surface.id === 'olumi' || coreLane ? surface.label : undefined}
               data-testid={`outputs-dock-tab-${surface.id}`}
@@ -592,14 +596,14 @@ export function WorkspaceShellTabStrip({
                   </>
                 ) : coreLane ? (
                   (() => {
-                    return <OkIcon id={LANE_TAB_ICON[surface.id]} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
+                    return <OkIcon id={LANE_TAB_ICON[surface.id]} size={14} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
                   })()
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
                   // five fit the 347px dock whole; the legacy lane is unchanged.
                   <>
                     {coreLane ? (() => {
-                      return <OkIcon id={LANE_TAB_ICON[surface.id]} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
+                      return <OkIcon id={LANE_TAB_ICON[surface.id]} size={14} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
                     })() : null}
                     <span className={`truncate${isOlumiCoreLane() ? ' tracking-tight' : ''}`}>{surface.label}</span>
                   </>
@@ -611,7 +615,7 @@ export function WorkspaceShellTabStrip({
                     <OkIcon id="cannot-confirm" size={14} testid="results-tab-cannot-confirm-icon" />
                   )
                 )}
-                {surface.id === 'diagnostics' && factorsToVerify > 0 && (
+                {verifyWords !== undefined && (
                   // ⭐ L-58: this was a bare orange number. A `title` is a
                   // hover-only affordance — invisible to a user scanning the
                   // strip, absent on touch, and never reaching a screen reader
@@ -620,7 +624,7 @@ export function WorkspaceShellTabStrip({
                   // answerable without hovering. (`role="status"` is
                   // deliberately NOT used: a static label on a tab, not a live
                   // announcement.)
-                  <span
+                  <Hover focusable={false} words={coreLane ? verifyWords : undefined}
                     // DS §2.4 forbids weight overrides on panel tokens; this
                     // carried an inline `fontWeight: 600` on top of an inline
                     // `fontSize: 11` — a raw type declaration invisible to
@@ -629,15 +633,15 @@ export function WorkspaceShellTabStrip({
                     // warning fill by contrast rather than by weight.
                     className={`inline-flex items-center justify-center rounded-full bg-warning text-text-on-color shrink-0 ${typography.panelMeta}`}
                     style={{ minWidth: 16, height: 16, padding: '0 4px' }}
-                    title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
-                    aria-label={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
+                    title={coreLane ? undefined : verifyWords}
+                    aria-label={verifyWords}
                     data-testid="model-tab-verify-badge"
                   >
                     {factorsToVerify}
-                  </span>
+                  </Hover>
                 )}
               </span>
-            </button>
+            </HoverButton>
           )
         })}
       </div>

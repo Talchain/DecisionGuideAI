@@ -10,8 +10,10 @@
  * one per line) or logs the choice (`…/pre-mortem/show`), and the View read again opens the stories. A View with no gate state keeps the earlier press
  * (words in the message box, nothing sent), bound to the member by id.
  */
-import { ArrowUp, X } from 'lucide-react'
+import { Hover, HoverButton } from './look/Hover'
+import { OkIcon } from './look/icons'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
 import { LENS_ICON } from '../canvas/artefacts/lenses'
@@ -63,10 +65,10 @@ export function ViewPreMortemKey(): JSX.Element | null {
       <header className="flex items-center gap-2">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? label : entry.heading}</h2>
-        <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
+        <HoverButton type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} words={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
           className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+          <OkIcon id="cancel-close" size={14} decorative inherit />
+        </HoverButton>
       </header>
       <div className="min-h-0 flex-1 space-y-3 overflow-auto">
         {entry !== null ? <PreMortemEntry gate={entry} /> : !mine ? (
@@ -91,7 +93,7 @@ export function ViewPreMortemKey(): JSX.Element | null {
             {stories.map((st) => (
               <li key={st.n} data-story={st.n} className="space-y-3">
                 <p className={`${typography.viewPanelBody} text-text-body`}>
-                  <span className="text-info" title={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </span>
+                  <Hover role="img" className="text-info" words={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </Hover>
                   <span data-testid="view-premortem-story-text">{st.text}</span>
                 </p>
                 {st.control === null ? null : <p className={`${typography.chatMeta} text-info`} data-testid="view-premortem-control">{st.control}</p>}
@@ -119,10 +121,10 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
           className={`${typography.viewPanelBody} block w-full resize-none rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
-        <button type="submit" disabled={busy || empty} aria-label="Send" title="Send" data-testid="view-premortem-send"
-          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed">
-          <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <HoverButton type="submit" disabled={busy || empty} aria-label="Send" words={busy ? 'Sending your reasons' : empty ? 'Write your reasons first' : 'Send'} data-testid="view-premortem-send"
+          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full ${controls.actColours} focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+          <OkIcon id="send" size={14} decorative inherit />
+        </HoverButton>
       </form>
       {said === null ? null : <p role="alert" className="text-danger" data-testid="view-premortem-said">{said}</p>}
       <button type="button" disabled={busy} onClick={() => void showOlumisNow()} className={VIEW_CHIP_CLASS} data-testid="view-premortem-show" data-view="session.pre_mortem.show">{gate.show}</button>

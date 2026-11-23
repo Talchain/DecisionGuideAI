@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEscapeLayer } from './v12/edit/escapeLayers'
 import { createPortal } from 'react-dom'
 import { OkIcon } from './look/icons'
-import { HoverButton } from './look/Hover'
+import { GlyphMark, HoverButton } from './look/Hover'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
@@ -34,7 +34,7 @@ function Part({ part }: { part: SummaryPart }) {
   return (
     <>
       {part.strong ? <b className="font-medium">{words}</b> : words}
-      {part.mark === null ? null : <>{' '}<span role="img" title={part.mark.title} aria-label={part.mark.title}>{part.mark.glyph}</span></>}
+      {part.mark === null ? null : <>{' '}<GlyphMark mark={part.mark} /></>}
     </>
   )
 }

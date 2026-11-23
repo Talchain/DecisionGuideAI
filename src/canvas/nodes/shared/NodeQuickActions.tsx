@@ -8,7 +8,7 @@ import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { usePresentation } from '../../../presentation/v10'
 import { dismissMenuFromOpener } from '../../../olumiView/look/menuArbiter'
 import type { NodeType } from '../../domain/nodes'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import {
   CANVAS_GAP_CLASSES,
   CANVAS_CORNER_INSET_CLASSES,
@@ -488,7 +488,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           lists). The context menu's "Challenge this" (`useMenuItems.ts`) wears the
           same glyph, so the button and the menu entry read as one action. */}
       {canChallenge && (
-        <Tooltip asChild delay={300} content={challengeHint}>
+        <CardTooltip delay={300} words={challengeHint}>
           <button
             type="button"
             onClick={handleChallenge}
@@ -499,7 +499,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           >
             <HelpCircle size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
           </button>
-        </Tooltip>
+        </CardTooltip>
       )}
       {/* ⭐ THE DOOR TO EVERYTHING ELSE THIS NODE CAN DO.
           Deliberately LAST: the two named shortcuts above are the ruling's
@@ -518,7 +518,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
           hover hint that has to stay short is not where it fits, and the next
           reader should not inherit a comment describing copy the file no longer
           contains. */}
-      {menu && <Tooltip asChild delay={300} content="More actions">
+      {menu && <CardTooltip delay={300} words="More actions">
         <button
           type="button"
           onClick={handleOpenMenu}
@@ -545,14 +545,14 @@ export const NodeQuickActions = memo(function NodeQuickActions({
         >
           <MoreHorizontal size={NODE_RAIL_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_GLYPH_CLASSES} />
         </button>
-      </Tooltip>}
+      </CardTooltip>}
     </div>
     {/* Paul, 24 Oct: the Olumi mark rests in the card's bottom-right corner, and a click puts a prompt about THIS card
         into the chat. It is the one door that stays visible; Challenge and More still show on selection or focus. */}
     {!olumiInCorner && <div className={`flex items-center ${CANVAS_GAP_CLASSES[6]} pointer-events-auto`} data-testid={`node-olumi-door-${nodeId}`} data-node-tooltip="true">
       {coachingChip !== null && <NodeCoachingIcon nodeId={nodeId} chips={coaching} />}
       {canAsk && coachingChip === null && (
-        <Tooltip asChild delay={300} content="Ask Olumi">
+        <CardTooltip delay={300} words="Ask Olumi">
           <button
             type="button"
             onClick={handleAsk}
@@ -565,7 +565,7 @@ export const NodeQuickActions = memo(function NodeQuickActions({
                 coaching door (`COACHING_ICON_GLYPH`), so one act never wears two glyphs. */}
             <COACHING_ICON_GLYPH.Icon size={NODE_RAIL_AI_GLYPH_PX} aria-hidden="true" className={NODE_RAIL_AI_GLYPH_CLASSES} />
           </button>
-        </Tooltip>
+        </CardTooltip>
       )}
     </div>}
     {restingIcons && (
