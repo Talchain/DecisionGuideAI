@@ -4764,7 +4764,7 @@
     "v12-scale-tsx": {
       "mode": "ratchet",
       "description": "V12 surfaces off the design-system scale (size 12/14/18, weight 400/500, Inter, token colour, token radius, Lucide)",
-      "total": 27,
+      "total": 28,
       "byFile": {
         "src/olumiView/v10.tsx": 8,
         "src/olumiView/ViewChances.tsx": 3,
@@ -4778,7 +4778,8 @@
         "src/olumiView/ViewWelcome.tsx": 1,
         "src/olumiView/ViewWhatIfKey.tsx": 1,
         "src/olumiView/port/ChatFloat.tsx": 1,
-        "src/olumiView/v12/scale/ConditionalBar.tsx": 1
+        "src/olumiView/v12/scale/ConditionalBar.tsx": 1,
+        "src/olumiView/v12/actionsMenu.tsx": 1
       },
       "signatures": {
         "v12-scale-tsx :: src/olumiView/RevealDock.tsx :: radius: rounded-2xl": {
@@ -4900,28 +4901,811 @@
           "file": "src/olumiView/v12/scale/RangeBar.tsx",
           "token": "radius: borderRadius: 3",
           "sample": "<div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>"
+        },
+        "v12-scale-tsx :: src/olumiView/v12/actionsMenu.tsx :: radius: rounded-xl": {
+          "count": 1,
+          "file": "src/olumiView/v12/actionsMenu.tsx",
+          "token": "radius: rounded-xl",
+          "sample": "className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto roun"
         }
       }
     },
     "v12-scale-css": {
       "mode": "ratchet",
       "description": "V12 stylesheets off the design-system scale (font-size 12/14/18, weight 400/500, no font-family, token colour, token radius)",
-      "total": 2,
+      "total": 8,
       "byFile": {
-        "src/olumiView/look/olumiLook.css": 2
+        "src/olumiView/look/olumiLook.css": 7,
+        "src/olumiView/look/menu.css": 1
       },
       "signatures": {
         "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 2px": {
-          "count": 1,
+          "count": 4,
           "file": "src/olumiView/look/olumiLook.css",
           "token": "radius: border-radius: 2px",
-          "sample": ".olumi-look .react-flow__node:has([data-ok-kind='option']) [role='group'][aria-label]::before { width: calc(12px * var(-"
+          "sample": ".ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }"
         },
         "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 1px": {
           "count": 1,
           "file": "src/olumiView/look/olumiLook.css",
           "token": "radius: border-radius: 1px",
           "sample": ".olumi-look .react-flow__node:has([data-ok-kind='goal']) [role='group'][aria-label]::before { width: calc(9px * var(--o-"
+        },
+        "v12-scale-css :: src/olumiView/look/menu.css :: family: font-family:": {
+          "count": 1,
+          "file": "src/olumiView/look/menu.css",
+          "token": "family: font-family:",
+          "sample": "font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: size: font-size: calc(11px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "size: font-size: calc(11px",
+          "sample": "font-size: calc(11px * var(--o-s)); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums;"
+        },
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 4px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "radius: border-radius: 4px",
+          "sample": ".ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-t"
+        }
+      }
+    },
+    "v12-typography-token": {
+      "mode": "ratchet",
+      "description": "Typography tokens that resolve to 11/13/16px or weight 600/700",
+      "total": 3,
+      "byFile": {
+        "src/olumiView/ViewZoomNotice.tsx": 2,
+        "src/olumiView/look/Menu.tsx": 1
+      },
+      "signatures": {
+        "v12-typography-token :: src/olumiView/ViewZoomNotice.tsx :: typography.panelMeta (11px/400)": {
+          "count": 2,
+          "file": "src/olumiView/ViewZoomNotice.tsx",
+          "token": "typography.panelMeta (11px/400)",
+          "sample": "<span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>"
+        },
+        "v12-typography-token :: src/olumiView/look/Menu.tsx :: typography.panelMeta (11px/400)": {
+          "count": 1,
+          "file": "src/olumiView/look/Menu.tsx",
+          "token": "typography.panelMeta (11px/400)",
+          "sample": "{!lane && disabled && disabledReason ? <span className={`${typography.panelMeta} text-text-light`}>({disabledReason})</s"
+        }
+      }
+    },
+    "v12-inline-style": {
+      "mode": "ratchet",
+      "description": "Explicit style props on DOM elements, except verified CSS-variable-only object literals",
+      "total": 98,
+      "byFile": {
+        "src/olumiView/v12/scale/OutcomeStrips.tsx": 13,
+        "src/olumiView/ResultBand.tsx": 9,
+        "src/olumiView/v10.tsx": 9,
+        "src/olumiView/v12/bands/KeyPill.tsx": 7,
+        "src/olumiView/v12/scale/RangeBar.tsx": 7,
+        "src/olumiView/v12/detailed/charts.tsx": 6,
+        "src/olumiView/ViewFigureFirst.tsx": 4,
+        "src/olumiView/v12/SimpleFace.tsx": 4,
+        "src/olumiView/v12/scale/ConditionalBar.tsx": 4,
+        "src/olumiView/DraftingBoard.tsx": 3,
+        "src/olumiView/look/icons.tsx": 3,
+        "src/olumiView/port/WhatIfBars.tsx": 3,
+        "src/olumiView/ViewLensBar.tsx": 2,
+        "src/olumiView/ViewWelcome.tsx": 2,
+        "src/olumiView/port/ChatFloat.tsx": 2,
+        "src/olumiView/v12/bands/BandLayer.tsx": 2,
+        "src/olumiView/AddFigure.tsx": 1,
+        "src/olumiView/BelowCue.tsx": 1,
+        "src/olumiView/LinkRemove.tsx": 1,
+        "src/olumiView/RevealMarks.tsx": 1,
+        "src/olumiView/ViewPreMortemKey.tsx": 1,
+        "src/olumiView/ViewTradeOffsKey.tsx": 1,
+        "src/olumiView/ViewWhatIfKey.tsx": 1,
+        "src/olumiView/ViewZoomNotice.tsx": 1,
+        "src/olumiView/look/Menu.tsx": 1,
+        "src/olumiView/previous/CoreCard.tsx": 1,
+        "src/olumiView/strategy/StrategyChips.tsx": 1,
+        "src/olumiView/v12/LaneHelp.tsx": 1,
+        "src/olumiView/v12/actionsMenu.tsx": 1,
+        "src/olumiView/v12/bands/BandNodes.tsx": 1,
+        "src/olumiView/v12/detailed/marks.tsx": 1,
+        "src/olumiView/v12/edit/EditForm.tsx": 1,
+        "src/olumiView/v12/inspect/FigureInspector.tsx": 1,
+        "src/olumiView/v12/views/CompareViewsStage.tsx": 1
+      },
+      "signatures": {
+        "v12-inline-style :: src/olumiView/AddFigure.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/AddFigure.tsx",
+          "token": "<div style>",
+          "sample": "<div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}"
+        },
+        "v12-inline-style :: src/olumiView/BelowCue.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/BelowCue.tsx",
+          "token": "<div style>",
+          "sample": "<div className=\"pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2\" style={{ left }} data-testid=\"view-below-cu"
+        },
+        "v12-inline-style :: src/olumiView/DraftingBoard.tsx :: <div style>": {
+          "count": 3,
+          "file": "src/olumiView/DraftingBoard.tsx",
+          "token": "<div style>",
+          "sample": "<div className={WRAP} style={{ right }} data-testid=\"view-laying-board\" data-state={state}>"
+        },
+        "v12-inline-style :: src/olumiView/LinkRemove.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/LinkRemove.tsx",
+          "token": "<div style>",
+          "sample": "style={{ pointerEvents: 'auto' }} data-link-for={edge} data-testid={`view-link-remove-${id}`}"
+        },
+        "v12-inline-style :: src/olumiView/ResultBand.tsx :: <i style>": {
+          "count": 8,
+          "file": "src/olumiView/ResultBand.tsx",
+          "token": "<i style>",
+          "sample": "style={{ left: `${band.from}%`, width: `${band.to - band.from}%` }} />}"
+        },
+        "v12-inline-style :: src/olumiView/ResultBand.tsx :: <span style>": {
+          "count": 1,
+          "file": "src/olumiView/ResultBand.tsx",
+          "token": "<span style>",
+          "sample": "<span style={{ width: `${at * 100}%` }} />"
+        },
+        "v12-inline-style :: src/olumiView/RevealMarks.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/RevealMarks.tsx",
+          "token": "<div style>",
+          "sample": "<div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`re"
+        },
+        "v12-inline-style :: src/olumiView/ViewFigureFirst.tsx :: <span style>": {
+          "count": 4,
+          "file": "src/olumiView/ViewFigureFirst.tsx",
+          "token": "<span style>",
+          "sample": "? <span className=\"absolute top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-text-body\" style={{ left: `${axis.their"
+        },
+        "v12-inline-style :: src/olumiView/ViewLensBar.tsx :: <div style>": {
+          "count": 2,
+          "file": "src/olumiView/ViewLensBar.tsx",
+          "token": "<div style>",
+          "sample": "style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'vi"
+        },
+        "v12-inline-style :: src/olumiView/ViewPreMortemKey.tsx :: <section style>": {
+          "count": 1,
+          "file": "src/olumiView/ViewPreMortemKey.tsx",
+          "token": "<section style>",
+          "sample": "style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, width: 'min(420px, ca"
+        },
+        "v12-inline-style :: src/olumiView/ViewTradeOffsKey.tsx :: <section style>": {
+          "count": 1,
+          "file": "src/olumiView/ViewTradeOffsKey.tsx",
+          "token": "<section style>",
+          "sample": "style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxWidth: 'min(640px,"
+        },
+        "v12-inline-style :: src/olumiView/ViewWelcome.tsx :: <div style>": {
+          "count": 2,
+          "file": "src/olumiView/ViewWelcome.tsx",
+          "token": "<div style>",
+          "sample": "<div className=\"pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6\" style={{ right }"
+        },
+        "v12-inline-style :: src/olumiView/ViewWhatIfKey.tsx :: <section style>": {
+          "count": 1,
+          "file": "src/olumiView/ViewWhatIfKey.tsx",
+          "token": "<section style>",
+          "sample": "style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, max"
+        },
+        "v12-inline-style :: src/olumiView/ViewZoomNotice.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/ViewZoomNotice.tsx",
+          "token": "<div style>",
+          "sample": "<div className=\"pointer-events-none fixed bottom-[16px] left-0 z-[1200] flex justify-center\" style={{ width: free }}>"
+        },
+        "v12-inline-style :: src/olumiView/look/Menu.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/look/Menu.tsx",
+          "token": "<div style>",
+          "sample": "style={{ left: x, top: y }}"
+        },
+        "v12-inline-style :: src/olumiView/look/icons.tsx :: <span style>": {
+          "count": 3,
+          "file": "src/olumiView/look/icons.tsx",
+          "token": "<span style>",
+          "sample": "<span className={className} style={{ display: 'inline-flex', gap: 2, ...style }} {...rest}>"
+        },
+        "v12-inline-style :: src/olumiView/port/ChatFloat.tsx :: <div style>": {
+          "count": 2,
+          "file": "src/olumiView/port/ChatFloat.tsx",
+          "token": "<div style>",
+          "sample": "style={{ zIndex: 300, left: placed.x, top: placed.y, ...size, borderRadius: 10, border: '1px solid var(--border-default)"
+        },
+        "v12-inline-style :: src/olumiView/port/WhatIfBars.tsx :: <span style>": {
+          "count": 3,
+          "file": "src/olumiView/port/WhatIfBars.tsx",
+          "token": "<span style>",
+          "sample": "{width === 0 ? null : <span className=\"absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-option\" style={{ left: `$"
+        },
+        "v12-inline-style :: src/olumiView/previous/CoreCard.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/previous/CoreCard.tsx",
+          "token": "<div style>",
+          "sample": "style={letter === null && !(hosted && width !== undefined) ? undefined : ({ ...(letter === null ? {} : { '--ok-letter': "
+        },
+        "v12-inline-style :: src/olumiView/strategy/StrategyChips.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/strategy/StrategyChips.tsx",
+          "token": "<div style>",
+          "sample": "<div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`st"
+        },
+        "v12-inline-style :: src/olumiView/v10.tsx :: <div style>": {
+          "count": 9,
+          "file": "src/olumiView/v10.tsx",
+          "token": "<div style>",
+          "sample": "<div className=\"relative\" role=\"img\" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borde"
+        },
+        "v12-inline-style :: src/olumiView/v12/LaneHelp.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/LaneHelp.tsx",
+          "token": "<div style>",
+          "sample": "<div className=\"fixed z-[1200] flex w-[min(20rem,calc(100vw-2rem))] flex-col items-end gap-3\" style={anchor} data-testid"
+        },
+        "v12-inline-style :: src/olumiView/v12/SimpleFace.tsx :: <i style>": {
+          "count": 3,
+          "file": "src/olumiView/v12/SimpleFace.tsx",
+          "token": "<i style>",
+          "sample": "{axisInfo?.goalAt == null ? null : <i className=\"pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-"
+        },
+        "v12-inline-style :: src/olumiView/v12/SimpleFace.tsx :: <span style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/SimpleFace.tsx",
+          "token": "<span style>",
+          "sample": "<span className=\"relative block h-[4px] flex-1 rounded-full\" style={{ background: 'var(--border-default)' }} role=\"img\" "
+        },
+        "v12-inline-style :: src/olumiView/v12/actionsMenu.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/actionsMenu.tsx",
+          "token": "<div style>",
+          "sample": "style={place}"
+        },
+        "v12-inline-style :: src/olumiView/v12/bands/BandLayer.tsx :: <div style>": {
+          "count": 2,
+          "file": "src/olumiView/v12/bands/BandLayer.tsx",
+          "token": "<div style>",
+          "sample": "<div style={{ pointerEvents: 'none' }} data-testid=\"view-band-layer\">"
+        },
+        "v12-inline-style :: src/olumiView/v12/bands/BandNodes.tsx :: <span style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/bands/BandNodes.tsx",
+          "token": "<span style>",
+          "sample": "{group.kinds.map((k) => <span key={k} className=\"inline-flex\" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'cal"
+        },
+        "v12-inline-style :: src/olumiView/v12/bands/KeyPill.tsx :: <span style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/bands/KeyPill.tsx",
+          "token": "<span style>",
+          "sample": "if (id === 'unsettled') return <span aria-hidden=\"true\" data-key-sample=\"unsettled\" className={`${typography.viewPanelMe"
+        },
+        "v12-inline-style :: src/olumiView/v12/bands/KeyPill.tsx :: <path style>": {
+          "count": 5,
+          "file": "src/olumiView/v12/bands/KeyPill.tsx",
+          "token": "<path style>",
+          "sample": "<path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} style={{ stroke: s.stroke }} strokeWid"
+        },
+        "v12-inline-style :: src/olumiView/v12/bands/KeyPill.tsx :: <circle style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/bands/KeyPill.tsx",
+          "token": "<circle style>",
+          "sample": "{s.end === 'dot' ? <circle cx=\"6\" cy=\"13\" r=\"2.5\" style={{ fill: s.stroke }} /> : null}"
+        },
+        "v12-inline-style :: src/olumiView/v12/detailed/charts.tsx :: <i style>": {
+          "count": 6,
+          "file": "src/olumiView/v12/detailed/charts.tsx",
+          "token": "<i style>",
+          "sample": "<div className=\"ok-dt-rail-axis\" aria-hidden=\"true\">{[0, 25, 50, 75, 100].map((t) => <i key={t} style={{ left: `${t}%` }"
+        },
+        "v12-inline-style :: src/olumiView/v12/detailed/marks.tsx :: <i style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/detailed/marks.tsx",
+          "token": "<i style>",
+          "sample": ": chance !== null ? <span className=\"ok-dt-mini\" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>"
+        },
+        "v12-inline-style :: src/olumiView/v12/edit/EditForm.tsx :: <form style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/edit/EditForm.tsx",
+          "token": "<form style>",
+          "sample": "style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>"
+        },
+        "v12-inline-style :: src/olumiView/v12/inspect/FigureInspector.tsx :: <span style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/inspect/FigureInspector.tsx",
+          "token": "<span style>",
+          "sample": "<span className=\"relative h-1.5 flex-1 rounded-full bg-panel-border\" aria-hidden=\"true\"><span className={`absolute left-"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/ConditionalBar.tsx :: <span style>": {
+          "count": 2,
+          "file": "src/olumiView/v12/scale/ConditionalBar.tsx",
+          "token": "<span style>",
+          "sample": "const dot = (p: number, id: string) => <span data-testid={id} data-p={p} style={{ position: 'absolute', top: 3, width: 1"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/ConditionalBar.tsx :: <div style>": {
+          "count": 2,
+          "file": "src/olumiView/v12/scale/ConditionalBar.tsx",
+          "token": "<div style>",
+          "sample": "<div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/OutcomeStrips.tsx :: <div style>": {
+          "count": 5,
+          "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
+          "token": "<div style>",
+          "sample": "<div data-testid=\"outcome-strips\" data-card={card.id} style={{ position: 'relative', margin: '6px 0 2px', paddingLeft: L"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/OutcomeStrips.tsx :: <span style>": {
+          "count": 8,
+          "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
+          "token": "<span style>",
+          "sample": "<span style={{ position: 'absolute', left: -LW, width: LW - 4, textAlign: 'right', color: LIGHT, fontWeight: 500 }} data"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/RangeBar.tsx :: <div style>": {
+          "count": 3,
+          "file": "src/olumiView/v12/scale/RangeBar.tsx",
+          "token": "<div style>",
+          "sample": "<div data-testid=\"range-bar\" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize"
+        },
+        "v12-inline-style :: src/olumiView/v12/scale/RangeBar.tsx :: <span style>": {
+          "count": 4,
+          "file": "src/olumiView/v12/scale/RangeBar.tsx",
+          "token": "<span style>",
+          "sample": "style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: `color-mix("
+        },
+        "v12-inline-style :: src/olumiView/v12/views/CompareViewsStage.tsx :: <div style>": {
+          "count": 1,
+          "file": "src/olumiView/v12/views/CompareViewsStage.tsx",
+          "token": "<div style>",
+          "sample": "<div role=\"region\" aria-label={COMPARE_WORDS.control} data-testid=\"compare-stage\" className=\"absolute inset-y-0 left-0 z"
+        }
+      }
+    },
+    "v12-important-css": {
+      "mode": "ratchet",
+      "description": "CSS !important declarations in lane stylesheets and TSX template styles",
+      "total": 43,
+      "byFile": {
+        "src/olumiView/look/olumiLook.css": 42,
+        "src/olumiView/v12/lenses/LayerCanvasStyle.tsx": 1
+      },
+      "signatures": {
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: border-radius !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "border-radius !important",
+          "sample": "border-radius: 12px !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: background !important": {
+          "count": 3,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "background !important",
+          "sample": "background: var(--bg-panel) !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: padding !important": {
+          "count": 4,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "padding !important",
+          "sample": "padding: calc(12px * var(--o-s)) !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: box-shadow !important": {
+          "count": 4,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "box-shadow !important",
+          "sample": "box-shadow: none !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: border-width !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "border-width !important",
+          "sample": "border-width: 1px !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: color !important": {
+          "count": 3,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "color !important",
+          "sample": "color: var(--text-header) !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: font-size !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "font-size !important",
+          "sample": "font-size: calc(14px * var(--o-s)) !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: font-weight !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "font-weight !important",
+          "sample": "font-weight: 500 !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: line-height !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "line-height !important",
+          "sample": "line-height: 1.3 !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: text-decoration !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "text-decoration !important",
+          "sample": ".olumi-look .ok-edit button { gap: 4px; width: max-content; color: var(--text-light); text-decoration: none !important; "
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: padding-right !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "padding-right !important",
+          "sample": ".olumi-look .react-flow__node [data-testid=\"anchor-body-rail-beside\"]:has(> .ok-face) { padding-right: 0 !important; }"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: z-index !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "z-index !important",
+          "sample": ".olumi-look .react-flow__node:has(.ok-steps[open]:not(.ok-steps-inline)) { z-index: 2000 !important; }"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: display !important": {
+          "count": 3,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "display !important",
+          "sample": "display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; overflow-wrap: break-word"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: -webkit-line-clamp !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "-webkit-line-clamp !important",
+          "sample": "display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; overflow-wrap: break-word"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: overflow !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "overflow !important",
+          "sample": "display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; overflow-wrap: break-word"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: padding-bottom !important": {
+          "count": 3,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "padding-bottom !important",
+          "sample": ".olumi-look .react-flow__node [role='group'][aria-label]:has(> [data-testid*='-bottom-marks-'] > *) { padding-bottom: ca"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: border !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "border !important",
+          "sample": "border: 0 !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: width !important": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "width !important",
+          "sample": "width: fit-content !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: max-width !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "max-width !important",
+          "sample": "max-width: 88% !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: row-gap !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "row-gap !important",
+          "sample": "row-gap: 4px !important;"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: border-color !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "border-color !important",
+          "sample": ".olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='ol"
+        },
+        "v12-important-css :: src/olumiView/look/olumiLook.css :: min-width !important": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "min-width !important",
+          "sample": "width: fit-content !important; min-width: min(calc(208px * var(--o-s)), var(--ok-slot, calc(208px * var(--o-s)))) !impor"
+        },
+        "v12-important-css :: src/olumiView/v12/lenses/LayerCanvasStyle.tsx :: padding-bottom !important": {
+          "count": 1,
+          "file": "src/olumiView/v12/lenses/LayerCanvasStyle.tsx",
+          "token": "padding-bottom !important",
+          "sample": "`${card(id)}{padding-bottom:22px!important;position:relative}`,"
+        }
+      }
+    },
+    "v12-important-utility": {
+      "mode": "ratchet",
+      "description": "Tailwind important modifiers in lane TSX class strings",
+      "total": 17,
+      "byFile": {
+        "src/olumiView/EarlyAnswer.tsx": 5,
+        "src/olumiView/ViewChat.tsx": 5,
+        "src/olumiView/v12/chat/ReplyLead.tsx": 5,
+        "src/olumiView/previous/CoreCard.tsx": 2
+      },
+      "signatures": {
+        "v12-important-utility :: src/olumiView/EarlyAnswer.tsx :: !list-none": {
+          "count": 1,
+          "file": "src/olumiView/EarlyAnswer.tsx",
+          "token": "!list-none",
+          "sample": "? <ul key={i} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\">{b.lines.map((l, j) => <li key={j} className=\"relative"
+        },
+        "v12-important-utility :: src/olumiView/EarlyAnswer.tsx :: !pl-3": {
+          "count": 1,
+          "file": "src/olumiView/EarlyAnswer.tsx",
+          "token": "!pl-3",
+          "sample": "? <ul key={i} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\">{b.lines.map((l, j) => <li key={j} className=\"relative"
+        },
+        "v12-important-utility :: src/olumiView/EarlyAnswer.tsx :: !mb-1": {
+          "count": 1,
+          "file": "src/olumiView/EarlyAnswer.tsx",
+          "token": "!mb-1",
+          "sample": "? <ul key={i} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\">{b.lines.map((l, j) => <li key={j} className=\"relative"
+        },
+        "v12-important-utility :: src/olumiView/EarlyAnswer.tsx :: last:!mb-0": {
+          "count": 1,
+          "file": "src/olumiView/EarlyAnswer.tsx",
+          "token": "last:!mb-0",
+          "sample": "? <ul key={i} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\">{b.lines.map((l, j) => <li key={j} className=\"relative"
+        },
+        "v12-important-utility :: src/olumiView/EarlyAnswer.tsx :: before:!bg-text-light": {
+          "count": 1,
+          "file": "src/olumiView/EarlyAnswer.tsx",
+          "token": "before:!bg-text-light",
+          "sample": "? <ul key={i} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\">{b.lines.map((l, j) => <li key={j} className=\"relative"
+        },
+        "v12-important-utility :: src/olumiView/ViewChat.tsx :: !list-none": {
+          "count": 1,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "!list-none",
+          "sample": "? <ul key={gi} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" {...open}>{g.lines.slice(0, shown).map((l, li) => { c"
+        },
+        "v12-important-utility :: src/olumiView/ViewChat.tsx :: !pl-3": {
+          "count": 1,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "!pl-3",
+          "sample": "? <ul key={gi} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" {...open}>{g.lines.slice(0, shown).map((l, li) => { c"
+        },
+        "v12-important-utility :: src/olumiView/ViewChat.tsx :: !mb-1": {
+          "count": 1,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "!mb-1",
+          "sample": "? <ul key={gi} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" {...open}>{g.lines.slice(0, shown).map((l, li) => { c"
+        },
+        "v12-important-utility :: src/olumiView/ViewChat.tsx :: last:!mb-0": {
+          "count": 1,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "last:!mb-0",
+          "sample": "? <ul key={gi} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" {...open}>{g.lines.slice(0, shown).map((l, li) => { c"
+        },
+        "v12-important-utility :: src/olumiView/ViewChat.tsx :: before:!bg-text-light": {
+          "count": 1,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "before:!bg-text-light",
+          "sample": "? <ul key={gi} className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" {...open}>{g.lines.slice(0, shown).map((l, li) => { c"
+        },
+        "v12-important-utility :: src/olumiView/previous/CoreCard.tsx :: !leading-tight": {
+          "count": 2,
+          "file": "src/olumiView/previous/CoreCard.tsx",
+          "token": "!leading-tight",
+          "sample": ": <Hover focusable={false} words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex f"
+        },
+        "v12-important-utility :: src/olumiView/v12/chat/ReplyLead.tsx :: !list-none": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/ReplyLead.tsx",
+          "token": "!list-none",
+          "sample": "<ul className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" data-testid=\"view-reply-lead-points\">"
+        },
+        "v12-important-utility :: src/olumiView/v12/chat/ReplyLead.tsx :: !pl-3": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/ReplyLead.tsx",
+          "token": "!pl-3",
+          "sample": "<ul className=\"m-0 !list-none !pl-3\" data-reply-list=\"\" data-testid=\"view-reply-lead-points\">"
+        },
+        "v12-important-utility :: src/olumiView/v12/chat/ReplyLead.tsx :: !mb-1": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/ReplyLead.tsx",
+          "token": "!mb-1",
+          "sample": "{lead.points.map((p, i) => <li key={i} className=\"group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 be"
+        },
+        "v12-important-utility :: src/olumiView/v12/chat/ReplyLead.tsx :: last:!mb-0": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/ReplyLead.tsx",
+          "token": "last:!mb-0",
+          "sample": "{lead.points.map((p, i) => <li key={i} className=\"group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 be"
+        },
+        "v12-important-utility :: src/olumiView/v12/chat/ReplyLead.tsx :: before:!bg-text-light": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/ReplyLead.tsx",
+          "token": "before:!bg-text-light",
+          "sample": "{lead.points.map((p, i) => <li key={i} className=\"group/item relative !mb-1 last:!mb-0 before:absolute before:-left-3 be"
+        }
+      }
+    },
+    "v12-native-title": {
+      "mode": "ratchet",
+      "description": "Native title props on DOM elements in lane TSX",
+      "total": 29,
+      "byFile": {
+        "src/olumiView/ViewWhatIfKey.tsx": 4,
+        "src/olumiView/RevealMarks.tsx": 3,
+        "src/olumiView/ViewPreMortemKey.tsx": 3,
+        "src/olumiView/ViewTradeOffsKey.tsx": 3,
+        "src/olumiView/v10.tsx": 3,
+        "src/olumiView/TeamPresence.tsx": 2,
+        "src/olumiView/ViewLensBar.tsx": 2,
+        "src/olumiView/AddFigure.tsx": 1,
+        "src/olumiView/Badge.tsx": 1,
+        "src/olumiView/DraftingBoard.tsx": 1,
+        "src/olumiView/ResultBand.tsx": 1,
+        "src/olumiView/SelectedRename.tsx": 1,
+        "src/olumiView/StatedFigure.tsx": 1,
+        "src/olumiView/ViewLegend.tsx": 1,
+        "src/olumiView/ViewSummary.tsx": 1,
+        "src/olumiView/WhatIfCompare.tsx": 1
+      },
+      "signatures": {
+        "v12-native-title :: src/olumiView/AddFigure.tsx :: <button title>": {
+          "count": 1,
+          "file": "src/olumiView/AddFigure.tsx",
+          "token": "<button title>",
+          "sample": "<button type=\"button\" disabled aria-disabled=\"true\" className={styles.iconButton} aria-label={`Add to model: ${why}`} ti"
+        },
+        "v12-native-title :: src/olumiView/Badge.tsx :: <button title>": {
+          "count": 1,
+          "file": "src/olumiView/Badge.tsx",
+          "token": "<button title>",
+          "sample": "title={title} aria-label={badge.label} aria-expanded={badge.open} data-proposed={badge.proposed || undefined} data-badge"
+        },
+        "v12-native-title :: src/olumiView/DraftingBoard.tsx :: <button title>": {
+          "count": 1,
+          "file": "src/olumiView/DraftingBoard.tsx",
+          "token": "<button title>",
+          "sample": "<button type=\"button\" disabled={busy} title={draft.stop.title} aria-label={draft.stop.label} data-view=\"draft.stop.label"
+        },
+        "v12-native-title :: src/olumiView/ResultBand.tsx :: <button title>": {
+          "count": 1,
+          "file": "src/olumiView/ResultBand.tsx",
+          "token": "<button title>",
+          "sample": "<button type=\"button\" className=\"ok-share nodrag nopan\" data-rests-share={card.id} data-rests-basis={said.basis} title={"
+        },
+        "v12-native-title :: src/olumiView/RevealMarks.tsx :: <button title>": {
+          "count": 3,
+          "file": "src/olumiView/RevealMarks.tsx",
+          "token": "<button title>",
+          "sample": "<button key={e.id} type=\"button\" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e."
+        },
+        "v12-native-title :: src/olumiView/SelectedRename.tsx :: <span title>": {
+          "count": 1,
+          "file": "src/olumiView/SelectedRename.tsx",
+          "token": "<span title>",
+          "sample": "{only === 'basis' || author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 't"
+        },
+        "v12-native-title :: src/olumiView/StatedFigure.tsx :: <p title>": {
+          "count": 1,
+          "file": "src/olumiView/StatedFigure.tsx",
+          "token": "<p title>",
+          "sample": "return <p className=\"text-text-header\" title={figure.title} data-stated-figure={id} data-view={`${id}.figure.text`}>{fig"
+        },
+        "v12-native-title :: src/olumiView/TeamPresence.tsx :: <button title>": {
+          "count": 2,
+          "file": "src/olumiView/TeamPresence.tsx",
+          "token": "<button title>",
+          "sample": "title={unjoined.text} data-testid=\"team-presence-unjoined\"><OkIcon id=\"invite\" decorative inherit /><span className=\"sr-"
+        },
+        "v12-native-title :: src/olumiView/ViewLegend.tsx :: <p title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewLegend.tsx",
+          "token": "<p title>",
+          "sample": "<p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap"
+        },
+        "v12-native-title :: src/olumiView/ViewLensBar.tsx :: <button title>": {
+          "count": 2,
+          "file": "src/olumiView/ViewLensBar.tsx",
+          "token": "<button title>",
+          "sample": "aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTI"
+        },
+        "v12-native-title :: src/olumiView/ViewPreMortemKey.tsx :: <button title>": {
+          "count": 2,
+          "file": "src/olumiView/ViewPreMortemKey.tsx",
+          "token": "<button title>",
+          "sample": "<button type=\"button\" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LEN"
+        },
+        "v12-native-title :: src/olumiView/ViewPreMortemKey.tsx :: <span title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewPreMortemKey.tsx",
+          "token": "<span title>",
+          "sample": "<span className=\"text-info\" title={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </span>"
+        },
+        "v12-native-title :: src/olumiView/ViewSummary.tsx :: <span title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewSummary.tsx",
+          "token": "<span title>",
+          "sample": "{part.mark === null ? null : <>{' '}<span role=\"img\" title={part.mark.title} aria-label={part.mark.title}>{part.mark.gly"
+        },
+        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <span title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewTradeOffsKey.tsx",
+          "token": "<span title>",
+          "sample": ": <>{NBSP}<span title={row.olumi.title} aria-label={row.olumi.title} data-view={`${at}.olumi.glyph`}>{row.olumi.glyph}</"
+        },
+        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <td title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewTradeOffsKey.tsx",
+          "token": "<td title>",
+          "sample": "<td className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top`} title={row?.title} data-v"
+        },
+        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <button title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewTradeOffsKey.tsx",
+          "token": "<button title>",
+          "sample": "<button type=\"button\" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LEN"
+        },
+        "v12-native-title :: src/olumiView/ViewWhatIfKey.tsx :: <button title>": {
+          "count": 3,
+          "file": "src/olumiView/ViewWhatIfKey.tsx",
+          "token": "<button title>",
+          "sample": "title={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid=\"view-whatif-key-fold\""
+        },
+        "v12-native-title :: src/olumiView/ViewWhatIfKey.tsx :: <span title>": {
+          "count": 1,
+          "file": "src/olumiView/ViewWhatIfKey.tsx",
+          "token": "<span title>",
+          "sample": "{picked.figure === null ? null : <p><span className=\"text-text-light\">{WHAT_IF_COPY.saved}: </span><span title={picked.f"
+        },
+        "v12-native-title :: src/olumiView/WhatIfCompare.tsx :: <p title>": {
+          "count": 1,
+          "file": "src/olumiView/WhatIfCompare.tsx",
+          "token": "<p title>",
+          "sample": "{v.most_likely === null ? null : <p title={v.most_likely.title} data-view=\"whatif.most_likely.text\">{v.most_likely.text}"
+        },
+        "v12-native-title :: src/olumiView/v10.tsx :: <div title>": {
+          "count": 3,
+          "file": "src/olumiView/v10.tsx",
+          "token": "<div title>",
+          "sample": "<div className=\"mt-1 min-w-0\" data-testid={`view-option-band-${id}`} title={band.title === '' ? band.text : `${band.text"
+        }
+      }
+    },
+    "v12-blue-utility": {
+      "mode": "ratchet",
+      "description": "Info or primary colour utilities outside documented Olumi and handoff uses",
+      "total": 0,
+      "byFile": {},
+      "signatures": {}
+    },
+    "v12-panel-padding": {
+      "mode": "report",
+      "description": "16px p-4 or px-4 utilities on lane panel elements",
+      "total": 4,
+      "byFile": {
+        "src/olumiView/ScenarioTitleDialog.tsx": 2,
+        "src/olumiView/ViewSummary.tsx": 1,
+        "src/olumiView/v12/views/CompareViewsStage.tsx": 1
+      },
+      "signatures": {
+        "v12-panel-padding :: src/olumiView/ScenarioTitleDialog.tsx :: px-4": {
+          "count": 1,
+          "file": "src/olumiView/ScenarioTitleDialog.tsx",
+          "token": "px-4",
+          "sample": "className=\"fixed inset-0 z-[1600] flex items-start justify-center bg-black/20 px-4 pt-24\""
+        },
+        "v12-panel-padding :: src/olumiView/ScenarioTitleDialog.tsx :: p-4": {
+          "count": 1,
+          "file": "src/olumiView/ScenarioTitleDialog.tsx",
+          "token": "p-4",
+          "sample": "<form onSubmit={(e) => void save(e)} className=\"grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg"
+        },
+        "v12-panel-padding :: src/olumiView/ViewSummary.tsx :: px-4": {
+          "count": 1,
+          "file": "src/olumiView/ViewSummary.tsx",
+          "token": "px-4",
+          "sample": "<div className=\"flex items-center gap-2 border-b border-panel-border px-4 py-3\">"
+        },
+        "v12-panel-padding :: src/olumiView/v12/views/CompareViewsStage.tsx :: p-4": {
+          "count": 1,
+          "file": "src/olumiView/v12/views/CompareViewsStage.tsx",
+          "token": "p-4",
+          "sample": "<section className=\"grid content-start gap-3 rounded-md border border-panel-border bg-panel p-4\" data-testid={`compare-p"
         }
       }
     }

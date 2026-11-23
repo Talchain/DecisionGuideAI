@@ -21,14 +21,14 @@ Do not create a second band table or format raw science values directly in a
 component. User-entered business quantities and requested headline outcomes
 are not covered by this rule.
 
-See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the quick reference. Full specification: [`docs/design/Olumi_Design_System_v4.md`](docs/design/Olumi_Design_System_v4.md). Key rules:
+See [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) for the quick reference. Full specification: [Olumi Design System](https://claude.ai/artifact/V742SK8oPUHxBVCstP3qpp). Key rules:
 
 - **Three-channel system**: Shapes (what it is) · Colour (how it's doing) · Icons (what you can do) — no channel duplicates another
 - Two shades per colour: main (text/icons) + light (canvas node fills and panel entity-hover only)
 - `bg-{colour}-light` is **never** used on cards, banners, pills, or coaching cards — use `bg-panel`
 - Borders via opacity (`border-danger/30`), never extra shade tokens
 - Pills: outlined only (`bg-transparent border-{colour}/30 text-text-body`) — never filled, never `text-{colour}`
-- Primary button: `bg-primary text-text-on-color` (info blue with white text)
+- Primary buttons use green action colours (`controls.actColours`). Blue is reserved for Olumi.
 - Font: Inter throughout. Icon library: Lucide only. No emoji in production UI.
 - New code should use semantic names (`text-info`, `bg-panel`), not legacy aliases (`sky-500`, `mint-500`)
 

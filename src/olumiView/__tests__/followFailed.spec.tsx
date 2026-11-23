@@ -29,6 +29,6 @@ describe('the thread follows his message, not a job the saved row already draws 
     Object.defineProperties(scroll, { scrollHeight: { value: 3000, configurable: true }, clientHeight: { value: 300, configurable: true } })
     act(() => { useViewStore.setState({ view: RUN1 } as never) })
     expect(el.querySelector('[data-testid="view-chat-turn-job"]')).toHaveAttribute('data-shown')
-    expect(scroll.scrollTop).toBe(584) // his message (600 - 16), not the job's Try again (900 - 16)
+    expect(scroll.scrollTop).toBe(588) // his message (600 - 12), not the job's Try again (900 - 12)
   })
 })

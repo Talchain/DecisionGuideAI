@@ -9,7 +9,6 @@
  * Nothing is ranked, averaged or marked right; no backend change, no new data.
  */
 import { useEffect, useRef } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { useViewStore } from '../../store'
 import type { View } from '../../client'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
@@ -105,7 +104,7 @@ export function CompareViewsStage(): JSX.Element | null {
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" data-testid="compare-back" onClick={hide}
             className={`${typography.viewPanelMeta} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-            <ArrowLeft aria-hidden="true" strokeWidth={1.75} className="h-3.5 w-3.5 flex-none" />{COMPARE_WORDS.back}
+            <OkIcon id="back" size={14} decorative />{COMPARE_WORDS.back}
           </button>
           <h2 className={`${typography.viewPanelHeadline} m-0 text-text-header`} data-testid="compare-heading">{v.collab.heading}</h2>
         </div>

@@ -51,6 +51,7 @@
  */
 import { promises as fs } from 'fs'
 import path from 'path'
+import { scanLaneSource, scanLaneStylesheet } from './lib/ds-lane-rules.mjs'
 import { stripComments, isColourValuePosition, isAmbiguousNumericHex } from './lib/ds-token-context.mjs'
 
 const ROOT = process.cwd()
@@ -130,6 +131,12 @@ const inV12 = (p) => !isTest(p) && (under(p, 'olumiView') || under(p, 'olumiCore
  *    into a comment is a migration instruction that WILL be copied into code.
  *    Changing that would silently lower three baselines — do not "unify" it.
  */
+const laneSourceClass = (id, description, { mode = 'ratchet', tsxOnly = false } = {}) => ({
+  id, mode, description,
+  inScope: (p) => inV12(p) && (tsxOnly ? p.endsWith('.tsx') : /\.tsx?$/.test(p)),
+  laneSource: true,
+})
+
 const CLASSES = [
   {
     id: 'legacy-tailwind-token',
@@ -223,6 +230,19 @@ const CLASSES = [
     stripComments: true,
     lineTokens: v12Tokens(V12_CSS),
   },
+  laneSourceClass('v12-typography-token', 'Typography tokens that resolve to 11/13/16px or weight 600/700'),
+  laneSourceClass('v12-inline-style', 'Explicit style props on DOM elements, except verified CSS-variable-only object literals', { tsxOnly: true }),
+  {
+    id: 'v12-important-css',
+    mode: 'ratchet',
+    description: 'CSS !important declarations in lane stylesheets and TSX template styles',
+    inScope: (p) => inV12(p) && /\.(css|tsx)$/.test(p),
+    laneSource: true,
+  },
+  laneSourceClass('v12-important-utility', 'Tailwind important modifiers in lane TSX class strings', { tsxOnly: true }),
+  laneSourceClass('v12-native-title', 'Native title props on DOM elements in lane TSX', { tsxOnly: true }),
+  laneSourceClass('v12-blue-utility', 'Info or primary colour utilities outside documented Olumi and handoff uses'),
+  laneSourceClass('v12-panel-padding', '16px p-4 or px-4 utilities on lane panel elements', { mode: 'report', tsxOnly: true }),
   {
     id: 'emoji-icon',
     mode: 'report', // never gates — precise migration is deferred (see report)
@@ -268,12 +288,24 @@ async function scan(rootDir) {
     // one entry per source line (asserted below) so line indices stay shared
     // between the raw and stripped views — the raw line is what gets sampled.
     let stripped = null
+    let laneHits
+    const record = (classId, token, line) => {
+      const sig = sigKey(classId, rel, token)
+      const bucket = result[classId]
+      bucket.total++
+      bucket.byFile[rel] = (bucket.byFile[rel] || 0) + 1
+      // Sample the original source, even for scans that blank comments.
+      if (!bucket.signatures[sig]) bucket.signatures[sig] = { count: 0, file: rel, token, sample: lines[line].trim().slice(0, 120) }
+      bucket.signatures[sig].count++
+    }
     for (const c of CLASSES) {
-      // Scope is decided on the path RELATIVE TO THE SCAN ROOT (scopeRel), so the
-      // same class scopes work for production (root=src) and fixtures (root=fixture
-      // dir mirroring the src layout). `rel` (repo-relative) is used only for the
-      // human-readable file path and the occurrence signature.
+      // Decide scope relative to the scan root so the same rules apply to fixtures.
       if (!c.inScope(scopeRel)) continue
+      if (c.laneSource) {
+        laneHits ??= scopeRel.endsWith('.css') ? scanLaneStylesheet(scopeRel, text) : scanLaneSource(scopeRel, text)
+        for (const { token, line } of laneHits[c.id] ?? []) record(c.id, token, line)
+        continue
+      }
       let scanLines = lines
       if (c.stripComments) {
         if (stripped === null) {
@@ -286,14 +318,7 @@ async function scan(rootDir) {
       }
       for (let i = 0; i < scanLines.length; i++) {
         for (const token of c.lineTokens(scanLines[i])) {
-          const sig = sigKey(c.id, rel, token)
-          const bucket = result[c.id]
-          bucket.total++
-          bucket.byFile[rel] = (bucket.byFile[rel] || 0) + 1
-          // Sample the RAW line, always: a blanked comment is unreadable, and the
-          // sample is the only thing a human reviewing the baseline diff can see.
-          if (!bucket.signatures[sig]) bucket.signatures[sig] = { count: 0, file: rel, token, sample: lines[i].trim().slice(0, 120) }
-          bucket.signatures[sig].count++
+          record(c.id, token, i)
         }
       }
     }

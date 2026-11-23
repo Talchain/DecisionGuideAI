@@ -11,7 +11,7 @@ import { isOlumiCoreLane } from '../../../../olumiCore/lane'
 import { PanelWidthProvider } from '../usePanelWidth'
 import type { WorkspaceSurfaceDescriptor } from '../shellContract'
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
 const surfaces: WorkspaceSurfaceDescriptor[] = [
   { id: 'olumi', label: 'Olumi', scroll: 'self', padding: 'self', presentedAsTab: true, hiddenReason: '', footerBar: 'readiness' },
@@ -44,6 +44,17 @@ describe('the Olumi dock tab is the brand mark, named "Olumi"', () => {
     const tab = screen.getByTestId('outputs-dock-tab-olumi')
     expect(tab.querySelector('[data-testid="outputs-dock-tab-olumi-mark"] svg[data-icon="olumi-ai"]')).not.toBeNull()
     expect(tab.textContent).toBe('')
+  })
+
+  it.each([['1', '14'], ['0', '16']])('uses the icon size for lane posture %s', (flag, size) => {
+    vi.stubEnv('VITE_OLUMI_CORE', flag)
+    draw()
+    const mark = screen.getByTestId('outputs-dock-tab-olumi-mark').querySelector('svg')
+    expect(mark).toHaveAttribute('width', size)
+    expect(mark).toHaveAttribute('height', size)
+    if (flag === '1') {
+      expect(screen.getByTestId('outputs-dock-tab-icon-results').querySelector('svg')).toHaveAttribute('width', '14')
+    }
   })
 
   it('on the olumi-core lane the collapse control sits in the tabs\' own row, with no header row above it and no "…" menu (Paul, 18 Nov); CONTRAST: the older look keeps its row controls', () => {

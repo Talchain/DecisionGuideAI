@@ -163,7 +163,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   // A RISK's chance and size, or a link's strength, is core's `…/size` route, never `…/edit` (which refuses it: a risk is not a figure). Core
   // says so with `route: 'size'`; the lane's own size form takes it, in core's field words. A plain figure edit keeps this editor.
   // C1: the pencil is a card action (hidden at rest by the look); `contents` takes no box and `visibility` inherits to the button.
-  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
+  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
   if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
@@ -201,7 +201,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
-          className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
@@ -223,7 +223,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
       <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       {/* Pre-screen row 7 (DL 10 Nov): the model moved on while this editor was open, so core refuses its base every time and only Cancel
           and reopen got out. One press moves this edit onto the latest version and keeps what was typed; it is the person's press, never
@@ -283,7 +283,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   }
   return glyph === undefined
     ? <><button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
-      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-info underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
+      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
     : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
       className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
       <EditIcon testid={`${place}-glyph-${id}`} />

@@ -182,7 +182,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-track > .ok-tick { position: absolute; top: -2px; bottom: -2px; width: 1px; margin-left: -0.5px; background: var(--border-emphasis); }
 .olumi-look .ok-track[tabindex] { cursor: help; outline: none; }
 .olumi-look .ok-track[tabindex]::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
-.olumi-look .ok-track[tabindex]:focus-visible { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--info); }
+.olumi-look .ok-track[tabindex]:focus-visible { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--text-header); }
 /* The range's words on hover or focus: the same surface (.ok-pop on the element), a little lower to clear the track's focus ring. */
 .olumi-look .ok-track > .ok-range-tip { display: none; top: calc(100% + 9px); }
 .olumi-look .ok-track[tabindex]:hover > .ok-range-tip, .olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip { display: block !important; }
@@ -239,7 +239,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere;
 }
 .ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); }
-.ok-lead-action-link:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; border-radius: 2px; }
+.ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }
 .ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
 /* A world action's basis (core's words): its own row, under the words and in line with them past the 14 px mark. */
 .ok-lead-action:has(.ok-lead-action-basis) { flex-wrap: wrap; }
@@ -250,34 +250,27 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
    Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
    actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */
 .ok-pinned {
-  max-height: 50%; margin: var(--space-3) 0 0; padding: 4px 16px 0; border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
+  display: flex; flex-direction: column; flex: 0 1 auto; max-height: 62%; container-type: inline-size;
+  margin: var(--space-3) 0 0; padding-inline: var(--space-3); border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
-/* DL 06:57Z (2): the box is a column whose only shrinking part is the list of changes (it scrolls on its own); the step's words, the
-   proposal's heading and the actions keep their height, so the step is read whole above Approve at 1232 and 1128. */
+/* The conversation and the open foot panel have separate scroll areas. Keep a readable share
+   of the chat even when a long review and a person-opened form are both present. */
 .ok-pinned[hidden] { display: none; }
-.ok-pinned { display: flex; flex-direction: column; max-height: 62%; container-type: inline-size; }
-/* At the narrow dock (317 px at 1128 x 1.33) the one-line review gave core's heading about 107 px, three lines. The Review chip is then not drawn at all (its whole button, so nothing nameless is left); the heading beside it opens the same list. */
+/* The heading opens the same review when the dock is too narrow for the Review chip. */
 @container (max-width: 330px) { .ok-pinned .ok-review-toggle { display: none; } }
 .ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
-/* PL-1083 (1), DL 12:5xZ (A): while the proposal holds Olumi's readings, its reading rows and actions never go under anything. What yields,
-   in order: More ways hides; then the thread may shrink below its floor (its newest message keeps its start in view while space allows);
-   the box grows to hold the rows and the actions (ViewChat Proposal sizes it, ./readingsRest.ts) and shrinks rather than run past the
-   composer. A thread squeezed to nothing is clipped, never drawn over the box (13:50Z on 7163b55b: its padding overlapped the first row).
-   Nothing held: exactly as before. */
-/* "Record what you will do", docked at the thread's foot above the composer (ViewChat, DL 20 Nov): folded it is at most its one kept or saving
-   line; open, the thread above keeps the pinned proposal's floor and the form takes the rest, scrolling in its own box only past that. */
-.ok-form-foot { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) 12px; }
+
+.ok-form-foot { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) var(--space-3); }
 .ok-form-foot:has([data-open='true']) { padding-block: var(--space-2); }
 .ok-form-foot:not(:has([data-testid='commit-form'] > *, [data-testid='view-figure-first-entry'], [data-testid='view-figure-first-shown'], [data-testid='view-figure-first-given'])) { display: none; }
-[data-testid='view-chat']:has(.ok-form-foot [data-open='true']) > [data-thread-wrap] { min-height: min(18vh, 128px); }
-/* Contract 3: only while the one-row review is OPEN (closed, it is one line and the thread keeps its room). */
-[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
-[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; overflow: hidden; }
-.ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }
-/* The review open AND the Record form open (Codex on 6fb97f42): the thread still keeps its floor, so Olumi's newest reply never collapses; the
-   review's box (its actions on their sticky foot) and the form's box share the rest, each scrolling on its own. */
-[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]):has(.ok-form-foot [data-open='true']) > [data-thread-wrap] { min-height: min(18vh, 128px); }
+[data-testid='view-chat']:has(> .ok-pinned:not([hidden]), > .ok-form-foot [data-open='true']) > [data-thread-wrap] {
+  min-height: min(18vh, 128px, 35%);
+}
+
+/* The editing lane can remove this bridge when EditForm uses the neutral focus utility. */
+[data-testid='lane-edit-form'] :is(input, select):focus-visible { --tw-ring-color: var(--text-header); }
+
 /* The one-row review (ViewChat ProposalReview): its wrapper and, while open, its body are display: contents, so the row, the step's words,
    the change list and the actions are the pinned column's own items (the list keeps its bounded scroll, the actions their sticky foot). */
 .ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden]) { display: contents; }
@@ -341,7 +334,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .react-flow__node:has([data-ok-kind='factor']) { --ok-kc: var(--factor); }
 .olumi-look .react-flow__node:has([data-ok-kind='option']) { --ok-kc: var(--option); }
 .olumi-look .react-flow__node:has([data-ok-kind='goal']) { --ok-kc: var(--goal); }
-.olumi-look .react-flow__node:has([data-ok-kind='decision']) { --ok-kc: var(--info); }
+.olumi-look .react-flow__node:has([data-ok-kind='decision']) { --ok-kc: var(--text-header); }
 .olumi-look .react-flow__node:has([data-ok-kind='risk']) { --ok-kc: var(--danger); }
 .olumi-look .react-flow__node:has([data-ok-kind='outcome']) { --ok-kc: var(--success); }
 /* A limit (17 Nov): the constraint kind's grey frame and outlined-square marker, never the goal's yellow diamond. */

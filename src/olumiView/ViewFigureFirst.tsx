@@ -35,7 +35,7 @@ interface FigureFirstState {
 export const FIGURE_FIRST_CLOSED = { entry: null, said: null, reading: false, signature: null } as const
 export const useFigureFirst = create<FigureFirstState>()(() => ({ uuid: null, signature: null, entry: null, headings: null, shown: null, said: null, reading: false, typed: '', text: '' }))
 
-const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
+const FIELD = `${typography.viewPanelBody} block w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 
 /**
  * The blind entry, in core's words: its heading, question, what the figure feeds, the ask (the label of the box the figure is typed in, sent
@@ -65,7 +65,7 @@ export function FigureFirstEntryPanel({ held, onGive, onShow, onClose }: { held:
               {/* The send is the person's action: the lane's green icon button (held = aria-disabled, still focusable; the form's own guard refuses the press), a submit so Enter in the figure box sends too. */}
               <HoverButton type="submit" words="Send" disabled={busy || typed.trim() === '' || text.trim() === ''} aria-label="Send" data-testid="view-figure-first-send"
                 className={`ok-icon-btn ok-icon-btn-primary ${VIEW_ICON_BUTTON_PRIMARY_CLASS}`}>
-                <OkIcon id="send" size={16} decorative inherit />
+                <OkIcon id="send" size={14} decorative inherit />
               </HoverButton>
             </div>
           </form>

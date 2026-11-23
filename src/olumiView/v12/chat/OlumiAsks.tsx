@@ -93,7 +93,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           ))}
         </div>
         <HoverButton words={open ? CLOSE_ANSWER : OPEN_ANSWER} type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
-          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info">
+          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
           <FoldChevron open={open} />
         </HoverButton>
         <OkIconButton id="cancel-close" tone="ghost" testid="view-question-remove" words={REMOVE_QUESTIONS}

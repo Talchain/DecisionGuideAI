@@ -26,7 +26,7 @@ export function KeepChooser({ sid, turn, entries }: { sid: string; turn: number;
     <div ref={root} data-testid="view-keep-chooser"
       onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); trigger.current?.focus() } }}>
       <button ref={trigger} type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="view-keep-choose"
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}>
+        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="idea-keep" size={14} decorative /><span>{KEEP_AN_IDEA}</span>
       </button>
       {open ? (

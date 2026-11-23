@@ -35,7 +35,7 @@ export function IdeaPanel(): JSX.Element | null {
   const { source, method, keeper } = ideaDetailOf(view, idea)
   // An idea kept on an approved model is a record of it (core's strategy item): Challenge runs core's typed challenge on it (UI-E). A `kept:` row is not.
   const onModel = !idea.id.startsWith('kept:') && view.version !== null
-  const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info'
+  const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
       className={`${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded-md border border-panel-border bg-panel p-3 text-text-body`}>

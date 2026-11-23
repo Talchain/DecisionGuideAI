@@ -151,7 +151,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
                 return (
                   <button key={t.fact} type="button" aria-pressed={on} data-testid={`team-c-trigger-${t.fact}`} disabled={busy}
                     onClick={() => put({ trigger: on ? '' : t.fact })}
-                    className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left break-words ${on ? 'border-info bg-panel-hover' : 'border-panel-border bg-panel'}`}>
+                    className={`${BODY} flex min-h-[28px] items-start gap-2 rounded-lg border px-2.5 py-1.5 text-left break-words ${on ? 'border-text-header bg-panel-hover' : 'border-panel-border bg-panel'}`}>
                     <span className="mt-0.5 flex-none"><OkIcon id={on ? 'trigger-taken' : 'add'} size={14} decorative /></span><span>{t.text}</span>
                   </button>
                 )

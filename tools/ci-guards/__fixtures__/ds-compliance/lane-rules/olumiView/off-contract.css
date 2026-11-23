@@ -1,0 +1,6 @@
+.fixture {
+  padding: 0
+    !important;
+  content: '!important';
+}
+/* Ignored: padding: 0 !important; */

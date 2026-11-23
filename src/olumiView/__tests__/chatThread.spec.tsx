@@ -161,7 +161,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     const marker = container.querySelector<HTMLElement>('[data-latest-floor]')!
     expect(marker.getAttribute('data-testid')).toBe('view-floor-reply')
     expect(marker.textContent).not.toContain('A long brief')
-    expect(scroll.scrollTop).toBe(884) // 900 - 16; with the marker on the whole exchange it rested on the brief: 600 - 16 = 584
+    expect(scroll.scrollTop).toBe(888) // 900 - 12; with the marker on the whole exchange it rested on the brief: 600 - 12 = 588
   })
 
   it('follows the newest floor reply while retaining actions on the most recent saved turn', () => {
@@ -175,7 +175,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     const floor = [{ job: 101, at: '2026-11-14T08:00:00Z', by: 'Alex', by_id: '101', said: 'A correction', text: 'Understood.' }]
     act(() => show({ ...fixture, floor } as unknown as View))
     expect(getByTestId('view-chat-latest')).toBeTruthy()
-    expect(scroll.scrollTop).toBe(884)
+    expect(scroll.scrollTop).toBe(888)
   })
 
   it('CT5 scrolling back shows Latest, preserves the reading position, and resumes following on press', async () => {
@@ -311,11 +311,11 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
       clientHeight: { value: 200, configurable: true },
     })
     act(() => show(fixture))
-    expect(scroll.scrollTop).toBe(584)
+    expect(scroll.scrollTop).toBe(588)
     fireEvent.scroll(scroll)
     expect(queryByTestId('view-chat-to-latest')).toBeNull()
     act(() => show({ ...fixture, turn: running }))
-    expect(scroll.scrollTop).toBe(884)
+    expect(scroll.scrollTop).toBe(888)
     Object.defineProperty(scroll, 'scrollHeight', { value: 750, configurable: true })
     act(() => show(fixture))
     expect(scroll.scrollTop).toBe(550)
@@ -338,7 +338,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     Object.defineProperties(scroll, { scrollHeight: { value: 1600, configurable: true }, clientHeight: { value: 200, configurable: true } })
     act(() => show(bare))
     expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
-    expect(scroll.scrollTop).toBe(884) // 900 - 16; before: the turn's own top, 600 - 16 = 584, with the reply below the clipped thread
+    expect(scroll.scrollTop).toBe(888) // 900 - 12; before: the turn's own top, 600 - 12 = 588, with the reply below the clipped thread
   })
 
   it('CT8s CATCH (Codex 15 Nov, round 2): where the early reply and the answer are both drawn, the thread rests on the ANSWER\'s first line', () => {
@@ -356,7 +356,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     const early = document.createElement('div'); early.dataset.testid = 'view-chat-early'
     latest().insertBefore(early, latest().querySelector('[data-testid="view-chat-answer"]'))
     act(() => resize([], {} as ResizeObserver)) // the thread's content grew: the browser reports it, the thread rests again
-    expect(scroll.scrollTop).toBe(984) // 1000 - 16; the comma query took the early reply: 700 - 16 = 684
+    expect(scroll.scrollTop).toBe(988) // 1000 - 12; the comma query took the early reply: 700 - 12 = 688
   })
   it('CT8g CATCH (contract 3 on the redesign, 15 Nov): a figure the chances wait on, below a long newest reply, does not carry the thread past the reply\'s first line', () => {
     // A View whose next step is a figure the person can type (core's bakery golden) with a conversation in it.
@@ -373,8 +373,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     // CHANGED BY DESIGN (system spec P2): the figure step is gone (the figure stays on its card), so nothing but the reply sits below the newest reply's first line.
     expect(document.querySelector('[data-testid="view-next-step"]'), 'no figure step is drawn').toBeNull()
     expect(getByTestId('view-chat-latest').querySelector('[data-testid="view-chat-answer"]'), 'precondition: the newest turn holds Olumi\'s reply').not.toBeNull()
-    // CATCH: the step rule alone brings the step whole into view (900 + 150 + 16 - 200 = 866), the reply's first line above the thread.
-    expect(scroll.scrollTop).toBe(584) // 600 - 16
+    // CATCH: the step rule alone brings the step whole into view (900 + 150 + 12 - 200 = 862), the reply's first line above the thread.
+    expect(scroll.scrollTop).toBe(588) // 600 - 12
   })
 
   it('CT8b (DL-538): a held proposal\'s Next step card is pinned outside the thread\'s scroll, above the composer; the thread follows the newest reply\'s start', () => {
@@ -397,7 +397,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(approve, 'Approve is on the pinned card').not.toBeNull()
     expect(review.contains(approve), 'Approve is in the opened review').toBe(true)
     expect(getByTestId('view-chat-pinned').contains(approve), 'and in the pinned box').toBe(true)
-    expect(scroll.scrollTop).toBe(584) // the newest reply's start (600 - 16)
+    expect(scroll.scrollTop).toBe(588) // the newest reply's start (600 - 12)
   })
 
   it('CT8c: questions and proposal are outside the thread, behind closed foot-row chips', () => {
@@ -439,12 +439,12 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     act(() => show({ ...edit, reply: { job: running.job, proposal: last.id, version: fixture.version!.id, status: 'running', words: running.words, by: running.by, by_id: running.by_id, started: running.started, at: running.at } as unknown as NonNullable<View['reply']> }))
     expect(getByTestId('view-chat-reply').textContent).toBe(running.words)
     height = 1200; grow()
-    expect(scroll.scrollTop).toBe(584)
+    expect(scroll.scrollTop).toBe(588)
     fireEvent.scroll(scroll)
     expect(queryByTestId('view-chat-to-latest')).toBeNull()
     act(() => show(fixture))
     height = 1400; grow()
-    expect(scroll.scrollTop).toBe(584)
+    expect(scroll.scrollTop).toBe(588)
     scroll.scrollTop = 100; fireEvent.scroll(scroll)
     act(() => show({ ...fixture, proposal: proposal.proposal }))
     expect(getByTestId('view-chat-proposal')).not.toBeNull()
@@ -615,15 +615,9 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(document.querySelector('[data-testid="view-chat-pinned"]') ?? render(<ViewChat />).getByTestId('view-chat-pinned')).toHaveClass('overflow-y-auto')
   })
 
-  // CATCH (fails on the old css: the three :has rules were `.ok-pinned [data-reading-row]` / `.ok-pinned:has([data-reading-row])`, so a CLOSED
-  // review holding reading rows still hid More ways, clipped the thread and let the box shrink). CONTRAST: the old selectors now match nothing.
-  it('NS1b the readings rules apply only while the review is OPEN: More ways hides, the thread yields and the box shrinks only while it is open', () => {
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways']")).toMatch(/display: none/)
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap]")).toMatch(/min-height: 0; overflow: hidden/)
-    expect(rule(".ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row])")).toMatch(/flex-shrink: 1/)
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-testid='view-more-ways']"), 'old rule gone').toBe('')
-    expect(rule("[data-testid='view-chat']:has(.ok-pinned [data-reading-row]) > [data-thread-wrap]"), 'old rule gone').toBe('')
-    expect(rule('.ok-pinned:has([data-reading-row])'), 'old rule gone').toBe('')
+  it('NS1b every open foot source leaves room for the thread and the proposal controls wrap within the foot', () => {
+    expect(rule("[data-testid='view-chat']:has(> .ok-pinned:not([hidden]), > .ok-form-foot [data-open='true']) > [data-thread-wrap]")).toMatch(/min-height: min\(18vh, 128px, 35%\)/)
+    expect(rule('.ok-pinned')).toMatch(/flex: 0 1 auto/)
     // CHANGED BY DESIGN (17 Nov, the calm panel): the row is no longer a sticky header at the box's top; it is the first item of the actions line at the foot. D3: its basis is 12rem, never 0, so core's heading is not squeezed before the controls wrap.
     expect(rule(".ok-pinned [data-testid='view-proposal-row']")).toMatch(/flex: 1 1 12rem/)
     expect(rule(".ok-pinned [data-testid='view-proposal-review'], .ok-pinned [data-review-body]:not([hidden])")).toMatch(/display: contents/)
@@ -635,7 +629,7 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     const p = heldWords()
     const { getByTestId } = render(<ViewChat />)
     const box = getByTestId('view-chat-pinned')
-    expect(box).toHaveClass('ok-pinned', 'shrink-0', 'overflow-y-auto')
+    expect(box).toHaveClass('ok-pinned', 'min-h-0', 'overflow-y-auto')
     expect(box.className).not.toContain('min-h-[112px]')
     const step = getByTestId('view-next-step')
     expect([step.tagName, step.getAttribute('data-step'), step.getAttribute('aria-label')]).toEqual(['SECTION', 'approve', 'Next step'])

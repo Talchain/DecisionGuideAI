@@ -18,15 +18,14 @@ function Named({ words, className, attrs, children }: { words: string | null | u
 type MarkProps = { readonly words?: string | null }
 
 /** The one size of a mark beside text (the lane's two icon sizes are 16 in a control and 14 beside text). */
-const MARK = 14
 
 /** Olumi's mark: the product's own, never a sparkle, a speech bubble or a text glyph. */
 export const OlumiMark = ({ words }: MarkProps): JSX.Element => (
-  <Named words={words} className="ok-am ok-am-olumi" attrs={{ 'data-olumi-mark': '' }}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></Named>
+  <Named words={words} className="ok-am ok-am-olumi" attrs={{ 'data-olumi-mark': '' }}><OkIcon id="olumi-mark" size={14} decorative inherit /></Named>
 )
 /** A person's mark. */
 export const PersonMark = ({ words }: MarkProps): JSX.Element => (
-  <Named words={words} className="ok-am ok-am-person" attrs={{ 'data-person-mark': '' }}><OkIcon id="person-mark" size={MARK} decorative inherit /></Named>
+  <Named words={words} className="ok-am ok-am-person" attrs={{ 'data-person-mark': '' }}><OkIcon id="person-mark" size={14} decorative inherit /></Named>
 )
 
 export type Whose = 'olumi' | 'person' | 'mixed'
@@ -68,23 +67,23 @@ export const LetterChip = ({ letter, words }: { letter: string; words?: string |
 const KindMark = ({ attrs, children }: { attrs: Readonly<Record<string, string>>; children: JSX.Element }): JSX.Element => <span className="ok-am ok-kind-mark" {...attrs}>{children}</span>
 
 /** "baseline": the option the person already has, only where core marks it (contract.ts isBaseline). Registry flag; its words the hover and the name. */
-export const BaselinePill = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-option-baseline': id }}><OkIcon id="baseline-tag" size={MARK} decorative={false} /></KindMark>
+export const BaselinePill = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-option-baseline': id }}><OkIcon id="baseline-tag" size={14} decorative={false} /></KindMark>
 
 /** A card's assumption mark (core's `assumption` family: a premise taken as given); its words are the key's own word for it (core's `model.key` item `assumption`), else the registry's. */
 export const KindTag = ({ id, model }: { id: string; model: { key?: readonly { id: string; text: string }[] } | null }): JSX.Element => {
   const word = model?.key?.find((k) => k.id === 'assumption')?.text
-  return <KindMark attrs={{ 'data-kind-tag': 'assumption', 'data-kind-tag-of': id }}><OkIcon id="assumption-tag" size={MARK} words={word} decorative={false} /></KindMark>
+  return <KindMark attrs={{ 'data-kind-tag': 'assumption', 'data-kind-tag-of': id }}><OkIcon id="assumption-tag" size={14} words={word} decorative={false} /></KindMark>
 }
 
 /** A condition card's own mark (C5): neutral, the registry's, drawn for the `condition` family only. */
-export const ConditionTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'condition', 'data-kind-tag-of': id }}><OkIcon id="condition-tag" size={MARK} decorative={false} /></KindMark>
+export const ConditionTag = ({ id }: { id: string }): JSX.Element => <KindMark attrs={{ 'data-kind-tag': 'condition', 'data-kind-tag-of': id }}><OkIcon id="condition-tag" size={14} decorative={false} /></KindMark>
 
 /** What a limit is, said on its mark's hover (DL from Paul's test, 17 Nov: three turns asking why a limit looked like a goal). Page chrome. */
 export const LIMIT_MEANS = 'A line to stay within, not a goal to reach'
 /** A limit's mark: the registry's limit shape; its words are the key's own word for a limit (core's `model.key` item `limit`, else "limit"), then what a limit means. */
 export const LimitTag = ({ id, model }: { id: string; model: { key?: readonly { id: string; text: string }[] } | null }): JSX.Element => {
   const word = model?.key?.find((k) => k.id === 'limit')?.text ?? 'limit'
-  return <KindMark attrs={{ 'data-kind-tag': 'limit', 'data-kind-tag-of': id }}><OkIcon id="limit-tag" size={MARK} words={`${word}\n${LIMIT_MEANS}`} decorative={false} /></KindMark>
+  return <KindMark attrs={{ 'data-kind-tag': 'limit', 'data-kind-tag-of': id }}><OkIcon id="limit-tag" size={14} words={`${word}\n${LIMIT_MEANS}`} decorative={false} /></KindMark>
 }
 
 /** Fixed UI chrome: the name of Olumi's question mark where core sends no label for its next step. */
@@ -92,7 +91,7 @@ export const OLUMI_ASKS = 'Olumi has a question about this: see the chat'
 /** "Olumi has a question about this": a ring holding Olumi's mark, named by core's own label for the step where it sends one. */
 export const OlumiAsksMark = ({ id, words }: { id: string; words?: string | null }): JSX.Element => {
   const name = words != null && words !== '' ? words : OLUMI_ASKS
-  return <Named words={name} className="ok-asks" attrs={{ 'data-olumi-asks': id, 'data-simple-note': id }}><OkIcon id="olumi-mark" size={MARK} decorative inherit /></Named>
+  return <Named words={name} className="ok-asks" attrs={{ 'data-olumi-asks': id, 'data-simple-note': id }}><OkIcon id="olumi-mark" size={14} decorative inherit /></Named>
 }
 
 /** A listed question's number on the card it is about (C4, restored 20 Nov): the number the question has in the panel's list (layout.ts chatQuestionsOf), the question's words its
@@ -165,9 +164,9 @@ export function cardMarksOf(card: ViewCard): readonly CardMark[] {
 }
 
 /** One state mark: the registry icon named by core's words, on the data marks its readers bind by (`data-card-mark` is the kind of mark, `data-worth-code` core's code). */
-export const StateMark = ({ m, card, size = MARK }: { m: CardMark; card: ViewCard; size?: number }): JSX.Element => (
+export const StateMark = ({ m, card }: { m: CardMark; card: ViewCard }): JSX.Element => (
   <span className="ok-am ok-state-mark" data-card-mark={m.id} {...(m.id === 'unused' ? { 'data-view': `${card.id}.unused`, 'data-unused': card.id } : m.id === 'worth-checking' ? { 'data-view': `${card.id}.worth_checking` } : {})} {...(m.code === undefined ? {} : { 'data-worth-code': m.code })} {...(m.id === 'challenged' ? { 'data-simple-challenged': card.id } : {})}>
-    <OkIcon id={m.icon} size={size} words={m.words} decorative={false} />
+    <OkIcon id={m.icon} size={14} words={m.words} decorative={false} />
   </span>
 )
 

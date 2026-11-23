@@ -7,7 +7,7 @@ import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
 
 export const FIELD =
-  `w-full min-h-[32px] rounded-sm border border-field bg-panel px-2.5 py-2 ${typography.viewPanelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50 disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
+  `w-full min-h-[32px] rounded-sm border border-field bg-panel px-2.5 py-2 ${typography.viewPanelBody} text-text-body placeholder:text-text-light transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`
 export const CARD = 'grid gap-2 rounded-md border border-panel-border p-3'
 export const H = `${typography.viewPanelMeta} font-medium text-text-header m-0`
 export const BODY = `${typography.viewPanelBody} text-text-body m-0`

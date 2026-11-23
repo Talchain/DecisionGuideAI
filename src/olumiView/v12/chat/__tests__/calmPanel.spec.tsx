@@ -289,14 +289,16 @@ describe('5. icons carry no hue (Paul, 17 Nov: "that\'s one less thing that\'s b
   })
 })
 
-describe('6. one type scale: 12/18 reading, 12/16 meta, 12 medium heading, 18 medium headline only', () => {
+describe('6. one type scale: 12/18 reading, 12/16 meta, 12px medium heading, 14px medium reply lead', () => {
   const OFF = /^(?:[a-z-]+:)*text-(?:sm|base|xl|2xl|3xl|\[(?:11|13|14|15|16)px\]|\[length:calc\((?:13|14|15|16)px.*)$/
   const sizes = (root: Element): string[] => everything(root).flatMap((el) => {
     const toks = (el.getAttribute('class') ?? '').split(/\s+/)
-    const bad = toks.filter((t) => OFF.test(t) || (/^text-lg$/.test(t) && !toks.includes('font-medium')))
+    const replyLead = el.matches('[data-reply-opening], [data-reply-para]') &&
+      typography.viewPanelHeadline.split(' ').every((token) => toks.includes(token))
+    const bad = toks.filter((t) => (OFF.test(t) && !(t === 'text-sm' && replyLead)) || (/^text-lg$/.test(t) && !toks.includes('font-medium')))
     return bad.map((t) => `${el.tagName}.${t}`)
   })
-  it('no panel text class is 11, 13, 14, 15 or 16 px (a thread, its footer row, the composer, the pinned proposal, Olumi\'s question card)', () => {
+  it('panel text follows the scale, with the 14px token reserved for the reply lead', () => {
     const q3 = golden('s_ce285b3617bb')
     for (const v of [session('after-find-first'), golden('proposal'), q3]) { cleanup(); expect(sizes(mount(v))).toEqual([]) }
     const probe = document.createElement('div'); probe.innerHTML = '<p class="text-[14px]">x</p><p class="text-base">y</p><p class="text-lg">z</p>'
@@ -554,13 +556,17 @@ describe('10. Paul\'s 19 Nov test, batch 2: authorship, honest approve, one fold
     // The dock is the thread's sibling under it (after the thread's wrap), so the thread's own scroll is untouched by the form's height.
     expect(scroller.closest('[data-thread-wrap]')!.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
-  it('D. with the form open the thread keeps its floor, also when the proposal\'s review is open (its rule drops the floor to 0; Codex on 6fb97f42): the both-open rule restores it and comes after', () => {
+  it('D. every open foot panel shares the height with the conversation, including when the form is open', () => {
     const css = readFileSync(path.join(DIR, 'look/olumiLook.css'), 'utf8')
-    const FLOOR = /min-height:\s*min\(18vh,\s*128px\)/
-    const reviewOpen = css.indexOf("[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0")
-    const both = /\[data-testid='view-chat'\]:has\(\.ok-pinned:not\(\[hidden\]\) \[data-foot-source=proposal\]:not\(\[hidden\]\) \[data-review-body\]:not\(\[hidden\]\) \[data-reading-row\]\):has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
-    const formOnly = /\[data-testid='view-chat'\]:has\(\.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\] \{([^}]*)\}/.exec(css)
-    expect([reviewOpen > -1, both !== null && FLOOR.test(both[1]!), both !== null && both.index > reviewOpen, formOnly !== null && FLOOR.test(formOnly[1]!)]).toEqual([true, true, true, true])
+    expect(css).toMatch(/:has\(> \.ok-pinned:not\(\[hidden\]\), > \.ok-form-foot \[data-open='true'\]\) > \[data-thread-wrap\]\s*\{\s*min-height: min\(18vh, 128px, 35%\)/)
+    expect(css).toMatch(/\.ok-pinned \{[^}]*flex: 0 1 auto/)
+    const c = mount(golden('proposal'))
+    const thread = c.querySelector('[data-thread-wrap]')!
+    const scroller = q(c, 'view-chat-scroll')!
+    expect(thread).toHaveClass('overflow-clip')
+    expect(scroller).not.toHaveClass('p-3')
+    expect(scroller.firstElementChild).toHaveClass('p-3', 'space-y-4')
+    expect(q(c, 'view-chat-pinned')!.parentElement).toBe(thread.parentElement)
   })
   const youOf = (v: View) => v.you_id
   /** The proposal fixture with core's typed conversation entry for its second turn saying how that turn was asked. */

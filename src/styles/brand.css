@@ -467,7 +467,8 @@
   --radius-control: 6px; /* the lane's 28px controls (Paul, 18 Nov); --radius-md is 12px, which draws a 28px square as a circle */
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 20px;
+  /* Large radius, matching the existing app cascade. */
+  --radius-lg: 14px;
   --radius-pill: 999px;
 
   /* ============================================

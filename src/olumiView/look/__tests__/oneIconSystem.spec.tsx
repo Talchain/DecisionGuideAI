@@ -4,10 +4,11 @@
  * one component. Surfaces: top bar, left tool rail and zoom column, right-panel tabs and collapsed rail, AI panel, card faces and chips, details
  * panel, context menu, Analysis headings.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import ts from 'typescript'
+import { join, relative } from 'node:path'
 import { render, screen } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
 import { ICONS, OkIcon } from '../icons'
@@ -19,50 +20,66 @@ import { useCanvasStore } from '../../../canvas/store'
 const SRC = join(__dirname, '..', '..', '..')
 const read = (rel: string): string => readFileSync(join(SRC, rel), 'utf8')
 
-/** Every file that draws icons on those surfaces and is fully registry-drawn. A file listed here may not import lucide-react or the Olumi mark. */
-const SURFACE_FILES = [
+const laneFiles = ts.sys.readDirectory(join(SRC, 'olumiView'), ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs'],
+  ['**/__tests__/**', '**/__fixtures__/**', '**/fixtures/**', '**/*.spec.*', '**/*.test.*'], ['**/*'])
+const sharedSurfaces = [
   'components/layout/TopBar.tsx', 'components/layout/KebabMenu.tsx', 'components/layout/RightPanel.tsx', 'components/layout/LeftSidebar.tsx',
-  'components/layout/CanvasViewportControls.tsx', 'canvas/components/ScenarioSwitcher.tsx', 'olumiView/TeamPresence.tsx',
-  'canvas/components/workspaceShell/WorkspaceShellTabStrip.tsx', 'olumiView/AddFigure.tsx', 'olumiView/v12/UndoControl.tsx', 'olumiView/v12/lenses/LensesMenu.tsx',
-  'olumiView/ViewChat.tsx', 'canvas/components/BriefDocumentUpload.tsx', 'olumiView/v12/chat/MethodChip.tsx', 'olumiView/v12/chat/KeptIdeas.tsx',
-  'olumiView/v12/chat/OlumiAsks.tsx', 'olumiView/v12/actionsMenu.tsx', 'olumiView/port/ChatFloat.tsx',
-  'olumiView/v12/cards/marks.tsx', 'olumiView/v12/cards/RestsOn.tsx', 'olumiView/v10.tsx', 'olumiView/previous/CoreCard.tsx', 'olumiView/ds/icons.tsx',
-  'olumiView/v12/bands/BandNodes.tsx', 'olumiView/v12/bands/BandLayer.tsx', 'olumiView/v12/bands/KeyPill.tsx',
-  'olumiView/v12/edit/LaneInspector.tsx', 'olumiView/port/ChanceChart.tsx', 'olumiView/look/FoldChevron.tsx',
-  'canvas/contextMenu/CanvasContextMenu.tsx', 'olumiView/look/Menu.tsx', 'canvas/contextMenu/laneMenu.ts',
-  'olumiView/BriefPanel.tsx', 'olumiView/ViewFigureFirst.tsx', 'olumiView/reasoning/parts.tsx', 'olumiView/v12/team/CommitForm.tsx', 'olumiView/v12/chat/IntakeSheet.tsx',
-] as const
+  'components/layout/CanvasViewportControls.tsx', 'canvas/components/ScenarioSwitcher.tsx',
+  'canvas/components/workspaceShell/WorkspaceShellTabStrip.tsx', 'canvas/components/BriefDocumentUpload.tsx',
+  'canvas/contextMenu/CanvasContextMenu.tsx', 'canvas/contextMenu/laneMenu.ts',
+]
+const surfaceFiles = [...laneFiles.map((f) => relative(SRC, f)), ...sharedSurfaces]
+const REGISTRY = 'olumiView/look/icons.tsx'
+afterEach(() => vi.unstubAllEnvs())
+
+// Floating-toolbar lane removes these direct imports when it migrates the controls.
+const FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST = new Set([
+  'olumiView/BelowCue.tsx', 'olumiView/ViewLensBar.tsx', 'olumiView/ViewZoomNotice.tsx',
+  'olumiView/ViewWhatIfKey.tsx', 'olumiView/ViewTradeOffsKey.tsx', 'olumiView/ViewPreMortemKey.tsx',
+])
+// The floating-toolbar lane clears the 16px zoom-column pin.
+const FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST = { file: 'components/layout/CanvasViewportControls.tsx', sizes: ['14', '16'] }
+// The shared menu uses 14px on this lane and preserves the older 16px branch.
+const SHARED_CONTEXT_MENU = 'canvas/contextMenu/CanvasContextMenu.tsx'
+const LUCIDE = /(?:from\s*|import\s*(?:\(\s*)?|require\(\s*)['"]lucide-react['"]/
 
 describe('every icon on the lane comes from the registry', () => {
-  it('no surface file imports lucide-react or the Olumi mark directly (contrast: the registry file does import both)', () => {
-    const offenders: string[] = []
-    for (const f of SURFACE_FILES) {
-      const text = read(f)
-      expect(text.length, f).toBeGreaterThan(200) // each file is read and non-empty, so a wrong path cannot pass
-      if (/from 'lucide-react'/.test(text)) offenders.push(`${f}: lucide-react`)
-      if (/OlumiAiIcon/.test(text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, ''))) offenders.push(`${f}: OlumiAiIcon`)
-    }
-    expect(offenders).toEqual([])
-    const registry = read('olumiView/look/icons.tsx')
-    expect(registry).toMatch(/from 'lucide-react'/)
-    expect(registry).toMatch(/OlumiAiIcon/)
+  it('scans the full lane and checks the shared surfaces for direct Lucide imports', () => {
+    expect(laneFiles.length).toBeGreaterThan(100)
+    expect(surfaceFiles.filter((file) => file !== REGISTRY && !FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST.has(file) && LUCIDE.test(read(file)))).toEqual([])
+    expect(read(REGISTRY)).toMatch(LUCIDE)
   })
 
-  it('every icon a surface file draws through the registry is 14 (beside text) or 16 (in a control)', () => {
-    const sizes = new Set<string>()
-    // The one exception: the brand mark in the top bar draws at 22 (TopBar.module.css's mark is 22 px); no other icon may.
-    for (const f of SURFACE_FILES) for (const m of read(f).matchAll(/<OkIcon(?:Button)?\b[^>]*?\bsize=\{(\d+)\}/g)) { if (!(m[1] === '22' && /id="olumi-mark"/.test(m[0]))) sizes.add(m[1]!) }
-    expect([...sizes].filter((n) => n !== '14' && n !== '16')).toEqual([])
-    expect(sizes.has('14')).toBe(true) // positive control: the scan sees the inline size
+  it('draws registry icons at 14px by default and permits only 14px at lane call sites', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const { container } = render(<OkIcon id="brief" decorative />)
+    expect(container.querySelector('svg')).toHaveAttribute('width', '14')
+    expect(container.querySelector('svg')).toHaveAttribute('height', '14')
+    const offenders: string[] = []
+    for (const file of surfaceFiles) {
+      const content = read(file)
+      const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true)
+      function visit(node: ts.Node) {
+        if ((ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && /^OkIcon(?:Button)?$/.test(node.tagName.getText(source))) {
+          const props = node.attributes.properties.filter(ts.isJsxAttribute)
+          const size = props.find((prop) => prop.name.getText(source) === 'size')?.initializer?.getText(source)
+          const id = props.find((prop) => prop.name.getText(source) === 'id')?.initializer
+          const brandMark = file === 'components/layout/TopBar.tsx' && id?.getText(source) === '"olumi-mark"' && size === '{22}'
+          const zoom = file === FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST.file && size === '{16}'
+          const sharedMenu = file === SHARED_CONTEXT_MENU && size === '{iconSize}' && /const iconSize = lane \? 14 : 16\b/.test(content)
+          if (size !== undefined && size !== '{14}' && !brandMark && !zoom && !sharedMenu) offenders.push(`${file}: ${size}`)
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(source)
+    }
+    expect(offenders).toEqual([])
   })
 })
 
 describe('Olumi\'s mark has one owner', () => {
   it('no non-test file under olumiView, and no top-bar or tab-strip file, imports OlumiAiIcon: the registry\'s olumi-mark is the one way to draw it (contrast: the registry itself does)', () => {
-    const walk = (dir: string): string[] => readdirSync(join(SRC, dir), { withFileTypes: true }).flatMap((d) =>
-      d.isDirectory() ? (d.name === '__tests__' || d.name === 'fixtures' ? [] : walk(join(dir, d.name))) : /\.tsx?$/.test(d.name) && !/\.(spec|test)\./.test(d.name) ? [join(dir, d.name)] : [])
-    const files = [...walk('olumiView'), 'components/layout/TopBar.tsx', 'canvas/components/workspaceShell/WorkspaceShellTabStrip.tsx', 'canvas/components/OutputsDock.tsx']
-    expect(files.length).toBeGreaterThan(100) // the walk saw the tree
+    const files = [...surfaceFiles, 'canvas/components/OutputsDock.tsx']
     const users = files.filter((f) => /import\s*\{[^}]*OlumiAiIcon[^}]*\}\s*from/.test(read(f)))
     // The one named exception: a link's mark is drawn INSIDE the board's SVG edge layer, where a span wrapper cannot go (listed as remaining).
     expect(users).toEqual(['olumiView/look/icons.tsx', 'olumiView/v12/links/LinkEnds.tsx'])
@@ -72,11 +89,14 @@ describe('Olumi\'s mark has one owner', () => {
 describe('what is drawn: one size on a control row', () => {
   beforeEach(() => { useCanvasStore.setState({ viewMode: 'standard' } as never) })
 
-  it('the zoom column draws all its icons at 16, one box size', () => {
+  it('the zoom column draws one size, with the floating-toolbar lane exception', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
     render(<ReactFlowProvider><CanvasViewportControls onZoomIn={vi.fn()} onZoomOut={vi.fn()} onZoomReset={vi.fn()} onFitView={vi.fn()} onAutoArrange={vi.fn()} /></ReactFlowProvider>)
     const svgs = screen.getByRole('navigation', { name: 'Viewport controls' }).querySelectorAll('button svg')
     expect(svgs.length).toBeGreaterThanOrEqual(4)
-    expect([...svgs].map((s) => [s.getAttribute('width'), s.getAttribute('height'), s.getAttribute('stroke-width')])).toEqual(svgs.length === 0 ? [] : [...svgs].map(() => ['16', '16', '1.75']))
+    const size = svgs[0]!.getAttribute('width')
+    expect(FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST.sizes).toContain(size)
+    expect([...svgs].map((s) => [s.getAttribute('width'), s.getAttribute('height'), s.getAttribute('stroke-width')])).toEqual([...svgs].map(() => [size, size, '1.75']))
   })
 })
 
