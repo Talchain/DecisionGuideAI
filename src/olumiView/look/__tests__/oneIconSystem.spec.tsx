@@ -30,7 +30,7 @@ const sharedSurfaces = [
 ]
 const surfaceFiles = [...laneFiles.map((f) => relative(SRC, f)), ...sharedSurfaces]
 const REGISTRY = 'olumiView/look/icons.tsx'
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => { vi.unstubAllEnvs() })
 
 const FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST: Record<string, string> = {
   'olumiView/ViewPreMortemKey.tsx': "import { ArrowUp, X } from 'lucide-react'", // The pre-mortem tray still draws its changing-state and close glyphs.

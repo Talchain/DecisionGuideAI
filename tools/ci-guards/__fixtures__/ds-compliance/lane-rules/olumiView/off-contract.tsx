@@ -8,3 +8,5 @@ export const bad = <section
 export const clean = <Widget title="Component label" style={custom} className={typography.viewPanelBody} />
 export const carrier = <div style={{ '--track': value } as React.CSSProperties} />
 // <div style={{ color: 'inherit' }} title="Only a comment" className="!underline" />
+
+declare const typography: Record<string, string>
