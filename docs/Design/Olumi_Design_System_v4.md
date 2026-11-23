@@ -1,4 +1,4 @@
-> Superseded by the [Olumi Design System](https://claude.ai/artifact/V742SK8oPUHxBVCstP3qpp) on 23 November 2026.
+> Superseded on 23 November 2026 by [`docs/Design/system/README.md`](system/README.md), published as the [Olumi Design System](https://claude.ai/artifact/V742SK8oPUHxBVCstP3qpp).
 # Olumi Design System v4
 
 **Single source of truth for all UI implementation. Supersedes all previous versions.**
