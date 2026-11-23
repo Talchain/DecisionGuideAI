@@ -379,7 +379,7 @@ export function WorkspaceShellTabStrip({
       title={coreLane ? undefined : INSPECT_ANALYSIS_LABEL}
       data-testid="dock-inspect-analysis"
     >
-      <OkIcon id="inspect" size={coreLane ? 14 : undefined} decorative inherit />
+      <OkIcon id="inspect" decorative inherit />
     </HoverButton>
   ) : null
 

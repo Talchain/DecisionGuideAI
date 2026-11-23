@@ -213,10 +213,11 @@ describe('the top bar\'s Summary on the lane', () => {
     fireEvent.click(screen.getByTestId('summary-trigger'))
     await waitFor(() => expect(screen.getByTestId('summary-document')).toBeTruthy())
     const page = screen.getByTestId('summary-page')
-    const stops = [...page.querySelectorAll<HTMLElement>('a[href], button')]
-    const first = stops[0]!, last = stops[stops.length - 1]!
-    expect(last).toBe(screen.getByTestId('summary-close'))
-    last.focus()
+    const first = within(page).getByRole('link', { name: SUMMARY_DOWNLOAD_LABEL })
+    const marks = within(page).getAllByRole('img')
+    const last = marks[marks.length - 1]!
+    act(() => { last.focus() })
+    expect(document.activeElement).toBe(last)
     expect(fireEvent.keyDown(last, { key: 'Tab' })).toBe(false)
     expect(document.activeElement).toBe(first)
     expect(fireEvent.keyDown(first, { key: 'Tab', shiftKey: true })).toBe(false)

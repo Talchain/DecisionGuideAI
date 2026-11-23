@@ -10,7 +10,7 @@
  * 240 px at most, read only (the pointer passes through, no scroll: the whole text is always drawn). It stands right of its row, or left of it at the window's edge, and never below the
  * window's foot; where it stands is written to two custom properties, never an inline style.
  */
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from 'react'
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { typography } from '../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
@@ -22,7 +22,7 @@ export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-
 
 export type TipSpacing = 'peek' | 'list'
 
-export function Tip({ id, text, anchorRect, spacing }: { id?: string; text: string; anchorRect: DOMRect | null; spacing?: TipSpacing }): JSX.Element | null {
+export function Tip({ id, text, anchorRect, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const t = el.current
@@ -37,14 +37,16 @@ export function Tip({ id, text, anchorRect, spacing }: { id?: string; text: stri
     if (top + r.height > window.innerHeight - TIP_GAP) top = Math.min(anchorRect.bottom - r.height, window.innerHeight - r.height - TIP_GAP)
     t.style.setProperty('--tip-x', `${Math.max(TIP_GAP, left)}px`)
     t.style.setProperty('--tip-y', `${Math.max(TIP_GAP, top)}px`)
-  }, [anchorRect, text, spacing])
+  }, [anchorRect, text, spacing, icon])
   if (anchorRect === null || text === '') return null
   const [head = '', ...rest] = text.split('\n')
   const body = rest.join('\n')
   const stacked = body !== '' && spacing !== undefined
   return (
     <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={`${TIP_CLASS} ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`}>
-      <span data-tip-title="" className={body === '' ? '' : 'ok-tip-title'}>{head}</span>
+      <span data-tip-title="" className={[body === '' ? '' : 'ok-tip-title', icon ? 'flex items-start gap-1.5' : ''].filter(Boolean).join(' ')}>
+        {icon ? <><span className="shrink-0">{icon}</span><span className="min-w-0">{head}</span></> : head}
+      </span>
       {body === '' ? null : <>{'\n'}<span data-tip-body="" className={stacked ? 'flex flex-col gap-3' : undefined}>
         {stacked ? rest.map((line, i) => <Fragment key={i}>{i === 0 ? null : '\n'}<span>{line}</span></Fragment>) : body}
       </span></>}
@@ -101,7 +103,7 @@ export function useTipDismissOnMove(shown: boolean, hide: () => void) {
  * transformed ancestor moves it). Opens on the pointer's rest (mouse and pen) and on keyboard focus; closes on leave, blur, Escape, or `dismiss()`
  * (call it on press). `describedBy` is the tip's id while it is open.
  */
-export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing) {
+export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, icon?: ReactNode) {
   const id = useId()
   const { activeTooltip, showTooltip, hideTooltip } = useTipDelay()
   // Two ways to be active, tracked apart: the tip closes only when neither is left (or on Escape / press / scroll / resize).
@@ -119,7 +121,7 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing) 
   }
   const shown = activeTooltip !== null && text !== ''
   useTipDismissOnMove(shown, hideTooltip)
-  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} spacing={spacing} />, document.body) : null
+  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} spacing={spacing} icon={icon} />, document.body) : null
   return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }
 

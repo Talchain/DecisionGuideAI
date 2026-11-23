@@ -19,6 +19,7 @@ import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
 import { useModelNotice } from '../notice'
+import { laneTipOf } from './tipHelpers'
 
 const SID = 's_0123456789ab'
 const approved: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
@@ -53,15 +54,18 @@ afterEach(() => {
 const posts = () => calls.filter((c) => c.method === 'POST')
 
 describe('whose card it is, in the Selected row (UI restore 11 Nov, R12)', () => {
-  it('a person\'s card says so in core\'s words, neutral; an Olumi card in Olumi\'s blue; its source is the hover; a card with no author says nothing', () => {
+  it.each(['0', '1'])('a person\'s card says so in core\'s words, neutral; an Olumi card in Olumi\'s blue; its source is the hover; a card with no author says nothing (core lane flag %s)', (lane) => {
+    vi.stubEnv('VITE_OLUMI_CORE', lane)
     // The 22-card fixture carries no authors (an older View); core's european golden does.
     const euro = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'european.view.json'), 'utf8')), id: SID } as View
     useViewStore.setState({ view: euro })
     const person = euro.model!.cards.find((c) => c.author?.by === 'person')!, olumi = euro.model!.cards.find((c) => c.author?.by === 'olumi')!
     expect(person.author!.text, 'precondition: core sends the words').not.toBe('')
     let row = selectedRow(person.id)
-    const p = row.querySelector('[data-testid="selected-author"]')!
-    expect(p.textContent).toBe(person.author!.text); expect(p.getAttribute('title')).toBe(person.author!.title); expect(p.className).not.toMatch(/text-info/)
+    const p = row.querySelector<HTMLElement>('[data-testid="selected-author"]')!
+    expect(p.textContent).toBe(person.author!.text)
+    expect(lane === '1' ? laneTipOf(p) : p.getAttribute('title')).toBe(person.author!.title)
+    expect(p.className).not.toMatch(/text-info/)
     cleanup(); row = selectedRow(olumi.id)
     const o = row.querySelector('[data-testid="selected-author"]')!
     expect(o.textContent).toBe(olumi.author!.text); expect(o.className).toMatch(/text-info/)

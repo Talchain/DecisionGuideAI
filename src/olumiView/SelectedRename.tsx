@@ -24,9 +24,10 @@ export function CardWords({ id, ids, only }: { id: string; ids?: { author: strin
   const author = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.author ?? null)
   const said = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.headline?.title ?? null)
   const here = ids === undefined
+  const lane = isOlumiCoreLane()
   return (
     <>
-      {only === 'basis' || author === null ? null : <Hover className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} words={author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</Hover>}
+      {only === 'basis' || author === null ? null : <Hover className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 'text-info' : 'text-text-light'}`} words={lane ? author.title : undefined} title={lane ? undefined : author.title} data-view={here ? `${id}.author.text` : undefined} data-testid={ids?.author ?? 'selected-author'}>{author.text}</Hover>}
       {only === 'author' || said === null || said === '' ? null : <p className={`${typography.viewPanelMeta} m-0 basis-full whitespace-pre-wrap break-words text-text-body`} data-view={here ? `${id}.headline.title` : undefined} data-testid={ids?.basis ?? 'selected-headline-title'}>{said}</p>}
     </>
   )

@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import type { View } from '../client'
@@ -204,9 +204,12 @@ describe('v10 on the core lane', () => {
     const badge = draw(withDriver).querySelector<HTMLElement>(`[data-testid="view-driver-${withDriver.id}"]`)!
     expect([badge.getAttribute('aria-label'), badge.textContent]).toEqual(['Its main driver', '']) // an icon at rest, never a line on the card
     expect(badge.closest('[data-slot="driver-badge"]')).not.toBeNull() // in the shell's top-right place on an option card
-    act(() => { fireEvent.focus(badge); fireEvent.mouseEnter(badge) })
-    await waitFor(() => expect(document.querySelector(`[data-view="${withDriver.id}.driver.text"]`)?.textContent).toBe(withDriver.driver!.text)) // core's words, verbatim
-    expect(document.querySelector(`[data-testid="view-driver-mark-${withDriver.id}"]`)).not.toBeNull() // with Olumi's mark (00002 #4)
+    fireEvent.pointerEnter(badge)
+    const tip = await screen.findByTestId('lane-tip')
+    expect(badge.getAttribute('aria-describedby')).toBe(tip.id)
+    expect(tip.textContent).toBe(withDriver.driver!.text) // core's words, verbatim
+    expect(within(tip).getByTestId(`view-driver-mark-${withDriver.id}`)).not.toBeNull() // with Olumi's mark (00002 #4)
+    fireEvent.pointerLeave(badge)
     expect(draw(without).querySelector('[data-testid^="view-driver-"]')).toBeNull()
   })
 

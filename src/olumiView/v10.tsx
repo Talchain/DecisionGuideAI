@@ -68,10 +68,11 @@ export function ViewDriverBadge({ card }: { card: ViewCardData['card'] }) {
     className: 'nodrag pointer-events-auto relative z-10 inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-panel text-text-light shadow-1',
   }
   const glyph = <OkIcon id="why-moves" size={14} decorative inherit />
-  if (isOlumiCoreLane()) return <Hover {...anchor} words={card.driver.text}>{glyph}</Hover>
+  const mark = <OkIcon id="olumi-mark" size={14} decorative testid={`view-driver-mark-${card.id}`} className="mt-[2px]" />
+  if (isOlumiCoreLane()) return <Hover {...anchor} words={card.driver.text} tipIcon={mark}>{glyph}</Hover>
   const disclosure = (
     <span className="inline-flex items-start gap-1.5">
-      <OkIcon id="olumi-mark" size={14} decorative testid={`view-driver-mark-${card.id}`} className="mt-[2px]" />
+      {mark}
       <span data-view={`${card.id}.driver.text`}>{card.driver.text}</span>
     </span>
   )

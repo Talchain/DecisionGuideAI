@@ -32,10 +32,6 @@ const surfaceFiles = [...laneFiles.map((f) => relative(SRC, f)), ...sharedSurfac
 const REGISTRY = 'olumiView/look/icons.tsx'
 afterEach(() => { vi.unstubAllEnvs() })
 
-const FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST: Record<string, string> = {
-  'olumiView/ViewPreMortemKey.tsx': "import { ArrowUp, X } from 'lucide-react'", // The pre-mortem tray still draws its changing-state and close glyphs.
-  'olumiView/ViewTradeOffsKey.tsx': "import { X } from 'lucide-react'", // The Trade-offs tray still draws its own close glyph.
-}
 const MARK_SIZE_FILES = new Set(['olumiView/v12/cards/marks.tsx', 'olumiView/v12/detailed/marks.tsx'])
 // The shared menu uses 14px on this lane and preserves the older 16px branch.
 const SHARED_CONTEXT_MENU = 'canvas/contextMenu/CanvasContextMenu.tsx'
@@ -44,16 +40,8 @@ const LUCIDE = /(?:from\s*|import\s*(?:\(\s*)?|require\(\s*)['"]lucide-react['"]
 describe('every icon on the lane comes from the registry', () => {
   it('scans the full lane and checks the shared surfaces for direct Lucide imports', () => {
     expect(laneFiles.length).toBeGreaterThan(100)
-    const offenders = surfaceFiles.filter((file) => {
-      if (file === REGISTRY) return false
-      const content = read(file)
-      const allowed = FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST[file]
-      return LUCIDE.test(allowed === undefined ? content : content.replace(allowed, ''))
-    })
+    const offenders = surfaceFiles.filter((file) => file !== REGISTRY && LUCIDE.test(read(file)))
     expect(offenders).toEqual([])
-    for (const [file, allowed] of Object.entries(FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST)) {
-      expect(read(file)).toContain(allowed)
-    }
     expect(read(REGISTRY)).toMatch(LUCIDE)
   })
 
