@@ -4,11 +4,11 @@
  * exports core serves from the same blocks: "Download Markdown" and "Print or save as PDF" (core's print-ready page, in a new tab).
  * The version is the one on screen: the earlier version being looked at, else the latest saved one, never a proposal still held.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useEscapeLayer } from './v12/edit/escapeLayers'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { OkIcon } from './look/icons'
 import { GlyphMark, HoverButton } from './look/Hover'
+import { useDialogFocus } from './look/useDialogFocus'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
@@ -56,9 +56,14 @@ export function SummaryDocument({ summary }: { summary: Summary }) {
 }
 
 /** The page: core's Summary for `sid` at `at`, with its two exports, read afresh each time it opens. */
-export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | null; onClose: () => void }) {
+export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: number | null; onClose: () => void; trigger?: RefObject<HTMLButtonElement> }) {
   const [state, setState] = useState<{ summary: Summary } | { error: string } | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    initialFocus: () => closeRef.current,
+    opener: () => trigger?.current,
+    onEscape: onClose,
+  })
   // The person the page is for: each read is bound to them, and a change of person reads again (summary.ts readSummary).
   const person = useMe((s) => s.me?.id ?? null)
   // Showing the latest: the latest saved version's number, so a newer save reads again rather than leaving an older version as current.
@@ -69,22 +74,11 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
     readSummary(sid, at, person).then((summary) => { if (live) setState({ summary }) }, (e: unknown) => { if (live) setState({ error: e instanceof Error && e.message !== '' ? e.message : SUMMARY_FAILED }) })
     return () => { live = false }
   }, [sid, at, person, latest])
-  useEffect(() => { closeRef.current?.focus() }, [])
   // The exports are of the version this page read, not of whatever is latest by the time they are clicked.
   const readN = state !== null && 'summary' in state && state.summary.version !== null ? state.summary.version.n : at
-  // Tab never leaves the dialog: from the last control it wraps to the first, and Shift+Tab from the first to the last.
-  const trap = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Tab') return
-    const stops = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
-    const first = stops[0], last = stops[stops.length - 1]
-    if (first === undefined || last === undefined) return
-    const here = document.activeElement
-    if (!e.shiftKey && (here === last || !e.currentTarget.contains(here))) { e.preventDefault(); first.focus() }
-    else if (e.shiftKey && (here === first || !e.currentTarget.contains(here))) { e.preventDefault(); last.focus() }
-  }
   const exportLink = `inline-flex items-center gap-1.5 rounded-full border border-panel-border px-4 py-2 ${typography.viewPanelMeta} font-medium text-text-header hover:bg-panel-hover`
   return (
-    <div role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={trap}
+    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={onKeyDown}
       className="fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="flex w-full max-w-[820px] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
         <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
@@ -124,17 +118,13 @@ export function ViewSummaryTrigger({ className = '', tooltip = null }: { classNa
   const trigger = useRef<HTMLButtonElement>(null)
   // A page opened for one scenario is closed when the scenario changes, never kept open behind a control that is not there.
   useEffect(() => { setOpen(false) }, [sid])
-  // Closing hands focus back to the control that opened the page.
-  const close = useCallback(() => { setOpen(false); trigger.current?.focus() }, [])
-  // Escape: the one shared rule (v12/edit/escapeLayers.ts), so the page closes on the first press and never with another layer.
-  useEscapeLayer(open, close)
   if (sid === null || !saved) return null
   return (
     <>
       <HoverButton words={tooltip} ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
           <OkIcon id="brief" size={14} decorative inherit />
       </HoverButton>
-      {open && createPortal(<SummaryPage sid={sid} at={at} onClose={close} />, document.body)}
+      {open && createPortal(<SummaryPage sid={sid} at={at} onClose={() => setOpen(false)} trigger={trigger} />, document.body)}
     </>
   )
 }

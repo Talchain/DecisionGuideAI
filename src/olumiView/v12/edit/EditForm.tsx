@@ -7,12 +7,13 @@
  * The words that ask are core's where core sends them (`edit.prompt`, `edit.ask`, a size field's `prompt` and `ask`, `edit.note`); the
  * rest are chrome: button and field names.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { LinkRemovalSummary } from './LinkRemovalSummary'
 import type { ViewLink } from '../../client'
+import { useDialogFocus } from '../../look/useDialogFocus'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
@@ -163,18 +164,23 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const first = useRef<HTMLInputElement | null>(null)
   const concern = useRef<HTMLSelectElement>(null)
   const cancelButton = useRef<HTMLButtonElement>(null)
-  const box = useRef<HTMLFormElement>(null)
+  // LaneEditingLayer owns Escape for the store's open surface.
+  const { dialogRef: box, onKeyDown } = useDialogFocus<HTMLFormElement>({
+    initialFocus: () => first.current ?? (lane ? concern.current ?? cancelButton.current : null),
+    opener: () => {
+      const open = useLaneInspector.getState().current
+      return open?.kind === 'form' && open.spec === spec ? open.opener : undefined
+    },
+    selectInput: true,
+    containFocus: lane,
+    restoreFocus: lane,
+  })
   const stand = beside === undefined ? '' : `${beside.kind}:${beside.id}`
   useLayoutEffect(() => {
     if (beside === undefined) return
     return stayBeside(() => box.current, beside, { x: '--lane-form-x', y: '--lane-form-y', h: '--lane-form-h' }, undefined, FORM_MIN_SHOWN)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stand])
-  useEffect(() => {
-    const field = first.current ?? (lane ? concern.current ?? cancelButton.current : null)
-    field?.focus()
-    first.current?.select()
-  }, [])
   const set = (k: string, x: string) => { const next = { ...values, [k]: x }; setValues(next); useLaneInspector.getState().setDraft(draftKey, next); if (error) setError(null) }
   const cancel = () => { useLaneInspector.getState().forgetDraft(draftKey); onClose() }
   const needsFigure = spec.kind === 'item' && spec.item === 'risk' && spec.concerns.length === 0
@@ -204,9 +210,9 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const title = lane && spec.kind === 'figure-add' ? 'Add a figure' : titleOf(spec)
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
-    <form ref={box} role="dialog" aria-label={title} data-testid="lane-edit-form" data-kind={spec.kind}
+    <form ref={box} tabIndex={lane ? -1 : undefined} role="dialog" aria-label={title} data-testid="lane-edit-form" data-kind={spec.kind}
       className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? (lane ? ' left-1/2 top-24 max-h-[70vh] -translate-x-1/2 overflow-hidden' : '') : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
-      style={position} onSubmit={(e) => { e.preventDefault(); void go() }}>
+      style={position} onKeyDown={onKeyDown} onSubmit={(e) => { e.preventDefault(); void go() }}>
       <div className="min-h-0 space-y-3 overflow-y-auto">
       {lane ? <h2 className={`${typography.panelHeader} text-text-header`}>{title}</h2> : null}
       {!lane || spec.kind === 'size' || (spec.kind === 'item' && spec.about !== null) ? (

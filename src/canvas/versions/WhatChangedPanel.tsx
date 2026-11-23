@@ -31,11 +31,15 @@
  *     string (`versionLabels.ts`).
  */
 
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { History, Save, Trash2 } from 'lucide-react'
+import { CANVAS_LAYER_CLASS } from '../layers'
 import { PanelShell } from '../panels/_shared/PanelShell'
 import { PanelSection } from '../panels/_shared/PanelSection'
 import { typography } from '../../styles/typography'
+import { useDialogFocus } from '../../olumiView/look/useDialogFocus'
+import { VIEW_CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { buildVersionLabelIndex, describeChangeset } from './describeChange'
 import { ServerVersionsSection } from './ServerVersionsSection'
 import { coreLaneHasAccounts, isOlumiCoreLane } from '../../olumiCore/lane'
@@ -96,6 +100,16 @@ const KIND_CLASS: Readonly<Record<ChangeLine['kind'], string>> = {
 const DRAWER_CLASS = 'fixed right-[var(--dock-right-offset,0rem)] top-[var(--topbar-h)] bottom-[var(--bottombar-h)] z-[2000]'
 
 export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
+  const lane = isOlumiCoreLane()
+  const cancel = useRef<HTMLButtonElement>(null)
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    open: lane && isOpen,
+    initialFocus: () => cancel.current,
+    opener: () => document.activeElement === document.body
+      ? document.querySelector<HTMLButtonElement>('[data-testid="topbar-versions-trigger"]')
+      : null,
+    onEscape: onClose,
+  })
   const {
     versions,
     fromId,
@@ -127,15 +141,25 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
 
   // THE OLUMI-CORE LANE: the versions are core's own, one per approval (`olumiCore/versions.tsx`). The local snapshots below are never
   // offered there: core never sees them, so they could neither be shared nor compared with what core holds (lane audit 7.5).
-  if (isOlumiCoreLane()) {
-    return (
-      <div className={DRAWER_CLASS} data-testid="what-changed-panel">
-        <PanelShell icon={<History className="w-5 h-5" />} title="Version history" onClose={onClose} width="420px">
-          {/* Catch up: how the conclusions moved, what is open, commitments, history (olumiView/v12/journey), above core's versions. */}
-          <Suspense fallback={null}><JourneyRecordBlock onDone={onClose} /></Suspense>
-          <CoreVersions />
-        </PanelShell>
-      </div>
+  if (lane) {
+    return createPortal(
+      <div role="dialog" aria-modal="true" aria-label="Version history" ref={dialogRef} tabIndex={-1}
+        data-testid="what-changed-panel"
+        className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex justify-end bg-[var(--backdrop)] pb-[var(--bottombar-h,0px)] pt-[var(--topbar-h,0px)]`}
+        onKeyDown={onKeyDown} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+        <div className="flex min-h-0 w-full max-w-[420px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-3">
+          <header className="flex shrink-0 items-center justify-between gap-2">
+            <h2 className={`${typography.panelHeader} text-text-header`}>Version history</h2>
+            <button ref={cancel} type="button" onClick={onClose} className={VIEW_CHIP_CLASS}>Close</button>
+          </header>
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+            {/* Catch up: how the conclusions moved, what is open, commitments, history (olumiView/v12/journey), above core's versions. */}
+            <Suspense fallback={null}><JourneyRecordBlock onDone={onClose} /></Suspense>
+            <CoreVersions />
+          </div>
+        </div>
+      </div>,
+      document.body,
     )
   }
 

@@ -5,13 +5,15 @@
  * after a save the View is read again and the bar shows what core holds (never the typed text). The words are chrome; every refusal is
  * core's own. (The model's card names are renamed on the card itself: Rename.tsx.)
  */
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { typography } from '../styles/typography'
-import { controls } from '../styles/controls'
 import { TeamApiError } from '../olumiCore/team/api'
 import { accountsApi } from '../olumiCore/accounts/api'
 import { useViewStore } from './store'
+import { CANVAS_LAYER_CLASS } from '../canvas/layers'
+import { useDialogFocus } from './look/useDialogFocus'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 
 export const TITLE_WORDS = {
   heading: 'Rename scenario', label: 'Your title for this scenario', note: 'Only you see this title. Everyone else on it keeps theirs. Leave it empty to use the scenario\'s own.',
@@ -25,7 +27,14 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select() }, [])
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    open: sid !== null,
+    initialFocus: () => inputRef.current,
+    // The Rename menu item is gone when this dialog mounts. Return to its menu's trigger.
+    opener: () => document.querySelector<HTMLButtonElement>('button[aria-label="More options"]'),
+    onEscape: () => { if (!sending) onClose() },
+    selectInput: true,
+  })
   if (sid === null) return null
 
   const save = async (e: FormEvent) => {
@@ -43,23 +52,23 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
   }
 
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={TITLE_WORDS.heading} data-testid="scenario-title-dialog"
-      className="fixed inset-0 z-[1600] flex items-start justify-center bg-black/20 px-4 pt-24"
+    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={TITLE_WORDS.heading} data-testid="scenario-title-dialog"
+      className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-start justify-center overflow-y-auto bg-[var(--backdrop)] px-3 pt-24`}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !sending) onClose() }}
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !sending) onClose() }}>
-      <form onSubmit={(e) => void save(e)} className="grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg-panel p-4 shadow-panel">
-        <h2 className={`${typography.viewLabel} m-0 font-medium text-text-header`}>{TITLE_WORDS.heading}</h2>
+      onKeyDown={onKeyDown}>
+      <form onSubmit={(e) => void save(e)} className="grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-3">
+        <h2 className={`${typography.panelHeader} m-0 text-text-header`}>{TITLE_WORDS.heading}</h2>
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
         <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}
           onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-          className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
+          className={`${typography.viewLabel} min-h-7 w-full rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
         <p className={`${typography.viewLabel} m-0 text-text-light`}>{TITLE_WORDS.note}</p>
-        {error && <p role="alert" data-testid="scenario-title-error" className={`${typography.viewLabel} m-0 text-danger`}>{error}</p>}
+        {error && <p role="alert" data-testid="scenario-title-error" className={`${typography.viewLabel} m-0 text-warning-ink`}>{error}</p>}
         <div className="flex gap-3">
           <button type="submit" data-testid="scenario-title-save" disabled={sending}
-            className={`${typography.viewLabel} min-h-[28px] cursor-pointer rounded-sm ${controls.actColours} px-3 py-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed disabled:bg-panel-border disabled:text-text-light`}>{TITLE_WORDS.save}</button>
+            className={VIEW_CHIP_PRIMARY_CLASS}>{TITLE_WORDS.save}</button>
           <button type="button" disabled={sending} onClick={onClose}
-            className={`${typography.viewLabel} min-h-[28px] cursor-pointer text-text-light underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{TITLE_WORDS.cancel}</button>
+            className={VIEW_CHIP_CLASS}>{TITLE_WORDS.cancel}</button>
         </div>
       </form>
     </div>,

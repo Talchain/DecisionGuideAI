@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { HoverButton } from '../../olumiView/look/Hover'
+import { OkIcon } from '../../olumiView/look/icons'
+import { useDialogFocus } from '../../olumiView/look/useDialogFocus'
+import { typography } from '../../styles/typography'
+import { VIEW_CHIP_CLASS, VIEW_ICON_BUTTON_CLASS } from '../../v5/blocks/chipClass'
+import { CANVAS_LAYER_CLASS } from '../layers'
 
 const STORAGE_KEY = 'olumi_keys_seen'
 const STORAGE_VERSION = 'v1'
@@ -33,6 +40,7 @@ export interface UseKeyboardLegendOptions {
 }
 
 export function useKeyboardLegend({ autoShow = false }: UseKeyboardLegendOptions = {}) {
+  const lane = isOlumiCoreLane()
   const [isOpen, setIsOpen] = useState(false)
   const [hasSeen, setHasSeen] = useState(() => readHasSeen())
 
@@ -87,7 +95,7 @@ export function useKeyboardLegend({ autoShow = false }: UseKeyboardLegendOptions
         toggle()
         return
       }
-      if (event.key === 'Escape' && isOpen) {
+      if (!lane && event.key === 'Escape' && isOpen) {
         event.preventDefault()
         close()
       }
@@ -95,7 +103,7 @@ export function useKeyboardLegend({ autoShow = false }: UseKeyboardLegendOptions
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [close, isOpen, toggle])
+  }, [close, isOpen, lane, toggle])
 
   // React #185: Memoize return object to prevent unnecessary re-renders in consumers
   return useMemo(() => ({ isOpen, open, close, toggle }), [isOpen, open, close, toggle])
@@ -154,39 +162,51 @@ const LANE_SHORTCUT_SECTIONS: ShortcutSection[] = [
 ]
 
 export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!isOpen) return
-    panelRef.current?.focus()
-  }, [isOpen])
-
-  const sections = useMemo(() => (isOlumiCoreLane() ? LANE_SHORTCUT_SECTIONS : SHORTCUT_SECTIONS), [])
+  const lane = isOlumiCoreLane()
+  const close = useRef<HTMLButtonElement>(null)
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    open: isOpen,
+    initialFocus: () => close.current,
+    opener: () => lane && document.activeElement === document.body
+      ? document.querySelector<HTMLButtonElement>('button[aria-label="More options"]')
+      : null,
+    onEscape: lane ? onClose : undefined,
+    containFocus: lane,
+    restoreFocus: lane,
+  })
+  const sections = lane ? LANE_SHORTCUT_SECTIONS : SHORTCUT_SECTIONS
+  const keyClass = lane ? 'rounded-sm border border-panel-border bg-panel px-2 py-1' : 'px-2.5 py-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm'
 
   if (!isOpen) return null
 
-  return (
+  const dialog = (
     <div
-      className="fixed inset-0 z-[3000] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4"
+      className={lane ? `fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-center justify-center bg-[var(--backdrop)] px-3` : 'fixed inset-0 z-[3000] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4'}
       role="dialog"
       aria-modal="true"
       aria-labelledby="keyboard-legend-title"
       onClick={onClose}
     >
       <div
-        ref={panelRef}
-        className="bg-white rounded-md shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none"
+        ref={dialogRef}
+        className={lane ? 'flex max-h-[80vh] w-full max-w-3xl flex-col gap-3 overflow-hidden rounded-lg bg-panel p-3 shadow-3 focus:outline-none' : 'bg-white rounded-md shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none'}
         tabIndex={-1}
+        onKeyDown={onKeyDown}
         onClick={event => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-6 py-4">
+        <div className={lane ? 'flex items-center justify-between gap-2' : 'flex items-center justify-between px-6 py-4'}>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-info">Shortcuts</p>
-            <h2 id="keyboard-legend-title" className="text-xl font-semibold text-gray-900">
+            {!lane && <p className="text-xs font-medium uppercase tracking-wide text-info">Shortcuts</p>}
+            <h2 id="keyboard-legend-title" className={lane ? `${typography.panelHeader} text-text-header` : 'text-xl font-semibold text-gray-900'}>
               Keyboard legend
             </h2>
           </div>
-          <button
+          {lane ? (
+            <HoverButton ref={close} type="button" onClick={onClose} className={`${VIEW_ICON_BUTTON_CLASS} text-text-light`}
+              aria-label="Close keyboard legend" words="Close (Esc)">
+              <OkIcon id="cancel-close" size={14} decorative inherit />
+            </HoverButton>
+          ) : <button
             onClick={onClose}
             className="p-2 rounded-md text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
             aria-label="Close keyboard legend"
@@ -195,29 +215,29 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l8 8M6 14L14 6" />
             </svg>
-          </button>
+          </button>}
         </div>
 
-        <div className="px-6 py-4 overflow-y-auto max-h-[calc(80vh-120px)]">
+        <div className={lane ? 'min-h-0 space-y-4 overflow-y-auto' : 'px-6 py-4 overflow-y-auto max-h-[calc(80vh-120px)]'}>
           {sections.map(section => (
-            <div key={section.title} className="mb-6 last:mb-0">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            <div key={section.title} className={lane ? 'space-y-2' : 'mb-6 last:mb-0'}>
+              <h3 className={lane ? `${typography.viewPanelHeading} text-text-header` : 'text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3'}>
                 {section.title}
               </h3>
-              <div className="border border-gray-100 rounded-lg">
+              <div className={lane ? 'divide-y divide-panel-border rounded-sm border border-panel-border' : 'border border-gray-100 rounded-lg'}>
                 {section.items.map(item => (
                   <div
                     key={item.description}
-                    className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-white"
+                    className={lane ? 'flex flex-wrap items-center justify-between gap-2 px-3 py-2.5' : 'flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-white'}
                   >
-                    <span className="text-gray-800 text-sm font-medium">
+                    <span className={lane ? `${typography.viewPanelBody} text-text-body` : 'text-gray-800 text-sm font-medium'}>
                       {item.description}
                     </span>
-                    <div className="flex flex-wrap gap-2 text-sm text-gray-900 font-mono">
+                    <div className={lane ? `flex flex-wrap gap-2 ${typography.viewPanelMeta} text-text-header` : 'flex flex-wrap gap-2 text-sm text-gray-900 font-mono'}>
                       {item.keys.map(key => (
                         <kbd
                           key={key}
-                          className="px-2.5 py-1 bg-gray-100 border border-gray-300 rounded-md shadow-sm"
+                          className={keyClass}
                         >
                           {key}
                         </kbd>
@@ -230,13 +250,13 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
           ))}
         </div>
 
-        <div className="bg-gray-50 px-6 py-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3">
+        <div className={lane ? `flex flex-wrap items-center justify-between gap-3 ${typography.viewPanelBody} text-text-light` : 'bg-gray-50 px-6 py-4 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-3'}>
           <span>
-            Press <kbd className="px-2 py-0.5 bg-white border border-gray-300 rounded">?</kbd> anytime to toggle this panel.
+            Press <kbd className={lane ? keyClass : 'px-2 py-0.5 bg-white border border-gray-300 rounded'}>?</kbd> anytime to toggle this panel.
           </span>
           <button
             onClick={onClose}
-            className="text-info hover:text-info font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded"
+            className={lane ? VIEW_CHIP_CLASS : 'text-info hover:text-info font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info rounded'}
           >
             Got it
           </button>
@@ -244,4 +264,5 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
       </div>
     </div>
   )
+  return lane ? createPortal(dialog, document.body) : dialog
 }
