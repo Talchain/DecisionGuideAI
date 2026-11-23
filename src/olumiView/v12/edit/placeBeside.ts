@@ -8,7 +8,10 @@
  */
 import { placeHoverCard, canvasCardRects, viewportSize, HOVER_CARD_GAP, type Rect } from '../../../canvas/components/hoverCard/hoverCardPlacement'
 import { SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../../../canvas/utils/computeFitPadding'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { barsOf } from '../../layout'
 import { frameTop, regionsOf } from '../../regions'
+import { useViewStore } from '../../store'
 import type { DetailsTarget } from './inspectorStore'
 import { canMakeRoom, slideBoard } from './makeRoom'
 
@@ -29,11 +32,18 @@ export function freeCanvas(): Rect {
 
 const within = (a: Rect, f: Rect) => a.right >= f.left && a.left <= f.right && a.bottom >= f.top && a.top <= f.bottom
 const quoted = (id: string) => id.replace(/["\\]/g, '\\$&')
+const cardNode = (id: string) => document.querySelector(`.react-flow__node[data-id="${quoted(id)}"]`)
 
-/** The card's own box on the canvas (its framed card, else its node), or a link's middle as a point; null when it is not drawn. */
+/** The drawn card (the aim for a folded bar), or the link's middle. Null when there is no canvas anchor. */
 export function anchorOf(t: DetailsTarget): { anchor: Rect | null; own: Element | null } {
   if (t.kind === 'card') {
-    const node = document.querySelector(`.react-flow__node[data-id="${quoted(t.id)}"]`)
+    let node = cardNode(t.id)
+    if (node === null && isOlumiCoreLane()) {
+      // Simple draws the bar on its aim. The editor still writes to the bar, but the aim is its on-screen anchor.
+      const model = useViewStore.getState().view?.model
+      const aim = model == null ? undefined : barsOf(model).get(t.id)
+      if (aim !== undefined) node = cardNode(aim)
+    }
     if (node === null) return { anchor: null, own: null }
     const r = (node.querySelector('[data-view-card]') ?? node).getBoundingClientRect()
     return { anchor: { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, own: node }

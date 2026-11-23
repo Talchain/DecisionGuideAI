@@ -526,6 +526,14 @@ function ViewFlow() {
           const card = useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)
           if (card !== undefined && (card.family === 'option' || isOlumiCoreLane())) useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
+        onKeyDown={isOlumiCoreLane() ? (e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return
+          if (!(e.target instanceof Element) || !e.target.matches(`.react-flow__edge-${VIEW_LINK}`)) return
+          const id = focusedLinkOf(e.target)
+          if (id === null) return
+          e.preventDefault()
+          useLaneInspector.getState().open({ kind: 'link', id })
+        } : undefined}
         className={framed ? 'olumi-look' : 'olumi-look ok-board-unframed'} nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange}
         onPaneContextMenu={(e) => { e.preventDefault(); setMenu({ kind: 'pane', screenPos: { x: e.clientX, y: e.clientY } }) }}
         onNodeContextMenu={(e, n) => {
