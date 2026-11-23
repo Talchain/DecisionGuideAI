@@ -967,6 +967,18 @@
               "tips": {
                "type": "string"
               },
+              "tips_face": {
+               "type": "string"
+              },
+              "tips_label": {
+               "type": "string"
+              },
+              "tips_premises": {
+               "type": "array",
+               "items": {
+                "type": "string"
+               }
+              },
               "draw_bounds": {
                "type": "object",
                "properties": {
@@ -996,6 +1008,10 @@
               "aim_role": {
                "type": "string",
                "const": "reference"
+              },
+              "bare_fallback": {
+               "type": "boolean",
+               "const": true
               }
              },
              "required": [
@@ -4031,6 +4047,10 @@
              },
              "of": {
               "type": "string"
+             },
+             "bare_fallback": {
+              "type": "boolean",
+              "const": true
              }
             },
             "required": [
@@ -5198,6 +5218,25 @@
             ],
             "additionalProperties": false
            }
+          },
+          "tail_note": {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "aims": {
+             "type": "array",
+             "items": {
+              "type": "string"
+             }
+            }
+           },
+           "required": [
+            "text",
+            "aims"
+           ],
+           "additionalProperties": false
           },
           "readings": {
            "type": "array",
@@ -10073,6 +10112,9 @@
              ],
              "additionalProperties": false
             }
+           },
+           "not_held": {
+            "type": "string"
            }
           },
           "required": [
@@ -10338,6 +10380,29 @@
        "more"
       ],
       "additionalProperties": false
+     },
+     "check_first": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "record": {
+         "type": "string"
+        },
+        "tier": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "id",
+        "record",
+        "tier"
+       ],
+       "additionalProperties": false
+      }
      },
      "receipt": {
       "type": "object",
@@ -11544,6 +11609,9 @@
          ],
          "additionalProperties": false
         }
+       },
+       "not_held": {
+        "type": "string"
        }
       },
       "required": [

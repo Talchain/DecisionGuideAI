@@ -192,13 +192,14 @@ export type View = {
         tips?: string
         tips_face?: string
         tips_label?: string
-        tips_premises?: readonly string[]
+        tips_premises?: Array<string>
         draw_bounds?: {
           draws: number
           met: number
           unresolved: number
         }
         aim_role?: "reference"
+        bare_fallback?: true
       }>
       driver: {
         text: string
@@ -730,6 +731,7 @@ export type View = {
         add: string | null
         shared: boolean
         of?: string
+        bare_fallback?: true
       } | null
       title_short?: string | null
       description?: string | null
@@ -926,6 +928,10 @@ export type View = {
         options: Array<string>
         text: string
       }>
+      tail_note?: {
+        text: string
+        aims: Array<string>
+      }
       readings: Array<{
         aim_id: string
         kind: "goal" | "limit"
@@ -1845,6 +1851,7 @@ export type View = {
           }
           basis: string
         }>
+        not_held?: string
       }
     } | null
     broke: string | null
@@ -1893,6 +1900,11 @@ export type View = {
       }>
       more: number
     }
+    check_first?: Array<{
+      id: string
+      record: string
+      tier: string
+    }>
     receipt?: {
       why: "stale" | "held_read_only" | "words"
       words: string
@@ -2127,6 +2139,7 @@ export type View = {
         }
         basis: string
       }>
+      not_held?: string
     }
     held?: true
     degraded?: {

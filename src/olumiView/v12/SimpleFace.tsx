@@ -16,10 +16,11 @@
  * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
 import { colourClass, ICONS, OkIcon } from '../look/icons'
-import type { ViewCard, ViewModel } from '../client'
+import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceAtOf } from '../resultRange'
 import { ChanceBand } from '../ResultBand'
@@ -30,7 +31,8 @@ import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } 
 import { cardKindOf, type CardKind } from './cards/kind'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
-import { chanceParts, headlineChanceRow, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords } from './cards/words'
+import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
+import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
@@ -140,6 +142,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
   let visual: ReactNode = null
   let state: StateLine | null = null
+  let withheldRows: readonly (ViewRow | undefined)[] = []
   if (card.family === 'option') {
     if (h !== null && h.state === 'chance' && at !== null) {
       // The chance: a gauge with core's own words for the number (Codex 006 #3); its qualifier, core's words after the number, is the state line, with Olumi's
@@ -167,6 +170,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       // Each option's own `add` line is whole, never clamped. (A waits item every option shares is core's to say once: it sends it on none of them.)
       const { line, hover } = noChanceLineOf(h)
       const tip = tipsLineOf(card, h), key = model === null ? null : olumiKey(model)
+      if (h.state === 'none') withheldRows = [card.rows[tip?.i ?? headlineWithheldRowIndex(card)]]
       if (tip?.conditional) conditionalWords = tip.whole
       state = tip === null
         ? { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
@@ -283,6 +287,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   }
   // The reason every option shares for having no chance on this aim, once, here (words.ts sharedNoChanceOf); the aim's own state stays in the hover.
   const once = card.family === 'option' ? null : sharedNoChanceOf(model, id)
+  if (once !== null) withheldRows = model!.cards
+    .filter((c) => c.family === 'option' && c.headline?.aim_id === id)
+    .map((c) => c.rows[headlineWithheldRowIndex(c)])
   if (once !== null) state = { text: once.text, title: [noChanceLineOf(once).hover, state?.text].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-face': 'no-chance', 'data-simple-no-chance-once': id } }
   // Codex 006 (what-if): Simple drew only the SAVED figure while a different one was being tried, so the card and the what-if disagreed with
   // nothing to say why. While a figure is tried, its card says so in place, and names the saved figure beside it.
@@ -314,15 +321,22 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     .filter((t) => t !== '')
   // The card's other results, one per line, on the one Tip (150 ms, keyboard focus too): the card holds a stop only where there are words to reach.
   const moreTip = useAnchoredTip(more.length === 0 ? undefined : more.join('\n'))
+  const blockerIds = isOlumiCoreLane() ? withheldCardIds(model, withheldRows) : []
+  const ring = useWithheldRing(blockerIds)
+  const moreHandlers = blockerIds.length === 0 ? moreTip.handlers : {
+    ...moreTip.handlers,
+    onFocus: (e: Parameters<typeof ring.focus.onFocus>[0]) => { moreTip.handlers.onFocus(e); ring.focus.onFocus(e) },
+    onBlur: (e: Parameters<typeof ring.focus.onBlur>[0]) => { moreTip.handlers.onBlur(); ring.focus.onBlur(e) },
+  }
   // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
   return (
     <>
     <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
-      {...(more.length === 0 ? {} : { tabIndex: 0, 'aria-describedby': moreTip.describedBy, ...moreTip.handlers })}>
+      {...(more.length === 0 ? {} : { tabIndex: 0, 'aria-describedby': moreTip.describedBy, ...moreHandlers })}>
       {visual}
       {/* DL BUILD 3 (1232): the status never narrows to single letters beside the foot's chips; under 7rem left on its line, it takes the line
           and the chips drop below (QUIET_BASIS). */}
-      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={conditionalOpen ? undefined : quiet.title} {...quiet.marks}>{quiet.mark}{quiet.text}</Hover>}
+      {quiet === null ? null : <Hover as="p" focusable={false} className={`ok-quiet min-w-0 ${quiet.row === true ? 'basis-full' : QUIET_BASIS}${quiet.whole === true ? '' : ' ok-two-lines'}`} words={conditionalOpen ? undefined : quiet.title} {...quiet.marks} {...(blockerIds.length === 0 ? {} : ring.pointer)}>{quiet.mark}{quiet.text}</Hover>}
       {!conditionalOpen || conditionalWords === null ? null : (
         <p ref={conditionalPremise} id={conditionalPanel} className="ok-quiet min-w-0 basis-full whitespace-pre-wrap">{conditionalWords}</p>
       )}
