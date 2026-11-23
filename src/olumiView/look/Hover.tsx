@@ -12,10 +12,12 @@
  * - A caller's own onFocus, onBlur, onKeyDown, onPointerEnter and onPointerLeave are composed with the Tip's, never overridden.
  * `HoverButton` is `Hover as="button"`. `GlyphMark` is core's mark (glyph and title) drawn as an image named by its title.
  */
-import type { ButtonHTMLAttributes, ElementType, HTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ElementType, type HTMLAttributes, type ReactNode, type Ref } from 'react'
 import { useAnchoredTip, type TipSpacing } from './Tip'
 
 type HoverProps = {
+  anchorRef?: Ref<HTMLElement>
+  href?: string
   words: string | undefined | null
   tipSpacing?: TipSpacing
   as?: ElementType
@@ -25,7 +27,7 @@ type HoverProps = {
   children?: ReactNode
 } & HTMLAttributes<HTMLElement> & { [k: `data-${string}`]: string | number | boolean | undefined }
 
-export function Hover({ words, tipSpacing, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
+export function Hover({ anchorRef, words, tipSpacing, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
   const As: ElementType = as
   const isButton = as === 'button'
   const has = words !== undefined && words !== null && words !== ''
@@ -46,7 +48,7 @@ export function Hover({ words, tipSpacing, as = 'span', focusable = true, disabl
       onFocus: (e: Parameters<typeof handlers.onFocus>[0]) => { handlers.onFocus(e); onFocus?.(e as never) },
       onBlur: (e: Parameters<NonNullable<typeof onBlur>>[0]) => { handlers.onBlur(); onBlur?.(e) },
       onKeyDown: (e: Parameters<typeof handlers.onKeyDown>[0]) => { handlers.onKeyDown(e); onKeyDown?.(e) },
-      'aria-describedby': describedBy,
+      'aria-describedby': [rest['aria-describedby'], describedBy].filter(Boolean).join(' ') || undefined,
     })
     props['tabIndex'] = tabIndex ?? (focusable && !isButton ? 0 : undefined)
   } else {
@@ -59,16 +61,16 @@ export function Hover({ words, tipSpacing, as = 'span', focusable = true, disabl
   }
   return (
     <>
-      <As {...props}>{children}</As>
+      <As ref={anchorRef} {...props}>{children}</As>
       {tip}
     </>
   )
 }
 
 /** A labelled button with a hover: the button keeps its own look and name; the words come through the one Tip instead of a native title. */
-export function HoverButton({ words, ...rest }: Pick<HoverProps, 'words' | 'tipSpacing'> & ButtonHTMLAttributes<HTMLButtonElement>): JSX.Element {
-  return <Hover as="button" words={words} {...(rest as Omit<HoverProps, 'words' | 'as'>)} />
-}
+export const HoverButton = forwardRef<HTMLButtonElement, Pick<HoverProps, 'words' | 'tipSpacing'> & ButtonHTMLAttributes<HTMLButtonElement>>(function HoverButton({ words, ...rest }, ref) {
+  return <Hover as="button" anchorRef={ref} words={words} {...(rest as Omit<HoverProps, 'words' | 'as'>)} />
+})
 
 /** Core's mark: its glyph, named by its title (an image), the title through the one Tip unless `tip={false}` (inside a row that has its own words). */
 export function GlyphMark({ mark, className, view, tip = true }: { mark: { glyph: string; title: string }; className?: string; view?: string; tip?: boolean }): JSX.Element {

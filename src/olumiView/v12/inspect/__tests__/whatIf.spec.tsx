@@ -18,11 +18,12 @@ const tried = (quantity = 'starting_customers', typed = '300') => {
   useWhatIf.setState({ shown: { sid: SID, base, quantity, typed, variant: { hypothetical: true, edits: [{ quantity, label: 'q', words: 'core words' }], blocked: null, stopped: null, moved: true, why_not: null, rows: [], most_likely: null } } })
 }
 
-describe('what-if bar', () => {
+describe('what-if tray actions', () => {
   it('says What if, Proposed, Discard and Keep it; Keep it is disabled with "Try a value first" until a value is tried', () => {
     render(<ViewWhatIfKey />)
     const bar = screen.getByTestId('view-whatif-bar')
-    expect(bar).toHaveTextContent('What if')
+    expect(screen.getByTestId('view-whatif-key')).toContainElement(bar)
+    expect(bar).toHaveAccessibleName('What if')
     expect(screen.getByTestId('view-whatif-bar-proposed')).toHaveTextContent('Proposed')
     expect(screen.getByTestId('view-whatif-bar-discard')).toBeInTheDocument()
     const keep = screen.getByTestId('view-whatif-bar-keep')

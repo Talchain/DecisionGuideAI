@@ -14,17 +14,19 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Check, Clock } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
+import { TOOLBAR_STATUS } from '../../olumiView/look/toolbar'
 import { typography } from '../../styles/typography'
 
 export interface SaveStatusPillProps {
+  toolbar?: boolean
   isSaving: boolean
   isDirty: boolean
   lastSavedAt: number | null
   savedBy?: string | null
 }
 
-export function SaveStatusPill({ isSaving, isDirty, lastSavedAt, savedBy }: SaveStatusPillProps) {
+export function SaveStatusPill({ toolbar = false, isSaving, isDirty, lastSavedAt, savedBy }: SaveStatusPillProps) {
   const [timeLabel, setTimeLabel] = useState<string>('')
 
   useEffect(() => {
@@ -59,12 +61,12 @@ export function SaveStatusPill({ isSaving, isDirty, lastSavedAt, savedBy }: Save
   if (isSaving) {
     return (
       <div
-        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-panel-border rounded-full`}
+        className={toolbar ? TOOLBAR_STATUS : `flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-panel-border rounded-full`}
         data-testid="save-status-saving"
         role="status"
         aria-live="polite"
       >
-        <Clock className="w-3 h-3 animate-pulse" aria-hidden="true" />
+        <OkIcon id="tab-journey" size={toolbar ? 14 : 12} className={toolbar ? "animate-pulse" : "animate-pulse [&_svg]:stroke-2"} decorative inherit />
         <span>Saving…</span>
       </div>
     )
@@ -73,7 +75,7 @@ export function SaveStatusPill({ isSaving, isDirty, lastSavedAt, savedBy }: Save
   if (isDirty) {
     return (
       <div
-        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-panel-border rounded-full`}
+        className={toolbar ? TOOLBAR_STATUS : `flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-panel-border rounded-full`}
         data-testid="save-status-unsaved"
         role="status"
         aria-live="polite"
@@ -86,12 +88,12 @@ export function SaveStatusPill({ isSaving, isDirty, lastSavedAt, savedBy }: Save
   if (lastSavedAt) {
     return (
       <div
-        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-success/30 rounded-full`}
+        className={toolbar ? TOOLBAR_STATUS : `flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-text-body bg-panel border border-success/30 rounded-full`}
         data-testid="save-status-saved"
         role="status"
         aria-live="polite"
       >
-        <Check className="w-3 h-3 text-success" aria-hidden="true" />
+        <OkIcon id="approve" size={toolbar ? 14 : 12} className={toolbar ? "text-success" : "text-success [&_svg]:stroke-2"} decorative inherit />
         <span>
           Saved{savedBy && ` by ${savedBy}`} {savedBy && '•'} {timeLabel}
         </span>

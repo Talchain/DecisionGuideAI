@@ -1,6 +1,8 @@
 import { useRef, useCallback, type ReactNode } from 'react'
-import { OkIcon } from '../../olumiView/look/icons'
-import Tooltip from '../Tooltip'
+import { TOOLBAR_RAIL, TOOLBAR_RAIL_SEPARATOR } from '../../olumiView/look/toolbar'
+import { useToolbarRovingFocus } from '../../olumiView/look/useToolbarRovingFocus'
+import { CanvasToolButton } from './CanvasToolButton'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import styles from './CanvasFloatingToolbar.module.css'
 import { showCanvasUndoUnavailableNotice } from '../../canvas/useKeyboardShortcuts'
 
@@ -98,6 +100,10 @@ export function LeftSidebar({
   undoControl,
   layers,
 }: LeftSidebarProps) {
+  const lane = isOlumiCoreLane()
+  const roving = useToolbarRovingFocus(lane)
+  const shell = lane ? `${styles.laneSidebar} ${TOOLBAR_RAIL}` : styles.sidebar
+  const group = lane ? 'flex flex-col items-center' : styles.group
   const addBtnRef = useRef<HTMLButtonElement | null>(null)
 
   /**
@@ -125,7 +131,10 @@ export function LeftSidebar({
 
   return (
     <nav
-      className={className ? `${styles.sidebar} ${className}` : styles.sidebar}
+      className={className ? `${shell} ${className}` : shell}
+      role={lane ? "toolbar" : undefined}
+      aria-orientation={lane ? "vertical" : undefined}
+      {...roving}
       aria-label="Canvas tools"
     >
       {/* ⭐⭐ AUTHORING GROUP — THE ONLY VISIBLE DOOR TO ADDING SOMETHING YOURSELF.
@@ -154,23 +163,18 @@ export function LeftSidebar({
           that list here would be a second derivation of one fact — the
           hand-maintained mirror this estate keeps paying for (trap 12). One
           menu, one authority, two ways in. */}
-      {addControl ?? (onAddToModelClick && (
-        <div className={styles.group}>
-          <Tooltip content={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}>
-            <button
-              ref={addBtnRef}
-              type="button"
-              className={styles.iconButton}
+      <div className={lane ? "peer flex flex-col empty:hidden" : "contents"}>
+        {addControl ?? (onAddToModelClick && (
+          <div className={group}>
+            <CanvasToolButton lane={lane} icon="add" ref={addBtnRef}
+              words={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}
               aria-label={addAsksInChat ? ADD_IN_CHAT_QUESTION : 'Add to model'}
               aria-haspopup={addAsksInChat ? undefined : 'menu'}
-              data-testid="canvas-add-to-model"
-              onClick={handleAddClick}
-            >
-              <OkIcon id="add" decorative inherit />
-            </button>
-          </Tooltip>
-        </div>
-      ))}
+              data-testid="canvas-add-to-model" onClick={handleAddClick} />
+          </div>
+        ))}
+      </div>
+      {lane && <span aria-hidden="true" className={`${TOOLBAR_RAIL_SEPARATOR} peer-empty:hidden`} />}
 
       {/* Manipulation group: pointer, hand, undo — contract v3.1's tool run
           (+, pointer, hand, undo, layers; DESIGN-GAP #13).
@@ -183,32 +187,14 @@ export function LeftSidebar({
           site), so the inactive tool calls it and the active tool is a no-op.
           A click on the active tool therefore never flips you OUT of the mode
           it names. */}
-      <div className={styles.group}>
-        <Tooltip content={toolShortcuts ? 'Select (V)' : 'Select'}>
-          <button
-            type="button"
-            className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
-            aria-label="Select mode"
-            aria-pressed={interactionMode === 'select'}
-            data-testid="canvas-tool-select"
-            onClick={interactionMode === 'select' ? undefined : onSelectClick}
-          >
-            <OkIcon id="selected-row" decorative inherit />
-          </button>
-        </Tooltip>
-
-        <Tooltip content={toolShortcuts ? 'Hand (H)' : 'Pan'}>
-          <button
-            type="button"
-            className={interactionMode === 'hand' ? styles.iconButtonActive : styles.iconButton}
-            aria-label={toolShortcuts ? 'Hand mode' : 'Pan mode'}
-            aria-pressed={interactionMode === 'hand'}
-            data-testid="canvas-tool-hand"
-            onClick={interactionMode === 'hand' ? undefined : onSelectClick}
-          >
-            <OkIcon id="tool-hand" decorative inherit />
-          </button>
-        </Tooltip>
+      <div className={group}>
+        <CanvasToolButton lane={lane} icon="selected-row" words={toolShortcuts ? 'Select (V)' : 'Select'}
+          aria-label="Select mode" aria-pressed={interactionMode === 'select'} data-testid="canvas-tool-select"
+          onClick={interactionMode === 'select' ? undefined : onSelectClick} />
+        <CanvasToolButton lane={lane} icon="tool-hand" words={toolShortcuts ? 'Hand (H)' : 'Pan'}
+          aria-label={toolShortcuts ? 'Hand mode' : 'Pan mode'} aria-pressed={interactionMode === 'hand'} data-testid="canvas-tool-hand"
+          onClick={interactionMode === 'hand' ? undefined : onSelectClick} />
+        {lane && (undoControl || showUndo || layers) ? <span aria-hidden="true" className={TOOLBAR_RAIL_SEPARATOR} /> : null}
 
         {/* ⚠ NO KEYBOARD SHORTCUT IS NAMED HERE, AND THAT IS THE POINT.
             These tooltips once read "Undo (⌘Z)" / "Redo (⌘⇧Z)" while both
@@ -251,26 +237,12 @@ export function LeftSidebar({
             the call site's flag folds the other way, this branch stops firing
             on its own and real undo takes over. There is no second place to
             remember to update. */}
-        {undoControl ?? (showUndo && <Tooltip content="Undo">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Undo"
-            onClick={undoUnavailable ? showCanvasUndoUnavailableNotice : onUndoClick}
-            /* Reachable, so the sentence can be got at by click AND by
-               keyboard — but never advertised as operable. `aria-disabled`
-               carries that to assistive tech while leaving the control in the
-               tab order, the same idiom `ApplyAndRerunButton` uses in
-               `TornadoChart` for a control that is present and not operable.
-               Native `disabled` cannot be used: it removes the button from
-               the tab order and `pointer-events: none` would swallow the very
-               click that explains the limitation. */
-            aria-disabled={undoUnavailable ? true : undefined}
-            disabled={undoUnavailable ? false : !canUndo}
-          >
-            <OkIcon id="undo" decorative inherit />
-          </button>
-        </Tooltip>)}
+        {undoControl ?? (showUndo && (
+          <CanvasToolButton lane={lane} icon="undo" words={lane && !canUndo && !undoUnavailable ? 'Nothing to undo yet' : 'Undo'}
+            aria-label="Undo" onClick={undoUnavailable ? showCanvasUndoUnavailableNotice : onUndoClick}
+            aria-disabled={undoUnavailable || (lane && !canUndo) || undefined}
+            disabled={!undoUnavailable && !canUndo} />
+        ))}
 
         {layers}
 

@@ -7,7 +7,7 @@
 import { OkIcon } from '../look/icons'
 import { HoverButton } from '../look/Hover'
 import { useShowToast } from '../../canvas/ToastContext'
-import styles from '../../components/layout/CanvasFloatingToolbar.module.css'
+import { TOOLBAR_RAIL_ICON } from '../look/toolbar'
 import { pressUndo, UNDO_WORDS, useUndoChoices, type UndoChoice } from './edit/undo'
 
 const tip = (c: UndoChoice): string => (c.kind === 'none' ? c.note : c.note === null ? c.label : `${c.label}. ${c.note}`)
@@ -31,10 +31,10 @@ export function UndoControl({ className }: { className?: string }): JSX.Element 
   const showToast = useShowToast()
   const press = (dir: 'undo' | 'redo') => { void pressUndo(dir).then((r) => { if (!r.ok) showToast(r.words, 'error'); else if (r.kind === 'saved' && r.warning !== undefined) showToast(r.warning, 'warning') }) }
   const button = (dir: 'undo' | 'redo', c: UndoChoice, alt?: 'alt') => (
-    <HoverButton type="button" className={styles.iconButton} aria-label={undoNameOf(c, dir)} words={tip(c)} aria-disabled={c.kind === 'none' || undefined} data-testid={`lane-${dir}`}
-      onClick={() => { if (c.kind !== 'none') press(dir) }}>
-      <OkIcon id="undo" variant={alt} decorative inherit />
+    <HoverButton type="button" className={TOOLBAR_RAIL_ICON} aria-label={undoNameOf(c, dir)} words={tip(c)} disabled={c.kind === 'none'} data-testid={`lane-${dir}`}
+      onClick={() => press(dir)}>
+      <OkIcon id="undo" variant={alt} size={14} decorative inherit />
     </HoverButton>
   )
-  return <div className={`nodrag nopan ${className ?? ''}`} role="group" aria-label="Undo" data-testid="lane-undo-control">{button('undo', undo)}{redo.kind === 'none' ? null : button('redo', redo, 'alt')}</div>
+  return <div className={`flex flex-col nodrag nopan ${className ?? ''}`} role="group" aria-label="Undo" data-testid="lane-undo-control">{button('undo', undo)}{redo.kind === 'none' ? null : button('redo', redo, 'alt')}</div>
 }

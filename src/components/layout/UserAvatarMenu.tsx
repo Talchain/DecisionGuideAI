@@ -8,7 +8,9 @@
 
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Settings, LogOut, LayoutGrid, FileText, ShieldCheck, Trash2, Users } from 'lucide-react'
+import { OkIcon } from '../../olumiView/look/icons'
+import { HoverButton } from '../../olumiView/look/Hover'
+import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
@@ -76,9 +78,9 @@ function useMenuDismiss(open: boolean, setOpen: (open: boolean) => void, ref: Re
  */
 /** The PoC account pages on the lane (src/olumiCore/accounts/routes.tsx): home is My scenarios. */
 const LANE_PAGES = [
-  { label: 'My scenarios', to: '/', Icon: LayoutGrid },
-  { label: 'Organisation', to: '/organisation', Icon: Users },
-  { label: 'Account', to: '/account', Icon: Settings },
+  { label: 'My scenarios', to: '/', icon: 'layout-grid' },
+  { label: 'Organisation', to: '/organisation', icon: 'team' },
+  { label: 'Account', to: '/account', icon: 'profile-settings' },
 ] as const
 
 function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
@@ -122,9 +124,10 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
     navigate('/signed-out?deleted=1', { replace: true })
   }, [navigate])
 
+  const Trigger = size === 'compact' ? HoverButton : 'button'
   return (
     <div ref={ref} className="relative">
-      <button
+      <Trigger
         ref={mark}
         type="button"
         onClick={() => {
@@ -132,15 +135,15 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
           setOpen(next)
           if (next) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
         }}
-        title={words}
+        {...(size === 'compact' ? { words: words || 'Account menu' } : { title: words, words: undefined })}
         data-testid="olumi-core-person-mark"
-        className={`flex ${size === 'compact' ? 'h-[26px] w-[26px]' : 'h-8 w-8'} items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
+        className={size === 'compact' ? TOOLBAR_ICON : `flex h-8 w-8 items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="true"
       >
-        <span className={size === 'compact' ? 'text-xs font-medium font-sans leading-none' : typography.button}>{initial}</span>
-      </button>
+        <span className={size === 'compact' ? `inline-grid h-[26px] w-[26px] place-items-center rounded-full ${controls.actColours} ${typography.viewPanelMeta} font-medium` : typography.button}>{initial}</span>
+      </Trigger>
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-56 space-y-4 rounded-md border border-panel-border bg-panel p-3 shadow-2 z-[100]" role="menu">
@@ -150,7 +153,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
           </div>
           {/* PoC accounts (src/olumiCore/accounts/): back to My scenarios, the organisation and the account page from a scenario. */}
           <div className="divide-y divide-panel-border">
-            {LANE_PAGES.map(({ label, to, Icon }) => (
+            {LANE_PAGES.map(({ label, to, icon }) => (
               <button
                 key={to}
                 type="button"
@@ -159,14 +162,14 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
                 onClick={() => { setOpen(false); navigate(to) }}
                 className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
               >
-                <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
+                <OkIcon id={icon} className="text-text-light [&_svg]:stroke-2" decorative inherit />
                 <span className={typography.bodySmall}>{label}</span>
               </button>
             ))}
           </div>
           <div className="divide-y divide-panel-border">
             {NOTICES.map(({ label, href }) => {
-              const Icon = href === '/privacy' ? ShieldCheck : FileText
+              const icon = href === '/privacy' ? 'privacy' : 'brief'
               return (
                 <a
                   key={href}
@@ -179,7 +182,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
                   onClick={() => setOpen(false)}
                   className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
                 >
-                  <Icon className="h-4 w-4 text-text-light" aria-hidden="true" />
+                  <OkIcon id={icon} className="text-text-light [&_svg]:stroke-2" decorative inherit />
                   <span className={typography.bodySmall}>{label}</span>
                 </a>
               )
@@ -194,7 +197,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
               onClick={() => void handleSignOut()}
               className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast disabled:opacity-50"
             >
-              <LogOut className="h-4 w-4" />
+              <OkIcon id="sign-out" className="[&_svg]:stroke-2" decorative inherit />
               <span className={typography.bodySmall}>Sign out</span>
             </button>
             {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.viewPanelMeta} pb-2 text-danger`}>{error}</p>}
@@ -205,7 +208,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
               onClick={() => { setOpen(false); setError(null); setDeleting(true) }}
               className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
             >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              <OkIcon id="delete" className="[&_svg]:stroke-2" decorative inherit />
               <span className={typography.bodySmall}>Delete my data</span>
             </button>
           </div>
@@ -277,7 +280,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               onClick={() => { setOpen(false); navigate('/') }}
               className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
             >
-              <LayoutGrid className="h-4 w-4 text-text-light" />
+              <OkIcon id="layout-grid" className="text-text-light [&_svg]:stroke-2" decorative inherit />
               <span className={typography.bodySmall}>My scenarios</span>
             </button>
             <button
@@ -286,7 +289,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               onClick={() => { setOpen(false); navigate('/profile') }}
               className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
             >
-              <Settings className="h-4 w-4 text-text-light" />
+              <OkIcon id="profile-settings" className="text-text-light [&_svg]:stroke-2" decorative inherit />
               <span className={typography.bodySmall}>Profile settings</span>
             </button>
           </div>
@@ -298,7 +301,7 @@ function AccountAvatarMenu({ size = 'default' }: UserAvatarMenuProps = {}) {
               onClick={handleSignOut}
               className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
             >
-              <LogOut className="h-4 w-4" />
+              <OkIcon id="sign-out" className="[&_svg]:stroke-2" decorative inherit />
               <span className="flex flex-col">
                 <span className={typography.bodySmall}>Sign out</span>
                 {/* P48 E: a guest's Sign out runs the identity boundary, so Olumi stops reopening their work here.

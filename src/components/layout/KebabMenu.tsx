@@ -17,6 +17,8 @@
  * Requires ToastProvider in an ancestor (the dialogs use useToast).
  */
 
+import { HoverButton } from '../../olumiView/look/Hover'
+import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useState, useCallback } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import Tooltip from '../Tooltip'
@@ -139,18 +141,25 @@ export function KebabMenu({
   return (
     <>
       <div className={styles.menuDropdown} ref={menuRef}>
-        <Tooltip content="More options">
-          <button
-            type="button"
-            onClick={onToggle}
-            className={styles.menuButton}
-            aria-label="More options"
-            aria-expanded={isOpen}
-            aria-haspopup="true"
-          >
-            <OkIcon id="more" decorative inherit />
-          </button>
-        </Tooltip>
+        {lane ? (
+          <HoverButton type="button" words="More options" onClick={onToggle} className={TOOLBAR_ICON}
+            aria-label="More options" aria-expanded={isOpen} aria-haspopup="true">
+            <OkIcon id="more" size={14} decorative inherit />
+          </HoverButton>
+        ) : (
+          <Tooltip content="More options">
+            <button
+              type="button"
+              onClick={onToggle}
+              className={styles.menuButton}
+              aria-label="More options"
+              aria-expanded={isOpen}
+              aria-haspopup="true"
+            >
+              <OkIcon id="more" decorative inherit />
+            </button>
+          </Tooltip>
+        )}
 
         {isOpen && (
           <div className={`${typography.viewPanelMeta} absolute right-0 top-full z-50 mt-2 w-56 space-y-4 rounded-lg border border-panel-border bg-panel p-3 shadow-2`} role="menu">

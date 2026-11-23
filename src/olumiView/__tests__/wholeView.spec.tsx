@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Profiler } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { CanvasLabelScaleSync } from '../../canvas/components/CanvasLabelScaleSync'
 import { Position, ReactFlowProvider, useStoreApi, type Node, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
@@ -27,7 +27,6 @@ import { ViewQuestionNode } from '../../canvas/nodes/ViewQuestionNode'
 import { ViewLensBar } from '../ViewLensBar'
 import { DockComposer, ViewWelcome } from '../ViewWelcome'
 import { useViewStore } from '../store'
-import { useUIStore } from '../../stores/uiStore'
 import { useCanvasStore } from '../../canvas/store'
 
 afterEach(() => { cleanup(); useViewStore.setState({ view: null, sid: null, uuid: null, at: null }); useCanvasStore.setState({ currentScenarioId: undefined } as never) })
@@ -110,23 +109,27 @@ describe('a card zoomed out draws its reduced face', () => {
 })
 
 describe('the top controls are opaque and clear of the dock (rows 2 and 19)', () => {
-  it('Model · Explore · Team: the unpressed chips have an opaque fill (card text never shows through), all three drawn at the pill\'s left, clear of the dock at 1232', () => {
+  it('the opaque lens bar clears the dock by moving to a second row when the scenario bar is at its tightest', () => {
     window.innerWidth = 1232
-    const pill = document.createElement('div'); pill.setAttribute('role', 'banner')
-    pill.getBoundingClientRect = () => ({ left: 12, right: 908, top: 12, bottom: 57, width: 896, height: 45, x: 12, y: 12, toJSON: () => ({}) })
-    const dock = document.createElement('aside'); dock.setAttribute('aria-label', 'Outputs dock')
+    const pill = document.createElement('div')
+    pill.setAttribute('role', 'banner')
+    pill.setAttribute('data-tight', '3')
+    pill.getBoundingClientRect = () => ({ left: 12, right: 908, top: 12, bottom: 52, width: 896, height: 40, x: 12, y: 12, toJSON: () => ({}) })
+    const dock = document.createElement('aside')
+    dock.setAttribute('aria-label', 'Outputs dock')
     dock.getBoundingClientRect = () => ({ left: 869, right: 1232, top: 0, bottom: 704, width: 363, height: 704, x: 869, y: 0, toJSON: () => ({}) })
     document.body.append(pill, dock)
-    useViewStore.setState({ view })
-    render(<ViewLensBar nav />)
-    const bar = screen.getByTestId('lens-bar')
-    expect([bar.style.left, bar.style.top, bar.style.visibility]).toEqual(['12px', '65px', 'visible'])
-    for (const id of ['explore', 'team']) { const b = screen.getByTestId(`lens-bar-${id}`); expect(b.className, id).toContain('bg-canvas'); expect(b.className, id).not.toContain('bg-transparent') }
-    const team = screen.getByTestId('lens-bar-team')
-    expect(team.hasAttribute('disabled')).toBe(false)
-    fireEvent.click(team)
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
-    pill.remove(); dock.remove()
+    try {
+      useViewStore.setState({ view })
+      render(<ViewLensBar />)
+      const bar = screen.getByTestId('lens-bar')
+      expect([bar.style.left, bar.style.top, bar.style.visibility]).toEqual(['12px', '60px', 'visible'])
+      expect(bar).toHaveClass('bg-panel')
+      expect(screen.getAllByRole('radio')).toHaveLength(6)
+    } finally {
+      pill.remove()
+      dock.remove()
+    }
   })
 })
 

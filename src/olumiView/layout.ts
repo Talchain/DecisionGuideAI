@@ -1223,11 +1223,6 @@ export function othersOf(view: View): View['members'] {
   return view.members.filter((m) => m.id !== view.you_id)
 }
 
-/** Every item of a list but one, in its order. */
-export function allBut<T>(list: readonly T[], x: T): T[] {
-  return list.filter((y) => y !== x)
-}
-
 type LinkMarkOf = NonNullable<View['collab']['link_marks']>[number]
 /** Core's link marks kept off the line (`line: false`): the ones drawn on the card core names (`card`), in its chip rail (RevealMarks). */
 export function cardLinkMarksOf(view: View | null, card: string): LinkMarkOf[] {

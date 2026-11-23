@@ -8,13 +8,13 @@
  * card's own ✎). Every word about a result is core's; the key's own words are the legacy lens's (`WHAT_IF_COPY`, `LENS_KEY_COPY`).
  * The figure tried is marked on its card while the lens is on (`useTriedOn`, `ViewCardNode`).
  */
-import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
+import { OkIcon } from './look/icons'
+import { Hover, HoverButton } from './look/Hover'
+import { TOOLBAR_ACTION, TOOLBAR_BAR_SEPARATOR, TOOLBAR_FOCUS, TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_STATUS } from './look/toolbar'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
-import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
-import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { WHAT_IF_COPY } from '../canvas/artefacts/whatIfCopy'
 import { TeamApiError } from '../olumiCore/team/api'
@@ -42,6 +42,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
   const [typed, setTyped] = useState('')
   const [running, setRunning] = useState(false)
   const [keeping, setKeeping] = useState(false)
+  const reasonId = useId()
   const [error, setError] = useState<string | null>(null)
   useEffect(() => { setFolded(true); setError(null) }, [on])
   // "What if" pressed on a figure in the inspector: open the form on that figure (after the reset above, which runs first).
@@ -71,31 +72,37 @@ export function ViewWhatIfKey(): JSX.Element | null {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.')
     } finally { setKeeping(false) }
   }
-  const Icon = LENS_ICON.what_if
+  const keepReason = keeping ? WHAT_IF_BAR.saving : current === null ? WHAT_IF_BAR.tryFirst : null
   const legend = current === null
     ? <p className={`${typography.viewPanelBody} text-text-body`}>{WHAT_IF_COPY.legendEmpty}</p>
     : <>{current.variant.edits.map((e, i) => <p key={e.quantity} className={`${typography.viewPanelBody} text-text-body`} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}
       <p className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_COPY.nothingSaved}</p></>
 
   return (
-    <>
-    <WhatIfBar label={view.lens_words.label.what_if} canKeep={current !== null} keeping={keeping} onKeep={() => void keep()} onDiscard={clearWhatIf} />
     <section aria-label={view.lens_words.label.what_if} data-testid="view-whatif-key"
       className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
       style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxHeight: 'min(52vh, 460px)' }}>
-      <header className="flex items-center gap-2">
-        <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{view.lens_words.label.what_if}</h2>
-        <button type="button" onClick={() => setFolded((f) => !f)} aria-label={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} aria-expanded={!folded}
-          title={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid="view-whatif-key-fold"
-          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
-          {folded ? <ChevronUp aria-hidden="true" className="h-4 w-4" /> : <ChevronDown aria-hidden="true" className="h-4 w-4" />}
-        </button>
-        <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-whatif-key-close"
-          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+      <header className="flex items-center">
+        <OkIcon id="what-if" size={14} decorative inherit className="text-text-light" />
+        <h2 className={`${typography.viewPanelHeadline} ml-2 min-w-0 flex-1 text-text-header`}>{view.lens_words.label.what_if}</h2>
+        <HoverButton type="button" onClick={() => setFolded((f) => !f)} aria-label={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} aria-expanded={!folded}
+          words={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid="view-whatif-key-fold" className={TOOLBAR_ICON}>
+          <OkIcon id="fold-tray" variant={folded ? 'alt' : undefined} size={14} decorative inherit />
+        </HoverButton>
+        <HoverButton type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close}
+          words={LENS_KEY_COPY.close} data-testid="view-whatif-key-close" className={TOOLBAR_ICON}>
+          <OkIcon id="cancel-close" size={14} decorative inherit />
+        </HoverButton>
       </header>
+      <div role="group" aria-label={view.lens_words.label.what_if} data-testid="view-whatif-bar" className="flex items-center">
+        <span data-testid="view-whatif-bar-proposed" className={TOOLBAR_STATUS}>{WHAT_IF_BAR.proposed}</span>
+        <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />
+        <button type="button" data-testid="view-whatif-bar-discard" onClick={clearWhatIf} className={TOOLBAR_LABEL}>{WHAT_IF_BAR.discard}</button>
+        <HoverButton type="button" words={keepReason} disabled={keepReason !== null} aria-describedby={keepReason === null ? undefined : reasonId}
+          data-testid="view-whatif-bar-keep" onClick={() => void keep()} className={`${TOOLBAR_ACTION} ${controls.actColours}`}>{WHAT_IF_BAR.keep}</HoverButton>
+      </div>
+      {keepReason === null ? null : <p id={reasonId} data-testid="view-whatif-bar-reason" className={`${typography.viewPanelMeta} text-text-light`}>{keepReason}</p>}
+      {error === null ? null : <p role="alert" data-testid="view-whatif-key-error" className="text-danger">{error}</p>}
       <div className={`${typography.viewPanelBody} min-h-0 flex-1 space-y-4 overflow-y-auto`}>
         {legend}
         {folded ? null : picked === null ? <p data-testid="view-whatif-key-none">{WHAT_IF_COPY.noFactors}</p> : (
@@ -104,51 +111,28 @@ export function ViewWhatIfKey(): JSX.Element | null {
               <span className="text-text-light">{WHAT_IF_COPY.factor}</span>
               <select value={picked.id} data-testid="view-whatif-key-factor" disabled={running}
                 onChange={(e) => { setPick(e.target.value); setTyped(''); setError(null) }}
-                className={`rounded-sm border border-field bg-panel px-2 py-1 text-text-body ${ACTION_FOCUS}`}>
+                className={`rounded-sm border border-field bg-panel px-2 py-1 text-text-body ${TOOLBAR_FOCUS}`}>
                 {cards.map((c) => <option key={c.id} value={c.id}>{c.heading}</option>)}
               </select>
             </label>
-            {picked.figure === null ? null : <p><span className="text-text-light">{WHAT_IF_COPY.saved}: </span><span title={picked.figure.title}>{picked.figure.text}</span></p>}
+            {picked.figure === null ? null : <p><span className="text-text-light">{WHAT_IF_COPY.saved}: </span><Hover words={picked.figure.title}>{picked.figure.text}</Hover></p>}
             <label className="grid gap-2">
               <span className="text-text-light">{picked.figure!.edit!.prompt}</span>
               <input data-testid="view-whatif-key-typed" autoComplete="off" spellCheck={false} value={typed} disabled={running}
                 onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-                className={`rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`} />
+                className={`rounded-sm border border-field bg-panel px-2 py-1 text-text-body ${TOOLBAR_FOCUS}`} />
             </label>
-            {error === null ? null : <p role="alert" data-testid="view-whatif-key-error" className="text-danger">{error}</p>}
-            <div className="flex items-center gap-3">
-              <button type="submit" data-testid="view-whatif-key-run" disabled={running || typed.trim() === ''}
-                className={`cursor-pointer rounded-sm border border-info/30 px-2 py-0.5 text-info disabled:text-text-light disabled:cursor-not-allowed ${ACTION_FOCUS}`}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</button>
-              {current === null ? null : <button type="button" data-testid="view-whatif-key-clear" onClick={clearWhatIf}
-                className={`cursor-pointer text-text-light underline underline-offset-2 ${ACTION_FOCUS}`}>{WHAT_IF_COPY.clear}</button>}
+            <div>
+              <HoverButton type="submit" data-testid="view-whatif-key-run" disabled={running || typed.trim() === ''}
+                words={running ? WHAT_IF_COPY.running : typed.trim() === '' ? 'Enter a value to try' : undefined}
+                className={TOOLBAR_LABEL}>{running ? WHAT_IF_COPY.running : WHAT_IF_COPY.run}</HoverButton>
             </div>
           </form>
         )}
         {folded || current === null ? null : <Compare model={model} shown={current} />}
       </div>
     </section>
-    </>
   )
 }
 
-export const WHAT_IF_BAR = { proposed: 'Proposed', discard: 'Discard', keep: 'Keep it', tryFirst: 'Try a value first' } as const
-
-/**
- * The what-if bar, floating above the Simple | Detailed pill (the board: "What if", Proposed, Discard, Keep it). Discard drops what was tried (nothing was saved).
- * Keep it saves the tried value through the existing set-figure path and is disabled, with its reason, until a value has been tried.
- */
-export function WhatIfBar({ label, canKeep, keeping, onKeep, onDiscard }: { label: string; canKeep: boolean; keeping: boolean; onKeep: () => void; onDiscard: () => void }): JSX.Element {
-  const btn = `${typography.viewPanelBody} min-h-[32px] cursor-pointer rounded-full px-3 ${ACTION_FOCUS}`
-  return (
-    <div role="group" aria-label={label} data-testid="view-whatif-bar"
-      className={`pointer-events-auto absolute bottom-[72px] left-1/2 z-[1200] flex -translate-x-1/2 items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1 shadow-2 ${typography.viewPanelBody}`}>
-      <span className="font-medium text-text-header">{label}</span>
-      <span data-testid="view-whatif-bar-proposed" className="rounded-full border border-panel-border px-1.5 text-xs leading-4 text-text-light">{WHAT_IF_BAR.proposed}</span>
-      <button type="button" data-testid="view-whatif-bar-discard" onClick={onDiscard} className={`${btn} text-text-body hover:bg-panel-hover`}>{WHAT_IF_BAR.discard}</button>
-      <button type="button" data-testid="view-whatif-bar-keep" aria-disabled={!canKeep || keeping || undefined} title={canKeep ? undefined : WHAT_IF_BAR.tryFirst}
-        onClick={() => { if (canKeep && !keeping) onKeep() }}
-        className={`${btn} ${controls.actColours} aria-disabled:cursor-not-allowed aria-disabled:bg-panel-border aria-disabled:text-text-light`}>{WHAT_IF_BAR.keep}</button>
-      {canKeep ? null : <span data-testid="view-whatif-bar-reason" className={`${typography.viewPanelMeta} text-text-light`}>{WHAT_IF_BAR.tryFirst}</span>}
-    </div>
-  )
-}
+export const WHAT_IF_BAR = { proposed: 'Proposed', discard: 'Discard', keep: 'Keep it', tryFirst: 'Try a value first', saving: 'Saving…' } as const

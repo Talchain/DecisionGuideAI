@@ -15,16 +15,19 @@
  * top-left column under it (the canvas tools, the left inspector, the top-centre notices).
  * `computeFitPadding` already MEASURES this element (`role="banner"`) for the landing's top inset.
  */
-.topBar {
+.topBar,
+.laneBar {
   position: fixed;
   top: 12px;
   left: 12px;
   z-index: 3000;
-
-  display: flex;
-  align-items: center;
   height: 40px;
   max-width: calc(100vw - 24px);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
   padding: 0 6px 0 14px;
   gap: 12px;
 
@@ -335,51 +338,6 @@
 }
 
 
-/* J1 gate (UI session 8 Nov, the prototype's header): on the olumi-core lane the bar is a full-width 48 px strip across the top, the
-   model's name and version on the left, the people and Share on the right; the dock starts under it (`--topbar-h`). */
-.coreStrip {
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 48px;
-  max-width: none;
-  padding: 0 16px 0 14px;
-  gap: 10px;
-  background: var(--bg-panel);
-  border: 0;
-  border-radius: 0;
-  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06);
-}
-
-.coreStrip .topBarRight {
-  margin-left: auto;
-  gap: 8px;
-}
-
-/* The prototype's outlined Share: ink words on no fill, a quiet edge. */
-/* Never shrinks: at 1128x680@1.33 the right group squeezed it to an empty 22 px pill. Where the row cannot then fit, the
-   lens bar takes the row under the pill (UI lead, 19 Nov). */
-.coreShare {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 38px;
-  padding: 0 16px;
-  border: 1px solid rgba(38, 38, 38, 0.16);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--text-body);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.coreShare:focus-visible {
-  outline: 2px solid var(--text-header);
-  outline-offset: 2px;
-}
-
 /* V11 pixel pass (9 Nov, Paul's look rule: 44 px targets): the top bar's icon controls and the home mark keep their drawn size and
  * take a 44 px hit area, centred, as the comps do (`.btn-sm::after`). The kebab composes .iconButton, so it has one too. */
 .iconButton,
@@ -399,13 +357,7 @@
 
 /* Never past the dock (useTopBarFit, TIGHT_STEPS): step 1 keeps Share's icon alone, step 2 drops the version pill (TopBar.tsx), and only step 3 shortens the
    scenario name: it is the person's own words, so it is the last thing to give way (audit 19 Nov, item 12: it was clipped at 1232 by a step that saved 7 px). */
-.topBar[data-tight="3"] :global([data-testid="scenario-name-text"]),
-.topBar[data-tight="3"] :global([data-testid="scenario-name-button"]) {
+:is(.topBar, .laneBar)[data-tight="3"] :global([data-testid="scenario-name-text"]),
+:is(.topBar, .laneBar)[data-tight="3"] :global([data-testid="scenario-name-button"]) {
   max-width: 110px;
-}
-.topBar[data-tight] .coreShare {
-  padding: 0 10px;
-}
-.topBar[data-tight] .coreShare span:not([aria-hidden]) {
-  display: none;
 }

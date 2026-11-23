@@ -46,14 +46,14 @@ function ruleIn(css: string, selector: string): Record<string, string> {
 }
 const rule = (s: string) => ruleIn(CSS, s)
 
-describe('TopBar — the top-left pill (Paul, 1 Oct 2026)', () => {
+describe('Legacy TopBar — the top-left pill (Paul, 1 Oct 2026)', () => {
   it('POSITIVE CONTROL: the reader finds the bar rule', () => {
-    expect(rule('.topBar').position).toBe('fixed')
+    expect(rule('.topBar,\n.laneBar').position).toBe('fixed')
     expect(Object.keys(rule('.topBar')).length).toBeGreaterThan(5)
   })
 
   it('⭐ a pill in the top-LEFT corner — never full width: 12px in, 40px tall, pill radius, the chrome border', () => {
-    const bar = rule('.topBar')
+    const bar = { ...rule('.topBar,\n.laneBar'), ...rule('.topBar') }
     expect([bar.top, bar.left]).toEqual(['12px', '12px'])
     expect(bar.right).toBeUndefined()
     expect(bar.width).toBeUndefined()

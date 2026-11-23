@@ -1,3 +1,6 @@
+import { Hover, HoverButton } from '../../olumiView/look/Hover'
+import { TOOLBAR_BAR, TOOLBAR_BAR_SEPARATOR, TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_STATUS, TOOLBAR_TITLE } from '../../olumiView/look/toolbar'
+import { typography } from '../../styles/typography'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import Tooltip from '../Tooltip'
@@ -78,8 +81,6 @@ interface TopBarProps {
 export const TOP_PILL_TOP_PX = 12
 export const TOP_PILL_HEIGHT_PX = 40
 export const TOP_PILL_BOTTOM_PX = TOP_PILL_TOP_PX + TOP_PILL_HEIGHT_PX
-/** J1 gate: the core lane's full-width header strip (the prototype's 48 px). */
-export const STRIP_H_PX = 48
 /** @deprecated The full-width bar is gone; `--topbar-h` is 0. Kept for one cycle so no reader breaks silently. */
 export const TOP_BAR_HEIGHT_PX = 0
 
@@ -141,22 +142,16 @@ export const TopBar = ({
   // The pill covers only the top-LEFT corner, so `--topbar-h` (a band across the whole screen) stays 0 and the dock
   // runs the full height. The pill's bottom edge is published as `--chrome-top-left` for the top-left column only:
   // the canvas tools, the left inspector and the top-centre notices sit below it.
-  // J1 gate (UI session 8 Nov, the prototype's header): on the olumi-core lane the bar is a full-width 48 px strip, so `--topbar-h` is
-  // its height (the dock starts under it) and the top-left column starts under the strip and the Model / Explore / Team row.
-  // UI restore stage 1, row 1 (DL ruling 10 Nov): the bar is the previous product's floating pill on every lane; the canvas and the dock
-  // run the full height. The strip's branches below are kept for one cycle and never taken.
-  const strip: boolean = false
+  const lane = isOlumiCoreLane()
+  const hasFrameControls = useViewStore((s) => s.view?.model != null || s.view?.strategy != null)
+  const showVersion = lane && coreVersion !== null && tight < TIGHT_STEPS.version
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    const previous = root.style.getPropertyValue('--chrome-top-left'), previousH = root.style.getPropertyValue('--topbar-h')
-    root.style.setProperty('--chrome-top-left', strip ? `${STRIP_H_PX + 12 + 36 + 8}px` : `${TOP_PILL_BOTTOM_PX}px`)
-    if (strip) root.style.setProperty('--topbar-h', `${STRIP_H_PX}px`)
-    return () => {
-      root.style.setProperty('--chrome-top-left', previous || '0px')
-      if (strip) root.style.setProperty('--topbar-h', previousH || '0px')
-    }
-  }, [strip])
+    const previous = root.style.getPropertyValue('--chrome-top-left')
+    root.style.setProperty('--chrome-top-left', `${TOP_PILL_BOTTOM_PX}px`)
+    return () => root.style.setProperty('--chrome-top-left', previous || '0px')
+  }, [])
 
   const handleSave = async () => {
     if (!onSave) return
@@ -251,27 +246,18 @@ export const TopBar = ({
   // a visible attribution (and any browser-level check) binds to.
   return (
     <div
-      className={strip ? `${styles.topBar} ${styles.coreStrip}` : styles.topBar}
+      className={lane ? `${styles.laneBar} ${TOOLBAR_BAR}` : styles.topBar}
       role="banner"
       ref={barRef}
       data-tight={tight > 0 ? tight : undefined}
       {...(showMenu && overlayOrigin ? { 'data-overlay-origin': overlayOrigin } : {})}
     >
       {/* Left section - logo and title */}
-      <div className={styles.topBarLeft}>
-        <a href="/" className={styles.logoLink} aria-label="Olumi home">
-          {/* J1 gate: the strip carries Olumi's mark alone, as the prototype's does. */}
-          {strip ? <OkIcon id="olumi-mark" size={22} decorative /> : (
-            <img
-              src="/olumi-logo.png"
-              alt="Olumi"
-              className={styles.logo}
-            />
-          )}
-        </a>
-
-        {/* contract v3.1 `.app-top`: logo and model title are spaced by the
-            bar's 20px gap — no divider rule between them. */}
+      <div className={lane ? 'flex min-w-0 items-center' : styles.topBarLeft}>
+        <Hover as="a" href="/" words={lane ? 'Olumi home' : undefined} focusable={false}
+          className={lane ? TOOLBAR_LABEL : styles.logoLink} aria-label="Olumi home">
+          <img src="/olumi-logo.png" alt="Olumi" className={styles.logo} />
+        </Hover>
 
         {/* ⭐ THE SINGLE MODEL-NAME CONTROL (Paul, 14 Aug 2026).
             This bar used to render a plain title here AND the switcher below
@@ -286,11 +272,11 @@ export const TopBar = ({
             a plain "View only" tag instead (server refuses those writes anyway). */}
         {isViewer ? (
           <>
-            <span className="text-sm font-medium text-text-header truncate max-w-[40vw]" data-testid="topbar-viewer-title">
+            <span className={lane ? `${TOOLBAR_TITLE} truncate max-w-[40vw] px-2` : "text-sm font-medium text-text-header truncate max-w-[40vw]"} data-testid="topbar-viewer-title">
               {scenarioTitle}
             </span>
             <span
-              className="text-xs text-text-light px-2 py-0.5 rounded-pill border border-[rgba(38,38,38,0.16)] whitespace-nowrap"
+              className={lane ? TOOLBAR_STATUS : "text-xs text-text-light px-2 py-0.5 rounded-pill border border-[rgba(38,38,38,0.16)] whitespace-nowrap"}
               data-testid="topbar-view-only"
             >
               View only · shared with you
@@ -298,7 +284,6 @@ export const TopBar = ({
           </>
         ) : (
           <ScenarioSwitcher
-            bare={strip}
             dropdownPosition="below"
             displayName={scenarioTitle}
             onRename={onTitleChange}
@@ -311,19 +296,14 @@ export const TopBar = ({
           />
         )}
 
+        {lane && (showVersion || hasFrameControls) && <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />}
         {/* J1 step 5: the version the model is at, beside the name, in core's own words ("version 1"). */}
-        {isOlumiCoreLane() && coreVersion !== null && tight < TIGHT_STEPS.version ? (
-          <span className={`rounded-full border border-border px-2 py-0.5 text-[12px] font-medium leading-4 text-text-body`} data-testid="topbar-version-pill"><span data-view="version.label">{coreVersion}</span>{coreVersionAt === null ? null : <> · <span data-view="version.at_text">{coreVersionAt}</span></>}</span>
+        {showVersion ? (
+          <span className={`${typography.viewPanelMeta} whitespace-nowrap px-2 text-text-body`} data-testid="topbar-version-pill"><span data-view="version.label">{coreVersion}</span>{coreVersionAt === null ? null : <> · <span data-view="version.at_text">{coreVersionAt}</span></>}</span>
         ) : null}
-        {/* J1 gate: on the strip, history sits beside the version it lists. */}
-        {strip && !isViewer && coreLaneShowsSurface('versions') && (
-          <Tooltip content="Version history">
-            <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
-          </Tooltip>
-        )}
         {/* Strategy lane (7 Nov, by agreement with the UI session): the Strategy Overview's opener, beside the name; null without core's key. */}
-        {isOlumiCoreLane() ? <FrameOpener /> : null}
-        {isOlumiCoreLane() ? <StrategyOverviewOpener /> : null}
+        {lane ? <FrameOpener /> : null}
+        {lane ? <StrategyOverviewOpener /> : null}
 
         {/* Dirty indicator (localStorage mode only) */}
         {!isPersisted && isDirty && saveStatus !== 'saving' && (
@@ -347,7 +327,8 @@ export const TopBar = ({
           readout, not a source. */}
 
       {/* Right section */}
-      <div className={styles.topBarRight}>
+      {lane && <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />}
+      <div className={lane ? 'flex shrink-0 items-center' : styles.topBarRight}>
         {/* Save status indicator (replaces save button) */}
         {isPersisted && (() => {
           const isClickable = (saveStatus === 'error') || (isDirty && saveStatus !== 'saving')
@@ -355,10 +336,20 @@ export const TopBar = ({
 
           if (saveStatus === 'saving') {
             return (
-              <span className={styles.saveStatus} role="status" aria-live="polite">
+              <span className={lane ? TOOLBAR_STATUS : styles.saveStatus} role="status" aria-live="polite">
                 <OkIcon id="olumi-thinking" size={14} decorative className="animate-spin" />
                 <span className="text-text-light">Saving{'\u2026'}</span>
               </span>
+            )
+          }
+          if (lane && isClickable) {
+            const failed = saveStatus === 'error'
+            return (
+              <HoverButton type="button" words={failed ? saveError ?? 'Save failed' : undefined}
+                className={TOOLBAR_LABEL} role="status" aria-live="polite" onClick={handleClick}>
+                <OkIcon id={failed ? 'save-failed' : 'unsaved'} size={14} decorative />
+                <span className={`${typography.viewPanelMeta} ${failed ? 'text-danger' : 'text-warning'}`}>{failed ? 'Save failed' : 'Unsaved'}</span>
+              </HoverButton>
             )
           }
           if (saveStatus === 'error') {
@@ -397,7 +388,13 @@ export const TopBar = ({
             An anchor, not a navigate(): the app is a HashRouter and this is
             the same pattern as the logo link, so middle-click/new-tab work.
             Rendered only for a persisted scenario (see the prop's doc). */}
-        {panelScenarioId != null && panelScenarioId !== '' && (
+        {panelScenarioId != null && panelScenarioId !== '' && (lane ? (
+          <Hover as="a" focusable={false} words="Ask your team — everyone answers privately, then compare"
+            href={ownerPanelHash(panelScenarioId, selectedCardId === null ? undefined : { factorId: selectedCardId, label: null, unit: null })}
+            aria-label="Ask your team" className={TOOLBAR_LABEL} data-testid="topbar-panel-link">
+            <OkIcon id="team" size={14} decorative inherit />Ask your team
+          </Hover>
+        ) : (
           <Tooltip content="Ask your team — everyone answers privately, then compare">
             <a
               href={ownerPanelHash(panelScenarioId, selectedCardId === null ? undefined : { factorId: selectedCardId, label: null, unit: null })}
@@ -419,7 +416,7 @@ export const TopBar = ({
               <span>Ask your team</span>
             </a>
           </Tooltip>
-        )}
+        ))}
 
         {/* ⭐ SHARE — ONLY WHEN THE LINK CARRIES THE DECISION (29 Aug 2026).
             Gated exactly like "Ask your team" above: a guest or unsaved canvas
@@ -427,7 +424,12 @@ export const TopBar = ({
             device-local hash that opened EMPTY for the recipient. The tooltip
             now states what the link carries, because "Generate shareable link"
             was equally true of the link that carried nothing. */}
-        {shareScenarioId != null && shareScenarioId !== '' && (
+        {shareScenarioId != null && shareScenarioId !== '' && (lane ? (
+          <HoverButton type="button" onClick={onShare} words="Copy a link to this scenario's summary — anyone with the link can open it"
+            aria-label="Copy link to summary" className={TOOLBAR_ICON} data-testid="topbar-share">
+            <OkIcon id="share" size={14} decorative inherit />
+          </HoverButton>
+        ) : (
           <Tooltip content="Copy a link to this scenario's summary — anyone with the link can open it">
             <button
               type="button"
@@ -439,13 +441,18 @@ export const TopBar = ({
               <OkIcon id="share" decorative inherit />
             </button>
           </Tooltip>
-        )}
+        ))}
 
         {/* ACCOUNTS "Invite a colleague" (view only): the owner's in-decision entry, beside
             the brief link. Shown only on a CONFIRMED 'owner' answer from scenario_access,
             never while that answer is pending (Codex R4): a viewer's canvas can hold the
             scenario id before its access lands. The server enforces ownership too. */}
-        {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
+        {isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (lane ? (
+          <HoverButton type="button" onClick={() => setInviteOpen(true)} words="Invite a colleague to view this scenario"
+            aria-label="Invite a colleague to view this scenario" className={TOOLBAR_ICON} data-testid="topbar-invite">
+            <OkIcon id="invite" size={14} decorative inherit />
+          </HoverButton>
+        ) : (
           <Tooltip content="Invite a colleague to view this scenario">
             <button
               type="button"
@@ -457,7 +464,7 @@ export const TopBar = ({
               <OkIcon id="invite" decorative inherit />
             </button>
           </Tooltip>
-        )}
+        ))}
         {inviteOpen && isConfirmedOwner && shareScenarioId != null && shareScenarioId !== '' && (
           <ShareDecisionDialog
             scenarioId={shareScenarioId}
@@ -478,17 +485,19 @@ export const TopBar = ({
             carries no positioning of its own — this row owns its layout. */}
         {/* Versions are owner-only on CEE (list, save, restore): hidden for a viewer. */}
         {/* On the olumi-core lane the panel lists core's own versions, one per approval (src/olumiCore/versions.tsx). */}
-        {!strip && !isViewer && coreLaneShowsSurface('versions') && (
+        {!isViewer && coreLaneShowsSurface('versions') && (lane ? (
+          <VersionsTrigger variant="icon" className={TOOLBAR_ICON} words="Version history" data-testid="topbar-versions-trigger" />
+        ) : (
           <Tooltip content="Version history">
             <VersionsTrigger variant="icon" className={styles.iconButton} data-testid="topbar-versions-trigger" />
           </Tooltip>
-        )}
+        ))}
 
         {/* DECISION BRIEF — the saved model and its latest Run as one shareable page (self-contained; renders
             nothing for a scenario CEE cannot read). */}
         {/* On the olumi-core lane the Summary is core's (src/olumiView/ViewSummary.tsx): one saved version, to read, download or print. */}
-        {coreLaneShowsSurface('summary') && (isOlumiCoreLane() ? (
-          <ViewSummaryTrigger className={styles.iconButton} tooltip="Summary: the question, each option's chance, assumptions, evidence and commitments, to read, download or print" />
+        {coreLaneShowsSurface('summary') && (lane ? (
+          <ViewSummaryTrigger className={TOOLBAR_ICON} tooltip="Summary: the question, each option's chance, assumptions, evidence and commitments, to read, download or print" />
         ) : (
           <Tooltip content="Summary: the saved model and its latest Run, to print or share">
             <DecisionBriefTrigger className={styles.iconButton} />
@@ -516,18 +525,19 @@ export const TopBar = ({
           menuRef={menuRef}
         />
 
-        {isOlumiCoreLane() && <TeamPresence />}
+        {lane && <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />}
+        {lane && <TeamPresence />}
         {/* J1 step 5: Share on the olumi-core lane is inviting someone into this scenario, which the Team tab does ("Invite a colleague"): it
             opens there. No link is claimed, so nothing appears to work that does not (29 Aug rule above). */}
-        {isOlumiCoreLane() && coreVersion !== null && !isViewer ? (
-          <button type="button" className={styles.coreShare} data-testid="topbar-share-core" aria-label="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
+        {lane && coreVersion !== null && !isViewer ? (
+          <HoverButton type="button" words="Share" className={tight >= TIGHT_STEPS.share ? TOOLBAR_ICON : `${TOOLBAR_LABEL} font-medium`} data-testid="topbar-share-core" aria-label="Share" onClick={() => useUIStore.getState().forceActivateOutputTab('team')}>
             <OkIcon id="share" size={14} decorative inherit />
-            <span>Share</span>
-          </button>
+            {tight >= TIGHT_STEPS.share ? null : <span>Share</span>}
+          </HoverButton>
         ) : null}
 
         {/* User avatar + account dropdown — contract `.app-top .avatar`, 26px. */}
-        <div className={styles.avatarSlot}>
+        <div className={lane ? undefined : styles.avatarSlot}>
           <UserAvatarMenu size="compact" />
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useViewStore } from '../../store'
 import { OkIcon } from '../../look/icons'
-import { typography } from '../../../styles/typography'
+import { TOOLBAR_LABEL } from '../../look/toolbar'
 import { useOverview } from '../../strategy/overview/useOverview'
 import { useCompare } from '../views/useCompare'
 import { useDockInset } from '../bands/KeyPill'
@@ -17,7 +17,7 @@ export function FrameOpener(): JSX.Element | null {
   return (
     <button type="button" aria-pressed={open} data-testid="frame-opener"
       onClick={() => { if (open) useFrameStage.getState().hide(); else { useOverview.getState().hide(); useCompare.getState().hide(); useFrameStage.getState().show() } }}
-      className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}>
+      className={TOOLBAR_LABEL}>
       <OkIcon id="goal" size={14} decorative inherit />{FRAME_WORDS.question}
     </button>
   )

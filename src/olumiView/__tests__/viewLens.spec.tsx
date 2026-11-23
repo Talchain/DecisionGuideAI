@@ -65,12 +65,15 @@ describe('Rests on, from the View', () => {
 })
 
 describe('the lane\'s lens bar', () => {
-  it('Model, Trade-offs and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', () => {
+  it('Model, Trade-offs and Rests on, Rests on counting Olumi\'s to check or set; a press switches the lens', async () => {
     useViewStore.setState({ view })
     render(<ViewLensBar />)
     expect(screen.getAllByRole('radio').map((b) => b.textContent)).toEqual(['Model', 'Trade-offs', 'Rests on8', 'If it failed', 'What would change', 'What if']) // 8 since b4ec56e08 (`profitability`)
     // Trade-offs on this lane is core's option rows by aim, not the legacy routes along links: its hover is its label, never that hint.
-    expect(screen.getByTestId('lens-bar-tradeoffs').getAttribute('title')).toBe('Trade-offs')
+    const tradeoffs = screen.getByTestId('lens-bar-tradeoffs')
+    expect(tradeoffs.hasAttribute('title')).toBe(false)
+    fireEvent.pointerEnter(tradeoffs)
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Trade-offs')
     expect(screen.getByTestId('lens-bar-rests_on').getAttribute('aria-label')).toBe(view.lens_words!.rests_on_label) // core's own words (8 since b4ec56e08)
     expect(screen.getByTestId('lens-bar-full').getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByTestId('lens-bar-rests_on'))
@@ -109,11 +112,13 @@ describe('What would change, from the View', () => {
     const off = render(<ViewCard card={card} />).container
     expect([off.querySelector('[data-driver-of]'), off.querySelector('[data-view-card]')!.className.includes('ring-[3px]')]).toEqual([null, false])
   })
-  it('the bar: before a Run names a driver the lens is shown but cannot be chosen, and says how to get one; with one it switches', () => {
+  it('the bar: before a Run names a driver the lens is shown but cannot be chosen, and says how to get one; with one it switches', async () => {
     useViewStore.setState({ view: withFigures(null) })
     const { unmount } = render(<ViewLensBar />)
     const lens = screen.getByTestId('lens-bar-what_changes')
-    expect([lens.getAttribute('aria-disabled'), lens.title]).toEqual(['true', 'Run the analysis to see what would change it.'])
+    expect(lens.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.pointerEnter(lens)
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Run the analysis to see what would change it.')
     fireEvent.click(lens)
     expect(useViewLens.getState().lens).toBe('full')
     unmount()

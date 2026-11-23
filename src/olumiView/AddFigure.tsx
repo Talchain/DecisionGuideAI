@@ -12,7 +12,8 @@ import { OkIcon } from './look/icons'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
 import { MENU_ROW, MENU_SHELL } from './look/menu'
-import styles from '../components/layout/CanvasFloatingToolbar.module.css'
+import { HoverButton } from './look/Hover'
+import { TOOLBAR_RAIL_ICON } from './look/toolbar'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
@@ -104,15 +105,18 @@ export function AddFigure(): JSX.Element | null {
   }
   const field = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
   return (
-    <div className="relative nodrag nopan">
+    <div className="relative flex flex-col nodrag nopan">
       {why !== null ? (
-        <button type="button" disabled aria-disabled="true" className={styles.iconButton} aria-label={`Add to model: ${why}`} title={why} data-testid="canvas-add-to-model-held">
-          <OkIcon id="add" decorative inherit />
-        </button>
-      ) : <button ref={reference} type="button"
-        className={styles.iconButton} aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
-        <OkIcon id="add" decorative inherit />
-      </button>}
+        <HoverButton ref={opener} type="button" disabled words={why} className={TOOLBAR_RAIL_ICON}
+          aria-label={`Add to model: ${why}`} data-testid="canvas-add-to-model-held">
+          <OkIcon id="add" size={14} decorative inherit />
+        </HoverButton>
+      ) : (
+        <HoverButton ref={reference} type="button" words="Add to model" className={TOOLBAR_RAIL_ICON}
+          aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
+          <OkIcon id="add" size={14} decorative inherit />
+        </HoverButton>
+      )}
       {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
           className={MENU_SHELL} aria-label="Add to model">

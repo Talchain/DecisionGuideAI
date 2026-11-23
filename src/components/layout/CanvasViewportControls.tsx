@@ -60,7 +60,9 @@
 import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { useStore } from '@xyflow/react'
-import Tooltip from '../Tooltip'
+import { TOOLBAR_RAIL, TOOLBAR_RAIL_SEPARATOR } from '../../olumiView/look/toolbar'
+import { useToolbarRovingFocus } from '../../olumiView/look/useToolbarRovingFocus'
+import { CanvasToolButton } from './CanvasToolButton'
 import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover'
 import { useCanvasStore } from '../../canvas/store'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
@@ -83,6 +85,8 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   onFitView,
   onAutoArrange,
 }: CanvasViewportControlsProps) {
+  const lane = isOlumiCoreLane()
+  const roving = useToolbarRovingFocus(lane)
   const zoom = useStore(s => s.transform[2])
   const zoomPct = `${Math.round(zoom * 100)}%`
 
@@ -146,58 +150,19 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   }
 
   return (
-    <nav aria-label="Viewport controls" className={styles.viewportControls}>
-      {/* contract v3.1 `.zoom-tools`: −, +, fit — in that order. */}
-      <div className={styles.group}>
-        <Tooltip content="Zoom out">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Zoom out"
-            onClick={onZoomOut}
-          >
-            <OkIcon id="zoom" variant="alt" decorative inherit />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Zoom in">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Zoom in"
-            onClick={onZoomIn}
-          >
-            <OkIcon id="zoom" decorative inherit />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Fit to view">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Fit to view"
-            onClick={onFitView}
-          >
-            <OkIcon id="zoom-fit" decorative inherit />
-          </button>
-        </Tooltip>
+    <nav aria-label="Viewport controls" role={lane ? 'toolbar' : undefined} aria-orientation={lane ? 'vertical' : undefined}
+      className={lane ? `${styles.laneViewportControls} ${TOOLBAR_RAIL}` : styles.viewportControls} {...roving}>
+      <div className={lane ? 'flex flex-col items-center' : styles.group}>
+        <CanvasToolButton lane={lane} icon="zoom" variant="alt" words="Zoom out" aria-label="Zoom out" onClick={onZoomOut} />
+        <CanvasToolButton lane={lane} icon="zoom" words="Zoom in" aria-label="Zoom in" onClick={onZoomIn} />
+        <CanvasToolButton lane={lane} icon="zoom-fit" words="Fit to view" aria-label="Fit to view" onClick={onFitView} />
+        {lane && <span aria-hidden="true" className={TOOLBAR_RAIL_SEPARATOR} />}
 
         {/* ONE overflow for everything v3.1 does not draw on the canvas. */}
-        <div ref={wrapRef} className="relative">
-          <Tooltip content="More view options">
-            <button
-              ref={moreRef}
-              type="button"
-              className={menuOpen ? styles.iconButtonActive : styles.iconButton}
-              aria-label="More view options"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              data-testid="viewport-more"
-              onClick={() => setMenuOpen(o => !o)}
-            >
-              <OkIcon id="more" decorative inherit />
-            </button>
-          </Tooltip>
+        <div ref={wrapRef} className={lane ? "relative flex flex-col" : "relative"}>
+          <CanvasToolButton lane={lane} icon="more" words="More view options" ref={moreRef}
+            aria-label="More view options" aria-haspopup="menu" aria-expanded={menuOpen}
+            data-testid="viewport-more" onClick={() => setMenuOpen(o => !o)} />
 
           {menuOpen && (
             <div

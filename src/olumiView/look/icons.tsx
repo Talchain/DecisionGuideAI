@@ -38,13 +38,13 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react'
 import {
-  AlertOctagon, AlertTriangle, AlignLeft, ArrowDownRight, ArrowUpRight, BadgeHelp, Equal, MessagesSquare, Shuffle, Camera, ChevronRight, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
+  Activity, AlertOctagon, AlertTriangle, AlignLeft, ArrowDownRight, ArrowUpRight, BadgeHelp, Equal, MessagesSquare, Shuffle, Camera, ChevronDown, ChevronRight, ChevronUp, Clock, FilePlus, Folder, Hand, Keyboard, LayoutGrid, Maximize, Percent, Redo2, Scissors, Share2, BookmarkCheck, Ban, ArrowDownToLine, ArrowLeft, ArrowRight, ArrowRightLeft, ArrowUp, BadgeCheck, BarChart3, BookOpen, Brain,
   Calculator, CalendarClock, Check, CheckCheck, ChevronsDown, ChevronsUp, CircleDashed, CircleSlash, ClipboardCheck, ClipboardPen, CloudOff, Code2, Columns3, Compass,
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
-  GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
+  GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed, LogOut,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
-  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
-  ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
+  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, Printer, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Settings, Shapes,
+  ShieldAlert, ShieldCheck, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   GitBranch, MoveLeft, MoveRight, Spline, Type,
@@ -253,6 +253,11 @@ export const ICONS = {
   team: e(Users, 'Team', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   lenses: e(Layers2, "Core's lens words", '--text-light', 'icon-plus-word', 'navigate', { alt: Compass, hoverColour: '--text-header', keepWords: "core's lens_words (Model, Explore, Team)" }),
 
+  'lens-tradeoffs': e(Scale, 'Trade-offs', '--text-light', 'icon-only', 'navigate'),
+  'lens-premortem': e(CloudLightning, 'If it failed', '--text-light', 'icon-only', 'navigate'),
+  'lens-what-changes': e(Activity, 'What would change', '--text-light', 'icon-only', 'navigate'),
+  'more-cards': e(ChevronDown, 'More cards', '--text-light', 'icon-plus-word', 'navigate', { alt: ChevronRight }),
+
   // chrome
   'info-more': e(Info, 'More detail', '--text-light', 'icon-only', 'chrome', { keepWords: "core's status line (data-view `${at}.status`) stays visible while waiting" }),
   more: e(MoreHorizontal, 'More options', '--text-light', 'icon-only', 'chrome'),
@@ -283,6 +288,11 @@ export const ICONS = {
   'zoom-fit': e(Maximize, 'Fit to screen', '--text-light', 'icon-only', 'chrome'),
   'zoom-percent': e(Percent, 'Zoom level', '--text-light', 'icon-only', 'chrome'),
   'layout-grid': e(LayoutGrid, 'Layout', '--text-light', 'icon-only', 'chrome'),
+  'fold-tray': e(ChevronDown, 'Fold tray', '--text-light', 'icon-only', 'chrome', { alt: ChevronUp }),
+  print: e(Printer, 'Print or save as PDF', '--text-light', 'icon-plus-word', 'chrome'),
+  'profile-settings': e(Settings, 'Profile settings', '--text-light', 'icon-plus-word', 'chrome'),
+  privacy: e(ShieldCheck, 'Privacy notice', '--text-light', 'icon-plus-word', 'chrome'),
+  'sign-out': e(LogOut, 'Sign out', '--text-light', 'icon-plus-word', 'person-action'),
   snapshot: e(Camera, 'Save a snapshot', '--text-light', 'icon-only', 'chrome'),
   'new-scenario': e(FilePlus, 'New scenario', '--text-light', 'icon-only', 'chrome'),
   shortcuts: e(Keyboard, 'Keyboard shortcuts', '--text-light', 'icon-only', 'chrome'),

@@ -53,7 +53,6 @@ import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
-import toolbarStyles from '../components/layout/CanvasFloatingToolbar.module.css'
 import { BelowCue } from './BelowCue'
 import { LaneHelp } from './v12/LaneHelp'
 import { useLaneInspector } from './v12/edit/inspectorStore'
@@ -570,7 +569,7 @@ function ViewFlow() {
       {/* UI restore stage 1, row 4: a scenario waiting for its brief shows the welcome (logo and one composer) on the empty canvas. */}
       {hasModel || ideasOnly ? null : <ViewWelcome />}
       <IdeaPanel />
-      {hasModel ? <LeftSidebar className={toolbarStyles.neutralTools} interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
+      {hasModel ? <LeftSidebar interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
       {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
       {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}

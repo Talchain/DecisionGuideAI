@@ -7,14 +7,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { useUIStore } from '../../stores/uiStore'
 import { revealOf, useReveal } from '../reveal'
 import { composerStepsAside, forgetLanded, registerRevealReturnCamera, returnFromLanded } from '../revealReturn'
 import { openView } from '../RevealMarks'
-import { ViewLensBar } from '../ViewLensBar'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/j1', 'strategy-reveal-split.core-261df1d4.view3.json'), 'utf8')) as View
 const chipOf = () => { const c = [...revealOf(view)!.cardChips.values()].flat().find((x) => x.kind !== 'evidence' && x.views.length > 0)!; return c }
@@ -45,16 +44,6 @@ describe('a landed panel hands the dock back (V11 lane 10 Nov: journey 6.3 and t
     expect(useUIStore.getState().activeOutputTab).toBe('olumi')
     expect(restore).toHaveBeenCalledOnce()
     unregister()
-  })
-  it('RL11 catch: pressing Team on the canvas while the landed panel is open shows Team itself: the panel steps aside', () => {
-    land(view)
-    expect(useReveal.getState().selected).not.toBeNull()
-    render(<ViewLensBar nav />)
-    act(() => { fireEvent.click(screen.getByTestId('lens-bar-team')) })
-    expect([useReveal.getState().selected, useReveal.getState().evidence]).toEqual([null, null])
-    expect(useUIStore.getState().activeOutputTab).toBe('team')
-    // Where the landed panel would have returned is forgotten: a later close of another panel does not jump tabs.
-    expect(returnFromLanded(chipOf().key)).toBe(false)
   })
 })
 

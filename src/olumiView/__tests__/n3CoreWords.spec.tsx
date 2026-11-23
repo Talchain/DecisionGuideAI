@@ -53,7 +53,7 @@ beforeEach(() => useReveal.setState({ selected: null, evidence: null, card: null
 afterEach(() => { cleanup(); useViewStore.setState({ view: null }) })
 
 describe('N3: every strategy-screen word is core\'s field, drawn by identity', () => {
-  it('marks, evidence, both docks, team presence and the lens bar draw the marker core put in each field', () => {
+  it('marks, evidence, both docks, team presence and the lens bar draw the marker core put in each field', async () => {
     const v = marked()
     setView(v)
     // Canvas chips: each core mark's hover and name, by card and kind.
@@ -95,19 +95,14 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     // Team presence, for the viewer by id; the lens bar.
     render(<><TeamPresence /><ViewLensBar /></>)
     const tp = screen.getByTestId('team-presence')
-    expect([tp.title, tp.getAttribute('aria-label')]).toEqual([`‹team title ${v.you_id}›`, `‹team label ${v.you_id}›`])
+    expect(tp.getAttribute('aria-label')).toBe(`‹team label ${v.you_id}›`)
+    expect(tp.hasAttribute('title')).toBe(false)
+    fireEvent.pointerEnter(tp)
+    expect((await screen.findByRole('tooltip')).textContent).toBe(`‹team title ${v.you_id}›`)
     expect(screen.getByRole('radiogroup').getAttribute('aria-label')).toBe('‹lens bar›')
     expect(document.querySelector('[data-lens-label="full"]')!.textContent).toBe('‹label full›')
     expect(document.querySelector('[data-testid$="-rests_on"]')!.getAttribute('aria-label')).toBe('‹rests on label›')
-    cleanup()
-    // The lens bar as the canvas mounts it (ViewCanvas: <ViewLensBar nav />): Model, Explore and its menu, Team.
-    render(<ViewLensBar nav />)
-    const nav = screen.getByRole('toolbar')
-    expect(nav.getAttribute('aria-label')).toBe('‹lens bar›')
-    expect(within(nav).getByTestId('lens-bar-explore').textContent).toBe('‹explore›')
-    expect(nav.textContent).toContain('‹team›')
-    fireEvent.click(within(nav).getByTestId('lens-bar-explore'))
-    expect(screen.getByTestId('lens-bar-explore-menu').getAttribute('aria-label')).toBe('‹explore›')
+
   })
 
   it('the Team tab: each evidence line, the evidence form\'s labels and stance picker, and each member\'s own line are core\'s', async () => {

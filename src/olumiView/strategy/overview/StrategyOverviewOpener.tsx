@@ -7,7 +7,7 @@
 import { useEffect, useRef } from 'react'
 import { OkIcon } from '../../look/icons'
 import { useViewStore } from '../../store'
-import { typography } from '../../../styles/typography'
+import { TOOLBAR_LABEL } from '../../look/toolbar'
 import { useOverview } from './useOverview'
 import { useCompare } from '../../v12/views/useCompare'
 import { useEscapeLayer } from '../../v12/edit/escapeLayers'
@@ -20,9 +20,9 @@ export function StrategyOverviewOpener(): JSX.Element | null {
     <button
       type="button" aria-pressed={open} data-testid="strategy-overview-opener"
       onClick={() => (open ? useOverview.getState().hide() : (useCompare.getState().hide(), useOverview.getState().show()))}
-      className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}
+      className={TOOLBAR_LABEL}
     >
-      <OkIcon id="strategy-overview" size={14} decorative />
+      <OkIcon id="strategy-overview" size={14} decorative inherit />
       {words}
     </button>
   )

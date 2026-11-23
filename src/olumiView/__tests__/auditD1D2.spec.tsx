@@ -22,12 +22,12 @@ afterEach(() => { cleanup(); vi.unstubAllEnvs(); useOverview.getState().hide(); 
 describe('D1: the lens bar and the Strategy Overview', () => {
   it('D1a catch: with the overview open the lens bar is not drawn; closed, it is', () => {
     useViewStore.setState({ view, sid: view.id })
-    render(<ViewLensBar nav />)
-    expect(screen.getByTestId('lens-bar-team')).toBeInTheDocument()
+    render(<ViewLensBar />)
+    expect(screen.getByTestId('lens-bar-full')).toBeInTheDocument()
     act(() => { useOverview.getState().show() })
-    expect(screen.queryByTestId('lens-bar-team')).toBeNull()
+    expect(screen.queryByTestId('lens-bar-full')).toBeNull()
     act(() => { useOverview.getState().hide() })
-    expect(screen.getByTestId('lens-bar-team')).toBeInTheDocument()
+    expect(screen.getByTestId('lens-bar-full')).toBeInTheDocument()
   })
 })
 

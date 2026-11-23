@@ -124,11 +124,13 @@ describe('add a figure', () => {
     }
     expect(render(<AddFigure />).container.querySelector('[data-testid="canvas-add-to-model"]')).not.toBeNull() // CONTRAST: offered here
   })
-  it('the + stays in place while a proposal is held: disabled, and it says why (audit F19); never on an earlier version or someone else\'s page', () => {
+  it('the + stays in place while a proposal is held: focusable, and it says why (audit F19); never on an earlier version or someone else\'s page', () => {
     useViewStore.setState({ view: { ...approved, proposal: { id: 9 }, model: { ...approved.model!, edit_base: null } } as unknown as View })
     const held = render(<AddFigure />).getByTestId('canvas-add-to-model-held')
-    expect(held).toBeDisabled()
-    expect(held.getAttribute('title')).toBe(ADD_FIGURE_WORDS.heldProposal)
+    expect(held).toHaveAttribute('aria-disabled', 'true')
+    expect(held).not.toBeDisabled()
+    expect(held).toHaveAccessibleName(`Add to model: ${ADD_FIGURE_WORDS.heldProposal}`)
+    expect(held).not.toHaveAttribute('title')
     fireEvent.click(held)
     expect(screen.queryByRole('menu')).toBeNull()
     cleanup()

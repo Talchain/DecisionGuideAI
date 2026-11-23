@@ -5,12 +5,11 @@
  */
 import { useLayoutEffect, useState } from 'react'
 import { useReactFlow, useStore, useStoreApi } from '@xyflow/react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { OkIcon } from './look/icons'
+import { TOOLBAR_BAR, TOOLBAR_LABEL } from './look/toolbar'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
-import { typography } from '../styles/typography'
 import { FOOT_CONTROLS } from './regions'
-import { HIT_44 } from '../styles/hitArea'
 import { VIEW_CARD } from './canvas'
 
 /** One press lifts the last row 96 px clear of the window's foot, above the floating cue. */
@@ -87,20 +86,20 @@ export function BelowCue({ onPress, edge = false }: { /** The person's own move 
   if (below === 0 && right === 0) return null
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - pressUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height) }, { duration: 300 }) }
-  return (<>
-    <div className="pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2" style={{ left }} data-testid="view-below-cue">
-      {below === 0 ? null : <>
-      <button type="button" onClick={up}
-        className={`${typography.viewPanelMeta} pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3.5 text-text-body shadow-1 hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${HIT_44}`}>
-        {below} more {below === 1 ? 'card' : 'cards'} below
-        <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>
-      </>}
-      {right === 0 ? null : <button type="button" onClick={pan} data-testid="view-right-cue"
-        className={`${typography.viewPanelMeta} pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3.5 text-text-body shadow-1 hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${HIT_44}`}>
-        {right} more {right === 1 ? 'card' : 'cards'} to the right
-        <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />
-      </button>}
+  return (
+    <div className={`fixed bottom-[40px] z-[1200] ${TOOLBAR_BAR}`} style={{ left }} data-testid="view-below-cue">
+      {below === 0 ? null : (
+        <button type="button" onClick={up} className={TOOLBAR_LABEL}>
+          <OkIcon id="more-cards" size={14} decorative inherit />
+          {below} more {below === 1 ? 'card' : 'cards'} below
+        </button>
+      )}
+      {right === 0 ? null : (
+        <button type="button" onClick={pan} data-testid="view-right-cue" className={TOOLBAR_LABEL}>
+          <OkIcon id="more-cards" variant="alt" size={14} decorative inherit />
+          {right} more {right === 1 ? 'card' : 'cards'} to the right
+        </button>
+      )}
     </div>
-  </>)
+  )
 }

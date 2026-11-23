@@ -7,8 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import { useAnchoredTip } from '../../look/Tip'
-import Tooltip from '../../../components/Tooltip'
-import styles from '../../../components/layout/CanvasFloatingToolbar.module.css'
+import { TOOLBAR_RAIL_ICON } from '../../look/toolbar'
 import { typography } from '../../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
 import { MENU_ROW, MENU_SEPARATOR, MENU_SHELL } from '../../look/menu'
@@ -44,10 +43,12 @@ export function LensesMenu(): JSX.Element | null {
   const [menu, setMenu] = useState(false)
   const [panel, setPanel] = useState(false)
   const root = useRef<HTMLDivElement | null>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
   const entries = layerEntries(view)
 
   useEffect(() => {
     if (!menu) return
+    root.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]')?.focus()
     const away = (e: PointerEvent) => { if (root.current !== null && !root.current.contains(e.target as Node)) setMenu(false) }
     const exclusive = (e: Event) => { if ((e as CustomEvent).detail !== LENSES_TESTID) setMenu(false) }
     document.addEventListener('pointerdown', away)
@@ -57,9 +58,16 @@ export function LensesMenu(): JSX.Element | null {
 
   if (view === null || view.model === null) return null
   const on = layer !== 'full'
-  const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full') }
+  const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full'); trigger.current?.focus() }
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { if (menu || panel) e.preventDefault(); setMenu(false); setPanel(false); return }
+    if (e.key === 'Escape' && (menu || panel)) {
+      e.preventDefault()
+      setMenu(false)
+      setPanel(false)
+      trigger.current?.focus()
+      return
+    }
+    if (!menu || e.target === trigger.current) return
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
     const items = [...(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
     const i = items.indexOf(document.activeElement as HTMLElement)
@@ -69,14 +77,12 @@ export function LensesMenu(): JSX.Element | null {
   }
 
   return (
-    <div ref={root} className="relative nodrag nopan" onKeyDown={onKey} data-testid={LENSES_TESTID}>
-      <Tooltip content={NO_LAYER_LABEL}>
-        <button type="button" className={on ? styles.iconButtonActive : styles.iconButton} aria-label={NO_LAYER_LABEL} aria-haspopup="menu" aria-expanded={menu} aria-pressed={on}
+    <div ref={root} className="relative flex flex-col nodrag nopan" onKeyDown={onKey} data-testid={LENSES_TESTID}>
+      <HoverButton ref={trigger} words={NO_LAYER_LABEL} type="button" className={TOOLBAR_RAIL_ICON} aria-label={NO_LAYER_LABEL} aria-haspopup="menu" aria-expanded={menu} aria-pressed={on}
           data-testid={`${LENSES_TESTID}-button`}
           onClick={() => { setPanel(false); setMenu((m) => { if (!m) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: LENSES_TESTID })); return !m }) }}>
-          <OkIcon id="lenses" decorative inherit />
-        </button>
-      </Tooltip>
+        <OkIcon id="lenses" size={14} decorative inherit />
+      </HoverButton>
       {menu ? (
         <div role="menu" aria-label={NO_LAYER_LABEL} className={`${at} ${MENU_SHELL} w-[240px]`} data-testid={`${LENSES_TESTID}-menu`}>
           {/* Paul, 18 Nov: Simple | Detailed lives here, with the other ways to look at the model, not in a panel of its own at the canvas foot. */}
@@ -84,7 +90,7 @@ export function LensesMenu(): JSX.Element | null {
             <p role="presentation" className={`${typography.viewPanelMeta} text-text-light`}>{LEVEL_WORDS.group}</p>
             <div className="divide-y divide-panel-border">
               {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
-                <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false) }}
+                <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false); trigger.current?.focus() }}
                   className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
                   <span className="min-w-0 truncate">{label}</span>
                 </HoverButton>

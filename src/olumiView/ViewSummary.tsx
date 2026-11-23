@@ -7,9 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useEscapeLayer } from './v12/edit/escapeLayers'
 import { createPortal } from 'react-dom'
-import { Download, FileText, Printer, X } from 'lucide-react'
+import { OkIcon } from './look/icons'
+import { HoverButton } from './look/Hover'
 import { typography } from '../styles/typography'
-import Tooltip from '../components/Tooltip'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
 import { useViewStore } from './store'
 import { useMe } from '../olumiCore/me'
@@ -88,18 +88,18 @@ export function SummaryPage({ sid, at, onClose }: { sid: string; at: number | nu
       className="fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="flex w-full max-w-[820px] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
         <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
-          <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
+          <OkIcon id="brief" size={14} decorative inherit />
           <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
           <span className="flex-1" />
           {/* The exports only beside a Summary this page has read for its own person. */}
           {state !== null && 'summary' in state ? (
             <>
-              <a href={summaryPath(sid, readN, 'md')} download className={exportLink} data-testid="summary-download"><Download size={14} strokeWidth={1.75} aria-hidden="true" />{SUMMARY_DOWNLOAD_LABEL}</a>
-              <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><Printer size={14} strokeWidth={1.75} aria-hidden="true" />{SUMMARY_PRINT_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'md')} download className={exportLink} data-testid="summary-download"><OkIcon id="export" size={14} decorative inherit />{SUMMARY_DOWNLOAD_LABEL}</a>
+              <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><OkIcon id="print" size={14} decorative inherit />{SUMMARY_PRINT_LABEL}</a>
             </>
           ) : null}
           <button ref={closeRef} type="button" onClick={onClose} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="summary-close">
-            <X size={14} strokeWidth={1.75} aria-hidden="true" />
+            <OkIcon id="cancel-close" size={14} decorative inherit />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
@@ -131,11 +131,9 @@ export function ViewSummaryTrigger({ className = '', tooltip = null }: { classNa
   if (sid === null || !saved) return null
   return (
     <>
-      <Tooltip content={tooltip}>
-        <button ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
-          <FileText size={14} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      </Tooltip>
+      <HoverButton words={tooltip} ref={trigger} type="button" onClick={() => setOpen(true)} className={className} aria-expanded={open} aria-haspopup="dialog" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-trigger">
+          <OkIcon id="brief" size={14} decorative inherit />
+      </HoverButton>
       {open && createPortal(<SummaryPage sid={sid} at={at} onClose={close} />, document.body)}
     </>
   )

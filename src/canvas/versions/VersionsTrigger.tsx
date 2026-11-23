@@ -31,6 +31,7 @@
  * panel is open, and neither owns the state.
  */
 
+import { HoverButton } from '../../olumiView/look/Hover'
 import { OkIcon } from '../../olumiView/look/icons'
 import { typography } from '../../styles/typography'
 import { useVersionsPanelStore } from './versionsPanelStore'
@@ -42,6 +43,7 @@ export interface VersionsTriggerProps {
    * `icon` — a square icon button, for a dense header row (the default).
    * `labelled` — icon plus the words, for a row with space for them.
    */
+  words?: string
   variant?: VersionsTriggerVariant
   /** Extra classes from the host row. Layout belongs to the host, never here. */
   className?: string
@@ -58,6 +60,7 @@ export const VERSIONS_TRIGGER_LABEL = 'Version history'
 
 export function VersionsTrigger({
   variant = 'icon',
+  words,
   className = '',
   'data-testid': testId = 'versions-trigger',
 }: VersionsTriggerProps) {
@@ -76,6 +79,11 @@ export function VersionsTrigger({
   }
 
   if (variant === 'icon') {
+    if (words !== undefined) return (
+      <HoverButton {...common} words={words} className={className}>
+        <OkIcon id="held-past-version" size={14} inherit decorative />
+      </HoverButton>
+    )
     return (
       <button {...common} className={className}>
         <OkIcon id="held-past-version" size={14} inherit decorative />

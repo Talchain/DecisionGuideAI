@@ -1,16 +1,11 @@
 import type { View } from '../../client'
-import { OkIconButton } from '../../look/icons'
+import { OkIcon } from '../../look/icons'
+import { HoverButton } from '../../look/Hover'
+import { TOOLBAR_BAR_SEPARATOR, TOOLBAR_ICON } from '../../look/toolbar'
 import { revealedForYou } from './differGroups'
 import { useViewsMarks } from './viewsMarks'
 import { useCompare } from './useCompare'
 import { COMPARE_WORDS } from './WhereWeDiffer'
-import { ACTION_FOCUS } from '../../../components/results/analysisNew/panelSurfaces'
-
-/** The lens buttons' height (ViewLensBar), so the row reads as one (a 16 px glyph, 32 px wide; the lens radios are 28); as they do, only an unpressed one changes colour on hover, so a
- *  pressed one keeps its pressed colour. No divider before them: at 1128x680@1.33 the bar with both icons must fit beside the pill at its tightest
- *  (286 px; 280 without the divider), or it falls to the row under the pill (UI lead ruling (a), 19 Nov). */
-const rowButton = (pressed: boolean) => `h-full min-w-8 rounded-full px-2 transition-colors duration-200 ${pressed ? '' : 'hover:text-text-body'} ${ACTION_FOCUS}`
-
 /**
  * The team's two canvas controls, as icons on the top control row (ViewLensBar's `extra`; Paul, 18 Nov: "one control row, no foot panel").
  * Drawn only once a reveal is authorised for this viewer, so they never hint that views exist before then.
@@ -25,10 +20,17 @@ export function ViewsToggle({ view, marks }: { view: View | null; /** The cards 
   if (view === null || !revealedForYou(view)) return null
   return (
     <>
-      {marks ? <OkIconButton id="views" variant={on ? undefined : 'alt'} active={on} pressed={on} words="Views" testid="views-toggle" className={rowButton(on)}
-        hover={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'} onClick={() => set(!on)} /> : null}
-      <OkIconButton id="compare-views" active={centred} pressed={centred} words={COMPARE_WORDS.control} testid="views-compare" className={rowButton(centred)}
-        hover="Each person’s view side by side, then where you differ" onClick={() => (centred ? useCompare.getState().hide() : useCompare.getState().show())} />
+      <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />
+      {marks ? (
+        <HoverButton type="button" aria-pressed={on} aria-label="Views" data-testid="views-toggle" className={TOOLBAR_ICON}
+          words={on ? 'Hide the marks for each person’s view' : 'Show each person’s view on the canvas'} onClick={() => set(!on)}>
+          <OkIcon id="views" size={14} variant={on ? undefined : 'alt'} decorative inherit />
+        </HoverButton>
+      ) : null}
+      <HoverButton type="button" aria-pressed={centred} aria-label={COMPARE_WORDS.control} data-testid="views-compare" className={TOOLBAR_ICON}
+        words="Each person’s view side by side, then where you differ" onClick={() => (centred ? useCompare.getState().hide() : useCompare.getState().show())}>
+        <OkIcon id="compare-views" size={14} decorative inherit />
+      </HoverButton>
     </>
   )
 }

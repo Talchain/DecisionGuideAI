@@ -110,7 +110,7 @@ describe('the What if lens: a figure tried on a copy from the key card, nothing 
     reply = { status: 200, body: answer }
     fireEvent.click(screen.getByTestId('view-whatif-key-run'))
     await screen.findByTestId('view-whatif-key-compare')
-    fireEvent.click(screen.getByTestId('view-whatif-key-clear'))
+    fireEvent.click(screen.getByTestId('view-whatif-bar-discard'))
     expect(screen.queryByTestId('view-whatif-key-compare')).toBeNull()
     expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/whatif`, `/api/scenarios/${SID}/whatif`])
   })

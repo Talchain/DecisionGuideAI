@@ -5,10 +5,10 @@
  * Pressing the action zooms in to full size (the full face, a notch clear of the threshold), about the middle of the free canvas (left of the dock).
  */
 import { useReactFlow, useStore } from '@xyflow/react'
-import { ZoomIn } from 'lucide-react'
-import { CANVAS_LOD_NOTICE_ACTION, CANVAS_LOD_NOTICE_COPY, CANVAS_LOD_NOTICE_TESTID } from '../canvas/components/CanvasLodNotice'
+import { OkIcon } from './look/icons'
+import { TOOLBAR_BAR, TOOLBAR_BAR_SEPARATOR, TOOLBAR_LABEL, TOOLBAR_STATUS } from './look/toolbar'
+import { CANVAS_LOD_NOTICE_ACTION, CANVAS_LOD_NOTICE_TESTID } from '../canvas/components/CanvasLodNotice'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
-import { typography } from '../styles/typography'
 import { useCanvasStore } from '../canvas/store'
 import { selectLodBodyHidden } from '../canvas/utils/zoomLegibility'
 
@@ -30,12 +30,15 @@ export function ViewZoomNotice({ onZoom }: { onZoom?: () => void }): JSX.Element
   }
   return (
     <div className="pointer-events-none fixed bottom-[16px] left-0 z-[1200] flex justify-center" style={{ width: free }}>
-      <div data-testid={CANVAS_LOD_NOTICE_TESTID} role="status" aria-live="polite"
-        className="pointer-events-auto flex items-center gap-2 rounded-full border border-panel-border bg-panel px-3 py-1.5 shadow-2">
-        <ZoomIn className="h-3.5 w-3.5 flex-none text-text-light" aria-hidden="true" />
-        <span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>
-        <button type="button" data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`} onClick={zoomIn}
-          className={`${typography.panelMeta} rounded-sm text-info underline hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}>{CANVAS_LOD_NOTICE_ACTION}</button>
+      <div data-testid={CANVAS_LOD_NOTICE_TESTID} className={`pointer-events-auto ${TOOLBAR_BAR}`}>
+        <span role="status" aria-live="polite" className={TOOLBAR_STATUS}>
+          <OkIcon id="zoom" size={14} decorative className="text-text-light" inherit />
+          Zoomed out, showing less on each card
+        </span>
+        <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />
+        <button type="button" data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`} onClick={zoomIn} className={TOOLBAR_LABEL}>
+          {CANVAS_LOD_NOTICE_ACTION}
+        </button>
       </div>
     </div>
   )

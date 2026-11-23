@@ -12,6 +12,7 @@
  * TopBar's separate plain-title control is gone. See `displayName`/`onRename`.
  */
 
+import { TOOLBAR_TITLE } from '../../olumiView/look/toolbar'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import { OkIcon } from '../../olumiView/look/icons'
@@ -44,8 +45,6 @@ interface ScenarioSwitcherProps {
    * viewport.
    */
   dropdownPosition?: 'above' | 'below'
-  /** J1 gate (the core lane's header strip, as the prototype's): the name without the folder glyph, in the header's ink. */
-  bare?: boolean
   /**
    * ⭐ THE NAME THIS CONTROL DISPLAYS, when the mount is the name authority.
    *
@@ -103,7 +102,6 @@ interface ScenarioSwitcherProps {
 }
 
 export function ScenarioSwitcher({
-  bare = false,
   dropdownPosition = 'above',
   displayName,
   onRename,
@@ -147,6 +145,7 @@ export function ScenarioSwitcher({
   const resolvedName = (displayName ?? currentScenario?.name ?? '').trim() || UNTITLED_MODEL
 
   // On the olumi-core lane a new name would show and be lost: core has no route for it, so no rename control is offered.
+  const lane = isOlumiCoreLane()
   const canRename = coreLaneAllows('structure')
   // G24: on the lane the local records (Save, Duplicate, Delete, Load, Import, Export) are not drawn: lane.ts declares it once.
   const records = lanePreviousControl('records') && lanePreviousControl('file')
@@ -408,13 +407,13 @@ export function ScenarioSwitcher({
           /* contract v3.1 `.app-project{display:flex;align-items:center;gap:8px;
              font-size:13px}` (DESIGN-GAP #5): the model title sits in the bar
              unboxed — no bordered pill, 13px regular ink, a muted ⌄. */
-          className="flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"
+          className={lane ? `flex min-w-0 items-center gap-1.5 px-2 ${TOOLBAR_TITLE}` : "flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"}
           data-testid="scenario-switcher-pill"
         >
-          {bare ? null : <OkIcon id="scenario" decorative />}
+          <OkIcon id="scenario" size={lane ? 14 : undefined} decorative />
 
           {!canRename ? (
-            <span className="max-w-[360px] truncate px-0.5 text-left" data-testid="scenario-name-text">{resolvedName}</span>
+            <span className={lane ? "max-w-[360px] truncate text-left" : "max-w-[360px] truncate px-0.5 text-left"} data-testid="scenario-name-text">{resolvedName}</span>
           ) : isRenaming ? (
             <input
               type="text"
@@ -457,13 +456,14 @@ export function ScenarioSwitcher({
           {isPersisted ? (
             isDirty || serverSaveStatus === 'saving' || serverSaveStatus === 'error' ? null : (
               <SaveStatusPill
+                toolbar={lane}
                 isSaving={false}
                 isDirty={false}
                 lastSavedAt={lastSavedAt === null ? serverLastSavedAt : serverLastSavedAt === null ? lastSavedAt : Math.max(lastSavedAt, serverLastSavedAt)}
               />
             )
           ) : (
-            <SaveStatusPill isSaving={isSaving} isDirty={isDirty} lastSavedAt={lastSavedAt} />
+            <SaveStatusPill toolbar={lane} isSaving={isSaving} isDirty={isDirty} lastSavedAt={lastSavedAt} />
           )}
 
           {/* The menu is the local records (Save, Export, Import, the list). Where none are drawn (the lane: lane.ts `records`) it would hold nothing but a
