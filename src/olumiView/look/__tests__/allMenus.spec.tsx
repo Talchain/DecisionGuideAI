@@ -137,20 +137,22 @@ describe('lane menus use the shared shell and focus contract', () => {
     expect(trigger).toHaveFocus()
   })
 
+  // Paul 23 Nov: the goal is the menu's own radio row (ViewChat SessionGoal, MenuRow's DOM), held as aria-disabled.
+  const goalRow = (held: boolean) => <button type="button" role="menuitemradio" aria-checked={false} data-menu-row="goal-understand" tabIndex={-1} aria-disabled={held || undefined}>Understand the situation</button>
   it('repairs chat focus if the goal row becomes held, then if the build offer disappears', async () => {
     const { rerender } = render(
       <ActionsMenu menu={{ ...chatRows, tools: [...chatRows.tools] }} held={false}
-        goal={<button type="button">Understand the situation</button>} onMethod={noop} onTool={noop} />,
+        goal={goalRow(false)} onMethod={noop} onTool={noop} />,
     )
     openMenu(MORE_ACTIONS)
-    const goal = screen.getByRole('button', { name: 'Understand the situation' })
+    const goal = screen.getByRole('menuitemradio', { name: 'Understand the situation' })
     expect(goal).toHaveFocus()
     const build = { label: 'Build a model', title: 'Draft from the conversation so far', onPress: noop }
     rerender(<ActionsMenu menu={{ ...chatRows, tools: [...chatRows.tools] }} held={false}
-      goal={<button type="button" disabled>Understand the situation</button>} onMethod={noop} onTool={noop} build={build} />)
+      goal={goalRow(true)} onMethod={noop} onTool={noop} build={build} />)
     await waitFor(() => expect(screen.getByTestId('view-build-model')).toHaveFocus())
     rerender(<ActionsMenu menu={{ ...chatRows, tools: [...chatRows.tools] }} held={false}
-      goal={<button type="button" disabled>Understand the situation</button>} onMethod={noop} onTool={noop} />)
+      goal={goalRow(true)} onMethod={noop} onTool={noop} />)
     await waitFor(() => expect(screen.getByTestId('view-session-method')).toHaveFocus())
   })
 })

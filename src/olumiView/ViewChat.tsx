@@ -1755,6 +1755,9 @@ export const GOAL_QUESTION = 'What did you come here for?'
 function SessionGoal({ session, held }: { session: Session; held: boolean }) {
   const [changing, setChanging] = useState(false)
   const goal = session.goal
+  // "Change it" removes the chip that held focus: the first goal row takes it, so the keyboard lands on core's goals.
+  const rows = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (changing) rows.current?.querySelector<HTMLElement>('[data-menu-row]')?.focus({ preventScroll: true }) }, [changing])
   const choose = (id: string | null) => { setChanging(false); if (id !== (goal?.id ?? null)) void chooseGoal(id) }
   if (goal !== null && !changing) {
     return (
@@ -1775,7 +1778,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
     )
   }
   return (
-    <div role="group" aria-labelledby="view-session-goal-question" data-testid="view-session-goal">
+    <div ref={rows} role="group" aria-labelledby="view-session-goal-question" data-testid="view-session-goal">
       <MenuLabel as="p"><span id="view-session-goal-question" className="flex items-center gap-2"><OkIcon id="goal" size={14} decorative />{GOAL_QUESTION}</span></MenuLabel>
       {session.goals.map((g, i) => (
         <MenuItem key={g.id} id={`goal-${g.id}`} label={g.text} checked={g.id === goal?.id} disabled={held} closeOnSelect={false}

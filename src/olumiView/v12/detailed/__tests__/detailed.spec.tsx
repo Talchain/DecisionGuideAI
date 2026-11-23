@@ -405,7 +405,7 @@ describe('Detailed: marks, not sentences', () => {
     expect(titleRules.filter((r) => cuts(r.body)).flatMap((r) => r.titles).filter((sel) => !sel.includes('[data-simple-compact]')), 'no rule that can match a Detailed title cuts it').toEqual([])
     expect(titleRules.filter((r) => cuts(r.body)).map((r) => r.titles), 'CONTRAST: the one cutting rule is Simple\'s compact card, so the probe sees a clamp')
       .toEqual([[".olumi-look .react-flow__node:not(.react-flow__node-viewQuestion) [data-simple-compact] [data-testid='node-title']"]])
-    expect(titleRules.filter((r) => /-webkit-line-clamp:\s*unset\s*!important/.test(r.body) && /overflow:\s*visible\s*!important/.test(r.body)).map((r) => r.titles), 'and every card\'s title is un-clamped by the general rule')
+    expect(titleRules.filter((r) => /-webkit-line-clamp:\s*unset\b/.test(r.body) && /overflow:\s*visible\b/.test(r.body)).map((r) => r.titles), 'and every card\'s title is un-clamped by the general rule')
       .toEqual([[".olumi-look .react-flow__node [data-testid='node-title']"]])
   })
   it('DT11 a figure with one stated value and no range draws no range bar on Detailed (no empty 0-to-x bar). CONTRAST: the same card with a range that has a spread draws one', () => {

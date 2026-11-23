@@ -129,7 +129,8 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     const h = card.headline!
     const face = detail(view, card.id).querySelector<HTMLElement>('[data-ok-face="none"]')!
     const line = at(face, `${card.id}.headline.add`)
-    expect(face.textContent).toBe(h.add)
+    // The face leads with the add line; the headline row's own input to check (RowBelow, base A7(a)) stays under it.
+    expect(face.textContent?.startsWith(h.add!)).toBe(true)
     expect(line.textContent).toBe(h.add)
     expect(at(face, `${card.id}.headline.title`)).toBeNull()
     const flaggedHTML = face.outerHTML

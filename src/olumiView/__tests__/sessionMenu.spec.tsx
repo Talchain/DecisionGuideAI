@@ -80,8 +80,9 @@ describe('with no goal: "What did you come here for?" and core\'s four goals', (
     expect(goalOptions(c).map((b) => b.dataset['goal'])).toEqual(s.goals.map((g) => g.id))
     expect(goalOptions(c).map((b) => b.textContent)).toEqual(s.goals.map((g) => g.text))
     for (const tile of goalOptions(c)) {
-      expect(tile).toHaveClass('text-left', 'items-start')
-      expect(tile).toHaveAttribute('aria-pressed', 'false')
+      // Paul 23 Nov: the goals are the menu's own rows in its top section (MenuItem radios), not bordered tiles.
+      expect(tile).toHaveAttribute('role', 'menuitemradio')
+      expect(tile).toHaveAttribute('aria-checked', 'false')
     }
     expect(c.querySelector('[data-testid="view-session-goal-chip"]')).toBeNull()
     expect(drawnExactly(c, view)).toBeGreaterThanOrEqual(4)
@@ -129,9 +130,8 @@ describe('with a goal: a compact chip in core\'s words, changeable and clearable
     const c = renderTab()
     await press(c.querySelector('[data-testid="view-session-goal-change"]')!)
     expect(goalOptions(c).map((b) => b.dataset['goal'])).toEqual(s.goals.map((g) => g.id))
-    const selected = goalOptions(c).filter((b) => b.getAttribute('aria-pressed') === 'true')
+    const selected = goalOptions(c).filter((b) => b.getAttribute('aria-checked') === 'true')
     expect(selected.map((b) => b.dataset['goal'])).toEqual([s.goal?.id])
-    expect(selected[0]).toHaveClass('aria-pressed:bg-goal-light')
     expect(selected[0]?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
     await waitFor(() => expect(goalOptions(c)[0]).toHaveFocus())
   })
@@ -299,7 +299,7 @@ describe('a press asks that question as a discussion-only turn', () => {
     show(fixture('no-goal'))
     const c = renderTab()
     expect(goalOptions(c)).toHaveLength(4)
-    for (const b of goalOptions(c)) expect(b.disabled, b.dataset['goal']).toBe(true)
+    for (const b of goalOptions(c)) expect(b.getAttribute('aria-disabled'), b.dataset['goal']).toBe('true')
   })
 })
 
