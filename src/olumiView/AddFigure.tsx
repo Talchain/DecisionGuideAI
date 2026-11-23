@@ -20,6 +20,8 @@ import { isForThisPage, useMe } from '../olumiCore/me'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../canvas/store'
 import { writes } from './client'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { openLaneAdd } from './v12/edit/structuralEdits'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useViewStore } from './store'
 import { noteEditSaved } from './notice'
@@ -52,7 +54,11 @@ export function AddFigure(): JSX.Element | null {
   const me = useMe((s) => s.me)
   // The "+" menu is floating-ui's own; the form it opens is one of the five surfaces the one surface store holds (surfaces step 2): opening it closes
   // whatever else was open, anything else opening closes it. Its typed words stay here, whatever closes it.
-  const [menu, setMenu] = useState(false)
+  const opener = useRef<HTMLButtonElement | null>(null)
+  const lane = isOlumiCoreLane()
+  const [olderMenu, setMenu] = useState(false)
+  const addOpener = useLaneInspector((s) => s.current?.kind === 'add-menu' ? s.current.opener : null)
+  const menu = lane ? addOpener !== null && addOpener === opener.current : olderMenu
   const open = useLaneInspector((s) => s.current !== null && s.current.kind === 'add')
   const key = `${sid}:add-figure`
   const [label, setLabel] = useState('')
@@ -60,7 +66,6 @@ export function AddFigure(): JSX.Element | null {
   const [unit, setUnit] = useState('')
   const [base, setBase] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const opener = useRef<HTMLButtonElement | null>(null)
   const figureBox = useRef<HTMLInputElement>(null)
   // Form and menu dismissal return focus to the toolbar add control: the form closed by its Cancel, a save or Escape, whichever way the store closed it,
   // and the menu closed by Escape or a press outside. (Another surface opening has taken the focus itself: only focus left on nothing comes back.)
@@ -72,12 +77,20 @@ export function AddFigure(): JSX.Element | null {
   // The card going away (or the page leaving) takes an open add form with it: nothing is left holding the one slot.
   useEffect(() => () => { useLaneInspector.getState().close('add') }, [])
   const { refs, floatingStyles, context } = useFloating({
-    open: menu, onOpenChange: (next) => { setMenu(next); if (!next) opener.current?.focus() },
+    open: menu, onOpenChange: (next) => {
+      if (lane) {
+        if (next && opener.current !== null) openLaneAdd(opener.current)
+        else if (!next && menu) useLaneInspector.getState().close('add-menu')
+        return
+      }
+      setMenu(next)
+      if (!next) opener.current?.focus()
+    },
     placement: 'right-start', strategy: 'fixed', whileElementsMounted: autoUpdate,
     middleware: [offset(12), flip(), shift({ padding: 8 })],
   })
   const { getReferenceProps, getFloatingProps } = useInteractions([
-    useClick(context), useDismiss(context, { outsidePressEvent: 'click' }), useRole(context, { role: 'menu' }),
+    useClick(context), useDismiss(context, { enabled: !lane, outsidePressEvent: 'click' }), useRole(context, { role: 'menu' }),
   ])
   const reference = useMergeRefs([opener, refs.setReference])
   const sending = useWriteSending(key)
@@ -117,14 +130,14 @@ export function AddFigure(): JSX.Element | null {
           <OkIcon id="add" size={14} decorative inherit />
         </HoverButton>
       )}
-      {menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
+      {!lane && menu && live !== null ? <FloatingFocusManager context={context} modal={false} returnFocus={false}>
         <div ref={refs.setFloating} style={floatingStyles} {...getFloatingProps()}
           className={MENU_SHELL} aria-label="Add to model">
           <button type="button" role="menuitem" className={`${MENU_ROW} cursor-pointer text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2`}
             onClick={() => { setBase(live); setError(null); setMenu(false); useLaneInspector.getState().show({ kind: 'add', busyKey: key }) }}>{ADD_FIGURE_WORDS.open}</button>
         </div>
       </FloatingFocusManager> : null}
-      {open ? (
+      {!lane && open ? (
         <form className={`absolute left-full top-0 ml-3 nodrag nopan w-[260px] space-y-2 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`} data-testid="view-add-figure-form"
           onSubmit={(e) => { e.preventDefault(); void add() }}>
           <label className="block space-y-1"><span className={typography.viewPanelMeta}>{ADD_FIGURE_WORDS.name}</span>

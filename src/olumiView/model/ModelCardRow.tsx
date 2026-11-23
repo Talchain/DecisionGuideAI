@@ -15,6 +15,8 @@
  * cue) and opens its editor where it stands; the row's press opens its detail (rename, an aim's target, links, whose it is) and puts its
  * card in front on the canvas. One editor and one detail at a time (`./state.ts`). Plain shows the model; Expert adds the science.
  */
+import { canRenameCard } from '../v12/edit/renameCard'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useId, useMemo, useState } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -179,7 +181,7 @@ export function ModelCardRow({ card, number, kind, model }: {
                   onFocus={headTip.handlers.onFocus} onBlur={headTip.handlers.onBlur}
                   onClick={(e) => { e.stopPropagation(); headTip.dismiss(); select() }}
                   onKeyDown={(e) => { headTip.handlers.onKeyDown(e); if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); select() } }}
-                  onDoubleClick={canEdit ? (e) => { e.stopPropagation(); openEditor({ row: card.id, what: 'rename' }, card.heading) } : undefined}
+                  onDoubleClick={canEdit && (!isOlumiCoreLane() || canRenameCard(card)) ? (e) => { e.stopPropagation(); openEditor({ row: card.id, what: 'rename' }, card.heading) } : undefined}
                   className={`cursor-pointer rounded-sm ${ACTION_FOCUS}`}>
                   <span data-view={`${card.id}.heading`}>{card.heading}</span>
                 </span>

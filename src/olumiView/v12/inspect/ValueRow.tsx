@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '../../../styles/typography'
 import { Hover } from '../../look/Hover'
-import { VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_EDIT_CHIP_CLASS, VIEW_EDIT_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { useUIStore } from '../../../stores/uiStore'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { useWriteSending } from '../../../olumiCore/team/writes'
@@ -35,7 +35,6 @@ const fieldsOf = (edit: NonNullable<CoreEdit>): Field[] => (isSizeEdit(edit)
   : [{ key: 'typed', label: edit.prompt, hint: edit.ask, optional: false }])
 
 const BASE_KEY = 'base'
-const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`
 
 export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), me = useMe((s) => s.me)
@@ -65,7 +64,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
     else useLaneInspector.getState().setDraft(draftKey, next)
   }
   // A control asked for this field (`openFigure`): it takes focus, and opens on the latest version unless the person already has typing here, which keeps its own.
-  const asked = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' && s.current.edit !== undefined && s.current.target.kind === kind && s.current.target.id === id ? s.current : null))
+  const asked = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' && (s.current.edit === 'value' || s.current.edit === 'aside') && s.current.target.kind === kind && s.current.target.id === id ? s.current : null))
   const askedN = asked?.n ?? 0
   const fresh = asked?.edit === 'aside'
   // The control that opened this row says what Enter does and where a try is drawn (the old editor's `primary` and `tab`); kept while the row is open on it.
@@ -103,7 +102,14 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
   const tryIt = async (): Promise<void> => {
     if (!can || base === null || size) return
     setError(null); setTrying(true)
-    try { await tryWhatIf(sid, base, id, values['typed'] ?? ''); useUIStore.getState().forceActivateOutputTab(tab); useLaneInspector.getState().close('details') } catch (e) {
+    const showing = useLaneInspector.getState().current
+    try {
+      await tryWhatIf(sid, base, id, values['typed'] ?? '')
+      if (useLaneInspector.getState().current === showing) {
+        useUIStore.getState().forceActivateOutputTab(tab)
+        useLaneInspector.getState().close('details')
+      }
+    } catch (e) {
       setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was tried.')
     } finally { setTrying(false) }
   }
@@ -137,9 +143,9 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
       {/* The buttons are drawn once there is something to send: a Set (or Try) beside an empty field is a control dimmed at rest with no reason. Enter in the field still submits. */}
       {!typedAny ? null : (
         <div className="flex flex-wrap gap-2">
-          <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={primary === 'try' && !size ? btn : VIEW_CHIP_PRIMARY_CLASS}>
+          <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={primary === 'try' && !size ? VIEW_EDIT_CHIP_CLASS : VIEW_EDIT_CHIP_PRIMARY_CLASS}>
             {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
-          {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={primary === 'try' ? `order-first ${VIEW_CHIP_PRIMARY_CLASS}` : btn}>{VALUE_WORDS.tryIt}</button>}
+          {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={primary === 'try' ? `order-first ${VIEW_EDIT_CHIP_PRIMARY_CLASS}` : VIEW_EDIT_CHIP_CLASS}>{VALUE_WORDS.tryIt}</button>}
         </div>
       )}
     </form>

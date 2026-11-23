@@ -14,6 +14,8 @@ import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { LaneLinkRemoveButton } from '../../olumiView/v12/edit/LaneLinkRemoveButton'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
@@ -329,7 +331,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         <EdgeLabelRenderer>
           <div ref={attachCtl} data-link-remove-at={`links.${i}`}
             className={ctlAt === null ? 'ok-link-ctl ok-link-hidden' : 'ok-link-ctl'}>
-            <LinkRemove edge={id} from={source} remove={link.remove} />
+            {isOlumiCoreLane() ? <LaneLinkRemoveButton edge={id} link={link} /> : <LinkRemove edge={id} from={source} remove={link.remove} />}
           </div>
         </EdgeLabelRenderer>
       ) : null}

@@ -1,3 +1,4 @@
+import { barCardOf } from '../../layout'
 import { BODY, H, LABEL } from '../../../olumiCore/team/ui'
 import { typography } from '../../../styles/typography'
 import { requestAsk } from '../../../canvas/ui/inspector-v2/askSemantic'
@@ -5,6 +6,10 @@ import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
+import { VIEW_EDIT_CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { targetCardOf } from '../../model/targets'
+import { useModelEdit } from '../../model/editing'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { findingOf as modelFindingOf } from '../contract'
 import { FindingLine } from '../../FindingLine'
@@ -60,15 +65,15 @@ function Mark({ card, bound }: { card: ViewCard; bound: boolean }): JSX.Element 
   return boundOwn ? null : <PersonMark words={card.author?.text ?? null} />
 }
 
-function Aim({ card }: { card: ViewCard }): JSX.Element {
+function Aim({ card, onEdit, lane }: { card: ViewCard; onEdit: (() => void) | null; lane: boolean }): JSX.Element {
   const own = card.olumi != null
   const b = card.bound
   return (
     <li className={`${CARD_BOX} ${own ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-card-${card.id}`} data-olumi-card={own ? '' : undefined}>
       <div className="flex items-start gap-1.5">
         <span className={`${BODY} min-w-0 flex-1 break-words`} data-frame="heading"><Mark card={card} bound={false} /> {card.heading}</span>
-        <button type="button" className={EDIT} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
-          onClick={() => useLaneInspector.getState().open({ kind: 'card', id: card.id })}>{FRAME_WORDS.edit}</button>
+        {onEdit === null ? null : <button type="button" className={lane ? VIEW_EDIT_CHIP_CLASS : EDIT} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
+          onClick={onEdit}>{FRAME_WORDS.edit}</button>}
       </div>
       <Hover className={`${BODY} text-text-light`} data-frame="bound" words={b?.title}>
         {b != null && b.measured ? b.text : FRAME_WORDS.inWords}<Mark card={card} bound />
@@ -80,7 +85,18 @@ function Aim({ card }: { card: ViewCard }): JSX.Element {
 export function FramePage({ view, onClose }: { view: View; onClose: () => void }): JSX.Element | null {
   const model = view.model
   const surface = useFindingSurface()
+  const { base } = useModelEdit()
+  const lane = isOlumiCoreLane()
   if (model == null) return null
+  const renderAim = (card: ViewCard) => {
+    const bar = barCardOf(model, card.id)
+    const target = bar === null ? targetCardOf(model, card) : bar.figure?.edit == null ? null : bar
+    const edit = !lane ? () => useLaneInspector.getState().open({ kind: 'card', id: card.id })
+      : target === null || base === null ? null : () => {
+        if (useLaneInspector.getState().openFigure({ kind: 'card', id: target.id })) onClose()
+      }
+    return <Aim key={card.id} card={card} onEdit={edit} lane={lane} />
+  }
   const q = model.question
   const aims = model.cards.filter((c) => c.family === 'goal'), limits = model.cards.filter((c) => c.family === 'limit'), routes = model.cards.filter((c) => c.family === 'option')
   const more = model.cards.length - aims.length - limits.length - routes.length
@@ -104,8 +120,8 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
           {aims.length + limits.length === 0 ? null : (
             <section className="grid gap-4" aria-label={FRAME_WORDS.matters}>
               <h3 className={H}>{FRAME_WORDS.matters}</h3>
-              {aims.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.aims}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-aims">{aims.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
-              {limits.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-limits">{limits.map((c) => <Aim key={c.id} card={c} />)}</ul></div>}
+              {aims.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.aims}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-aims">{aims.map(renderAim)}</ul></div>}
+              {limits.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-limits">{limits.map(renderAim)}</ul></div>}
             </section>
           )}
           {finding === null ? (surface === 'frame' ? <FindingLine model={model} at="frame" onFocusFigure={onClose} /> : null)

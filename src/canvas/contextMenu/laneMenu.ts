@@ -13,11 +13,12 @@ import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
 import type { EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
+import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
 import { plainWords } from '../../olumiView/plainWords'
 import { isMenuItem, type ContextTarget, type MenuEntry, type MenuItemDef } from './types'
 
 export const LANE_MENU_WORDS = {
-  hand: 'Hand mode', select: 'Select mode', add: 'Add', factor: 'Factor', option: 'Option', risk: 'Risk', claim: 'Claim', question: 'Open question',
+  hand: 'Hand mode', select: 'Select mode', add: 'Add', factor: 'Factor', figure: 'Figure', option: 'Option', risk: 'Risk', claim: 'Claim', question: 'Open question',
   askOlumi: 'Ask Olumi', missing: "What's missing from this model?", explain: 'Explain this', challenge: 'Challenge this',
   autoArrange: 'Auto-arrange', whole: 'Show the whole model', simple: 'Simple',
   details: 'Open details', rename: 'Rename', change: 'Change figure', setStrength: 'Set strength', setSize: 'Set chance and size', removeLink: 'Remove link',
@@ -39,6 +40,8 @@ export type LaneMenuCtx = {
     readonly open: (spec: EditSpec) => void
     readonly openDetails: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
     /** Surfaces step 5 (the lane only; absent on the older look): open the details of a card or link with its Value row's field focused. A figure, a risk's size and a link's strength are changed there and nowhere else. */
+    readonly openRename?: (id: string) => void
+    readonly openRemove?: (link: ViewLink) => void
     readonly openFigure?: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
     readonly ask: (target: ContextTarget, intent: AskIntent) => void
     /** Puts `text` in the AI box for the person to finish and send (the card's Olumi badge does the same); sends nothing. */
@@ -60,7 +63,7 @@ function figureRow(c: LaneMenuCtx, id: string, label: string, tooltip: string, a
 }
 
 /** An edit row, only where core takes an edit now: no row (nothing to read, nothing to press) while it does not. */
-function editRow(c: LaneMenuCtx, id: string, label: string, iconId: IconId | undefined, tooltip: string, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec, extra: Partial<MenuItemDef> = {}): MenuItemDef[] {
+function editRow(c: { gate: EditGate; act: Pick<LaneMenuCtx['act'], 'open'> }, id: string, label: string, iconId: IconId | undefined, tooltip: string, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec, extra: Partial<MenuItemDef> = {}): MenuItemDef[] {
   const g = c.gate
   return g.ok ? [{ id, label, ...(iconId === undefined ? {} : { iconId }), tooltip, enabled: true, action: () => c.act.open(spec(g)), ...extra }] : []
 }
@@ -90,19 +93,23 @@ const ask = (c: LaneMenuCtx, target: ContextTarget, items: ReadonlyArray<[string
   submenuItems: items.map(([id, label, intent]) => ({ id, label, iconId: 'olumi-mark', tooltip: label, enabled: true, action: () => c.act.ask(target, intent) })),
 })
 
-function paneMenu(target: Extract<ContextTarget, { kind: 'pane' }>, c: LaneMenuCtx): MenuEntry[] {
+export function addMenuRows(c: Pick<LaneMenuCtx, 'gate' | 'model'>, open: LaneMenuCtx['act']['open']): MenuItemDef[] {
+  const ctx = { gate: c.gate, act: { open } }
   const figures = figureCards(c.model).map((f) => ({ id: f.id, heading: f.heading }))
-  // A risk is about a figure: with none in the model there is nothing to add it to, so no row.
   const item = (id: string, label: string, kind: 'choice' | 'risk' | 'claim' | 'question', tip: string): MenuItemDef[] =>
-    kind === 'risk' && figures.length === 0 ? [] : editRow(c, id, label, undefined, tip, (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: kind, concerns: [], about: null, pickFigure: kind === 'risk' ? figures : null }))
-  const addItems: MenuItemDef[] = [
-    ...editRow(c, 'add-factor', LANE_MENU_WORDS.factor, undefined, 'A figure of your own, with its value', (g) => ({ kind: 'figure-add', sid: g.sid, base: g.base })),
+    editRow(ctx, id, label, undefined, tip, (g) => ({ kind: 'item', sid: g.sid, base: g.base, item: kind, concerns: [], about: null, pickFigure: kind === 'risk' ? figures : null }),
+      kind === 'risk' && figures.length === 0 ? { enabled: false, disabledReason: 'Add a figure for this risk to affect.' } : {})
+  return [
+    ...editRow(ctx, 'add-factor', LANE_MENU_WORDS.figure, undefined, 'A figure of your own, with its value', (g) => ({ kind: 'figure-add', sid: g.sid, base: g.base })),
     ...item('add-option', LANE_MENU_WORDS.option, 'choice', 'A route you could take'),
     ...item('add-risk', LANE_MENU_WORDS.risk, 'risk', 'Something that could go wrong, on a figure it would move'),
     ...item('add-claim', LANE_MENU_WORDS.claim, 'claim', 'A statement you hold about this'),
     ...item('add-question', LANE_MENU_WORDS.question, 'question', 'Something no figure or link answers yet'),
   ]
-  // The Add submenu is there when any of its rows can act.
+}
+
+function paneMenu(target: Extract<ContextTarget, { kind: 'pane' }>, c: LaneMenuCtx): MenuEntry[] {
+  const addItems = addMenuRows(c, c.act.open)
   const add: MenuItemDef[] = addItems.length === 0 ? [] : [{ id: 'add', label: LANE_MENU_WORDS.add, iconId: 'add', tooltip: 'Add to the model in your own words', enabled: true, hasSubmenu: true, action: () => undefined, submenuItems: addItems }]
   return [
     ...(c.mode !== undefined && c.act.setMode !== undefined ? [{
@@ -137,7 +144,12 @@ function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuC
 export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
   const edit = card.figure?.edit ?? null, edits: MenuItemDef[] = []
   {
-    edits.push(...editRow(c, 'rename', LANE_MENU_WORDS.rename, 'edit', 'Give this card your own name', (g) => ({ kind: 'rename', sid: g.sid, base: g.base, record: card.id, current: card.heading })))
+    const rename = c.act.openRename
+    if (rename === undefined || canRenameCard(card)) {
+      edits.push(...editRow(c, 'rename', LANE_MENU_WORDS.rename, 'edit', 'Give this card your own name',
+        (g) => ({ kind: 'rename', sid: g.sid, base: g.base, record: card.id, current: card.heading }),
+        rename === undefined ? {} : { action: () => rename(card.id) }))
+    }
     if (isSizeEdit(edit)) {
       const link = edit.fields.some((f) => f.key === 'typed')
       edits.push(...figureRow(c, 'size', link ? LANE_MENU_WORDS.setStrength : LANE_MENU_WORDS.setSize, edit.prompt, { kind: 'card', id: card.id }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit, subject: card.heading })))
@@ -154,7 +166,7 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
 export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx): MenuItemDef[] {
   const size = link?.size?.edit ?? null, remove = link?.remove ?? null, rows: MenuItemDef[] = []
   if (isSizeEdit(size) && link !== undefined) rows.push(...figureRow(c, 'size', LANE_MENU_WORDS.setStrength, size.prompt, { kind: 'link', id: edgeIdOf(link) }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
-  if (remove !== null && remove !== undefined) rows.push(...editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, 'remove-link', 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove }), { destructive: true }))
+  if (remove !== null && remove !== undefined) rows.push(...editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, 'remove-link', 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove }), { destructive: true, ...(c.act.openRemove === undefined || link === undefined ? {} : { action: () => c.act.openRemove?.(link) }) }))
   return rows
 }
 export const edgeIdOf = (l: Pick<ViewLink, 'from' | 'to' | 'kind'>): string => `${l.from}->${l.to}:${l.kind}`

@@ -54,10 +54,10 @@ const pane = () => root.querySelector<HTMLElement>('.react-flow__pane')!
 // The surfaces, each by what it renders. (Surfaces step 5: the card's figure editor is not one of them on the lane any more: its pencil opens the details, whose Value row is the
 // one place a figure is changed; the older look's pop-over is covered by ONE-13 and oneFigureEditor.spec.tsx.)
 const SEEN = {
-  form: () => document.querySelector('[data-testid="lane-edit-form"]'),
+  form: () => document.querySelector('[data-testid="lane-edit-form"]:not([data-kind="figure-add"])'),
   details: () => document.querySelector('[data-testid="lane-inspector"]'),
   menu: () => document.querySelector('[role="menu"][aria-label="Canvas context menu"]'),
-  add: () => document.querySelector('[data-testid="view-add-figure-form"]'),
+  add: () => document.querySelector('[data-testid="lane-edit-form"][data-kind="figure-add"]'),
 }
 type Name = keyof typeof SEEN
 const open = (): Name[] => (Object.keys(SEEN) as Name[]).filter((k) => SEEN[k]() !== null)
@@ -66,14 +66,41 @@ const row = (label: string) => within(document.querySelector('[role="menu"][aria
 const OPENERS: Record<Name, () => Promise<void>> = {
   details: async () => { fireEvent.click(node(OPT)); await settle() },
   menu: async () => { fireEvent.contextMenu(node(OTHER)); await settle() },
-  form: async () => { fireEvent.contextMenu(node(OTHER)); await settle(); fireEvent.click(row('Rename')); await settle() },
-  add: async () => { fireEvent.click(screen.getByTestId('canvas-add-to-model')); fireEvent.click(screen.getByRole('menuitem', { name: 'Add a figure' })); await settle() },
+  form: async () => { fireEvent.contextMenu(node(OTHER)); await settle(); fireEvent.click(row('Add a claim about this')); await settle() },
+  add: async () => { fireEvent.click(screen.getByTestId('canvas-add-to-model')); fireEvent.click(screen.getByRole('menuitem', { name: 'Figure' })); await settle() },
 }
 // The field a person is typing in when they press Escape, for each surface that has one.
 const FIELD: Partial<Record<Name, () => HTMLElement>> = {
-  form: () => screen.getByTestId('lane-edit-label'),
-  add: () => screen.getByTestId('view-add-figure-name'),
+  form: () => screen.getByTestId('lane-edit-text'),
+  add: () => screen.getByTestId('lane-edit-label'),
 }
+
+it('a card’s More actions button reaches the same focused rename heading as right-click', async () => {
+  await board()
+  fireEvent.click(node(OPT))
+  await settle()
+  const more = node(OPT).querySelector('[data-card-menu-opener]')!
+  fireEvent.click(more)
+  await settle()
+  fireEvent.click(row('Rename'))
+  expect(screen.getByTestId('lane-inspector-name')).toHaveFocus()
+  expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-box-card', OPT)
+})
+
+it.each(['goal', 'limit'] as const)('Frame Edit on a %s closes the stage and focuses the backing figure', async (family) => {
+  const view = approved(), model = view.model!
+  const aim = model.cards.find((card) => card.family === family)!
+  const measure = model.links.find((link) => link.to === aim.id && link.title === (family === 'goal' ? 'target' : 'bound'))!
+  const source = model.cards.find((card) => card.id === FIG)!
+  model.cards = model.cards.map((card) => card.id === measure.from || card.id === aim.id ? { ...card, figure: source.figure } : card)
+  await board(false, view)
+  act(() => useFrameStage.getState().show())
+  expect(screen.getByTestId('frame-stage')).toBeInTheDocument()
+  fireEvent.click(screen.getByTestId(`frame-edit-${aim.id}`))
+  expect(screen.queryByTestId('frame-stage')).toBeNull()
+  expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-box-card', measure.from)
+  expect(screen.getByTestId('inspector-figure-typed')).toHaveFocus()
+})
 
 describe('surfaces step 2: one thing open at a time', () => {
   it('ONE-1 opening any one closes whatever else was open: after each opening, exactly that one is open (every kind opened after every other)', async () => {
@@ -188,7 +215,8 @@ describe('surfaces step 2: one thing open at a time', () => {
     expect(open(), 'Escape while saving').toEqual(['details'])
     fireEvent.contextMenu(node(OTHER)); await settle()
     expect(open(), 'right-click while saving').toEqual(['details'])
-    fireEvent.click(screen.getByTestId('canvas-add-to-model')); fireEvent.click(screen.getByRole('menuitem', { name: 'Add a figure' })); await settle()
+    fireEvent.click(screen.getByTestId('canvas-add-to-model')); await settle()
+    expect(screen.queryByRole('menuitem', { name: 'Figure' })).toBeNull()
     expect(open(), 'opening another surface while saving').toEqual(['details'])
     await act(async () => { release(new Response(JSON.stringify({ error: 'That figure is outside what the model allows.' }), { status: 409 })); await new Promise((r) => setTimeout(r, 60)) })
     expect(screen.getByTestId('inspector-figure-note'), 'core\'s refusal is shown in the panel').toHaveTextContent('That figure is outside what the model allows.')
@@ -274,11 +302,11 @@ describe('surfaces step 2: one thing open at a time', () => {
   it('ONE-6 (kept as today) words typed in the edit form survive another surface opening, and are there when it is opened again', async () => {
     await board()
     await OPENERS.form()
-    fireEvent.change(screen.getByTestId('lane-edit-label'), { target: { value: 'My new name' } })
+    fireEvent.change(screen.getByTestId('lane-edit-text'), { target: { value: 'My own claim' } })
     fireEvent.click(screen.getByTestId(`view-figure-edit-${FIG}`)); await settle()
     expect(open()).toEqual(['details'])
     await OPENERS.form()
-    expect((screen.getByTestId('lane-edit-label') as HTMLInputElement).value).toBe('My new name')
+    expect((screen.getByTestId('lane-edit-text') as HTMLInputElement).value).toBe('My own claim')
   })
 })
 
@@ -393,7 +421,7 @@ describe('surfaces step 3: details beside their card', () => {
   // Step A: the box's edit rows (Rename, add a risk, …) open from its "More" press; the first one core offers is pressed here.
   const OPEN_EDIT = () => {
     if (document.querySelector('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"]') === null) fireEvent.click(screen.getByTestId('lane-inspector-more'))
-    return document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] button:not([aria-disabled])')!
+    return document.querySelector<HTMLElement>('[data-testid="lane-inspector"] [role="group"][aria-label="Edit"] [data-testid="lane-inspector-add-claim"]')!
   }
 
   it('S3-e a card where no side holds the whole panel: the panel is cut to the room on the roomiest side (its body scrolls, its header and close stay), never over its own card, and inside the free canvas', async () => {
@@ -485,7 +513,7 @@ describe('surfaces step 3: details beside their card', () => {
       expect(form.contains(b), id).toBe(true)
       expect(b.closest('.overflow-y-auto'), `${id} outside the scrolling element`).toBeNull()
     }
-    expect(form.querySelector('.overflow-y-auto [data-testid="lane-edit-label"]'), 'the fields scroll').not.toBeNull()
+    expect(form.querySelector('.overflow-y-auto [data-testid="lane-edit-text"]'), 'the fields scroll').not.toBeNull()
     expect(form.getAttribute('aria-hidden')).toBeNull(); expect(form.hasAttribute('inert')).toBe(false)
   })
 
@@ -1005,7 +1033,7 @@ describe('surfaces step B: one of each', () => {
     seen.push(['right-click', document.querySelector('[role="menu"][aria-label="Canvas context menu"]')!])
     act(() => { useLaneInspector.getState().dismiss(true) })
     fireEvent.click(screen.getByTestId('canvas-add-to-model')); await settle()
-    seen.push(['add', screen.getByRole('menuitem', { name: 'Add a figure' }).parentElement!])
+    seen.push(['add', screen.getByRole('menuitem', { name: 'Figure' }).parentElement!])
     fireEvent.keyDown(document.body, { key: 'Escape' }); await settle()
     fireEvent.click(screen.getByTestId(LENSES_TESTID).querySelector('button[aria-haspopup="menu"]')!); await settle()
     seen.push(['lenses', screen.getByTestId(`${LENSES_TESTID}-menu`)])

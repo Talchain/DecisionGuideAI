@@ -13,6 +13,7 @@ import { isReading, shownModel, useViewStore } from '../store'
 import { isForThisPage, useMe } from '../../olumiCore/me'
 import { useModelTab, type EditTarget } from './state'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { openRenameCard } from '../v12/edit/renameCard'
 import { useLaneInspector } from '../v12/edit/inspectorStore'
 
 export type ModelEdit = {
@@ -59,6 +60,7 @@ export function openEditor(target: EditTarget, typed = ''): void {
   if (sid === null || base === null) return
   // Surfaces step 5: on the lane a figure is changed in the details panel's Value row, whichever control opened it. The tab asks for it there; the older look keeps its own editor.
   if (target.what === 'figure' && isOlumiCoreLane()) { useLaneInspector.getState().openFigure({ kind: 'card', id: target.quantity }); return }
+  if (target.what === 'rename' && isOlumiCoreLane()) { openRenameCard(target.row); return }
   useModelTab.getState().edit({ ...target, sid, base, typed })
 }
 

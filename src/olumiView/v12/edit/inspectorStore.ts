@@ -24,9 +24,10 @@ export type DetailsTarget = { readonly kind: 'card' | 'link'; readonly id: strin
 export type Point = { readonly x: number; readonly y: number }
 
 export type Surface =
-  | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside'; /** What Enter does (`try`: Try without saving, Set secondary) and the dock tab a try opens; the control's own, kept on the request. */ readonly primary?: 'set' | 'try'; readonly tab?: OutputTab; /** The press that opened these details was a mark about one section: it is drawn open. */ readonly section?: 'differ' }
+  | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside' | 'name'; /** What Enter does (`try`: Try without saving, Set secondary) and the dock tab a try opens; the control's own, kept on the request. */ readonly primary?: 'set' | 'try'; readonly tab?: OutputTab; /** The press that opened these details was a mark about one section: it is drawn open. */ readonly section?: 'differ' }
+  | { readonly kind: 'add-menu'; readonly opener: HTMLElement }
   | { readonly kind: 'menu'; readonly target: ContextTarget }
-  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly busyKey: string }
+  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly opener?: HTMLElement; readonly busyKey: string }
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
   | { readonly kind: 'add'; readonly busyKey: string }
 /** The open one; `n` is new for every showing, so a form opened again starts from its own words and not the last one's. */
@@ -65,7 +66,7 @@ const detailsKeys = (sid: string, t: DetailsTarget): string[] => {
   const m = useViewStore.getState().view?.model
   if (t.kind === 'card') {
     const e = m?.cards.find((c) => c.id === t.id)?.figure?.edit as { route?: string; record?: unknown } | null | undefined // EditForm's `isSizeEdit`, which this module cannot import (it imports this one)
-    return [`${sid}:edit:${t.id}`, ...(e != null && e.route === 'size' && typeof e.record === 'string' ? [`${sid}:size:${e.record}`] : [])]
+    return [`${sid}:edit:${t.id}`, `${sid}:rename:${t.id}`, ...(e != null && e.route === 'size' && typeof e.record === 'string' ? [`${sid}:size:${e.record}`] : [])]
   }
   const l = m?.links.find((x) => edgeIdOf(x) === t.id)
   const r = (l?.size?.edit as { record?: unknown } | null | undefined)?.record

@@ -1,7 +1,6 @@
 /**
- * THE ONE SMALL FORM FOR EVERY HAND EDIT ON THE LANE (V12 manual editing): rename, add a factor, add an option, risk, claim or question,
- * change a figure, give a link its strength or a risk its chance and size, and the ask before a link is taken off. It floats where the
- * person pressed (a right-click menu row or the inspector), never as a strip; it is the same form wherever it opens.
+ * The shared draft form for adding a figure, option, risk, claim or question and confirming link removal.
+ * The older look also uses it for rename, figure and size edits.
  *
  * Each submit calls the real core route (`submitEdit`), on the version the form OPENED on (a newer one never takes the person's words
  * silently: core refuses in its own words, shown as it says them). Nothing is parsed, rounded or converted here: core reads what was typed.
@@ -10,11 +9,16 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { VIEW_EDIT_CHIP_CLASS, VIEW_EDIT_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
+import { LinkDependencies } from './LinkDependencies'
+import type { ViewLink } from '../../client'
 import { typography } from '../../../styles/typography'
 import { controls } from '../../../styles/controls'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../../olumiCore/team/writes'
+import { readAfterSave } from '../../model/editing'
 import { writes } from '../../client'
 import { useViewStore } from '../../store'
 import { noteEditSaved } from '../../notice'
@@ -38,7 +42,7 @@ export type EditSpec = Opened & (
   | { readonly kind: 'item'; readonly item: Exclude<ItemKind, 'assumption'>; readonly concerns: readonly string[]; readonly about: string | null; readonly pickFigure: ReadonlyArray<{ readonly id: string; readonly heading: string }> | null }
   | { readonly kind: 'figure-edit'; readonly record: string; readonly edit: { readonly prompt: string; readonly ask: string } }
   | { readonly kind: 'size'; readonly edit: SizeEdit; readonly subject: string }
-  | { readonly kind: 'remove-link'; readonly remove: { readonly record: string; readonly part?: string | null } }
+  | { readonly kind: 'remove-link'; readonly remove: { readonly record: string; readonly part?: string | null }; readonly link?: ViewLink }
 )
 
 export const FORM_WORDS = {
@@ -149,6 +153,7 @@ const inputClass = `${typography.viewPanelBody} w-full min-h-[44px] rounded-sm b
 
 /** `beside`: the lane's card or link the form stands next to (never over it, inside the free canvas, following it); without it the form stands at `anchor`, as it always did. */
 export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec; anchor: { x: number; y: number }; beside?: DetailsTarget; onClose: () => void }): JSX.Element {
+  const lane = isOlumiCoreLane()
   const fields = fieldsOf(spec)
   // The typed words are kept in the one surface store while this form is open (and when another surface takes its place), until it saves or is cancelled.
   const draftKey = draftKeyOf(spec)
@@ -156,6 +161,8 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const [error, setError] = useState<string | null>(null)
   const sending = useWriteSending(writeKeyOf(spec))
   const first = useRef<HTMLInputElement | null>(null)
+  const concern = useRef<HTMLSelectElement>(null)
+  const cancelButton = useRef<HTMLButtonElement>(null)
   const box = useRef<HTMLFormElement>(null)
   const stand = beside === undefined ? '' : `${beside.kind}:${beside.id}`
   useLayoutEffect(() => {
@@ -163,7 +170,11 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
     return stayBeside(() => box.current, beside, { x: '--lane-form-x', y: '--lane-form-y', h: '--lane-form-h' }, undefined, FORM_MIN_SHOWN)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stand])
-  useEffect(() => { first.current?.focus(); first.current?.select() }, [])
+  useEffect(() => {
+    const field = first.current ?? (lane ? concern.current ?? cancelButton.current : null)
+    field?.focus()
+    first.current?.select()
+  }, [])
   const set = (k: string, x: string) => { const next = { ...values, [k]: x }; setValues(next); useLaneInspector.getState().setDraft(draftKey, next); if (error) setError(null) }
   const cancel = () => { useLaneInspector.getState().forgetDraft(draftKey); onClose() }
   const needsFigure = spec.kind === 'item' && spec.item === 'risk' && spec.concerns.length === 0
@@ -175,22 +186,33 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
     setError(null)
     try {
       const done = await submitEdit(spec, values)
-      if (await useViewStore.getState().modelChanged()) { useLaneInspector.getState().forgetDraft(draftKey); onClose(); if (done.record !== null) focusWhenDrawn(done.record) } else setError(FORM_WORDS.notShown)
+      const shown = lane ? await readAfterSave(spec.sid) : await useViewStore.getState().modelChanged() ? 'shown' : 'failed'
+      if (shown === 'failed') { setError(FORM_WORDS.notShown); return }
+      if (shown === 'moved') return
+      useLaneInspector.getState().forgetDraft(draftKey)
+      onClose()
+      if (done.record !== null) focusWhenDrawn(done.record)
     } catch (e) {
       setError(e instanceof TeamApiError ? e.message : FORM_WORDS.failed)
     }
   }
   const left = Math.max(8, Math.min(anchor.x, (typeof window === 'undefined' ? 1200 : window.innerWidth) - 300)), top = Math.max(8, Math.min(anchor.y, (typeof window === 'undefined' ? 800 : window.innerHeight) - 260))
+  const fieldClass = lane ? `${typography.viewPanelBody} min-h-7 w-full rounded-sm border border-field bg-panel px-2 text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header` : inputClass
+  const title = lane && spec.kind === 'figure-add' ? 'Add a figure' : titleOf(spec)
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
-    <form ref={box} role="dialog" aria-label={titleOf(spec)} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? '' : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
-      style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>
+    <form ref={box} role="dialog" aria-label={title} data-testid="lane-edit-form" data-kind={spec.kind}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? (lane ? ' left-1/2 top-24 max-h-[70vh] -translate-x-1/2 overflow-hidden' : '') : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
+      style={!lane && beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>
       <div className="min-h-0 space-y-3 overflow-y-auto">
-      <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
+      {lane ? <h2 className={`${typography.viewPanelHeadline} text-text-header`}>{title}</h2> : null}
+      {!lane || spec.kind === 'size' || (spec.kind === 'item' && spec.about !== null) ? (
+        <p className={`${typography.viewPanelMeta} text-text-light`}>{spec.kind === 'size' ? spec.subject : spec.kind === 'item' && spec.about !== null ? spec.about : titleOf(spec)}</p>
+      ) : null}
+      {spec.kind === 'remove-link' && spec.link !== undefined ? <LinkDependencies link={spec.link} /> : null}
       {needsFigure ? (
         <label className="block space-y-2"><span className={typography.viewPanelMeta}>{FORM_WORDS.onFigure}</span>
-          <select data-testid="lane-edit-concern" value={values['concern'] ?? ''} disabled={sending} onChange={(e) => set('concern', e.target.value)} className={inputClass}>
+          <select ref={concern} data-testid="lane-edit-concern" value={values['concern'] ?? ''} disabled={sending} onChange={(e) => set('concern', e.target.value)} className={fieldClass}>
             <option value="">{FORM_WORDS.pick}</option>
             {(spec.kind === 'item' ? spec.pickFigure ?? [] : []).map((f) => <option key={f.id} value={f.id}>{f.heading}</option>)}
           </select></label>
@@ -198,15 +220,15 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
       {fields.map((f, i) => (
         <label key={f.key} className="block space-y-2"><span className={typography.viewPanelMeta}>{f.label}</span>
           <input ref={i === 0 && !needsFigure ? first : undefined} autoComplete="off" value={values[f.key] ?? ''} disabled={sending} placeholder={f.hint} data-testid={`lane-edit-${f.key}`}
-            onChange={(e) => set(f.key, e.target.value)} className={inputClass} /></label>
+            onChange={(e) => set(f.key, e.target.value)} className={fieldClass} /></label>
       ))}
       {note === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="lane-edit-note">{note}</p>}
       </div>
       {error === null ? null : <p role="alert" className="text-danger" data-testid="lane-edit-error">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={sending || !ready} data-testid="lane-edit-go"
-          className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm ${controls.actColours} px-3 disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`}>{goLabel(spec)}</button>
-        <button type="button" disabled={sending} onClick={cancel} data-testid="lane-edit-cancel" className={`${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
+          className={lane ? VIEW_EDIT_CHIP_PRIMARY_CLASS : `${typography.viewPanelBody} min-h-[44px] cursor-pointer rounded-sm ${controls.actColours} px-3 disabled:cursor-not-allowed disabled:border-panel-border disabled:bg-panel-border disabled:text-text-light`}>{goLabel(spec)}</button>
+        <button ref={cancelButton} type="button" disabled={sending} onClick={cancel} data-testid="lane-edit-cancel" className={lane ? VIEW_EDIT_CHIP_CLASS : `${typography.viewPanelBody} min-h-[44px] cursor-pointer px-2 text-text-light underline underline-offset-2`}>
           {spec.kind === 'remove-link' ? REMOVE_LINK_WORDS.keep : FORM_WORDS.cancel}</button>
       </div>
     </form>,
