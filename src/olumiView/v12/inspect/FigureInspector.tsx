@@ -83,7 +83,7 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
       <Hover as="label" focusable={false} {...{ htmlFor: `inspector-figure-${card.id}` }} className={`${typography.viewPanelMeta} font-medium text-text-header`} words={edit.ask}>{INSPECTOR_WORDS.yourFigure}: {edit.prompt}</Hover>
       <input id={`inspector-figure-${card.id}`} data-testid="inspector-figure-typed" autoComplete="off" spellCheck={false} value={typed} disabled={busy}
         onChange={(e) => { setTyped(e.target.value); if (note !== null) setNote(null) }}
-        className="rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-info/50" />
+        className="rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header" />
       {note === null ? null : <p role={note.ok ? 'status' : 'alert'} data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} ${note.ok ? 'text-text-body' : 'text-danger'}`}>{note.text}</p>}
       {/* Drawn once the field has text: a Set beside an empty field read as a greyed second input (audit canvas-details-change-figure-twice-and-looks-disabled). Enter still saves. */}
       {typed.trim() === '' ? null : (

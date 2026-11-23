@@ -3,7 +3,7 @@
  * hover-over"). One meaning per icon and one icon per meaning; each entry names its hover words, its colour (a token in `src/styles/brand.css`,
  * never a new colour), whether it stands alone or sits beside words, and its group. Designed in output/icon-system-20261117/icon-system.json.
  * Since 18 Nov the lane's surfaces draw every icon through `OkIcon` / `OkIconButton` (the Olumi mark is the registry's `olumi-mark`, the one exception);
- * `look/__tests__/oneIconSystem.spec.tsx` lists those files and fails on a direct lucide-react or Olumi-mark import.
+ * `look/__tests__/oneIconSystem.spec.tsx` scans those files and fails on a direct lucide-react or Olumi-mark import.
  *
  * Words that come from core (data-view paths) are content: an icon may sit beside them, never replace them. Where an entry names such words it
  * carries `keepWords`, and a site draws them (or passes them as `words`, which becomes the hover and label).
@@ -43,7 +43,7 @@ import {
   Copy, Crosshair, Download, Eraser, Eye, EyeOff, FileCheck, FileText, FileX, Flag, FoldVertical, Footprints, GitCommit, GitCompareArrows, GitFork,
   GraduationCap, Globe, HelpCircle, History, Hourglass, Info, Landmark, Layers, Layers2, Lightbulb, Link2, Link2Off, ListChecks, Loader2, LocateFixed,
   Lock, MessageCircleQuestion, MessageSquare, MessageSquareQuote, MoreHorizontal, MousePointer2, Network, Paperclip, PanelRight, PanelRightClose,
-  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
+  PanelRightOpen, PanelTopOpen, Pencil, Pin, Play, Plus, Printer, RefreshCw, RefreshCwOff, RotateCcw, Save, ScanSearch, ScrollText, SearchCheck, SearchX, Shapes,
   ShieldAlert, SkipForward, SlidersHorizontal, Sparkles, Split, Sprout, Square, StickyNote, Swords, Target, TextCursorInput, Trash2, TrendingDown, TrendingUp, Undo2,
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
@@ -58,6 +58,7 @@ import { HIT_44 } from '../../styles/hitArea'
 import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 import { typography } from '../../styles/typography'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 
 
@@ -95,7 +96,9 @@ export interface IconEntry {
 }
 
 const ICON_STROKE = 1.75
-const DEFAULT_SIZE = 16
+const DEFAULT_SIZE = 14
+const LEGACY_DEFAULT_SIZE = 16
+const defaultSize = () => isOlumiCoreLane() ? DEFAULT_SIZE : LEGACY_DEFAULT_SIZE
 
 const BandShapes = ({ size = 12, className, style, ...rest }: IconDrawProps) => (
   <span className={className} style={{ display: 'inline-flex', gap: 2, ...style }} {...rest}>
@@ -242,7 +245,8 @@ export const ICONS = {
   // navigation
   'go-latest': e(ArrowDownToLine, 'Back to the latest', '--text-light', 'icon-only', 'navigate'),
   'on-canvas': e(Crosshair, 'About {cards} on the canvas', '--text-light', 'icon-only', 'navigate'),
-  'show-in-workspace': e(LocateFixed, 'Show in the workspace', '--text-light', 'icon-only', 'navigate', { alt: ArrowLeft }),
+  'show-in-workspace': e(LocateFixed, 'Show in the workspace', '--text-light', 'icon-only', 'navigate'),
+  back: e(ArrowLeft, 'Back', '--text-light', 'icon-plus-word', 'navigate'),
   popout: e(PanelTopOpen, 'Open in floating window', '--text-light', 'icon-only', 'navigate', { alt: PanelRight }),
   zoom: e(ZoomIn, 'Zoom in for detail', '--text-body', 'icon-only', 'navigate', { alt: ZoomOut }),
   'tab-analysis': e(BarChart3, 'Analysis', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
@@ -270,6 +274,7 @@ export const ICONS = {
   'copy-link': e(Link2, 'Copy link to summary', '--text-light', 'icon-only', 'chrome'),
   'version-tag': e(GitCommit, "Core's version label", '--text-light', 'icon-plus-word', 'chrome', { keepWords: "core's version.label" }),
   export: e(Download, 'Export', '--text-light', 'icon-plus-word', 'chrome'),
+  'print-summary': e(Printer, 'Print summary', '--text-light', 'icon-plus-word', 'chrome'),
   import: e(Upload, 'Import', '--text-light', 'icon-plus-word', 'chrome'),
   duplicate: e(Copy, 'Duplicate', '--text-light', 'icon-only', 'chrome'),
   'selected-row': e(MousePointer2, 'Selected', '--text-light', 'icon-only', 'chrome'),
@@ -386,7 +391,7 @@ function Glyph({ id, size, variant, className }: { id: IconId; size: number; var
 }
 
 /** The icon in its token colour. Beside words it is decorative; alone it is an image labelled and titled with the hover (or core's words). */
-export function OkIcon({ id, size = DEFAULT_SIZE, words, variant, active, inherit, testid, decorative, focusable = true, className }: OkIconProps) {
+export function OkIcon({ id, size = defaultSize(), words, variant, active, inherit, testid, decorative, focusable = true, className }: OkIconProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const hidden = decorative ?? entry.mode === 'icon-plus-word'
@@ -463,7 +468,7 @@ interface OkIconButtonProps {
 }
 
 /** An icon-only press (held = aria-disabled, still focusable, so its reason shows; the press is a no-op): a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
-export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, expanded, controls, disabled, testid, size = DEFAULT_SIZE, className, tone, count }: OkIconButtonProps) {
+export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, expanded, controls, disabled, testid, size = defaultSize(), className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const shown = hover ?? label

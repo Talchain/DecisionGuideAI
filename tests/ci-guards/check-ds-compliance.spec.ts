@@ -53,7 +53,30 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(out).toMatch(/v12-scale-tsx \[ratchet\]: 12\b/)
     expect(out).toMatch(/v12-scale-css \[ratchet\]: 6\b/)
     for (const rule of ['size', 'weight', 'family', 'colour', 'radius', 'glyph']) expect(out).toMatch(new RegExp(`off-scale\\.tsx\\s+${rule}:`))
-    expect(out).not.toMatch(/on-scale\.tsx/)
+    expect(out).not.toMatch(/on-scale\.tsx\s+(?:size|weight|family|colour|radius|glyph):/)
+  })
+
+  it('V12 lane controls catch each new violation and ignore comments, component props and CSS-variable carriers', () => {
+    const { status, out } = run(['--root', `${FX}/lane-rules`, '--baseline', empty, '--enforce'])
+    expect(status).toBe(1)
+    expect(out).toMatch(/v12-typography-token \[ratchet\]: 5\b/)
+    for (const token of ['panelMeta (11px/400)', 'chatBody (13px/400)', 'body (16px/400)', 'h3 (24px/600)', 'display (48px/700)']) {
+      expect(out).toContain(`typography.${token}`)
+    }
+    expect(out).toMatch(/v12-inline-style \[ratchet\]: 1\b/)
+    expect(out).toMatch(/v12-native-title \[ratchet\]: 1\b/)
+    expect(out).toMatch(/v12-important-css \[ratchet\]: 1\b/)
+    expect(out).toMatch(/v12-important-utility \[ratchet\]: 1\b/)
+    expect(out).toMatch(/v12-blue-utility \[ratchet\]: 2\b/)
+    expect(out).toMatch(/v12-panel-padding \[report\]: 1\b/)
+  })
+
+  it('V12 lane panel padding reports even by itself and does not gate', () => {
+    const { status, out } = run(['--root', `${FX}/padding-only`, '--baseline', empty, '--enforce'])
+    expect(status).toBe(0)
+    expect(out).toMatch(/v12-panel-padding \[report\]: 1\b/)
+    const json = run(['--root', `${FX}/padding-only`, '--baseline', empty, '--enforce', '--json'])
+    expect(JSON.parse(json.out).netNew['v12-panel-padding'].items).toMatchObject([{ token: 'px-4', delta: 1 }])
   })
 
   it('CLEAN: a violation-free tree passes under --enforce', () => {

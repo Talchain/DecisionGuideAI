@@ -73,7 +73,7 @@ export function LayingBoard(): JSX.Element | null {
           {state === 'laying' ? LAYING_WORDS.laying : LAYING_WORDS.failed}
         </p>
         {state === 'failed' ? <button type="button" data-testid="view-laying-again" onClick={retryFirstDraw}
-          className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover">{LAYING_WORDS.again}</button> : null}
+          className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover">{LAYING_WORDS.again}</button> : null}
       </div>
     </div>
   )
@@ -129,8 +129,8 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
             </div>
           ))
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
-              className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
-        {running || typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-info">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
+              className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+        {running || typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-text-header">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { FileText, User } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
 
 /**
  * V12 Sprint-Differ, the mark on a driver card: "You differ here: the evidence behind this figure". Two person marks (the two who differ,
@@ -14,11 +14,11 @@ export function DriverDifferMark({ people, evidence }: { people: readonly { read
         {two.map((p, i) => (
           <span key={p.id} data-differ-person={p.id}
             className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>
-            <User strokeWidth={1.75} className="h-3 w-3" />
+            <OkIcon id="person-mark" size={14} decorative />
           </span>
         ))}
       </span>
-      {evidence && <FileText strokeWidth={1.75} className="h-3 w-3 text-text-body" data-differ-evidence="" />}
+      {evidence && <span data-differ-evidence="" className="inline-flex"><OkIcon id="brief" size={14} decorative /></span>}
     </span>
   )
 }

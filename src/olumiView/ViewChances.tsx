@@ -285,7 +285,7 @@ export function Worth({ run, tab, shown }: { run: ViewRun | null; tab?: OutputTa
       {split.shown.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
       {split.more.length === 0 ? null : (
         <details data-testid="view-run-worth-more" className="space-y-1">
-          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-text-header`}>{`+${split.more.length} more`}</summary>
           {split.more.map(({ line: l, i }) => <WorthLine key={l.id} l={l} i={i} tab={tab} />)}
         </details>
       )}
@@ -419,7 +419,7 @@ export function ViewChances({ model, chat = null }: { model: ViewModel; chat?: r
       <SharpenCard model={model} />
       {run === null || run.notes.length === 0 ? null : (
         <details className={BOX} data-testid="view-run-notes">
-          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>About these numbers</summary>
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-text-header`}>About these numbers</summary>
           {run.notes.map((n, i) => <Hover as="p" key={i} words={n.title} className={typography.viewPanelMeta} data-view={`run.notes.${run.notes.indexOf(n)}.text`}>{n.text}</Hover>)}
         </details>
       )}
@@ -453,7 +453,7 @@ function SharpenCard({ model }: { model: ViewModel }) {
       {split.shown.map(line)}
       {split.more.length === 0 ? null : (
         <details data-testid="view-run-sharpen-more" className="space-y-2">
-          <summary className={`${typography.viewPanelMeta} cursor-pointer text-info`}>{`+${split.more.length} more`}</summary>
+          <summary className={`${typography.viewPanelMeta} cursor-pointer text-text-header`}>{`+${split.more.length} more`}</summary>
           {split.more.map(line)}
         </details>
       )}

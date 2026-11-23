@@ -16,7 +16,6 @@ import { optionLetters } from '../cards/letters'
 import { figureRange } from '../contract'
 import type { Said } from './said'
 
-const ICON = 14
 
 /**
  * What core folded behind a card or the question (its badge): a stack icon and CORE'S OWN words for it, its `face` where core sends one, else its
@@ -33,7 +32,7 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   return (
     <Hover as="button" words={words} tipSpacing="list" type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
       data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
-      <OkIcon id="folded-records" size={ICON} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
+      <OkIcon id="folded-records" size={14} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
       {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}
     </Hover>
   )
@@ -42,7 +41,7 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
 /** The question's date (core's `decide_by`): a calendar mark and core's words; Olumi's blue where Olumi set it. */
 export const DecideBy = ({ d }: { d: { text: string; title: string; olumi: boolean } }): JSX.Element => (
   <Hover focusable={false} words={d.title || d.text} className={`ok-dt-date ${d.olumi ? 'ok-dt-olumi' : ''}`} data-olumi={d.olumi || undefined} data-view="question.decide_by.text">
-    <OkIcon id="decide-by" size={ICON} /><span>{d.text}</span>
+    <OkIcon id="decide-by" size={14} /><span>{d.text}</span>
   </Hover>
 )
 
@@ -83,7 +82,7 @@ export function RowWords({ words, at }: { words: string; at: string }): JSX.Elem
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
       <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open}
-        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={ICON} words={words} decorative /></Hover>
+        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={14} words={words} decorative /></Hover>
       {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )

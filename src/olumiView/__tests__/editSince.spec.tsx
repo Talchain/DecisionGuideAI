@@ -64,7 +64,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
     const block = el.querySelector('[data-testid="view-model-notice-block"]')!, turns = el.querySelector('[data-testid="view-chat-turns"]')!
     expect(turns.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING, 'after the thread').toBeTruthy()
-    expect(scroll.scrollTop).toBe(884) // taller than the thread (400 > 300): its top, 16 px under the thread's top (900 - 16)
+    expect(scroll.scrollTop).toBe(888) // taller than the thread (400 > 300): its top, 12 px under the thread's top (900 - 12)
     top.mockRestore(); tall.mockRestore()
   })
 
@@ -78,7 +78,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
     Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
-    expect(scroll.scrollTop).toBe(584) // the reply's first line, 16 px under the top (600 - 16), not 916 (inside the reply: a sliced headline)
+    expect(scroll.scrollTop).toBe(588) // the reply's first line, 12 px under the top (600 - 12), not 912 (inside the reply: a sliced headline)
     top.mockRestore(); tall.mockRestore()
   })
 
@@ -100,8 +100,8 @@ describe('a saved figure says what it changed (journey 4)', () => {
         return scroll.scrollTop
       } finally { top.mockRestore(); tall.mockRestore(); cleanup() }
     }
-    expect(run(700, 250), 'the line whole from its first line (600 - 16), the receipt below it').toBe(584)
-    expect(run(900, 250), 'CONTRAST: a receipt whose top is out of reach from the line keeps the old rule (its foot 16 under the thread foot)').toBe(866)
+    expect(run(700, 250), 'the line whole from its first line (600 - 12), the receipt below it').toBe(588)
+    expect(run(900, 250), 'CONTRAST: a receipt whose top is out of reach from the line keeps the old rule (its foot 12px above the thread foot)').toBe(862)
   })
 
   it('S4 with a team activity begun alone (the old invitation card is gone), the receipt still comes into view', () => {
@@ -119,7 +119,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     const scroll = el.querySelector('[data-testid="view-chat-scroll"]') as HTMLElement
     Object.defineProperties(scroll, { scrollHeight: { value: 2000, configurable: true }, clientHeight: { value: 300, configurable: true } })
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
-    expect(scroll.scrollTop).toBe(616) // the receipt whole: its foot 16 px above the thread's foot (700 + 200 + 16 - 300), not the step (1300)
+    expect(scroll.scrollTop).toBe(612) // the receipt whole: its foot 12 px above the thread's foot (700 + 200 + 12 - 300), not the step (1300)
     top.mockRestore(); tall.mockRestore()
   })
 
@@ -135,7 +135,7 @@ describe('a saved figure says what it changed (journey 4)', () => {
     // They scroll on to 1650 themselves: 50 px from the foot, so the thread still follows (within 80 px), and 1650 is where they put it.
     scroll.scrollTop = 1650; fireEvent.scroll(scroll)
     act(() => { useModelNotice.setState({ notice: { kind: 'saved', n: 2, by: null, sid: RUN2.id } }) })
-    expect(scroll.scrollTop).toBe(616) // the receipt whole; held at where they scrolled: 1650, the receipt (700..900) out of view above
+    expect(scroll.scrollTop).toBe(612) // the receipt whole; held at where they scrolled: 1650, the receipt (700..900) out of view above
     top.mockRestore(); tall.mockRestore()
   })
 
@@ -159,17 +159,17 @@ describe('a saved figure says what it changed (journey 4)', () => {
     const scroll = nearFoot({ ...view, turn: job })
     expect(scroll.querySelector('[data-testid="view-chat-turn-job"]:not([data-shown])'), 'precondition: a reply arriving').not.toBeNull()
     saveOf(2)
-    expect(scroll.scrollTop).toBe(1650) // not 584 (the arriving reply): where they scrolled stands
+    expect(scroll.scrollTop).toBe(1650) // not 588 (the arriving reply): where they scrolled stands
     act(() => { useViewStore.setState({ view } as never) }) // the reply lands
-    expect(scroll.scrollTop).toBe(616) // the receipt whole, once it is drawn
+    expect(scroll.scrollTop).toBe(612) // the receipt whole, once it is drawn
   })
   it('S7 CATCH (round 3): a second save of the same version brings its receipt into view again', () => {
     const scroll = nearFoot(edited())
     saveOf(2)
-    expect(scroll.scrollTop).toBe(616)
+    expect(scroll.scrollTop).toBe(612)
     scroll.scrollTop = 1650; fireEvent.scroll(scroll) // they scroll on again
     saveOf(2) // the same version number, a new save
-    expect(scroll.scrollTop).toBe(616)
+    expect(scroll.scrollTop).toBe(612)
   })
   it('S8 CATCH (round 3): a notice going away never pulls them back', () => {
     const scroll = nearFoot(edited())

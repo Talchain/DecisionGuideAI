@@ -566,7 +566,7 @@ export function TurnInFlight({ turn, me, view, shown = false, replyVisible = fal
           </p>
         )}
         {running || turn === null || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
-          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-info hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
       </li>
     </ol>
   )
@@ -794,9 +794,8 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       // never only above the actions line, or a shown omission list would cover them. Older layouts without the foot: the actions.
       const foot = el.querySelector<HTMLElement>('[data-testid="view-proposal-foot"]') ?? el.querySelector<HTMLElement>('[data-testid="view-proposal-actions"]')
       if (foot === null) return
-      // DL 12:5xZ (A): the box grows to hold every row and the actions (More ways and the thread yield, olumiLook.css); where the panel
-      // cannot give that much it shrinks rather than run past the composer, and as many leading rows as fit are shown whole. Measured
-      // afresh each time from the stylesheet's own cap, so the box is never left taller than the rows now need.
+      // The review can grow to fit its readings within the space the chat layout gives it.
+      // Measure from the stylesheet's normal cap so a shorter review returns to that height.
       box.style.maxHeight = ''
       // Contract 3 (Codex 15 Nov on the redesign): the review's row stays at the box's top as its header (sticky, olumiLook.css); the rows
       // rest below it, never behind it.
@@ -908,7 +907,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {changes.length === 0 || closed || read?.noted == null ? null : (
         <div className="grid gap-1" data-testid="view-noted">
           <p className="m-0 text-text-light"><span data-view="proposal.to_read.noted.text">{read.noted.text}</span>
-            {notedHeld ? null : <> <button type="button" aria-expanded={notedOpen} onClick={() => setShowNoted((o) => !o)} className="rounded-sm text-text-body underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info" data-testid="view-noted-show-all">{notedOpen ? NOTED_SHOW_FEWER : NOTED_SHOW_ALL}</button></>}</p>
+            {notedHeld ? null : <> <button type="button" aria-expanded={notedOpen} onClick={() => setShowNoted((o) => !o)} className="rounded-sm text-text-body underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header" data-testid="view-noted-show-all">{notedOpen ? NOTED_SHOW_FEWER : NOTED_SHOW_ALL}</button></>}</p>
           {notedOpen ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-noted-lines">{read.noted.lines.map(line)}</ul> : null}
         </div>
       )}
@@ -1481,7 +1480,7 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <HoverButton words={next.label} type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label}
-          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={16} decorative /></HoverButton>
+          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={14} decorative /></HoverButton>
       : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
@@ -1694,7 +1693,7 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
     <>
       <HoverButton words={p.on === '' ? p.heading : `${p.heading} · ${p.on}`} type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
         aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        <OkIcon id="olumi-mark" size={16} decorative />
+        <OkIcon id="olumi-mark" size={14} decorative />
         {/* One flowing run: the heading, the dot and the version wrap together, never three flex columns (DL look at 1500x904 at 1.33). It wraps and is never cut: Paul, 19 Nov. */}
         <span className="min-w-0 flex-1 break-words" data-testid="view-proposal-words"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
       </HoverButton>
@@ -1800,10 +1799,10 @@ export const MENU_NAME = 'Questions to explore with Olumi'
 export { FIRST_FOR_YOUR_GOAL as FIRST_FOR_GOAL } from './v12/actionsMenu'
 
 /**
- * R25 spacing roles on this tab (plan v3 item 3; one value per role, alpha surfaces only): sections 16px (space-y-4, the tab's p-4);
- * a card's padding 12px (p-3); related items 8px (space-y-2); a label to its content 4px (space-y-1). The waiting change sits inside the
- * Next step card with no second border or padding of its own (the double padding is gone).
+ * The panel uses 12px insets and 12px from a summary to its content, with 16px between groups.
  */
+const THREAD_INSET = 12
+
 /** The thread and the Next step. The ways in to Olumi's questions are the composer's ⋯ menu (V12: one action system). */
 export function ViewChat() {
   useAnswersAsks()
@@ -1863,22 +1862,22 @@ export function ViewChat() {
     // reply is drawn above the answer; Codex 15 Nov, round 2).
     const newest = job ?? el.querySelector<HTMLElement>('[data-latest-floor]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-answer"]') ?? latest?.querySelector<HTMLElement>('[data-testid="view-chat-early"]') ?? latest
     const maxScroll = Math.max(0, el.scrollHeight - el.clientHeight)
-    let top = newest === null ? maxScroll : newest.offsetTop - 16
+    let top = newest === null ? maxScroll : newest.offsetTop - THREAD_INSET
     // Contract 3 (ONE-PLAN, 15 Nov: "the newest reply opens on its first line"; as the old look): the thread never carries past the newest
     // reply's (or job's) first line. Supporting material stays outside the thread. The person's own save (below) still
     // wins: its receipt is what they look for.
-    if (newest !== null) top = Math.min(top, newest.offsetTop - 16)
+    if (newest !== null) top = Math.min(top, newest.offsetTop - THREAD_INSET)
     // DL journey (4): a save's receipt and what it changed (ModelNoticeLine, after the newest line) come into view as the step does: whole,
     // or from its top where it is taller than the thread.
     const saved = job === null ? el.querySelector<HTMLElement>('[data-testid="view-model-notice-block"]') : null
     // The person's own save is what they look for; it remains a conversation turn.
     if (saved !== null) {
-      const first = top, own = Math.min(saved.offsetTop - 16, Math.max(top, saved.offsetTop + saved.offsetHeight + 16 - el.clientHeight))
+      const first = top, own = Math.min(saved.offsetTop - THREAD_INSET, Math.max(top, saved.offsetTop + saved.offsetHeight + THREAD_INSET - el.clientHeight))
       // Where the receipt would slice the reply (its top lands inside the reply's body), the reply's first line wins: a half-cut headline
       // is worse than a receipt a scroll away (audit chat-1). Where the reply would be wholly above the thread, nothing is cut: the receipt wins.
       // Nor is a short line left scrolled out above the thread (Paul 19 Nov, a lost reply half under the strip): where, from its first line, the whole line and the
       // top of the receipt both stand in the thread, it starts there and the receipt follows it. A line the page has not measured (height 0) has nothing to cut.
-      const wholeLine = newest !== null && newest.offsetHeight > 0 && newest.offsetTop + newest.offsetHeight <= first + el.clientHeight && saved.offsetTop + 16 <= first + el.clientHeight
+      const wholeLine = newest !== null && newest.offsetHeight > 0 && newest.offsetTop + newest.offsetHeight <= first + el.clientHeight && saved.offsetTop + THREAD_INSET <= first + el.clientHeight
       const cuts = newest !== null && own > newest.offsetTop && (own < newest.offsetTop + newest.offsetHeight || wholeLine)
       top = cuts ? first : own
     }
@@ -1944,11 +1943,11 @@ export function ViewChat() {
       <CatchUp />
       {/* Above the conversation only where the model has a calculated result: with none, the finding is a status the reply's lead already says, and
           it is said once here (it stays on the question card and on Analysis). */}
-      {surface !== 'panel' ? null : <div className="relative z-10 shrink-0 border-b border-panel-border bg-panel px-4 pb-2 pt-1" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
+      {surface !== 'panel' ? null : <div className="shrink-0 border-b border-panel-border bg-panel p-3" data-testid="view-chat-finding"><FindingLine model={view?.model} at="panel" /></div>}
       {/* Only conversation turns live in the thread; supporting panels open at its foot. */}
-      <div className="relative flex flex-1 min-h-0 flex-col" data-thread-wrap="">
-        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto px-3 py-4">
-          <div ref={content} className="space-y-4">
+      <div className="relative flex flex-1 min-h-0 flex-col overflow-clip" data-thread-wrap="">
+        <div ref={scroll} onScroll={readScroll} data-testid="view-chat-scroll" className="relative flex-1 min-h-0 overflow-y-auto">
+          <div ref={content} className="space-y-4 p-3">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
@@ -1963,7 +1962,7 @@ export function ViewChat() {
       </div>
       {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
       {away ? (
-        <div className="flex shrink-0 justify-end px-4 pt-1" data-testid="view-chat-latest-row">
+        <div className="flex shrink-0 justify-end p-3" data-testid="view-chat-latest-row">
           <OkIconButton id="go-latest" tone="ghost" words="Go to the latest message" testid="view-chat-to-latest" className="ok-to-latest" onClick={toLatest} />
         </div>
       ) : null}
@@ -2086,7 +2085,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
   const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
-    <div className={`${typography.viewPanelBody} px-4 pb-3 pt-2 space-y-2`} data-testid="view-composer">
+    <div className={`${typography.viewPanelBody} p-3 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
       {/* While a write is in flight the composer is held: it says why (lane audit 5.7), in core's page's words. */}
       {past === null ? null : (

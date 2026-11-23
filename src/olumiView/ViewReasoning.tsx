@@ -48,7 +48,7 @@ export const REASONING_LABELS = {
 const RING = 'reasoning-tab'
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
-const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
 /** Figures drawn per group at rest (every group is drawn): core orders them by share, so the first is the one that carries most of that group's uncertainty. */
 const REST_FIGURES = 1
@@ -161,7 +161,7 @@ function wordsOf(e: Examine): { text: string; at: string; why: string | null; wh
 function Act({ e }: { e: Examine }) {
   if (e.kind !== 'method' || e.method === null) return null
   const { at, m } = e.method
-  return <button type="button" className={QUIET} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={12} decorative /><span data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
+  return <button type="button" className={QUIET} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
 }
 
 /** A challenge is marked by its state; every other item is Olumi's own contribution (core's coaching), so it carries Olumi's mark. */
@@ -185,7 +185,7 @@ function Row({ e }: { e: Examine }) {
     </Hover>
   )
   const words = wordsEl()
-  const whole = `flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+  const whole = `flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
   if (e.kind === 'challenge') return <li {...rowData(e)}><Hover as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hover></li>
   // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
@@ -194,7 +194,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
-      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={12} decorative /></Hover>
+      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={14} decorative /></Hover>
     </li>
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
@@ -202,7 +202,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
-      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={12} decorative /></Hover>
+      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={14} decorative /></Hover>
     </li>
   )
   return (
@@ -267,7 +267,7 @@ function LeadAct({ e }: { e: Examine }) {
   if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
   const fill = e.kind === 'question' ? { text: e.q, testId: 'reasoning-question' } : e.kind === 'widen' ? { text: e.w.draft, testId: `reasoning-widen-${e.w.k}` } : null
   // Filling the message box is never the primary (green) action: it is the quiet secondary press, the same as in the list.
-  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} data-testid={fill.testId}><OkIcon id="fill-box" size={12} decorative />{REASONING_LABELS.fill}</button>
+  return fill === null ? null : <button type="button" className={QUIET} onClick={() => prefillComposer(fill.text)} data-testid={fill.testId}><OkIcon id="fill-box" size={14} decorative />{REASONING_LABELS.fill}</button>
 }
 
 /**
@@ -284,7 +284,7 @@ export function StartHere({ model }: { model: ViewModel }) {
   return (
     <section key={e.key} className="space-y-3 rounded-md bg-panel-hover p-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
-      <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={12} decorative />{REASONING_LABELS.activity}</p>
+      <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={14} decorative />{REASONING_LABELS.activity}</p>
       <Hover as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hover>
       {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
       <div className="flex flex-wrap items-center gap-2"><LeadAct e={e} /></div>

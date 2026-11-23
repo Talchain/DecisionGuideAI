@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
-import { ChevronDown, ChevronRight, FileText, Lock } from 'lucide-react'
+import { OkIcon } from '../../look/icons'
+import { FoldChevron } from '../../look/FoldChevron'
 import type { View } from '../../client'
 import { ownViewPending } from '../../../olumiCore/ownViewFirst'
 import { BODY, CARD, H, LABEL } from '../../../olumiCore/team/ui'
@@ -23,7 +24,6 @@ export const ARRIVAL_WORDS = {
   reveal: 'Once everyone has given or skipped a view, any of you can reveal them all together.',
 } as const
 
-const ICON = 'mt-[3px] h-3.5 w-3.5 flex-none text-text-body'
 const ROW = `${BODY} flex items-start gap-1.5`
 
 export function FirstArrival({ view }: { view: View }): JSX.Element | null {
@@ -32,14 +32,13 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
   if (!ownViewPending(view)) return null
   const brief = typeof view.brief === 'string' ? view.brief : ''
   const privacy = view.team_words?.views?.private
-  const Chevron = open ? ChevronDown : ChevronRight
   return (
     <section data-testid="first-arrival" aria-label={ARRIVAL_WORDS.heading} className={CARD}>
       <h3 className={H}>{ARRIVAL_WORDS.heading}</h3>
       {/* v10 review item 9: headline plus one line. The lock is core's privacy sentence and the line itself carries the reveal sentence, both as hover words. */}
       <Hover as="p" className={ROW} data-testid="first-arrival-why" words={ARRIVAL_WORDS.reveal}>
         <Hover data-testid="first-arrival-private" words={nonEmpty(privacy) ? privacy : undefined} className="inline-flex flex-none">
-          <Lock strokeWidth={1.75} aria-hidden="true" className={ICON} />
+          <OkIcon id="view-only" size={14} decorative className="mt-[3px]" />
         </Hover>
         <span>{ARRIVAL_WORDS.why}</span>
       </Hover>
@@ -47,9 +46,9 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
         <div className="grid gap-1">
           <button type="button" data-testid="first-arrival-brief-toggle" aria-expanded={open} aria-controls={briefId} onClick={() => setOpen((o) => !o)}
             className={`${LABEL} flex min-h-[24px] w-full items-center gap-1.5 text-left`}>
-            <FileText strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
+            <OkIcon id="brief" size={14} decorative />
             <span className="min-w-0 flex-1">{ARRIVAL_WORDS.brief}</span>
-            <Chevron strokeWidth={1.75} aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
+            <FoldChevron open={open} />
           </button>
           {open && <p id={briefId} data-testid="first-arrival-brief" className={`${BODY} whitespace-pre-wrap break-words`}>{brief}</p>}
         </div>

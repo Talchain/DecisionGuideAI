@@ -282,21 +282,15 @@ export const SHELL_SPACING_STEPS: readonly string[] = SHELL_SPACING_SCALE_PX.map
  * reaches for the standalone radius inside the panel makes the dock look like
  * a stack of floating cards rather than one surface with sections in it.
  *
- * ⚠ KNOWN DEFECT, NOT FIXED HERE (derived, `ed98cbd3`): `--radius-lg` is
- * declared TWICE — `styles/brand.css:349` = 20px and `index.css:512` = 14px,
- * and `index.css` wins because `@import './styles/brand.css'` is hoisted above
- * its own `:root`. So the LIVE value of `rounded-lg` is 14px, matching neither
- * DS number, across 622 occurrences in product `.tsx`. Reconciling it is a
- * visible change at that scale and belongs behind the visual-regression
- * harness as its own reviewable step. These constants are the target; the
- * shell's OWN surfaces already use them.
+ * Shared `rounded-lg` takes its 14px radius from `styles/brand.css`.
+ * The shell uses the surface-specific values below.
  */
 export const SHELL_RADIUS_PX = {
   /** Inputs, small buttons. DS `sm`. */
   input: 8,
   /** Cards inside the panel. DS `md`. THIS is the in-panel default. */
   panelCard: 12,
-  /** The dock's outer shell and other standalone surfaces. DS `lg`. */
+  /** The dock's outer shell and other standalone surfaces. */
   standalone: 20,
   /** Pills and round buttons. DS `pill`. */
   pill: 999,

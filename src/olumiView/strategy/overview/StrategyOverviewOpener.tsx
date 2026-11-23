@@ -20,7 +20,7 @@ export function StrategyOverviewOpener(): JSX.Element | null {
     <button
       type="button" aria-pressed={open} data-testid="strategy-overview-opener"
       onClick={() => (open ? useOverview.getState().hide() : (useCompare.getState().hide(), useOverview.getState().show()))}
-      className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50 ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}
+      className={`inline-flex min-h-6 items-center gap-1.5 rounded-md border px-2 py-0.5 ${typography.viewPanelMeta} text-text-body transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${open ? 'border-text-header bg-panel-hover text-text-header' : 'border-panel-border bg-transparent hover:bg-panel-hover'}`}
     >
       <OkIcon id="strategy-overview" size={14} decorative />
       {words}

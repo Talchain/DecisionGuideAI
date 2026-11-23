@@ -148,7 +148,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
                   {hasFirstRun && index === firstMore && <p className={`${SECTION_LABEL} mt-3`}>More questions</p>}
                   <HoverButton type="button" disabled={held} onClick={() => { setOpen(false); onMethod(m.id) }} words={undefined}
                     className={ICON_ROW} data-method={m.id} data-first={m.first ? '' : undefined} data-testid="view-session-method">
-                    <OkIcon id={icon} size={16} decorative testid={icon} className="mt-0.5" />
+                    <OkIcon id={icon} size={14} decorative testid={icon} className="mt-0.5" />
                     <span className="min-w-0">
                       <span data-view={`session.methods.${m.i}.text`}>{m.text}</span>
                       {m.first ? <span className="sr-only" data-testid="view-session-method-first"> ({FIRST_FOR_YOUR_GOAL})</span> : null}
@@ -169,7 +169,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
             <div className={SECTION} data-testid="view-actions-tools">
               {menu.tools.map((t) => (
                 <button key={t} type="button" disabled={held} onClick={() => { setOpen(false); onTool(t) }} className={ICON_ROW} data-tool={t} data-testid={`view-tool-${t}`}>
-                  <OkIcon id={TOOL_ICONS[t]} size={16} decorative testid={TOOL_ICONS[t]} className="mt-0.5" />
+                  <OkIcon id={TOOL_ICONS[t]} size={14} decorative testid={TOOL_ICONS[t]} className="mt-0.5" />
                   <span>{TOOL_WORDS[t]}</span>
                 </button>
               ))}

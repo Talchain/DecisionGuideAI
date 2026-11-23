@@ -58,7 +58,7 @@ export function AnswerBox({ q }: { q: Question }) {
     <form className="mt-1 space-y-1" data-answer-for={q.id} onSubmit={(e) => { e.preventDefault(); void send() }}>
       <div className="flex items-center gap-2">
         <input value={text} readOnly={busy} aria-busy={busy} onChange={(e) => setText(e.target.value)} placeholder={ANSWER_WORDS.placeholder} aria-label={`${ANSWER_WORDS.placeholder}: ${q.text}`}
-          className={`${TYPE.body} min-h-8 min-w-0 flex-1 rounded-md border border-panel-border bg-panel px-2 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-info`} data-testid="reasoning-answer-input" />
+          className={`${TYPE.body} min-h-8 min-w-0 flex-1 rounded-md border border-panel-border bg-panel px-2 text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} data-testid="reasoning-answer-input" />
         <button type="submit" className={GREEN} disabled={busy || text.trim() === ''} data-testid="reasoning-answer-send">{busy ? ANSWER_WORDS.sending : ANSWER_WORDS.send}</button>
       </div>
       {error === null ? null : <p role="alert" className={`${TYPE.meta} m-0 text-text-body`} data-testid="reasoning-answer-error">{error}</p>}
@@ -82,7 +82,7 @@ function Examined({ x, model, view }: { x: Examination; model: ViewModel; view: 
   const bound = turn === undefined ? null : card(x.bound)
   const applied = turn !== undefined && !turn.earlier && (turn.status ?? null) === null && view?.proposal?.id !== turn.id
   const mentioned = x.mentioned.flatMap((id) => { const c = card(id); return c === null ? [] : [c] })
-  const press = `${TYPE.meta} rounded-sm text-left text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info`
+  const press = `${TYPE.meta} rounded-sm text-left text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
   return (
     <li className="space-y-1 px-1 py-1.5" data-examined={x.id} data-examined-question={x.question_id}>
       <p className={`${TYPE.body} m-0 flex items-start gap-2 text-text-header`}><OkIcon id="olumi-mark" size={14} className="mt-0.5" decorative /><span className="min-w-0 flex-1 break-words" data-testid="reasoning-examined-question">{x.question}</span></p>
@@ -94,7 +94,7 @@ function Examined({ x, model, view }: { x: Examination; model: ViewModel; view: 
           <button type="button" onClick={() => pressCard(bound.id)} className={press} data-testid="reasoning-examined-bound" data-view={`${bound.id}.heading`}>{bound.heading}</button>
 </p>
       )}
-      {x.finding === null ? null : <p className={`${TYPE.body} m-0 flex items-start gap-2 pl-6 text-text-body`} data-testid="reasoning-examined-finding"><OkIcon id="olumi-mark" size={12} className="mt-1" decorative /><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{x.finding.text}</span></p>}
+      {x.finding === null ? null : <p className={`${TYPE.body} m-0 flex items-start gap-2 pl-6 text-text-body`} data-testid="reasoning-examined-finding"><OkIcon id="olumi-mark" size={14} className="mt-1" decorative /><span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{x.finding.text}</span></p>}
       {mentioned.length === 0 ? null : (
         <p className={`${TYPE.meta} m-0 flex flex-wrap items-center gap-x-2 pl-6`} data-testid="reasoning-examined-mentioned"><span className="text-text-light">{ANSWER_WORDS.mentioned}:</span>
           {mentioned.map((c) => <button key={c.id} type="button" onClick={() => pressCard(c.id)} className={press} data-mentioned={c.id} data-view={`${c.id}.heading`}>{c.heading}</button>)}</p>

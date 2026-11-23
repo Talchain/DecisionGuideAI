@@ -48,7 +48,7 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
         {...handlers} aria-describedby={describedBy}
         className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown
-          ? <OkIcon id="show-in-workspace" variant="alt" size={14} decorative />
+          ? <OkIcon id="back" size={14} decorative />
           : <OkIcon id="show-in-workspace" size={14} decorative />}
         {/* v10 review item 6: an icon in the reply's one row; the words stay for readers and on hover (the Return words are drawn while shown). */}
         <span className={shown ? '' : 'sr-only'}>{shown ? RETURN_TO_BEFORE : SHOW_IN_WORKSPACE}</span>
