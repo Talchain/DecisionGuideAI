@@ -8,6 +8,12 @@
  * Mount it once inside the lane's canvas, within its ToastProvider: `<LaneEditingLayer />`.
  */
 import { useEffect, useRef } from 'react'
+import { ContextRows } from '../../../canvas/contextMenu/ContextRows'
+import { addMenuRows } from '../../../canvas/contextMenu/laneMenu'
+import { Menu } from '../../look/Menu.tsx'
+import { useModelEdit } from '../../model/editing'
+import { editGateNow } from './editGate'
+import { openLaneForm } from './structuralEdits'
 import { useShowToast } from '../../../canvas/ToastContext'
 import { useViewStore } from '../../store'
 import { LaneEditForm } from './EditForm'
@@ -41,9 +47,30 @@ function escapeSurface(): void {
 
 /** The one small edit form, wherever it was asked for (a right-click row or the details panel). A form opened again starts from its own words. */
 function SurfaceForm(): JSX.Element | null {
-  const open = useLaneInspector((s) => s.current), close = useLaneInspector((s) => s.close)
-  if (open === null || open.kind !== 'form') return null
-  return <LaneEditForm key={open.n} spec={open.spec} anchor={open.anchor} beside={open.beside} onClose={() => close('form')} />
+  const open = useLaneInspector((s) => s.current?.kind === 'form' ? s.current : null)
+  useEffect(() => () => {
+    if (open?.opener?.isConnected && document.activeElement === document.body) open.opener.focus({ preventScroll: true })
+  }, [open])
+  if (open === null) return null
+  return <LaneEditForm key={open.n} spec={open.spec} anchor={open.anchor} beside={open.beside}
+    onClose={() => { if (useLaneInspector.getState().current === open) useLaneInspector.getState().close('form') }} />
+}
+
+function AddMenu(): JSX.Element | null {
+  const open = useLaneInspector((s) => s.current?.kind === 'add-menu' ? s.current : null)
+  const model = useViewStore((s) => s.view?.model ?? null)
+  const { base } = useModelEdit()
+  useEffect(() => { if (open !== null && base === null) useLaneInspector.getState().close('add-menu') }, [base, open])
+  if (open === null || base === null) return null
+  const rows = addMenuRows({ gate: editGateNow(), model }, (spec) => {
+    openLaneForm(spec, { x: 372, y: 112 }, undefined, open.opener)
+  })
+  return (
+    <Menu anchor={open.opener} label="Add to model" request={open} iconColumn
+      onClose={() => useLaneInspector.getState().close('add-menu')}>
+      <ContextRows items={rows} lane />
+    </Menu>
+  )
 }
 
 export function LaneEditingLayer(): JSX.Element {
@@ -58,7 +85,7 @@ export function LaneEditingLayer(): JSX.Element {
   // The canvas going away leaves nothing open over the next one.
   useEffect(() => () => useLaneInspector.setState({ current: null }), [])
   const shown = useLaneInspector((st) => st.current)
-  useEscapeLayer(shown !== null && shown.kind !== 'menu', escapeSurface, shown?.n)
+  useEscapeLayer(shown !== null && shown.kind !== 'menu' && shown.kind !== 'add-menu', escapeSurface, shown?.n)
   const seen = useRef<{ sid: string | null; n: number | null }>({ sid, n })
   useEffect(() => {
     if (seen.current.sid === sid && seen.current.n !== null && n !== null && n !== seen.current.n) noteSavedVersion()
@@ -80,6 +107,7 @@ export function LaneEditingLayer(): JSX.Element {
     <>
       <LaneInspector range={(card) => (view === null ? null : <RangeBar card={card} view={view} />)} />
       <SurfaceForm />
+      <AddMenu />
     </>
   )
 }

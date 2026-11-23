@@ -11,7 +11,9 @@ import { QUESTION } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
 import { toggleSimple, useLevel } from '../../olumiView/v12/simpleStore'
 import { editGateNow } from '../../olumiView/v12/edit/editGate'
-import { writeKeyOf, type EditSpec } from '../../olumiView/v12/edit/EditForm'
+import { openLaneForm, openLinkRemoval } from '../../olumiView/v12/edit/structuralEdits'
+import { type EditSpec } from '../../olumiView/v12/edit/EditForm'
+import { openRenameCard } from '../../olumiView/v12/edit/renameCard'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { clearLayoutUndo, pressUndo, useUndoChoices } from '../../olumiView/v12/edit/undo'
 import { askAI } from './actions'
@@ -23,10 +25,11 @@ type Toast = (message: string, type: 'error' | 'info' | 'success' | 'warning') =
 
 type CtxOptions = {
   showToast: Toast; onClose: () => void; openForm: (spec: EditSpec) => void
+  openRemove?: LaneMenuCtx['act']['openRemove']
   interactionMode?: 'select' | 'hand'; onSetInteractionMode?: (mode: 'select' | 'hand') => void
 }
 export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
-  const { showToast, onClose, openForm, interactionMode, onSetInteractionMode } = o
+  const { showToast, onClose, openForm, openRemove, interactionMode, onSetInteractionMode } = o
   const view = useViewStore((s) => s.view), at = useViewStore((s) => s.at), stale = useViewStore((s) => s.stale), error = useViewStore((s) => s.error), sid = useViewStore((s) => s.sid)
   const me = useMe((s) => s.me)
   const level = useLevel()
@@ -35,8 +38,10 @@ export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
     gate: editGateNow(), model: view?.model ?? null, undo, level, mode: interactionMode, questionId: QUESTION,
     act: {
       open: openForm,
+      openRemove,
       openDetails: (t) => { useLaneInspector.getState().open(t); onClose() },
       // Surfaces step 5: on the lane a figure is changed in the details' Value row, whichever control asked. The older look keeps its small form.
+      openRename: isOlumiCoreLane() ? (id) => { if (openRenameCard(id)) onClose() } : undefined,
       openFigure: isOlumiCoreLane() ? (t) => { useLaneInspector.getState().openFigure(t); onClose() } : undefined,
       ask: (t, intent) => { askAI(t, intent, showToast); onClose() },
       prefill: (text, label, targetId) => { if (requestAsk({ text, label, targetId, source: 'node-coaching-icon' }) === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning'); onClose() },
@@ -46,7 +51,7 @@ export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
       setMode: onSetInteractionMode === undefined ? undefined : (m) => { onSetInteractionMode(m); onClose() },
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [view, at, stale, error, sid, me, level, undo, interactionMode, onSetInteractionMode, openForm, onClose, showToast])
+  }), [view, at, stale, error, sid, me, level, undo, interactionMode, onSetInteractionMode, openForm, openRemove, onClose, showToast])
 }
 
 export function useLaneMenu(o: CtxOptions & { target: ContextTarget }): MenuEntry[] {
@@ -60,7 +65,10 @@ export function useLaneMenu(o: CtxOptions & { target: ContextTarget }): MenuEntr
  */
 export const useLaneItems: MenuItemsHook = (o) => {
   const { x, y } = o.target.screenPos
-  const openForm = useCallback((spec: EditSpec) => { useLaneInspector.getState().show({ kind: 'form', spec, anchor: { x, y }, busyKey: writeKeyOf(spec) }) }, [x, y])
-  const items = useLaneMenu({ target: o.target, showToast: o.showToast, onClose: o.onClose, openForm, interactionMode: o.interactionMode, onSetInteractionMode: o.onSetInteractionMode })
+  const openForm = useCallback((spec: EditSpec) => { openLaneForm(spec, { x, y }, undefined, o.target.opener) }, [x, y, o.target.opener])
+  const openRemove = useCallback((link: Parameters<typeof openLinkRemoval>[0]) => {
+    openLinkRemoval(link, o.target.opener)
+  }, [o.target.opener])
+  const items = useLaneMenu({ target: o.target, showToast: o.showToast, onClose: o.onClose, openForm, openRemove, interactionMode: o.interactionMode, onSetInteractionMode: o.onSetInteractionMode })
   return { items, overlay: null }
 }

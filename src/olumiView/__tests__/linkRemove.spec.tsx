@@ -4,7 +4,7 @@
  * asked once, posted on the base it was asked on; core's receipt (a direct edit: no "Approved by"); a refusal is core's own words.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -42,6 +42,7 @@ let answer: { status: number; body: unknown } = { status: 201, body: { version: 
 let hold: Promise<void> | null = null
 const REFUSED = 'Removing this link leaves "total capacity" with nothing that works it out. Give its figure first, or remove it too.'
 beforeEach(() => {
+  vi.stubEnv('VITE_OLUMI_CORE', '0')
   calls = []; hold = null; answer = { status: 201, body: { version: 9, n: 4, receipt: 'links-remove:9' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', p = String(u)
@@ -54,6 +55,7 @@ beforeEach(() => {
   useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
 })
 afterEach(() => {
+  vi.unstubAllEnvs()
   cleanup(); setTeamFetch(null); resetWrites(); resetRemovingLinks(); useModelNotice.setState({ notice: null }); useViewFocusLink.setState({ id: null })
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null } as never)
 })

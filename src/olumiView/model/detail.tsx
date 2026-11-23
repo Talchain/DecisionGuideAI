@@ -5,6 +5,8 @@
  *
  * Every model word is core's, drawn verbatim under its View path; headings and buttons are core’s `model_words`.
  */
+import { canRenameCard } from '../v12/edit/renameCard'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useEffect, useState, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -120,7 +122,7 @@ export function CardDetail({ model, card }: { model: ViewModel; card: ViewCard }
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5" data-model-actions={card.id}>
         {canEdit && card.figure?.edit != null ? <Action at="figure" icon={icon('edit')} label={W.changeFigure} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: card.id })} /> : null}
         {target === null ? null : <Action at="target" icon={icon('edit')} label={card.family === 'limit' ? W.changeLimit : W.changeTarget} onPress={() => openEditor({ row: card.id, what: 'figure', quantity: target.id })} />}
-        {canEdit ? <Action at="rename" icon={icon('model-rename')} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
+        {canEdit && (!isOlumiCoreLane() || canRenameCard(card)) ? <Action at="rename" icon={icon('model-rename')} label={W.rename} onPress={() => openEditor({ row: card.id, what: 'rename' }, card.heading)} /> : null}
         <Action at="canvas" icon={icon('show-in-workspace')} label={W.showOnCanvas} onPress={() => focusNodeById(card.id)} />
       </div>
       <AskOlumi at={`change:${card.id}`} label={W.askChange} draft={W.askChangeDraft[card.id]!} />

@@ -1,11 +1,9 @@
-/**
- * A SELECTED CARD'S RENAME, IN THE DOCK'S "Selected:" ROW (DL 7 Nov, run 0717: in the panel beside the card, Rename sat on the neighbouring
- * card and covered its words). The panel beside a card now opens only for the card's other words; its rename is offered where the
- * selection is already named, next to its name, so it never covers the board. Core's contract and words are unchanged (Rename.tsx): on an
- * approved board only, the person's own page, the live version. Only a card of core's model is renamed here (the question is renamed
- * elsewhere); a link's selection offers none.
- */
+/** Selection details shared with the sheet. The lane's Rename shortcut opens the sheet heading. */
 import type { ReactNode } from 'react'
+import { isOlumiCoreLane } from '../olumiCore/lane'
+import { VIEW_EDIT_CHIP_CLASS } from '../v5/blocks/chipClass'
+import { useModelEdit } from './model/editing'
+import { canRenameCard, openRenameCard } from './v12/edit/renameCard'
 import { Rename } from './Rename'
 import { useViewStore } from './store'
 import { typography } from '../styles/typography'
@@ -36,7 +34,14 @@ export function CardWords({ id, ids, only }: { id: string; ids?: { author: strin
 /** True while the lane's details panel is open for this very card (SelectionPill `useQuiet`): the chip row then holds the chip alone. */
 export const useDetailsOpenFor = (id: string): boolean => useLaneInspector((s) => { const t = detailsOf(s); return t !== null && t.kind === 'card' && t.id === id })
 
-function SelectedRename({ id }: { id: string }): JSX.Element | null {
+function LaneRenameShortcut({ id }: { id: string }): JSX.Element | null {
+  const { base } = useModelEdit()
+  const card = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id))
+  const offered = base !== null && card !== undefined && canRenameCard(card)
+  return offered ? <button type="button" className={VIEW_EDIT_CHIP_CLASS} onClick={() => openRenameCard(id)}>Rename</button> : null
+}
+
+function SelectionDetails({ id }: { id: string }): JSX.Element | null {
   const heading = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id)?.heading ?? null)
   // DL 04:59Z (4): an option's next step (core's `headline.add`) is cut to two lines on the card; here it is whole, verbatim.
   const add = useViewStore((s) => { const c = s.view?.model?.cards.find((x) => x.id === id); return c?.family === 'option' ? c.headline?.add ?? null : null })
@@ -45,7 +50,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
   // Keyed by the card, so a rename half-typed for one card never carries over to the next one selected.
   return (
     <>
-      <Rename key={id} id={id} heading={heading} shown />
+      {isOlumiCoreLane() ? <LaneRenameShortcut id={id} /> : <Rename key={id} id={id} heading={heading} shown />}
       {/* Surfaces step 4: while THIS card's details stand open beside it the row is the chip alone (useDetailsOpenFor, SelectionPill `useQuiet`), because the
           panel draws its authorship, basis, next step and explanation (LaneInspector); closed, or selected another route, all of it is drawn here as before. */}
       <CardWords id={id} />
@@ -59,7 +64,7 @@ function SelectedRename({ id }: { id: string }): JSX.Element | null {
 /** For the dock's selection row (SelectionPill `after`): a stable function, so the memoised row does not redraw on every dock render. */
 /** Null for a selection core's model holds no card for (the question, a link, a group): the row then draws no detail box at all. */
 export const selectedRename = (s: { id: string; kind: 'node' | 'edge' }): ReactNode =>
-  (s.kind === 'node' && (useViewStore.getState().view?.model?.cards.some((c) => c.id === s.id) ?? false) ? <SelectedRename id={s.id} /> : null)
+  (s.kind === 'node' && (useViewStore.getState().view?.model?.cards.some((c) => c.id === s.id) ?? false) ? <SelectionDetails id={s.id} /> : null)
 
 /**
  * The selected card's own kind shape (the composer's selection chip, 17 Nov calm panel): the same shape the canvas draws it with (`drawKindOf`,

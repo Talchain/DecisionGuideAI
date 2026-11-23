@@ -69,29 +69,27 @@ describe('core lane left toolbar', () => {
     fireEvent.click(pan); mode(false)
   })
 
-  it('+ opens only Add a figure; choosing it shows the existing form beside the toolbar', () => {
+  it('+ opens the five model types and Figure opens the shared draft form', () => {
     mount()
     fireEvent.click(plus())
     const menu = screen.getByRole('menu', { name: 'Add to model' })
     const items = within(menu).getAllByRole('menuitem')
-    expect(items).toHaveLength(1)
-    expect(items[0]).toHaveAccessibleName('Add a figure')
+    expect(items.map((item) => item.textContent)).toEqual(['Figure', 'Option', 'Risk', 'Claim', 'Open question'])
     fireEvent.click(items[0]!)
     expect(screen.queryByRole('menu')).toBeNull()
-    const form = screen.getByTestId('view-add-figure-form')
-    expect(toolbar()).toContainElement(form)
-    expect(form).toHaveClass('absolute', 'left-full', 'top-0')
+    expect(screen.getByTestId('lane-edit-form')).toHaveAttribute('data-kind', 'figure-add')
+    expect(screen.getByTestId('lane-edit-label')).toHaveFocus()
   })
 
-  it.each(['Escape', 'outside press'])('%s closes the add menu and returns focus to +', async (dismiss) => {
+  it.each(['Escape', 'outside press'])('%s closes the add menu', async (dismiss) => {
     mount()
     fireEvent.click(plus())
     const menu = screen.getByRole('menu')
     if (dismiss === 'Escape') fireEvent.keyDown(menu, { key: 'Escape' })
-    else fireEvent.click(document.body)
+    else fireEvent.pointerDown(document.body)
     await waitFor(() => {
       expect(screen.queryByRole('menu')).toBeNull()
-      expect(plus()).toHaveFocus()
+      if (dismiss === 'Escape') expect(plus()).toHaveFocus()
     })
   })
 

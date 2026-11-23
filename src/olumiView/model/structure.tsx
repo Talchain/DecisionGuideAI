@@ -10,6 +10,10 @@ import { TeamApiError } from '../../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { requestAsk } from '../../canvas/ui/inspector-v2/askSemantic'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { VIEW_EDIT_CHIP_CLASS } from '../../v5/blocks/chipClass'
+import { useLaneInspector } from '../v12/edit/inspectorStore'
+import { openLaneAdd, openLinkRemoval } from '../v12/edit/structuralEdits'
 import { focusWhenDrawn } from '../AddFigure'
 import { OkIcon } from '../look/icons'
 import type { ViewLink } from '../client'
@@ -35,6 +39,20 @@ type Opened = { readonly sid: string; readonly base: number }
  * never drops them.
  */
 export function AddFigureRow(): JSX.Element | null {
+  return isOlumiCoreLane() ? <LaneAddRow /> : <OlderAddFigureRow />
+}
+
+function LaneAddRow(): JSX.Element | null {
+  const { base } = useModelEdit()
+  const button = useRef<HTMLButtonElement>(null)
+  const opener = useLaneInspector((s) => s.current?.kind === 'add-menu' ? s.current.opener : null)
+  return base === null ? null : (
+    <button ref={button} type="button" aria-haspopup="menu" aria-expanded={opener !== null && opener === button.current}
+      data-testid="model-add" className={VIEW_EDIT_CHIP_CLASS} onClick={(e) => openLaneAdd(e.currentTarget)}>Add</button>
+  )
+}
+
+function OlderAddFigureRow(): JSX.Element | null {
   const W = useModelWords()!
   const { sid, base: live } = useModelEdit()
   const adding = useModelTab((s) => (s.adding !== null && s.adding.sid === sid ? s.adding : null))
@@ -113,6 +131,21 @@ export function AddFigureRow(): JSX.Element | null {
  * version, since the link's own row is gone; focus goes to that group's heading if it was here.
  */
 export function RemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Element | null {
+  return isOlumiCoreLane() ? <LaneRemoveLink link={link} row={row} /> : <OlderRemoveLink link={link} row={row} />
+}
+
+function LaneRemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Element | null {
+  const { base } = useModelEdit()
+  if (base === null || link.remove == null) return null
+  return (
+    <button type="button" className={VIEW_EDIT_CHIP_CLASS} data-model-remove-link-open={row} onClick={(e) => {
+      e.stopPropagation()
+      openLinkRemoval(link, e.currentTarget)
+    }}>Remove link</button>
+  )
+}
+
+function OlderRemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Element | null {
   const W = useModelWords()!
   const { sid, base: live } = useModelEdit()
   const remove = link.remove

@@ -5,7 +5,7 @@
  * core's receipt said; a refusal is core's own words and nothing reads as saved; the new card is put in front once drawn.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -30,6 +30,7 @@ let answer: { status: number; body: unknown } = { status: 201, body: { version: 
 const focused: string[] = []
 let unregister: () => void = () => {}
 beforeEach(() => {
+  vi.stubEnv('VITE_OLUMI_CORE', '0')
   calls = []; focused.length = 0; answer = { status: 201, body: { version: 9, n: 3, receipt: 'figures:9', record: 'weekly_churn' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', p = String(u)
@@ -43,6 +44,7 @@ beforeEach(() => {
   unregister = registerFocusHelpers((id) => { focused.push(id) }, () => {})
 })
 afterEach(() => {
+  vi.unstubAllEnvs()
   cleanup(); setTeamFetch(null); resetWrites(); unregister(); useModelNotice.setState({ notice: null })
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null } as never)
   useCanvasStore.setState({ nodes: [] } as never)

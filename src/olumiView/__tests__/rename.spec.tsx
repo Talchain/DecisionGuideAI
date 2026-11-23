@@ -5,7 +5,7 @@
  * change first"). The panel beside a card opens only for its other words.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -35,6 +35,7 @@ const selectedRow = (id: string, kind: 'node' | 'edge' = 'node') => {
 let calls: Array<{ method: string; path: string; body: unknown }> = []
 let answer: { status: number; body: unknown } = { status: 201, body: { version: 9, n: 3, receipt: 'rename:9' } }
 beforeEach(() => {
+  vi.stubEnv('VITE_OLUMI_CORE', '0')
   calls = []; answer = { status: 201, body: { version: 9, n: 3, receipt: 'rename:9' } }
   setTeamFetch((async (u: unknown, init?: RequestInit) => {
     const method = init?.method ?? 'GET', p = String(u)
@@ -46,7 +47,9 @@ beforeEach(() => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view: approved, status: 'ready', error: null, stale: false, at: null })
   useMe.setState({ me: { id: approved.you_id, name: approved.you }, status: 'ready' })
 })
-afterEach(() => { cleanup(); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }, nodes: [], edges: [] } as never); setTeamFetch(null); resetWrites(); useModelNotice.setState({ notice: null }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => {
+  vi.unstubAllEnvs()
+  cleanup(); useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }, nodes: [], edges: [] } as never); setTeamFetch(null); resetWrites(); useModelNotice.setState({ notice: null }); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null, status: 'none' }) })
 const posts = () => calls.filter((c) => c.method === 'POST')
 
 describe('whose card it is, in the Selected row (UI restore 11 Nov, R12)', () => {

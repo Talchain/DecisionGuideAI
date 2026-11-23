@@ -1,16 +1,16 @@
 /** The canvas adapts its existing actions to the shared menu and owns transitions into edit forms. */
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { OkIcon } from '../../olumiView/look/icons'
-import { Menu, MenuItem, MenuSeparator, SubMenu } from '../../olumiView/look/Menu.tsx'
+import { Menu } from '../../olumiView/look/Menu.tsx'
 import { useShowToast } from '../ToastContext'
 import { useMenuItems } from './useMenuItems'
 import { useLaneItems } from './useLaneMenu'
-import { isDivider, isMenuItem, type ContextTarget, type MenuEntry } from './types'
+import { type ContextTarget, type MenuEntry } from './types'
 import { SetValuePopover } from './SetValuePopover'
 import { setValueCustom, type FactorValueWriter } from './actions'
 import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { ContextRows, hasIcon } from './ContextRows'
 import { CardMenuHeader } from '../../olumiView/v12/chat/CardMenuHeader'
 import { freeCanvas } from '../../olumiView/v12/edit/placeBeside'
 import { FOOT_CONTROLS, HEAD_CONTROLS, LENS_KEYS, regionsOf } from '../../olumiView/regions'
@@ -120,34 +120,4 @@ function canvasMenuBoundary() {
     control.right > left && control.left < right && control.top > top && control.bottom > control.top ? Math.min(y, control.top) : y,
   bottom)
   return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, floor - top) }
-}
-
-function hasIcon(items: MenuEntry[]) {
-  return items.some((entry) => isMenuItem(entry) && Boolean(entry.glyph || entry.iconId || entry.icon))
-}
-
-function ContextRows({ items, lane }: { items: MenuEntry[]; lane: boolean }) {
-  return items.map((item, index) => {
-    if (isDivider(item)) return <MenuSeparator key={index} />
-    const LegacyIcon = item.icon
-    const iconSize = lane ? 14 : 16
-    const iconColor = lane ? undefined : item.glyphColor ?? (item.id.startsWith('ask-ai') ? 'text-info' : undefined)
-    const icon = item.glyph
-      ? <span className={`olumi-menu-symbol text-sm ${lane ? '' : iconColor ?? 'text-text-light'}`}>{item.glyph}</span>
-      : item.iconId !== undefined
-        ? <OkIcon id={item.iconId} variant={item.iconAlt ? 'alt' : undefined} size={iconSize} decorative inherit className={iconColor} />
-        : LegacyIcon && <LegacyIcon size={iconSize} className={iconColor} />
-    const props = {
-      id: item.id, label: item.label, icon, danger: item.destructive,
-      disabled: !item.enabled, disabledReason: item.disabledReason, tip: item.tooltip, closeOnSelect: false,
-    }
-    if (item.hasSubmenu && item.submenuItems) {
-      return (
-        <SubMenu key={item.id} {...props} iconColumn={lane || hasIcon(item.submenuItems)}>
-          <ContextRows items={item.submenuItems} lane={lane} />
-        </SubMenu>
-      )
-    }
-    return <MenuItem key={item.id} {...props} trailing={item.shortcut} onSelect={item.action} />
-  })
 }

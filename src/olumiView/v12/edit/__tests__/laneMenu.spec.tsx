@@ -5,12 +5,20 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
-import { buildLaneMenu, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
+import { buildLaneMenu, edgeIdOf, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
 import { isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from '../../../../canvas/contextMenu/types'
 import { clearLayoutUndo, chooseRedo, chooseUndo, useLayoutUndo } from '../undo'
+import { AddFigure } from '../../../AddFigure'
+import { AddFigureRow } from '../../../model/structure'
+import { ModelCardRow } from '../../../model/ModelCardRow'
+import { CardDetail, LinkDetail } from '../../../model/detail'
+import { selectedRename } from '../../../SelectedRename'
+import { setTeamFetch } from '../../../../olumiCore/team/api'
+import { LaneLinkRemoveButton } from '../LaneLinkRemoveButton'
+import { useWhatIf } from '../../../whatif'
 import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useLaneInspector } from '../inspectorStore'
 import { useViewStore } from '../../../store'
@@ -33,9 +41,9 @@ const nodeT = (id: string): ContextTarget => ({ kind: 'node', nodeId: id, nodeTy
 beforeEach(() => { calls.length = 0; spec.length = 0 })
 
 describe('canvas menu', () => {
-  it('has Hand mode, Add (factor, option, risk, claim, open question), Ask Olumi, Undo, Auto-arrange and the whole-model switch (Redo only where a moved card can be put back)', () => {
+  it('has Hand mode, Add (figure, option, risk, claim, open question), Ask Olumi, Undo, Auto-arrange and the whole-model switch (Redo only where a moved card can be put back)', () => {
     const m = buildLaneMenu(pane, ctx())
-    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Hand mode', 'Add', 'Factor', 'Option', 'Risk', 'Claim', 'Open question', 'Ask Olumi', 'Auto-arrange', 'Show the whole model']))
+    expect(flat(m).map((i) => i.label)).toEqual(expect.arrayContaining(['Hand mode', 'Add', 'Figure', 'Option', 'Risk', 'Claim', 'Open question', 'Ask Olumi', 'Auto-arrange', 'Show the whole model']))
     expect(byId(m, 'undo'), 'nothing to undo: no row, not a disabled one').toBeUndefined()
     expect(byId(m, 'redo')).toBeUndefined()
     const withRedo = ctx({ undo: { undo: noUndo.undo, redo: { kind: 'layout', label: 'Redo move', note: null } } })
@@ -45,11 +53,11 @@ describe('canvas menu', () => {
     byId(buildLaneMenu(pane, ctx()), 'add-option')!.action()
     expect(spec[0]).toMatchObject({ kind: 'item', item: 'choice', sid: SID, base: BASE, concerns: [] })
   })
-  it('Add > Risk from the canvas offers the model\'s figures to pick from; with none the row is omitted', () => {
+  it('Add > Risk from the canvas offers the model\'s figures to pick from; with none the row explains why it is unavailable', () => {
     byId(buildLaneMenu(pane, ctx()), 'add-risk')!.action()
     expect((spec[0] as { pickFigure: unknown[] }).pickFigure.length).toBeGreaterThan(0)
     const none = byId(buildLaneMenu(pane, ctx({ model: { ...approved().model!, cards: [] } })), 'add-risk')
-    expect(none).toBeUndefined()
+    expect(none).toMatchObject({ enabled: false, disabledReason: 'Add a figure for this risk to affect.' })
     expect(byId(buildLaneMenu(pane, ctx({ model: { ...approved().model!, cards: [] } })), 'add'), 'CONTRAST: Add stays while any of its rows can act').toBeDefined()
   })
   it('while core takes no edit (Olumi\'s change held) there is no Add row at all, and no row says "Not right now"', () => {
@@ -136,11 +144,144 @@ describe('mounted on the lane: the real route is called', () => {
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); stub = install(); clearLayoutUndo(); useLayoutUndo.setState({ undo: [], redo: [], seq: 0, savedSeq: 0, last: null }) })
   afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }) })
   // As ViewCanvas mounts it: the menu is the one surface store's, and the layer draws the one small form that takes the menu's place.
-  const Host = (): JSX.Element => {
+  const Host = ({ children }: { children?: React.ReactNode }): JSX.Element => {
     const target = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
-    return <ToastProvider>{target === null ? null : <CanvasContextMenu target={target} onClose={() => useLaneInspector.getState().close('menu')} screenToFlowPosition={(p) => p} interactionMode="select" onSetInteractionMode={() => undefined} />}<LaneEditingLayer /></ToastProvider>
+    return <ToastProvider>{children}{target === null ? null : <CanvasContextMenu target={target} onClose={() => useLaneInspector.getState().close('menu')} screenToFlowPosition={(p) => p} interactionMode="select" onSetInteractionMode={() => undefined} />}<LaneEditingLayer /></ToastProvider>
   }
   const mount = (target: ContextTarget) => { useLaneInspector.getState().show({ kind: 'menu', target }); return render(<Host />) }
+  const fig = 'starting_customers'
+  const openCard = (id: string) => act(() => useLaneInspector.getState().open({ kind: 'card', id }))
+  const context = (target: ContextTarget) => act(() => useLaneInspector.getState().show({ kind: 'menu', target }))
+
+  it.each(['card menu', 'sheet menu', 'Model detail', 'Model heading', 'chat selection', 'heading click'])('%s edits the sheet heading in place', async (opener) => {
+    const model = approved().model!, card = model.cards.find((c) => c.id === fig)!
+    render(<Host>
+      {opener === 'Model detail' ? <CardDetail model={model} card={card} /> : null}
+      {opener === 'Model heading' ? <ul><ModelCardRow model={model} card={card} kind="factor" number={null} /></ul> : null}
+      {opener === 'chat selection' ? selectedRename({ id: fig, kind: 'node' }) : null}
+    </Host>)
+    if (opener === 'card menu') {
+      context(nodeT(fig))
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+    } else if (opener === 'sheet menu') {
+      openCard(fig)
+      fireEvent.click(screen.getByTestId('lane-inspector-more'))
+      fireEvent.click(screen.getByTestId('lane-inspector-rename'))
+    } else if (opener === 'Model heading') {
+      fireEvent.doubleClick(document.querySelector(`[data-model-select="${fig}"]`)!)
+    } else if (opener === 'heading click') {
+      openCard(fig)
+      fireEvent.click(within(screen.getByTestId('lane-inspector-title')).getByRole('button'))
+    } else {
+      fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    }
+    const field = await screen.findByTestId('lane-inspector-name')
+    expect(field).toHaveFocus()
+    expect(field.closest('h2')).toBe(screen.getByTestId('lane-inspector-title'))
+    expect(screen.queryByTestId('lane-edit-form')).toBeNull()
+    fireEvent.change(field, { target: { value: 'Discard this name' } })
+    fireEvent.keyDown(field, { key: 'Escape' })
+    const heading = within(screen.getByTestId('lane-inspector-title')).getByRole('button', { name: card.heading })
+    expect(heading).toHaveFocus()
+    expect(stub.posts()).toHaveLength(0)
+    // A native heading button responds to Enter with a click.
+    fireEvent.click(heading, { detail: 0 })
+    const reopened = screen.getByTestId('lane-inspector-name')
+    expect(reopened).toHaveValue(card.heading)
+    fireEvent.change(reopened, { target: { value: 'Opening customer base' } })
+    fireEvent.keyDown(reopened, { key: 'Enter' })
+    await waitFor(() => expect(stub.posts()).toHaveLength(1))
+    expect(stub.posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/rename`, body: { base: BASE, record: fig, label: 'Opening customer base' } })
+    await waitFor(() => expect(screen.queryByTestId('lane-inspector-name')).toBeNull())
+  })
+
+  it.each(['claim', 'left_out'])('a %s cannot be renamed by the menu or the sheet', async (family) => {
+    const view = approved()
+    view.model!.cards = view.model!.cards.map((card) => card.id === fig ? { ...card, family } : card)
+    stub = install(view)
+    mount(nodeT(fig))
+    expect(screen.queryByRole('menuitem', { name: 'Rename' })).toBeNull()
+    openCard(fig)
+    fireEvent.click(screen.getByTestId('lane-inspector-more'))
+    expect(screen.queryByTestId('lane-inspector-rename')).toBeNull()
+    expect(within(screen.getByTestId('lane-inspector-title')).queryByRole('button')).toBeNull()
+  })
+
+  it.each(['rail', 'canvas', 'Model Factors'])('%s opens the same Add list and figure draft', async (opener) => {
+    render(<Host><AddFigure /><AddFigureRow /></Host>)
+    if (opener === 'rail') fireEvent.click(screen.getByTestId('canvas-add-to-model'))
+    if (opener === 'Model Factors') fireEvent.click(screen.getByTestId('model-add'))
+    if (opener === 'canvas') {
+      context(pane)
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Add' }))
+    }
+    const names = ['Figure', 'Option', 'Risk', 'Claim', 'Open question']
+    const figure = await screen.findByRole('menuitem', { name: 'Figure' })
+    expect(within(figure.closest('[role="menu"]')!).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(names)
+    fireEvent.click(figure)
+    expect(screen.getByTestId('lane-edit-form')).toHaveAttribute('data-kind', 'figure-add')
+    const label = screen.getByTestId('lane-edit-label')
+    expect(label).toHaveFocus()
+    fireEvent.change(label, { target: { value: 'New figure' } })
+    fireEvent.change(screen.getByTestId('lane-edit-typed'), { target: { value: '5 to 10' } })
+    fireEvent.click(screen.getByTestId('lane-edit-go'))
+    await waitFor(() => expect(stub.posts()).toHaveLength(1))
+    expect(stub.posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/figures`, body: { base: BASE, label: 'New figure', typed: '5 to 10' } })
+    await waitFor(() => expect(screen.queryByTestId('lane-edit-form')).toBeNull())
+  })
+
+  it.each(['edge menu', 'sheet', 'inline edge', 'Model relationship'])('%s opens one dependency review for the exact link part', async (opener) => {
+    const view = approved(), model = view.model!
+    const link = { ...model.links[1]!, remove: { record: 'sum_of_customers', part: fig } }
+    model.links[1] = link
+    model.links[2] = { ...model.links[2]!, role: 'measures' }
+    stub = install(view)
+    const id = edgeIdOf(link)
+    render(<Host>{opener === 'Model relationship' ? <LinkDetail model={model} link={link} row="relationship" /> : opener === 'inline edge' ? <LaneLinkRemoveButton edge={id} link={link} /> : null}</Host>)
+    if (opener === 'edge menu') {
+      context({ kind: 'edge', edgeId: id, edge: { id, data: { link } } as never, isStructural: true, screenPos: { x: 10, y: 10 } })
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove link' }))
+    } else {
+      if (opener === 'sheet') act(() => useLaneInspector.getState().open({ kind: 'link', id }))
+      fireEvent.click(screen.getByRole('button', { name: 'Remove link' }))
+    }
+    expect(screen.getAllByRole('dialog', { name: 'Remove this link?' })).toHaveLength(1)
+    const review = screen.getByTestId('lane-link-dependencies')
+    const heading = (id: string) => model.cards.find((card) => card.id === id)!.heading
+    expect(review).toHaveTextContent(heading(fig))
+    expect(review).toHaveTextContent(heading(link.to))
+    expect(review).toHaveTextContent(heading(model.links[2]!.to))
+    expect(screen.getByRole('button', { name: 'Keep' })).toHaveFocus()
+    expect(stub.posts()).toHaveLength(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(stub.posts()).toHaveLength(1))
+    expect(stub.posts()[0]).toMatchObject({ path: `/api/scenarios/${SID}/links/remove`, body: { base: BASE, record: 'sum_of_customers', part: fig } })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('a Try completing after another sheet opens leaves the newer sheet and its field in place', async () => {
+    let resolve!: (response: Response) => void
+    const pending = new Promise<Response>((done) => { resolve = done })
+    const view = approved()
+    const fetchStub = vi.fn(async (path: string) => path === '/api/me'
+      ? new Response(JSON.stringify({ me: { id: view.you_id, name: view.you } }))
+      : pending)
+    setTeamFetch(fetchStub as unknown as typeof fetch)
+    render(<Host />)
+    act(() => useLaneInspector.getState().openFigure({ kind: 'card', id: fig }))
+    fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '700' } })
+    fireEvent.click(screen.getByTestId('inspector-figure-try'))
+    await waitFor(() => expect(fetchStub).toHaveBeenCalledWith(`/api/scenarios/${SID}/whatif`, expect.anything()))
+    act(() => useLaneInspector.getState().openFigure({ kind: 'card', id: 'customer_target' }))
+    const next = useLaneInspector.getState().current
+    await act(async () => resolve(new Response(JSON.stringify({ variants: [{}] }))))
+    expect(useWhatIf.getState().shown?.quantity).toBe(fig)
+    expect(useLaneInspector.getState().current).toBe(next)
+    expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-box-card', 'customer_target')
+    expect(screen.getByTestId('inspector-figure-typed')).toHaveFocus()
+    useWhatIf.setState({ shown: null })
+  })
+
   it('Add > Option: the form posts /strategy/items as a choice and the menu closes itself after', async () => {
     mount(pane)
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Add/ }))

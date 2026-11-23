@@ -109,6 +109,10 @@ export const VIEW_ICON_BUTTON_PRIMARY_CLASS = [LANE_BASE, 'min-w-7 flex-none', L
 /** No text colour of its own: the icon's registry colour is a class the button adds (OkIconButton), so `disabled:text-text-light` and a hover can win. */
 export const VIEW_ICON_BUTTON_CLASS = [LANE_BASE, 'min-w-7 flex-none', LANE_GHOST_SURFACE].join(' ')
 
+// Editing controls use the panel heading colour for keyboard focus.
+export const VIEW_EDIT_CHIP_CLASS = VIEW_CHIP_CLASS.replace('focus-visible:ring-info', 'focus-visible:ring-text-header')
+export const VIEW_EDIT_CHIP_PRIMARY_CLASS = VIEW_CHIP_PRIMARY_CLASS.replace('focus-visible:ring-info', 'focus-visible:ring-text-header')
+
 /**
  * CHIP_DISMISS_LINK_CLASS — DS v5 §21.2's "Dismiss → `text-text-light` link".
  * No border and no pill, so it cannot be mistaken for a second answer; the
