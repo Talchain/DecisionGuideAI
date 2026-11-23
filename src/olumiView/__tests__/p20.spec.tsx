@@ -114,11 +114,25 @@ it('opens the selected link’s details from the rendered line and from its focu
   fireEvent.keyDown(edge, { key: 'Enter' })
   expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(link.title)
   fireEvent.click(screen.getByRole('button', { name: 'Close details' }))
-  // The link's remove control is its own press: Remove link, Keep and Yes never open the link's details over the removal.
+  // The lane control opens the removal form for this link without opening its details.
   expect(link.remove).not.toBeNull()
-  const open = document.querySelector<HTMLButtonElement>('[data-testid^="view-link-remove-open-"]')!
+  const open = document.querySelector<HTMLButtonElement>(`[data-link-for="${id}"]`)!
   fireEvent.click(open)
+  const form = screen.getByRole('dialog', { name: 'Remove this link?' })
+  expect(form).toBeInTheDocument()
+  const review = screen.getByTestId('lane-link-removal-summary')
+  const heading = (cardId: string) => cards.find((card) => card.id === cardId)!.heading
+  expect(review).toHaveTextContent(`from ${heading(link.from)} to ${heading(link.to)}`)
   expect(screen.queryByTestId('lane-inspector')).toBeNull()
-  fireEvent.click(document.querySelector<HTMLButtonElement>('[data-testid^="view-link-remove-keep-"]')!)
+  fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
+  expect(form).not.toBeInTheDocument()
   expect(screen.queryByTestId('lane-inspector')).toBeNull()
+  // The focused link opens on Enter only: Space leaves its details closed, Enter opens them.
+  act(() => edge.focus())
+  expect(edge).toHaveFocus()
+  fireEvent.keyDown(edge, { key: ' ' })
+  expect(screen.queryByTestId('lane-inspector')).toBeNull()
+  fireEvent.keyDown(edge, { key: 'Enter' })
+  expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-kind', 'link')
+  expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(link.title)
 })
