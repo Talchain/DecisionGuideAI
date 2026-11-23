@@ -4,6 +4,7 @@
  * bound to the record it belongs to (mark by card and kind, evidence by id, the viewer by id). The screen must draw each marker exactly where
  * core's field goes: a string composed in the UI from names, figures or a copy table cannot match.
  */
+import { laneTipOf } from './tipHelpers'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -59,15 +60,15 @@ describe('N3: every strategy-screen word is core\'s field, drawn by identity', (
     // Canvas chips: each core mark's hover and name, by card and kind.
     render(<CardViewChips card={CARD} />)
     const chip = (kind: string) => document.querySelector<HTMLElement>(`[data-reveal-card-chip="${CARD}"][data-reveal-kind="${kind}"]`)!
-    expect([chip('disagreement').title, chip('disagreement').getAttribute('aria-label')]).toEqual([`‹title ${CARD} disagreement›`, `‹label ${CARD} disagreement›`])
-    expect([chip('evidence').title, chip('evidence').getAttribute('aria-label')]).toEqual([`‹title ${CARD} evidence›`, `‹label ${CARD} evidence›`])
+    expect([laneTipOf(chip('disagreement')), chip('disagreement').getAttribute('aria-label')]).toEqual([`‹title ${CARD} disagreement›`, `‹label ${CARD} disagreement›`])
+    expect([laneTipOf(chip('evidence')), chip('evidence').getAttribute('aria-label')]).toEqual([`‹title ${CARD} evidence›`, `‹label ${CARD} evidence›`])
     cleanup()
     // An evidence mark no chip gathers: its own name and hover, by evidence id.
     const loose: View = { ...v, collab: { ...v.collab, marks: v.collab.marks!.filter((m) => m.kind !== 'evidence') } }
     setView(loose)
     render(<CardEvidenceMarks card={CARD} />)
     const em = document.querySelector<HTMLElement>('[data-evidence-mark="31"]')!
-    expect([em.getAttribute('aria-label'), em.title]).toEqual(['‹mark label 31›', '‹mark title 31›'])
+    expect([em.getAttribute('aria-label'), laneTipOf(em)]).toEqual(['‹mark label 31›', '‹mark title 31›'])
     cleanup()
     // The evidence dock, opened on 31 from its chip: its words, its stance line and the switch to 32.
     setView(v)

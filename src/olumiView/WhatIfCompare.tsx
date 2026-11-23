@@ -2,6 +2,7 @@
  * A what-if's result beside the saved model: each option's saved lines and its what-if lines, in core's row shape, drawn by the dock's own
  * `Row`. The What if lens's key card (ViewWhatIfKey.tsx).
  */
+import { Hover } from './look/Hover'
 import { typography } from '../styles/typography'
 import { WHAT_IF_COPY } from '../canvas/artefacts/whatIfCopy'
 import type { ViewModel } from './client'
@@ -18,7 +19,7 @@ export function Compare({ model, shown }: { model: ViewModel; shown: NonNullable
   return (
     <div className="space-y-4" data-testid="view-whatif-key-compare">
       {v.moved || v.why_not === null ? null : <p className={typography.viewPanelMeta} data-view="whatif.why_not">{v.why_not}</p>}
-      {v.most_likely === null ? null : <p title={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</p>}
+      {v.most_likely === null ? null : <Hover as="p" words={v.most_likely.title} data-view="whatif.most_likely.text">{v.most_likely.text}</Hover>}
       {optionCards(model).map((card) => {
         const rows = tried.get(card.id)
         return rows === undefined ? null : (

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNodeId } from '@xyflow/react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { useCanvasStore } from '../../store'
 import { requestAsk } from '../../ui/inspector-v2/askSemantic'
 import { useGuidanceStore } from '../../stores/guidanceStore'
@@ -161,7 +161,7 @@ const OLUMI_MARK_CLASSES = 'inline-flex shrink-0 items-center rounded-sm text-te
 export function OlumiAskMark({ tip, ask, attrs }: { tip: string; ask: { text: string; ask: () => void }; attrs: Record<string, string | undefined> }) {
   const Icon = cardMark('source-olumi').Icon
   return (
-    <Tooltip asChild content={tip} delay={NODE_TOOLTIP_DELAY_MS}>
+    <CardTooltip words={tip} delay={NODE_TOOLTIP_DELAY_MS}>
       <button
         type="button"
         {...attrs}
@@ -177,7 +177,7 @@ export function OlumiAskMark({ tip, ask, attrs }: { tip: string; ask: { text: st
       >
         <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
       </button>
-    </Tooltip>
+    </CardTooltip>
   )
 }
 
@@ -213,7 +213,7 @@ export function OlumiMergedMark({
   const classes = `${OLUMI_MARK_CLASSES} cursor-help`
   const glyph = <Icon aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
   return (
-    <Tooltip asChild content={label} delay={NODE_TOOLTIP_DELAY_MS}>
+    <CardTooltip words={label} delay={NODE_TOOLTIP_DELAY_MS}>
       {onOpen ? (
         <button
           type="button"
@@ -229,6 +229,6 @@ export function OlumiMergedMark({
       ) : (
         <span {...attrs} role="img" tabIndex={0} className={classes}>{glyph}</span>
       )}
-    </Tooltip>
+    </CardTooltip>
   )
 }

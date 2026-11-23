@@ -5,7 +5,8 @@
  * options as the View lists them, the aims as their rows do). No word, number, sort or rank of DGAI's own: the grid sets core's findings
  * side by side, so the team sees what each option does on every aim at once; it never says which is better. View only: it writes nothing.
  */
-import { X } from 'lucide-react'
+import { GlyphMark, Hover, HoverButton } from './look/Hover'
+import { OkIcon } from './look/icons'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
 import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
@@ -34,13 +35,13 @@ function Cell({ option, aim }: { option: ViewCard; aim: string }): JSX.Element {
   const i = option.rows.findIndex((r) => r.aim_id === aim), row: Row | undefined = option.rows[i]
   const at = `${option.id}.rows.${i}`
   const mark = row === undefined || row.kind === 'none' || row.olumi === null ? null
-    : <>{NBSP}<span title={row.olumi.title} aria-label={row.olumi.title} data-view={`${at}.olumi.glyph`}>{row.olumi.glyph}</span></>
+    : <>{NBSP}<GlyphMark mark={row.olumi} view={`${at}.olumi.glyph`} /></>
   return (
-    <td className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top`} title={row?.title} data-view-row={row === undefined ? undefined : at}
+    <Hover as="td" className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top`} words={row?.title} data-view-row={row === undefined ? undefined : at}
       data-tradeoff-cell={`${option.id}.${aim}`}>
       {row === undefined ? null : row.kind === 'none' ? <span data-view={`${at}.text`}>{row.text}</span>
         : <span className={typography.viewPanelTabular}>{row.kind === 'chance' && row.approx !== '' ? <span data-view={`${at}.approx`}>{row.approx}</span> : null}<span data-view={`${at}.value`}>{row.value}</span>{mark}</span>}
-    </td>
+    </Hover>
   )
 }
 
@@ -81,10 +82,10 @@ export function ViewTradeOffsKey(): JSX.Element | null {
       <header className="flex items-center gap-2">
         <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
         <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{label}</h2>
-        <button type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LENS_KEY_COPY.close} data-testid="view-tradeoffs-key-close"
+        <HoverButton type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} words={LENS_KEY_COPY.close} data-testid="view-tradeoffs-key-close"
           className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+          <OkIcon id="cancel-close" size={14} decorative inherit />
+        </HoverButton>
       </header>
       <div className="min-h-0 flex-1 overflow-auto"><TradeOffsGrid model={model} /></div>
     </section>

@@ -4677,111 +4677,16 @@
     "v12-native-title": {
       "mode": "ratchet",
       "description": "Native title props on DOM elements in lane TSX",
-      "total": 20,
+      "total": 1,
       "byFile": {
-        "src/olumiView/RevealMarks.tsx": 3,
-        "src/olumiView/ViewPreMortemKey.tsx": 3,
-        "src/olumiView/ViewTradeOffsKey.tsx": 3,
-        "src/olumiView/v10.tsx": 3,
-        "src/olumiView/Badge.tsx": 1,
-        "src/olumiView/DraftingBoard.tsx": 1,
-        "src/olumiView/ResultBand.tsx": 1,
-        "src/olumiView/SelectedRename.tsx": 1,
-        "src/olumiView/StatedFigure.tsx": 1,
-        "src/olumiView/ViewLegend.tsx": 1,
-        "src/olumiView/ViewSummary.tsx": 1,
-        "src/olumiView/WhatIfCompare.tsx": 1
+        "src/olumiView/Badge.tsx": 1
       },
       "signatures": {
         "v12-native-title :: src/olumiView/Badge.tsx :: <button title>": {
           "count": 1,
           "file": "src/olumiView/Badge.tsx",
           "token": "<button title>",
-          "sample": "title={title} aria-label={badge.label} aria-expanded={badge.open} data-proposed={badge.proposed || undefined} data-badge"
-        },
-        "v12-native-title :: src/olumiView/DraftingBoard.tsx :: <button title>": {
-          "count": 1,
-          "file": "src/olumiView/DraftingBoard.tsx",
-          "token": "<button title>",
-          "sample": "<button type=\"button\" disabled={busy} title={draft.stop.title} aria-label={draft.stop.label} data-view=\"draft.stop.label"
-        },
-        "v12-native-title :: src/olumiView/ResultBand.tsx :: <button title>": {
-          "count": 1,
-          "file": "src/olumiView/ResultBand.tsx",
-          "token": "<button title>",
-          "sample": "<button type=\"button\" className=\"ok-share nodrag nopan\" data-rests-share={card.id} data-rests-basis={said.basis} title={"
-        },
-        "v12-native-title :: src/olumiView/RevealMarks.tsx :: <button title>": {
-          "count": 3,
-          "file": "src/olumiView/RevealMarks.tsx",
-          "token": "<button title>",
-          "sample": "<button key={e.id} type=\"button\" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e."
-        },
-        "v12-native-title :: src/olumiView/SelectedRename.tsx :: <span title>": {
-          "count": 1,
-          "file": "src/olumiView/SelectedRename.tsx",
-          "token": "<span title>",
-          "sample": "{only === 'basis' || author === null ? null : <span className={`${typography.viewPanelMeta} ${author.by === 'olumi' ? 't"
-        },
-        "v12-native-title :: src/olumiView/StatedFigure.tsx :: <p title>": {
-          "count": 1,
-          "file": "src/olumiView/StatedFigure.tsx",
-          "token": "<p title>",
-          "sample": "return <p className=\"text-text-header\" title={figure.title} data-stated-figure={id} data-view={`${id}.figure.text`}>{fig"
-        },
-        "v12-native-title :: src/olumiView/ViewLegend.tsx :: <p title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewLegend.tsx",
-          "token": "<p title>",
-          "sample": "<p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap"
-        },
-        "v12-native-title :: src/olumiView/ViewPreMortemKey.tsx :: <button title>": {
-          "count": 2,
-          "file": "src/olumiView/ViewPreMortemKey.tsx",
-          "token": "<button title>",
-          "sample": "<button type=\"button\" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LEN"
-        },
-        "v12-native-title :: src/olumiView/ViewPreMortemKey.tsx :: <span title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewPreMortemKey.tsx",
-          "token": "<span title>",
-          "sample": "<span className=\"text-info\" title={st.olumi.title} aria-label={st.olumi.title}>{st.olumi.glyph}{st.n} </span>"
-        },
-        "v12-native-title :: src/olumiView/ViewSummary.tsx :: <span title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewSummary.tsx",
-          "token": "<span title>",
-          "sample": "{part.mark === null ? null : <>{' '}<span role=\"img\" title={part.mark.title} aria-label={part.mark.title}>{part.mark.gly"
-        },
-        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <span title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewTradeOffsKey.tsx",
-          "token": "<span title>",
-          "sample": ": <>{NBSP}<span title={row.olumi.title} aria-label={row.olumi.title} data-view={`${at}.olumi.glyph`}>{row.olumi.glyph}</"
-        },
-        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <td title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewTradeOffsKey.tsx",
-          "token": "<td title>",
-          "sample": "<td className={`${typography.viewPanelBody} border border-panel-border px-2 py-2.5 align-top`} title={row?.title} data-v"
-        },
-        "v12-native-title :: src/olumiView/ViewTradeOffsKey.tsx :: <button title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewTradeOffsKey.tsx",
-          "token": "<button title>",
-          "sample": "<button type=\"button\" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LEN"
-        },
-        "v12-native-title :: src/olumiView/WhatIfCompare.tsx :: <p title>": {
-          "count": 1,
-          "file": "src/olumiView/WhatIfCompare.tsx",
-          "token": "<p title>",
-          "sample": "{v.most_likely === null ? null : <p title={v.most_likely.title} data-view=\"whatif.most_likely.text\">{v.most_likely.text}"
-        },
-        "v12-native-title :: src/olumiView/v10.tsx :: <div title>": {
-          "count": 3,
-          "file": "src/olumiView/v10.tsx",
-          "token": "<div title>",
-          "sample": "<div className=\"mt-1 min-w-0\" data-testid={`view-option-band-${id}`} title={band.title === '' ? band.text : `${band.text"
+          "sample": ": <button {...button} title={title}>{children}</button>"
         }
       }
     },

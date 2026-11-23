@@ -4,7 +4,7 @@
  * like the card's other marks: it records the person's reasoning, it does not grade it.
  */
 import { CheckCircle2 } from 'lucide-react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { useAnsweredQuestion } from '../../stores/answeredQuestionsStore'
@@ -23,7 +23,7 @@ export function AnsweredMark({ nodeId }: { nodeId: string }) {
   const detail = ANSWERED_MARK_COPY.detail(answered.question, answered.answer)
   return (
     <BottomCardMark>
-      <Tooltip asChild content={`${ANSWERED_MARK_COPY.label}: ${detail}`}>
+      <CardTooltip words={`${ANSWERED_MARK_COPY.label}: ${detail}`}>
         <span className="inline-flex">
           <span
             data-testid={`answered-mark-${nodeId}`}
@@ -36,7 +36,7 @@ export function AnsweredMark({ nodeId }: { nodeId: string }) {
             <CheckCircle2 aria-hidden="true" className={SOURCE_MARK_GLYPH_CLASSES} />
           </span>
         </span>
-      </Tooltip>
+      </CardTooltip>
     </BottomCardMark>
   )
 }

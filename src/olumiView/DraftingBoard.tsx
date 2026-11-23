@@ -14,6 +14,7 @@
  * empty board draws it: core's label as its one press (the same write as the menu's row, ViewChat.buildModel) and core's own line for it
  * under the press. No sentence here is the page's. The press starts a draft, and the drafting state above takes the board.
  */
+import { HoverButton } from './look/Hover'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
@@ -121,10 +122,10 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
             <div className="flex items-center justify-center gap-1">
               {s === null ? null : <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p>}
               {draft.stop == null ? null : (
-                <button type="button" disabled={busy} title={draft.stop.title} aria-label={draft.stop.label} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header disabled:cursor-not-allowed">
+                <HoverButton type="button" disabled={busy} words={draft.stop.title} aria-label={draft.stop.label} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
                   <OkIcon id="stop" size={14} decorative /><span className="sr-only">{draft.stop.label}</span>
-                </button>
+                </HoverButton>
               )}
             </div>
           ))

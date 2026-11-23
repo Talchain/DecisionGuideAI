@@ -117,7 +117,7 @@ import {
   type GuidanceItem,
 } from '../../stores/guidanceStore'
 import { typography } from '../../../styles/typography'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { attentionNoteFromGuidance, requestOlumiAttention } from '../../utils/olumiAttention'
 import { NODE_TOOLTIP_DELAY_MS } from './nodeTooltip'
 import { NODE_RAIL_GLYPH_CLASSES, NODE_RAIL_GLYPH_PX, NODE_RAIL_REST_TONE_CLASS } from './nodeCardRailStyles'
@@ -228,7 +228,7 @@ export function NodeCoachingMarker({ nodeId, attentionSentence = null }: NodeCoa
   // so the two never collide (Codex P1-5). It carries no `absolute`/offset of
   // its own; only its intrinsic pill styling.
   return (
-    <Tooltip asChild delay={NODE_TOOLTIP_DELAY_MS} content={label}>
+    <CardTooltip delay={NODE_TOOLTIP_DELAY_MS} words={label}>
       <button
         type="button"
         data-testid={`node-coaching-marker-${nodeId}`}
@@ -256,6 +256,6 @@ export function NodeCoachingMarker({ nodeId, attentionSentence = null }: NodeCoa
           </span>
         )}
       </button>
-    </Tooltip>
+    </CardTooltip>
   )
 }

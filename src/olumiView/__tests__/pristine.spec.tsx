@@ -3,6 +3,7 @@
  * to the card's left edge; core's reason wraps to two lines before an ellipsis (the outcome band's words are hover and reader text since option a2); the lens bar is
  * icons only, always on the pill's row, and the pill gives way to make its room (Paul, 17 Nov).
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -49,7 +50,7 @@ describe('core\'s words on the face are whole, never cut (R3 pristine 4; R25, Pa
     expect(p.textContent).toBe(text)
     expect(p.className).toContain('sr-only')
     expect(p.className).not.toContain('line-clamp-1')
-    expect(c.querySelector('[data-testid="view-option-band-x"]')!.getAttribute('title')).toBe(text)
+    expect(laneTipOf(c.querySelector<HTMLElement>('[data-testid="view-option-band-x"]')!)).toBe(text)
   })
 })
 

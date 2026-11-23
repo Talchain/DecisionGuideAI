@@ -5,6 +5,7 @@
  * draft failed and never sends the brief again; a reload resumes the same job; an acceptance answer lost on the way is asked again after a
  * reload by the SAME op, and only on Send. Real stores and poller, a scripted fetch, fake timers with bounded advances.
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -100,7 +101,7 @@ describe('the drafting board', () => {
     post = () => new Response(JSON.stringify({ id: 7, kind: 'draft', scenario: SID_A, status: 'stopped' }), { status: 200 })
     const c = render(<DraftingBoard />).container
     const stop = c.querySelector<HTMLButtonElement>('[data-testid="view-drafting-stop"]')!
-    expect([stop.textContent, stop.getAttribute('title'), stop.getAttribute('data-view')]).toEqual([STOP.label, STOP.title, 'draft.stop.label'])
+    expect([stop.textContent, laneTipOf(stop), stop.getAttribute('data-view')]).toEqual([STOP.label, STOP.title, 'draft.stop.label'])
     await act(async () => { fireEvent.click(stop) })
     await tick(0)
     expect(posts).toEqual([{ url: `/api/scenarios/${SID_A}/jobs/7/stop`, body: {} }])

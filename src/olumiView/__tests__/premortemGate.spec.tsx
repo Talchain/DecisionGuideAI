@@ -109,7 +109,7 @@ describe('writing their own reasons, and asking for Olumi\'s now', () => {
     core(() => viewIn('closed'), () => new Response(JSON.stringify({ error: 'each reason is at most 400 characters' }), { status: 400 }))
     show(viewIn('closed'))
     const c = render(<ViewPreMortemKey />).container
-    expect((q(c, '[data-testid="view-premortem-send"]') as HTMLButtonElement).disabled).toBe(true)
+    expect(q(c, '[data-testid="view-premortem-send"]')?.getAttribute('aria-disabled')).toBe('true')
     fireEvent.change(q(c, '[data-testid="view-premortem-reasons"]')!, { target: { value: 'too long' } })
     await click(q(c, '[data-testid="view-premortem-send"]')!)
     await waitFor(() => expect(q(c, '[data-testid="view-premortem-said"]')!.textContent).toBe('each reason is at most 400 characters'))

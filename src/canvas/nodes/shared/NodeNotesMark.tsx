@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { NotebookPen } from 'lucide-react'
-import Tooltip from '../../../components/Tooltip'
+import { CardTooltip } from './CardTooltip'
 import { typography } from '../../../styles/typography'
 import { PROVENANCE_ICON_SIZE_CLASSES } from '../../domain/valueProvenanceIcon'
 import { noteLine, useNoteRecords } from '../../domain/noteRecords'
@@ -21,10 +21,10 @@ export const NodeNotesMark = memo(function NodeNotesMark({ nodeId }: { nodeId: s
   // In the card's marks band only when there is a note: an empty mark must not register a band (`BottomCardMark`).
   return (
     <BottomCardMark>
-      <Tooltip
-        asChild
+      <CardTooltip
+        words={lines.join('\n')}
         delay={NODE_TOOLTIP_DELAY_MS}
-        content={<ul className="m-0 grid gap-1 p-0 list-none max-w-[320px]">{lines.map((l, i) => <li key={notes[i].id}>{l}</li>)}</ul>}
+        olderContent={<ul className="m-0 grid gap-1 p-0 list-none max-w-[320px]">{lines.map((l, i) => <li key={notes[i].id}>{l}</li>)}</ul>}
       >
         <span
           data-testid={`node-notes-${nodeId}`}
@@ -38,7 +38,7 @@ export const NodeNotesMark = memo(function NodeNotesMark({ nodeId }: { nodeId: s
           <NotebookPen aria-hidden="true" className={PROVENANCE_ICON_SIZE_CLASSES} />
           <span aria-hidden="true">{notes.length}</span>
         </span>
-      </Tooltip>
+      </CardTooltip>
     </BottomCardMark>
   )
 })

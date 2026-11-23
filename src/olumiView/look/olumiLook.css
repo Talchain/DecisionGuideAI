@@ -183,9 +183,6 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-track[tabindex] { cursor: help; outline: none; }
 .olumi-look .ok-track[tabindex]::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
 .olumi-look .ok-track[tabindex]:focus-visible { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--text-header); }
-/* The range's words on hover or focus: the same surface (.ok-pop on the element), a little lower to clear the track's focus ring. */
-.olumi-look .ok-track > .ok-range-tip { display: none; top: calc(100% + 9px); }
-.olumi-look .ok-track[tabindex]:hover > .ok-range-tip, .olumi-look .ok-track[tabindex]:focus-visible > .ok-range-tip { display: block !important; }
 .olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-header); border-radius: 999px; }
 /* How much of the result rests on Olumi's estimates against the person's own figures: Olumi's blue, the ink, the rest left as the track. */
 .olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(4px * var(--o-s)); max-width: 100%; text-align: left; }

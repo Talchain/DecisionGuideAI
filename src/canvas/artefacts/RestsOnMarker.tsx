@@ -8,6 +8,8 @@
  * Pressing it selects the figure, which opens it in the key card. It writes nothing.
  */
 import type { CSSProperties } from 'react'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { HoverButton } from '../../olumiView/look/Hover'
 import type { LucideIcon } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { ASSUMPTION_MAP_COPY, type AssumptionColumn, type RestsOnMark } from './assumptionMapModel'
@@ -34,16 +36,19 @@ export function RestsOnMarker({ target, mark, onPick, Icon, className = '', styl
   picked?: boolean
 }) {
   const unsettled = isUnsettled(mark.column)
+  const lane = isOlumiCoreLane()
+  const label = restsOnMarkerLabel(mark)
   return (
-    <button
+    <HoverButton
+      words={lane ? label : undefined}
       type="button"
       data-testid={RESTS_ON_MARKER_TESTID}
       data-target={target}
       data-column={mark.column}
       data-n={mark.n}
-      aria-label={restsOnMarkerLabel(mark)}
+      aria-label={label}
       aria-pressed={picked}
-      title={restsOnMarkerLabel(mark)}
+      title={lane ? undefined : label}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.stopPropagation()
@@ -56,6 +61,6 @@ export function RestsOnMarker({ target, mark, onPick, Icon, className = '', styl
     >
       {Icon ? <Icon aria-hidden="true" className="h-[calc(10px*var(--canvas-label-scale,1))] w-[calc(10px*var(--canvas-label-scale,1))]" /> : null}
       {mark.n}
-    </button>
+    </HoverButton>
   )
 }

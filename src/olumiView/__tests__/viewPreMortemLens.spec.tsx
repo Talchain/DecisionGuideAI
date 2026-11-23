@@ -3,6 +3,7 @@
  * story in `title`, `failed_reason` for the one most within the team's control) pinned to the cards they rest on, behind "Write mine first":
  * the person's own reasons first, then Olumi's. Every story word is core's; bound by story number and exact words, not by a count.
  */
+import { laneTipOf } from './tipHelpers'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, renderHook, screen, fireEvent } from '@testing-library/react'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -69,7 +70,8 @@ describe('the "If it failed" lens on the lane', () => {
     const items = [...screen.getByTestId('view-premortem-stories').querySelectorAll('[data-story]')]
     expect(items.map((li) => li.getAttribute('data-story'))).toEqual(['1', '2'])
     expect(items.map((li) => li.querySelector('[data-testid="view-premortem-story-text"]')?.textContent)).toEqual([S1, S2])
-    expect(items.map((li) => li.querySelector('[title]')?.textContent)).toEqual(['◆1 ', '◆2 '])
+    const marks = items.map((li) => li.querySelector<HTMLElement>('[role="img"]')!)
+    expect(marks.map((mark) => [mark.textContent, laneTipOf(mark)])).toEqual([['◆1 ', OLUMI.title], ['◆2 ', OLUMI.title]])
     expect(items.map((li) => li.querySelector('[data-testid="view-premortem-rests"]')?.textContent)).toEqual([
       // Each card in its own heading, by id (headings start with a capital since core bec1d6ce name-case).
       `Rests on: ${headingOf('per_specialist')}, ${headingOf('add_one')}, ${headingOf('start_delay')}`,

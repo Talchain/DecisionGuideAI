@@ -5,6 +5,7 @@
  * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's, whole (N3): each mark's hover and name, each
  * figure's and each piece of evidence's own, never composed here.
  */
+import { HoverButton } from './look/Hover'
 import { SELECTED_RING } from '../styles/selected'
 import { OkIcon } from './look/icons'
 import { useUIStore } from '../stores/uiStore'
@@ -65,11 +66,11 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
       {items.map((e) => {
         const on = open === e.id
         return (
-          <button key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e.id}
+          <HoverButton key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} words={e.mark_title} data-node-tooltip="true" data-evidence-mark={e.id}
             onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
             className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             <OkIcon id="brief" size={14} decorative inherit />
-          </button>
+          </HoverButton>
         )
       })}
     </span>
@@ -114,11 +115,11 @@ export function CardViewInitials({ card }: { card: string }): JSX.Element | null
       {initials.map((m) => {
         const on = selected === m.view, words = markWords(m)
         return (
-          <button key={`${m.view}`} type="button" aria-pressed={on} aria-label={words} title={words} data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
+          <HoverButton key={`${m.view}`} type="button" aria-pressed={on} aria-label={words} words={words} data-node-tooltip="true" data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
             className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas ${typography.viewLabel} text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             {initial(m.by)}
-          </button>
+          </HoverButton>
         )
       })}
     </span>
@@ -150,7 +151,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
       // No ring of its own when open: the card's ring is the one selection ring (approved v2.1); the open chip is raised.
       const on = openChip?.key === chip.key
       return (
-        <button key={chip.key} type="button" aria-pressed={on} aria-label={chip.label} title={chip.title} data-reveal-card-chip={card} data-reveal-kind={chip.kind}
+        <HoverButton key={chip.key} type="button" aria-pressed={on} aria-label={chip.label} words={chip.title} data-node-tooltip="true" data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
           className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 text-left ${i === 0 ? 'flex-1 pr-2.5' : 'flex-none pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
@@ -162,7 +163,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
             ? <span className="min-w-0 [text-wrap:balance]" data-reveal-chip-text="">{chip.text}</span>
             : <>{chip.kind === 'evidence' ? <OkIcon id="brief" size={14} decorative inherit className="text-text-body" /> : chip.kind === 'disagreement' ? <OkIcon id="revealed-difference" size={14} decorative inherit className="text-text-body" /> : <OkIcon id="team" size={14} decorative inherit className="text-text-body" />}
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
-        </button>
+        </HoverButton>
       )
     }), ...offLine.map((m) => <LinkMarkCardChip key={`${m.link.record}|${m.link.part ?? ''}`} mark={m} />), ...(hostsDiffers ? differs.map((d) => <DifferChip key={d.record} d={d} card={card} />) : [])])
   }

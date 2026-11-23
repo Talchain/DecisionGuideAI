@@ -33,6 +33,8 @@
  * the pill covered 15px² of the edited-since-run dot's 25px² — 60% of it. The
  * no-run-history arm of the same run measured zero, so the probe discriminated.
  */
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { Hover, HoverButton } from '../../../olumiView/look/Hover'
 import { memo } from 'react'
 import { typography } from '../../../styles/typography'
 
@@ -140,14 +142,16 @@ export const STATE_WORD_STYLE = {
 const PILL_CLASSES = STATE_WORD_CLASSES
 const PILL_STYLE = STATE_WORD_STYLE
 
-export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate, wrap = false }: StatusPillProps) =>
-  onActivate ? (
-    <button
+export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onActivate, wrap = false }: StatusPillProps) => {
+  const lane = isOlumiCoreLane()
+  const words = title ?? label
+  return onActivate ? (
+    <HoverButton words={lane ? words : undefined}
       type="button"
-      aria-label={title ?? label}
+      aria-label={words}
       className={`${PILL_CLASSES} nodrag nopan cursor-pointer hover:bg-panel-hover hover:border-warning-ink/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
       style={PILL_STYLE}
-      title={title ?? label}
+      title={lane ? undefined : words}
       data-testid={testId}
       data-node-tooltip="true"
       onClick={(e) => {
@@ -158,19 +162,19 @@ export const StatusPill = memo(({ label, title, testId = 'needs-input-pill', onA
       onDoubleClick={(e) => e.stopPropagation()}
     >
       {label}
-    </button>
+    </HoverButton>
   ) : (
-    <span
+    <Hover words={lane ? words : undefined}
       role="status"
-      aria-label={title ?? label}
+      aria-label={words}
       className={wrap ? PILL_CLASSES.replace('shrink-0 whitespace-nowrap', 'min-w-0 whitespace-normal').replace('rounded-full', 'rounded-[0.7em]') : PILL_CLASSES}
       style={PILL_STYLE}
-      title={title ?? label}
+      title={lane ? undefined : words}
       data-testid={testId}
     >
       {label}
-    </span>
-  ),
-)
+    </Hover>
+  )
+})
 
 StatusPill.displayName = 'StatusPill'
