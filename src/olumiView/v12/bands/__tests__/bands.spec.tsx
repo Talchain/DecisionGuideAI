@@ -10,7 +10,7 @@ import path from 'node:path'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { cleanup, render, screen } from '@testing-library/react'
 import { Position, ReactFlow, ReactFlowProvider, type Node } from '@xyflow/react'
-import type { View, ViewModel } from '../../../client'
+import type { View, ViewCard, ViewModel } from '../../../client'
 import { useViewStore } from '../../../store'
 import { aimsOf, allOptionCards, causalPlaces, drawKindOf, QUESTION, questionBarWidth, simpleStageRow, SIMPLE_GAP_Y } from '../../../layout'
 import { BANDS, bandLabelOf, bandOf, causalPathOf, FOLD_AT, FOLD_ID, foldsInputs, IDEA_PREFIX, inputIdsOf, unlinkedIds, withoutInputs, type BandId } from '../bands'
@@ -29,7 +29,6 @@ import { tipOf } from '../../../__tests__/tipHelpers'
 import { setGroupOpen, setInputsOpen } from '../foldStore'
 import { groupIdOf } from '../groups'
 import { GroupLinkEdge } from '../GroupLinkEdge'
-import type { FieldCard } from '../../fields/fields'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
@@ -73,15 +72,18 @@ describe('bands: Simple layout', () => {
     vi.spyOn(coreLane, 'isOlumiCoreLane').mockReturnValue(true)
     const studio = JSON.parse(readFileSync(path.resolve('src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json'), 'utf8')) as View
     const model = studio.model!
-    const members = model.cards.find((card) => card.id === 'members')! as FieldCard
-    const absent = { ...members }
+    const members = model.cards.find((card) => card.id === 'members')!
+    const absent: ViewCard = { ...members }
     delete absent.kind
-    for (const [card, expectedBand, shape, peer] of [
+    // A null kind is not in the View type; the producer can still send one, so the case is built through unknown.
+    const nullKind = { ...members, kind: null } as unknown as ViewCard
+    const cases: ReadonlyArray<readonly [ViewCard, Parameters<typeof bandKindsOf>[0], ReturnType<typeof drawKindOf>, string]> = [
       [members, 'outcomes', 'outcome', 'takings'],
       [absent, 'inputs', 'factor', 'class_fee'],
-      [{ ...members, kind: null }, 'points', 'factor', 'mood_members'],
-    ] as const) {
-      const current = { ...model, cards: model.cards.map((c) => c.id === card.id ? card : c) }
+      [nullKind, 'points', 'factor', 'mood_members'],
+    ]
+    for (const [card, expectedBand, shape, peer] of cases) {
+      const current: ViewModel = { ...model, cards: model.cards.map((c) => c.id === card.id ? card : c) }
       const { places } = await placed(current)
       const labels = bandLabelsOf([...places].map(([id, position]) => ({ id, position })), current)
       expect(members.kind).toBe('result')

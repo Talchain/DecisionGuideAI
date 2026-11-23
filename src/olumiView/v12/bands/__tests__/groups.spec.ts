@@ -103,11 +103,14 @@ describe('D1a on a first model: Olumi\'s proposed figures, drivers, results and 
   })
   it('F2 CONTRAST, same fixture: the proposed note still folds into the proposed group', () => {
     const { model, view } = firstOf(pending()), groups = cardGroupsOf(model, view)
-    expect(groups.filter((g) => g.kind === 'proposed').map((g) => [g.id, g.cards]), 'only the note is in a proposed group').toEqual([[groupIdOf('proposed', 'inputs'), ['fitting']]])
+    // Order #22 (23 Nov): a note stands among the points raised by Core's kind, never in "What drives it", so its proposed group is the points row's.
+    expect(groups.filter((g) => g.kind === 'proposed').map((g) => [g.id, g.cards]), 'only the note is in a proposed group').toEqual([[groupIdOf('proposed', 'points'), ['fitting']]])
   })
   it('F3 CONTRAST: on an approved model the same pending proposal folds as before: driver, risk, result and note into their rows\' groups', () => {
     const { model, view } = pending(), groups = cardGroupsOf(model, view)
-    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))!.cards).toEqual(['budget', 'fitting'])
+    // Order #22: the driver stays in the inputs row's group; the note 'fitting' folds into the points row's group (its kind is note).
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))!.cards).toEqual(['budget'])
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'points'))!.cards).toEqual(['fitting'])
     expect(groups.find((g) => g.id === groupIdOf('proposed', 'outcomes'))!.cards.slice().sort()).toEqual(['oven_repair', 'sales'])
     for (const id of ['budget', 'oven_repair', 'sales']) expect(groupKindOf(model.cards.find((c) => c.id === id)!, model, view), id).toBe('proposed')
   })

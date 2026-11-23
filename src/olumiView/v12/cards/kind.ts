@@ -1,4 +1,17 @@
-/** Card face categories and the calculation state the View supplies. Declared kinds take precedence on the Core lane. */
+/**
+ * V12 card shapes by kind (canvas rule 5, the boards' shape language). Read from the View's structure only, never from its words.
+ * On the Core lane, Core's declared `card.kind` decides the category (Order #22, 23 Nov: one kind per card on every layer); the rules
+ * below are the fallback for older Views that omit the key:
+ *  - option: a square-cornered rectangle in the option colour;
+ *  - input: an uncertain figure the model takes as given: a rounded pill;
+ *  - calculated: a figure worked out from inputs: a double outline, `pending` while it waits on an input (`figure.state` waits) and
+ *    `withheld` where core could not calculate it for an option (contract.ts withheldValues);
+ *  - aim: an aim or limit: a diamond mark with its label;
+ *  - assumption: a dashed pill with its tag;
+ *  - risk: a warning-triangle mark;
+ *  - other: any other card, drawn as before.
+ * "Input with a range" has no field of its own, so every figure that is not calculated is an input, as the boards draw them.
+ */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { legacyDrawKindOf } from '../../layout'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'

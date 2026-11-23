@@ -31,30 +31,31 @@ interface NodeShapeIndicatorProps {
   dashedOutline?: boolean
 }
 
-/** Entity colour classes and the SVG's fallback presentation attributes. */
-const SHAPE_COLOURS: Record<NodeType, { ink: string; paint: string }> = {
-  factor: { ink: 'text-factor', paint: 'var(--factor)' },
-  option: { ink: 'text-option', paint: 'var(--option)' },
-  goal: { ink: 'text-goal', paint: 'var(--goal)' },
-  decision: { ink: 'text-text-light', paint: 'var(--text-light)' },
-  risk: { ink: 'text-danger', paint: 'var(--danger)' },
-  outcome: { ink: 'text-success', paint: 'var(--success)' },
-  action: { ink: 'text-success', paint: 'var(--success)' },
-  constraint: { ink: 'text-text-light', paint: 'var(--text-light)' },
+/** Entity colours per kind (Design System entity colours), painted as SVG presentation attributes. */
+const SHAPE_COLOURS: Record<NodeType, string> = {
+  factor: 'var(--factor)',
+  option: 'var(--option)',
+  goal: 'var(--goal)',
+  decision: 'var(--text-light)',
+  risk: 'var(--danger)',
+  outcome: 'var(--success)',
+  action: 'var(--success)',
+  constraint: 'var(--text-light)',
 }
 
 export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverride, stroke, strokeWidth, dashedOutline = false }: NodeShapeIndicatorProps) {
-  const { ink, paint: kindFill } = SHAPE_COLOURS[nodeKind] ?? SHAPE_COLOURS.factor
+  const kindFill = SHAPE_COLOURS[nodeKind] ?? SHAPE_COLOURS.factor
   const svgProps = {
     width: size, height: size, viewBox: '0 0 12 12', fill: 'none', 'aria-hidden': true,
-    'data-node-shape': nodeKind, className: `shrink-0 ${ink}${className ? ` ${className}` : ''}`,
+    'data-node-shape': nodeKind, className: `shrink-0${className ? ` ${className}` : ''}`,
   }
   const fill = fillOverride ?? (dashedOutline ? 'none' : kindFill)
-  const paint = { fill, className: fillOverride === undefined && !dashedOutline ? 'fill-current' : undefined }
+  // The kind's colour is a presentation attribute on the shape, never a text-colour class: node text stays in text tokens (rule 5, 4.5:1) and the chat panel's icons carry no hue class.
+  const paint = { fill }
   // Spread onto every shape element. Empty when no stroke was asked for, so the
   // default rendering is byte-identical to the stroke-less shape.
   const outline = dashedOutline
-    ? { stroke: kindFill, strokeWidth: 1, strokeDasharray: '2 1.5', className: 'stroke-current', strokeLinejoin: 'round' as const }
+    ? { stroke: kindFill, strokeWidth: 1, strokeDasharray: '2 1.5', strokeLinejoin: 'round' as const }
     : stroke
       ? { stroke, strokeWidth: strokeWidth ?? 0.6, strokeLinejoin: 'round' as const }
       : {}
@@ -128,7 +129,7 @@ export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverrid
       // so it never reads as an option's filled square or a goal's diamond. Dashed where it is an assumption.
       return (
         <svg {...svgProps}>
-          <rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill={fillOverride ?? 'none'} stroke={kindFill} className="stroke-current" strokeWidth={1.5} {...(dashedOutline ? { strokeDasharray: '2 1.5' } : {})} />
+          <rect x="1.75" y="1.75" width="8.5" height="8.5" rx="1.5" fill={fillOverride ?? 'none'} stroke={kindFill} strokeWidth={1.5} {...(dashedOutline ? { strokeDasharray: '2 1.5' } : {})} />
         </svg>
       )
 

@@ -21,7 +21,9 @@ export const BANDS: Readonly<Record<BandId, { label: string }>> = {
   points: { label: 'Points raised' },
   ideas: { label: 'Kept ideas' },
 }
-/** Name the risk explicitly when one shares the outcomes band. */
+/** The band's label: fixed, except the outcomes band holding a risk, which is "Outcomes & risks", the product's own label for that row
+ *  (canvas/domain/vocabulary MODEL_GROUP_TITLE; the lead's D5, 17 Nov: a risk core cannot size is not "worked out"). The inputs band says "What drives
+ *  it" always: only drivers stand there; every other card stands under "Points raised" (Codex 019's neutral label, now its own row). */
 export function bandLabelOf(band: BandId, model: ViewModel | null): string {
   // The ideas strip reads "Kept ideas" for every reader; each card says who kept it, from core's `kept_by` (ideaProvenance).
   if (band === 'outcomes' && model !== null && model.cards.some((c) => bandOf(c, model) === 'outcomes' && drawKindOf(c, model) === 'risk')) return MODEL_GROUP_TITLE.outcomesRisks
@@ -39,7 +41,9 @@ const ROW_OF_KIND: Readonly<Record<CardKindName, CardBand>> = {
   option: 'options', result: 'outcomes', risk: 'outcomes', aim: 'aims', driver: 'inputs', position: 'points', note: 'points',
 }
 
-/** A supplied but unknown kind stands among the points raised. An omitted key leaves placement to the legacy rule. */
+/** The band a model card stands in, from Core's declared kind (Order #22, 23 Nov; design 5ff99883): options; outcomes and risks (worked out);
+ *  aims and limits; a driver an input; positions and notes are points raised (SPEC-OVERNIGHT CP-2; Paul read the notes drawn in "What drives it"
+ *  as drivers). A supplied but unknown kind stands among the points raised. An omitted key (an older View) leaves placement to the legacy rule. */
 export function rowOfKind(card: ViewCard): CardBand | undefined {
   const kind = declaredCardKind(card)
   return kind === undefined ? undefined : ROW_OF_KIND[kind ?? 'note']
