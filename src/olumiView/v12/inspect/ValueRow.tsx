@@ -137,7 +137,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
       {heldNote === null ? null : <p role="status" className={`${typography.viewPanelMeta} text-text-body`} data-testid="inspector-figure-held" data-view="model_words.withdrawnHeld">{heldNote}</p>}
       {moved ? (
         <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="inspector-figure-moved">{MOVED_ON}{' '}
-          <button type="button" disabled={sending} data-testid="inspector-figure-rebase" className="nodrag inline-flex min-h-[24px] items-center underline underline-offset-2 hover:text-text-header"
+          <button type="button" disabled={sending} data-testid="inspector-figure-rebase" className={`nodrag ${VIEW_CHIP_CLASS}`}
             onClick={() => { store({ ...values, [BASE_KEY]: String(live) }); setError(null) }}>{USE_LATEST}</button></p>
       ) : null}
       {/* The buttons are drawn once there is something to send: a Set (or Try) beside an empty field is a control dimmed at rest with no reason. Enter in the field still submits. */}
