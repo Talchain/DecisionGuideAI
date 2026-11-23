@@ -348,7 +348,7 @@ export const TopBar = ({
               <HoverButton type="button" words={failed ? saveError ?? 'Save failed' : undefined}
                 className={TOOLBAR_LABEL} role="status" aria-live="polite" onClick={handleClick}>
                 <OkIcon id={failed ? 'save-failed' : 'unsaved'} size={14} decorative />
-                <span className={`${typography.viewPanelMeta} ${failed ? 'text-danger' : 'text-warning'}`}>{failed ? 'Save failed' : 'Unsaved'}</span>
+                <span className={`${typography.viewPanelMeta} text-text-body`}>{failed ? 'Save failed' : 'Unsaved'}</span>
               </HoverButton>
             )
           }

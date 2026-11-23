@@ -10,7 +10,7 @@
  * and the bar waits, hidden, while it does. Only on a window narrower than Paul's three sizes, with the pill at its tightest and still no
  * room, does the bar take the row under the pill rather than run over the dock.
  */
-import { useEffect, useRef, useState, useLayoutEffect, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, useLayoutEffect, type KeyboardEvent, type ReactNode } from 'react'
 import { OkIcon, type IconId } from './look/icons'
 import { HoverButton } from './look/Hover'
 import { TOOLBAR_BAR, TOOLBAR_COUNTED_ICON, TOOLBAR_ICON } from './look/toolbar'
