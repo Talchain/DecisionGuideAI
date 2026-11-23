@@ -14,7 +14,9 @@
 import { create } from 'zustand'
 import type { ContextTarget } from '../../../canvas/contextMenu/types'
 import { useWrites } from '../../../olumiCore/team/writes'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { useViewStore } from '../../store'
+import { dismissMenuForSurface } from '../../look/menuArbiter'
 import type { EditSpec } from './EditForm'
 import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
 import type { OutputTab } from '../../../stores/uiStore'
@@ -96,6 +98,11 @@ export const useLaneInspector = create<State>()((set, get) => ({
     // The same item's details asked for again (a second press on its card): the section a mark opened stays open, never shut under the reader.
     const section = s.kind === 'details' && s.section === undefined && cur !== null && cur.kind === 'details' && cur.target.kind === s.target.kind && cur.target.id === s.target.id ? cur.section : undefined
     set({ current: { ...s, ...(section !== undefined ? { section } : {}), n: ++seq } })
+    if (isOlumiCoreLane() && s.kind !== 'menu' && s.kind !== 'add-menu') {
+      // The store change already unmounts the Add menu when its own form takes the slot.
+      const handoffOpener = cur?.kind === 'add-menu' && s.kind === 'form' && s.opener === cur.opener ? cur.opener : undefined
+      dismissMenuForSurface(handoffOpener)
+    }
     return true
   },
   close: (kind = 'details', key) => set((st) => {
