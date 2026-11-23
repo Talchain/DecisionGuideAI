@@ -2,9 +2,23 @@
  * Which of core's words a V12 card face draws where. Core's words only, picked by field or by core's own line shape; nothing here writes,
  * formats or rounds a word.
  */
-import type { ViewCard, ViewModel } from '../../client'
+import type { ViewCard, ViewModel, ViewRow } from '../../client'
+import { linkCards } from '../../layout'
 
 type Headline = NonNullable<ViewCard['headline']>
+
+export function withheldCardIds(model: ViewModel | null, rows: readonly (ViewRow | undefined)[]): string[] {
+  const refs = rows.flatMap((r) => r?.kind === 'none' ? (r.blocked_by ?? []).filter(({ role }) => role !== 'link').map(({ ref }) => ref) : [])
+  if (model === null || refs.length === 0) return []
+  const cards = [...new Set(refs)].flatMap((id) => model.cards.find((card) => card.id === id) ?? [])
+  const asLinks = cards.some((card) => card.family === 'relation') ? linkCards(model) : null
+  return cards.filter((card) => !asLinks?.has(card.id)).map((card) => card.id)
+}
+
+export function headlineWithheldRowIndex(card: ViewCard): number {
+  const h = card.headline
+  return h?.state !== 'none' ? -1 : card.rows.findIndex((r) => r.kind === 'none' && (r.aim_id ?? null) === (h.aim_id ?? null))
+}
 
 /** The field of core's that says why a chance is withheld (`headline.state` none): `why`, else `title`, else `text`; null for a chance or a
  *  fixed result. Picked by field, never by comparing words. */

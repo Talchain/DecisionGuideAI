@@ -10,16 +10,26 @@
  * The same short status over different reasons is not shared: each option keeps its own line with its own hover. A said-once line never
  * carries one option's hover for the others, and an option says nothing only where the said-once line says exactly what it would have said.
  */
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import type { ViewCard, ViewModel } from '../../client'
 import { limitLeadOf } from '../contract'
-import { chanceParts, noChanceLineOf, sharedNoChanceOf } from '../cards/words'
+import { chanceParts, headlineWithheldRowIndex, noChanceLineOf, sharedNoChanceOf, withheldCardIds } from '../cards/words'
 
 type Row = ViewCard['rows'][number]
 type Headline = NonNullable<ViewCard['headline']>
 type Mark = { readonly glyph: string; readonly title: string }
 /** A said-once line: core's words, their whole hover, the card they are about (an aim's id, or null for the question), and Olumi's mark where
  *  every row it stands for carries the same one. */
-export type Said = { readonly text: string; readonly title: string; readonly at: string | null; readonly olumi?: Mark | null }
+export type Said = {
+  readonly text: string
+  readonly title: string
+  readonly at: string | null
+  readonly olumi?: Mark | null
+  readonly reason?: string
+  readonly add?: string | null
+  readonly blockers?: readonly string[]
+  readonly rows?: readonly Row[]
+}
 
 const optionsOf = (model: ViewModel | null): ViewCard[] => (model?.cards ?? []).filter((c) => c.family === 'option')
 
@@ -40,7 +50,14 @@ export function sharedNoChance(model: ViewModel | null): Said | null {
   const said = candidateNoChance(model)
   // Said on the aim only where at least one option relies on it (its own line is dropped for it: the same test the option card uses, saysNoChanceOnce);
   // otherwise the aim says nothing and each option keeps its own line.
-  return said !== null && noChanceOptions(optionsOf(model)).some((c) => saysNoChanceOnce(said, c.headline!)) ? said : null
+  if (said === null) return null
+  const represented = noChanceOptions(optionsOf(model)).filter((c) => saysNoChanceOnce(said, c.headline!))
+  if (represented.length === 0) return null
+  if (!isOlumiCoreLane()) return said
+  const rows = represented.map((c) => c.rows[headlineWithheldRowIndex(c)])
+  const reason = rows[0]?.title || ''
+  if (!rows.every((r) => (r?.title || '') === reason)) return null
+  return { ...said, reason: reason || undefined, add: reason ? represented[0]!.headline!.add : null, blockers: withheldCardIds(model, rows) }
 }
 
 function candidateNoChance(model: ViewModel | null): Said | null {
@@ -88,14 +105,18 @@ export function sharedRowStates(model: ViewModel | null): ReadonlyMap<string, Sa
   if (opts.length < 2) return out
   const aims = new Set(opts.flatMap((c) => c.rows.flatMap((r) => (r.aim_id != null && r.aim_id !== (c.headline?.aim_id ?? null) ? [r.aim_id] : []))))
   for (const aim of aims) {
-    const rows = opts.map((c) => c.rows.find((r) => r.aim_id === aim && aim !== (c.headline?.aim_id ?? null)) ?? null)
-    if (rows.some((r) => r === null)) continue
-    const words = rows.map((r) => noneWords(r!))
+    const rows = opts.flatMap((c) => {
+      const r = c.rows.find((r) => r.aim_id === aim && aim !== (c.headline?.aim_id ?? null))
+      return r === undefined ? [] : [r]
+    })
+    if (rows.length !== opts.length) continue
+    const words = rows.map(noneWords)
     if (words.some((w) => w === null) || !words.every((w) => w === words[0])) continue
-    const read = rows.map((r) => readOf(r!)), one = read[0]!
+    const read = rows.map(readOf), one = read[0]!
     if (read.some((x) => x.likely !== null || x.title !== one.title || x.question !== one.question || x.olumi?.glyph !== one.olumi?.glyph || x.olumi?.title !== one.olumi?.title)) continue
     const hover = [one.title, one.question].filter((x, j, a) => x !== '' && a.indexOf(x) === j).join('\n')
-    out.set(aim, { text: words[0]!, title: hover !== '' ? hover : words[0]!, at: model!.cards.some((c) => c.id === aim) ? aim : null, olumi: one.olumi })
+    out.set(aim, { text: words[0]!, title: hover !== '' ? hover : words[0]!, at: model!.cards.some((c) => c.id === aim) ? aim : null, olumi: one.olumi,
+      ...(isOlumiCoreLane() ? { reason: one.title || undefined, blockers: withheldCardIds(model, rows), rows } : {}) })
   }
   return out
 }

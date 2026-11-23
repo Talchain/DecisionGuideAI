@@ -5,8 +5,10 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useState, Fragment, type MouseEvent } from 'react'
-import type { ViewCard, ViewModel } from '../../client'
+import { useCallback, useEffect, useId, useRef, useState, Fragment, type FocusEvent, type MouseEvent } from 'react'
+import { isOlumiCoreLane } from '../../../olumiCore/lane'
+import { typography } from '../../../styles/typography'
+import type { ViewCard, ViewModel, ViewRow } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
 import { Hover } from '../../look/Hover'
@@ -14,9 +16,42 @@ import { OkIcon } from '../../look/icons'
 import { cardKind } from '../fields/fields'
 import { optionLetters } from '../cards/letters'
 import { figureRange } from '../contract'
+import { withheldCardIds } from '../cards/words'
+import { ringFrom } from '../../reasoning/tabRing'
 import type { Said } from './said'
 
 const MARK_SIZE = 14
+const withheldReasonClass = `${typography.viewPanelMeta} text-text-light`
+
+/** Each mounted line owns its contribution to the existing canvas ring. Escape also reaches pointer-only lines. */
+export function useWithheldRing(ids: readonly string[]) {
+  const source = `withheld:${useId()}`
+  const release = useRef<(() => void) | null>(null)
+  const clear = useCallback(() => {
+    release.current?.()
+    release.current = null
+  }, [])
+  const targetKey = JSON.stringify(ids)
+  useEffect(() => clear, [clear, targetKey])
+
+  const show = () => {
+    if (ids.length === 0 || release.current !== null) return
+    const onEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') clear() }
+    document.addEventListener('keydown', onEscape, true)
+    release.current = () => {
+      document.removeEventListener('keydown', onEscape, true)
+      ringFrom(source, [])
+    }
+    ringFrom(source, ids)
+  }
+  return {
+    pointer: { onPointerEnter: show, onPointerLeave: clear, onClick: show },
+    focus: {
+      onFocus: (e: FocusEvent<HTMLElement>) => { if (e.target === e.currentTarget) show() },
+      onBlur: (e: FocusEvent<HTMLElement>) => { if (e.target === e.currentTarget) clear() },
+    },
+  }
+}
 /**
  * What core folded behind a card or the question (its badge): a stack icon and CORE'S OWN words for it, its `face` where core sends one, else its
  * `text` (Badge.tsx badgeFace); never a count made in the page. A fold holding a record a held proposal adds or changes keeps core's change marker
@@ -62,12 +97,12 @@ const aimKindOf = (model: ViewModel | null, aimId: string): 'goal' | 'limit' => 
   return (k.kind === 'aim' && k.aim === 'limit') || aim.family === 'limit' ? 'limit' : 'goal'
 }
 
-type RowT = { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string; text?: string | null; question?: string | null; state_text?: string | null; olumi?: { glyph: string; title: string } | null; chance?: number | null; tips?: string; next_test?: string }
+type RowT = { kind: string; aim_id?: string | null; aim?: string; value?: string | null; title?: string | null; text?: string | null; question?: string | null; state_text?: string | null; olumi?: { glyph: string; title: string } | null; chance?: number | null; tips?: string; next_test?: string }
 
 /** An option's rows for aims other than its headline's (core's rows with an `aim_id`), each with its place in `rows`. */
 const otherRows = (card: ViewCard) => {
   const head = card.headline?.aim_id ?? null
-  return card.rows.map((r, i) => ({ r: r as RowT, i })).filter(({ r }) => r.aim_id != null && r.aim_id !== head)
+  return card.rows.map((r, i) => ({ r, i })).filter(({ r }) => r.aim_id != null && r.aim_id !== head)
 }
 /** Words longer than this are not drawn on a row: core's whole sentence (Run sentences reach 800 characters) is one press away instead. */
 export const ROW_WORDS_MAX = 80
@@ -75,30 +110,45 @@ export const ROW_WORDS_MAX = 80
  * Core's words on a row: drawn as they are where short; a long sentence is a mark that opens the whole words out of the card's flow (`.ok-pop`,
  * so the board never moves), the same words its hover and name. Never cut, never reworded.
  */
-export function RowWords({ words, at }: { words: string; at: string }): JSX.Element | null {
+export function RowWords({ words, at, reason, ring }: { words: string; at: string; reason?: string; ring?: ReturnType<typeof useWithheldRing> }): JSX.Element | null {
   const [open, setOpen] = useState(false)
+  if (reason) return <span className={withheldReasonClass} data-row-words={at} data-view={`${at}.title`}>{reason}</span>
   if (words === '') return null
   if (words.length <= ROW_WORDS_MAX) return <span data-row-words={at}>{words}</span>
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
-      <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open}
-        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={MARK_SIZE} words={words} decorative /></Hover>
+      <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open} {...ring?.focus}
+        onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); ring?.pointer.onClick(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={MARK_SIZE} words={words} decorative /></Hover>
       {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )
 }
 
+/** The Detailed option's own withheld status. A row-only status retains its existing long-text control as the fallback. */
+export function WithheldLead({ text, hover, reason, blockers, path, row }: {
+  text: string; hover?: string; reason?: string; blockers: readonly string[]; path: string; row?: string
+}): JSX.Element {
+  const ring = useWithheldRing(blockers)
+  return (
+    <Hover as="p" focusable={false} className={reason ? `ok-quiet ${withheldReasonClass}` : 'ok-quiet'} words={hover} data-view={path} {...(blockers.length === 0 ? {} : ring.pointer)}>
+      {row === undefined || reason ? reason ?? text : <RowWords words={text} at={row} ring={blockers.length === 0 ? undefined : ring} />}
+    </Hover>
+  )
+}
+
 /** One result row: a lead (the aim's marker, or the option's letter), a mini track (core's chance, else no track where nothing can
  *  be worked out yet), core's value or state words, and Olumi's mark where the value rests on Olumi's figures. */
-function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: RowT; at: string; words: string; hover: string; mark: Record<string, string | boolean | undefined> }): JSX.Element {
+function ResultRow({ lead, r, at, words, hover, mark, reason, blockers }: { lead: JSX.Element; r: RowT; at: string; words: string; hover: string; mark: Record<string, string | boolean | undefined>; reason?: string; blockers: readonly string[] }): JSX.Element {
   const chance = typeof r.chance === 'number' && r.chance >= 0 && r.chance <= 1 ? r.chance : null
+  const holder = useWithheldRing(blockers)
+  const ring = blockers.length === 0 ? undefined : holder
   return (
-    <Hover as="div" className="ok-dt-aim" words={hover} data-view={at} data-aim-row={r.kind} {...mark}>
+    <Hover as="div" className="ok-dt-aim" words={hover} data-view={at} data-aim-row={r.kind} {...mark} {...ring?.pointer} {...ring?.focus}>
       {lead}
       {r.kind === 'none' ? <span className="ok-dt-mini-none" data-withheld-row={at} />
         : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
         : <span className="ok-dt-mini-none" />}
-      <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} /></span>
+      <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} reason={reason} ring={ring} /></span>
       {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} />}
     </Hover>
   )
@@ -107,14 +157,14 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
  *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
 export function RowBelow({ r, at, shown }: { r: RowT; at: string; shown: string }): JSX.Element | null {
   if (r.kind !== 'none') return null
-  // `shown` = the words each caller actually draws at rest (Codex 12:12Z): a ResultRow's words over ROW_WORDS_MAX are a closed press (atRest),
-  // while the option card's headline is a wrapping paragraph and passes its whole line.
+  // `shown` is the line at rest, including a whole withheld reason when present. Long fallback row words sit behind a press.
   const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || shown.includes(x) ? [] : [{ f, x }]))
   return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
 }
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')
+const reasonOf = (r: ViewRow) => isOlumiCoreLane() && r.kind === 'none' ? r.title || undefined : undefined
 /** What a ResultRow/RowWords draws at rest: its words, or nothing when they sit behind a closed press. */
-const atRest = (words: string) => (words.length <= ROW_WORDS_MAX ? words : '')
+const atRest = (words: string, reason: string | undefined) => reason ?? (words.length <= ROW_WORDS_MAX ? words : '')
 const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) => x != null && x !== '' && a.indexOf(x) === j).join('\n')
 
 /**
@@ -125,17 +175,21 @@ const hoverOf = (...xs: (string | null | undefined)[]) => xs.filter((x, j, a) =>
  * cards and the question's rail carry it.
  */
 export function AimResults({ aim, model, shared }: { aim: ViewCard; model: ViewModel | null; shared: ReadonlyMap<string, Said> }): JSX.Element | null {
-  if (shared.has(aim.id) || model === null) return null
+  if (model === null) return null
+  const line = shared.get(aim.id)
   const letters = optionLetters(model)
-  const rows = model.cards.filter((c) => c.family === 'option').flatMap((c) => otherRows(c).filter(({ r }) => r.aim_id === aim.id).map((x) => ({ c, ...x })))
+  const rows = model.cards.filter((c) => c.family === 'option').flatMap((c) => otherRows(c)
+    .filter(({ r }) => r.aim_id === aim.id && (line === undefined || (line.rows !== undefined && !line.rows.includes(r))))
+    .map((x) => ({ c, ...x })))
   if (rows.length === 0) return null
   return (
     <div className="ok-dt-aims" data-aim-results={aim.id}>
       {rows.map(({ c, r, i }) => (
         <Fragment key={`${c.id}.${i}`}>
-          <ResultRow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} hover={hoverOf(c.heading, rowWords(r), r.title, r.question)}
+          <ResultRow r={r} at={`${c.id}.rows.${i}`} words={rowWords(r)} hover={hoverOf(c.heading, rowWords(r), r.title, 'question' in r ? r.question : undefined)}
+            reason={reasonOf(r)} blockers={isOlumiCoreLane() ? withheldCardIds(model, [r]) : []}
             lead={<span className="ok-letter" data-letter-chip={letters.get(c.id) ?? ''}>{letters.get(c.id) ?? '·'}</span>} mark={{ 'data-ok-limit': aim.id, 'data-aim-result': c.id }} />
-          <RowBelow r={r} at={`${c.id}.rows.${i}`} shown={atRest(rowWords(r))} />
+          <RowBelow r={r} at={`${c.id}.rows.${i}`} shown={atRest(rowWords(r), reasonOf(r))} />
         </Fragment>
       ))}
     </div>
@@ -150,13 +204,17 @@ export function AimRows({ card, model, shared }: { card: ViewCard; model: ViewMo
   return (
     <div className="ok-dt-aims" data-view={`${card.id}.limits`}>
       {rows.map(({ r, i }) => {
-        const words = r.kind === 'none' && shared.has(r.aim_id!) ? '' : rowWords(r)
+        const line = shared.get(r.aim_id!)
+        const represented = r.kind === 'none' && line !== undefined && (line.rows === undefined || line.rows.includes(r))
+        const words = represented ? '' : rowWords(r)
+        const reason = represented ? undefined : reasonOf(r)
         const at = `${card.id}.rows.${i}`
         return (
           <Fragment key={i}>
-            <ResultRow r={r} at={at} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, r.question)}
-              lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': shared.has(r.aim_id!) || undefined }} />
-            <RowBelow r={r} at={at} shown={atRest(words)} />
+            <ResultRow r={r} at={at} words={words} hover={hoverOf(nameOf(r), rowWords(r), r.title, 'question' in r ? r.question : undefined)}
+              reason={reason} blockers={!represented && isOlumiCoreLane() ? withheldCardIds(model, [r]) : []}
+              lead={<AimMarker kind={aimKindOf(model, r.aim_id!)} />} mark={{ 'data-ok-limit': r.aim_id!, 'data-said-once': (represented || (line !== undefined && line.rows === undefined)) || undefined }} />
+            <RowBelow r={r} at={at} shown={atRest(words, reason)} />
           </Fragment>
         )
       })}
@@ -171,10 +229,23 @@ export function SaidOnce({ lines, at }: { lines: readonly Said[]; at: string }):
   return (
     <div className="ok-dt-said" data-said-once-on={at}>
       {lines.map((s, i) => (
-        <Hover as="p" key={i} className="ok-dt-said-line" words={s.title}><RowWords words={s.text} at={`${at}.said.${i}`} />
-          {s.olumi == null ? null : <span data-said-olumi={`${at}.said.${i}`}><OlumiMark words={s.olumi.title} /></span>}</Hover>
+        <SaidLine key={i} line={s} at={`${at}.said.${i}`} />
       ))}
     </div>
+  )
+}
+
+function SaidLine({ line, at }: { line: Said; at: string }): JSX.Element {
+  const holder = useWithheldRing(line.blockers ?? [])
+  const ring = line.blockers?.length ? holder : undefined
+  return (
+    <>
+      <Hover as="p" className="ok-dt-said-line" words={line.title} {...ring?.pointer} {...ring?.focus}>
+        <RowWords words={line.text} at={at} reason={line.reason} ring={ring} />
+        {line.olumi == null ? null : <span data-said-olumi={at}><OlumiMark words={line.olumi.title} /></span>}
+      </Hover>
+      {line.add ? <p className="ok-dt-said-line">{line.add}</p> : null}
+    </>
   )
 }
 
