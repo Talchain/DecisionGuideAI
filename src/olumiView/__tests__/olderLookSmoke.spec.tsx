@@ -11,7 +11,7 @@ import { useLaneInspector } from '../v12/edit/inspectorStore'
 import { install, uninstall } from '../v12/edit/__tests__/harness'
 
 beforeEach(() => {
-  vi.stubEnv('VITE_OLUMI_CORE', undefined)
+  vi.stubEnv('VITE_OLUMI_CORE', '')
   expect(isOlumiCoreLane()).toBe(false)
   install()
 })
