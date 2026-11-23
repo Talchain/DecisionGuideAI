@@ -50,7 +50,7 @@ const inWords = (over: Record<string, unknown> = {}): View =>
 let posts: { url: string; body: Record<string, unknown> }[] = [], answer: (url: string) => Response, served: (url: string) => View | null
 const show = (view: View | null, sid: string | null = SID) => {
   useViewStore.setState({ uuid: sid === null ? UUID : UUID, sid, view, status: view === null ? 'none' : 'ready', error: null, stale: false, at: null })
-  return render(<><ViewChat /><ViewComposer /></>).container
+  return render(<><ViewChat /><ViewComposer /></>).baseElement
 }
 const q = (c: ParentNode, id: string) => c.querySelector<HTMLElement>(`[data-testid="${id}"]`)
 const qa = (c: ParentNode, id: string) => [...c.querySelectorAll<HTMLElement>(`[data-testid="${id}"]`)]

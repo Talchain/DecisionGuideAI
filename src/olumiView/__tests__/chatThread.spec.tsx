@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -78,7 +78,7 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     await act(async () => { fireEvent.click(button) })
     const menu = getByTestId('view-actions-menu')
     expect(menu).toHaveClass('overflow-y-auto')
-    expect(menu.style.maxHeight).toMatch(/^\d+(?:\.\d+)?px$/)
+    await waitFor(() => expect(menu.style.maxHeight).toMatch(/^\d+(?:\.\d+)?px$/))
     expect(menu.contains(getByTestId('view-session-menu'))).toBe(true)
     expect(menu.contains(getByTestId('view-session-goal'))).toBe(true)
     expect(queryByTestId('v10-method-chips')).toBeNull()

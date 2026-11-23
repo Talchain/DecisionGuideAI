@@ -67,6 +67,9 @@ import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover
 import { useCanvasStore } from '../../canvas/store'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewLegend } from '../../olumiView/ViewLegend'
+import { Menu, MenuItem } from '../../olumiView/look/Menu'
+import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
+import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 import styles from './CanvasFloatingToolbar.module.css'
 
@@ -109,7 +112,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   // One menu at a time across the chrome (the canvas tools' lens, the top
   // bar's menus): announce on open, close when another claims the screen.
   useEffect(() => {
-    if (!menuOpen) return
+    if (lane || !menuOpen) return
     window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'viewport' } }))
     menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus()
     const onPointer = (e: MouseEvent) => {
@@ -124,15 +127,16 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
       document.removeEventListener('mousedown', onPointer)
       document.removeEventListener('keydown', onKey)
     }
-  }, [menuOpen, closeMenu])
+  }, [lane, menuOpen, closeMenu])
 
   useEffect(() => {
+    if (lane) return
     const handler = (e: Event) => {
       if ((e as CustomEvent).detail?.source !== 'viewport') setMenuOpen(false)
     }
     window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
     return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
-  }, [])
+  }, [lane])
 
   // Arrow keys move between items — the menu pattern the role promises.
   const onMenuKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -162,9 +166,24 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
         <div ref={wrapRef} className={lane ? "relative flex flex-col" : "relative"}>
           <CanvasToolButton lane={lane} icon="more" words="More view options" ref={moreRef}
             aria-label="More view options" aria-haspopup="menu" aria-expanded={menuOpen}
-            data-testid="viewport-more" onClick={() => setMenuOpen(o => !o)} />
+            data-testid="viewport-more" onClick={(event) => { if (!lane || !dismissMenuFromOpener(event.currentTarget)) setMenuOpen(o => !o) }} />
 
-          {menuOpen && (
+          {lane && menuOpen && moreRef.current && (
+            <Menu anchor={moreRef.current} label="More view options" testId="viewport-more-menu"
+              placement="right-end" gap={8} boundary={canvasChromeMenuBoundary} onClose={() => setMenuOpen(false)}>
+              <MenuItem id="zoom-reset" label="Zoom to 100%" icon={<OkIcon id="zoom-percent" size={14} decorative inherit />}
+                trailing={<span aria-hidden="true">{zoomPct}</span>} onSelect={onZoomReset}
+                meta={{ 'data-testid': 'viewport-zoom-reset', 'aria-label': `Zoom to 100% (now ${zoomPct})` }} />
+              <MenuItem id="auto-arrange" label="Auto-arrange" icon={<OkIcon id="layout-grid" size={14} decorative inherit />}
+                trailing={<span aria-hidden="true">⇧A</span>} onSelect={onAutoArrange}
+                meta={{ 'data-testid': 'viewport-auto-arrange', 'aria-keyshortcuts': 'Shift+A' }} />
+              {coreLaneShowsSurface('legend') && <MenuItem id="legend" label="How to read this"
+                icon={<OkIcon id="key-legend" size={14} decorative inherit />} onSelect={() => setLegendOpen(true)}
+                meta={{ 'data-testid': 'viewport-legend', 'aria-haspopup': 'dialog' }} />}
+            </Menu>
+          )}
+
+          {!lane && menuOpen && (
             <div
               ref={menuRef}
               role="menu"
@@ -203,7 +222,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
               </button>
               {/* The older look's Standard/Detailed switch. NOT on the core lane (Codex 07:39Z trace): there it ran the legacy setViewMode -> applyLayout over
                   the V12 cards and moved them, while V12's own level of detail is Layers -> Simple/Detailed (simpleStore). One owner per lane. */}
-              {isOlumiCoreLane() ? null : <button
+              <button
                 type="button"
                 role="menuitemcheckbox"
                 aria-checked={isDetailed}
@@ -214,7 +233,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
                 <OkIcon id="level-simple-detailed" size={14} decorative inherit />
                 <span>Detailed view</span>
                 <span className={styles.menuItemMeta} aria-hidden="true">{isDetailed ? 'On' : 'Off'}</span>
-              </button>}
+              </button>
               {coreLaneShowsSurface('legend') && <button
                 type="button"
                 role="menuitem"

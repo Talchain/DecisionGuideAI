@@ -43,7 +43,7 @@ const openMenu = (c: HTMLElement) => {
   if (b !== null && c.querySelector('[data-testid="view-actions-menu"]') === null) act(() => { fireEvent.click(b) })
 }
 const renderTab = (open = true) => {
-  const c = render(<><ViewChat /><ViewComposer /></>).container
+  const c = render(<><ViewChat /><ViewComposer /></>).baseElement
   if (open) openMenu(c)
   return c
 }

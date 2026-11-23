@@ -9,6 +9,9 @@
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OkIcon } from '../../olumiView/look/icons'
+import { Menu, MenuItem, MenuSeparator } from '../../olumiView/look/Menu'
+import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
+import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useAuth } from '../../contexts/AuthContext'
@@ -93,10 +96,8 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
   const [error, setError] = useState<string | null>(null)
   // The delete dialog outlives the menu: the menu closes when it opens, and a press inside the dialog must not close it.
   const [deleting, setDeleting] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
   const mark = useRef<HTMLButtonElement>(null)
   const refocus = useRef(false)
-  useMenuDismiss(open, setOpen, ref)
   // A cancelled dialog gives the focus back to the account menu's button, once the dialog (and its focus trap) has gone.
   useEffect(() => { if (!deleting && refocus.current) { refocus.current = false; mark.current?.focus() } }, [deleting])
   const initial = (person?.name ?? '').charAt(0).toUpperCase() || '?'
@@ -124,95 +125,59 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
     navigate('/signed-out?deleted=1', { replace: true })
   }, [navigate])
 
-  const Trigger = size === 'compact' ? HoverButton : 'button'
   return (
-    <div ref={ref} className="relative">
-      <Trigger
+    <div className="relative">
+      <HoverButton
         ref={mark}
         type="button"
-        onClick={() => {
-          const next = !open
-          setOpen(next)
-          if (next) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
-        }}
-        {...(size === 'compact' ? { words: words || 'Account menu' } : { title: words, words: undefined })}
+        onClick={(event) => { if (!dismissMenuFromOpener(event.currentTarget)) { setError(null); setOpen(true) } }}
+        words={words ?? 'Account menu'}
         data-testid="olumi-core-person-mark"
-        className={size === 'compact' ? TOOLBAR_ICON : `flex h-8 w-8 items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info`}
+        className={size === 'compact' ? TOOLBAR_ICON : `flex h-8 w-8 items-center justify-center rounded-full ${controls.actColours} transition-transform duration-fast hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-header`}
         aria-label="Account menu"
         aria-expanded={open}
-        aria-haspopup="true"
+        aria-haspopup="menu"
       >
         <span className={size === 'compact' ? `inline-grid h-[26px] w-[26px] place-items-center rounded-full ${controls.actColours} ${typography.viewPanelMeta} font-medium` : typography.button}>{initial}</span>
-      </Trigger>
+      </HoverButton>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-56 space-y-4 rounded-md border border-panel-border bg-panel p-3 shadow-2 z-[100]" role="menu">
-          <div className="space-y-3">
-            <p className={`${typography.label} text-text-header truncate`}>{person?.name ?? ''}</p>
-            {words && <p className={`${typography.bodySmall} text-text-light`}>{words}</p>}
-          </div>
-          {/* PoC accounts (src/olumiCore/accounts/): back to My scenarios, the organisation and the account page from a scenario. */}
+      {open && mark.current && (
+        <Menu anchor={mark.current} label="Account menu" placement="bottom-end" gap={8}
+          boundary={size === 'compact' ? canvasChromeMenuBoundary : undefined} onClose={() => setOpen(false)}>
+          {(person?.name || words) && (
+            <>
+              <div className="space-y-2 px-3 py-2">
+                {person?.name && <p className={`${typography.viewPanelHeadline} text-text-header`}>{person.name}</p>}
+                {words && <p className={`${typography.viewPanelMeta} text-text-light`}>{words}</p>}
+              </div>
+              <MenuSeparator />
+            </>
+          )}
           <div className="divide-y divide-panel-border">
             {LANE_PAGES.map(({ label, to, icon }) => (
-              <button
-                key={to}
-                type="button"
-                role="menuitem"
-                data-testid={`olumi-core-go-${to === '/' ? 'home' : to.slice(1)}`}
-                onClick={() => { setOpen(false); navigate(to) }}
-                className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
-              >
-                <OkIcon id={icon} className="text-text-light [&_svg]:stroke-2" decorative inherit />
-                <span className={typography.bodySmall}>{label}</span>
-              </button>
+              <MenuItem key={to} id={to} label={label} icon={<OkIcon id={icon} size={14} decorative inherit />}
+                meta={{ 'data-testid': `olumi-core-go-${to === '/' ? 'home' : to.slice(1)}` }} onSelect={() => navigate(to)} />
             ))}
           </div>
+          <MenuSeparator />
           <div className="divide-y divide-panel-border">
-            {NOTICES.map(({ label, href }) => {
-              const icon = href === '/privacy' ? 'privacy' : 'brief'
-              return (
-                <a
-                  key={href}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  role="menuitem"
-                  title="Opens in a new tab"
-                  data-testid={`olumi-core-notice-${href.slice(1)}`}
-                  onClick={() => setOpen(false)}
-                  className="flex w-full items-center gap-2 py-2.5 text-left text-text-body hover:bg-panel-hover transition-colors duration-fast"
-                >
-                  <OkIcon id={icon} className="text-text-light [&_svg]:stroke-2" decorative inherit />
-                  <span className={typography.bodySmall}>{label}</span>
-                </a>
-              )
-            })}
+            {NOTICES.map(({ label, href }) => (
+              <MenuItem key={href} id={href} label={label} href={href} tip="Opens in a new tab"
+                icon={<OkIcon id={href === '/privacy' ? 'privacy' : 'brief'} size={14} decorative inherit />}
+                meta={{ 'data-testid': `olumi-core-notice-${href.slice(1)}` }} />
+            ))}
           </div>
+          <MenuSeparator />
           <div className="divide-y divide-panel-border">
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="olumi-core-sign-out"
-              disabled={busy}
-              onClick={() => void handleSignOut()}
-              className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast disabled:opacity-50"
-            >
-              <OkIcon id="sign-out" className="[&_svg]:stroke-2" decorative inherit />
-              <span className={typography.bodySmall}>Sign out</span>
-            </button>
-            {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.viewPanelMeta} pb-2 text-danger`}>{error}</p>}
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="olumi-core-delete-my-data"
-              onClick={() => { setOpen(false); setError(null); setDeleting(true) }}
-              className="flex w-full items-center gap-2 py-2.5 text-left text-danger hover:bg-panel-hover transition-colors duration-fast"
-            >
-              <OkIcon id="delete" className="[&_svg]:stroke-2" decorative inherit />
-              <span className={typography.bodySmall}>Delete my data</span>
-            </button>
+            <MenuItem id="sign-out" label="Sign out" danger disabled={busy} disabledReason="Signing out"
+              icon={<OkIcon id="sign-out" size={14} decorative inherit />} meta={{ 'data-testid': 'olumi-core-sign-out' }}
+              onSelect={() => void handleSignOut()} closeOnSelect={false} />
+            {error && <p role="alert" data-testid="olumi-core-sign-out-error" className={`${typography.viewPanelMeta} px-3 py-2 text-warning-ink`}>{error}</p>}
+            <MenuItem id="delete-data" label="Delete my data" danger icon={<OkIcon id="delete" size={14} decorative inherit />}
+              meta={{ 'data-testid': 'olumi-core-delete-my-data', 'aria-haspopup': 'dialog' }}
+              onSelect={() => { setError(null); setDeleting(true) }} />
           </div>
-        </div>
+        </Menu>
       )}
       {deleting && <DeleteMyDataDialog onCancel={closeDelete} onDeleted={onDeleted} />}
     </div>

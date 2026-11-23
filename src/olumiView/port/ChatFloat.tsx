@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { OkIcon } from '../look/icons'
+import { isMenuOpen } from '../look/menuArbiter'
 import { Hover } from '../look/Hover'
 
 // Previous OlumiTabBody's pop-out labels (A2 stop/float, DL 10 Nov).
@@ -121,7 +122,7 @@ export function ChatFloatHost({ children, composer }: { children: ReactNode; com
     }
     const end = () => { drag.current = null }
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.isComposing) return
+      if (event.key !== 'Escape' || event.isComposing || isMenuOpen()) return
       // Heard first (capture): on screen another Escape handler swallowed the key and the window never docked (probe, 10 Nov). Only
       // when the key is pressed in the window or on the page itself, so a menu or dialog elsewhere keeps its own Escape.
       const at = event.target as Node | null
