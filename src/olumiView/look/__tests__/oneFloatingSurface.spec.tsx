@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider } from '@xyflow/react'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { KeyboardLegend, useKeyboardLegend } from '../../../canvas/help/KeyboardLegend'
@@ -64,6 +65,12 @@ it('replaces the shared menu with the details sheet and the sheet with the edit 
   expect(add).toHaveFocus()
 
   fireEvent.click(add)
+  fireEvent.click(within(screen.getByRole('menu', { name: 'Add to model' })).getByRole('menuitem', { name: 'Figure' }))
+  expect(nonModalSurfaces()).toEqual([screen.getByTestId('lane-edit-form')])
+  escape()
+  expect(nonModalSurfaces()).toEqual([])
+
+  fireEvent.click(add)
   // Click activation without an outside pointer press exercises the surface store.
   fireEvent.click(inspect)
   const sheet = screen.getByRole('complementary', { name: 'Details' })
@@ -94,10 +101,16 @@ it('replaces the shared menu with the details sheet and the sheet with the edit 
   expect(nonModalSurfaces()).toEqual([])
 })
 
-it('also replaces an open chrome menu when the details sheet opens without an outside pointer press', () => {
+it('replaces the viewport menu when the details sheet opens from keyboard activation', async () => {
+  const user = userEvent.setup()
   render(<Surfaces viewport />)
-  fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
+  const viewportMenu = screen.getByRole('button', { name: 'More view options' })
+  await user.click(viewportMenu)
   expect(nonModalSurfaces()).toEqual([screen.getByRole('menu', { name: 'More view options' })])
-  fireEvent.click(screen.getByRole('button', { name: 'Inspect customers' }))
+
+  // Focus the inspection control directly so the menu is still open when Enter activates it.
+  screen.getByRole('button', { name: 'Inspect customers' }).focus()
+  await user.keyboard('{Enter}')
   expect(nonModalSurfaces()).toEqual([screen.getByRole('complementary', { name: 'Details' })])
+  expect(viewportMenu).toHaveAttribute('aria-expanded', 'false')
 })

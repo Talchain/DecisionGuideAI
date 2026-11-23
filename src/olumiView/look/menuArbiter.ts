@@ -21,6 +21,11 @@ export function subscribeMenuOpen(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
+/** A canvas surface replaces the open menu unless that menu is handing off to its own form. */
+export function dismissMenuForSurface(handoffOpener?: HTMLElement): void {
+  if (active && active.opener !== handoffOpener) active.dismiss('replaced')
+}
+
 /** Returns true when this click closes the chain anchored to the button. */
 export function dismissMenuFromOpener(opener: HTMLElement): boolean {
   if (active?.opener !== opener) return false
