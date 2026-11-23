@@ -17,7 +17,6 @@ import { BANDS, bandLabelOf, bandOf, FOLD_ID, foldsInputs, IDEA_PREFIX, unlinked
 import { setInputsOpen, useInputsOpen } from './foldStore'
 import { groupBandOf } from './groups'
 
-const INK = 'var(--text-light)'
 /** What the unlinked mark says, on hover and to a reader: the mark itself is an icon, quiet, so four of them do not read as four faults (DL look, 17 Nov). */
 export const NOT_LINKED = 'No link touches this figure'
 
@@ -80,18 +79,22 @@ export function BandLayer() {
   const folds = model !== null && foldsInputs(model), expanded = folds && sid !== null && open[sid] === true
   return (
     <ViewportPortal>
-      <div style={{ pointerEvents: 'none' }} data-testid="view-band-layer">
+      <div className="pointer-events-none" data-testid="view-band-layer">
         {labels.map(({ band, x, y }) => (
-          <div key={band} data-band-label={band} style={{ position: 'absolute', left: x, top: y, transform: `translateY(calc(-100% - ${SIMPLE_LABEL_GAP}px - ${KIND_GLYPH_PX / 2}px * var(--o-s, 1)))`, color: INK, pointerEvents: 'none', ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}
-            className="z-[3] flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 font-medium leading-tight">
+          <div key={band} data-band-label={band} style={{ '--band-x': `${x}px`, '--band-y': `${y - SIMPLE_LABEL_GAP}px`, '--band-marker-overhang': `${KIND_GLYPH_PX / 2}px`, '--o-s': scale } as CSSProperties}
+            className="ok-band-label pointer-events-none absolute z-[3] flex items-center gap-1.5 whitespace-nowrap rounded-sm bg-canvas pr-1 leading-tight">
             <Shape shape={BANDS[band].shape} />{bandLabelOf(band, model)}
-            {band === 'inputs' && expanded ? <HoverButton type="button" data-testid="view-inputs-unfold" style={{ pointerEvents: 'auto' }} className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
+            {band === 'inputs' && expanded ? <HoverButton type="button" data-testid="view-inputs-unfold" className="pointer-events-auto ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
               words="Fold these inputs into one group" aria-label="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}><OkIcon id="fold-group" variant="alt" size={14} decorative inherit /></HoverButton> : null}
           </div>
         ))}
         {nodes.filter((n) => unlinked.has(n.id)).map((n) => (
-          <Hover key={n.id} role="img" data-not-linked={n.id} aria-label={NOT_LINKED} words={NOT_LINKED} className="z-[3] inline-flex"
-            style={{ position: 'absolute', left: n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200), top: n.position.y - SIMPLE_LABEL_GAP, transform: 'translate(-100%, -100%)', pointerEvents: 'auto', color: INK, ...(scale === undefined ? {} : { '--o-s': scale } as CSSProperties) }}>
+          <Hover key={n.id} role="img" data-not-linked={n.id} aria-label={NOT_LINKED} words={NOT_LINKED} className="pointer-events-auto absolute left-[var(--band-x)] top-[var(--band-y)] z-[3] inline-flex -translate-x-full -translate-y-full text-text-light"
+            style={{
+              '--band-x': `${n.position.x + ((n.data as { width?: number }).width ?? n.measured?.width ?? 200)}px`,
+              '--band-y': `${n.position.y - SIMPLE_LABEL_GAP}px`,
+              '--o-s': scale,
+            } as CSSProperties}>
             <OkIcon id="not-linked" size={14} decorative inherit className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" />
           </Hover>
         ))}

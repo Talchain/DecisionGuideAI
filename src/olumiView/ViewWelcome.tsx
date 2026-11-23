@@ -4,7 +4,7 @@
  * brief route exactly as it did from the dock. No attach and no "Structure it": core has no route for either on a first brief. It leaves
  * the moment the brief is sent (the board then says the draft is running, DraftingBoard) or a model or proposal exists.
  */
-import { useLayoutEffect, useState } from 'react'
+import { useLayoutEffect, useState, type CSSProperties } from 'react'
 import { create } from 'zustand'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { useViewStore } from './store'
@@ -55,7 +55,7 @@ export function ViewWelcome(): JSX.Element | null {
   const error = useViewStore((s) => s.error)
   const [again, setAgain] = useState(false)
   if (reading !== null) return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-reading" data-reading={reading}>
+    <div className="pointer-events-none fixed inset-y-0 left-0 right-[var(--board-dock-inset)] z-[5] flex items-center justify-center px-6" style={{ '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-reading" data-reading={reading}>
       <div role={reading === 'error' ? 'alert' : 'status'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
         <p data-testid="view-reading-words">{reading === 'error' ? error ?? READ_FAILED_WORDS : READING_WORDS}</p>
         {reading === 'error' ? (
@@ -67,7 +67,7 @@ export function ViewWelcome(): JSX.Element | null {
   )
   if (!show) return null
   return (
-    <div className="pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6" style={{ right }} data-testid="view-welcome">
+    <div className="pointer-events-none fixed inset-y-0 left-0 right-[var(--board-dock-inset)] z-[5] flex items-center justify-center px-6" style={{ '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-welcome">
       <div className="pointer-events-auto flex w-full max-w-[640px] flex-col items-center gap-6">
         <img src="/olumi-logo.png" alt="Olumi" className="h-10 w-auto" />
         <div className="w-full rounded-2xl border border-panel-border bg-panel shadow-sm"><ViewComposer /></div>

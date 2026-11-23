@@ -195,6 +195,8 @@ function parseBodyBox(raw: string | null): BodyBox | null {
 }
 
 function applyPadding(card: HTMLElement, box: PaddingBox): void {
+  // The core lane measures the same face padding it draws at each scale.
+  if (card.classList.contains('ok-card-frame')) return
   for (const side of PADDING_SIDES) {
     const value = box[side]
     if (typeof value === 'string') card.style[side] = value
@@ -265,7 +267,9 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
 
   // ⭐ v3.1 WS1 #25: a far-rung title is clamped at its own far scale; at the
   // bound it is an ordinary, unclamped title at `MAX_LABEL_COUNTER_SCALE`.
-  const farTitles = root.querySelectorAll(LOD_FAR_TITLE_SELECTOR)
+  // Core cards keep their Simple or Detailed title recipe at the bound.
+  const farTitles = Array.from(root.querySelectorAll<HTMLElement>(LOD_FAR_TITLE_SELECTOR))
+    .filter(title => !title.closest('.ok-card-frame'))
   const previousFarTitleStyles: Array<[string, string, string]> = []
   const previousFarScale = root.style.getPropertyValue(CANVAS_FAR_TITLE_SCALE_VAR)
 
@@ -320,7 +324,9 @@ export function measureNodeHeightsAtLabelBound(): Map<string, number> {
       if (box === null) continue
       boxedBodyEls.push(e)
       previousBodyBoxes.push(BODY_BOX_SIDES.map(side => e.style[side]))
+      const fullWidthFace = e.closest('.ok-card-frame') !== null && e.querySelector(':scope > .ok-face') !== null
       for (const side of BODY_BOX_SIDES) {
+        if (side === 'paddingRight' && fullWidthFace) continue
         const value = box[side]
         if (typeof value === 'string') e.style[side] = value
       }

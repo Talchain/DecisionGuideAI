@@ -189,7 +189,7 @@ describe('a kept idea draws its words as the conversation draws the reply (DL, p
     expect([...text(lead).querySelectorAll('strong')].map((s) => s.textContent)).toEqual(['An invented lead.'])
     expect(text(heading).textContent).toBe('An invented heading')
     expect(text(heading).querySelector('[data-reply-lead-in]')?.textContent).toBe('An invented heading')
-    expect(lead.style.fontSize).toBe('calc(12px * var(--o-s, 1))')
+    expect(lead).toHaveClass('text-[length:calc(12px*var(--o-s,1))]')
     expect([...text(lead).querySelectorAll('*')].filter((e) => /(^|\s)text-(xs|sm|base|lg)(\s|$)/.test(e.className))).toEqual([])
     const leadTip = await tipOf(lead)
     expect(leadTip).not.toMatch(/\*\*|##/)

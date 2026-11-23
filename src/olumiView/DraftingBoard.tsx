@@ -15,7 +15,7 @@
  * under the press. No sentence here is the page's. The press starts a draft, and the drafting state above takes the board.
  */
 import { HoverButton } from './look/Hover'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { Button } from '../components/ui/Button'
@@ -67,7 +67,7 @@ export function LayingBoard(): JSX.Element | null {
   const state = useFirstDraw((s) => s.state), right = useDockInset()
   if (state === 'idle') return null
   return (
-    <div className={WRAP} style={{ right }} data-testid="view-laying-board" data-state={state}>
+    <div className={WRAP} style={{ '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-laying-board" data-state={state}>
       <div role="status" aria-live="polite" className="pointer-events-auto grid justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm">
         <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
           {state === 'laying' ? <span aria-hidden="true" className="inline-block h-2 w-2 rounded-full bg-info motion-safe:animate-pulse" /> : null}
@@ -80,14 +80,14 @@ export function LayingBoard(): JSX.Element | null {
   )
 }
 
-const WRAP = 'pointer-events-none fixed inset-y-0 left-0 z-[5] flex items-center justify-center px-6'
+const WRAP = 'pointer-events-none fixed inset-y-0 left-0 right-[var(--board-dock-inset)] z-[5] flex items-center justify-center px-6'
 /** Secondary: beside the zoom row and above the foot cues' row (BelowCue stands at 40 px, 36 tall), never under the viewport controls. */
-const WRAP_SECONDARY = 'pointer-events-none fixed bottom-[88px] z-[5] flex items-end justify-start'
+const WRAP_SECONDARY = 'pointer-events-none fixed bottom-[88px] left-[var(--board-prompt-left)] right-[var(--board-dock-inset)] z-[5] flex items-end justify-start'
 
 function BuildOffer({ offer, secondary }: { offer: { label: string; title: string }; secondary: boolean }): JSX.Element {
   const busy = useViewChat((s) => s.busy), right = useDockInset(), left = useBesideZoom()
   return (
-    <div className={secondary ? WRAP_SECONDARY : WRAP} style={secondary ? { left, right } : { right }} data-testid="view-build-board" data-secondary={secondary ? '' : undefined}>
+    <div className={secondary ? WRAP_SECONDARY : WRAP} style={{ '--board-prompt-left': secondary ? `${left}px` : undefined, '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-build-board" data-secondary={secondary ? '' : undefined}>
       <div className={secondary ? 'pointer-events-auto grid max-w-[320px] justify-items-start gap-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-left' : 'pointer-events-auto grid max-w-[420px] justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm'}>
         <Button size="sm" disabled={busy} data-view="build_model.label" data-testid="view-build-board-go" onClick={() => void buildModel()}>{offer.label}</Button>
         {offer.title === '' ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-view="build_model.title" data-testid="view-build-board-title">{offer.title}</p>}
@@ -108,7 +108,7 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
   const from = draft.started === undefined ? Number.NaN : Date.parse(draft.started)
   const s = Number.isFinite(from) ? Math.max(0, Math.floor((now - from) / 1000)) : null
   return (
-    <div className={secondary ? WRAP_SECONDARY : WRAP} style={secondary ? { left, right } : { right }} data-testid="view-drafting-board" data-draft={draft.status} data-secondary={secondary ? '' : undefined}>
+    <div className={secondary ? WRAP_SECONDARY : WRAP} style={{ '--board-prompt-left': secondary ? `${left}px` : undefined, '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-drafting-board" data-draft={draft.status} data-secondary={secondary ? '' : undefined}>
       <div role="status" aria-live="polite" className={`pointer-events-auto space-y-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm ${secondary ? 'max-h-[40vh] max-w-[360px] overflow-y-auto' : early === null ? 'max-w-[420px]' : 'max-h-[80vh] max-w-[560px] overflow-y-auto'}`}>
         <p className={`${typography.panelHeader} flex items-center justify-center gap-2 text-text-header`}>
           {running ? <span aria-hidden="true" data-testid="view-drafting-loader"><ThinkingIndicator kinds={boardKindsOf(view)} /></span> : null}

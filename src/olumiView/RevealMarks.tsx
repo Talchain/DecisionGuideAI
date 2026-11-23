@@ -5,6 +5,7 @@
  * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's, whole (N3): each mark's hover and name, each
  * figure's and each piece of evidence's own, never composed here.
  */
+import type { CSSProperties } from 'react'
 import { HoverButton } from './look/Hover'
 import { SELECTED_RING } from '../styles/selected'
 import { OkIcon } from './look/icons'
@@ -136,7 +137,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
   // Core's link marks fold the served doubt chip (TM-04): a link core marks is drawn once, by its mark, never again as a difference here.
   const offLine = cardLinkMarksOf(view, card)
   const differs = unmarkedDiffers(view, useLinkDiffers(card)), hostsDiffers = cardChips.length > 0 || strategyMarkOn(view, card) === null
-  const { wrap, style } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
+  const { wrap, width, offset } = railLayout(hostsDiffers && differs.length > 0, CHIPS_WIDTH)
   // The link words keep clear of this rail's chips as of the card itself (railBoxes.ts).
   const railRef = useRailBoxesRef(`reveal:${card}`, card)
   const rail = (children: JSX.Element[]) => (
@@ -144,7 +145,8 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
     // row would sit on the cards below); two chips may reach past the card's edges. The first (the difference that matters most) keeps all
     // its words; a later one gives way and ends in an ellipsis, its full words in its hover and its name. A rail that holds a doubted link
     // (TM-04) is the card's width instead and wraps to a second row, every chip at its natural width (railLayout).
-    <div ref={railRef} className={`nodrag mt-1 flex flex-row ${wrap} justify-center gap-1.5`} style={style} data-testid={`reveal-chips-${card}`}>{children}</div>
+    <div ref={railRef} className={`nodrag mt-1 flex w-[var(--card-rail-width)] flex-row ${wrap} justify-center gap-1.5${offset === undefined ? '' : ' ml-[var(--card-rail-offset)]'}`}
+      style={{ '--card-rail-width': `${width}px`, '--card-rail-offset': offset === undefined ? undefined : `${offset}px` } as CSSProperties} data-testid={`reveal-chips-${card}`}>{children}</div>
   )
   if (cardChips.length > 0 || offLine.length > 0 || (hostsDiffers && differs.length > 0)) {
     return rail([...cardChips.map((chip, i) => {

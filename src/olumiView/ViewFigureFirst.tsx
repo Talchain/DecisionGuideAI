@@ -7,6 +7,7 @@
  * (`session.figure_first`). The entry never holds Olumi's figure, so the panel cannot draw it. The side by side draws each figure's own words
  * and places the two on one axis by their numbers (layout.ts figureAxisOf); it writes no number, no distance and no "closer" of its own.
  */
+import type { CSSProperties } from 'react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
 import { VIEW_CHIP_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../v5/blocks/chipClass'
@@ -116,7 +117,6 @@ export function FigureFirstShownPanel({ onClose }: { onClose: () => void }) {
 export function FigureFirstSideBySide({ given, headings }: { given: FigureFirstGiven; headings: FigureFirstHeadings }) {
   const axis = figureAxisOf(given)
   const point = 'value' in given.theirs
-  const bar = (s: { from: number; to: number }) => ({ left: `${s.from}%`, width: `${s.to - s.from}%` })
   return (
     <details open className={`${typography.viewPanelBody} rounded-lg border border-panel-border bg-panel p-3`} data-testid="view-figure-first-given">
       <summary className={`${typography.panelHeader} cursor-pointer`}><span data-ff="given.label">{given.label}</span></summary>
@@ -136,10 +136,10 @@ export function FigureFirstSideBySide({ given, headings }: { given: FigureFirstG
         {/* One axis for both (geometry only; the words above say the figures). */}
         <div className="relative h-9 rounded-md bg-panel-hover" aria-hidden="true" data-testid="view-figure-first-axis">
           {point
-            ? <span className="absolute top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-text-body" style={{ left: `${axis.theirs.from}%` }} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />
-            : <span className="absolute top-2 h-2 min-w-[2px] rounded-full bg-text-body" style={bar(axis.theirs)} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />}
-          <span className="absolute bottom-2 h-2 min-w-[2px] rounded-full bg-info" style={bar(axis.olumi)} data-axis="olumi" data-from={axis.olumi.from} data-to={axis.olumi.to} />
-          {axis.likely === null ? null : <span className="absolute bottom-1.5 h-3 w-0.5 -translate-x-1/2 rounded-sm bg-text-body" style={{ left: `${axis.likely}%` }} data-axis="likely" data-from={axis.likely} />}
+            ? <span className="absolute left-[var(--chart-x)] top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-text-body" style={{ '--chart-x': `${axis.theirs.from}%` } as CSSProperties} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />
+            : <span className="absolute left-[var(--chart-x)] w-[var(--chart-width)] top-2 h-2 min-w-[2px] rounded-full bg-text-body" style={{ '--chart-x': `${axis.theirs.from}%`, '--chart-width': `${axis.theirs.to - axis.theirs.from}%` } as CSSProperties} data-axis="theirs" data-from={axis.theirs.from} data-to={axis.theirs.to} />}
+          <span className="absolute left-[var(--chart-x)] w-[var(--chart-width)] bottom-2 h-2 min-w-[2px] rounded-full bg-info" style={{ '--chart-x': `${axis.olumi.from}%`, '--chart-width': `${axis.olumi.to - axis.olumi.from}%` } as CSSProperties} data-axis="olumi" data-from={axis.olumi.from} data-to={axis.olumi.to} />
+          {axis.likely === null ? null : <span className="absolute left-[var(--chart-x)] bottom-1.5 h-3 w-0.5 -translate-x-1/2 rounded-sm bg-text-body" style={{ '--chart-x': `${axis.likely}%` } as CSSProperties} data-axis="likely" data-from={axis.likely} />}
         </div>
         <div className="space-y-0.5">
           <p className={`${typography.chatMeta} text-text-light`} data-ff="headings.basis">{headings.basis}</p>

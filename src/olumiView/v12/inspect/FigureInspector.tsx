@@ -3,6 +3,7 @@
  * figure and the two actions. Every word about the scenario is the View's; the chrome is the board's named labels. Olumi's estimate stays marked
  * as Olumi's, and the person's figure goes through the one set-figure path (`setFigure`), never a write of its own.
  */
+import type { CSSProperties } from 'react'
 import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import { Hover } from '../../look/Hover'
@@ -31,7 +32,7 @@ function Bar({ label, p }: { label: string; p: number }): JSX.Element {
   return (
     <div className="flex items-center gap-2" data-moves-bar={label}>
       <span className="w-12 flex-none text-text-light">{label}</span>
-      <span className="relative h-1.5 flex-1 rounded-full bg-panel-border" aria-hidden="true"><span className={`absolute left-0 top-0 ${bar}`} style={{ width: `${Math.max(0, Math.min(100, p * 100))}%` }} /></span>
+      <span className="relative h-1.5 flex-1 rounded-full bg-panel-border" aria-hidden="true"><span className={`absolute left-0 top-0 w-[var(--chart-width)] ${bar}`} style={{ '--chart-width': `${Math.max(0, Math.min(100, p * 100))}%` } as CSSProperties} /></span>
       <span className={`${typography.viewPanelTabular} w-20 flex-none text-right text-text-header`}>{sampledChanceWords(p)}</span>
     </div>
   )

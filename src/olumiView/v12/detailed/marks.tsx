@@ -5,7 +5,7 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useState, Fragment, type MouseEvent } from 'react'
+import { useState, Fragment, type MouseEvent, type CSSProperties } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { badgeFace, toggleBadge } from '../../Badge'
 import { OlumiMark } from '../cards/marks'
@@ -96,7 +96,7 @@ function ResultRow({ lead, r, at, words, hover, mark }: { lead: JSX.Element; r: 
     <Hover as="div" className="ok-dt-aim" words={hover} data-view={at} data-aim-row={r.kind} {...mark}>
       {lead}
       {r.kind === 'none' ? <span className="ok-dt-mini-none" data-withheld-row={at} />
-        : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
+        : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ '--chart-width': `${chance * 100}%` } as CSSProperties} /></span>
         : <span className="ok-dt-mini-none" />}
       <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} /></span>
       {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} />}

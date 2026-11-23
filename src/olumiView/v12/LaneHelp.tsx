@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { useEffect, useState } from 'react'
 import { regionsOf } from '../regions'
 import { HELP_EVENTS } from '../../components/layout/TopBar'
@@ -49,7 +50,7 @@ export function LaneHelp(): JSX.Element {
   return (
     <>
       {influence.shouldShow ? (
-        <div className="fixed z-[1200] flex w-[min(20rem,calc(100vw-2rem))] flex-col items-end gap-3" style={anchor} data-testid="lane-influence-explainer">
+        <div className="fixed top-[var(--help-top)] right-[var(--help-right)] z-[1200] flex w-[min(20rem,calc(100vw-2rem))] flex-col items-end gap-3" style={{ '--help-top': anchor.top, '--help-right': anchor.right } as CSSProperties} data-testid="lane-influence-explainer">
           <InfluenceExplainer forceShow={influence.forceShow} onDismiss={influence.hide} compact variant="panel" />
         </div>
       ) : null}

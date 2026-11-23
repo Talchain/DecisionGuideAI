@@ -15,7 +15,7 @@
  * while gated, or on an earlier version, nothing is read or drawn. The read is the Team tab's own (`differencesKey`), so the dock and the
  * canvas never read the same View twice.
  */
-import { Fragment, useEffect, type CSSProperties } from 'react'
+import { Fragment, useEffect } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { HoverButton } from '../../olumiView/look/Hover'
 import { useUIStore } from '../../stores/uiStore'
@@ -62,8 +62,8 @@ const quoted = (s: string) => s.replace(/["\\]/g, '\\$&')
  * card's width and wraps to a second row, so every chip keeps its natural width inside the card. A rail of the reveal's own chips alone
  * keeps V11's geometry (one row, `wide`, centred under the card): that rail is V11's to change.
  */
-export function railLayout(holdsDoubts: boolean, wide: number): { wrap: string; style: CSSProperties } {
-  return holdsDoubts ? { wrap: 'flex-wrap', style: { width: CARD_WIDTH } } : { wrap: 'flex-nowrap', style: { width: wide, marginLeft: (CARD_WIDTH - wide) / 2 } }
+export function railLayout(holdsDoubts: boolean, wide: number): { wrap: string; width: number; offset?: number } {
+  return holdsDoubts ? { wrap: 'flex-wrap', width: CARD_WIDTH } : { wrap: 'flex-nowrap', width: wide, offset: (CARD_WIDTH - wide) / 2 }
 }
 
 /** Open the difference in the dock (the Team tab), brought into view once the tab draws it. Nothing opens on an earlier version. */

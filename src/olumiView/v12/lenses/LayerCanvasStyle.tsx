@@ -24,10 +24,10 @@ export function layerCss(
   }
   // The note sits INSIDE the card, on a row of its own at its foot (Codex 006d #1: drawn below the card it ran across the next row, whose
   // owner was then unclear). The row is padding the card measures, so the layout leaves room for it (canvas.ts lays out at drawn heights).
-  // The card element is matched with more attributes than the compact padding rule (olumiLook.css), so this padding wins on Simple too.
-  const card = (id: string) => `.olumi-look ${node(id)} [role='group'][aria-label][aria-label][aria-label][aria-label]`
+  // The node id makes this reservation more specific than the face defaults in olumiLook.css.
+  const card = (id: string) => `.olumi-look ${node(id)} [role='group'][aria-label]`
   const tag = (id: string, text: string, info: boolean) => out.push(
-    `${card(id)}{padding-bottom:22px!important;position:relative}`,
+    `${card(id)}{padding-bottom:22px;position:relative}`,
     `${card(id)}::after{content:${q(text)};position:absolute;left:12px;right:12px;bottom:5px;font-size:12px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${info ? 'var(--info)' : 'var(--o-body)'};pointer-events:none}`,
   )
   for (const [id, text] of m.tags) tag(id, text, false)

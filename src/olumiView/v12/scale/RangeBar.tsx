@@ -3,11 +3,11 @@
  * figure a solid dark bar. A gold deadline tick only where the range is in the aim's unit AND core's `input` link runs from this card to the aim's
  * quantity. A what-if marker at `tried`. No range from core: nothing is drawn.
  */
+import type { CSSProperties } from 'react'
+import '../../look/olumiLook.css'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { figureRange, linkRole } from '../contract'
-import { aimOf, axisOf, fmt, LABEL_PX, modelOf, pctOf } from './axis'
-
-const INK = 'var(--text-header)', BODY = 'var(--text-body)', BLUE = 'var(--info)', GOLD = 'var(--goal)', LIGHT = 'var(--text-light)', TRACK = 'var(--border-default)'
+import { aimOf, axisOf, fmt, modelOf, pctOf } from './axis'
 
 export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null }) {
   const range = figureRange(card)
@@ -24,17 +24,16 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   if (range.low === range.high && deadline === null && t === null) return null
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
   // The person's band is lighter and thinner (v10 review item 4); Olumi's dotted band keeps its own geometry (a 2 px dotted border needs the 8 px).
-  const band = { position: 'absolute', top: olumi ? 4 : 5, height: olumi ? 8 : 6, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 } as const
   return (
-    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} style={{ margin: '4px 0', fontSize: LABEL_PX, color: LIGHT }}>
-      <div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>
+    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} className="ok-scale ok-scale-range">
+      <div className="ok-scale-track">
         <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
-          style={olumi ? { ...band, border: `2px dotted ${BLUE}`, background: 'transparent' } : { ...band, background: `color-mix(in srgb, ${BODY} 55%, transparent)` }} />
-        {range.likely !== null && <span data-testid="range-likely" style={{ position: 'absolute', top: 3, width: 10, height: 10, borderRadius: '50%', background: olumi ? BLUE : INK, border: '2px solid var(--bg-panel)', left: `calc(${pctOf(axis, range.likely)}% - 5px)` }} />}
-        {deadline !== null && <span data-testid="range-deadline" style={{ position: 'absolute', top: 0, bottom: 0, borderLeft: `2px solid ${GOLD}`, left: `${pctOf(axis, deadline)}%` }} />}
-        {t !== null && <span data-testid="range-tried" data-at={t} style={{ position: 'absolute', top: -2, bottom: -2, borderLeft: `2px dashed ${INK}`, left: `${pctOf(axis, t)}%` }} />}
+          className="ok-scale-range-band" style={{ '--scale-x': `${a}%`, '--scale-width': `${Math.max(1, b - a)}%` } as CSSProperties} />
+        {range.likely !== null && <span data-testid="range-likely" className="ok-scale-dot ok-scale-likely" style={{ '--scale-x': `${pctOf(axis, range.likely)}%` } as CSSProperties} />}
+        {deadline !== null && <span data-testid="range-deadline" className="ok-scale-deadline" style={{ '--scale-x': `${pctOf(axis, deadline)}%` } as CSSProperties} />}
+        {t !== null && <span data-testid="range-tried" data-at={t} className="ok-scale-tried" style={{ '--scale-x': `${pctOf(axis, t)}%` } as CSSProperties} />}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, whiteSpace: 'nowrap' }}>
+      <div className="flex justify-between gap-2 whitespace-nowrap">
         {/* The unit once, at the high end (DL look at 1500x904 at 1.33: on a narrow card the two labels touched); the low end says it to a reader. */}
         <span data-testid="range-min" aria-label={`${fmt(axis.min)} ${range.unit}`}>{fmt(axis.min)}</span>
         <span data-testid="range-max">{fmt(axis.max)} {range.unit}</span>

@@ -15,7 +15,7 @@
  * on one line, whole on hover: core's `description` where it sends one (fields.ts cardTitle), else the card's state line above (the chance's qualifier,
  * the no-chance line, the "waits on …" words, the gap words). What a card rests on and its working stay closed at rest (CoreCard).
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type CSSProperties } from 'react'
 import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
 import { colourClass, ICONS, OkIcon } from '../look/icons'
@@ -41,7 +41,6 @@ import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
  */
 const FIGURE = `${typography.viewLabel} tabular-nums`
 /** Olumi's blue, the person's ink and the goal's colour: the board's own tokens. */
-const BLUE = 'var(--semantic-info)', INK = 'var(--text-header)'
 
 export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
 
@@ -200,12 +199,12 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-2" data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.length === 0 ? null : (
           <div className="relative grid gap-px" data-simple-axis={id}>
-            {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2" style={{ left: `${axisInfo.goalAt}%`, borderColor: 'var(--goal)' }} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
+            {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2 ok-simple-goal-tick" style={{ '--chart-x': `${axisInfo.goalAt}%` } as CSSProperties} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
         {bands.slice(0, 4).map((b) => (
           <Hover as="div" focusable={false} key={b.option} words={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
-            <span className="relative block h-[4px] flex-1 rounded-full" style={{ background: 'var(--border-default)' }} role="img" aria-label={`${b.heading} · ${b.text}`}>
-              {b.hi > b.lo ? <i className="absolute top-0 block h-full rounded-full" style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%`, background: `color-mix(in srgb, ${b.olumi ? BLUE : INK} 75%, transparent)` }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
-              {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm" style={{ left: `${b.mid}%`, background: INK }} />}
+            <span className="relative block h-[4px] flex-1 rounded-full ok-simple-track" role="img" aria-label={`${b.heading} · ${b.text}`}>
+              {b.hi > b.lo ? <i className={`absolute top-0 block h-full rounded-full ok-simple-band${b.olumi ? ' ok-simple-band-olumi' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
+              {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm bg-text-header ok-simple-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
             </span>
           </Hover>
         ))}

@@ -16,6 +16,9 @@ const show = () => useViewStore.setState({ uuid: '00000000-0000-4000-8000-cb215d
 const COMPOSER = 'Ask about your thinking…'
 const scene = () => render(<><ViewChat /><ViewComposer /></>)
 
+const floatPx = (panel: HTMLElement, property: 'x' | 'y' | 'width' | 'height') =>
+  panel.style.getPropertyValue(`--chat-float-${property}`)
+
 beforeEach(() => {
   // Pointer coordinates are real event fields in the browser (A2 stop/float, DL 10 Nov).
   vi.stubGlobal('PointerEvent', class extends MouseEvent {
@@ -91,22 +94,22 @@ describe('A2 stop/float, DL 10 Nov', () => {
     const { getByTestId } = scene()
     fireEvent.click(getByTestId('view-chat-popout'))
     const panel = getByTestId('view-chat-float'), header = getByTestId('view-chat-float-header')
-    expect(panel.style.width).toBe('380px')
-    expect(panel.style.height).toBe('520px')
+    expect(floatPx(panel, 'width')).toBe('380px')
+    expect(floatPx(panel, 'height')).toBe('520px')
     fireEvent.pointerDown(header, { button: 0, pointerId: 1, clientX: 70, clientY: 90 })
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 4000, clientY: 4000 })
-    expect(Number.parseFloat(panel.style.left) + Number.parseFloat(panel.style.width)).toBe(1232)
-    expect(Number.parseFloat(panel.style.top) + Number.parseFloat(panel.style.height)).toBe(704)
+    expect(Number.parseFloat(floatPx(panel, 'x')) + Number.parseFloat(floatPx(panel, 'width'))).toBe(1232)
+    expect(Number.parseFloat(floatPx(panel, 'y')) + Number.parseFloat(floatPx(panel, 'height'))).toBe(704)
     fireEvent.pointerMove(window, { pointerId: 1, clientX: -4000, clientY: -4000 })
-    expect(panel.style.left).toBe('0px')
-    expect(panel.style.top).toBe('0px')
+    expect(floatPx(panel, 'x')).toBe('0px')
+    expect(floatPx(panel, 'y')).toBe('0px')
     fireEvent.pointerUp(window, { pointerId: 1 })
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 4000, clientY: 4000 })
     expect(useChatFloat.getState().position).toEqual({ x: 0, y: 0 })
     fireEvent.click(getByTestId('view-chat-dockback'))
     fireEvent.click(getByTestId('view-chat-popout'))
-    expect(getByTestId('view-chat-float').style.left).toBe('0px')
-    expect(getByTestId('view-chat-float').style.top).toBe('0px')
+    expect(floatPx(getByTestId('view-chat-float'), 'x')).toBe('0px')
+    expect(floatPx(getByTestId('view-chat-float'), 'y')).toBe('0px')
   })
 
   it('CF4 resizing a viewport smaller than the window keeps the whole float visible', () => {
@@ -116,10 +119,10 @@ describe('A2 stop/float, DL 10 Nov', () => {
     vi.stubGlobal('innerHeight', 400)
     fireEvent(window, new Event('resize'))
     const panel = getByTestId('view-chat-float')
-    expect(panel.style.width).toBe('320px')
-    expect(panel.style.height).toBe('400px')
-    expect(panel.style.left).toBe('0px')
-    expect(panel.style.top).toBe('0px')
+    expect(floatPx(panel, 'width')).toBe('320px')
+    expect(floatPx(panel, 'height')).toBe('400px')
+    expect(floatPx(panel, 'x')).toBe('0px')
+    expect(floatPx(panel, 'y')).toBe('0px')
   })
 
   it('CF5 the tab return control docks without starting a drag', () => {
@@ -188,7 +191,7 @@ describe('Build 2 UI: the floated chat\'s place, and the dock it leaves', () => 
     stand('div', { class: 'react-flow__node react-flow__node-viewQuestion' }, question)
     return { free: { left: 0, top: 0, right: w - 440, bottom: h } }
   }
-  const boxOf = (el: HTMLElement): B => { const left = Number.parseFloat(el.style.left), top = Number.parseFloat(el.style.top); return { left, top, right: left + Number.parseFloat(el.style.width), bottom: top + Number.parseFloat(el.style.height) } }
+  const boxOf = (el: HTMLElement): B => { const left = Number.parseFloat(floatPx(el, 'x')), top = Number.parseFloat(floatPx(el, 'y')); return { left, top, right: left + Number.parseFloat(floatPx(el, 'width')), bottom: top + Number.parseFloat(floatPx(el, 'height')) } }
   const overlaps = (a: B, b: B) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
   const inside = (a: B, b: B) => a.left >= b.left && a.top >= b.top && a.right <= b.right && a.bottom <= b.bottom
   const ROW: B = { left: 16, top: 12, right: 300, bottom: 48 }

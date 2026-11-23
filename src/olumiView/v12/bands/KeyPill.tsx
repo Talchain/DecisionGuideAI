@@ -96,26 +96,26 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
 
 function LineSample({ id, sample, doubt = false }: { id: KeyLineId | string; sample?: Sample; doubt?: boolean }) {
   // The canvas's own small mark for a direction not settled (canvas/edges/ViewLinkEdge MARK_ID, registry `link-unknown`), never a "?" text glyph.
-  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none`} style={{ color: EFFECT_STROKES.neutral }}><OkIcon id={KEY_MARK_IDS.unknown} size={14} decorative inherit /></span>
+  if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none ok-key-unsettled`}><OkIcon id={KEY_MARK_IDS.unknown} size={14} decorative inherit /></span>
   const s = sample ?? SAMPLES[id]!
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
-      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} style={{ stroke: s.stroke }} strokeWidth={s.w} strokeDasharray={doubt ? DOUBT_DASH : s.dash ?? undefined} fill="none" />
-      {s.end === 'arrow' ? <path d="M2 9 6 14 10 9" style={{ stroke: s.stroke }} strokeWidth={s.w} fill="none" /> : null}
-      {s.end === 'dot' ? <circle cx="6" cy="13" r="2.5" style={{ fill: s.stroke }} /> : null}
+      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} stroke={s.stroke} strokeWidth={s.w} strokeDasharray={doubt ? DOUBT_DASH : s.dash ?? undefined} fill="none" />
+      {s.end === 'arrow' ? <path d="M2 9 6 14 10 9" stroke={s.stroke} strokeWidth={s.w} fill="none" /> : null}
+      {s.end === 'dot' ? <circle cx="6" cy="13" r="2.5" fill={s.stroke} /> : null}
     </svg>
   )
 }
 
 /** A line under a halo or a dotted line, as the canvas draws them: the halo is the underlay, the line keeps its own direction colour and arrow. */
 function UnderlaySample({ kind }: { kind: KeyUnderlay }) {
-  if (kind === 'dotted') return <svg width="12" height="16" aria-hidden="true" data-key-sample="dotted"><path d="M6 1V15" style={{ stroke: EDGE_NEUTRAL }} strokeWidth={LINK_STYLES.effect.width} className="ok-key-dotted" fill="none" /></svg>
+  if (kind === 'dotted') return <svg width="12" height="16" aria-hidden="true" data-key-sample="dotted"><path d="M6 1V15" stroke={EDGE_NEUTRAL} strokeWidth={LINK_STYLES.effect.width} className="ok-key-dotted" fill="none" /></svg>
   const s = fromStyle(LINK_STYLES.effect), stroke = EFFECT_STROKES.increases
   return (
     <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-underlay">
       <path d="M6 1V13" className={kind === 'halo-alert' ? 'ok-link-halo ok-link-halo-alert' : 'ok-link-halo ok-link-halo-proposed'} />
-      <path d="M6 1V12" style={{ stroke }} strokeWidth={s.w} fill="none" />
-      <path d="M2 9 6 14 10 9" style={{ stroke }} strokeWidth={s.w} fill="none" />
+      <path d="M6 1V12" stroke={stroke} strokeWidth={s.w} fill="none" />
+      <path d="M2 9 6 14 10 9" stroke={stroke} strokeWidth={s.w} fill="none" />
     </svg>
   )
 }

@@ -11,6 +11,7 @@
  * The order, bottom to top, and why each sits where it does:
  *   · sheet (60)          — the lane's one box beside a card (its preview and its pinned details, `olumiView/v12/edit/LaneInspector`):
  *                           over the board, under the dock and every menu and dialog (it is placed inside the free canvas).
+ *   · chatFloat (300)     — the floating Olumi conversation.
  *   · dock (900)          — the right-hand dock (`OutputsDock`, Panel-owned; its
  *                           literal stays in that file and is mirrored here so
  *                           the order is readable in one place).
@@ -39,6 +40,7 @@
  */
 export const CANVAS_LAYER = {
   sheet: 60,
+  chatFloat: 300,
   dock: 900,
   overlayBand: 1050,
   chromeMenu: 1200,
@@ -56,6 +58,7 @@ export type CanvasLayer = keyof typeof CANVAS_LAYER
 
 export const CANVAS_LAYER_CLASS: Readonly<Record<Exclude<CanvasLayer, 'dock'>, string>> = Object.freeze({
   sheet: 'z-[60]',
+  chatFloat: 'z-[300]',
   overlayBand: 'z-[1050]',
   chromeMenu: 'z-[1200]',
   edgeEditPopover: 'z-[3000]',

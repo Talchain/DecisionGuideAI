@@ -190,7 +190,7 @@ describe('bands: the key pill', () => {
     const m = withKey(['effect', 'unsettled'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, causal: { sign: 'unknown' } }])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
     const { container } = render(<KeyLines />)
-    const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).style.stroke
+    const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).getAttribute('stroke')
     expect(stroke('increases')).toBe(EFFECT_STROKES.increases)
     expect(stroke('decreases')).toBe(EFFECT_STROKES.decreases)
     expect(container.querySelector('[data-key-polarity="decreases"]')).toHaveTextContent('decreases')
@@ -207,8 +207,8 @@ describe('bands: the key pill', () => {
     const item = container.querySelector('[data-key-item="doubted"]')!
     expect(item).toHaveTextContent('core says doubted')
     const paths = (id: string) => [...item.querySelectorAll(`[data-key-polarity="${id}"] path`)] as SVGPathElement[]
-    expect(paths('increases').map((x) => x.style.stroke)).toEqual([EFFECT_STROKES.increases, EFFECT_STROKES.increases])
-    expect(paths('decreases')[0]!.style.stroke).toBe(EFFECT_STROKES.decreases)
+    expect(paths('increases').map((x) => x.getAttribute('stroke'))).toEqual([EFFECT_STROKES.increases, EFFECT_STROKES.increases])
+    expect(paths('decreases')[0]!.getAttribute('stroke')).toBe(EFFECT_STROKES.decreases)
     expect(paths('increases')[0]!.getAttribute('stroke-dasharray')).toBe('5 4')
   })
   it('K7 the six midpoint marks, the dotted reason line and the two halos stand only where the board draws them, in registry words', () => {

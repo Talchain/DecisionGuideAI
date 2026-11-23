@@ -57,8 +57,8 @@ describe('the shared chance rail', () => {
     const letters = optionLetters(RUN2.model!)
     const opts = RUN2.model!.cards.filter((c) => c.family === 'option').map((c) => c.id)
     expect([...rail.querySelectorAll<HTMLElement>('[data-rail-row]')].map((r) => [r.getAttribute('data-rail-row'), r.querySelector('[data-letter-chip]')?.textContent])).toEqual(opts.map((id) => [id, letters.get(id)]))
-    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.left])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
-    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.left, w.style.width])).toEqual([[SEEK, `${SEEK_DRIVER.low * 100}%`, `${(SEEK_DRIVER.high - SEEK_DRIVER.low) * 100}%`]])
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-dot]')].map((d) => [d.getAttribute('data-rail-dot'), d.style.getPropertyValue('--chart-x')])).toEqual([[KEEP, '0%'], [SEEK, '18.42%']])
+    expect([...rail.querySelectorAll<HTMLElement>('[data-rail-whisker]')].map((w) => [w.getAttribute('data-rail-whisker'), w.style.getPropertyValue('--chart-x'), w.style.getPropertyValue('--chart-width')])).toEqual([[SEEK, `${SEEK_DRIVER.low * 100}%`, `${(SEEK_DRIVER.high - SEEK_DRIVER.low) * 100}%`]])
     const headOf = (id: string) => RUN2.model!.cards.find((c) => c.id === id)!.headline!.text
     for (const id of [ANGEL, WIDEN, CUT]) expect([id, rail.querySelector(`[data-rail-lane="${id}"]`), rail.querySelector(`[data-view="${id}.headline.text"]`)?.textContent]).toEqual([id, null, headOf(id)])
     expect(headOf(ANGEL), 'precondition: core\'s own words for an option with no result').toBe('No chance yet')
