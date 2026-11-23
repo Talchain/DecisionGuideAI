@@ -1,5 +1,5 @@
 /**
- * THE "IF IT FAILED" LENS ON THE CORE LANE: the legacy lens's key card (its corner, its look, its label and icon) behind "Write mine first".
+ * THE "IF IT FAILED" LENS ON THE CORE LANE: the story tray behind "Write mine first".
  * The person writes their own reasons it could fail first, so Olumi's do not steer them; once a turn of theirs opens with those words
  * (read from core's View, so it holds after a reload) Olumi's stories show, each in core's number and words with Olumi's own mark, and
  * the cards it rests on, which stand in front on the canvas while the rest recede (`usePreMortemOf`). Every story word is core's
@@ -12,11 +12,9 @@
  */
 import { Hover, HoverButton } from './look/Hover'
 import { OkIcon } from './look/icons'
+import { TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_TITLE, TOOLBAR_TRAY } from './look/toolbar'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
-import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
-import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
-import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { revealOlumiSurface } from '../canvas/conversation/revealOlumi'
 import { askMethod, giveReasons, showOlumisNow, useViewChat } from './ViewChat'
@@ -25,7 +23,6 @@ import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
 import { useViewStore } from './store'
 import type { ViewPreMortem } from './client'
 
-const KEY_GAP = 8
 export const PREMORTEM_COPY = {
   first: 'Write your own reasons it could fail first. Olumi’s stories show after yours, so they do not steer them.',
   waiting: 'Your reasons are in the message box. Send them and Olumi’s stories show here.',
@@ -57,16 +54,14 @@ export function ViewPreMortemKey(): JSX.Element | null {
   const gate = useViewStore((s) => s.view?.session?.pre_mortem ?? null)
   const entry = gate !== null && gate.state === 'closed' ? gate : null
   if (!on || model === null || label === null) return null
-  const Icon = LENS_ICON.premortem
   return (
     <section aria-label={label} data-testid="view-premortem-key" data-mine={mine ? '' : undefined}
-      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
-      style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, width: 'min(420px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
+      className={`${TOOLBAR_TRAY} w-[26rem] max-w-full`}>
       <header className="flex items-center gap-2">
-        <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? label : entry.heading}</h2>
+        <OkIcon id="lens-premortem" size={14} decorative inherit className="flex-none text-text-light" />
+        <h2 className={`${TOOLBAR_TITLE} min-w-0 flex-1`} data-view={entry === null ? undefined : 'session.pre_mortem.heading'}>{entry === null ? label : entry.heading}</h2>
         <HoverButton type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} words={LENS_KEY_COPY.close} data-testid="view-premortem-key-close"
-          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
+          className={TOOLBAR_ICON}>
           <OkIcon id="cancel-close" size={14} decorative inherit />
         </HoverButton>
       </header>
@@ -75,8 +70,7 @@ export function ViewPreMortemKey(): JSX.Element | null {
           <>
             <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-first">{typed ? PREMORTEM_COPY.waiting : PREMORTEM_COPY.first}</p>
             <button type="button" onClick={writeMine} data-testid="view-premortem-write-mine"
-              // Ink, not blue: the press is the person's own act (blue means Olumi only).
-              className={`${typography.viewPanelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-panel-border px-3 text-text-header hover:bg-panel-hover ${ACTION_FOCUS}`}>
+              className={TOOLBAR_LABEL}>
               {PREMORTEM_COPY.label}
             </button>
           </>
@@ -85,7 +79,7 @@ export function ViewPreMortemKey(): JSX.Element | null {
             <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-premortem-empty">{LENS_KEY_COPY.premortemEmpty}</p>
             {offered
               ? <button type="button" onClick={() => void askMethod(MOVE)} data-testid="view-premortem-ask"
-                  className={`${typography.viewPanelBody} inline-flex min-h-[24px] min-w-[24px] items-center rounded-full border border-info/40 px-3 text-info hover:bg-panel-hover ${ACTION_FOCUS}`}>{LENS_KEY_COPY.premortemAsk}</button>
+                  className={TOOLBAR_LABEL}>{LENS_KEY_COPY.premortemAsk}</button>
               : <p className={`${typography.viewPanelBody} text-text-light`}>{LENS_KEY_COPY.premortemNeedsRun}</p>}
           </>
         ) : (

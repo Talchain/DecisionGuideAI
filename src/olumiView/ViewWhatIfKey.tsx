@@ -1,5 +1,5 @@
 /**
- * THE WHAT IF LENS ON THE CORE LANE (DL 4 Nov, R2): the legacy lens's key card (`WhatIfKey.tsx`: its corner, its look, its words) fed by
+ * THE WHAT IF LENS ON THE CORE LANE (DL 4 Nov, R2): the legacy lens's words (`WhatIfKey.tsx`) fed by
  * core's what-if on a copy (`whatif.ts`, olumi-core `POST …/whatif`). The person picks a figure they may set (core offers `figure.edit`),
  * types a different value, and runs it on a copy of the version shown: each option's saved lines beside its what-if lines, both in core's
  * row shape and drawn by the dock's own `Row`. Folded, the key is one line: the legend, or core's words for the figure tried.
@@ -11,10 +11,9 @@
 import { useEffect, useId, useState } from 'react'
 import { OkIcon } from './look/icons'
 import { Hover, HoverButton } from './look/Hover'
-import { TOOLBAR_ACTION, TOOLBAR_BAR_SEPARATOR, TOOLBAR_FOCUS, TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_STATUS } from './look/toolbar'
+import { TOOLBAR_ACTION, TOOLBAR_BAR_SEPARATOR, TOOLBAR_FOCUS, TOOLBAR_ICON, TOOLBAR_LABEL, TOOLBAR_STATUS, TOOLBAR_TITLE, TOOLBAR_TRAY } from './look/toolbar'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
-import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import { WHAT_IF_COPY } from '../canvas/artefacts/whatIfCopy'
 import { TeamApiError } from '../olumiCore/team/api'
@@ -26,10 +25,6 @@ import { clearWhatIf, tryWhatIf, useWhatIf } from './whatif'
 import { Compare } from './WhatIfCompare'
 import { SAVED_NOT_SHOWN, setFigure } from './FigureEdit'
 import { takeWhatIfFocus, useWhatIfFocus } from './v12/inspect/whatIfFocus'
-
-/** The key's width and gap above the canvas's bottom band, as the legacy key card stands (`LensInfoPanel.tsx`). */
-const KEY_WIDTH = 320
-const KEY_GAP = 8
 
 export function ViewWhatIfKey(): JSX.Element | null {
   const on = useViewLens((s) => s.lens === 'what_if')
@@ -80,11 +75,10 @@ export function ViewWhatIfKey(): JSX.Element | null {
 
   return (
     <section aria-label={view.lens_words.label.what_if} data-testid="view-whatif-key"
-      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
-      style={{ width: KEY_WIDTH, left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxHeight: 'min(52vh, 460px)' }}>
-      <header className="flex items-center">
+      className={`${TOOLBAR_TRAY} w-80 max-w-full`}>
+      <header className="flex items-center gap-2">
         <OkIcon id="what-if" size={14} decorative inherit className="text-text-light" />
-        <h2 className={`${typography.viewPanelHeadline} ml-2 min-w-0 flex-1 text-text-header`}>{view.lens_words.label.what_if}</h2>
+        <h2 className={`${TOOLBAR_TITLE} min-w-0 flex-1`}>{view.lens_words.label.what_if}</h2>
         <HoverButton type="button" onClick={() => setFolded((f) => !f)} aria-label={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} aria-expanded={!folded}
           words={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid="view-whatif-key-fold" className={TOOLBAR_ICON}>
           <OkIcon id="fold-tray" variant={folded ? 'alt' : undefined} size={14} decorative inherit />
@@ -94,7 +88,7 @@ export function ViewWhatIfKey(): JSX.Element | null {
           <OkIcon id="cancel-close" size={14} decorative inherit />
         </HoverButton>
       </header>
-      <div role="group" aria-label={view.lens_words.label.what_if} data-testid="view-whatif-bar" className="flex items-center">
+      <div role="group" aria-label={view.lens_words.label.what_if} data-testid="view-whatif-bar" className="flex flex-wrap items-center">
         <span data-testid="view-whatif-bar-proposed" className={TOOLBAR_STATUS}>{WHAT_IF_BAR.proposed}</span>
         <span aria-hidden="true" className={TOOLBAR_BAR_SEPARATOR} />
         <button type="button" data-testid="view-whatif-bar-discard" onClick={clearWhatIf} className={TOOLBAR_LABEL}>{WHAT_IF_BAR.discard}</button>

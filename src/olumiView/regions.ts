@@ -4,7 +4,7 @@
  *
  *   HEAD  the band along the canvas's top, from the window's top to just below its lowest head control (Model · Explore · Team),
  *         across the free canvas. Measured only (no band is drawn for it).
- *   FOOT  the canvas's foot controls: the zoom row and the more-below cue. Reserved where they stand (not a full-width band: the
+ *   FOOT  the viewport controls, more-cards cue and zoom notice. Reserved where they stand (not a full-width band: the
  *         canvas keeps the columns beside them).
  *   DOCK  the dock's column on the right (measureDockInset).
  *   FREE  what is left: where cards are read.
@@ -44,9 +44,12 @@ export const REGION_GAP = 12
 /** Clear space below the lowest head control, px. */
 export const BAND_GAP = 8
 export const HEAD_CONTROLS = [`[data-testid="${LENS_BAR_TESTID}"]`] as const
-export const FOOT_CONTROLS = ['nav[aria-label="Viewport controls"]', '[data-testid="view-below-cue"] button'] as const
-/** The lens keys that float over the canvas's bottom-left band (Codex 006f: the What if key covered a card's open editor and its "Try
- *  without saving"). Kept apart from FOOT_CONTROLS, which the below-cue counts with. */
+export const FOOT_CONTROLS = [
+  'nav[aria-label="Viewport controls"]',
+  '[data-testid="view-below-cue"] button',
+  '[data-foot-zoom]',
+] as const
+/** The active tray above the foot row also sets a floor for menus and editors. */
 export const LENS_KEYS = ['[data-testid="view-whatif-key"]', '[data-testid="view-tradeoffs-key"]', '[data-testid="view-premortem-key"]'] as const
 
 /** HEAD's height: the lowest head control's foot plus the gap; 0 when none is drawn. */

@@ -53,17 +53,13 @@ import { useDockFullHeight } from './dockFullHeight'
 import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
-import { BelowCue } from './BelowCue'
+import { FootRow } from './look/FootRow'
 import { LaneHelp } from './v12/LaneHelp'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useSettingsStore } from '../canvas/settingsStore'
-import { ViewZoomNotice } from './ViewZoomNotice'
 import { frameTop, useCardClearOfRegions } from './regions'
 import { DraftingBoard, LayingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
-import { ViewWhatIfKey } from './ViewWhatIfKey'
-import { ViewTradeOffsKey } from './ViewTradeOffsKey'
-import { ViewPreMortemKey } from './ViewPreMortemKey'
 import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
 import { registerRevealReturnCamera } from './revealReturn'
 import { registerShowCameraPort, showHolds } from './v12/showInWorkspace/cameraPort'
@@ -138,7 +134,7 @@ export function frameFor(nodes: readonly Node[], pane: { width: number; height: 
   // DL 07:48Z (3): the whole board fits above the foot controls' gutter, never under them.
   const insets = { ...raw, top: frameTop(raw.top), bottom: Math.max(raw.bottom, FOOT_GUTTER) }
   const whole = wholeAtTopViewport(bounds, pane, insets, Math.min(maxZoom, FRAME_MAX_ZOOM), CORE_LANE_FIT_FLOOR)
-  // Zoomed out the notice stands at the foot's middle (ViewZoomNotice): the board's foot clears it.
+  // Zoomed out the notice shares the foot row. The board's fit leaves room at the foot.
   return reducedFaceSize(whole.zoom) === 0 ? whole : wholeAtTopViewport(bounds, pane, { ...insets, bottom: Math.max(insets.bottom, NOTICE_CLEAR_BOTTOM) }, Math.min(maxZoom, FRAME_MAX_ZOOM), CORE_LANE_FIT_FLOOR)
 }
 
@@ -579,22 +575,16 @@ function ViewFlow() {
       <IdeaPanel />
       {hasModel ? <LeftSidebar interactionMode={tool} onSelectClick={() => setTool((t) => t === 'select' ? 'hand' : 'select')}
         showUndo undoControl={<UndoControl />} layers={<LensesMenu />} toolShortcuts={false} addControl={<AddFigure />} /> : null}
-      {/* A board with cards below the window's foot says how many, and brings them up (V11 pixel pass, 9 Nov). */}
-      {hasModel ? <BelowCue onPress={hand} edge={level === 'simple'} /> : null}
       <LaneHelp />
       {/* Paul, 18 Nov ("one control row, no foot panel"): Simple | Detailed is in the left Lenses menu (v12/lenses/LensesMenu), and the team's
-          Views and Compare views are icons on the lens bar's row (below); the canvas foot keeps only the more-below cue. */}
+          Views and Compare views are icons on the lens bar's row (below). */}
       {hasModel ? <LayerCanvasStyle /> : null}
       {/* Paul, 17 Nov: no always-on key at the bottom right; the one key is "How to read this" in the left foot menu (ViewLegend, KeyLines). */}
       {/* Hand edits (the right-click menu's forms, the details panel and Undo's keys), inside the toast provider. */}
       <LaneEditingLayer />
-      {/* Paul, 10 Nov: zoomed out the cards draw less; the previous product's notice says so and zooms back in (./ViewZoomNotice.tsx). */}
-      {hasModel ? <ViewZoomNotice onZoom={() => { userMoved.current = true; hand() }} /> : null}
       {/* The six lenses in the previous bar's place, every word and count core's (Paul 11 Nov withdrew Model · Explore · Team). */}
       {hasModel ? <ViewLensBar extra={<ViewsToggle view={view} marks={level !== 'simple'} />} /> : null}
-      {hasModel ? <ViewWhatIfKey /> : null}
-      {hasModel ? <ViewTradeOffsKey /> : null}
-      {hasModel ? <ViewPreMortemKey /> : null}
+      {hasModel ? <FootRow onPress={hand} onZoom={() => { userMoved.current = true; hand() }} edge={level === 'simple'} /> : null}
       {menu === null ? null : <CanvasContextMenu target={menu} onClose={closeMenu} screenToFlowPosition={screenToFlowPosition} interactionMode={tool} onSetInteractionMode={setTool} />}
       {/* The keyboard legend is LaneHelp's (above): one legend, one "?" listener. A second one here opened a second dialog under the first (surfaces step B). */}
       {/* V12: in Simple, Olumi's note is a badge on its card and its words are in the panel; the floating note card is Detailed's. */}
