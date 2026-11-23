@@ -14,6 +14,8 @@ import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
 import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
 import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
@@ -287,7 +289,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const arrow = `view-link-arrow-${i}`
   return (
     <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
-      ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}>
+      ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}
+      onClick={isOlumiCoreLane() ? () => {
+        linkTip.dismiss()
+        useLaneInspector.getState().open({ kind: 'link', id })
+      } : undefined}>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
       {haloProposed ? <path data-link-halo-path="proposed" d={path} className={haloAlert ? 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner' : 'ok-link-halo ok-link-halo-proposed'} /> : null}
