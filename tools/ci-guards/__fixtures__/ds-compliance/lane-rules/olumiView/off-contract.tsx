@@ -10,3 +10,6 @@ export const carrier = <div style={{ '--track': value } as React.CSSProperties} 
 // <div style={{ color: 'inherit' }} title="Only a comment" className="!underline" />
 
 declare const typography: Record<string, string>
+declare const Widget: (props: { title: string; style: unknown; className: string }) => JSX.Element
+declare const custom: Record<string, string>
+declare const value: string
