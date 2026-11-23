@@ -1,5 +1,5 @@
 /**
- * THE TRADE-OFFS LENS ON THE CORE LANE (DL ruling 3, 5 Nov): the legacy lens's key card (its corner, its look, its label and icon) holding
+ * THE TRADE-OFFS LENS ON THE CORE LANE (DL ruling 3, 5 Nov): a tray holding
  * a grid of each option against each aim, every cell that option card's own row for that aim (`rows[].aim_id`; core's chance, limit or
  * none row), in core's words, with core's title as hover and core's Olumi mark. Options and aims are core's cards, in core's order (the
  * options as the View lists them, the aims as their rows do). No word, number, sort or rank of DGAI's own: the grid sets core's findings
@@ -7,17 +7,14 @@
  */
 import { GlyphMark, Hover, HoverButton } from './look/Hover'
 import { OkIcon } from './look/icons'
+import { TOOLBAR_ICON, TOOLBAR_TITLE, TOOLBAR_TRAY } from './look/toolbar'
 import { typography } from '../styles/typography'
-import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
-import { OVERLAY_BAND_BOTTOM, OVERLAY_BAND_HEIGHT, OVERLAY_BAND_LEFT_PAD } from '../canvas/components/CanvasOverlayBand'
-import { LENS_ICON } from '../canvas/artefacts/lenses'
 import { LENS_KEY_COPY } from '../canvas/artefacts/lensKeyCopy'
 import type { ViewCard, ViewModel } from './client'
 import { optionCards } from './layout'
 import { useViewLens } from './lens'
 import { useViewStore } from './store'
 
-const KEY_GAP = 8
 const NBSP = ' '
 type Row = ViewCard['rows'][number]
 
@@ -68,22 +65,20 @@ export function TradeOffsGrid({ model }: { model: ViewModel }): JSX.Element {
   )
 }
 
-/** The key card in the legacy lens's corner, shown while the Trade-offs lens is on and core's model has options. */
+/** Shown while the Trade-offs lens is on and core's model has options. */
 export function ViewTradeOffsKey(): JSX.Element | null {
   const on = useViewLens((s) => s.lens === 'tradeoffs')
   const model = useViewStore((s) => s.view?.model ?? null)
   const label = useViewStore((s) => s.view?.lens_words.label.tradeoffs ?? null) // core's (N3)
   if (!on || model === null || label === null || optionCards(model).length === 0) return null
-  const Icon = LENS_ICON.tradeoffs
   return (
     <section aria-label={label} data-testid="view-tradeoffs-key"
-      className="pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel p-3 shadow-2"
-      style={{ left: OVERLAY_BAND_LEFT_PAD, bottom: OVERLAY_BAND_BOTTOM + OVERLAY_BAND_HEIGHT + KEY_GAP, maxWidth: 'min(640px, calc(100vw - 480px))', maxHeight: 'min(52vh, 460px)' }}>
+      className={`${TOOLBAR_TRAY} w-fit max-w-[min(40rem,100%)]`}>
       <header className="flex items-center gap-2">
-        <Icon aria-hidden="true" className="h-4 w-4 flex-none text-text-light" />
-        <h2 className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{label}</h2>
+        <OkIcon id="lens-tradeoffs" size={14} decorative inherit className="flex-none text-text-light" />
+        <h2 className={`${TOOLBAR_TITLE} min-w-0 flex-1`}>{label}</h2>
         <HoverButton type="button" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} words={LENS_KEY_COPY.close} data-testid="view-tradeoffs-key-close"
-          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body ${ACTION_FOCUS}`}>
+          className={TOOLBAR_ICON}>
           <OkIcon id="cancel-close" size={14} decorative inherit />
         </HoverButton>
       </header>

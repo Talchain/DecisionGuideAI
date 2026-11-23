@@ -57,7 +57,7 @@ function useCardsRight(): number {
 }
 
 
-/** The cue's left edge: 12 px right of the zoom row, read once it is drawn and again as the window changes. */
+/** The secondary drafting board's left edge, 12 px right of the viewport controls. */
 export function useBesideZoom(): number {
   const [left, setLeft] = useState(16)
   useLayoutEffect(() => {
@@ -80,14 +80,11 @@ export function BelowCue({ onPress, edge = false }: { /** The person's own move 
   const below = useStore((s) => (edge ? cardsBehindOf : cardsBelowOf)(boxesOf(s.nodes), s.transform[1], s.transform[2], s.height)), right = useCardsRight()
   const { getViewport, setViewport } = useReactFlow()
   const store = useStoreApi()
-  // A FOOT control (regions.ts): beside the zoom row, so the foot controls take one span from the canvas's left (FOOT_W), never the middle
-  // of the board's columns (DL layout pass, 9 Nov). A hook: read before the early return.
-  const left = useBesideZoom()
   if (below === 0 && right === 0) return null
   const pan = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, x: v.x - Math.floor(panLeftOf(xBoxesOf(st.nodes), v.x, v.zoom, freeRight(st.width))) }, { duration: 300 }) }
   const up = () => { onPress?.(); const v = getViewport(), st = store.getState(); void setViewport({ ...v, y: v.y - pressUpOf(boxesOf(st.nodes), v.y, v.zoom, st.height) }, { duration: 300 }) }
   return (
-    <div className={`fixed bottom-[40px] z-[1200] ${TOOLBAR_BAR}`} style={{ left }} data-testid="view-below-cue">
+    <div className={`pointer-events-auto max-w-full flex-none flex-wrap ${TOOLBAR_BAR}`} data-testid="view-below-cue">
       {below === 0 ? null : (
         <button type="button" onClick={up} className={TOOLBAR_LABEL}>
           <OkIcon id="more-cards" size={14} decorative inherit />

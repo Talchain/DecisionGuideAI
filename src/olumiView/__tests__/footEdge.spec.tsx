@@ -21,14 +21,12 @@ const BELOW = [card('a', 100), card('b', H - 40)]
 afterEach(cleanup)
 
 describe('the floating foot cue on Simple', () => {
-  it('with cards below, draws no foot band and keeps the more-cards button on the left beside zoom', () => {
-    const zoom = render(<nav aria-label="Viewport controls" />).container.querySelector('nav')!
-    vi.spyOn(zoom, 'getBoundingClientRect').mockReturnValue({ right: 140 } as DOMRect)
+  it('with cards below, draws the more-cards button without a foot band or local position', () => {
     const el = draw(BELOW, true)
     const cue = el.querySelector<HTMLElement>('[data-testid="view-below-cue"]')!
     expect(edgeOf(el)).toBeNull()
     expect(cue.querySelector('button')).toHaveTextContent('1 more card below')
-    expect(cue.style.left).toBe('152px')
+    expect(cue).not.toHaveAttribute('style')
   })
 })
 
