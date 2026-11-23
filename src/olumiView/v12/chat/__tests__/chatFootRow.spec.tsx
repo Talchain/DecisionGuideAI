@@ -1,11 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { createPortal } from 'react-dom'
 import { ChatFootRow } from '../ChatFootRow'
+import { useViewStore } from '../../../store'
 import { VIEW_NOTE_SLOT } from '../../../note'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  useViewStore.setState({ explanationTarget: null, explanationReturn: null })
+})
 
 it('opens one source upward, closes on a second press, Escape or outside press, and returns focus', () => {
   const { getByTestId } = render(<ChatFootRow sources={[
@@ -90,4 +94,43 @@ it('shows readable labels and counts beside the icons in a horizontally scrollin
     expect(chip.querySelector('.sr-only')).toBeNull()
   }
   expect(getByTestId('view-chat-foot-proposal')).not.toHaveTextContent('· 1')
+})
+
+const records = [
+  { id: 'churn', title: 'Monthly churn', passages: [
+    { id: 'assumption', title: 'Assumption', content: <p>Churn remains under two percent.</p> },
+    { id: 'evidence', title: 'Evidence', content: <p>April renewal data</p> },
+  ] },
+  { id: 'budget', title: 'Budget', passages: [{ id: 'assumption', title: 'Assumption', content: <p>Budget reasoning</p> }] },
+]
+
+it('opens the selected record and keeps other records folded, or starts at the index without a selection', () => {
+  const { getByTestId, getByText, queryByText, rerender } = render(<ChatFootRow sources={[]} explanations={{ scope: 'scenario/version/1', selected: 'churn', records }} />)
+  const chip = getByTestId('view-chat-foot-explanations')
+  fireEvent.click(chip)
+  expect(getByText('April renewal data')).toBeVisible()
+  expect(queryByText('Budget reasoning')).toBeNull()
+  fireEvent.keyDown(getByTestId('model-explanations'), { key: 'Escape' })
+  expect(chip).toHaveFocus()
+  rerender(<ChatFootRow sources={[]} explanations={{ scope: 'scenario/version/1', selected: null, records }} />)
+  fireEvent.click(chip)
+  expect(getByText('Monthly churn')).toBeVisible()
+  expect(queryByText('April renewal data')).toBeNull()
+})
+
+it('opens only the exact passage, rejects a different version and restores the triggering control on Escape', () => {
+  const scope = 'scenario/version/1'
+  const { getByTestId, getByText, queryByText, queryByTestId, rerender } = render(<ChatFootRow sources={[]} explanations={{ scope, selected: 'budget', records }} />)
+  const link = { scope, record: 'churn', passage: 'evidence', origin: 'results', trigger: 'exact-trigger' } as const
+  act(() => useViewStore.setState({ explanationTarget: link }))
+  expect(getByText('April renewal data')).toBeVisible()
+  expect(getByText('Evidence').closest('h4')).toHaveFocus()
+  expect(queryByText('Churn remains under two percent.')).toBeNull()
+  expect(queryByText('Budget reasoning')).toBeNull()
+  fireEvent.keyDown(getByTestId('model-explanations'), { key: 'Escape' })
+  expect(useViewStore.getState().explanationReturn).toBe(link.trigger)
+  act(() => useViewStore.setState({ explanationTarget: link }))
+  rerender(<ChatFootRow sources={[]} explanations={{ scope: 'scenario/version/2', selected: 'churn', records }} />)
+  expect(queryByTestId('model-explanations')).toBeNull()
+  expect(useViewStore.getState().explanationTarget).toBeNull()
 })

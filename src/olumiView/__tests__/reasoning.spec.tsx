@@ -19,6 +19,7 @@ const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
 
 import type { View } from '../client'
+import { useCanvasStore } from '../../canvas/store'
 import { useViewStore } from '../store'
 import { challengedCards } from '../layout'
 import { RESTS_AT_REST, ViewReasoningBlock } from '../ViewReasoning'
@@ -35,7 +36,12 @@ const ready = (view: View, more: object = {}) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, ...more } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
-afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); clearWhatIf(); setTeamFetch(null); resetWrites(); chat.prefill.mockReset(); chat.method.mockReset(); commit.open.mockReset(); diff.data = null; focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none', expandedRests: {}, reasoningFigure: null } as never); useMe.setState({ me: null, status: 'none' }) })
+
+it('keeps ViewReasoning independent of ChatFootRow', () => {
+  const source = readFileSync(path.resolve('src/olumiView/ViewReasoning.tsx'), 'utf8')
+  expect(source).not.toMatch(/\b(?:from\s*|import\s*(?:\(\s*)?)['"][^'"]*\/ChatFootRow(?:\.tsx)?['"]/)
+})
 
 describe('what the uncertainty rests on (run.rests): a bar per figure, by whose figure it is', () => {
   it("european: at rest the first three rests in core's order, each with its first figure (core's figure-list label once); the other groups and the further figures behind ONE press, which draws every group; each figure a bar to its share, coloured by whose; core's give ✎ once per figure", () => {
@@ -92,6 +98,58 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     expect(screen.getByTestId('reasoning-rests').querySelector(`[data-rest-figure="${f.id}"] [data-testid="reasoning-share-bar"]`)).not.toBeNull()
     expect(screen.getByTestId('reasoning-rests').querySelectorAll(`[data-testid="reasoning-rests-edit-${f.id}"]`)).toHaveLength(0)
   })
+  it('offers three answer chips and uses the existing canvas ring when a figure row is pressed', () => {
+    const view = { ...read('bakery.view.json'), gated: false }
+    const figure = view.model!.run!.rests[0]!.figures![0]!
+    ready(view)
+    useCanvasStore.getState().clearSelection()
+    const { unmount } = render(<>
+      <div className="react-flow__node" data-id={figure.id} data-testid="linked-canvas-card" />
+      <ViewReasoningBlock />
+    </>)
+    expect(screen.getByRole('group', { name: 'Reasoning summary' }).children).toHaveLength(3)
+    const node = screen.getByTestId('linked-canvas-card')
+    expect(node).not.toHaveClass('v10-lit')
+    const row = screen.getByRole('button', { name: new RegExp(`^${figure.label} ·`) })
+    fireEvent.click(row)
+    expect(focus.node).toHaveBeenCalledWith(figure.id)
+    expect(node).toHaveClass('v10-lit')
+    expect(row).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('reasoning-figure-loop').textContent).toContain(view.model!.cards.find((card) => card.id === figure.id)!.heading)
+    unmount()
+    useViewStore.setState({ reasoningFigure: null })
+  })
+  it('binds every Core string in the Reasoning loop to its View path', () => {
+    const view = { ...read('bakery.view.json'), gated: false }
+    const model = view.model!, run = model.run!
+    const rest = run.rests[0]!, figure = rest.figures![0]!
+    const card = model.cards.find((item) => item.id === figure.id)!
+    const findOutIndex = run.find_out!.findIndex((entry) => entry.aim === rest.aim)
+    const nextIndex = run.find_out![findOutIndex]!.figures.findIndex((item) => item.id === card.id)
+    ready(view, { panelLevels: { reasoning: 'glance' } })
+    useCanvasStore.getState().clearSelection()
+    render(<ViewReasoningBlock />)
+    const group = screen.getByTestId('reasoning-rests').querySelector(`[data-rest="${rest.id}"]`)!
+    const chartRow = group.querySelector(`[data-rest-figure="${figure.id}"] button`)!
+    fireEvent.click(chartRow)
+    const status = screen.getByTestId('reasoning-figure-loop')
+    const summary = screen.getByRole('group', { name: 'Reasoning summary' })
+    const chart = screen.getByTestId('reasoning-rests')
+    const bindings = (root: ParentNode) => {
+      expectAllBound(view, root, expect)
+      return [...root.querySelectorAll('[data-view]')].map((node) => node.getAttribute('data-view'))
+    }
+    expect(bindings(summary)).toEqual([`${card.id}.heading`])
+    expect(bindings(group.querySelector('.ok-loop-heading')!)).toEqual([`${rest.option}.heading`, `${rest.aim}.heading`])
+    expect(bindings(chartRow)).toEqual(['run.rests.0.figures.0.label', 'run.rests.0.figures.0.text'])
+    expect(bindings(status)).toEqual([`${card.id}.heading`, `${card.id}.author.text`, `run.find_out.${findOutIndex}.figures.${nextIndex}.line`])
+    expect(bindings(chart)).toEqual([
+      `${card.id}.heading`, 'run.rests_heading', `${rest.option}.heading`, `${rest.aim}.heading`,
+      `run.rests.0.${rest.hover ? 'hover' : 'line'}`, 'run.rests_figures_heading',
+      'run.rests.0.figures.0.label', 'run.rests.0.figures.0.text',
+    ])
+  })
+
   it('CONTRAST: a model whose Run sends no rests (app-launch, no chance yet) draws no such section and no bar', () => {
     const view = read('app-launch.view.json')
     expect(view.model!.run!.rests ?? []).toHaveLength(0)
@@ -209,7 +267,7 @@ describe('challenge your thinking', () => {
     openAll()
     const rows = [...document.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')]
     expect(rows.map((r) => r.dataset['reasoningChallenge'])).toEqual(cs.map((c) => c.id))
-    expect(expectAllBound(view, screen.getByTestId('view-reasoning'), expect)).toBeGreaterThan(0)
+    for (const row of rows) expect(expectAllBound(view, row, expect)).toBeGreaterThan(0)
     fireEvent.click(rows[0]!.querySelector('[data-testid="reasoning-challenge-show"]')!)
     expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
   })

@@ -4,7 +4,8 @@
  * keeps its legacy body.
  */
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -26,11 +27,12 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
+import { useMe } from '../../../olumiCore/me'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
-const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+const view = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')), gated: false }
 
 beforeEach(() => {
   if (typeof window.matchMedia !== 'function') {
@@ -40,13 +42,14 @@ beforeEach(() => {
   vi.stubGlobal('fetch', reply)
   setTeamFetch(reply)
   sessionStorage.clear()
+  useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
   useUIStore.setState({ activeRightPanel: null, activeOutputTab: 'analysisNew' } as never)
   useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }], edges: [], currentScenarioId: UUID, hasCompletedFirstRun: true } as never)
   // Not a held member (`gated`, which the synthetic golden reads true): a held member lands on the Team panel, which on the lane has no
   // tabs (DL ruling 9 Nov), and this row is about the Reasoning tab.
   useViewStore.setState({ uuid: UUID, sid: view.id, view: { ...view, gated: false }, error: null, stale: false, status: 'ready' } as never)
 })
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); setTeamFetch(null) })
+afterEach(() => { useMe.setState({ me: null, status: 'none' }); useViewStore.setState({ explanationTarget: null, explanationReturn: null, panelLevels: { reasoning: 'glance' }, expandedRests: {}, reasoningFigure: null }); vi.unstubAllGlobals(); vi.unstubAllEnvs(); setTeamFetch(null) })
 
 const dockOn = async (tab: string) => {
   sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: tab }))
@@ -61,18 +64,42 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     await dockOn('analysisNew')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     const body = screen.getByTestId('view-reasoning')
-    // Redesign, 18 Nov: how sound the thinking is. The model-at-a-glance strip is gone (the canvas and Model tab draw the model); core's
-    // rests are drawn per figure (redesign 2): the first two rests at rest, each figure a bar to its share.
-    expect(body.querySelector('[data-testid="view-reasoning-glance"]')).toBeNull()
-    type R = { id: string; line: string; figures?: { line: string }[] }
-    const rests = (view.model.run.rests as R[]).filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
-    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.slice(0, 2).map((r) => r.id))
-    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]').length).toBe(rests.slice(0, 2).flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '')).length)
+    expect(screen.getByRole('button', { name: 'Glance' })).toHaveAttribute('aria-pressed', 'true')
+    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Detail' }))
+    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]')).toHaveLength(2)
     // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
     expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
     expect(screen.queryByTestId('stub-legacy-reasoning')).toBeNull()
     expect(document.querySelectorAll('[data-testid="stub-reanalyse-bar"], [data-testid="stub-readiness-bar"]').length).toBe(0)
+  })
+
+  it('reopens the exact explanation with the keyboard, then restores Reasoning, Detail and the remounted trigger', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    await dockOn('analysisNew')
+    const user = userEvent.setup()
+    const tab = screen.getByTestId('outputs-dock-tab-analysisNew')
+    await user.click(tab)
+    const detail = screen.getByRole('button', { name: 'Detail' })
+    const glance = screen.getByRole('button', { name: 'Glance' })
+    act(() => glance.focus())
+    await user.tab()
+    expect(detail).toHaveFocus()
+    await user.keyboard('{Enter}')
+    const row = document.querySelector<HTMLButtonElement>('[data-rest-figure] .ok-loop-chart-row')!
+    act(() => row.focus())
+    await user.tab()
+    const trigger = row.parentElement!.querySelector<HTMLButtonElement>('[data-explain-trigger]')!
+    expect(trigger).toHaveFocus()
+    const name = trigger.getAttribute('aria-label')!
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(screen.getByTestId('model-explanations')).toBeVisible())
+    expect(document.activeElement).toHaveAttribute('tabindex', '-1')
+    expect(document.activeElement?.closest('[data-explanation-passage]')).not.toBeNull()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.getByRole('button', { name })).toHaveFocus())
+    expect(screen.getByRole('button', { name: 'Detail' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('off the lane the tab keeps its legacy body', async () => {

@@ -11,10 +11,13 @@ import path from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
+import { act } from 'react'
 import { useMe } from '../../olumiCore/me'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { ViewModelTabBlock } from '../ViewModelTab'
 import { ViewReasoningBlock } from '../ViewReasoning'
+import { ChatFootRow } from '../v12/chat/ChatFootRow'
+import { useModelExplanations } from '../v12/explanations'
 import { optionCards } from '../layout'
 
 const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
@@ -89,16 +92,26 @@ describe('SC-02: each tab says each thing once', () => {
     expect(document.querySelector('[data-view="model.aim.text"]')?.textContent).toBe(m.aim!.text)
   })
 
-  it('Reasoning: a challenge\'s reason is said once, as the challenge; the door does not repeat it as a premise in the same words', () => {
-    const view = real('capacity'), m = view.model!
-    const c = m.cards.find((k) => k.challenged === true && k.reason !== null && m.cards.some((o) => (o.premises ?? []).some((p) => p.text === k.reason)))!
-    expect(c).toBeDefined()
+  it('files a challenge under its record and shows the reason once when opened from Reasoning', () => {
+    const view = { ...real('capacity'), gated: false }, model = view.model!
+    const card = model.cards.find((c) => c.challenged && c.reason && !view.collab.dissent.some((d) => d.id === c.id))!
+    expect(card).toBeDefined()
     ready(view)
-    render(<ViewReasoningBlock />)
-    // The door opens where it has rows.
-    const door = screen.queryByTestId('view-reasoning-premises-toggle')
-    if (door !== null) fireEvent.click(door)
-    const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
-    expect(said.map((e) => e.getAttribute('data-view'))).toEqual([`${c.id}.reason`])
+    function Foot() {
+      const explanations = useModelExplanations()
+      return <ChatFootRow sources={[]} explanations={{ ...explanations, selected: null }} />
+    }
+    render(<><ViewReasoningBlock /><Foot /></>)
+    const more = screen.queryByTestId('reasoning-examine-more')
+    if (more) fireEvent.click(more)
+    expect(drawn(`${card.id}.reason`)).toBe(0)
+    const row = document.querySelector(`[data-reasoning-challenge="${card.id}"]`)!
+    fireEvent.click(row.querySelector('[data-explain-trigger]')!)
+    expect(drawn(`${card.id}.reason`)).toBe(1)
+    expect(document.querySelector(`[data-view="${card.id}.reason"]`)?.textContent).toBe(card.reason)
+    act(() => useViewStore.setState({ view: { ...view, gated: true } }))
+    expect(screen.queryByTestId('view-chat-foot-explanations')).toBeNull()
+    expect(screen.queryByTestId('model-explanations')).toBeNull()
+    expect(useViewStore.getState().explanationTarget).toBeNull()
   })
 })

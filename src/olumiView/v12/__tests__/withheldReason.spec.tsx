@@ -8,6 +8,8 @@ import { tipOf, tipOnFocus } from '../../__tests__/tipHelpers'
 import type { View, ViewCard, ViewRow } from '../../client'
 import { CoreCard } from '../../previous/CoreCard'
 import { attCards } from '../../ring'
+import { ChatFootRow } from '../chat/ChatFootRow'
+import { useModelExplanations } from '../explanations'
 import { useViewStore } from '../../store'
 import { AimResults } from '../detailed/marks'
 import { SimpleFace } from '../SimpleFace'
@@ -400,4 +402,26 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     fireEvent.pointerEnter(root.querySelector('[data-said-once-on] .ok-dt-said-line')!)
     expectRing('schedule_assumptions')
   })
+})
+
+it('withheld result copy stays out of a figure’s passages and a caution does not become a next action', () => {
+  const view = { ...loadProducer('studio'), gated: false }
+  const option = cardOf(view, 'evening_classes')
+  const withheld = rowOf(option)
+  const reason = 'Waiting for the landlord’s written consent.'
+  withheld.title = reason
+  withheld.blocked_by = [figure(option.id)]
+  option.worth_checking = [{ code: 'assumption_without_test', title: 'An untested assumption', text: 'The range needs scrutiny.', rests_on: [option.id], olumi: true }]
+  view.model!.run!.find_out = []
+  useViewStore.setState({ view, error: null, stale: false })
+  useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
+  function Foot() {
+    const explanations = useModelExplanations()
+    return <ChatFootRow sources={[]} explanations={{ ...explanations, selected: option.id }} />
+  }
+  const result = render(<Foot />)
+  fireEvent.click(result.getByTestId('view-chat-foot-explanations'))
+  expect(result.getByText('No next action recorded')).toBeDefined()
+  expect(result.getByText('The range needs scrutiny.')).toBeDefined()
+  expect(result.queryByText(reason)).toBeNull()
 })

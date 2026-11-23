@@ -707,13 +707,24 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
   })
 
   it('rests: core\'s full sentence is visible text on the tab, once per group, not only a hover', () => {
-    const view = viewOf('golden/bakery'), r = view.model!.run!.rests[0]!
+    const view = { ...viewOf('golden/bakery'), gated: false }, r = view.model!.run!.rests[0]!
     ready(view); render(<PortAnalysisTab />)
     const box = screen.getByTestId('reasoning-rests')
     // Core's hover is its line plus what the people's ranges carry and the limit ("not a prediction"): it is the visible sentence, whole.
     expect(r.hover.startsWith(r.line) && r.hover.length > r.line.length, 'fixture: the hover says more than the line').toBe(true)
     expect(box.querySelector(`[data-rest="${r.id}"] [data-view="run.rests.0.hover"]`)!.textContent).toBe(r.hover)
     expect(box.querySelectorAll(`[data-rest="${r.id}"] [data-testid="rests-sentence"]`)).toHaveLength(1)
+    const analysisLink = box.querySelector('[data-explain-trigger]')!
+    fireEvent.click(analysisLink)
+    const target = useViewStore.getState().explanationTarget
+    expect(target).toMatchObject({ record: r.option, passage: JSON.stringify(['rest', r.id]), origin: 'results' })
+    cleanup()
+    ready(view); render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('reasoning-rests').querySelector('[data-explain-trigger]')!)
+    expect(useViewStore.getState().explanationTarget).toMatchObject({
+      scope: target?.scope, record: target?.record, passage: target?.passage, origin: 'analysisNew',
+    })
+    useViewStore.setState({ explanationTarget: null })
   })
 })
 

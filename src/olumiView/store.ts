@@ -20,9 +20,23 @@ import { coreScenarioIdOf } from '../olumiCore/team/sid'
 import { isForThisPage, NOT_FOR_THIS_PAGE } from '../olumiCore/me'
 import { readView, type Opened, type View } from './client'
 
+export type PanelViewLevel = 'glance' | 'detail'
+export type ExplanationTarget = {
+  scope: string
+  record: string
+  passage: string
+  origin: 'analysisNew' | 'results'
+  trigger: string
+}
+
 export type ViewStatus = 'none' | 'loading' | 'ready' | 'error'
 
 interface ViewState {
+  readonly panelLevels: Readonly<Record<'reasoning', PanelViewLevel>>
+  readonly expandedRests: Readonly<Partial<Record<ExplanationTarget['origin'], string>>>
+  readonly explanationTarget: ExplanationTarget | null
+  readonly explanationReturn: string | null
+  readonly reasoningFigure: { scope: string; group: string; record: string } | null
   readonly uuid: string | null
   readonly sid: string | null
   readonly view: View | null
@@ -68,12 +82,17 @@ export const shownModel = (s: { view: View | null; error: string | null; stale: 
 
 export const useViewStore = create<ViewState>()((set, get) => ({
   uuid: null, sid: null, view: null, opened: { open: new Map(), all: false }, status: 'none', error: null, stale: false, at: null,
+  panelLevels: { reasoning: 'glance' }, expandedRests: {}, explanationTarget: null, explanationReturn: null, reasoningFigure: null,
   use: async (uuid) => {
     const sid = coreScenarioIdOf(uuid)
     if (get().uuid === uuid && get().sid === sid && get().status !== 'none' && get().status !== 'error') return
     const same = get().uuid === uuid
     seq += 1
-    set({ uuid, sid, view: same ? get().view : null, opened: same ? get().opened : { open: new Map(), all: false }, at: same ? get().at : null, status: sid ? 'loading' : 'none', error: null })
+    set({
+      uuid, sid, view: same ? get().view : null, opened: same ? get().opened : { open: new Map(), all: false },
+      at: same ? get().at : null, status: sid ? 'loading' : 'none', error: null,
+      ...(!same ? { expandedRests: {}, explanationTarget: null, explanationReturn: null, reasoningFigure: null } : {}),
+    })
     if (sid) await get().refresh()
   },
   refresh: async () => {

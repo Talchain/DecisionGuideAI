@@ -20,6 +20,8 @@ import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { StartHere, ViewReasoningBlock } from '../../ViewReasoning'
+import { ChatFootRow } from '../../v12/chat/ChatFootRow'
+import { useModelExplanations } from '../../v12/explanations'
 import { chatQuestionsOf } from '../../layout'
 
 const read = (): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
@@ -123,6 +125,25 @@ describe('the box belongs to one question, and a send loses nothing typed (Codex
   })
 })
 
+function AnswerPassages({ selected }: { selected: string | null }) {
+  const explanations = useModelExplanations()
+  return <ChatFootRow sources={[]} explanations={{ ...explanations, selected }} />
+}
+
+function showExaminations(view: View, selected: string | null = view.model!.cards[0]!.id) {
+  ready({ ...view, gated: false })
+  render(<AnswerPassages selected={selected} />)
+  const foot = screen.queryByTestId('view-chat-foot-explanations')
+  if (foot) fireEvent.click(foot)
+  if (selected === null) {
+    const history = screen.queryByRole('button', { name: /Answer history/ })
+    if (history) {
+      fireEvent.click(history)
+      fireEvent.click(screen.getByRole('button', { name: 'Examined' }))
+    }
+  }
+}
+
 describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, every word core\'s or the person\'s', () => {
   it('the question, what was supplied and by whom, the card it was set on (one press), Olumi\'s reply as served, the cards it MENTIONS (never "rests on"), its limits', () => {
     const view = typed()
@@ -130,8 +151,7 @@ describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, ev
     ;(view as unknown as { reasoning: unknown }).reasoning = { examined: [{ id: 'x42', question_id: Q.id, question: Q.text, about: c0.id, supplied: { by: 'Ada', by_id: 'p1', text: '12', at: '2026-11-19T00:40:00Z' },
       bound: c0.id, finding: { row: 43, text: 'Twelve weeks is now the time left on this aim.' }, mentioned: [c1.id, 'not_a_card'], limits: 'The aim still has no measure.', proposal_id: 9, olumi: true }] }
     withTurn(view, 43, { version: 'version 3', earlier: false, status: null })
-    ready(view)
-    render(<ViewReasoningBlock />)
+    showExaminations(view)
     const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x42"]')!
     expect([x.dataset['examinedQuestion'], x.querySelector('[data-testid="reasoning-examined-question"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-supplied"]')!.textContent,
       x.querySelector('[data-testid="reasoning-examined-bound"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-finding"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-limits"]')!.textContent])
@@ -144,17 +164,14 @@ describe('what core examined (AS BUILT view.reasoning.examined): drawn by id, ev
   })
   it('CONTRAST: empty mentioned draws no Mentioned line; no reasoning block or an empty list draws no Answered section', () => {
     const view = typed([{ id: 'x1', question_id: Q.id, question: Q.text, about: null, supplied: { by: 'Ada', by_id: 'p1', text: 'not sure', at: '' }, bound: null, finding: null, mentioned: [], limits: null, proposal_id: null, olumi: true }])
-    ready(view)
-    render(<ViewReasoningBlock />)
+    showExaminations(view, null)
     const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x1"]')!
     expect([x.querySelector('[data-testid="reasoning-examined-mentioned"]'), x.querySelector('[data-testid="reasoning-examined-bound"]'), x.querySelector('[data-testid="reasoning-examined-finding"]')]).toEqual([null, null, null])
     cleanup()
-    ready(read())
-    render(<ViewReasoningBlock />)
+    showExaminations(read())
     expect(screen.queryByTestId('reasoning-answered')).toBeNull()
     cleanup()
-    ready(typed([]))
-    render(<ViewReasoningBlock />)
+    showExaminations(typed([]))
     expect(screen.queryByTestId('reasoning-answered')).toBeNull()
   })
 })
@@ -169,8 +186,7 @@ describe('where an answer was bound is history, qualified by its source turn (Co
   it('a SET-ASIDE proposal\'s answer does not read as applied: "Proposed for" the card, with core\'s version and status words', () => {
     const view = typed(); const c0 = examined(view)
     withTurn(view, 77, { version: 'Suggested, not yet accepted', earlier: true, status: 'Set aside for now' })
-    ready(view)
-    render(<ViewReasoningBlock />)
+    showExaminations(view)
     const b = screen.getByTestId('reasoning-examined-binding')
     expect([b.dataset['applied'], b.textContent, screen.getByTestId('reasoning-examined-source').textContent]).toEqual(['no', `Proposed for: ${c0.heading}`, 'Suggested, not yet accepted · Set aside for now'])
     expect(b.textContent).not.toContain('Set on')
@@ -179,8 +195,7 @@ describe('where an answer was bound is history, qualified by its source turn (Co
     const view = typed(); examined(view)
     ;((view as unknown as { reasoning: { examined: { bound: string }[] } }).reasoning.examined[0]!).bound = 'card_removed_since'
     withTurn(view, 77, { version: 'Suggested, not yet accepted', earlier: true, status: 'Set aside for now' })
-    ready(view)
-    render(<ViewReasoningBlock />)
+    showExaminations(view)
     const x = screen.getByTestId('reasoning-answered').querySelector<HTMLElement>('[data-examined="x7"]')!
     expect([x.querySelector('[data-testid="reasoning-examined-binding"]'), x.querySelector('[data-testid="reasoning-examined-finding"]')!.textContent, x.querySelector('[data-testid="reasoning-examined-source"]')!.textContent])
       .toEqual([null, 'Twelve weeks.', 'Suggested, not yet accepted · Set aside for now'])
@@ -188,14 +203,12 @@ describe('where an answer was bound is history, qualified by its source turn (Co
   it('CONTRAST: an approved answer on the current version reads as set, with core\'s version words; with no source turn on the chat, no binding is drawn', () => {
     const view = typed(); const c0 = examined(view)
     withTurn(view, 77, { version: 'version 3', earlier: false, status: null })
-    ready(view)
-    render(<ViewReasoningBlock />)
+    showExaminations(view)
     const b = screen.getByTestId('reasoning-examined-binding')
     expect([b.dataset['applied'], b.textContent, screen.getByTestId('reasoning-examined-source').textContent]).toEqual(['yes', `Set on: ${c0.heading}`, 'version 3'])
     cleanup()
     const bare = typed(); examined(bare)
-    ready(bare)
-    render(<ViewReasoningBlock />)
+    showExaminations(bare)
     expect(screen.queryByTestId('reasoning-examined-binding')).toBeNull()
   })
 })

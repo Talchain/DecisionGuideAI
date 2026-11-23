@@ -79,6 +79,7 @@ import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedR
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ChatFootRow } from './v12/chat/ChatFootRow'
+import { useModelExplanations } from './v12/explanations'
 import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -1805,6 +1806,9 @@ export function ViewChat() {
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at), sid = useViewStore((s) => s.sid)
   const savedExpectationCount = useSavedExpectationCount()
+  const explanations = useModelExplanations()
+  const selection = useCanvasStore((s) => s.selection.nodeIds)
+  const selectedExplanation = [...selection].find((id) => explanations.records.some((r) => r.id === id)) ?? null
   const surface = useFindingSurface()
   const held = busy || past !== null
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
@@ -1970,7 +1974,7 @@ export function ViewChat() {
       </div>
       {/* CatchUp only opens the history panel, with no inline open area. Use the permitted foot-row fallback
           for kept ideas and intake rather than rewriting CatchUp and its history-panel contract. */}
-      <ChatFootRow key={view?.id ?? ''} sources={[
+      <ChatFootRow key={view?.id ?? ''} explanations={{ ...explanations, selected: selectedExplanation }} sources={[
         { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
           content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
         { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: chatQuestionsOf(view?.model).length,

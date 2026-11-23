@@ -1,29 +1,20 @@
 /**
- * The Reasoning tab on the olumi-core lane: HOW SOUND THE THINKING IS (redesign 2 + the UI pass after the Codex critique, 18 Nov 2026:
- * overnight/analysis/REASONING-CRITIQUE.md). Analysis draws what the model implies; this tab draws what that rests on and what is worth
- * examining. It claims no priority core has not computed (core's ranked queue is engine ask 2, ENGINE-ASKS-REASONING.md). Top to bottom:
- *   0. above the tab, its state, said once (`reasoning/StateStrip.tsx`);
- *   1. What the uncertainty rests on (`run.rests`): core's sentence per option and aim, each figure a bar to its share of the variation,
- *      coloured by whose figure it is, core's give ✎ once per figure;
- *   2. Worth examining (`reasoning/examine.ts`): challenged cards, core's coaching questions, its widening asks and its sharpen prompts, each
- *      with Olumi's mark where it is Olumi's and one press (the card, the message box, or core's method);
- *   3. Towards commitment (`reasoning/TowardsCommitment.tsx`): where revealed views differ (core's differences), disagreements still open,
- *      what the team has recorded in full, and one press into the ONE commitment form;
- *   4. Assumptions and evidence: every premise core puts on a card, once, behind one door.
- * Every word about the person's model is core's, at its View path (`data-view`); headings and action labels are the tab's own chrome.
+ * The Reasoning tab on the olumi-core lane shows how sound the thinking is.
+ * The state strip and what-if come first, followed by Glance/Detail, the answer summary and the share-of-uncertainty chart.
+ * The selected figure's assumption, evidence, examination and next step lead to the corresponding Model explanations passages.
+ * Worth examining and Towards commitment keep Core's questions, challenges and team reasoning in view.
+ * Model wording carries its Core View path (data-view). Section headings and action labels are chrome.
  */
-import { useId, useState } from 'react'
-import type { ViewModel, ViewRun } from './client'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { View, ViewModel, ViewRun } from './client'
 import { FigureEdit } from './FigureEdit'
-import { premisesOnce } from './layout'
 import { OkIcon, type IconId } from './look/icons'
 import { shownModel, useViewStore } from './store'
-import { WhatIfShown } from './ViewChances'
+import { useWhatIfOn, WhatIfShown } from './ViewChances'
 import { prefillComposer, runMethod } from './ViewChat'
-import { Door, SignalRow } from './reasoning/parts'
 import { actionable, examineOf, type Examine } from './reasoning/examine'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
-import { AnswerBox, AnsweredList } from './reasoning/AnswerBox'
+import { AnswerBox } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
 import { trackPct } from './port/pick'
@@ -31,16 +22,26 @@ import { GlyphMark, Hover } from './look/Hover'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
+import { useCanvasStore } from '../canvas/store'
+import { focusNodeById } from '../canvas/utils/focusHelpers'
+import { optionLetters } from './v12/cards/letters'
+import { KindName } from './v12/charts/KindName'
+import { LoopDots } from './v12/charts/LoopDots'
+import { PanelLevel } from './v12/charts/PanelLevel'
+import { StatusRow } from './v12/charts/StatusRow'
+import {
+  AUTHOR_LABELS, figuresOf, figurePassage, groupPassage, groupsOf,
+  loopOf, loopValues, statusId, useExplanationModel, useExplanationScope,
+} from './v12/explanations'
+import { LinkExplanation } from './v12/chat/ModelExplanations'
 
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
   rests: 'What the uncertainty rests on',
-  olumi: 'Olumi’s', yours: 'People’s', mixed: 'Both',
   more: (n: number) => `Show ${n} more`, fewer: 'Show fewer',
   examine: 'Worth examining',
   activity: 'Something to work on',
   challenge: 'Challenge your thinking',
-  premises: 'Assumptions and evidence',
   questions: 'Questions worth answering',
   fill: 'Put this in the message box',
   show: 'Show in the workspace',
@@ -58,100 +59,154 @@ const LIST_AT_REST = 4
 
 type Rest = ViewRun['rests'][number]
 type Figure = NonNullable<Rest['figures']>[number]
-const WHOSE_FILL: Record<Figure['whose'], string> = { olumi: 'fill-info', theirs: 'fill-text-header', mixed: 'fill-text-light' }
+const WHOSE_FILL: Record<Figure['whose'], string> = { olumi: 'ok-loop-olumi', theirs: 'ok-loop-person', mixed: 'ok-loop-mixed' }
+const REST_RING = 'reasoning-rests'
+const STATUS = [
+  { id: 'assumption', label: 'Assumption', icon: 'person-mark' },
+  { id: 'evidence', label: 'Evidence', icon: 'file-read' },
+  { id: 'examined', label: 'Examined', icon: 'review-inputs' },
+  { id: 'next', label: 'Next', icon: 'next-step' },
+] as const
 
 /** One figure's share of a rest's uncertainty: a bar to core's fraction (geometry only; core's line says the number), coloured by whose figure it is. */
 function ShareBar({ f }: { f: Figure }) {
   const w = trackPct(f.share)
   return (
-    <svg className="block h-1.5 w-full" aria-hidden="true" data-testid="reasoning-share-bar" data-share={w} data-whose={f.whose}>
-      <rect x="0" y="0" width="100%" height="6" rx="3" className="fill-panel-border" />
-      <rect x="0" y="0" width={`${w}%`} height="6" rx="3" className={WHOSE_FILL[f.whose]} />
+    <svg className={`ok-loop-bar ${WHOSE_FILL[f.whose]}`} aria-hidden="true" data-testid="reasoning-share-bar" data-share={w} data-whose={f.whose}>
+      <rect x="0.5" y="0.5" height="5" rx="2.5" className="ok-loop-track" />
+      <rect x="0" y="0" width={`${w}%`} height="6" rx="3" className="ok-loop-share" />
     </svg>
   )
 }
 
-/**
- * What the uncertainty rests on (core's `run.rests`): per option and aim, in core's order, each figure core names as a bar to its share of
- * the variation, Olumi's in Olumi's blue, a person's in ink; core's line beside it, and core's give ✎ at the figure's first appearance, so
- * the person can replace the guess that carries most of the uncertainty. Every group's first (largest) figure at rest; the further figures behind one press.
- */
-export function RestsOn({ model, run }: { model: ViewModel; run: ViewRun | null }) {
-  const [all, setAll] = useState(false)
+export function RestsOn({ model, run, reasoning = false }: { model: ViewModel; run: ViewRun | null; reasoning?: boolean }) {
+  const origin = reasoning ? 'analysisNew' : 'results'
+  const scope = useExplanationScope(model)
+  const tried = useWhatIfOn(model)
+  const expanded = useViewStore((s) => s.expandedRests[origin] === scope)
+  const detail = useViewStore((s) => reasoning && s.panelLevels.reasoning === 'detail')
+  const picked = useViewStore((s) => s.reasoningFigure?.scope === scope ? s.reasoningFigure : null)
+  const nodeIds = useCanvasStore((s) => s.selection.nodeIds)
+  const cardId = reasoning ? [...nodeIds].find((id) => model.cards.some((c) => c.id === id)) ?? picked?.record : undefined
+  const view = useViewStore((s) => s.view)
+  const canExplain = useExplanationModel() === model
   const moreId = useId()
-  const rests = (run?.rests ?? []).map((r, k) => ({ r, k })).filter(({ r }) => r.line !== '')  // a group with a headline and no figure detail is kept (A4): its headline is drawn, only the empty figure list is omitted
+  const activeRow = useRef<HTMLButtonElement>(null)
+  const rests = groupsOf(run)
+  const current = rests.find(({ r }) => r.id === picked?.group && figuresOf(r).some(({ f }) => f.id === cardId))
+    ?? rests.find(({ r }) => figuresOf(r).some(({ f }) => f.id === cardId))
+  const currentId = current?.r.id
+  useEffect(() => {
+    if (reasoning && nodeIds.has(cardId ?? '')) activeRow.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [reasoning, cardId, currentId, nodeIds])
+  useEffect(() => () => ringFrom(reasoning ? REST_RING : RING, []), [reasoning])
+  useEffect(() => {
+    if (!reasoning) return
+    ringFrom(REST_RING, currentId && cardId ? [cardId] : [])
+  }, [reasoning, currentId, cardId])
+
   if (run === null || rests.length === 0) return null
   const given = new Set<string>()
-  const figuresOf = (r: Rest) => (r.figures ?? []).map((f, j) => ({ f, j })).filter(({ f }) => f.line !== '')
-  // At rest: the first RESTS_AT_REST groups in core's order, each with its first figure. Everything else is one press away: the later groups (counted as
-  // the group and its figures) and the further figures of the groups shown.
-  const shownGroups = all ? rests : rests.slice(0, RESTS_AT_REST)
-  const folded = all ? 0 : rests.slice(0, RESTS_AT_REST).reduce((n, { r }) => n + Math.max(0, figuresOf(r).length - REST_FIGURES), 0)
-    + rests.slice(RESTS_AT_REST).reduce((n, { r }) => n + 1 + figuresOf(r).length, 0)
-  const toggle = all || folded > 0
-  const firstWithFigures = shownGroups.findIndex(({ r }) => figuresOf(r).length > 0)
-  const whose = new Set(shownGroups.flatMap(({ r }) => (all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f }) => f.whose)))
+  const letters = optionLetters(model)
+  const visible = expanded ? rests : rests.slice(0, RESTS_AT_REST)
+  const shownGroups = current && !visible.includes(current) ? [...visible, current] : visible
+  const shownFigures = (r: Rest) => {
+    const figures = figuresOf(r)
+    return expanded || detail ? figures : figures.filter(({ f }, i) => i < REST_FIGURES || (r.id === currentId && f.id === cardId))
+  }
+  const folded = rests.reduce((n, { r }) => n + (shownGroups.some((g) => g.r === r) ? figuresOf(r).length - shownFigures(r).length : 1 + figuresOf(r).length), 0)
+  const whose = new Set(shownGroups.flatMap(({ r }) => shownFigures(r).map(({ f }) => f.whose)))
+  const allFigures = [...new Set(rests.flatMap(({ r }) => figuresOf(r).map(({ f }) => f.id)))]
+  const loops = allFigures.map((id) => loopOf(model, canExplain ? view : null, id))
+  const answered = loops.filter(({ steps }) => steps[2]).length
+  const firstOpen = loops.find(({ steps, card }) => !steps[2] && card !== undefined)
+  const next = loops.filter(({ steps }) => steps[3]).length
+  const firstWithFigures = shownGroups.findIndex(({ r }) => shownFigures(r).length > 0)
   return (
-    <section className="space-y-2" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
+    <section className="ok-stack" data-testid="reasoning-rests" aria-label={run.rests_heading || REASONING_LABELS.rests}>
+      {reasoning && allFigures.length > 0 && <div className="ok-loop-chips" role="group" aria-label="Reasoning summary">
+        <span className={typography.viewPanelMeta}>{answered} of {allFigures.length} figures with answers</span>
+        <span className={typography.viewPanelMeta}>{firstOpen?.card ? <><span data-view={`${firstOpen.card.id}.heading`}>{firstOpen.card.heading}</span> still open</> : `${loops.length - answered} figures open`}</span>
+        <span className={typography.viewPanelMeta}>{next} {next === 1 ? 'figure' : 'figures'} worth finding out</span>
+      </div>}
       <h3 className={H} {...(run.rests_heading ? { 'data-view': 'run.rests_heading' } : {})}>{run.rests_heading || REASONING_LABELS.rests}</h3>
-      <div className="space-y-3" id={moreId} data-testid="reasoning-rests-groups">
-      {shownGroups.map(({ r, k }, g) => {
-        const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
-        return (
-          <div key={r.id} className="space-y-2" data-rest={r.id}>
-            <p className={`${TYPE.meta} m-0 text-text-light`}>
-              {option === undefined ? null : <span data-view={`${option.id}.heading`}>{option.heading}</span>}
-              {option !== undefined && aim !== undefined ? ' · ' : null}
-              {aim === undefined ? null : <span data-view={`${aim.id}.heading`}>{aim.heading}</span>}
-            </p>
-            {/* Core's `hover` is its line plus what the people's ranges carry and the limit ("it is not a prediction"): drawn at rest, whole, so the limit
-                is never hover-only (science lead, 18 Nov). A row with no hover keeps its line. */}
-            {(r.hover ?? '') !== ''
-              ? <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.hover`}>{r.hover}</p>
-              : <p className={`${TYPE.meta} m-0 text-text-body`} data-testid="rests-sentence" data-view={`run.rests.${k}.line`}>{r.line}</p>}
-            {/* Core's label for the figure list (`run.rests_figures_heading`, when it sends one), said once, above the first group that has figures. */}
-            {g !== firstWithFigures || !run.rests_figures_heading ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
-            {figuresOf(r).length === 0 ? null : <ul className="m-0 list-none space-y-3 p-0" {...(run.rests_figures_heading ? { 'aria-label': run.rests_figures_heading } : {})}>
-              {(all ? figuresOf(r) : figuresOf(r).slice(0, REST_FIGURES)).map(({ f, j }) => {
-                const give = f.give != null && !given.has(f.id)
-                if (give) given.add(f.id)
-                return (
-                  <li key={f.id} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-2" data-rest-figure={f.id}>
-                    <ShareBar f={f} />
-                    <span className={`${TYPE.meta} min-w-0 text-text-body`}>
-                      {f.mark == null ? null : <><GlyphMark mark={f.mark} className="text-info" view={`run.rests.${k}.figures.${j}.mark.glyph`} />{' '}</>}
-                      <span data-view={`run.rests.${k}.figures.${j}.line`}>{f.line}</span>
-                    </span>
-                    {give ? <FigureEdit id={f.id} edit={f.give!.edit} place="reasoning-rests" glyph words={false} label={`Give your figure for ${f.label}`} /> : <span />}
-                  </li>
-                )
-              })}
-            </ul>}
-          </div>
-        )
-      })}
+      {tried && <p className={`ok-loop-copy ${typography.viewPanelMeta}`}>{view?.proposal ? 'Model in the proposal' : 'Saved model'}</p>}
+      <div className="ok-stack" id={moreId} data-testid="reasoning-rests-groups">
+        {shownGroups.map(({ r, k }, g) => {
+          const option = model.cards.find((c) => c.id === r.option), aim = model.cards.find((c) => c.id === r.aim)
+          return (
+            <div key={r.id} className="ok-stack" data-rest={r.id}>
+              <div className="ok-loop-heading">
+                {option && <KindName card={option} name={option.heading} view={`${option.id}.heading`} model={model} letter={letters.get(option.id)} />}
+                {aim && <KindName card={aim} name={aim.heading} view={`${aim.id}.heading`} model={model} />}
+                {canExplain && option && <LinkExplanation scope={scope} record={option.id} passage={groupPassage(r)}
+                  subject={`uncertainty for ${option.heading}${aim ? ` under ${aim.heading}` : ''}`} origin={origin} />}
+              </div>
+              <p className={`ok-loop-copy ${typography.viewPanelMeta}`}
+                data-testid="rests-sentence" data-view={`run.rests.${k}.${r.hover ? 'hover' : 'line'}`}>{r.hover || r.line}</p>
+              {g === firstWithFigures && run.rests_figures_heading && <p className={`ok-loop-copy ${typography.viewPanelMeta}`} data-view="run.rests_figures_heading">{run.rests_figures_heading}</p>}
+              {shownFigures(r).length > 0 && <ul className="ok-loop-chart" aria-label={run.rests_figures_heading || 'Share of uncertainty by figure'}>
+                {shownFigures(r).map(({ f, j }) => {
+                  const give = f.give != null && !given.has(f.id)
+                  if (give) given.add(f.id)
+                  const loop = loopOf(model, canExplain ? view : null, f.id, r)
+                  const dotsId = reasoning ? `${moreId}-${k}-${j}` : undefined
+                  const active = reasoning && cardId === f.id && r.id === currentId
+                  const value = f.text || `${Math.round(trackPct(f.share))}%`
+                  return (
+                    <li key={f.id} className="ok-loop-chart-item" data-rest-figure={f.id}>
+                      <button ref={active ? activeRow : undefined} type="button" className="ok-loop-chart-row ok-loop-control"
+                        aria-pressed={reasoning ? active : undefined} aria-describedby={dotsId} aria-label={`${f.label} · ${value} of uncertainty · ${AUTHOR_LABELS[f.whose]}`}
+                        onClick={() => {
+                          if (reasoning) useViewStore.setState({ reasoningFigure: { scope, group: r.id, record: f.id } })
+                          if (!nodeIds.has(f.id)) focusNodeById(f.id)
+                          ringFrom(reasoning ? REST_RING : RING, [f.id])
+                        }}>
+                        <KindName name={f.label} view={`run.rests.${k}.figures.${j}.label`} model={model} card={loop.card} letter={letters.get(f.id)} />
+                        <ShareBar f={f} />
+                        {reasoning ? <LoopDots id={dotsId} steps={loop.steps} /> : <span />}
+                        <span className={`ok-loop-value ${typography.viewPanelTabular}`} data-view={f.text ? `run.rests.${k}.figures.${j}.text` : undefined}>{value}</span>
+                      </button>
+                      {canExplain && loop.card ? <LinkExplanation scope={scope} record={f.id} passage={figurePassage(r)}
+                        subject={`${f.label}’s share of uncertainty${option ? ` for ${option.heading}` : ''}${aim ? ` under ${aim.heading}` : ''}`} origin={origin} /> : <span />}
+                      {give ? <FigureEdit id={f.id} edit={f.give!.edit} place="reasoning-rests" glyph words={false} label={`Give your figure for ${f.label}`} /> : <span />}
+                      {reasoning && canExplain && loop.card ? null : (
+                        <span className={`ok-loop-row-reading ${typography.viewPanelMeta}`}>
+                          {f.mark && <><span data-view-hover={`run.rests.${k}.figures.${j}.mark.title`}><GlyphMark mark={f.mark} className="text-info" view={`run.rests.${k}.figures.${j}.mark.glyph`} /></span>{' '}</>}
+                          <span data-view={`run.rests.${k}.figures.${j}.line`}>{f.line}</span>
+                        </span>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>}
+            </div>
+          )
+        })}
       </div>
-      {!toggle ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={moreId} className={MORE} data-testid="reasoning-rests-more">
-          {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(folded)}
+      {(expanded || folded > 0) && (
+        <button type="button" onClick={() => useViewStore.setState((s) => ({
+          expandedRests: { ...s.expandedRests, [origin]: expanded ? undefined : scope },
+        }))} aria-expanded={expanded} aria-controls={moreId} className={`${MORE} ok-loop-control`} data-testid="reasoning-rests-more">
+          {expanded ? REASONING_LABELS.fewer : REASONING_LABELS.more(folded)}
         </button>
       )}
-      <p className={`${TYPE.meta} m-0 flex flex-wrap items-center gap-3 text-text-light`} aria-hidden="true" data-testid="reasoning-rests-key">
+      {whose.size > 0 && <p className={`ok-loop-key ${typography.viewPanelMeta}`} data-testid="reasoning-rests-key">
         {(['olumi', 'theirs', 'mixed'] as const).filter((w) => whose.has(w)).map((w) => (
-          <span key={w} className="inline-flex items-center gap-1"><svg className="h-2 w-2"><rect width="8" height="8" rx="2" className={WHOSE_FILL[w]} /></svg>{w === 'olumi' ? REASONING_LABELS.olumi : w === 'theirs' ? REASONING_LABELS.yours : REASONING_LABELS.mixed}</span>
+          <span key={w}><svg width="8" height="8" aria-hidden="true"><rect width="8" height="8" rx="2" className={WHOSE_FILL[w]} /></svg>{AUTHOR_LABELS[w]}</span>
         ))}
-      </p>
+      </p>}
     </section>
   )
 }
 
 /** The words an item says (core's, at their View path) and the reason under them, if core gives one. */
-function wordsOf(e: Examine): { text: string; at: string; why: string | null; whyAt: string | null; hover?: string } {
+function wordsOf(e: Examine): { text: string; at: string; why: string | null; whyAt: string | null; hover?: string; hoverAt?: string } {
   switch (e.kind) {
-    case 'challenge': return { text: e.card.heading, at: `${e.card.id}.heading`, why: e.card.reason === null || e.card.reason === e.card.heading ? null : e.card.reason, whyAt: `${e.card.id}.reason`, hover: e.card.detail }
+    case 'challenge': return { text: e.card.heading, at: `${e.card.id}.heading`, why: e.card.reason === null || e.card.reason === e.card.heading ? null : e.card.reason, whyAt: `${e.card.id}.reason`, hover: e.card.detail, hoverAt: `${e.card.id}.detail` }
     case 'method': return e.s.lead !== ''
-      ? { text: e.s.lead, at: `sharpen.${e.i}.lead`, why: e.s.emphasis || null, whyAt: `sharpen.${e.i}.emphasis`, hover: e.s.rationale || undefined }
-      : { text: e.s.emphasis, at: `sharpen.${e.i}.emphasis`, why: null, whyAt: null, hover: e.s.rationale || undefined }
+      ? { text: e.s.lead, at: `sharpen.${e.i}.lead`, why: e.s.emphasis || null, whyAt: `sharpen.${e.i}.emphasis`, hover: e.s.rationale || undefined, hoverAt: `sharpen.${e.i}.rationale` }
+      : { text: e.s.emphasis, at: `sharpen.${e.i}.emphasis`, why: null, whyAt: null, hover: e.s.rationale || undefined, hoverAt: `sharpen.${e.i}.rationale` }
     case 'question': return { text: e.q, at: e.typed === null ? `coaching_questions.${e.i}` : `questions.${e.i}.text`, why: null, whyAt: null }
     case 'widen': return { text: e.w.label, at: `model_words.${e.w.k}`, why: null, whyAt: null }
   }
@@ -161,33 +216,39 @@ function wordsOf(e: Examine): { text: string; at: string; why: string | null; wh
 function Act({ e }: { e: Examine }) {
   if (e.kind !== 'method' || e.method === null) return null
   const { at, m } = e.method
-  return <button type="button" className={QUIET} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
+  return <button type="button" className={QUIET} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view={`session.methods.${at}.text`} data-view-words={`session.methods.${at}.text`}>{m.text}</span></button>
 }
 
 /** A challenge is marked by its state; every other item is Olumi's own contribution (core's coaching), so it carries Olumi's mark. */
 const MARK: Record<Examine['kind'], IconId> = { challenge: 'challenged', method: 'olumi-mark', question: 'olumi-mark', widen: 'olumi-mark' }
-/** Where an item's words sit: on the model (`data-view`), or in core's chrome words (`data-view-words`: the coaching questions and model words). */
-const at = (e: Examine, path: string) => e.kind === 'question' || e.kind === 'widen' ? { 'data-view-words': path } : { 'data-view': path }
+/** Keep the View path on every item and the chrome-word marker on coaching questions and model words. */
+const at = (e: Examine, path: string) => e.kind === 'question' || e.kind === 'widen' ? { 'data-view': path, 'data-view-words': path } : { 'data-view': path }
 const rowData = (e: Examine) => e.kind === 'challenge' ? { 'data-reasoning-challenge': e.card.id } : e.kind === 'method' ? { 'data-sharpen': e.s.id } : { 'data-examine': e.key }
 
 /**
  * Every other item, compact. A challenge or a question is one press as a whole row (the card shown; core's words put in the message box);
  * a sharpen prompt keeps its words and one quiet action under them, labelled with core's method words.
  */
-function Row({ e }: { e: Examine }) {
+function Row({ e, scope, links }: { e: Examine; scope: string; links: boolean }) {
   const w = wordsOf(e)
   const ring = () => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])
   // `hover`: the words' longer text through the one Tip, on the words themselves (a focus stop); a challenge's whole row is a press that carries it instead.
-  const wordsEl = (hover?: string) => (
-    <Hover words={hover} className="min-w-0 flex-1">
+  const wordsEl = (hover?: string, showWhy = true) => (
+    <Hover words={hover} data-view-hover={hover ? w.hoverAt : undefined} className="min-w-0 flex-1">
       <span className={`${TYPE.body} block text-text-header`} {...at(e, w.at)} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-question' } : {})}>{w.text}</span>
-      {w.why === null ? null : <span className={`${TYPE.meta} block text-text-body`} data-view={w.whyAt!} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-reason' } : {})}>{w.why}</span>}
+      {!showWhy || w.why === null ? null : <span className={`${TYPE.meta} block text-text-body`} data-view={w.whyAt!} {...(e.kind === 'challenge' ? { 'data-testid': 'view-reasoning-challenge-reason' } : {})}>{w.why}</span>}
     </Hover>
   )
   const words = wordsEl()
   const whole = `flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
   const mark = <OkIcon id={MARK[e.kind]} size={14} className="mt-0.5" decorative />
-  if (e.kind === 'challenge') return <li {...rowData(e)}><Hover as="button" type="button" className={whole} words={w.hover} onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{words}</Hover></li>
+  if (e.kind === 'challenge') return (
+    <li className="ok-loop-with-explanation" {...rowData(e)}>
+      <Hover as="button" type="button" className={whole} words={links ? undefined : w.hover} data-view-hover={!links && w.hover ? w.hoverAt : undefined}
+        onClick={() => pressCard(e.card.id)} onMouseEnter={ring} data-testid="reasoning-challenge-show">{mark}{wordsEl(undefined, !links)}</Hover>
+      {links && <LinkExplanation scope={scope} record={e.card.id} passage="challenge" subject={`the challenge to ${e.card.heading}`} />}
+    </li>
+  )
   // A coaching question is for the team to answer (core's answer-in-place route is engine ask 1): its words are the row, and putting it in the
   // message box is a quiet secondary press, never the row's primary action.
   if (e.kind === 'question') return (
@@ -208,50 +269,32 @@ function Row({ e }: { e: Examine }) {
   return (
     <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
-      <span className="min-w-0 flex-1 space-y-1">{wordsEl(w.hover)}<span className="block"><Act e={e} /></span></span>
+      <span className="min-w-0 flex-1 space-y-1">{wordsEl(links ? undefined : w.hover, !links)}<span className="block"><Act e={e} /></span></span>
+      {links && (w.why || w.hover) && <LinkExplanation scope={scope} record={e.s.id} passage="method" subject={w.text} />}
     </li>
   )
 }
 
-function Examined({ items }: { items: Examine[] }) {
-  const [all, setAll] = useState(false)
+function Examined({ items, scope, links }: { items: Examine[]; scope: string; links: boolean }) {
+  const returning = useViewStore((s) => s.explanationReturn)
   const listId = useId()
+  const returningToMore = returning !== null && items.slice(LIST_AT_REST).some((e) => {
+    const record = e.kind === 'challenge' ? e.card.id : e.kind === 'method' ? e.s.id : null
+    return record !== null && returning === JSON.stringify([scope, record, e.kind, 'analysisNew'])
+  })
+  const [all, setAll] = useState(returningToMore)
+  useEffect(() => { if (returningToMore) setAll(true) }, [returningToMore])
   if (items.length === 0) return null
-  const shown = all ? items : items.slice(0, LIST_AT_REST)
+  const shown = all || returningToMore ? items : items.slice(0, LIST_AT_REST)
   return (
     <section className="space-y-2" data-testid="reasoning-examine" aria-label={REASONING_LABELS.examine}>
       <h3 className={`${H} flex items-center gap-2`}>{REASONING_LABELS.examine}<span className={`${TYPE.meta} font-normal tabular-nums text-text-light`} data-count>{items.length}</span></h3>
-      <ul id={listId} className="m-0 list-none divide-y divide-panel-border p-0">{shown.map((e) => <Row key={e.key} e={e} />)}</ul>
+      <ul id={listId} className="m-0 list-none divide-y divide-panel-border p-0">{shown.map((e) => <Row key={e.key} e={e} scope={scope} links={links} />)}</ul>
       {items.length <= LIST_AT_REST ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={listId} className={MORE} data-testid="reasoning-examine-more">
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all || returningToMore} aria-controls={listId} className={MORE} data-testid="reasoning-examine-more">
           {all ? REASONING_LABELS.fewer : REASONING_LABELS.more(items.length - LIST_AT_REST)}
         </button>
       )}
-    </section>
-  )
-}
-
-/** Every premise core puts on a card, once, behind one door (closed at rest). */
-function Premises({ model }: { model: ViewModel }) {
-  const { premises, cards: reasoning } = premisesOnce(model)
-  const notes = premises.length + reasoning.length
-  if (notes === 0) return null
-  return (
-    <section data-testid="view-reasoning-challenge" aria-label={REASONING_LABELS.premises}>
-      <Door label={REASONING_LABELS.premises} count={notes} testId="premises">
-        {premises.map(({ card, p, j }) => (
-          <SignalRow key={`${card.id}.${j}`} words={p.title} data-reasoning-premise={`${card.id}.${j}`} mark={<span data-view={`${card.id}.premises.${j}.glyph`}>{p.glyph}</span>}
-            end={(p.olumi ?? null) === null ? null : <GlyphMark mark={p.olumi!} className="text-info" view={`${card.id}.premises.${j}.olumi.glyph`} />}>
-            <span data-view={`${card.id}.premises.${j}.text`}>{p.text}</span>
-          </SignalRow>
-        ))}
-        {reasoning.map((c) => (
-          <SignalRow key={c.id} words={c.detail} data-reasoning-card={c.id} mark={<span data-view={`${c.id}.glyph`}>{c.glyph}</span>}
-            end={c.olumi === null ? null : <GlyphMark mark={c.olumi} className="text-info" view={`${c.id}.olumi.glyph`} />}>
-            <span data-view={`${c.id}.reason`}>{c.reason}</span>
-          </SignalRow>
-        ))}
-      </Door>
     </section>
   )
 }
@@ -261,7 +304,7 @@ function LeadAct({ e }: { e: Examine }) {
   if (e.kind === 'challenge') return <button type="button" className={GREEN} onClick={() => pressCard(e.card.id)} data-testid="reasoning-challenge-show"><OkIcon id="show-in-workspace" size={14} decorative />{REASONING_LABELS.show}</button>
   if (e.kind === 'method' && e.method !== null) {
     const { at: i, m } = e.method
-    return <button type="button" className={GREEN} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={`session.methods.${i}.text`}>{m.text}</span></button>
+    return <button type="button" className={GREEN} onClick={() => runMethod(m.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view={`session.methods.${i}.text`} data-view-words={`session.methods.${i}.text`}>{m.text}</span></button>
   }
   // A typed question is answered where it is asked (CONTRACT §3); only a text-only one goes to the message box.
   if (e.kind === 'question' && e.typed !== null) return <div className="w-full"><AnswerBox key={e.typed.id} q={e.typed} /></div>
@@ -279,34 +322,65 @@ export function StartHere({ model }: { model: ViewModel }) {
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
   const e = examineOf(model, methods, words).find(actionable)
+  const scope = useExplanationScope(model)
+  const links = useExplanationModel() === model
   if (e === undefined) return null
   const w = wordsOf(e)
   return (
     <section key={e.key} className="space-y-3 rounded-md bg-panel-hover p-3" data-testid="reasoning-focus" data-focus-kind={e.kind} aria-label={REASONING_LABELS.activity} {...rowData(e)}
       onMouseEnter={() => ringFrom(RING, e.kind === 'challenge' ? [e.card.id] : [])} onMouseLeave={() => ringFrom(RING, [])}>
       <p className={`${TYPE.meta} m-0 flex items-center gap-1.5 text-text-light`}><OkIcon id={MARK[e.kind]} size={14} decorative />{REASONING_LABELS.activity}</p>
-      <Hover as="p" words={w.hover ?? w.text} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hover>
+      <Hover as="p" words={w.hover ?? w.text} data-view-hover={w.hover ? w.hoverAt : w.at} className={`${TYPE.headline} m-0 line-clamp-4 text-text-header`} {...at(e, w.at)}>{w.text}</Hover>
       {w.why === null ? null : <p className={`${TYPE.body} m-0 text-text-body`} data-view={w.whyAt!}>{w.why}</p>}
-      <div className="flex flex-wrap items-center gap-2"><LeadAct e={e} /></div>
+      <div className="flex flex-wrap items-center gap-2">
+        <LeadAct e={e} />
+        {links && e.kind === 'challenge' && <LinkExplanation scope={scope} record={e.card.id} passage="challenge" subject={`the challenge to ${e.card.heading}`} origin="results" />}
+        {links && e.kind === 'method' && (w.why || w.hover) && <LinkExplanation scope={scope} record={e.s.id} passage="method" subject={w.text} origin="results" />}
+      </div>
     </section>
   )
 }
 
-/** `stated`: the tab's state is said above it (`ViewReasoningBlock`'s StateStrip), so the what-if box here draws no label of its own. */
+function FigureLoop({ model, view, scope }: { model: ViewModel; view: View | null; scope: string }) {
+  const picked = useViewStore((s) => s.reasoningFigure?.scope === scope ? s.reasoningFigure : null)
+  const nodeIds = useCanvasStore((s) => s.selection.nodeIds)
+  const card = [...nodeIds].map((id) => model.cards.find((c) => c.id === id)).find(Boolean)
+    ?? model.cards.find((c) => c.id === picked?.record)
+  const canExplain = useExplanationModel() === model
+  if (!card) return null
+  const groups = groupsOf(model.run ?? null).filter(({ r }) => figuresOf(r).some(({ f }) => f.id === card.id))
+  const group = groups.find(({ r }) => r.id === picked?.group)?.r ?? groups[0]?.r
+  const loop = loopOf(model, view, card.id, group)
+  const values = loopValues(loop)
+  const hasPassages = groups.length > 0 || loop.steps.some(Boolean) || loop.cautions.length > 0
+  return (
+    <section className="ok-stack" aria-label={`Reasoning for ${card.heading}`} data-testid="reasoning-figure-loop">
+      <h3 className={H}><KindName card={card} model={model} name={card.heading} view={`${card.id}.heading`} letter={optionLetters(model).get(card.id)} /></h3>
+      <dl className="ok-loop-statuses">
+        {STATUS.map(({ id, label, icon }, i) => <StatusRow key={id} label={label} icon={icon} value={values[i]}
+          explain={canExplain && hasPassages ? <LinkExplanation scope={scope} record={card.id} passage={statusId(id, group)} subject={`${label.toLowerCase()} for ${card.heading}`} /> : null} />)}
+      </dl>
+    </section>
+  )
+}
+
+/** `stated`: the state strip above the tab already labels the what-if. */
 export function ViewReasoning({ model, stated = false }: { model: ViewModel; brief?: string | null; stated?: boolean }) {
   const run = model.run ?? null
   const methods = useViewStore((s) => s.view?.session?.methods ?? null)
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
   const view = useViewStore((s) => s.view)
+  const scope = useExplanationScope(model)
+  const links = useExplanationModel() === model
   const items = examineOf(model, methods, words, new Set((view?.collab.dissent ?? []).map((d) => d.id)))
   return (
     <div className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
       <WhatIfShown model={model} labelled={!stated} />
-      <RestsOn model={model} run={run} />
-      <Examined items={items} />
-      <AnsweredList view={view} model={model} />
+      <PanelLevel panel="reasoning" />
+      <RestsOn model={model} run={run} reasoning />
+      <FigureLoop model={model} view={links ? view : null} scope={scope} />
+      <Examined items={items} scope={scope} links={links} />
       {view === null ? null : <TowardsCommitment view={view} />}
-      <Premises model={model} />
     </div>
   )
 }
