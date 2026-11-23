@@ -94,7 +94,7 @@ describe('lane dialog focus and recipes', () => {
     expect(trigger).toHaveFocus()
   })
 
-  it('wraps from the end of version history and restores the top bar opener on Escape or Cancel', async () => {
+  it('wraps from the end of version history and restores the top bar opener on Escape or Close', async () => {
     install()
     setTeamFetch(vi.fn(async () => new Response(JSON.stringify({
       versions: [{ id: 1, n: 1, at: '2026-11-23T09:00:00Z', by: 'Paul', base: null }],
@@ -129,7 +129,7 @@ describe('lane dialog focus and recipes', () => {
     trigger.focus()
     fireEvent.click(trigger)
     const history = screen.getByRole('dialog', { name: 'Version history' })
-    const cancel = within(history).getByRole('button', { name: 'Cancel' })
+    const cancel = within(history).getByRole('button', { name: 'Close' })
     fireEvent.keyDown(cancel, { key: '?' })
     const legend = screen.getByRole('dialog', { name: 'Keyboard legend' })
     const close = within(legend).getByRole('button', { name: 'Close keyboard legend' })
