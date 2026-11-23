@@ -383,7 +383,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
-  const folded = isOlumiCoreLane() && attention.turnId?.startsWith(VIEW_NOTE_TURN) === true && openedKey !== attention.turnId
+  const lane = isOlumiCoreLane()
+  const metaType = lane ? typography.viewPanelMeta : typography.panelMeta
+  const folded = lane && attention.turnId?.startsWith(VIEW_NOTE_TURN) === true && openedKey !== attention.turnId
   if (folded) {
     inPanelNow.current = false
     const label = attention.note?.title ?? ATTENTION_CARD_COPY.olumi
@@ -403,7 +405,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
   // ⛔ NEVER OVER A CARD ON THE CORE LANE (DL 4 Nov, the real capacity model's witness): where even the whole canvas has no free spot,
   // the note goes into the Olumi tab, under Next step (`VIEW_NOTE_SLOT`), which is opened for it; never over a card.
-  const inPanel = isOlumiCoreLane() && drawn.length > 0 && spotCovers({ left, top }, { w: CARD_WIDTH, h: cardHeight }, drawn)
+  const inPanel = lane && drawn.length > 0 && spotCovers({ left, top }, { w: CARD_WIDTH, h: cardHeight }, drawn)
   inPanelNow.current = inPanel
   const slot = inPanel && typeof document !== 'undefined' ? document.querySelector<HTMLElement>(`[${VIEW_NOTE_SLOT}]`) : null
 
@@ -539,7 +541,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
             </p>
             {caveat.sourceLine ? (
               <p
-                className={`${typography.panelMeta} text-text-light mt-1 mb-0`}
+                className={`${metaType} text-text-light mt-1 mb-0`}
                 data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-caveat-reason` : undefined}
               >
                 {caveat.sourceLine}
@@ -597,11 +599,11 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
         ) : null}
 
         {note && note.sourceLine ? (
-          <p className={`${typography.panelMeta} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
+          <p className={`${metaType} text-text-light mt-1.5 mb-0`}>{note.sourceLine}</p>
         ) : null}
         {note && note.why && note.why.length > 0 ? (
           // The producer's reasons, one press away, verbatim (W1 "Why ▸" on a finding): the chat's own disclosure, on the note.
-          <details className={`${typography.panelMeta} mt-1.5 text-text-body`} data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-why` : undefined}
+          <details className={`${metaType} mt-1.5 text-text-body`} data-testid={live ? `${OLUMI_ATTENTION_CARD_TESTID}-why` : undefined}
             open={whyOpenFor === whyKey}
             onToggle={(e) => { const o = e.currentTarget.open; if (live && o !== (whyOpenFor === whyKey)) setWhyOpenFor(o ? whyKey : null) }}>
             <summary className="cursor-pointer text-text-light">{ATTENTION_CARD_COPY.why}</summary>
@@ -629,7 +631,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // ⛔ NEVER PAINTED BEFORE ITS SPOT IS KNOWN (integrator, 4 Nov, 900×560: on the canvas for a frame, then in the tab). On the lane the
   // note's place rests on the cards as drawn, measured a frame after it mounts; until then `inPanel` cannot be known, so it is drawn
   // invisible (still measured) and shown only once placed.
-  const placed = !isOlumiCoreLane() || (cardHeight > 0 && drawnNow.key !== '')
+  const placed = !lane || (cardHeight > 0 && drawnNow.key !== '')
   const unseen = inPanel || !placed
   const onCanvas = shell({ ref: cardRef, ...(inPanel ? { 'data-note-measure': '', 'aria-hidden': true, inert: '' } : { 'data-testid': OLUMI_ATTENTION_CARD_TESTID }),
     style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(unseen ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)

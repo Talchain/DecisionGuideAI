@@ -103,7 +103,7 @@ export function ViewLensBar({ extra }: { extra?: ReactNode } = {}): JSX.Element 
               onClick={() => { if (!waiting) useViewLens.setState({ lens: id }) }}
               className={count > 0 ? TOOLBAR_COUNTED_ICON : TOOLBAR_ICON}>
               <OkIcon id={LENS_GLYPH[id]} size={14} decorative inherit />
-              <span className="sr-only" data-lens-label={id}>{W.label[id]}</span>
+              <span className={`sr-only ${typography.viewPanelMeta}`} data-lens-label={id}>{W.label[id]}</span>
               {count > 0 ? <span data-testid={`${LENS_BAR_TESTID}-${id}-count`} className={`${typography.viewPanelMeta} tabular-nums`}>{count}</span> : null}
             </HoverButton>
           )

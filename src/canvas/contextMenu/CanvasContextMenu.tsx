@@ -12,9 +12,7 @@ import { useModelEditAuthority } from '../hooks/useModelEditAuthority'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { ContextRows, hasIcon } from './ContextRows'
 import { CardMenuHeader } from '../../olumiView/v12/chat/CardMenuHeader'
-import { freeCanvas } from '../../olumiView/v12/edit/placeBeside'
-import { FOOT_CONTROLS, HEAD_CONTROLS, LENS_KEYS, regionsOf } from '../../olumiView/regions'
-import { DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../utils/computeFitPadding'
+import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
 
 export interface CanvasContextMenuProps {
   target: ContextTarget
@@ -99,25 +97,9 @@ export function CanvasContextMenuBase({
   return (
     <Menu anchor={target.opener ?? target.screenPos} opener={target.opener} request={target} label="Canvas context menu"
       onClose={onClose} look={lane ? 'lane' : 'older'}
-      boundary={lane ? canvasBoundary : undefined} iconColumn={lane || hasIcon(items)}>
+      boundary={lane ? canvasChromeMenuBoundary : undefined} iconColumn={lane || hasIcon(items)}>
       {lane && target.kind === 'node' ? <CardMenuHeader nodeId={target.nodeId} /> : null}
       <ContextRows items={items} lane={lane} />
     </Menu>
   )
-}
-
-const canvasBoundary = {
-  rect: canvasMenuBoundary,
-  elements: () => document.querySelectorAll([
-    DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR, ...HEAD_CONTROLS, ...FOOT_CONTROLS, ...LENS_KEYS,
-  ].join(',')),
-}
-
-function canvasMenuBoundary() {
-  const { left, top, right, bottom } = freeCanvas()
-  const { foot, keys = [] } = regionsOf()
-  const floor = [...foot, ...keys].reduce((y, control) =>
-    control.right > left && control.left < right && control.top > top && control.bottom > control.top ? Math.min(y, control.top) : y,
-  bottom)
-  return { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, floor - top) }
 }

@@ -53,9 +53,9 @@ import {
  * looks like a button that lost its styling.
  */
 
-const ROW_ICON_CONTROL =
+const rowIconControl = (lane: boolean) =>
   'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
-  `${typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
+  `${lane ? typography.viewPanelMeta : typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
 
 /**
  * The DOM id of a dock tab, and of the panel they all control. Both halves of
@@ -186,7 +186,7 @@ function CollapseControl({ isOpen, onToggle }: { isOpen: boolean; onToggle: () =
     <button
       type="button"
       onClick={onToggle}
-      className={ROW_ICON_CONTROL}
+      className={rowIconControl(isOlumiCoreLane())}
       aria-label={isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
       data-testid="dock-collapse-control"
     >
@@ -271,7 +271,7 @@ function TabStripOverflowMenu({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(prev => !prev)}
-        className={ROW_ICON_CONTROL}
+        className={rowIconControl(false)}
         aria-label="More controls"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -374,7 +374,7 @@ export function WorkspaceShellTabStrip({
     <HoverButton words={coreLane ? INSPECT_ANALYSIS_LABEL : undefined}
       type="button"
       onClick={inspect}
-      className={ROW_ICON_CONTROL}
+      className={rowIconControl(coreLane)}
       aria-label={INSPECT_ANALYSIS_LABEL}
       title={coreLane ? undefined : INSPECT_ANALYSIS_LABEL}
       data-testid="dock-inspect-analysis"
@@ -625,13 +625,7 @@ export function WorkspaceShellTabStrip({
                   // deliberately NOT used: a static label on a tab, not a live
                   // announcement.)
                   <Hover focusable={false} words={coreLane ? verifyWords : undefined}
-                    // DS §2.4 forbids weight overrides on panel tokens; this
-                    // carried an inline `fontWeight: 600` on top of an inline
-                    // `fontSize: 11` — a raw type declaration invisible to
-                    // every class-based guard. `panelMeta` IS 11px, so the
-                    // token replaces both and the badge stays legible on the
-                    // warning fill by contrast rather than by weight.
-                    className={`inline-flex items-center justify-center rounded-full bg-warning text-text-on-color shrink-0 ${typography.panelMeta}`}
+                    className={`inline-flex items-center justify-center rounded-full bg-warning text-text-on-color shrink-0 ${coreLane ? typography.viewPanelMeta : typography.panelMeta}`}
                     style={{ minWidth: 16, height: 16, padding: '0 4px' }}
                     title={coreLane ? undefined : verifyWords}
                     aria-label={verifyWords}
@@ -668,7 +662,7 @@ export function WorkspaceShellTabStrip({
               class as the collapse control and the two read as one control set. */}
           <VersionsTrigger
             variant="icon"
-            className={ROW_ICON_CONTROL}
+            className={rowIconControl(false)}
             data-testid="dock-versions-trigger"
           />
           <button

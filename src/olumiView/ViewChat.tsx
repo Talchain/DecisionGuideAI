@@ -1783,7 +1783,7 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
       <div className="grid auto-rows-fr grid-cols-2 gap-1.5">
         {session.goals.map((g, i) => (
           <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
-            className="flex items-start justify-between gap-1.5 rounded-lg border border-field px-2.5 py-2 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:cursor-not-allowed disabled:text-text-light aria-pressed:bg-goal-light aria-pressed:hover:bg-goal-light"
+            className={`${typography.viewPanelBody} flex items-start justify-between gap-1.5 rounded-md border border-field px-2.5 py-2 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:cursor-not-allowed disabled:text-text-light aria-pressed:bg-goal-light aria-pressed:hover:bg-goal-light`}
             data-goal={g.id} data-testid="view-session-goal-option">
             <span data-view={`session.goals.${i}.text`}>{g.text}</span>
             {g.id === goal?.id && <OkIcon id="trigger-taken" size={14} decorative className="mt-0.5" />}

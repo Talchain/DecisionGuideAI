@@ -7,6 +7,10 @@ import { TopBar } from '../TopBar'
 // ToastProvider. Production (CanvasMVP) provides it at the route level.
 import { ToastProvider } from '../../../canvas/ToastContext'
 
+vi.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: null, profile: null, signOut: vi.fn() }),
+}))
+
 function renderTopBar(props: React.ComponentProps<typeof TopBar>) {
   return render(
     <MemoryRouter>
@@ -94,7 +98,7 @@ describe('TopBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /more options/i }))
     expect(screen.getByRole('menu')).toBeInTheDocument()
 
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
     fireEvent.mouseUp(document.body)
     fireEvent.click(document.body)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
