@@ -46,7 +46,7 @@ function core(next: () => View, respond: (url: string) => Response | Promise<Res
 const show = (v: View) => useViewStore.setState({ uuid: UUID, sid: SID, view: v, error: null, status: 'ready', stale: false, at: null })
 // V12: the goal row and the questions live behind the composer's ⋯ (one action system), so the menu is opened once drawn.
 const renderTab = () => {
-  const c = render(<><ViewChat /><ViewComposer /></>).container
+  const c = render(<><ViewChat /><ViewComposer /></>).baseElement
   const b = c.querySelector('[data-testid="view-actions-button"]')
   if (b !== null) act(() => { fireEvent.click(b) })
   return c

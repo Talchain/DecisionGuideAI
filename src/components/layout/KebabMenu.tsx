@@ -3,7 +3,7 @@
  *
  * Groups: Model (Rename, Export, Import, Snapshots, Start new scenario) |
  * View (Fullscreen) | Help (Keyboard shortcuts, How influence works) |
- * Canvas settings (flattened toggles).
+ * Canvas settings.
  *
  * Lane 4 (P5): Export routes to the REAL ImportExportDialog (it was a
  * console.warn stub — a visible control that did nothing). Import ships
@@ -19,7 +19,12 @@
 
 import { HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../olumiView/look/Menu'
+import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
+import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
+import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
+import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 import { OkIcon } from '../../olumiView/look/icons'
 import Tooltip from '../Tooltip'
 import { ConfirmDialog } from '../../canvas/components/ConfirmDialog'
@@ -69,10 +74,31 @@ export function KebabMenu({
   //   Export, Version history: not here. The bar draws the Summary (whose page downloads the Markdown) and the Version history control, so a row
   //                       here said each a second time (S4 pop-up lane, 20 Nov).
   //   Start new scenario  a blank brief (the old scenario stays in core and in My scenarios, so nothing is lost and nothing is confirmed).
-  //   Import              no core route: not offered. Canvas settings: the lane's canvas (ViewCanvas) does not read them: not offered.
+  //   Import              no core route. The canvas settings form offers grid and snap, which ViewCanvas reads.
   const lane = isOlumiCoreLane()
   const coreSid = useViewStore((s) => s.sid)
   const [showTitle, setShowTitle] = useState(false)
+  const [opener, setOpener] = useState<HTMLButtonElement | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const settingsForm = useRef<HTMLFormElement>(null)
+  const firstSetting = useRef<HTMLInputElement>(null)
+  const closeSettings = () => { setSettingsOpen(false); opener?.focus() }
+  useEscapeLayer(settingsOpen, closeSettings)
+  useEffect(() => {
+    if (isOpen) setSettingsOpen(false)
+  }, [isOpen])
+  useEffect(() => {
+    if (!settingsOpen) return
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!settingsForm.current?.contains(target) && !opener?.contains(target)) setSettingsOpen(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    return () => document.removeEventListener('pointerdown', outside)
+  }, [opener, settingsOpen])
+  useLayoutEffect(() => {
+    if (settingsOpen) firstSetting.current?.focus()
+  }, [settingsOpen])
 
   const {
     showGrid,
@@ -111,18 +137,16 @@ export function KebabMenu({
 
   const handleLaneRename = useCallback(() => {
     setShowTitle(true)
-    onClose()
-  }, [onClose])
+  }, [])
 
-  const handleLaneStartNew = useCallback(() => {
-    onClose()
+  const handleLaneStartNew = () => {
     // The one "start fresh" is My scenarios' own; loaded on the press, so the bar does not carry that page (and its imports).
     void import('../../olumiCore/accounts/MyScenariosPage').then((m) => {
       m.startFreshScenario()
       // A HashRouter: the address names the scenario shown, so it moves to the blank brief with it (as TopBar's links do).
       window.location.hash = '#/canvas'
     })
-  }, [onClose])
+  }
 
   const handleConfirmReset = useCallback(() => {
     resetCanvas()
@@ -135,15 +159,98 @@ export function KebabMenu({
     } else {
       document.documentElement.requestFullscreen()
     }
-    onClose()
-  }, [onClose])
+    if (!lane) onClose()
+  }, [lane, onClose])
+
+  const settingsFields = (
+    <div className="divide-y divide-panel-border">
+      <label htmlFor="kebab-show-grid" className={settingsRow}>
+        <span>Show grid</span>
+        <input
+          ref={lane ? firstSetting : undefined}
+          id="kebab-show-grid"
+          type="checkbox"
+          checked={showGrid}
+          onChange={(e) => setShowGrid(e.target.checked)}
+          className={lane ? 'size-3.5 cursor-pointer accent-text-header focus-visible:ring-2 focus-visible:ring-text-header' : styles.settingsCheckbox}
+        />
+      </label>
+
+      {showGrid && (
+        <div className="flex flex-col space-y-2 py-2.5 text-text-body">
+          <label htmlFor="kebab-grid-size">Grid size: {gridSize}px</label>
+          <input
+            id="kebab-grid-size"
+            type="range"
+            min="8"
+            max="24"
+            step="8"
+            value={gridSize}
+            onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
+            className={lane ? 'h-1 w-full cursor-pointer accent-text-header focus-visible:ring-2 focus-visible:ring-text-header' : styles.settingsSlider}
+            aria-valuemin={8}
+            aria-valuemax={24}
+            aria-valuenow={gridSize}
+            aria-valuetext={`${gridSize} pixels`}
+          />
+          <div className={`${typography.viewPanelMeta} flex justify-between text-text-light`} aria-hidden="true">
+            <span>8px</span>
+            <span>16px</span>
+            <span>24px</span>
+          </div>
+        </div>
+      )}
+
+      <label htmlFor="kebab-snap-to-grid" className={settingsRow}>
+        <span>Snap to grid</span>
+        <input
+          id="kebab-snap-to-grid"
+          type="checkbox"
+          checked={snapToGrid}
+          onChange={(e) => setSnapToGrid(e.target.checked)}
+          className={lane ? 'size-3.5 cursor-pointer accent-text-header focus-visible:ring-2 focus-visible:ring-text-header' : styles.settingsCheckbox}
+        />
+      </label>
+
+      {!lane && (<>
+        <label htmlFor="kebab-alignment-guides" className={settingsRow}>
+          <span>Alignment guides</span>
+          <input
+            id="kebab-alignment-guides"
+            type="checkbox"
+            checked={showAlignmentGuides}
+            onChange={(e) => setShowAlignmentGuides(e.target.checked)}
+            className={styles.settingsCheckbox}
+          />
+        </label>
+
+        <label htmlFor="kebab-high-contrast" className={settingsRow}>
+          <span>High contrast mode</span>
+          <input
+            id="kebab-high-contrast"
+            type="checkbox"
+            checked={highContrastMode}
+            onChange={(e) => setHighContrastMode(e.target.checked)}
+            className={styles.settingsCheckbox}
+          />
+        </label>
+      </>)}
+    </div>
+  )
 
   return (
     <>
-      <div className={styles.menuDropdown} ref={menuRef}>
+      <div className={styles.menuDropdown} ref={menuRef}
+        onMouseDown={lane ? (event) => {
+          // TopBar's older outside-press listener cannot see portalled descendants.
+          if ((event.target as Element).closest('[data-olumi-menu]')) event.stopPropagation()
+        } : undefined}>
         {lane ? (
-          <HoverButton type="button" words="More options" onClick={onToggle} className={TOOLBAR_ICON}
-            aria-label="More options" aria-expanded={isOpen} aria-haspopup="true">
+          <HoverButton ref={setOpener} type="button" words="More options" className={TOOLBAR_ICON}
+            onClick={(event) => {
+              if (!dismissMenuFromOpener(event.currentTarget)) { setSettingsOpen(false); onToggle() }
+            }}
+            aria-label="More options" aria-expanded={isOpen} aria-haspopup="menu">
             <OkIcon id="more" size={14} decorative inherit />
           </HoverButton>
         ) : (
@@ -161,7 +268,46 @@ export function KebabMenu({
           </Tooltip>
         )}
 
-        {isOpen && (
+        {lane && isOpen && !settingsOpen && opener && (
+          <Menu anchor={opener} label="More options" placement="bottom-end" gap={8}
+            boundary={canvasChromeMenuBoundary} onClose={onClose}>
+            <MenuLabel>Model</MenuLabel>
+            <div className="divide-y divide-panel-border">
+              {coreSid !== null && <MenuItem id="rename" label="Rename" icon={<OkIcon id="edit" size={14} decorative inherit />}
+                onSelect={handleLaneRename} meta={{ 'data-testid': 'kebab-rename-core' }} />}
+              <MenuItem id="start-new" label="Start new scenario" icon={<OkIcon id="new-scenario" size={14} decorative inherit />}
+                onSelect={handleLaneStartNew} meta={{ 'data-testid': 'kebab-start-new-core' }} />
+            </div>
+            <MenuSeparator />
+            <MenuLabel>View</MenuLabel>
+            <MenuItem id="fullscreen" label="Fullscreen" icon={<OkIcon id="zoom-fit" size={14} decorative inherit />} onSelect={handleFullscreen} />
+            <MenuSeparator />
+            <MenuLabel>Help</MenuLabel>
+            <div className="divide-y divide-panel-border">
+              <MenuItem id="shortcuts" label="Keyboard shortcuts" icon={<OkIcon id="shortcuts" size={14} decorative inherit />} onSelect={onShowKeyboardLegend} />
+              <MenuItem id="influence" label="How influence works" icon={<OkIcon id="explain-olumi" size={14} decorative inherit />} onSelect={onShowInfluenceExplainer} />
+            </div>
+            <MenuSeparator />
+            <MenuItem id="canvas-settings" label="Canvas settings" icon={<OkIcon id="profile-settings" size={14} decorative inherit />}
+              onSelect={() => setSettingsOpen(true)} />
+          </Menu>
+        )}
+
+        {lane && settingsOpen && (
+          <form ref={settingsForm} aria-label="Canvas settings" onSubmit={(event) => { event.preventDefault(); closeSettings() }}
+            className={`absolute right-0 top-full mt-2 max-h-[60vh] w-56 max-w-[calc(100vw-1rem)] overflow-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${CANVAS_LAYER_CLASS.chromeMenu} ${typography.viewPanelBody}`}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className={`${typography.viewPanelHeadline} text-text-header`}>Canvas settings</h2>
+              <HoverButton type="button" words="Close canvas settings" aria-label="Close canvas settings" onClick={closeSettings}
+                className="rounded-control p-1.5 text-text-light hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-text-header">
+                <OkIcon id="cancel-close" size={14} decorative inherit />
+              </HoverButton>
+            </div>
+            {settingsFields}
+          </form>
+        )}
+
+        {!lane && isOpen && (
           <div className={`${typography.viewPanelMeta} absolute right-0 top-full z-50 mt-2 w-56 space-y-4 rounded-lg border border-panel-border bg-panel p-3 shadow-2`} role="menu">
             <div className="space-y-2">
               {/* Model group (Paul, 14 Aug 2026: "decision" -> "model") */}
@@ -176,30 +322,6 @@ export function KebabMenu({
                   >
                     <OkIcon id="edit" size={14} decorative inherit className="text-text-light" />
                     <span>Rename</span>
-                  </button>
-                )}
-                {lane && coreSid !== null && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={menuRow}
-                    onClick={handleLaneRename}
-                    data-testid="kebab-rename-core"
-                  >
-                    <OkIcon id="edit" size={14} decorative inherit className="text-text-light" />
-                    <span>Rename</span>
-                  </button>
-                )}
-                {lane && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={menuRow}
-                    onClick={handleLaneStartNew}
-                    data-testid="kebab-start-new-core"
-                  >
-                    <OkIcon id="new-scenario" size={14} decorative inherit className="text-text-light" />
-                    <span>Start new scenario</span>
                   </button>
                 )}
                 {lanePreviousControl('file') && (
@@ -309,81 +431,9 @@ export function KebabMenu({
               </div>
             </div>
             <div className="space-y-2">
-              {/* Canvas settings (flattened). On the olumi-core lane (Paul's audit, 17 Nov) ViewCanvas reads the grid, its size and snap; alignment
-                  guides and high contrast belong to the previous canvas only, so they are not offered there. */}
+              {/* The older canvas's inline settings. */}
               <div className={menuLabel}>Canvas settings</div>
-              <div className="divide-y divide-panel-border">
-                <label htmlFor="kebab-show-grid" className={settingsRow}>
-                  <span>Show grid</span>
-                  <input
-                    id="kebab-show-grid"
-                    type="checkbox"
-                    checked={showGrid}
-                    onChange={(e) => setShowGrid(e.target.checked)}
-                    className={styles.settingsCheckbox}
-                  />
-                </label>
-
-                {showGrid && (
-                  <div className="flex flex-col space-y-2 py-2.5 text-text-body">
-                    <label htmlFor="kebab-grid-size">Grid size: {gridSize}px</label>
-                    <input
-                      id="kebab-grid-size"
-                      type="range"
-                      min="8"
-                      max="24"
-                      step="8"
-                      value={gridSize}
-                      onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
-                      className={styles.settingsSlider}
-                      aria-valuemin={8}
-                      aria-valuemax={24}
-                      aria-valuenow={gridSize}
-                      aria-valuetext={`${gridSize} pixels`}
-                    />
-                    <div className={`${typography.viewPanelMeta} flex justify-between text-text-light`} aria-hidden="true">
-                      <span>8px</span>
-                      <span>16px</span>
-                      <span>24px</span>
-                    </div>
-                  </div>
-                )}
-
-                <label htmlFor="kebab-snap-to-grid" className={settingsRow}>
-                  <span>Snap to grid</span>
-                  <input
-                    id="kebab-snap-to-grid"
-                    type="checkbox"
-                    checked={snapToGrid}
-                    onChange={(e) => setSnapToGrid(e.target.checked)}
-                    className={styles.settingsCheckbox}
-                  />
-                </label>
-
-                {!lane && (<>
-                  <label htmlFor="kebab-alignment-guides" className={settingsRow}>
-                    <span>Alignment guides</span>
-                    <input
-                      id="kebab-alignment-guides"
-                      type="checkbox"
-                      checked={showAlignmentGuides}
-                      onChange={(e) => setShowAlignmentGuides(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-
-                  <label htmlFor="kebab-high-contrast" className={settingsRow}>
-                    <span>High contrast mode</span>
-                    <input
-                      id="kebab-high-contrast"
-                      type="checkbox"
-                      checked={highContrastMode}
-                      onChange={(e) => setHighContrastMode(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-                </>)}
-              </div>
+              {settingsFields}
             </div>
           </div>
         )}

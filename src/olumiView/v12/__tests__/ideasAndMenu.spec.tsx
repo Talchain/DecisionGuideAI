@@ -14,7 +14,7 @@ import { useViewStore } from '../../store'
 import { ViewChat, ViewComposer, useViewChat } from '../../ViewChat'
 import { leaveBriefPanel, useBriefPanelLeft } from '../../BriefPanel'
 import { IDEA_MAX, ideaTextOf, keepIdea, keptIdeasOf } from '../ideas'
-import { ActionsMenu, FIRST_FOR_YOUR_GOAL, placeMenu } from '../actionsMenu'
+import { ActionsMenu, FIRST_FOR_YOUR_GOAL } from '../actionsMenu'
 import { IdeaPanel } from '../bands/IdeaPanel'
 import { IDEA_PREFIX } from '../bands/bands'
 import { tipOf } from '../../__tests__/tipHelpers'
@@ -157,7 +157,7 @@ describe('Keep as an idea on a method reply', () => {
 })
 
 describe('the ⋯ menu in the composer', () => {
-  const tab = () => render(<><ViewChat /><ViewComposer /></>).container
+  const tab = () => render(<><ViewChat /><ViewComposer /></>).baseElement
   it('sits beside the four icons, opens core\'s questions in core\'s order and the two tools; "More ways" is gone', async () => {
     const v = fixture('goal-understand')
     core(() => v)
@@ -243,7 +243,7 @@ describe('the reply\'s next step (system spec P2: no card at the top)', () => {
     const view: View = { ...v, chat: v.chat.map((x) => (x === t ? { ...x, answer: { ...x.answer!, next: { ...x.answer!.next, move: 'other_method' } } } : x)) }
     core(() => view)
     show(view)
-    const c = render(<><ViewChat /><ViewComposer /></>).container // the ⋯ list lives in the composer
+    const c = render(<><ViewChat /><ViewComposer /></>).baseElement // the ⋯ list lives in the composer
     expect(c.querySelector('[data-testid="view-next-step"]')).toBeNull() // CHANGED BY DESIGN: was the goal's first question as a card at the top
     expect(c.querySelector('[data-testid="view-next-move"]')).toBeNull() // the filler draws no move tap
     await press(c.querySelector('[data-testid="view-actions-button"]')!)
@@ -262,24 +262,24 @@ describe('the reply\'s next step (system spec P2: no card at the top)', () => {
   })
 })
 
-describe('the ⋯ list stays inside its panel (Codex 006 #2)', () => {
-  // Codex's measure at 1232 x 704: the chat panel spans x 885 to 1232, the ⋯ button's right edge is at 1052, its left at 1024, its top at 650.
-  const button = { top: 650, left: 1024, right: 1052 }, panel = { left: 885, right: 1232 }, win = { width: 1232, height: 704 }
-  it('at 1232 x 704 the whole list is inside the panel, 8 px from each edge at most', () => {
-    const p = placeMenu(button, panel, win)
-    const at = button.left + p.left
-    expect(at).toBeGreaterThanOrEqual(panel.left + 8)
-    expect(at + p.width).toBeLessThanOrEqual(panel.right - 8)
-    expect(p.width).toBe(320)
-  })
-  it('CONTRAST: anchored to the button as before, it started at x 732, 153 px left of the panel', () => {
-    expect(button.right - 320).toBe(732)
-    expect(panel.left - (button.right - 320)).toBe(153)
-  })
-  it('a panel narrower than the list: the list narrows to the panel, never past it', () => {
-    const p = placeMenu({ top: 650, left: 1180, right: 1208 }, { left: 1000, right: 1232 }, win)
-    expect(p.width).toBe(216)
-    expect(1180 + p.left).toBe(1008)
+describe('the ⋯ list uses the conversation boundary', () => {
+  it.each([
+    ['Outputs dock', 347, 331],
+    ['Olumi conversation', 232, 216],
+  ])('measures the width of %s and keeps an 8px inset on either side', async (label, width, available) => {
+    const left = window.innerWidth - width
+    const action = <ActionsMenu menu={{ goal: null, methods: [], tools: ['edit_brief'] }} held={false} goal={null}
+      onMethod={() => undefined} onTool={() => undefined} />
+    const { getByTestId } = render(label === 'Outputs dock'
+      ? <aside aria-label={label}>{action}</aside>
+      : <div role="dialog" aria-label={label} data-testid="view-chat-float">{action}</div>)
+    const button = getByTestId('view-actions-button')
+    const panel = button.closest('[aria-label="' + label + '"]')!
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect(left, 100, width, 604))
+    vi.spyOn(button, 'getBoundingClientRect').mockReturnValue(new DOMRect(left + 100, 650, 28, 28))
+    await press(button)
+    const popup = getByTestId('view-actions-menu')
+    await waitFor(() => expect(popup.style.maxWidth).toBe(`${available}px`))
   })
 })
 
@@ -288,7 +288,7 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
   const menu: Menu = { goal: null, methods, tools: ['edit_brief', 'review_inputs'] }
   const BUILD = { label: 'An invented offer to build', title: 'An invented hover.', onPress: () => undefined }
   const open = async (build?: typeof BUILD) => {
-    const c = render(<ActionsMenu menu={menu} held={false} goal={<div data-testid="view-session-goal">An invented goal row</div>} onMethod={() => undefined} onTool={() => undefined} build={build} />).container
+    const c = render(<ActionsMenu menu={menu} held={false} goal={<div data-testid="view-session-goal">An invented goal row</div>} onMethod={() => undefined} onTool={() => undefined} build={build} />).baseElement
     await press(c.querySelector('[data-testid="view-actions-button"]')!)
     return c.querySelector<HTMLElement>('[data-testid="view-actions-menu"]')!
   }
@@ -312,8 +312,8 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     expect(m.querySelector('[data-testid="view-build-model"]')).toBeNull()
     expect(m.querySelector('[data-testid="view-build-model-row"]')).toBeNull()
     expect([...m.querySelectorAll<HTMLElement>('[data-testid="view-actions-tools"] button')].map((b) => b.dataset['tool'])).toEqual(['edit_brief', 'review_inputs'])
-    expect(m.querySelector('[data-testid="view-tool-edit_brief"] [data-testid="brief"] svg')).toHaveAttribute('width', '16')
-    expect(m.querySelector('[data-testid="view-tool-review_inputs"] [data-testid="review-inputs"] svg')).toHaveAttribute('width', '16')
+    expect(m.querySelector('[data-testid="view-tool-edit_brief"] [data-testid="brief"] svg')).toHaveAttribute('width', '14')
+    expect(m.querySelector('[data-testid="view-tool-review_inputs"] [data-testid="review-inputs"] svg')).toHaveAttribute('width', '14')
   })
 })
 
@@ -334,7 +334,7 @@ describe('question rows', () => {
     expect(rows.map((row) => row.getAttribute('data-method'))).toEqual([...ids, 'future_question', 'outside'])
     const expectedIcons = [...ids.map((id) => `method-${id}`), 'method-other', 'method-other']
     for (const [index, row] of rows.entries()) {
-      expect(row.querySelector(`[data-testid="${expectedIcons[index]}"][aria-hidden="true"].text-text-light svg`)).toHaveAttribute('width', '16')
+      expect(row.querySelector(`[data-testid="${expectedIcons[index]}"][aria-hidden="true"].text-text-light svg`)).toHaveAttribute('width', '14')
     }
   })
 
@@ -357,7 +357,7 @@ describe('question rows', () => {
     expect(tool).toHaveFocus()
     fireEvent.keyDown(tool, { key: 'ArrowUp' })
     expect(build).toHaveFocus()
-    fireEvent.mouseDown(document.body)
+    fireEvent.pointerDown(document.body)
     expect(queryByTestId('view-actions-menu')).toBeNull()
   })
 })
@@ -366,7 +366,7 @@ describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under s
   const SAID = 'An invented sentence every gated question shares.'
   const m = (id: string, i: number, prerequisite: string | null) => ({ id, i, text: `An invented question ${i}`, first: false, prerequisite })
   const draw = async (methods: unknown[]) => {
-    const c = render(<ActionsMenu menu={{ goal: null, methods: methods as Menu['methods'], tools: [] }} held={false} goal={null} onMethod={() => undefined} onTool={() => undefined} />).container
+    const c = render(<ActionsMenu menu={{ goal: null, methods: methods as Menu['methods'], tools: [] }} held={false} goal={null} onMethod={() => undefined} onTool={() => undefined} />).baseElement
     await press(c.querySelector('[data-testid="view-actions-button"]')!)
     return c.querySelector<HTMLElement>('[data-testid="view-actions-menu"]')!
   }
@@ -379,9 +379,9 @@ describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under s
     // The mark's hover is the one Tip (the icon inside its question's button), never a native title.
     act(() => { (document.activeElement as HTMLElement).blur() })
     for (const e of marks) {
-      expect(e.parentElement).toHaveAttribute('data-testid', 'view-session-method')
-      expect(e.parentElement?.lastElementChild).toBe(e)
-      expect(e).toHaveClass('ml-auto', 'text-text-light')
+      expect(e.closest('button')).toHaveAttribute('data-testid', 'view-session-method')
+      expect(e.closest('button')?.lastElementChild).toContainElement(e)
+      expect(e).toHaveClass('text-text-light')
       expect([e.getAttribute('aria-label'), e.hasAttribute('title'), await tipOf(e)]).toEqual([SAID, false, SAID])
     }
   })

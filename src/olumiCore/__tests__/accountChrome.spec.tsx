@@ -18,6 +18,7 @@ import { UserAvatarMenu } from '../../components/layout/UserAvatarMenu'
 import { useMe } from '../me'
 import { SignedOut } from '../SignedOut'
 import { setPagePerson, setTeamFetch } from '../team/api'
+import { tipOf } from '../../olumiView/__tests__/tipHelpers'
 import { useViewStore } from '../../olumiView/store'
 
 /** Core as this browser sees it: Ada's link signed in until she signs out (`fail`: the sign-out answers 500). */
@@ -49,12 +50,13 @@ const lanePage = () => render(
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); useMe.setState({ me: null, status: 'none', hasAccount: false }); setTeamFetch(null); setPagePerson(null); asked = [] })
 
 describe('the account menu on the olumi-core lane: what core serves, and nothing else', () => {
-  it('says whose private link this page was opened with, and offers only what core serves: nothing that cannot work', () => {
+  it('says whose private link this page was opened with, and offers only what core serves: nothing that cannot work', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     useMe.setState({ me: { id: 'p_1', name: 'Ada' }, status: 'ready' })
     lanePage()
     const mark = screen.getByTestId('olumi-core-person-mark')
-    expect(mark.getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
+    expect(mark.hasAttribute('title')).toBe(false)
+    expect(await tipOf(mark)).toBe('You are using Olumi through Ada’s private link')
     expect(mark.textContent).toBe('A')
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['My scenarios', 'Organisation', 'Account', 'Terms', 'Privacy', 'Sign out', 'Delete my data'])
@@ -67,14 +69,14 @@ describe('the account menu on the olumi-core lane: what core serves, and nothing
     who({ email: 'ada@example.com', org: { id: 'o_0123456789ab', name: 'Northwind', role: 'member' } })
     await act(async () => { await useMe.getState().load() })
     lanePage()
-    expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBe('You are signed in to your Olumi account')
+    expect(await tipOf(screen.getByTestId('olumi-core-person-mark'))).toBe('You are signed in to your Olumi account')
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }))
     expect(screen.queryByText(/private link/)).toBeNull()
     cleanup(); useMe.setState({ me: null, status: 'none', hasAccount: false })
     who(null)
     await act(async () => { await useMe.getState().load() })
     lanePage()
-    expect(screen.getByTestId('olumi-core-person-mark').getAttribute('title')).toBe('You are using Olumi through Ada’s private link')
+    expect(await tipOf(screen.getByTestId('olumi-core-person-mark'))).toBe('You are using Olumi through Ada’s private link')
   })
 
   it('says nothing about private link or account until core has answered who this is (never the wrong sentence for an account holder)', () => {

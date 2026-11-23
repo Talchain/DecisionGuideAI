@@ -41,9 +41,13 @@ describe('on the lane', () => {
 
   it('offers exactly the items with no other route: no Import, no Export summary or Version history (the bar has both); Canvas settings with only what the V12 canvas reads (grid, its size, snap)', () => {
     show(); renderKebab()
-    expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
-    expect(screen.getByText('Canvas settings')).toBeInTheDocument()
-    expect(screen.getByLabelText('Show grid')).toBeInTheDocument()
+    expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works', 'Canvas settings'])
+    const menu = screen.getByRole('menu', { name: 'More options' })
+    expect(menu.querySelector('input')).toBeNull()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Canvas settings' }))
+    expect(screen.queryByRole('menu')).toBeNull()
+    expect(screen.getByRole('form', { name: 'Canvas settings' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Show grid')).toHaveFocus()
     expect(screen.getByLabelText(/Grid size/)).toBeInTheDocument()
     expect(screen.getByLabelText('Snap to grid')).toBeInTheDocument()
     expect(screen.queryByLabelText('Alignment guides')).toBeNull()
@@ -60,9 +64,9 @@ describe('on the lane', () => {
 
   it('with no saved model the menu is the same; with no scenario there is no Rename; Start new scenario stays', () => {
     show({ view: { title: 'x', version: null } as never }); renderKebab()
-    expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
+    expect(names()).toEqual(['Rename', 'Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works', 'Canvas settings'])
     cleanup(); show({ sid: null, view: null }); renderKebab()
-    expect(names()).toEqual(['Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works'])
+    expect(names()).toEqual(['Start new scenario', 'Fullscreen', 'Keyboard shortcuts', 'How influence works', 'Canvas settings'])
   })
 
   it('Start new scenario forgets the shown scenario and goes to the blank brief, with no confirmation', async () => {

@@ -1,9 +1,11 @@
 import { registerEscapeLayer } from '../v12/edit/escapeLayers'
+import { useLaneInspector } from '../v12/edit/inspectorStore'
 
 export type MenuDismissal = 'outside' | 'replaced' | 'escape' | 'tab' | 'action' | 'opener'
 
 interface MenuChain {
   opener: HTMLElement | null
+  lane: boolean
   contains: (target: Node) => boolean
   dismiss: (reason: MenuDismissal) => void
   escape: () => void
@@ -26,6 +28,12 @@ export function dismissMenuFromOpener(opener: HTMLElement): boolean {
   return true
 }
 
+export function escapeMenu(target: Node): boolean {
+  if (!active?.contains(target)) return false
+  active.escape()
+  return true
+}
+
 function outsidePress(event: PointerEvent): void {
   if (active && event.target instanceof Node && !active.opener?.contains(event.target) && !active.contains(event.target)) {
     active.dismiss('outside')
@@ -41,6 +49,10 @@ export function registerMenu(chain: MenuChain): () => void {
     listeners.forEach((listener) => listener())
   }
   previous?.dismiss('replaced')
+  if (chain.lane) {
+    const inspector = useLaneInspector.getState()
+    if (inspector.peek) inspector.clearPeek(inspector.peek.id)
+  }
   const unregisterEscape = registerEscapeLayer(chain.escape)
 
   return () => {

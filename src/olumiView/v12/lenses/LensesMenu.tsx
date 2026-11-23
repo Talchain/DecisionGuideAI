@@ -3,20 +3,22 @@
  * layer on. Production's lens list for power users, drawn from core's View only (`layers.ts`). Chrome words are the layers' names and the table's column
  * heads; everything about the scenario is the View's, verbatim. Olumi's own contributions stay Olumi's: a figure's author line is core's words.
  */
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import { useAnchoredTip } from '../../look/Tip'
 import { TOOLBAR_RAIL_ICON } from '../../look/toolbar'
 import { typography } from '../../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../../canvas/layers'
-import { MENU_ROW, MENU_SEPARATOR, MENU_SHELL } from '../../look/menu'
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../look/Menu'
+import { canvasChromeMenuBoundary } from '../../look/menu'
+import { dismissMenuFromOpener } from '../../look/menuArbiter'
+import { useEscapeLayer } from '../edit/escapeLayers'
 import { useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
 import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
 import { isBaseline } from '../contract'
 import type { View, ViewModel } from '../../client'
-import { MENU_EXCLUSIVE_EVENT } from '../../../components/layout/LeftSidebar'
 import {
   BASIS_LABEL, BASIS_ORDER, edgeTableOf, evidenceOf, figureCards, LAYER_LABEL, layerEntries, optionLayerId, optionOfLayer, SIGN_GLYPH, SIGN_WORDS,
   sensitiveAssumptionsOf, type Basis, type EdgeRow, type LayerId,
@@ -32,7 +34,7 @@ export const LEVEL_WORDS = {
 
 const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
-/** Where the menu and a layer's panel stand: beside the rail, on the chrome menus' layer. */
+/** A layer's reading panel stands beside the rail. */
 const at = `absolute left-full top-0 ml-3 nodrag nopan ${CANVAS_LAYER_CLASS.chromeMenu}`
 const pop = `${at} rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`
 
@@ -42,74 +44,44 @@ export function LensesMenu(): JSX.Element | null {
   const level = useLevel()
   const [menu, setMenu] = useState(false)
   const [panel, setPanel] = useState(false)
-  const root = useRef<HTMLDivElement | null>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const entries = layerEntries(view)
-
-  useEffect(() => {
-    if (!menu) return
-    root.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]')?.focus()
-    const away = (e: PointerEvent) => { if (root.current !== null && !root.current.contains(e.target as Node)) setMenu(false) }
-    const exclusive = (e: Event) => { if ((e as CustomEvent).detail !== LENSES_TESTID) setMenu(false) }
-    document.addEventListener('pointerdown', away)
-    window.addEventListener(MENU_EXCLUSIVE_EVENT, exclusive)
-    return () => { document.removeEventListener('pointerdown', away); window.removeEventListener(MENU_EXCLUSIVE_EVENT, exclusive) }
-  }, [menu])
+  const closePanel = () => { setPanel(false); trigger.current?.focus() }
+  useEscapeLayer(panel && layer !== 'full' && view?.model != null, closePanel)
 
   if (view === null || view.model === null) return null
   const on = layer !== 'full'
-  const choose = (id: LayerId) => { chooseLayer(id); setMenu(false); setPanel(id !== 'full'); trigger.current?.focus() }
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && (menu || panel)) {
-      e.preventDefault()
-      setMenu(false)
-      setPanel(false)
-      trigger.current?.focus()
-      return
-    }
-    if (!menu || e.target === trigger.current) return
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
-    const items = [...(root.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
-    const i = items.indexOf(document.activeElement as HTMLElement)
-    const next = e.key === 'ArrowDown' ? (i + 1) % items.length : i <= 0 ? items.length - 1 : i - 1
-    items[next]?.focus()
-    e.preventDefault()
-  }
 
   return (
-    <div ref={root} className="relative flex flex-col nodrag nopan" onKeyDown={onKey} data-testid={LENSES_TESTID}>
+    <div className="relative flex flex-col nodrag nopan" data-testid={LENSES_TESTID}>
       <HoverButton ref={trigger} words={NO_LAYER_LABEL} type="button" className={TOOLBAR_RAIL_ICON} aria-label={NO_LAYER_LABEL} aria-haspopup="menu" aria-expanded={menu} aria-pressed={on}
           data-testid={`${LENSES_TESTID}-button`}
-          onClick={() => { setPanel(false); setMenu((m) => { if (!m) window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: LENSES_TESTID })); return !m }) }}>
+          onClick={(event) => { if (!dismissMenuFromOpener(event.currentTarget)) { setPanel(false); setMenu(true) } }}>
         <OkIcon id="lenses" size={14} decorative inherit />
       </HoverButton>
-      {menu ? (
-        <div role="menu" aria-label={NO_LAYER_LABEL} className={`${at} ${MENU_SHELL} w-[240px]`} data-testid={`${LENSES_TESTID}-menu`}>
-          {/* Paul, 18 Nov: Simple | Detailed lives here, with the other ways to look at the model, not in a panel of its own at the canvas foot. */}
+      {menu && trigger.current && (
+        <Menu anchor={trigger.current} label={NO_LAYER_LABEL} testId={`${LENSES_TESTID}-menu`}
+          placement="right-start" gap={8} boundary={canvasChromeMenuBoundary} iconColumn={false} onClose={() => setMenu(false)}>
           <div role="group" className="space-y-2" aria-label={LEVEL_WORDS.group} data-testid="view-simple-switch" data-level={level}>
-            <p role="presentation" className={`${typography.viewPanelMeta} text-text-light`}>{LEVEL_WORDS.group}</p>
+            <MenuLabel>{LEVEL_WORDS.group}</MenuLabel>
             <div className="divide-y divide-panel-border">
-              {([['simple', LEVEL_WORDS.simple, LEVEL_WORDS.simpleTitle, showSimple], ['working', LEVEL_WORDS.detailed, LEVEL_WORDS.detailedTitle, showWholeModel]] as const).map(([id, label, title, go]) => (
-                <HoverButton key={id} type="button" role="menuitemradio" aria-checked={level === id} words={title} data-testid={id === 'simple' ? 'view-level-simple' : 'view-level-detailed'} onClick={() => { go(); setMenu(false); trigger.current?.focus() }}
-                  className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${level === id ? 'bg-panel-hover font-medium' : ''}`}>
-                  <span className="min-w-0 truncate">{label}</span>
-                </HoverButton>
-              ))}
+              <MenuItem id="simple" label={LEVEL_WORDS.simple} checked={level === 'simple'} tip={LEVEL_WORDS.simpleTitle}
+                meta={{ 'data-testid': 'view-level-simple' }} onSelect={showSimple} />
+              <MenuItem id="detailed" label={LEVEL_WORDS.detailed} checked={level === 'working'} tip={LEVEL_WORDS.detailedTitle}
+                meta={{ 'data-testid': 'view-level-detailed' }} onSelect={showWholeModel} />
             </div>
           </div>
-          {entries.length <= 1 ? null : <div role="separator" className={MENU_SEPARATOR} />}
-          {entries.length <= 1 ? null : entries.map((e, i) => (
-            <div key={e.id} role="none">
-              {i > 0 && entries[i - 1]!.kind !== e.kind ? <div role="separator" className={MENU_SEPARATOR} /> : null}
-              <button type="button" role="menuitemradio" aria-checked={e.id === layer} data-layer={e.id} onClick={() => choose(e.id)}
-                className={`flex ${MENU_ROW} w-full cursor-pointer items-center text-left text-text-body hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${e.id === layer ? 'bg-panel-hover font-medium' : ''}`}>
-                <span className="min-w-0 truncate">{e.label}</span>
-              </button>
-            </div>
+          {entries.length > 1 && <MenuSeparator />}
+          {entries.length > 1 && entries.map((entry, index) => (
+            <Fragment key={entry.id}>
+              {index > 0 && entries[index - 1]!.kind !== entry.kind && <MenuSeparator />}
+              <MenuItem id={entry.id} label={entry.label} checked={entry.id === layer} meta={{ 'data-layer': entry.id }}
+                onSelect={() => { chooseLayer(entry.id); setPanel(entry.id !== 'full') }} />
+            </Fragment>
           ))}
-        </div>
-      ) : null}
-      {panel && on ? <LayerPanel view={view} layer={layer} onClose={() => setPanel(false)} /> : null}
+        </Menu>
+      )}
+      {panel && on ? <LayerPanel view={view} layer={layer} onClose={closePanel} /> : null}
     </div>
   )
 }
@@ -123,9 +95,9 @@ function Head({ title, tag = null, count = null, onClose }: { title: string; tag
       <h2 className={`${typography.viewPanelBody} min-w-0 flex-1 font-medium text-text-header`}>{title}</h2>
       {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
       {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
-      <button type="button" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
-        <OkIcon id="cancel-close" decorative inherit />
-      </button>
+      <HoverButton type="button" words="Close" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
+        <OkIcon id="cancel-close" size={14} decorative inherit />
+      </HoverButton>
     </div>
   )
 }

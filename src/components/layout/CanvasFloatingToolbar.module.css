@@ -193,7 +193,7 @@
 }
 
 /**
- * The viewport tools' overflow menu (DESIGN-GAP #14) — the controls v3.1 does
+ * The older look's viewport overflow menu (DESIGN-GAP #14) — the controls v3.1 does
  * not draw on the canvas (reset to 100%, auto-arrange, Detailed view, the
  * canvas key) stay reachable here. Opens to the RIGHT of the lower toolbar, on
  * the same material as the toolbar it belongs to, one elevation step up.
