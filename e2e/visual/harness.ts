@@ -146,13 +146,16 @@ const MIN_NON_MODAL_PIXEL_FRACTION = 0.015
  *              founder and the testers actually use, and therefore the size the
  *              regressions were SEEN at.
  *
- * Both are captured for every state: the defects being caught are RELATIONSHIPS
+ * Every size is captured for every state: the defects being caught are RELATIONSHIPS
  * between the graph and the right-hand panel, and a panel that is 22% of one
  * viewport and 35% of another is a different bug at each width.
  */
 export const VIEWPORTS = [
   { name: '1280x800', width: 1280, height: 800 },
   { name: '1440x900', width: 1440, height: 900 },
+  { name: '2000x1205', width: 2000, height: 1205, deviceScaleFactor: 1.33 },
+  { name: '1232x704', width: 1232, height: 704, deviceScaleFactor: 1.33 },
+  { name: '1128x680', width: 1128, height: 680, deviceScaleFactor: 1.33 },
 ] as const
 
 export type ViewportName = (typeof VIEWPORTS)[number]['name']
@@ -235,7 +238,7 @@ async function installHermeticNetwork(page: Page): Promise<void> {
  * Prepare a page: flag posture, storage, clock, motion, network.
  * Must be called BEFORE the first navigation.
  */
-export async function preparePage(page: Page, viewport: { width: number; height: number }): Promise<void> {
+export async function preparePage(page: Page, viewport: { width: number; height: number; deviceScaleFactor?: number }): Promise<void> {
   const pins = posturePins()
 
   await page.addInitScript(
@@ -258,7 +261,16 @@ export async function preparePage(page: Page, viewport: { width: number; height:
     { flagPins: pins.map((p) => ({ storageKey: p.storageKey, value: p.value })) },
   )
 
-  await page.setViewportSize(viewport)
+  const { width, height, deviceScaleFactor } = viewport
+  await page.setViewportSize({ width, height })
+  if (deviceScaleFactor !== undefined) {
+    // The visual project is Chromium. Set DPR before navigation and retain CSS-pixel PNGs
+    // so the reference validator and clipped captures keep using logical dimensions.
+    const session = await page.context().newCDPSession(page)
+    // Detaching can clear the override. The test's browser context owns the session.
+    await session.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor, mobile: false })
+    expect(await page.evaluate(() => window.devicePixelRatio)).toBeCloseTo(deviceScaleFactor, 2)
+  }
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' })
   await page.clock.setFixedTime(FROZEN_TIME)
   await installHermeticNetwork(page)
