@@ -68,6 +68,7 @@ import { ReplyFacts } from './v12/chat/ReplyFacts'
 import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
 import { Hover, HoverButton } from './look/Hover'
 import { useAnchoredTip } from './look/Tip'
+import { MenuItem, MenuLabel } from './look/Menu.tsx'
 import { OlumiAsks } from './v12/chat/OlumiAsks'
 import { boardKindsOf } from './boardKindsOf'
 import { IntakeSheet, intakeOf } from './v12/chat/IntakeSheet'
@@ -1775,21 +1776,13 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
     )
   }
   return (
-    <div role="group" aria-labelledby="view-session-goal-question" className="space-y-1.5" data-testid="view-session-goal">
-      <p id="view-session-goal-question" className={`${typography.viewPanelMeta} flex items-center gap-2 px-2 py-1 text-text-light`}>
-        <OkIcon id="goal" size={14} decorative />
-        {GOAL_QUESTION}
-      </p>
-      <div className="grid auto-rows-fr grid-cols-2 gap-1.5">
-        {session.goals.map((g, i) => (
-          <button key={g.id} type="button" disabled={held} onClick={() => choose(g.id)} aria-pressed={g.id === goal?.id}
-            className={`${typography.viewPanelBody} flex items-start justify-between gap-1.5 rounded-md border border-field px-2.5 py-2 text-left text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header disabled:cursor-not-allowed disabled:text-text-light aria-pressed:bg-goal-light aria-pressed:hover:bg-goal-light`}
-            data-goal={g.id} data-testid="view-session-goal-option">
-            <span data-view={`session.goals.${i}.text`}>{g.text}</span>
-            {g.id === goal?.id && <OkIcon id="trigger-taken" size={14} decorative className="mt-0.5" />}
-          </button>
-        ))}
-      </div>
+    <div role="group" aria-labelledby="view-session-goal-question" data-testid="view-session-goal">
+      <MenuLabel as="p"><span id="view-session-goal-question" className="flex items-center gap-2"><OkIcon id="goal" size={14} decorative />{GOAL_QUESTION}</span></MenuLabel>
+      {session.goals.map((g, i) => (
+        <MenuItem key={g.id} id={`goal-${g.id}`} label={g.text} checked={g.id === goal?.id} disabled={held} closeOnSelect={false}
+          content={<span data-view={`session.goals.${i}.text`}>{g.text}</span>}
+          meta={{ 'data-goal': g.id, 'data-testid': 'view-session-goal-option' }} onSelect={() => choose(g.id)} />
+      ))}
     </div>
   )
 }

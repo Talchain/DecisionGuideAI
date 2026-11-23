@@ -77,7 +77,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
           )}
           {goal && (
             <>
-              <div role="group" aria-label="Session goal" data-menu-controls="" className="px-1.5 py-2">{goal}</div>
+              <div role="group" aria-label="Session goal" data-testid="view-session-goal-section">{goal}</div>
               <MenuSeparator />
             </>
           )}

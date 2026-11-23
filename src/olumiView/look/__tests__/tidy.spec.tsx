@@ -104,18 +104,19 @@ describe('overnight lane menu and typography tidy-up', () => {
     for (const label of labels) expect(label).toHaveClass('sr-only', typography.viewPanelMeta)
   })
 
-  it('renders the session goal choices with the card radius and 12px panel text', () => {
+  it('renders the session goal choices as the menu\'s own rows in its top section', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     const view: View = JSON.parse(readFileSync('src/olumiView/fixtures/session/no-goal.view3.json', 'utf8'))
     install(view)
     render(<ViewComposer />)
     fireEvent.click(screen.getByTestId('view-actions-button'))
 
-    const tiles = screen.getAllByTestId('view-session-goal-option')
-    expect(tiles).toHaveLength(4)
-    for (const tile of tiles) {
-      expect(tile).toHaveClass('rounded-md', typography.viewPanelBody)
-      expect(tile).not.toHaveClass('rounded-lg')
+    // Paul 23 Nov: the goals are the menu's own rows in its top section, not bordered tiles.
+    const rows = screen.getAllByTestId('view-session-goal-option')
+    expect(rows).toHaveLength(4)
+    for (const row of rows) {
+      expect(row).toHaveAttribute('role', 'menuitemradio')
+      expect(row.className).not.toMatch(/\bborder\b/)
     }
   })
 })
