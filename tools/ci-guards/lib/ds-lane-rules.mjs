@@ -41,7 +41,7 @@ const FLAGGED_SIZES = new Set([11, 13, 16])
 const FLAGGED_WEIGHTS = new Set([600, 700])
 const IMPORTANT = /(?:^|\s)((?:[^\s]+:)?!-?[\w\[][^\s]*)(?=\s|$)/g
 const IMPORTANT_DECLARATION = /([\w-]+)\s*:[^;{}]*?!\s*important\b/gi
-const BLUE = /(?:^|[\s:])!?(?<utility>(?:bg|text|border|ring|fill|stroke|outline|decoration|from|to|via|accent|shadow|caret|divide|placeholder)-(?:info|primary)(?:-[\w-]+)?(?:\/(?:\d+|\[[^\s]+?\]))?)(?=$|[\s!])/g
+const BLUE = /(?:^|\s)(?<token>(?:[^\s]+:)?!?(?:bg|text|border|ring|fill|stroke|outline|decoration|from|to|via|accent|shadow|caret|divide|placeholder)-(?:info|primary)(?:-[\w-]+)?(?:\/(?:\d+|\[[^\s]+?\]))?)(?=$|[\s!])/g
 const PANEL = /^(?:article|aside|details|div|form|main|nav|section)$/
 const PANEL_PADDING = /(?:^|[\s:])!?(p(?:x)?-4)(?=$|[\s!])/g
 
@@ -58,45 +58,53 @@ function customPropertiesOnly(attribute) {
       ts.isStringLiteral(property.name) && /^--[\w-]+$/.test(property.name.text))
 }
 
-// These files use blue for Olumi's status, proposal, words, marks or provenance.
-const OLUMI_OWNED_BLUE_FILES = new Set([
-  'olumiView/Badge.tsx', 'olumiView/DraftingBoard.tsx', 'olumiView/ViewChat.tsx',
-  'olumiView/ViewFigureFirst.tsx', 'olumiView/ViewReasoning.tsx', 'olumiView/look/icons.tsx',
-  'olumiView/port/AnalysisReaders.tsx', 'olumiView/port/ChanceChart.tsx',
-  'olumiView/port/PortAnalysisTab.tsx', 'olumiView/port/WhatMovesIt.tsx',
-  'olumiView/previous/CoreCard.tsx', 'olumiView/reasoning/StateStrip.tsx',
-  'olumiView/strategy/overview/StrategyOverviewPage.tsx', 'olumiView/v12/bands/BandNodes.tsx',
-  'olumiView/v12/cards/marks.tsx', 'olumiView/v12/chat/OlumiAsks.tsx',
-  'olumiView/v12/chat/richText.tsx', 'olumiView/v12/journey/JourneyRecord.tsx',
-])
-
-// Keep tracking exact exception tokens during the handoff. A new blue utility in these
-// files still gates, and the owning lane removes the entry after migrating the control.
+const OLUMI_OWNED_BLUE_ALLOWLIST = {
+  'olumiView/Badge.tsx': ['border-info', 'text-info'], // Olumi's proposed badge and its change words.
+  'olumiView/DraftingBoard.tsx': ['bg-info'], // Status of the board Olumi is laying.
+  'olumiView/ViewChat.tsx': ['text-info'], // Olumi's mark beside its pre-mortem story.
+  'olumiView/ViewFigureFirst.tsx': ['border-info/40', 'bg-info'], // Olumi's request and its side of the figure comparison.
+  'olumiView/ViewReasoning.tsx': ['fill-info', 'text-info'], // Olumi's figure, premise and challenge marks.
+  'olumiView/look/icons.tsx': ['text-info'], // Registry mapping for Olumi's ink.
+  'olumiView/port/AnalysisReaders.tsx': ['text-info'], // Olumi's analysis marks.
+  'olumiView/port/ChanceChart.tsx': ['text-info'], // Olumi's figure and inference marks.
+  'olumiView/port/PortAnalysisTab.tsx': ['text-info'], // Olumi's marks in analysis rows and comparisons.
+  'olumiView/port/WhatMovesIt.tsx': ['text-info'], // Olumi's figure and science marks.
+  'olumiView/previous/CoreCard.tsx': ['border-info', 'text-info'], // Olumi's proposals, rests-on provenance and pre-mortem marks.
+  'olumiView/reasoning/StateStrip.tsx': ['border-info'], // Olumi's held proposal.
+  'olumiView/strategy/overview/StrategyOverviewPage.tsx': ['border-info/30'], // Strategy row marked as Olumi's.
+  'olumiView/v12/bands/BandNodes.tsx': ['border-info'], // Olumi's band proposal.
+  'olumiView/v12/cards/marks.tsx': ['text-info'], // Olumi's change glyph.
+  'olumiView/v12/chat/OlumiAsks.tsx': ['border-info/30', 'bg-info', 'bg-info/30'], // Olumi's question and its question progress marks.
+  'olumiView/v12/chat/richText.tsx': ['text-info'], // A source link rendered inside Olumi's reply.
+  'olumiView/v12/journey/JourneyRecord.tsx': ['border-info/40', 'text-info'], // Olumi-authored timeline entries and its kept suggestions.
+}
 const FLOATING_TOOLBAR_LANE_BLUE_ALLOWLIST = {
-  'olumiView/ViewLensBar.tsx': ['border-info/30'],
-  'olumiView/ViewZoomNotice.tsx': ['text-info', 'ring-info'],
-  'olumiView/ViewWhatIfKey.tsx': ['ring-info/50', 'border-info/30', 'text-info'],
-  'olumiView/ViewPreMortemKey.tsx': ['border-info/40', 'text-info', 'ring-info/50', 'bg-info', 'ring-info'],
-  'olumiView/v12/lenses/LensesMenu.tsx': ['text-info'], // Olumi or mixed provenance.
+  'olumiView/ViewPreMortemKey.tsx': [
+    'text-info', // Olumi's story and response. Also used by the existing prompt control pending its migration.
+    'border-info/40', 'focus-visible:ring-info/50', 'bg-info', 'focus-visible:ring-info', // The unmigrated pre-mortem tray controls.
+  ],
+  'olumiView/v12/lenses/LensesMenu.tsx': ['text-info'], // Olumi or mixed provenance and Olumi's assumptions.
 }
 const EDITING_LANE_BLUE_ALLOWLIST = {
-  'olumiView/AddFigure.tsx': ['ring-info/50'], // Shared handoff with the floating-toolbar lane.
-  'olumiView/Rename.tsx': ['text-info', 'ring-info/50'],
-  'olumiView/LinkRemove.tsx': ['text-info'],
   'olumiView/SelectedRename.tsx': ['text-info'], // Olumi author attribution.
   'olumiView/model/editors.tsx': ['text-info'], // Action originating from Olumi.
-  'olumiView/v12/edit/EditForm.tsx': ['ring-info/50'], // Neutralised by the lane stylesheet until handoff.
   'olumiView/v12/edit/LaneInspector.tsx': ['text-info'], // Olumi sources and proposed values.
-  'olumiView/v12/frame/FrameStage.tsx': ['ring-info/50'],
-  'olumiView/v12/frame/FramePage.tsx': ['ring-info/50', 'border-info'], // Keep proposed-card borders.
+  'olumiView/v12/frame/FramePage.tsx': ['border-info'], // Olumi's proposed-card borders.
 }
-// Shared Menu has neutral focus in its lane branch. Keep the older branch intact.
-const OLDER_LOOK_BLUE_ALLOWLIST = { 'olumiView/look/Menu.tsx': ['ring-primary/50'] }
+const OLDER_LOOK_BLUE_ALLOWLIST = {
+  'olumiView/AddFigure.tsx': ['focus-visible:ring-info/50'], // Only the older Add form still uses this field focus.
+  'olumiView/FigureEdit.tsx': ['text-info', 'focus-visible:ring-info/50'], // Older in-place edit actions and field focus.
+  'olumiView/LinkRemove.tsx': ['text-info'], // Older inline link removal.
+  'olumiView/Rename.tsx': ['text-info', 'focus-visible:ring-info/50'], // Older rename action and field focus.
+  'olumiView/look/Menu.tsx': ['focus-visible:ring-primary/50'], // Shared menu's older focus.
+  'olumiView/v12/edit/EditForm.tsx': ['focus-visible:ring-info/50'], // The older field recipe, separate from the lane's neutral field.
+  'olumiView/v12/inspect/FigureInspector.tsx': ['focus-visible:ring-info/50'], // The older inspector's field focus.
+  'olumiView/v12/frame/FramePage.tsx': ['focus-visible:ring-info/50'], // The older Frame controls' focus.
+}
 
-function blueAllowed(file, utility) {
-  return OLUMI_OWNED_BLUE_FILES.has(file) ||
-    [FLOATING_TOOLBAR_LANE_BLUE_ALLOWLIST, EDITING_LANE_BLUE_ALLOWLIST, OLDER_LOOK_BLUE_ALLOWLIST]
-      .some((allowlist) => allowlist[file]?.includes(utility))
+function blueAllowed(file, token) {
+  return [OLUMI_OWNED_BLUE_ALLOWLIST, FLOATING_TOOLBAR_LANE_BLUE_ALLOWLIST, EDITING_LANE_BLUE_ALLOWLIST, OLDER_LOOK_BLUE_ALLOWLIST]
+    .some((allowlist) => allowlist[file]?.includes(token))
 }
 
 function isStringSegment(node) {
@@ -146,8 +154,8 @@ export function scanLaneSource(file, text) {
         for (const match of node.text.matchAll(IMPORTANT)) add('v12-important-utility', node, match[1])
         for (const match of node.text.matchAll(IMPORTANT_DECLARATION)) add('v12-important-css', node, `${match[1]} !important`)
       }
-      for (const { groups: { utility } } of node.text.matchAll(BLUE)) {
-        if (!blueAllowed(file, utility)) add('v12-blue-utility', node, utility)
+      for (const { groups: { token } } of node.text.matchAll(BLUE)) {
+        if (!blueAllowed(file, token)) add('v12-blue-utility', node, token)
       }
     }
     ts.forEachChild(node, visit)
@@ -160,10 +168,16 @@ export function scanLaneSource(file, text) {
 // PostCSS recognises multiline declarations, while quoted text and comments are
 // distinct from the declaration's important flag.
 export function scanLaneStylesheet(file, text) {
-  const hits = { 'v12-important-css': [] }
+  const hits = { 'v12-important-css': [], 'v12-blue-css-var': [] }
   postcss.parse(text, { from: file }).walkDecls((declaration) => {
+    const line = declaration.source.start.line - 1
     if (declaration.important) {
-      hits['v12-important-css'].push({ line: declaration.source.start.line - 1, token: `${declaration.prop} !important` })
+      hits['v12-important-css'].push({ line, token: `${declaration.prop} !important` })
+    }
+    // Match actual var() reads and skip quoted strings and comments in declaration values.
+    const blue = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|\bvar\(\s*(--info(?:-ink)?)(?=\s*[,)])/g
+    for (const [, name] of declaration.value.matchAll(blue)) {
+      if (name !== undefined) hits['v12-blue-css-var'].push({ line, token: `var(${name})` })
     }
   })
   return hits

@@ -1,0 +1,7 @@
+/* var(--info) */
+.panel {
+  color: var(--info-ink);
+  box-shadow: 0 0 0 2px var(--info, var(--text-header));
+  --label: 'var(--info)';
+  --channels: var(--info-rgb);
+}

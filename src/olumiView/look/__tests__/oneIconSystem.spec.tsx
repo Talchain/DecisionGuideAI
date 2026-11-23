@@ -32,13 +32,11 @@ const surfaceFiles = [...laneFiles.map((f) => relative(SRC, f)), ...sharedSurfac
 const REGISTRY = 'olumiView/look/icons.tsx'
 afterEach(() => vi.unstubAllEnvs())
 
-// Floating-toolbar lane removes these direct imports when it migrates the controls.
-const FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST = new Set([
-  'olumiView/BelowCue.tsx', 'olumiView/ViewLensBar.tsx', 'olumiView/ViewZoomNotice.tsx',
-  'olumiView/ViewWhatIfKey.tsx', 'olumiView/ViewTradeOffsKey.tsx', 'olumiView/ViewPreMortemKey.tsx',
-])
-// The floating-toolbar lane clears the 16px zoom-column pin.
-const FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST = { file: 'components/layout/CanvasViewportControls.tsx', sizes: ['14', '16'] }
+const FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST: Record<string, string> = {
+  'olumiView/ViewPreMortemKey.tsx': "import { ArrowUp, X } from 'lucide-react'", // The pre-mortem tray still draws its changing-state and close glyphs.
+  'olumiView/ViewTradeOffsKey.tsx': "import { X } from 'lucide-react'", // The Trade-offs tray still draws its own close glyph.
+}
+const MARK_SIZE_FILES = new Set(['olumiView/v12/cards/marks.tsx', 'olumiView/v12/detailed/marks.tsx'])
 // The shared menu uses 14px on this lane and preserves the older 16px branch.
 const SHARED_CONTEXT_MENU = 'canvas/contextMenu/CanvasContextMenu.tsx'
 const LUCIDE = /(?:from\s*|import\s*(?:\(\s*)?|require\(\s*)['"]lucide-react['"]/
@@ -46,7 +44,16 @@ const LUCIDE = /(?:from\s*|import\s*(?:\(\s*)?|require\(\s*)['"]lucide-react['"]
 describe('every icon on the lane comes from the registry', () => {
   it('scans the full lane and checks the shared surfaces for direct Lucide imports', () => {
     expect(laneFiles.length).toBeGreaterThan(100)
-    expect(surfaceFiles.filter((file) => file !== REGISTRY && !FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST.has(file) && LUCIDE.test(read(file)))).toEqual([])
+    const offenders = surfaceFiles.filter((file) => {
+      if (file === REGISTRY) return false
+      const content = read(file)
+      const allowed = FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST[file]
+      return LUCIDE.test(allowed === undefined ? content : content.replace(allowed, ''))
+    })
+    expect(offenders).toEqual([])
+    for (const [file, allowed] of Object.entries(FLOATING_TOOLBAR_LANE_DIRECT_IMPORT_ALLOWLIST)) {
+      expect(read(file)).toContain(allowed)
+    }
     expect(read(REGISTRY)).toMatch(LUCIDE)
   })
 
@@ -65,9 +72,9 @@ describe('every icon on the lane comes from the registry', () => {
           const size = props.find((prop) => prop.name.getText(source) === 'size')?.initializer?.getText(source)
           const id = props.find((prop) => prop.name.getText(source) === 'id')?.initializer
           const brandMark = file === 'components/layout/TopBar.tsx' && id?.getText(source) === '"olumi-mark"' && size === '{22}'
-          const zoom = file === FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST.file && size === '{16}'
+          const mark = MARK_SIZE_FILES.has(file) && size === '{MARK_SIZE}' && /^const MARK_SIZE = 14$/m.test(content)
           const sharedMenu = file === SHARED_CONTEXT_MENU && size === '{iconSize}' && /const iconSize = lane \? 14 : 16\b/.test(content)
-          if (size !== undefined && size !== '{14}' && !brandMark && !zoom && !sharedMenu) offenders.push(`${file}: ${size}`)
+          if (size !== undefined && size !== '{14}' && !brandMark && !mark && !sharedMenu) offenders.push(`${file}: ${size}`)
         }
         ts.forEachChild(node, visit)
       }
@@ -89,14 +96,12 @@ describe('Olumi\'s mark has one owner', () => {
 describe('what is drawn: one size on a control row', () => {
   beforeEach(() => { useCanvasStore.setState({ viewMode: 'standard' } as never) })
 
-  it('the zoom column draws one size, with the floating-toolbar lane exception', () => {
+  it('the lane zoom column draws 14px registry icons', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     render(<ReactFlowProvider><CanvasViewportControls onZoomIn={vi.fn()} onZoomOut={vi.fn()} onZoomReset={vi.fn()} onFitView={vi.fn()} onAutoArrange={vi.fn()} /></ReactFlowProvider>)
-    const svgs = screen.getByRole('navigation', { name: 'Viewport controls' }).querySelectorAll('button svg')
+    const svgs = screen.getByRole('toolbar', { name: 'Viewport controls' }).querySelectorAll('button svg')
     expect(svgs.length).toBeGreaterThanOrEqual(4)
-    const size = svgs[0]!.getAttribute('width')
-    expect(FLOATING_TOOLBAR_LANE_SIZE_ALLOWLIST.sizes).toContain(size)
-    expect([...svgs].map((s) => [s.getAttribute('width'), s.getAttribute('height'), s.getAttribute('stroke-width')])).toEqual([...svgs].map(() => [size, size, '1.75']))
+    expect([...svgs].map((s) => [s.getAttribute('width'), s.getAttribute('height'), s.getAttribute('stroke-width')])).toEqual([...svgs].map(() => ['14', '14', '1.75']))
   })
 })
 

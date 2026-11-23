@@ -97,21 +97,21 @@ export const CHIP_PRIMARY_CLASS = [
  *   - VIEW_ICON_BUTTON_PRIMARY_CLASS / VIEW_ICON_BUTTON_CLASS: the icon button, a 28px square, the icon drawn at 16px; solid green, or ghost grey.
  * A disabled control reads as disabled by token (grey fill or grey text, no opacity). The older look's CHIP_CLASS / CHIP_PRIMARY_CLASS above are unchanged.
  */
-const LANE_BASE = 'inline-flex min-h-7 items-center justify-center rounded-control border-0 cursor-pointer font-sans transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header focus-visible:ring-offset-1'
+const VIEW_CONTROL_BASE = 'inline-flex min-h-7 items-center justify-center rounded-control border-0 cursor-pointer font-sans transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1'
+const LANE_BASE = `${VIEW_CONTROL_BASE} focus-visible:ring-text-header`
 const LANE_PRIMARY = controls.actColours
 const LANE_GHOST_SURFACE = 'bg-transparent hover:bg-panel-hover active:bg-panel-border/30 disabled:text-text-light disabled:cursor-not-allowed disabled:hover:bg-transparent'
 const LANE_GHOST = `text-text-body ${LANE_GHOST_SURFACE}`
 export const VIEW_CHIP_CLASS = [LANE_BASE, 'gap-1 px-2 text-left', typography.viewPanelHeading, LANE_GHOST].join(' ')
 /** The lane's outlined secondary chip (the field outline, body type, no new colour): for a row of ways to go on that must read as pressable. */
 export const VIEW_CHIP_OUTLINE_CLASS = ['inline-flex min-h-7 items-center rounded-control border border-field cursor-pointer font-sans transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header focus-visible:ring-offset-1 gap-1 px-2 text-left', typography.viewPanelMeta, LANE_GHOST].join(' ')
-export const VIEW_CHIP_PRIMARY_CLASS = [LANE_BASE, 'gap-1 px-2.5 text-left', typography.viewPanelHeading, LANE_PRIMARY].join(' ')
+const VIEW_CHIP_PRIMARY = `gap-1 px-2.5 text-left ${typography.viewPanelHeading} ${LANE_PRIMARY}`
+export const VIEW_CHIP_PRIMARY_CLASS = `${LANE_BASE} ${VIEW_CHIP_PRIMARY}`
+/** The shared canvas's in-place figure editor keeps its previous focus ring. */
+export const OLDER_VIEW_CHIP_PRIMARY_CLASS = `${VIEW_CONTROL_BASE} focus-visible:ring-info ${VIEW_CHIP_PRIMARY}`
 export const VIEW_ICON_BUTTON_PRIMARY_CLASS = [LANE_BASE, 'min-w-7 flex-none', LANE_PRIMARY].join(' ')
 /** No text colour of its own: the icon's registry colour is a class the button adds (OkIconButton), so `disabled:text-text-light` and a hover can win. */
 export const VIEW_ICON_BUTTON_CLASS = [LANE_BASE, 'min-w-7 flex-none', LANE_GHOST_SURFACE].join(' ')
-
-// Editing controls use the panel heading colour for keyboard focus.
-export const VIEW_EDIT_CHIP_CLASS = VIEW_CHIP_CLASS.replace('focus-visible:ring-info', 'focus-visible:ring-text-header')
-export const VIEW_EDIT_CHIP_PRIMARY_CLASS = VIEW_CHIP_PRIMARY_CLASS.replace('focus-visible:ring-info', 'focus-visible:ring-text-header')
 
 /**
  * CHIP_DISMISS_LINK_CLASS — DS v5 §21.2's "Dismiss → `text-text-light` link".

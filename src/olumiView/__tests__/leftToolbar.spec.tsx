@@ -11,6 +11,7 @@ import { useMe } from '../../olumiCore/me'
 import { useCanvasStore } from '../../canvas/store'
 import { LeftSidebar } from '../../components/layout/LeftSidebar'
 
+const lane = vi.hoisted(() => ({ on: true }))
 const flow = vi.hoisted(() => ({ panOnDrag: undefined as ReactFlowProps['panOnDrag'], selectionOnDrag: undefined as boolean | undefined }))
 vi.mock('@xyflow/react', async (original) => {
   const real = await original<typeof import('@xyflow/react')>()
@@ -22,7 +23,7 @@ vi.mock('@xyflow/react', async (original) => {
 // As in v10Canvas: keep the mounted canvas; omit the dock/attention card, which need the whole app.
 vi.mock('../../canvas/components/OutputsDock', () => ({ OutputsDock: () => null }))
 vi.mock('../../canvas/components/OlumiAttentionCard', () => ({ OlumiAttentionCard: () => null }))
-vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
+vi.mock('../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => lane.on }))
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: 'u1', accessToken: null }), supabase: {} }))
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
@@ -34,13 +35,14 @@ beforeEach(() => {
   useCanvasStore.setState({ nodes: [], edges: [] })
 })
 afterEach(() => {
+  lane.on = true
   cleanup()
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, at: null })
   useMe.setState({ me: null, status: 'none' })
   useCanvasStore.setState({ nodes: [], edges: [] })
 })
 const mount = () => render(<div style={{ width: 1232, height: 704 }}><ViewCanvas /></div>)
-const toolbar = () => screen.getByRole('navigation', { name: 'Canvas tools' })
+const toolbar = () => screen.getByRole('toolbar', { name: 'Canvas tools' })
 const plus = () => within(toolbar()).getByTestId('canvas-add-to-model')
 
 describe('core lane left toolbar', () => {
@@ -107,14 +109,23 @@ describe('core lane left toolbar', () => {
     // Paul's left menu keeps its + in place (audit F19): with no edit base it is there, disabled, and says why; never on a past version or another's page.
     const held = unavailable === 'no edit_base' ? ['canvas-add-to-model-held'] : []
     expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual([...held, 'canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button'])
-    if (held.length > 0) expect(within(toolbar()).getByTestId('canvas-add-to-model-held')).toBeDisabled()
+    if (held.length > 0) {
+      const button = within(toolbar()).getByTestId('canvas-add-to-model-held')
+      expect(button).toHaveAttribute('aria-disabled', 'true')
+      button.focus()
+      expect(button).toHaveFocus()
+      fireEvent.click(button)
+      expect(screen.queryByRole('menu')).toBeNull()
+    }
     fireEvent.click(within(toolbar()).getByTestId('canvas-tool-select'))
     expect(within(toolbar()).getByTestId('canvas-tool-select')).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('keeps the legacy sidebar defaults: Add, Select, Hand and Undo', () => {
+    lane.on = false
     render(<LeftSidebar onAddToModelClick={vi.fn()} />)
-    expect(within(toolbar()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
+    const navigation = screen.getByRole('navigation', { name: 'Canvas tools' })
+    expect(within(navigation).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([
       'Add to model', 'Select mode', 'Hand mode', 'Undo',
     ])
   })

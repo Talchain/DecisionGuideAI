@@ -68,7 +68,7 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
           <button key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} title={e.mark_title} data-evidence-mark={e.id}
             onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
             className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
-            <OkIcon id="brief" size={14} decorative />
+            <OkIcon id="brief" size={14} decorative inherit />
           </button>
         )
       })}
@@ -160,7 +160,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
           {i === 0
             // P1: core's words wrap in balanced lines, never one word alone on the last line ("…observed / it").
             ? <span className="min-w-0 [text-wrap:balance]" data-reveal-chip-text="">{chip.text}</span>
-            : <>{chip.kind === 'evidence' ? <OkIcon id="brief" size={14} decorative /> : chip.kind === 'disagreement' ? <OkIcon id="revealed-difference" size={14} decorative /> : <OkIcon id="team" size={14} decorative />}
+            : <>{chip.kind === 'evidence' ? <OkIcon id="brief" size={14} decorative inherit className="text-text-body" /> : chip.kind === 'disagreement' ? <OkIcon id="revealed-difference" size={14} decorative inherit className="text-text-body" /> : <OkIcon id="team" size={14} decorative inherit className="text-text-body" />}
               <span className="sr-only" data-reveal-chip-text="">{chip.text}</span></>}
         </button>
       )

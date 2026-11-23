@@ -9,57 +9,49 @@
     "legacy-tailwind-token": {
       "mode": "ratchet",
       "description": "Legacy colour tokens (sand/ink/paper/sun/mint/sky/carrot/lilac) as Tailwind classes",
-      "total": 1519,
+      "total": 1217,
       "byFile": {
-        "src/canvas/components/DecisionSummary.tsx": 57,
-        "src/canvas/components/ComparisonCanvasLayout.tsx": 55,
-        "src/canvas/components/ResultsPanel/KeyDriversPanel.tsx": 55,
+        "src/canvas/components/ResultsPanel/KeyDriversPanel.tsx": 54,
         "src/canvas/components/RiskProfileSelector.tsx": 51,
-        "src/canvas/components/PreAnalysisHealth.tsx": 47,
-        "src/canvas/components/ActionsSignal.tsx": 40,
-        "src/canvas/components/GoalModePanel.tsx": 40,
-        "src/canvas/components/GraphTextView.tsx": 40,
-        "src/canvas/components/DraftChat.tsx": 39,
+        "src/canvas/components/ComparisonCanvasLayout.tsx": 50,
+        "src/canvas/components/GraphTextView.tsx": 39,
         "src/canvas/components/GuidanceCard.tsx": 39,
-        "src/canvas/components/UtilityWeightPanel.tsx": 38,
+        "src/canvas/components/ActionsSignal.tsx": 38,
+        "src/canvas/components/DraftChat.tsx": 37,
+        "src/canvas/components/UtilityWeightPanel.tsx": 37,
         "src/canvas/components/ResultsPanel/EvidencePackExport.tsx": 36,
-        "src/canvas/components/TrustSignal.tsx": 35,
-        "src/canvas/components/DriverChips.tsx": 34,
-        "src/canvas/components/ConformalPrediction.tsx": 33,
+        "src/canvas/components/DriverChips.tsx": 33,
         "src/canvas/components/GoalNodeSelector.tsx": 33,
-        "src/canvas/components/ThresholdDisplay.tsx": 33,
-        "src/canvas/components/ModelSettingsPopover.tsx": 30,
-        "src/canvas/components/ResultsPanelSkeleton.tsx": 29,
+        "src/canvas/components/TrustSignal.tsx": 31,
+        "src/canvas/components/ModelSettingsPopover.tsx": 28,
         "src/canvas/onboarding/EmptyState.tsx": 26,
         "src/canvas/components/BeliefInput.tsx": 25,
+        "src/canvas/components/ResultsPanelSkeleton.tsx": 25,
         "src/canvas/components/InterventionDisplay.tsx": 24,
-        "src/canvas/components/LimitsPanel.tsx": 24,
         "src/canvas/components/ResultsPanel/ConfidenceRange.tsx": 24,
-        "src/canvas/components/UserMappingForm.tsx": 24,
-        "src/canvas/components/ValidationPanel.tsx": 24,
-        "src/canvas/components/DecisionQuality.tsx": 23,
-        "src/canvas/components/ResultsPanel/SensitivityList.tsx": 23,
-        "src/canvas/components/ChangeAttributionPanel.tsx": 22,
-        "src/canvas/components/DocumentsManager.tsx": 21,
+        "src/canvas/components/UserMappingForm.tsx": 23,
+        "src/canvas/components/ValidationPanel.tsx": 23,
+        "src/canvas/components/DecisionQuality.tsx": 22,
+        "src/canvas/components/ResultsPanel/SensitivityList.tsx": 22,
         "src/canvas/components/DraftPreview.tsx": 21,
+        "src/canvas/components/ChangeAttributionPanel.tsx": 20,
+        "src/canvas/components/DocumentsManager.tsx": 20,
         "src/canvas/components/ModelQualityScore.tsx": 20,
         "src/canvas/components/ResultsPanel/RiskToleranceControl.tsx": 20,
         "src/canvas/components/ResultsPanel/RecommendedNextSteps.tsx": 19,
         "src/canvas/components/FunctionalForm/FormSelector.tsx": 18,
         "src/canvas/components/SuggestionCard.tsx": 18,
-        "src/canvas/components/ComparisonTable.tsx": 16,
         "src/canvas/components/ResultsPanel/TippingPointsList.tsx": 16,
-        "src/canvas/components/FunctionalForm/MultiFormAnalysis.tsx": 15,
-        "src/canvas/components/InsightsPanel.tsx": 15,
         "src/components/ErrorAlert.tsx": 15,
         "src/components/assistants/InfluenceExplainer.tsx": 15,
+        "src/canvas/components/FunctionalForm/MultiFormAnalysis.tsx": 14,
+        "src/canvas/components/InsightsPanel.tsx": 14,
         "src/canvas/components/RiskProfileBadge.tsx": 14,
-        "src/canvas/components/FunctionalForm/FormOnboardingTooltip.tsx": 13,
         "src/canvas/components/RangeDisplay.tsx": 13,
         "src/components/assistants/DraftStreamPanel.tsx": 13,
-        "src/canvas/components/ContextBar.tsx": 12,
-        "src/components/HelpTooltip.tsx": 12,
+        "src/canvas/components/FunctionalForm/FormOnboardingTooltip.tsx": 11,
         "src/components/EngineAuditPanel.tsx": 11,
+        "src/components/HelpTooltip.tsx": 11,
         "src/components/JobsProgressPanel.tsx": 11,
         "src/canvas/components/DraftGuidancePanel.tsx": 9,
         "src/canvas/components/IdentifiabilityBadge.tsx": 9,
@@ -73,30 +65,30 @@
         "src/canvas/components/EmptyState.tsx": 7,
         "src/canvas/components/RateLimitNotice.tsx": 7,
         "src/canvas/components/UnifiedStatusBadge.tsx": 7,
-        "src/components/ScenarioDrawer.tsx": 7,
         "src/canvas/components/DegeneracyWarning.tsx": 6,
         "src/canvas/components/FocusModeChip.tsx": 6,
         "src/canvas/components/ObjectiveBanner.tsx": 6,
         "src/canvas/components/model-tab/StreamingDiagnostics.tsx": 6,
+        "src/components/ScenarioDrawer.tsx": 6,
         "src/canvas/components/LayoutPopover.tsx": 5,
-        "src/canvas/components/LensContainer.tsx": 5,
-        "src/canvas/components/ScenarioComparison.tsx": 5,
         "src/components/ui/FieldLabel.tsx": 5,
+        "src/canvas/components/LensContainer.tsx": 4,
         "src/canvas/components/RangeLabels.tsx": 4,
         "src/canvas/components/ResultsPanel/KeyInsight.tsx": 4,
+        "src/canvas/components/ScenarioComparison.tsx": 4,
         "src/components/Collapsible.tsx": 4,
         "src/canvas/components/FunctionalForm/FormIndicatorBadge.tsx": 3,
         "src/canvas/utils/baselineDetection.ts": 3,
         "src/components/assistants/DraftForm.tsx": 3,
         "src/lib/precisionDisplay.ts": 3,
-        "src/canvas/components/CommandPalette.tsx": 2,
         "src/canvas/components/DeltaInterpretation.tsx": 2,
         "src/canvas/components/EvidenceCoverage.tsx": 2,
-        "src/components/Spinner.tsx": 2,
+        "src/canvas/components/CommandPalette.tsx": 1,
         "src/canvas/components/RangeChips.tsx": 1,
         "src/canvas/onboarding/OnboardingOverlay.tsx": 1,
         "src/canvas/ui/shared/DataBar.tsx": 1,
         "src/components/Skeleton.tsx": 1,
+        "src/components/Spinner.tsx": 1,
         "src/lib/ui.ts": 1,
         "src/styles/transitions.ts": 1
       },
@@ -138,7 +130,7 @@
           "sample": "badgeColor: 'bg-sand-100 text-ink-600',"
         },
         "legacy-tailwind-token :: src/canvas/components/ActionsSignal.tsx :: border-sand": {
-          "count": 3,
+          "count": 2,
           "file": "src/canvas/components/ActionsSignal.tsx",
           "token": "border-sand",
           "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-md\">"
@@ -154,12 +146,6 @@
           "file": "src/canvas/components/ActionsSignal.tsx",
           "token": "bg-paper",
           "sample": "<div className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden\" data-testid=\"actions-signal\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ActionsSignal.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ActionsSignal.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"border-t border-sand-200 divide-y divide-sand-100\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ActionsSignal.tsx :: text-mint": {
           "count": 2,
@@ -233,29 +219,23 @@
           "token": "text-ink",
           "sample": "className: 'text-ink-500',"
         },
-        "legacy-tailwind-token :: src/canvas/components/ChangeAttributionPanel.tsx :: border-sand": {
-          "count": 4,
-          "file": "src/canvas/components/ChangeAttributionPanel.tsx",
-          "token": "border-sand",
-          "sample": "className=\"flex items-start gap-2 py-2 border-b border-sand-100 last:border-b-0\""
-        },
         "legacy-tailwind-token :: src/canvas/components/ChangeAttributionPanel.tsx :: bg-sand": {
           "count": 2,
           "file": "src/canvas/components/ChangeAttributionPanel.tsx",
           "token": "bg-sand",
           "sample": "className={`${typography.code} px-1.5 py-0.5 rounded bg-sand-100 text-ink-600 hover:bg-info-100 hover:text-info-700 tran"
         },
+        "legacy-tailwind-token :: src/canvas/components/ChangeAttributionPanel.tsx :: border-sand": {
+          "count": 2,
+          "file": "src/canvas/components/ChangeAttributionPanel.tsx",
+          "token": "border-sand",
+          "sample": "className={`rounded-lg border border-sand-200 bg-paper-50 p-4 ${className}`}"
+        },
         "legacy-tailwind-token :: src/canvas/components/ChangeAttributionPanel.tsx :: bg-paper": {
           "count": 2,
           "file": "src/canvas/components/ChangeAttributionPanel.tsx",
           "token": "bg-paper",
           "sample": "className={`rounded-lg border border-sand-200 bg-paper-50 p-4 ${className}`}"
-        },
-        "legacy-tailwind-token :: src/canvas/components/CommandPalette.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/CommandPalette.tsx",
-          "token": "border-carrot",
-          "sample": "<div className=\"inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-carrot-500\"></div>"
         },
         "legacy-tailwind-token :: src/canvas/components/CommandPalette.tsx :: bg-carrot": {
           "count": 1,
@@ -267,19 +247,13 @@
           "count": 1,
           "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
           "token": "from-sky",
-          "sample": "className=\"px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50 border-b border-sand-200\""
+          "sample": "className=\"px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50\""
         },
         "legacy-tailwind-token :: src/canvas/components/ComparisonCanvasLayout.tsx :: to-mint": {
           "count": 1,
           "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
           "token": "to-mint",
-          "sample": "className=\"px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50 border-b border-sand-200\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonCanvasLayout.tsx :: border-sand": {
-          "count": 7,
-          "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
-          "token": "border-sand",
-          "sample": "className=\"px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50 border-b border-sand-200\""
+          "sample": "className=\"px-4 py-3 bg-gradient-to-r from-sky-50 to-mint-50\""
         },
         "legacy-tailwind-token :: src/canvas/components/ComparisonCanvasLayout.tsx :: text-sky": {
           "count": 2,
@@ -305,6 +279,12 @@
           "token": "border-mint",
           "sample": "outcome.isBest ? 'bg-mint-50 border-mint-200' : 'bg-white border-sand-200'"
         },
+        "legacy-tailwind-token :: src/canvas/components/ComparisonCanvasLayout.tsx :: border-sand": {
+          "count": 2,
+          "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
+          "token": "border-sand",
+          "sample": "outcome.isBest ? 'bg-mint-50 border-mint-200' : 'bg-white border-sand-200'"
+        },
         "legacy-tailwind-token :: src/canvas/components/ComparisonCanvasLayout.tsx :: text-mint": {
           "count": 2,
           "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
@@ -328,156 +308,6 @@
           "file": "src/canvas/components/ComparisonCanvasLayout.tsx",
           "token": "bg-paper",
           "sample": "<div className=\"flex-1 min-h-0 relative bg-paper-white\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: text-ink": {
-          "count": 1,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "text-ink",
-          "sample": "<p className={`${typography.body} text-ink-900 text-center py-8`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: bg-sky": {
-          "count": 4,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "bg-sky",
-          "sample": "bg-sky-500 text-white hover:bg-sky-600"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "bg-paper",
-          "sample": "<div key={i} className=\"p-3 bg-paper-50 border border-sand-200 rounded\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: border-sand": {
-          "count": 5,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "border-sand",
-          "sample": "<div key={i} className=\"p-3 bg-paper-50 border border-sand-200 rounded\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: bg-mint": {
-          "count": 1,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "bg-mint",
-          "sample": "<div className=\"p-3 bg-mint-50 border border-mint-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "border-mint",
-          "sample": "<div className=\"p-3 bg-mint-50 border border-mint-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ComparisonTable.tsx :: text-mint": {
-          "count": 3,
-          "file": "src/canvas/components/ComparisonTable.tsx",
-          "token": "text-mint",
-          "sample": "<Star className=\"w-5 h-5 text-mint-600\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: text-ink": {
-          "count": 2,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "text-ink",
-          "sample": "<p className={`${typography.body} text-ink-900 text-center py-8`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: bg-sky": {
-          "count": 2,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "bg-sky",
-          "sample": "<div className=\"p-3 bg-sky-50 border border-sky-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: border-sky": {
-          "count": 2,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "border-sky",
-          "sample": "<div className=\"p-3 bg-sky-50 border border-sky-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: text-sky": {
-          "count": 7,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "text-sky",
-          "sample": "<Info className=\"w-4 h-4 text-sky-600 mt-0.5\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"p-3 bg-paper-50 border border-sand-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: border-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"p-3 bg-paper-50 border border-sand-200 rounded-lg\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "border-mint",
-          "sample": "container: 'border-mint-200 bg-mint-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: bg-mint": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "bg-mint",
-          "sample": "container: 'border-mint-200 bg-mint-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: text-mint": {
-          "count": 4,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "text-mint",
-          "sample": "icon: 'text-mint-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: border-sun": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "border-sun",
-          "sample": "container: 'border-sun-200 bg-sun-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: bg-sun": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "bg-sun",
-          "sample": "container: 'border-sun-200 bg-sun-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: text-sun": {
-          "count": 4,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "text-sun",
-          "sample": "icon: 'text-sun-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "border-carrot",
-          "sample": "container: 'border-carrot-200 bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: bg-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "bg-carrot",
-          "sample": "container: 'border-carrot-200 bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ConformalPrediction.tsx :: text-carrot": {
-          "count": 4,
-          "file": "src/canvas/components/ConformalPrediction.tsx",
-          "token": "text-carrot",
-          "sample": "icon: 'text-carrot-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ContextBar.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/ContextBar.tsx",
-          "token": "bg-paper",
-          "sample": "className=\"rounded-lg bg-paper-50 backdrop-blur-sm border border-sand-200 shadow-panel px-4 py-2 flex flex-col gap-1\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/ContextBar.tsx :: border-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ContextBar.tsx",
-          "token": "border-sand",
-          "sample": "className=\"rounded-lg bg-paper-50 backdrop-blur-sm border border-sand-200 shadow-panel px-4 py-2 flex flex-col gap-1\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/ContextBar.tsx :: text-ink": {
-          "count": 10,
-          "file": "src/canvas/components/ContextBar.tsx",
-          "token": "text-ink",
-          "sample": "<div className={`flex items-center justify-between ${typography.caption} text-ink-900`}>"
         },
         "legacy-tailwind-token :: src/canvas/components/DecisionQuality.tsx :: bg-mint": {
           "count": 2,
@@ -525,97 +355,7 @@
           "count": 1,
           "file": "src/canvas/components/DecisionQuality.tsx",
           "token": "bg-paper",
-          "sample": "<div className=\"bg-paper-50 border-t border-sand-200 px-4 py-4 space-y-4\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionQuality.tsx :: border-sand": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionQuality.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"bg-paper-50 border-t border-sand-200 px-4 py-4 space-y-4\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-mint": {
-          "count": 2,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "bg-mint",
-          "sample": "bgColor: 'bg-mint-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "border-mint",
-          "sample": "borderColor: 'border-mint-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: text-mint": {
-          "count": 10,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "text-mint",
-          "sample": "textColor: 'text-mint-800',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "border-carrot",
-          "sample": "borderColor: 'border-carrot-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: text-carrot": {
-          "count": 9,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "text-carrot",
-          "sample": "textColor: 'text-carrot-800',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "bg-paper",
-          "sample": "className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden shadow-sm\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: border-sand": {
-          "count": 3,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "border-sand",
-          "sample": "className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden shadow-sm\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-sky": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "bg-sky",
-          "sample": "<div className=\"px-4 py-3 bg-sky-50 border-b border-sky-100\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: border-sky": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "border-sky",
-          "sample": "<div className=\"px-4 py-3 bg-sky-50 border-b border-sky-100\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: text-sky": {
-          "count": 9,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "text-sky",
-          "sample": "<Target className=\"h-4 w-4 text-sky-600 flex-shrink-0 mt-0.5\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: bg-sand": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "bg-sand",
-          "sample": "ranking.rank === 1 ? 'bg-mint-100 text-mint-700' : 'bg-sand-100 text-sand-600'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: text-sand": {
-          "count": 1,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "text-sand",
-          "sample": "ranking.rank === 1 ? 'bg-mint-100 text-mint-700' : 'bg-sand-100 text-sand-600'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/DecisionSummary.tsx :: text-ink": {
-          "count": 15,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "text-ink",
-          "sample": "<span className={`${typography.body} text-ink-600`}>"
+          "sample": "<div className=\"bg-paper-50 px-4 py-4 space-y-4\">"
         },
         "legacy-tailwind-token :: src/canvas/components/DegeneracyWarning.tsx :: bg-carrot": {
           "count": 1,
@@ -647,12 +387,6 @@
           "token": "bg-paper",
           "sample": "<div className=\"h-full flex flex-col bg-paper-50\">"
         },
-        "legacy-tailwind-token :: src/canvas/components/DocumentsManager.tsx :: border-sand": {
-          "count": 3,
-          "file": "src/canvas/components/DocumentsManager.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"px-4 py-3 border-b border-sand-200 bg-paper-50\">"
-        },
         "legacy-tailwind-token :: src/canvas/components/DocumentsManager.tsx :: text-ink": {
           "count": 10,
           "file": "src/canvas/components/DocumentsManager.tsx",
@@ -670,6 +404,12 @@
           "file": "src/canvas/components/DocumentsManager.tsx",
           "token": "bg-sky",
           "sample": "? 'border-sky-500 bg-sky-50'"
+        },
+        "legacy-tailwind-token :: src/canvas/components/DocumentsManager.tsx :: border-sand": {
+          "count": 2,
+          "file": "src/canvas/components/DocumentsManager.tsx",
+          "token": "border-sand",
+          "sample": ": 'border-sand-200 bg-paper-50 hover:border-sand-300'"
         },
         "legacy-tailwind-token :: src/canvas/components/DocumentsManager.tsx :: text-sky": {
           "count": 1,
@@ -696,7 +436,7 @@
           "sample": "className=\"p-2 rounded-full text-ink-400 hover:text-ink-600 hover:bg-sand-100 transition-colors\""
         },
         "legacy-tailwind-token :: src/canvas/components/DraftChat.tsx :: border-sand": {
-          "count": 7,
+          "count": 5,
           "file": "src/canvas/components/DraftChat.tsx",
           "token": "border-sand",
           "sample": "<div className=\"flex flex-col rounded-[20px] border border-sand-200 shadow-2 overflow-clip relative\" style={{ background"
@@ -840,7 +580,7 @@
           "sample": "factor: { bg: 'bg-sand-100', border: 'border-sand-300', text: 'text-ink-900' },"
         },
         "legacy-tailwind-token :: src/canvas/components/DriverChips.tsx :: border-sand": {
-          "count": 8,
+          "count": 7,
           "file": "src/canvas/components/DriverChips.tsx",
           "token": "border-sand",
           "sample": "factor: { bg: 'bg-sand-100', border: 'border-sand-300', text: 'text-ink-900' },"
@@ -972,7 +712,7 @@
           "sample": "<p className={`${typography.caption} font-medium text-ink-700`}>"
         },
         "legacy-tailwind-token :: src/canvas/components/FunctionalForm/FormOnboardingTooltip.tsx :: border-sand": {
-          "count": 3,
+          "count": 1,
           "file": "src/canvas/components/FunctionalForm/FormOnboardingTooltip.tsx",
           "token": "border-sand",
           "sample": "className=\"fixed bottom-6 right-6 w-80 bg-white rounded-md border border-sand-200 shadow-xl z-50\""
@@ -1008,7 +748,7 @@
           "sample": "? 'bg-sand-100 border-sand-200 text-ink-400 cursor-not-allowed'"
         },
         "legacy-tailwind-token :: src/canvas/components/FunctionalForm/MultiFormAnalysis.tsx :: border-sand": {
-          "count": 3,
+          "count": 2,
           "file": "src/canvas/components/FunctionalForm/MultiFormAnalysis.tsx",
           "token": "border-sand",
           "sample": "${result.causes_flip ? 'border-danger/30 bg-panel' : 'border-sand-200 bg-white'}"
@@ -1030,96 +770,6 @@
           "file": "src/canvas/components/FunctionalForm/MultiFormAnalysis.tsx",
           "token": "text-sand",
           "sample": "<FlaskConical className=\"w-8 h-8 text-sand-400 mx-auto mb-2\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: border-sand": {
-          "count": 5,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"w-full max-w-2xl bg-white rounded-lg border-2 border-sand-200 shadow-panel\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: text-sky": {
-          "count": 4,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "text-sky",
-          "sample": "<Target className=\"w-5 h-5 text-sky-600\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: text-ink": {
-          "count": 4,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "text-ink",
-          "sample": "className=\"text-ink-900 transition-colors\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: ring-sky": {
-          "count": 2,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "ring-sky",
-          "sample": "className=\"w-full px-3 py-2 rounded border border-sand-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sk"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: bg-sky": {
-          "count": 3,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "bg-sky",
-          "sample": "bg-sky-500 text-white hover:bg-sky-600"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: bg-carrot": {
-          "count": 3,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "bg-carrot",
-          "sample": "<div className=\"p-3 bg-carrot-50 border border-carrot-200 rounded\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "border-carrot",
-          "sample": "<div className=\"p-3 bg-carrot-50 border border-carrot-200 rounded\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: text-carrot": {
-          "count": 3,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "text-carrot",
-          "sample": "<p className={`${typography.body} text-carrot-800`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: bg-mint": {
-          "count": 3,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "bg-mint",
-          "sample": "? 'bg-mint-50 text-mint-700'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: text-mint": {
-          "count": 5,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "text-mint",
-          "sample": "? 'bg-mint-50 text-mint-700'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: bg-sun": {
-          "count": 2,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "bg-sun",
-          "sample": "? 'bg-sun-50 text-sun-700'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: text-sun": {
-          "count": 2,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "text-sun",
-          "sample": "? 'bg-sun-50 text-sun-700'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "bg-paper",
-          "sample": "<div key={i} className=\"p-3 bg-paper-50 rounded border border-sand-200\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "border-mint",
-          "sample": "<div className=\"p-3 bg-mint-50 border border-mint-200 rounded\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/GoalModePanel.tsx :: border-sky": {
-          "count": 1,
-          "file": "src/canvas/components/GoalModePanel.tsx",
-          "token": "border-sky",
-          "sample": "<div key={i} className=\"p-2 bg-sky-50 border border-sky-200 rounded\">"
         },
         "legacy-tailwind-token :: src/canvas/components/GoalNodeSelector.tsx :: text-sky": {
           "count": 2,
@@ -1209,7 +859,7 @@
           "count": 1,
           "file": "src/canvas/components/GraphTextView.tsx",
           "token": "bg-sky",
-          "sample": "decision: { icon: Crosshair, label: 'Decisions', order: 1, color: 'bg-sky-500' },"
+          "sample": "decision: { icon: Signpost, label: 'Decisions', order: 1, color: 'bg-sky-500' },"
         },
         "legacy-tailwind-token :: src/canvas/components/GraphTextView.tsx :: bg-sand": {
           "count": 4,
@@ -1224,7 +874,7 @@
           "sample": "className=\"p-6 bg-paper-50 rounded-lg border border-sand-200\""
         },
         "legacy-tailwind-token :: src/canvas/components/GraphTextView.tsx :: border-sand": {
-          "count": 6,
+          "count": 5,
           "file": "src/canvas/components/GraphTextView.tsx",
           "token": "border-sand",
           "sample": "className=\"p-6 bg-paper-50 rounded-lg border border-sand-200\""
@@ -1356,7 +1006,7 @@
           "sample": "className: 'bg-paper-50 border-sand-200 text-ink-500',"
         },
         "legacy-tailwind-token :: src/canvas/components/InsightsPanel.tsx :: border-sky": {
-          "count": 3,
+          "count": 2,
           "file": "src/canvas/components/InsightsPanel.tsx",
           "token": "border-sky",
           "sample": "className={`rounded-lg border border-sky-200 bg-sky-50/50 ${className}`}"
@@ -1445,12 +1095,6 @@
           "token": "text-carrot",
           "sample": "<div className=\"font-medium text-carrot-500\">✨ Guided Layout</div>"
         },
-        "legacy-tailwind-token :: src/canvas/components/LensContainer.tsx :: border-sand": {
-          "count": 1,
-          "file": "src/canvas/components/LensContainer.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"border-t border-sand-200 pt-3\" data-testid={testId}>"
-        },
         "legacy-tailwind-token :: src/canvas/components/LensContainer.tsx :: bg-sand": {
           "count": 1,
           "file": "src/canvas/components/LensContainer.tsx",
@@ -1468,54 +1112,6 @@
           "file": "src/canvas/components/LensContainer.tsx",
           "token": "text-ink",
           "sample": "<span className={`${typography.label} font-semibold text-ink-900`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: bg-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "bg-carrot",
-          "sample": "const barColor = isDanger ? 'bg-carrot-500' :"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: bg-sun": {
-          "count": 1,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "bg-sun",
-          "sample": "isWarning ? 'bg-sun-500' : 'bg-mint-500'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: bg-mint": {
-          "count": 1,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "bg-mint",
-          "sample": "isWarning ? 'bg-sun-500' : 'bg-mint-500'"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: bg-sand": {
-          "count": 1,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "bg-sand",
-          "sample": "<div className=\"relative h-2 bg-sand-200 rounded-full overflow-hidden\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: text-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "text-carrot",
-          "sample": "<p className={`${typography.caption} text-carrot-700`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: text-ink": {
-          "count": 14,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "text-ink",
-          "sample": "<h3 className={`${typography.h4} text-ink-900 mb-2`}>Limits Unavailable</h3>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: bg-paper": {
-          "count": 2,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"flex items-center justify-between p-3 rounded-lg bg-paper-50 border border-sand-200\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/LimitsPanel.tsx :: border-sand": {
-          "count": 2,
-          "file": "src/canvas/components/LimitsPanel.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"flex items-center justify-between p-3 rounded-lg bg-paper-50 border border-sand-200\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ModelQualityScore.tsx :: bg-paper": {
           "count": 5,
@@ -1554,7 +1150,7 @@
           "sample": "className=\"fixed z-50 w-[528px] max-w-[calc(100vw-2rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200 flex"
         },
         "legacy-tailwind-token :: src/canvas/components/ModelSettingsPopover.tsx :: border-sand": {
-          "count": 4,
+          "count": 2,
           "file": "src/canvas/components/ModelSettingsPopover.tsx",
           "token": "border-sand",
           "sample": "className=\"fixed z-50 w-[528px] max-w-[calc(100vw-2rem)] bg-paper-50 rounded-[20px] shadow-2 border border-sand-200 flex"
@@ -1612,90 +1208,6 @@
           "file": "src/canvas/components/ObjectiveBanner.tsx",
           "token": "text-sky",
           "sample": "<Target className=\"w-5 h-5 text-sky-700 flex-shrink-0 mt-0.5\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: bg-mint": {
-          "count": 2,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "bg-mint",
-          "sample": "bgColor: 'bg-mint-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "border-mint",
-          "sample": "borderColor: 'border-mint-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: text-mint": {
-          "count": 4,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "text-mint",
-          "sample": "textColor: 'text-mint-800',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: bg-carrot": {
-          "count": 4,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: border-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "border-carrot",
-          "sample": "borderColor: 'border-carrot-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: text-carrot": {
-          "count": 7,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "text-carrot",
-          "sample": "textColor: 'text-carrot-800',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: bg-sky": {
-          "count": 3,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "bg-sky",
-          "sample": "badgeColor: 'bg-sky-100 text-sky-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: text-sky": {
-          "count": 4,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "text-sky",
-          "sample": "badgeColor: 'bg-sky-100 text-sky-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: bg-sand": {
-          "count": 4,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "bg-sand",
-          "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-md\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: border-sand": {
-          "count": 3,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "border-sand",
-          "sample": "<div className=\"p-4 bg-sand-50 border border-sand-200 rounded-md\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: text-sand": {
-          "count": 4,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "text-sand",
-          "sample": "<Loader2 className=\"h-5 w-5 text-sand-500 animate-spin\" aria-hidden=\"true\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: text-ink": {
-          "count": 7,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "text-ink",
-          "sample": "<span className={`${typography.caption} text-ink-500`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "bg-paper",
-          "sample": "<div className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/PreAnalysisHealth.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/PreAnalysisHealth.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"divide-y divide-sand-100\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ProvenanceBadge.tsx :: bg-sky": {
           "count": 1,
@@ -1931,12 +1443,6 @@
           "token": "text-sand",
           "sample": "<Zap className=\"h-8 w-8 text-sand-300 mx-auto mb-2\" aria-hidden=\"true\" />"
         },
-        "legacy-tailwind-token :: src/canvas/components/ResultsPanel/KeyDriversPanel.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ResultsPanel/KeyDriversPanel.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"divide-y divide-sand-100\" data-testid=\"key-drivers-panel\">"
-        },
         "legacy-tailwind-token :: src/canvas/components/ResultsPanel/KeyDriversPanel.tsx :: bg-sand": {
           "count": 6,
           "file": "src/canvas/components/ResultsPanel/KeyDriversPanel.tsx",
@@ -2123,12 +1629,6 @@
           "token": "text-ink",
           "sample": "<div className=\"p-3 text-center text-ink-500\" data-testid=\"sensitivity-empty\">"
         },
-        "legacy-tailwind-token :: src/canvas/components/ResultsPanel/SensitivityList.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ResultsPanel/SensitivityList.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"divide-y divide-sand-100\" data-testid=\"sensitivity-list\">"
-        },
         "legacy-tailwind-token :: src/canvas/components/ResultsPanel/SensitivityList.tsx :: bg-sand": {
           "count": 3,
           "file": "src/canvas/components/ResultsPanel/SensitivityList.tsx",
@@ -2238,16 +1738,10 @@
           "sample": "className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden animate-pulse\""
         },
         "legacy-tailwind-token :: src/canvas/components/ResultsPanelSkeleton.tsx :: border-sand": {
-          "count": 7,
+          "count": 4,
           "file": "src/canvas/components/ResultsPanelSkeleton.tsx",
           "token": "border-sand",
           "sample": "className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden animate-pulse\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/ResultsPanelSkeleton.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ResultsPanelSkeleton.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"divide-y divide-sand-100\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ResultsPanelSkeleton.tsx :: border-sky": {
           "count": 1,
@@ -2403,13 +1897,7 @@
           "count": 1,
           "file": "src/canvas/components/ScenarioComparison.tsx",
           "token": "bg-mint",
-          "sample": "<div className=\"px-4 py-2 bg-mint-50 border-b border-mint-200 flex items-center justify-between\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ScenarioComparison.tsx :: border-mint": {
-          "count": 1,
-          "file": "src/canvas/components/ScenarioComparison.tsx",
-          "token": "border-mint",
-          "sample": "<div className=\"px-4 py-2 bg-mint-50 border-b border-mint-200 flex items-center justify-between\">"
+          "sample": "<div className=\"px-4 py-2 bg-mint-50 flex items-center justify-between\">"
         },
         "legacy-tailwind-token :: src/canvas/components/ScenarioComparison.tsx :: text-mint": {
           "count": 3,
@@ -2501,72 +1989,6 @@
           "token": "bg-ink",
           "sample": "text-ink-700 hover:bg-ink-50 transition-colors`}"
         },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: bg-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "bg-carrot",
-          "sample": "bgColor: 'bg-carrot-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: border-carrot": {
-          "count": 1,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "border-carrot",
-          "sample": "borderColor: 'border-carrot-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: text-carrot": {
-          "count": 2,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "text-carrot",
-          "sample": "textColor: 'text-carrot-700',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: bg-sand": {
-          "count": 6,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "bg-sand",
-          "sample": "bgColor: 'bg-sand-50',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: border-sand": {
-          "count": 5,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "border-sand",
-          "sample": "borderColor: 'border-sand-200',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: text-sand": {
-          "count": 4,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "text-sand",
-          "sample": "textColor: 'text-sand-600',"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: bg-paper": {
-          "count": 1,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "bg-paper",
-          "sample": "className=\"bg-paper-50 border border-sand-200 rounded-md overflow-hidden\""
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: text-ink": {
-          "count": 9,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "text-ink",
-          "sample": "<ChevronDown className=\"h-4 w-4 text-ink-500\" />"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: divide-sand": {
-          "count": 1,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "divide-sand",
-          "sample": "<div className=\"border-t border-sand-200 divide-y divide-sand-100\">"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: bg-sky": {
-          "count": 1,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "bg-sky",
-          "sample": "<span className={`px-2 py-1 rounded bg-sky-50 text-sky-700`}>"
-        },
-        "legacy-tailwind-token :: src/canvas/components/ThresholdDisplay.tsx :: text-sky": {
-          "count": 2,
-          "file": "src/canvas/components/ThresholdDisplay.tsx",
-          "token": "text-sky",
-          "sample": "<span className={`px-2 py-1 rounded bg-sky-50 text-sky-700`}>"
-        },
         "legacy-tailwind-token :: src/canvas/components/ThresholdInput.tsx :: text-ink": {
           "count": 8,
           "file": "src/canvas/components/ThresholdInput.tsx",
@@ -2592,7 +2014,7 @@
           "sample": "textColor: 'text-sand-600',"
         },
         "legacy-tailwind-token :: src/canvas/components/TrustSignal.tsx :: border-sand": {
-          "count": 8,
+          "count": 4,
           "file": "src/canvas/components/TrustSignal.tsx",
           "token": "border-sand",
           "sample": "borderColor: 'border-sand-200',"
@@ -2676,7 +2098,7 @@
           "sample": "className=\"flex items-center gap-2 p-2 bg-sand-50 rounded-lg\""
         },
         "legacy-tailwind-token :: src/canvas/components/UserMappingForm.tsx :: border-sand": {
-          "count": 3,
+          "count": 2,
           "file": "src/canvas/components/UserMappingForm.tsx",
           "token": "border-sand",
           "sample": "className=\"flex-1 min-w-0 px-2 py-1.5 text-sm border border-sand-200 rounded bg-white\""
@@ -2706,7 +2128,7 @@
           "sample": "<div className=\"p-4 bg-sand-50 rounded-lg border border-sand-200\">"
         },
         "legacy-tailwind-token :: src/canvas/components/UtilityWeightPanel.tsx :: border-sand": {
-          "count": 5,
+          "count": 4,
           "file": "src/canvas/components/UtilityWeightPanel.tsx",
           "token": "border-sand",
           "sample": "<div className=\"p-4 bg-sand-50 rounded-lg border border-sand-200\">"
@@ -2778,7 +2200,7 @@
           "sample": "bgColor: 'bg-paper-50',"
         },
         "legacy-tailwind-token :: src/canvas/components/ValidationPanel.tsx :: border-sand": {
-          "count": 6,
+          "count": 5,
           "file": "src/canvas/components/ValidationPanel.tsx",
           "token": "border-sand",
           "sample": "borderColor: 'border-sand-200',"
@@ -3030,7 +2452,7 @@
           "sample": "className=\"w-3 h-3 text-ink-900 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors\""
         },
         "legacy-tailwind-token :: src/components/HelpTooltip.tsx :: border-sand": {
-          "count": 2,
+          "count": 1,
           "file": "src/components/HelpTooltip.tsx",
           "token": "border-sand",
           "sample": "bg-white border border-sand-200 rounded-lg shadow-lg"
@@ -3063,13 +2485,7 @@
           "count": 1,
           "file": "src/components/ScenarioDrawer.tsx",
           "token": "bg-paper",
-          "sample": "className=\"w-[24rem] h-full bg-paper-50 shadow-panel p-4 border-l border-sand-200 flex flex-col gap-3 font-sans\""
-        },
-        "legacy-tailwind-token :: src/components/ScenarioDrawer.tsx :: border-sand": {
-          "count": 2,
-          "file": "src/components/ScenarioDrawer.tsx",
-          "token": "border-sand",
-          "sample": "className=\"w-[24rem] h-full bg-paper-50 shadow-panel p-4 border-l border-sand-200 flex flex-col gap-3 font-sans\""
+          "sample": "className=\"w-[24rem] h-full bg-paper-50 shadow-panel p-4 flex flex-col gap-3 font-sans\""
         },
         "legacy-tailwind-token :: src/components/ScenarioDrawer.tsx :: text-ink": {
           "count": 4,
@@ -3077,17 +2493,17 @@
           "token": "text-ink",
           "sample": "<h2 className=\"font-semibold text-base mb-2 text-ink-900\">Scenarios</h2>"
         },
+        "legacy-tailwind-token :: src/components/ScenarioDrawer.tsx :: border-sand": {
+          "count": 1,
+          "file": "src/components/ScenarioDrawer.tsx",
+          "token": "border-sand",
+          "sample": "<button type=\"button\" data-testid=\"scenario-save-btn\" className=\"text-xs px-2 py-1 rounded border border-sand-200\" onCli"
+        },
         "legacy-tailwind-token :: src/components/Skeleton.tsx :: bg-sand": {
           "count": 1,
           "file": "src/components/Skeleton.tsx",
           "token": "bg-sand",
           "sample": "const baseClasses = 'bg-sand-200 animate-pulse'"
-        },
-        "legacy-tailwind-token :: src/components/Spinner.tsx :: border-sky": {
-          "count": 1,
-          "file": "src/components/Spinner.tsx",
-          "token": "border-sky",
-          "sample": "className={`${sizeClasses[size]} border-sky-500 border-t-transparent rounded-full animate-spin`}"
         },
         "legacy-tailwind-token :: src/components/Spinner.tsx :: text-ink": {
           "count": 1,
@@ -3238,10 +2654,10 @@
     "production-hex": {
       "mode": "ratchet",
       "description": "Raw hex colour literals in production .ts/.tsx (excl. debug/poc/theme/tests + var() fallbacks)",
-      "total": 264,
+      "total": 255,
       "byFile": {
-        "src/components/ContractInspector.tsx": 67,
-        "src/canvas/export/decisionBrief.ts": 33,
+        "src/components/ContractInspector.tsx": 63,
+        "src/canvas/export/decisionBrief.ts": 29,
         "src/components/GraphCanvas.tsx": 24,
         "src/canvas/components/ImportExportDialog.tsx": 17,
         "src/components/chat/artefactIframeTemplate.ts": 15,
@@ -3263,12 +2679,12 @@
         "src/lib/PoCShell.tsx": 3,
         "src/components/BuildBadge.tsx": 2,
         "src/lib/tldrawAdapter.ts": 2,
-        "src/pages/sandbox-guide/DiagnosticBanner.tsx": 2,
         "src/routes/CanvasIsolationTest.tsx": 2,
         "src/routes/PlotShowcase.tsx": 2,
         "src/canvas/components/AlignmentGuides.tsx": 1,
         "src/components/CanvasDrawer.tsx": 1,
         "src/lib/gate-rendering.tsx": 1,
+        "src/pages/sandbox-guide/DiagnosticBanner.tsx": 1,
         "src/pages/sandbox-guide/components/canvas/GhostEdge.tsx": 1
       },
       "signatures": {
@@ -3410,12 +2826,6 @@
           "token": "#374151",
           "sample": "color: #374151;"
         },
-        "production-hex :: src/canvas/export/decisionBrief.ts :: #E5E7EB": {
-          "count": 4,
-          "file": "src/canvas/export/decisionBrief.ts",
-          "token": "#E5E7EB",
-          "sample": "border-bottom: 2px solid #e5e7eb;"
-        },
         "production-hex :: src/canvas/export/decisionBrief.ts :: #4B5563": {
           "count": 1,
           "file": "src/canvas/export/decisionBrief.ts",
@@ -3428,6 +2838,12 @@
           "token": "#6B7280",
           "sample": "color: #6b7280;"
         },
+        "production-hex :: src/canvas/export/decisionBrief.ts :: #E5E7EB": {
+          "count": 1,
+          "file": "src/canvas/export/decisionBrief.ts",
+          "token": "#E5E7EB",
+          "sample": "border: 1px solid #e5e7eb;"
+        },
         "production-hex :: src/canvas/export/decisionBrief.ts :: #F9FAFB": {
           "count": 3,
           "file": "src/canvas/export/decisionBrief.ts",
@@ -3435,7 +2851,7 @@
           "sample": "background: #f9fafb;"
         },
         "production-hex :: src/canvas/export/decisionBrief.ts :: #F3F4F6": {
-          "count": 2,
+          "count": 1,
           "file": "src/canvas/export/decisionBrief.ts",
           "token": "#F3F4F6",
           "sample": "background: #f3f4f6;"
@@ -3486,7 +2902,7 @@
           "count": 1,
           "file": "src/canvas/export/decisionBrief.ts",
           "token": "#F59E0B",
-          "sample": "border-left: 4px solid #f59e0b;"
+          "sample": "border: 1px solid #f59e0b;"
         },
         "production-hex :: src/canvas/export/decisionBrief.ts :: #3B82F6": {
           "count": 1,
@@ -3554,12 +2970,6 @@
           "token": "#F8FAFC",
           "sample": "background: '#f8fafc',"
         },
-        "production-hex :: src/components/ContractInspector.tsx :: #E2E8F0": {
-          "count": 6,
-          "file": "src/components/ContractInspector.tsx",
-          "token": "#E2E8F0",
-          "sample": "borderBottom: '1px solid #e2e8f0',"
-        },
         "production-hex :: src/components/ContractInspector.tsx :: #334155": {
           "count": 3,
           "file": "src/components/ContractInspector.tsx",
@@ -3576,6 +2986,12 @@
           "count": 2,
           "file": "src/components/ContractInspector.tsx",
           "token": "#3B82F6",
+          "sample": "borderColor: active ? '#3b82f6' : '#e2e8f0',"
+        },
+        "production-hex :: src/components/ContractInspector.tsx :: #E2E8F0": {
+          "count": 3,
+          "file": "src/components/ContractInspector.tsx",
+          "token": "#E2E8F0",
           "sample": "borderColor: active ? '#3b82f6' : '#e2e8f0',"
         },
         "production-hex :: src/components/ContractInspector.tsx :: #EFF6FF": {
@@ -3601,12 +3017,6 @@
           "file": "src/components/ContractInspector.tsx",
           "token": "#64748B",
           "sample": "color: active ? '#1d4ed8' : '#64748b',"
-        },
-        "production-hex :: src/components/ContractInspector.tsx :: #F1F5F9": {
-          "count": 1,
-          "file": "src/components/ContractInspector.tsx",
-          "token": "#F1F5F9",
-          "sample": "borderBottom: '1px solid #f1f5f9',"
         },
         "production-hex :: src/components/ContractInspector.tsx :: #1E293B": {
           "count": 1,
@@ -3902,17 +3312,17 @@
           "token": "#F4F0EA",
           "sample": "--bg-canvas: #F4F0EA;"
         },
-        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEF9F3": {
-          "count": 1,
-          "file": "src/components/chat/artefactIframeTemplate.ts",
-          "token": "#FEF9F3",
-          "sample": "--bg-panel-hover: #FEF9F3;"
-        },
         "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEFEFE": {
           "count": 1,
           "file": "src/components/chat/artefactIframeTemplate.ts",
           "token": "#FEFEFE",
           "sample": "--bg-panel: #FEFEFE;"
+        },
+        "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #FEF9F3": {
+          "count": 1,
+          "file": "src/components/chat/artefactIframeTemplate.ts",
+          "token": "#FEF9F3",
+          "sample": "--bg-panel-hover: #FEF9F3;"
         },
         "production-hex :: src/components/chat/artefactIframeTemplate.ts :: #EEE6D8": {
           "count": 1,
@@ -4088,12 +3498,6 @@
           "token": "#10B981",
           "sample": "background: '#10b981',"
         },
-        "production-hex :: src/pages/sandbox-guide/DiagnosticBanner.tsx :: #059669": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/DiagnosticBanner.tsx",
-          "token": "#059669",
-          "sample": "borderBottom: '3px solid #059669'"
-        },
         "production-hex :: src/pages/sandbox-guide/components/canvas/EdgeHighlight.tsx :: #10B981": {
           "count": 1,
           "file": "src/pages/sandbox-guide/components/canvas/EdgeHighlight.tsx",
@@ -4261,12 +3665,11 @@
     "uppercase-text": {
       "mode": "ratchet",
       "description": "Styling-driven all-caps (uppercase class) — sentence case required (DS v5 §2)",
-      "total": 56,
+      "total": 53,
       "byFile": {
         "src/canvas/compare/EdgeDiffTable.tsx": 6,
         "src/pages/SharedBriefPage.tsx": 5,
         "src/components/ProsConsList/ScoreComparison.tsx": 4,
-        "src/canvas/components/DecisionSummary.tsx": 3,
         "src/pages/sandbox-guide/components/panel/states/PostRunState.tsx": 3,
         "src/canvas/components/CompareView.tsx": 2,
         "src/canvas/components/ScenarioSwitcher.tsx": 2,
@@ -4316,12 +3719,6 @@
           "file": "src/canvas/components/DecisionQuality.tsx",
           "token": "uppercase",
           "sample": "className={`${typography.caption} font-medium text-ink-600 uppercase tracking-wide`}"
-        },
-        "uppercase-text :: src/canvas/components/DecisionSummary.tsx :: uppercase": {
-          "count": 3,
-          "file": "src/canvas/components/DecisionSummary.tsx",
-          "token": "uppercase",
-          "sample": "<span className={`${typography.caption} font-medium text-sky-700 uppercase tracking-wide`}>"
         },
         "uppercase-text :: src/canvas/components/DocumentsManager.tsx :: uppercase": {
           "count": 1,
@@ -4508,7 +3905,7 @@
     "panel-typography-scoped": {
       "mode": "ratchet",
       "description": "Raw text-/font- utilities in panel scope — must use panelHeader/Body/Meta (DS v5 §2.4)",
-      "total": 15,
+      "total": 14,
       "byFile": {
         "src/canvas/panels/TemplatesPanel.tsx": 3,
         "src/canvas/ui/EdgeInspector.tsx": 3,
@@ -4516,8 +3913,7 @@
         "src/canvas/ui/inspector-v2/panels/FactorControllablePanel.tsx": 2,
         "src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx": 2,
         "src/canvas/panels/InspectorPanel.tsx": 1,
-        "src/canvas/panels/IssuesPanel.tsx": 1,
-        "src/canvas/ui/inspector-v2/panels/OptionPanel.tsx": 1
+        "src/canvas/panels/IssuesPanel.tsx": 1
       },
       "signatures": {
         "panel-typography-scoped :: src/canvas/panels/AdapterStatusBanner.tsx :: text-xs": {
@@ -4568,12 +3964,6 @@
           "token": "text-xl",
           "sample": "<span className={`${typography.panelHeader} text-xl`}>{unit}</span>"
         },
-        "panel-typography-scoped :: src/canvas/ui/inspector-v2/panels/OptionPanel.tsx :: text-2xl": {
-          "count": 1,
-          "file": "src/canvas/ui/inspector-v2/panels/OptionPanel.tsx",
-          "token": "text-2xl",
-          "sample": "<div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>"
-        },
         "panel-typography-scoped :: src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx :: text-xl": {
           "count": 2,
           "file": "src/canvas/ui/inspector-v2/shared/InlineNumberEditor.tsx",
@@ -4582,195 +3972,14 @@
         }
       }
     },
-    "emoji-icon": {
-      "mode": "report",
-      "description": "Emoji / unicode-symbol used as a rendered icon (icon:/symbol:/glyph: with emoji)",
-      "total": 28,
-      "byFile": {
-        "src/components/PlotToolbar.tsx": 10,
-        "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx": 5,
-        "src/canvas/hooks/useRiskProfile.ts": 3,
-        "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx": 3,
-        "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx": 3,
-        "src/components/debug/components/ServiceChain.tsx": 2,
-        "src/components/debug/tabs/SummaryTab.tsx": 1,
-        "src/components/results/useResultsSectionData.ts": 1
-      },
-      "signatures": {
-        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: 🛡": {
-          "count": 1,
-          "file": "src/canvas/hooks/useRiskProfile.ts",
-          "token": "🛡",
-          "sample": "icon: '🛡️',"
-        },
-        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: ⚖": {
-          "count": 1,
-          "file": "src/canvas/hooks/useRiskProfile.ts",
-          "token": "⚖",
-          "sample": "icon: '⚖️',"
-        },
-        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: 🎲": {
-          "count": 1,
-          "file": "src/canvas/hooks/useRiskProfile.ts",
-          "token": "🎲",
-          "sample": "icon: '🎲',"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚡": {
-          "count": 2,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "⚡",
-          "sample": "{ id: 'select' as Tool, icon: '⚡', label: 'Select', key: 'V' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: ✋": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "✋",
-          "sample": "{ id: 'pan' as Tool, icon: '✋', label: 'Pan', key: 'H' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: 🔗": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "🔗",
-          "sample": "{ id: 'connect' as Tool, icon: '🔗', label: 'Connect', key: 'C' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: 🎯": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "🎯",
-          "sample": "{ type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-panel border-success/30' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚖": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "⚖",
-          "sample": "{ type: 'decision', icon: '⚖️', label: DECISION_NODE_LABEL, color: 'bg-panel border-info/30' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: 🔷": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "🔷",
-          "sample": "{ type: 'option', icon: '🔷', label: 'Option', color: 'bg-panel border-info/30' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚙": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "⚙",
-          "sample": "{ type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-panel border-panel-border' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚠": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "⚠",
-          "sample": "{ type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-panel border-warning/30' },"
-        },
-        "emoji-icon :: src/components/PlotToolbar.tsx :: 📊": {
-          "count": 1,
-          "file": "src/components/PlotToolbar.tsx",
-          "token": "📊",
-          "sample": "{ type: 'outcome', icon: '📊', label: 'Outcome', color: 'bg-panel border-success/30' },"
-        },
-        "emoji-icon :: src/components/debug/components/ServiceChain.tsx :: ✓": {
-          "count": 1,
-          "file": "src/components/debug/components/ServiceChain.tsx",
-          "token": "✓",
-          "sample": "success: { bg: '#dcfce7', border: '#86efac', text: '#166534', dot: '#22c55e', icon: '✓' },"
-        },
-        "emoji-icon :: src/components/debug/components/ServiceChain.tsx :: ✗": {
-          "count": 1,
-          "file": "src/components/debug/components/ServiceChain.tsx",
-          "token": "✗",
-          "sample": "error: { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b', dot: '#ef4444', icon: '✗' },"
-        },
-        "emoji-icon :: src/components/debug/tabs/SummaryTab.tsx :: ⚠": {
-          "count": 1,
-          "file": "src/components/debug/tabs/SummaryTab.tsx",
-          "token": "⚠",
-          "sample": "warning: { icon: '⚠', bg: '#fffbeb', border: '#fde68a', text: '#d97706' },"
-        },
-        "emoji-icon :: src/components/results/useResultsSectionData.ts :: ✓": {
-          "count": 1,
-          "file": "src/components/results/useResultsSectionData.ts",
-          "token": "✓",
-          "sample": "icon: tier === 'strong' ? '✓' : '⚠',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🎯": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
-          "token": "🎯",
-          "sample": "icon: '🎯',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🔀": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
-          "token": "🔀",
-          "sample": "icon: '🔀',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: ⚙": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
-          "token": "⚙",
-          "sample": "icon: '⚙️',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🔗": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
-          "token": "🔗",
-          "sample": "icon: '🔗',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: ✨": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
-          "token": "✨",
-          "sample": "icon: '✨',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: ✨": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
-          "token": "✨",
-          "sample": "icon=\"✨\""
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: 📋": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
-          "token": "📋",
-          "sample": "icon=\"📋\""
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: 🔨": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
-          "token": "🔨",
-          "sample": "icon=\"🔨\""
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ✓": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
-          "token": "✓",
-          "sample": "icon: '✓',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ⏱": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
-          "token": "⏱",
-          "sample": "icon: '⏱',"
-        },
-        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ⚠": {
-          "count": 1,
-          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
-          "token": "⚠",
-          "sample": "icon: '⚠',"
-        }
-      }
-    },
     "v12-scale-tsx": {
       "mode": "ratchet",
       "description": "V12 surfaces off the design-system scale (size 12/14/18, weight 400/500, Inter, token colour, token radius, Lucide)",
-      "total": 28,
+      "total": 22,
       "byFile": {
         "src/olumiView/v10.tsx": 8,
-        "src/olumiView/ViewChances.tsx": 3,
         "src/olumiView/v12/scale/OutcomeStrips.tsx": 3,
         "src/olumiView/ViewLegend.tsx": 2,
-        "src/olumiView/port/LensTabs.tsx": 2,
         "src/olumiView/v12/scale/RangeBar.tsx": 2,
         "src/olumiView/RevealDock.tsx": 1,
         "src/olumiView/ViewPreMortemKey.tsx": 1,
@@ -4778,8 +3987,7 @@
         "src/olumiView/ViewWelcome.tsx": 1,
         "src/olumiView/ViewWhatIfKey.tsx": 1,
         "src/olumiView/port/ChatFloat.tsx": 1,
-        "src/olumiView/v12/scale/ConditionalBar.tsx": 1,
-        "src/olumiView/v12/actionsMenu.tsx": 1
+        "src/olumiView/v12/scale/ConditionalBar.tsx": 1
       },
       "signatures": {
         "v12-scale-tsx :: src/olumiView/RevealDock.tsx :: radius: rounded-2xl": {
@@ -4787,18 +3995,6 @@
           "file": "src/olumiView/RevealDock.tsx",
           "token": "radius: rounded-2xl",
           "sample": "<div className=\"grid gap-2 rounded-2xl bg-panel-hover p-3\" data-testid=\"reveal-dock-foot\">"
-        },
-        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: radius: borderRadius: 4": {
-          "count": 1,
-          "file": "src/olumiView/ViewChances.tsx",
-          "token": "radius: borderRadius: 4",
-          "sample": "const dot = { position: 'absolute', top: '50%', width: 8, height: 8, marginLeft: -4, marginTop: -4, borderRadius: 4 } as"
-        },
-        "v12-scale-tsx :: src/olumiView/ViewChances.tsx :: radius: borderRadius: 2": {
-          "count": 2,
-          "file": "src/olumiView/ViewChances.tsx",
-          "token": "radius: borderRadius: 2",
-          "sample": "<div className=\"relative\" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>"
         },
         "v12-scale-tsx :: src/olumiView/ViewLegend.tsx :: colour: rgba(1": {
           "count": 2,
@@ -4810,13 +4006,13 @@
           "count": 1,
           "file": "src/olumiView/ViewPreMortemKey.tsx",
           "token": "radius: rounded-[20px]",
-          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel "
         },
         "v12-scale-tsx :: src/olumiView/ViewTradeOffsKey.tsx :: radius: rounded-[20px]": {
           "count": 1,
           "file": "src/olumiView/ViewTradeOffsKey.tsx",
           "token": "radius: rounded-[20px]",
-          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel "
         },
         "v12-scale-tsx :: src/olumiView/ViewWelcome.tsx :: radius: rounded-2xl": {
           "count": 1,
@@ -4828,25 +4024,13 @@
           "count": 1,
           "file": "src/olumiView/ViewWhatIfKey.tsx",
           "token": "radius: rounded-[20px]",
-          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col rounded-[20px] border border-panel-border bg-panel shadow"
+          "sample": "className=\"pointer-events-auto absolute z-[1150] flex flex-col gap-3 rounded-[20px] border border-panel-border bg-panel "
         },
         "v12-scale-tsx :: src/olumiView/port/ChatFloat.tsx :: radius: borderRadius: 10": {
           "count": 1,
           "file": "src/olumiView/port/ChatFloat.tsx",
           "token": "radius: borderRadius: 10",
           "sample": "style={{ zIndex: 300, left: placed.x, top: placed.y, ...size, borderRadius: 10, border: '1px solid var(--border-default)"
-        },
-        "v12-scale-tsx :: src/olumiView/port/LensTabs.tsx :: radius: rounded-[18px]": {
-          "count": 1,
-          "file": "src/olumiView/port/LensTabs.tsx",
-          "token": "radius: rounded-[18px]",
-          "sample": "<div role=\"tablist\" className=\"grid auto-cols-fr grid-flow-col gap-0.5 rounded-[18px] border border-panel-border p-0.5\" "
-        },
-        "v12-scale-tsx :: src/olumiView/port/LensTabs.tsx :: radius: rounded-[16px]": {
-          "count": 1,
-          "file": "src/olumiView/port/LensTabs.tsx",
-          "token": "radius: rounded-[16px]",
-          "sample": "className={`${TYPE.meta} min-h-[32px] min-w-0 rounded-[16px] px-2 py-1 text-center leading-tight [overflow-wrap:anywhere"
         },
         "v12-scale-tsx :: src/olumiView/v10.tsx :: radius: borderRadius: 3": {
           "count": 4,
@@ -4882,7 +4066,7 @@
           "count": 1,
           "file": "src/olumiView/v12/scale/OutcomeStrips.tsx",
           "token": "radius: borderRadius: 4",
-          "sample": "return <div data-testid=\"outcome-pending\" data-card={card.id} title={words} style={{ border: `1px dashed ${LIGHT}`, bord"
+          "sample": "return <Hover as=\"div\" data-testid=\"outcome-pending\" data-card={card.id} words={words} style={{ border: `1px dashed ${LI"
         },
         "v12-scale-tsx :: src/olumiView/v12/scale/OutcomeStrips.tsx :: radius: borderRadius: 2": {
           "count": 1,
@@ -4894,78 +4078,47 @@
           "count": 1,
           "file": "src/olumiView/v12/scale/RangeBar.tsx",
           "token": "radius: borderRadius: 2",
-          "sample": "const band = { position: 'absolute', top: 4, height: 8, left: `${a}%`, width: `${Math.max(1, b - a)}%`, borderRadius: 2 "
+          "sample": "const band = { position: 'absolute', top: olumi ? 4 : 5, height: olumi ? 8 : 6, left: `${a}%`, width: `${Math.max(1, b -"
         },
         "v12-scale-tsx :: src/olumiView/v12/scale/RangeBar.tsx :: radius: borderRadius: 3": {
           "count": 1,
           "file": "src/olumiView/v12/scale/RangeBar.tsx",
           "token": "radius: borderRadius: 3",
           "sample": "<div style={{ position: 'relative', height: 16, background: TRACK, borderRadius: 3 }}>"
-        },
-        "v12-scale-tsx :: src/olumiView/v12/actionsMenu.tsx :: radius: rounded-xl": {
-          "count": 1,
-          "file": "src/olumiView/v12/actionsMenu.tsx",
-          "token": "radius: rounded-xl",
-          "sample": "className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto roun"
         }
       }
     },
     "v12-scale-css": {
       "mode": "ratchet",
       "description": "V12 stylesheets off the design-system scale (font-size 12/14/18, weight 400/500, no font-family, token colour, token radius)",
-      "total": 8,
+      "total": 5,
       "byFile": {
-        "src/olumiView/look/olumiLook.css": 7,
+        "src/olumiView/look/olumiLook.css": 4,
         "src/olumiView/look/menu.css": 1
       },
       "signatures": {
-        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 2px": {
-          "count": 4,
-          "file": "src/olumiView/look/olumiLook.css",
-          "token": "radius: border-radius: 2px",
-          "sample": ".ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }"
-        },
-        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 1px": {
-          "count": 1,
-          "file": "src/olumiView/look/olumiLook.css",
-          "token": "radius: border-radius: 1px",
-          "sample": ".olumi-look .react-flow__node:has([data-ok-kind='goal']) [role='group'][aria-label]::before { width: calc(9px * var(--o-"
-        },
         "v12-scale-css :: src/olumiView/look/menu.css :: family: font-family:": {
           "count": 1,
           "file": "src/olumiView/look/menu.css",
           "token": "family: font-family:",
           "sample": "font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;"
         },
-        "v12-scale-css :: src/olumiView/look/olumiLook.css :: size: font-size: calc(11px": {
-          "count": 1,
+        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 2px": {
+          "count": 4,
           "file": "src/olumiView/look/olumiLook.css",
-          "token": "size: font-size: calc(11px",
-          "sample": "font-size: calc(11px * var(--o-s)); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums;"
-        },
-        "v12-scale-css :: src/olumiView/look/olumiLook.css :: radius: border-radius: 4px": {
-          "count": 1,
-          "file": "src/olumiView/look/olumiLook.css",
-          "token": "radius: border-radius: 4px",
-          "sample": ".ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-t"
+          "token": "radius: border-radius: 2px",
+          "sample": ".ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }"
         }
       }
     },
     "v12-typography-token": {
       "mode": "ratchet",
       "description": "Typography tokens that resolve to 11/13/16px or weight 600/700",
-      "total": 3,
+      "total": 1,
       "byFile": {
-        "src/olumiView/ViewZoomNotice.tsx": 2,
         "src/olumiView/look/Menu.tsx": 1
       },
       "signatures": {
-        "v12-typography-token :: src/olumiView/ViewZoomNotice.tsx :: typography.panelMeta (11px/400)": {
-          "count": 2,
-          "file": "src/olumiView/ViewZoomNotice.tsx",
-          "token": "typography.panelMeta (11px/400)",
-          "sample": "<span className={`${typography.panelMeta} text-text-body`}>{CANVAS_LOD_NOTICE_COPY}</span>"
-        },
         "v12-typography-token :: src/olumiView/look/Menu.tsx :: typography.panelMeta (11px/400)": {
           "count": 1,
           "file": "src/olumiView/look/Menu.tsx",
@@ -4977,7 +4130,7 @@
     "v12-inline-style": {
       "mode": "ratchet",
       "description": "Explicit style props on DOM elements, except verified CSS-variable-only object literals",
-      "total": 98,
+      "total": 97,
       "byFile": {
         "src/olumiView/v12/scale/OutcomeStrips.tsx": 13,
         "src/olumiView/ResultBand.tsx": 9,
@@ -4991,7 +4144,6 @@
         "src/olumiView/DraftingBoard.tsx": 3,
         "src/olumiView/look/icons.tsx": 3,
         "src/olumiView/port/WhatIfBars.tsx": 3,
-        "src/olumiView/ViewLensBar.tsx": 2,
         "src/olumiView/ViewWelcome.tsx": 2,
         "src/olumiView/port/ChatFloat.tsx": 2,
         "src/olumiView/v12/bands/BandLayer.tsx": 2,
@@ -4999,6 +4151,7 @@
         "src/olumiView/BelowCue.tsx": 1,
         "src/olumiView/LinkRemove.tsx": 1,
         "src/olumiView/RevealMarks.tsx": 1,
+        "src/olumiView/ViewLensBar.tsx": 1,
         "src/olumiView/ViewPreMortemKey.tsx": 1,
         "src/olumiView/ViewTradeOffsKey.tsx": 1,
         "src/olumiView/ViewWhatIfKey.tsx": 1,
@@ -5025,7 +4178,7 @@
           "count": 1,
           "file": "src/olumiView/BelowCue.tsx",
           "token": "<div style>",
-          "sample": "<div className=\"pointer-events-none fixed bottom-[40px] z-[1200] flex gap-2\" style={{ left }} data-testid=\"view-below-cu"
+          "sample": "<div className={`fixed bottom-[40px] z-[1200] ${TOOLBAR_BAR}`} style={{ left }} data-testid=\"view-below-cue\">"
         },
         "v12-inline-style :: src/olumiView/DraftingBoard.tsx :: <div style>": {
           "count": 3,
@@ -5064,7 +4217,7 @@
           "sample": "? <span className=\"absolute top-1.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-text-body\" style={{ left: `${axis.their"
         },
         "v12-inline-style :: src/olumiView/ViewLensBar.tsx :: <div style>": {
-          "count": 2,
+          "count": 1,
           "file": "src/olumiView/ViewLensBar.tsx",
           "token": "<div style>",
           "sample": "style={{ height: TOP_PILL_HEIGHT_PX, left: place?.left ?? 0, top: place?.top ?? TOP_PILL_TOP_PX, visibility: place ? 'vi"
@@ -5211,7 +4364,7 @@
           "count": 1,
           "file": "src/olumiView/v12/edit/EditForm.tsx",
           "token": "<form style>",
-          "sample": "style={beside === undefined ? { left, top } : undefined} onSubmit={(e) => { e.preventDefault(); void go() }}>"
+          "sample": "style={position} onSubmit={(e) => { e.preventDefault(); void go() }}>"
         },
         "v12-inline-style :: src/olumiView/v12/inspect/FigureInspector.tsx :: <span style>": {
           "count": 1,
@@ -5524,16 +4677,12 @@
     "v12-native-title": {
       "mode": "ratchet",
       "description": "Native title props on DOM elements in lane TSX",
-      "total": 29,
+      "total": 20,
       "byFile": {
-        "src/olumiView/ViewWhatIfKey.tsx": 4,
         "src/olumiView/RevealMarks.tsx": 3,
         "src/olumiView/ViewPreMortemKey.tsx": 3,
         "src/olumiView/ViewTradeOffsKey.tsx": 3,
         "src/olumiView/v10.tsx": 3,
-        "src/olumiView/TeamPresence.tsx": 2,
-        "src/olumiView/ViewLensBar.tsx": 2,
-        "src/olumiView/AddFigure.tsx": 1,
         "src/olumiView/Badge.tsx": 1,
         "src/olumiView/DraftingBoard.tsx": 1,
         "src/olumiView/ResultBand.tsx": 1,
@@ -5544,12 +4693,6 @@
         "src/olumiView/WhatIfCompare.tsx": 1
       },
       "signatures": {
-        "v12-native-title :: src/olumiView/AddFigure.tsx :: <button title>": {
-          "count": 1,
-          "file": "src/olumiView/AddFigure.tsx",
-          "token": "<button title>",
-          "sample": "<button type=\"button\" disabled aria-disabled=\"true\" className={styles.iconButton} aria-label={`Add to model: ${why}`} ti"
-        },
         "v12-native-title :: src/olumiView/Badge.tsx :: <button title>": {
           "count": 1,
           "file": "src/olumiView/Badge.tsx",
@@ -5586,23 +4729,11 @@
           "token": "<p title>",
           "sample": "return <p className=\"text-text-header\" title={figure.title} data-stated-figure={id} data-view={`${id}.figure.text`}>{fig"
         },
-        "v12-native-title :: src/olumiView/TeamPresence.tsx :: <button title>": {
-          "count": 2,
-          "file": "src/olumiView/TeamPresence.tsx",
-          "token": "<button title>",
-          "sample": "title={unjoined.text} data-testid=\"team-presence-unjoined\"><OkIcon id=\"invite\" decorative inherit /><span className=\"sr-"
-        },
         "v12-native-title :: src/olumiView/ViewLegend.tsx :: <p title>": {
           "count": 1,
           "file": "src/olumiView/ViewLegend.tsx",
           "token": "<p title>",
           "sample": "<p className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap"
-        },
-        "v12-native-title :: src/olumiView/ViewLensBar.tsx :: <button title>": {
-          "count": 2,
-          "file": "src/olumiView/ViewLensBar.tsx",
-          "token": "<button title>",
-          "sample": "aria-checked={selected} aria-disabled={waiting || undefined} tabIndex={selected ? 0 : -1} data-testid={`${LENS_BAR_TESTI"
         },
         "v12-native-title :: src/olumiView/ViewPreMortemKey.tsx :: <button title>": {
           "count": 2,
@@ -5640,18 +4771,6 @@
           "token": "<button title>",
           "sample": "<button type=\"button\" onClick={() => useViewLens.setState({ lens: 'full' })} aria-label={LENS_KEY_COPY.close} title={LEN"
         },
-        "v12-native-title :: src/olumiView/ViewWhatIfKey.tsx :: <button title>": {
-          "count": 3,
-          "file": "src/olumiView/ViewWhatIfKey.tsx",
-          "token": "<button title>",
-          "sample": "title={folded ? LENS_KEY_COPY.unfold : LENS_KEY_COPY.fold} data-testid=\"view-whatif-key-fold\""
-        },
-        "v12-native-title :: src/olumiView/ViewWhatIfKey.tsx :: <span title>": {
-          "count": 1,
-          "file": "src/olumiView/ViewWhatIfKey.tsx",
-          "token": "<span title>",
-          "sample": "{picked.figure === null ? null : <p><span className=\"text-text-light\">{WHAT_IF_COPY.saved}: </span><span title={picked.f"
-        },
         "v12-native-title :: src/olumiView/WhatIfCompare.tsx :: <p title>": {
           "count": 1,
           "file": "src/olumiView/WhatIfCompare.tsx",
@@ -5672,6 +4791,28 @@
       "total": 0,
       "byFile": {},
       "signatures": {}
+    },
+    "v12-blue-css-var": {
+      "mode": "report",
+      "description": "Direct info and info-ink CSS variable reads in lane stylesheets",
+      "total": 19,
+      "byFile": {
+        "src/olumiView/look/olumiLook.css": 19
+      },
+      "signatures": {
+        "v12-blue-css-var :: src/olumiView/look/olumiLook.css :: var(--info)": {
+          "count": 18,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "var(--info)",
+          "sample": ".olumi-look .ok-mark { color: var(--info); font-size: calc(12px * var(--o-s)); margin-left: calc(4px * var(--o-s)); font"
+        },
+        "v12-blue-css-var :: src/olumiView/look/olumiLook.css :: var(--info-ink)": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "var(--info-ink)",
+          "sample": "background: linear-gradient(100deg, var(--info) 38%, var(--info-ink) 50%, var(--info) 62%) 100% / 270% 100%;"
+        }
+      }
     },
     "v12-panel-padding": {
       "mode": "report",
@@ -5706,6 +4847,185 @@
           "file": "src/olumiView/v12/views/CompareViewsStage.tsx",
           "token": "p-4",
           "sample": "<section className=\"grid content-start gap-3 rounded-md border border-panel-border bg-panel p-4\" data-testid={`compare-p"
+        }
+      }
+    },
+    "emoji-icon": {
+      "mode": "report",
+      "description": "Emoji / unicode-symbol used as a rendered icon (icon:/symbol:/glyph: with emoji)",
+      "total": 28,
+      "byFile": {
+        "src/components/PlotToolbar.tsx": 10,
+        "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx": 5,
+        "src/canvas/hooks/useRiskProfile.ts": 3,
+        "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx": 3,
+        "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx": 3,
+        "src/components/debug/components/ServiceChain.tsx": 2,
+        "src/components/debug/tabs/SummaryTab.tsx": 1,
+        "src/components/results/useResultsSectionData.ts": 1
+      },
+      "signatures": {
+        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: 🛡": {
+          "count": 1,
+          "file": "src/canvas/hooks/useRiskProfile.ts",
+          "token": "🛡",
+          "sample": "icon: '🛡️',"
+        },
+        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: ⚖": {
+          "count": 1,
+          "file": "src/canvas/hooks/useRiskProfile.ts",
+          "token": "⚖",
+          "sample": "icon: '⚖️',"
+        },
+        "emoji-icon :: src/canvas/hooks/useRiskProfile.ts :: 🎲": {
+          "count": 1,
+          "file": "src/canvas/hooks/useRiskProfile.ts",
+          "token": "🎲",
+          "sample": "icon: '🎲',"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚡": {
+          "count": 2,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "⚡",
+          "sample": "{ id: 'select' as Tool, icon: '⚡', label: 'Select', key: 'V' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: ✋": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "✋",
+          "sample": "{ id: 'pan' as Tool, icon: '✋', label: 'Pan', key: 'H' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: 🔗": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "🔗",
+          "sample": "{ id: 'connect' as Tool, icon: '🔗', label: 'Connect', key: 'C' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: 🎯": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "🎯",
+          "sample": "{ type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-panel border-success/30' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚖": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "⚖",
+          "sample": "{ type: 'decision', icon: '⚖️', label: DECISION_NODE_LABEL, color: 'bg-panel border-info/30' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: 🔷": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "🔷",
+          "sample": "{ type: 'option', icon: '🔷', label: 'Option', color: 'bg-panel border-info/30' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚙": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "⚙",
+          "sample": "{ type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-panel border-panel-border' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: ⚠": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "⚠",
+          "sample": "{ type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-panel border-warning/30' },"
+        },
+        "emoji-icon :: src/components/PlotToolbar.tsx :: 📊": {
+          "count": 1,
+          "file": "src/components/PlotToolbar.tsx",
+          "token": "📊",
+          "sample": "{ type: 'outcome', icon: '📊', label: 'Outcome', color: 'bg-panel border-success/30' },"
+        },
+        "emoji-icon :: src/components/debug/components/ServiceChain.tsx :: ✓": {
+          "count": 1,
+          "file": "src/components/debug/components/ServiceChain.tsx",
+          "token": "✓",
+          "sample": "success: { bg: '#dcfce7', border: '#86efac', text: '#166534', dot: '#22c55e', icon: '✓' },"
+        },
+        "emoji-icon :: src/components/debug/components/ServiceChain.tsx :: ✗": {
+          "count": 1,
+          "file": "src/components/debug/components/ServiceChain.tsx",
+          "token": "✗",
+          "sample": "error: { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b', dot: '#ef4444', icon: '✗' },"
+        },
+        "emoji-icon :: src/components/debug/tabs/SummaryTab.tsx :: ⚠": {
+          "count": 1,
+          "file": "src/components/debug/tabs/SummaryTab.tsx",
+          "token": "⚠",
+          "sample": "warning: { icon: '⚠', bg: '#fffbeb', border: '#fde68a', text: '#d97706' },"
+        },
+        "emoji-icon :: src/components/results/useResultsSectionData.ts :: ✓": {
+          "count": 1,
+          "file": "src/components/results/useResultsSectionData.ts",
+          "token": "✓",
+          "sample": "icon: tier === 'strong' ? '✓' : '⚠',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🎯": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
+          "token": "🎯",
+          "sample": "icon: '🎯',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🔀": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
+          "token": "🔀",
+          "sample": "icon: '🔀',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: ⚙": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
+          "token": "⚙",
+          "sample": "icon: '⚙️',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: 🔗": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
+          "token": "🔗",
+          "sample": "icon: '🔗',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/BuildingState.tsx :: ✨": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/BuildingState.tsx",
+          "token": "✨",
+          "sample": "icon: '✨',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: ✨": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
+          "token": "✨",
+          "sample": "icon=\"✨\""
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: 📋": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
+          "token": "📋",
+          "sample": "icon=\"📋\""
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/panel/states/EmptyState.tsx :: 🔨": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/panel/states/EmptyState.tsx",
+          "token": "🔨",
+          "sample": "icon=\"🔨\""
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ✓": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
+          "token": "✓",
+          "sample": "icon: '✓',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ⏱": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
+          "token": "⏱",
+          "sample": "icon: '⏱',"
+        },
+        "emoji-icon :: src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx :: ⚠": {
+          "count": 1,
+          "file": "src/pages/sandbox-guide/components/shared/EvidenceQualityBadge.tsx",
+          "token": "⚠",
+          "sample": "icon: '⚠',"
         }
       }
     }

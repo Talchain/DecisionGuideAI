@@ -17,7 +17,7 @@ import { writes } from './client'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from './store'
-import { VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
+import { OLDER_VIEW_CHIP_PRIMARY_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 import { noteEditSaved } from './notice'
 import { isSizeEdit, type CoreEdit } from './v12/edit/EditForm'
 import { editGateNow } from './v12/edit/editGate'
@@ -95,7 +95,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className="flex gap-2">
         <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
-          className={VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
+          className={isOlumiCoreLane() ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
         <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
@@ -122,6 +122,9 @@ export async function setFigure(sid: string, base: number, id: string, typed: st
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
 function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener, solid = false }: { solid?: boolean; id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+  const lane = isOlumiCoreLane()
+  const actionInk = lane ? 'text-text-header' : 'text-info'
+  const primaryClass = lane ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
@@ -163,7 +166,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   // A RISK's chance and size, or a link's strength, is core's `…/size` route, never `…/edit` (which refuses it: a risk is not a figure). Core
   // says so with `route: 'size'`; the lane's own size form takes it, in core's field words. A plain figure edit keeps this editor.
   // C1: the pencil is a card action (hidden at rest by the look); `contents` takes no box and `visibility` inherits to the button.
-  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
+  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
   if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
@@ -201,7 +204,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
-          className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={solid ? `nodrag ${primaryClass}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
           className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
@@ -223,7 +226,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
       <label htmlFor={`${place}-${id}`} className={typography.viewLabel}>{edit.prompt}</label>
       <input id={`${place}-${id}`} data-testid={`${place}-typed-${id}`} autoFocus autoComplete="off" spellCheck={false}
         value={typed} disabled={sending} onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
-        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
+        className={`${typography.viewLabel} w-full rounded-sm border border-field bg-panel px-2 py-1 text-text-body focus:outline-none focus-visible:ring-2 ${lane ? 'focus-visible:ring-text-header' : 'focus-visible:ring-info/50'}`} />
       {error && <p role="alert" data-testid={`${place}-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       {/* Pre-screen row 7 (DL 10 Nov): the model moved on while this editor was open, so core refuses its base every time and only Cancel
           and reopen got out. One press moves this edit onto the latest version and keeps what was typed; it is the person's press, never
@@ -238,9 +241,9 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
       {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === '' || live === null} onClick={primary === 'set' ? undefined : () => void save()}
-          className={primary === 'set' ? `${VIEW_CHIP_PRIMARY_CLASS} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body`}>Set figure</button>
+          className={primary === 'set' ? `${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === '' || live === null} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={primary === 'try' ? `order-first ${VIEW_CHIP_PRIMARY_CLASS} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body hover:text-text-header`}>Try without saving</button>
+          className={primary === 'try' ? `order-first ${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body hover:text-text-header`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
           className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>

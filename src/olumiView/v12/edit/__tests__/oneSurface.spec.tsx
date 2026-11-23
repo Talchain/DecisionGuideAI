@@ -102,6 +102,19 @@ it.each(['goal', 'limit'] as const)('Frame Edit on a %s closes the stage and foc
   expect(screen.getByTestId('inspector-figure-typed')).toHaveFocus()
 })
 
+it.each(['goal', 'limit'] as const)('Frame Edit on a %s in words opens its own heading in details', async (family) => {
+  const view = approved(), model = view.model!
+  const aim = model.cards.find((card) => card.family === family)!
+  model.cards = model.cards.map((card) => card.id === aim.id ? { ...card, figure: null, bound: null } : card)
+  model.links = model.links.filter((link) => link.to !== aim.id)
+  await board(false, view)
+  act(() => useFrameStage.getState().show())
+  fireEvent.click(screen.getByTestId(`frame-edit-${aim.id}`))
+  expect(screen.queryByTestId('frame-stage')).toBeNull()
+  expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-box-card', aim.id)
+  expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(aim.heading)
+})
+
 describe('surfaces step 2: one thing open at a time', () => {
   it('ONE-1 opening any one closes whatever else was open: after each opening, exactly that one is open (every kind opened after every other)', async () => {
     await board()

@@ -16,7 +16,7 @@ import { OkIcon, OkIconButton } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
-import { VIEW_EDIT_CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
 import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
 import { useShowToast } from '../../../canvas/ToastContext'
@@ -40,8 +40,8 @@ import { useViewStore } from '../../store'
 import { useDriverOf } from '../../lens'
 import { drawKindOf, triableCards } from '../../layout'
 import { coreHoverValueOf, leadLineOf } from '../../previous/CoreCard'
-import { isSizeEdit, writeKeyOf, type EditSpec } from './EditForm'
-import { openLinkRemoval } from './structuralEdits'
+import { isSizeEdit, type EditSpec } from './EditForm'
+import { OLDER_DETAILS_FORM_ANCHOR, openLaneForm, openLinkRemoval } from './structuralEdits'
 import { RenameHeading } from './RenameHeading'
 import { canRenameCard } from './renameCard'
 import { CardWords } from '../../SelectedRename'
@@ -59,8 +59,9 @@ export const BOX_WORDS = { value: 'Value', from: 'Where this comes from', more: 
  */
 const openFormHere = (spec: EditSpec): void => {
   const open = useLaneInspector.getState().current
-  const beside = isOlumiCoreLane() && open?.kind === 'details' ? open.target : undefined
-  useLaneInspector.getState().show({ kind: 'form', spec, anchor: { x: 372, y: 112 }, beside, busyKey: writeKeyOf(spec) })
+  const lane = isOlumiCoreLane()
+  const beside = lane && open?.kind === 'details' ? open.target : undefined
+  openLaneForm(spec, lane ? undefined : OLDER_DETAILS_FORM_ANCHOR, beside)
 }
 
 type Range = (card: ViewCard, r: FigureRange) => ReactNode
@@ -156,13 +157,13 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => (
     <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={() => { setMore(false); r.action() }}
-      className={VIEW_EDIT_CHIP_CLASS}>{r.label}</HoverButton>
+      className={VIEW_CHIP_CLASS}>{r.label}</HoverButton>
   )
 
   if (link !== null) return (
     <aside ref={box} role="complementary" aria-label="Details" data-testid="lane-inspector" data-state="pinned" data-kind="link" className={frame}>
       <div className="flex items-start justify-between gap-2">
-        <h2 className={`${typography.viewPanelHeadline} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{link.title}</h2>
+        <h2 className={`${typography.panelHeader} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{link.title}</h2>
         {closeX}
       </div>
       <div className="min-h-0 space-y-3 overflow-y-auto">
@@ -212,7 +213,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           {pinned && canRenameCard(c) ? <RenameHeading key={c.id} card={c} gate={ctx.gate} />
-            : <h2 className={`${typography.viewPanelHeadline} break-words text-text-header`} data-testid="lane-inspector-title">{c.heading}</h2>}
+            : <h2 className={`${typography.panelHeader} break-words text-text-header`} data-testid="lane-inspector-title">{c.heading}</h2>}
           <p className={`${typography.viewPanelMeta} m-0 mt-2 flex flex-wrap items-center gap-1.5 text-text-light`} data-testid="lane-inspector-kind">
             <NodeShapeIndicator nodeKind={kind} size={10} />{kindWord}
             {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={14} decorative /></span>}
@@ -280,8 +281,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         <div className="space-y-1" data-testid="lane-inspector-actions">
           <div className="flex flex-wrap items-center gap-1" role="group" aria-label={BOX_WORDS.actions}>
             {option && c.status === null ? <CommitToThisButton option={c.id} /> : null}
-            {ask === null ? null : <button type="button" data-testid="inspector-ask" onClick={ask} className={VIEW_EDIT_CHIP_CLASS}><OkIcon id="ask-about-this" size={14} decorative inherit />{INSPECTOR_WORDS.ask}</button>}
-            {!canTry ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(c.id); close() }} className={VIEW_EDIT_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
+            {ask === null ? null : <button type="button" data-testid="inspector-ask" onClick={ask} className={VIEW_CHIP_CLASS}><OkIcon id="ask-about-this" size={14} decorative inherit />{INSPECTOR_WORDS.ask}</button>}
+            {!canTry ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(c.id); close() }} className={VIEW_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
             {rows.length === 0 ? null : <OkIconButton id="more" size={14} tone="ghost" className="focus-visible:ring-text-header" pressed={more} onClick={() => setMore((m) => !m)} testid="lane-inspector-more" />}
           </div>
           {more && rows.length > 0 ? <div className="flex flex-wrap gap-1" role="group" aria-label={BOX_WORDS.edit}>{rows.map(chip)}</div> : null}

@@ -410,7 +410,7 @@ export function ScenarioSwitcher({
           className={lane ? `flex min-w-0 items-center gap-1.5 px-2 ${TOOLBAR_TITLE}` : "flex items-center gap-1.5 text-sm leading-[1.45] font-normal font-sans text-text-body rounded-md focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-2 transition-colors"}
           data-testid="scenario-switcher-pill"
         >
-          <OkIcon id="scenario" size={lane ? 14 : undefined} decorative />
+          <OkIcon id="scenario" decorative />
 
           {!canRename ? (
             <span className={lane ? "max-w-[360px] truncate text-left" : "max-w-[360px] truncate px-0.5 text-left"} data-testid="scenario-name-text">{resolvedName}</span>

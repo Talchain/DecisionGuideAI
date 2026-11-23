@@ -1,7 +1,7 @@
 /** Selection details shared with the sheet. The lane's Rename shortcut opens the sheet heading. */
 import type { ReactNode } from 'react'
 import { isOlumiCoreLane } from '../olumiCore/lane'
-import { VIEW_EDIT_CHIP_CLASS } from '../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
 import { useModelEdit } from './model/editing'
 import { canRenameCard, openRenameCard } from './v12/edit/renameCard'
 import { Rename } from './Rename'
@@ -38,7 +38,7 @@ function LaneRenameShortcut({ id }: { id: string }): JSX.Element | null {
   const { base } = useModelEdit()
   const card = useViewStore((s) => s.view?.model?.cards.find((c) => c.id === id))
   const offered = base !== null && card !== undefined && canRenameCard(card)
-  return offered ? <button type="button" className={VIEW_EDIT_CHIP_CLASS} onClick={() => openRenameCard(id)}>Rename</button> : null
+  return offered ? <button type="button" className={VIEW_CHIP_CLASS} onClick={() => openRenameCard(id)}>Rename</button> : null
 }
 
 function SelectionDetails({ id }: { id: string }): JSX.Element | null {

@@ -96,7 +96,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
   }
   if (!open) {
     return <button type="button" data-testid="frame-open" onClick={() => setOpen(true)}
-      className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 self-start font-medium hover:text-text-body`}><OkIcon id="add" size={14} decorative />{words.heading ?? 'Say my whole view in my own words'}</button>
+      className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 self-start font-medium hover:text-text-body`}><OkIcon id="add" size={14} decorative inherit />{words.heading ?? 'Say my whole view in my own words'}</button>
   }
   return (
     <div className="grid gap-4" data-testid="frame-entry">
@@ -136,11 +136,11 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
         <div className={CARD} data-testid="frame-olumi-asks">
           <p className={LABEL}><span data-testid="frame-olumi-asks-label">{MYVIEW_WORDS.asks}</span>: <span data-testid="frame-olumi-asks-prompt">{prompt}</span></p>
           <textarea aria-label={prompt ?? MYVIEW_WORDS.asks} data-testid="frame-olumi-ask" className={`${FIELD} min-h-[56px]`} value={ask} disabled={held} onChange={(e) => { mark(); setAsk(e.target.value); if (error) setError(null) }} />
-          <p className={`${META} flex items-center gap-1.5`} data-testid="frame-olumi-ask-private"><OkIcon id="view-only" size={14} decorative />{MYVIEW_WORDS.askOnly}</p>
+          <p className={`${META} flex items-center gap-1.5`} data-testid="frame-olumi-ask-private"><OkIcon id="view-only" size={14} decorative inherit />{MYVIEW_WORDS.askOnly}</p>
         </div>
       )}
       {words.note && <p className={META} data-testid="frame-note">{words.note}</p>}
-      <p className={`${META} flex items-center gap-1.5`} data-testid="frame-private-note"><OkIcon id="view-only" size={14} decorative />{MYVIEW_WORDS.note}</p>
+      <p className={`${META} flex items-center gap-1.5`} data-testid="frame-private-note"><OkIcon id="view-only" size={14} decorative inherit />{MYVIEW_WORDS.note}</p>
       {stale && (
         <div className="grid gap-2" data-testid="frame-stale-base" role="status">
           <p className={META}>{base === null ? unknownBaseWords(version) : staleBaseWords(base, version)}</p>

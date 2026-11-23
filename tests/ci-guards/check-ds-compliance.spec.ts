@@ -27,10 +27,11 @@ const FX = 'tools/ci-guards/__fixtures__/ds-compliance'
  * exiting 0 was invisible to a test — which is exactly the shape of a guard that
  * "prints loudly" and is never observed doing it.
  */
-function run(args: string[]): { status: number; out: string } {
+function run(args: string[]): { status: number; out: string; stdout: string } {
   const r = spawnSync('node', [GUARD, ...args], { encoding: 'utf8' })
   if (r.error) throw r.error
-  return { status: r.status ?? 1, out: (r.stdout ?? '') + (r.stderr ?? '') }
+  const stdout = r.stdout ?? ''
+  return { status: r.status ?? 1, out: stdout + (r.stderr ?? ''), stdout }
 }
 
 describe('DS v5 compliance ratchet guard', () => {
@@ -77,6 +78,20 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(out).toMatch(/v12-panel-padding \[report\]: 1\b/)
     const json = run(['--root', `${FX}/padding-only`, '--baseline', empty, '--enforce', '--json'])
     expect(JSON.parse(json.out).netNew['v12-panel-padding'].items).toMatchObject([{ token: 'px-4', delta: 1 }])
+  })
+
+  it('allows the existing Olumi story mark in ViewChat but gates new blue controls in the same file', () => {
+    const { status, stdout } = run(['--root', `${FX}/blue-chat`, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(1)
+    const items = JSON.parse(stdout).netNew['v12-blue-utility'].items
+    expect(items.map(({ token }: { token: string }) => token).sort()).toEqual(['[&:focus]:border-info', 'focus-visible:ring-info', 'hover:text-info'])
+  })
+
+  it('reports blue CSS variables in their own class without gating', () => {
+    const { status, out } = run(['--root', `${FX}/blue-css`, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(0)
+    const items = JSON.parse(out).netNew['v12-blue-css-var'].items
+    expect(items.map(({ token }: { token: string }) => token).sort()).toEqual(['var(--info)', 'var(--info-ink)'])
   })
 
   it('CLEAN: a violation-free tree passes under --enforce', () => {

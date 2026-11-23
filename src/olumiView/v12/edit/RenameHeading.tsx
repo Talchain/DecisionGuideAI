@@ -63,7 +63,7 @@ export function RenameHeading({ card, gate }: { card: ViewCard; gate: EditGate }
   }
 
   return (
-    <h2 className={`${typography.viewPanelHeadline} break-words text-text-header`} data-testid="lane-inspector-title">
+    <h2 className={`${typography.panelHeader} break-words text-text-header`} data-testid="lane-inspector-title">
       {draft === null ? (gate.ok ? (
         <button ref={heading} type="button" className={`cursor-pointer rounded-sm text-left hover:underline ${FOCUS}`} onClick={() => start(gate)}>{card.heading}</button>
       ) : card.heading) : (
@@ -83,7 +83,7 @@ export function RenameHeading({ card, gate }: { card: ViewCard; gate: EditGate }
               if (e.key === 'Escape' && !sending) finish()
               if (e.key === 'Enter') void save()
             }} />
-          {error === null ? null : <span role="alert" className={`${typography.viewPanelMeta} block text-danger`}>{error}</span>}
+          {error === null ? null : <span role="alert" className={`${typography.viewPanelMeta} block text-warning-ink`}>{error}</span>}
           {gate.ok || sending ? null : <span className={`${typography.viewPanelMeta} block text-text-light`}>{gate.why}</span>}
         </span>
       )}

@@ -242,6 +242,13 @@ const CLASSES = [
   laneSourceClass('v12-important-utility', 'Tailwind important modifiers in lane TSX class strings', { tsxOnly: true }),
   laneSourceClass('v12-native-title', 'Native title props on DOM elements in lane TSX', { tsxOnly: true }),
   laneSourceClass('v12-blue-utility', 'Info or primary colour utilities outside documented Olumi and handoff uses'),
+  {
+    id: 'v12-blue-css-var',
+    mode: 'report',
+    description: 'Direct info and info-ink CSS variable reads in lane stylesheets',
+    inScope: (p) => inV12(p) && p.endsWith('.css'),
+    laneSource: true,
+  },
   laneSourceClass('v12-panel-padding', '16px p-4 or px-4 utilities on lane panel elements', { mode: 'report', tsxOnly: true }),
   {
     id: 'emoji-icon',

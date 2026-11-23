@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { typography } from '../../../styles/typography'
 import { Hover } from '../../look/Hover'
-import { VIEW_EDIT_CHIP_CLASS, VIEW_EDIT_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../../../v5/blocks/chipClass'
 import { useUIStore } from '../../../stores/uiStore'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import { useWriteSending } from '../../../olumiCore/team/writes'
@@ -132,7 +132,7 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
         </div>
       ))}
       {note2 === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="inspector-figure-core-note">{note2}</p>}
-      {error !== null ? <p role="alert" data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} text-danger`}>{error}</p>
+      {error !== null ? <p role="alert" data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} text-warning-ink`}>{error}</p>
         : note === null ? null : <p role="status" data-testid="inspector-figure-note" className={`${typography.viewPanelMeta} text-text-body`}>{note}</p>}
       {heldNote === null ? null : <p role="status" className={`${typography.viewPanelMeta} text-text-body`} data-testid="inspector-figure-held" data-view="model_words.withdrawnHeld">{heldNote}</p>}
       {moved ? (
@@ -143,9 +143,9 @@ export function ValueRow({ item }: { item: ValueItem }): JSX.Element | null {
       {/* The buttons are drawn once there is something to send: a Set (or Try) beside an empty field is a control dimmed at rest with no reason. Enter in the field still submits. */}
       {!typedAny ? null : (
         <div className="flex flex-wrap gap-2">
-          <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={primary === 'try' && !size ? VIEW_EDIT_CHIP_CLASS : VIEW_EDIT_CHIP_PRIMARY_CLASS}>
+          <button type={primary === 'try' && !size ? 'button' : 'submit'} data-testid="inspector-figure-set" disabled={!can} onClick={primary === 'try' && !size ? () => void save() : undefined} className={primary === 'try' && !size ? VIEW_CHIP_CLASS : VIEW_CHIP_PRIMARY_CLASS}>
             {size ? VALUE_WORDS.save : item.olumis === true ? VALUE_WORDS.changeOlumi : VALUE_WORDS.change}</button>
-          {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={primary === 'try' ? `order-first ${VIEW_EDIT_CHIP_PRIMARY_CLASS}` : VIEW_EDIT_CHIP_CLASS}>{VALUE_WORDS.tryIt}</button>}
+          {size ? null : <button type={primary === 'try' ? 'submit' : 'button'} data-testid="inspector-figure-try" disabled={!can} onClick={primary === 'try' ? undefined : () => void tryIt()} className={primary === 'try' ? `order-first ${VIEW_CHIP_PRIMARY_CLASS}` : VIEW_CHIP_CLASS}>{VALUE_WORDS.tryIt}</button>}
         </div>
       )}
     </form>

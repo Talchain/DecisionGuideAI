@@ -230,7 +230,7 @@ describe('mounted on the lane: the real route is called', () => {
     await waitFor(() => expect(screen.queryByTestId('lane-edit-form')).toBeNull())
   })
 
-  it.each(['edge menu', 'sheet', 'inline edge', 'Model relationship'])('%s opens one dependency review for the exact link part', async (opener) => {
+  it.each(['edge menu', 'sheet', 'inline edge', 'Model relationship'])('%s opens one removal summary naming the exact sum and input', async (opener) => {
     const view = approved(), model = view.model!
     const link = { ...model.links[1]!, remove: { record: 'sum_of_customers', part: fig } }
     model.links[1] = link
@@ -246,11 +246,11 @@ describe('mounted on the lane: the real route is called', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Remove link' }))
     }
     expect(screen.getAllByRole('dialog', { name: 'Remove this link?' })).toHaveLength(1)
-    const review = screen.getByTestId('lane-link-dependencies')
+    const review = screen.getByTestId('lane-link-removal-summary')
     const heading = (id: string) => model.cards.find((card) => card.id === id)!.heading
     expect(review).toHaveTextContent(heading(fig))
     expect(review).toHaveTextContent(heading(link.to))
-    expect(review).toHaveTextContent(heading(model.links[2]!.to))
+    expect(review).not.toHaveTextContent(heading(model.links[2]!.to))
     expect(screen.getByRole('button', { name: 'Keep' })).toHaveFocus()
     expect(stub.posts()).toHaveLength(0)
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))

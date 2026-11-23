@@ -36,7 +36,7 @@ export function ExpectationEntry({ sid, view }: { sid: string; view: View }): JS
       </div>
       {k.review_on != null && (
         <p className={`${META} flex items-center gap-1.5`} data-testid="expectation-entry-review">
-          <OkIcon id="decide-by" size={14} decorative />{EXPECTATION_WORDS.review} {k.review_on}
+          <OkIcon id="decide-by" size={14} decorative inherit />{EXPECTATION_WORDS.review} {k.review_on}
         </p>
       )}
       <div><Button size="sm" variant="secondary" data-testid="expectation-entry-record" onClick={() => goToOutcome(sid, k.id)}>{EXPECTATION_WORDS.record}</Button></div>

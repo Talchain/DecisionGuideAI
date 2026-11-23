@@ -104,7 +104,7 @@ export function CompareViewsStage(): JSX.Element | null {
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" data-testid="compare-back" onClick={hide}
             className={`${typography.viewPanelMeta} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-            <OkIcon id="back" size={14} decorative />{COMPARE_WORDS.back}
+            <OkIcon id="back" size={14} decorative inherit />{COMPARE_WORDS.back}
           </button>
           <h2 className={`${typography.viewPanelHeadline} m-0 text-text-header`} data-testid="compare-heading">{v.collab.heading}</h2>
         </div>

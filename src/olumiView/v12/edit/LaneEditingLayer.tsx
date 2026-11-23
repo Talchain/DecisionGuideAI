@@ -63,7 +63,7 @@ function AddMenu(): JSX.Element | null {
   useEffect(() => { if (open !== null && base === null) useLaneInspector.getState().close('add-menu') }, [base, open])
   if (open === null || base === null) return null
   const rows = addMenuRows({ gate: editGateNow(), model }, (spec) => {
-    openLaneForm(spec, { x: 372, y: 112 }, undefined, open.opener)
+    openLaneForm(spec, undefined, undefined, open.opener)
   })
   return (
     <Menu anchor={open.opener} label="Add to model" request={open} iconColumn

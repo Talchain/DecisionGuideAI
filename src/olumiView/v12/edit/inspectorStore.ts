@@ -27,7 +27,7 @@ export type Surface =
   | { readonly kind: 'details'; readonly target: DetailsTarget; /** Surfaces step 5: a figure control opened these details to change the figure: the Value row's field takes focus (`aside`: the pending change was just set aside, and it says so). */ readonly edit?: 'value' | 'aside' | 'name'; /** What Enter does (`try`: Try without saving, Set secondary) and the dock tab a try opens; the control's own, kept on the request. */ readonly primary?: 'set' | 'try'; readonly tab?: OutputTab; /** The press that opened these details was a mark about one section: it is drawn open. */ readonly section?: 'differ' }
   | { readonly kind: 'add-menu'; readonly opener: HTMLElement }
   | { readonly kind: 'menu'; readonly target: ContextTarget }
-  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor: Point; /** The lane: the card or link the form stands beside (the details panel's own item); absent, it stands at `anchor`. */ readonly beside?: DetailsTarget; readonly opener?: HTMLElement; readonly busyKey: string }
+  | { readonly kind: 'form'; readonly spec: EditSpec; readonly anchor?: Point; /** The lane's form stands beside this card or link, or is centred when absent. */ readonly beside?: DetailsTarget; readonly opener?: HTMLElement; readonly busyKey: string }
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
   | { readonly kind: 'add'; readonly busyKey: string }
 /** The open one; `n` is new for every showing, so a form opened again starts from its own words and not the last one's. */

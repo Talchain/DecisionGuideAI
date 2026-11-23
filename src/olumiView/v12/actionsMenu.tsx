@@ -118,7 +118,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: { men
           onKeyDown={moveFocus}
           onFocus={(e) => { if (e.target instanceof HTMLButtonElement && e.target.matches(ENABLED_ROW)) setTabStop(e.currentTarget, e.target) }}
           style={place}
-          className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto rounded-xl border border-panel-border bg-panel p-3 shadow-lg`}>
+          className={`${typography.viewPanelBody} absolute bottom-full z-30 mb-2 divide-y divide-panel-border overflow-y-auto rounded-md border border-panel-border bg-panel p-3 shadow-lg`}>
           {/* Core's offer to build a model, first (pair v4 render, 08:3xZ: last in the tools it sat 776 px down an 813 px list, below the fold at 1232, 1.33
               and 2000): the one press that changes what the scenario is, in view on opening, above what the person came for and core's questions. */}
           {build === undefined ? null : (

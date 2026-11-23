@@ -13,12 +13,12 @@ export function DriverDifferMark({ people, evidence }: { people: readonly { read
       <span className="inline-flex">
         {two.map((p, i) => (
           <span key={p.id} data-differ-person={p.id}
-            className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>
-            <OkIcon id="person-mark" size={14} decorative />
+            className={`inline-grid h-5 w-5 place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>
+            <OkIcon id="person-mark" size={14} decorative inherit />
           </span>
         ))}
       </span>
-      {evidence && <span data-differ-evidence="" className="inline-flex"><OkIcon id="brief" size={14} decorative /></span>}
+      {evidence && <span data-differ-evidence="" className="inline-flex"><OkIcon id="brief" size={14} decorative inherit className="text-text-body" /></span>}
     </span>
   )
 }

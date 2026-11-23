@@ -268,8 +268,12 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   min-height: min(18vh, 128px, 35%);
 }
 
-/* The editing lane can remove this bridge when EditForm uses the neutral focus utility. */
-[data-testid='lane-edit-form'] :is(input, select):focus-visible { --tw-ring-color: var(--text-header); }
+/* While the open review holds readings, More ways and then the thread yield space.
+   When the record form opens too, the thread keeps enough height to read the latest reply. */
+[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-testid='view-more-ways'] { display: none; }
+[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) > [data-thread-wrap] { min-height: 0; }
+.ok-pinned:not([hidden]):has([data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]) { flex-shrink: 1; }
+[data-testid='view-chat']:has(.ok-pinned:not([hidden]) [data-foot-source=proposal]:not([hidden]) [data-review-body]:not([hidden]) [data-reading-row]):has(.ok-form-foot [data-open='true']) > [data-thread-wrap] { min-height: min(18vh, 128px, 35%); }
 
 /* The one-row review (ViewChat ProposalReview): its wrapper and, while open, its body are display: contents, so the row, the step's words,
    the change list and the actions are the pinned column's own items (the list keeps its bounded scroll, the actions their sticky foot). */
@@ -402,7 +406,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-qn {
   display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; min-width: 18px; height: 18px; padding: 0 calc(4px * var(--o-s));
   border: 1.5px solid var(--text-light); border-radius: 999px; background: var(--bg-panel); color: var(--text-light);
-  font-size: calc(11px * var(--o-s)); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: calc(12px * var(--o-s)); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums;
 }
 
 /* Band labels ("Options you could take"): 12 / 500, sentence case, light. The label's colour is set inline by BandLayer, so only !important wins. */
@@ -571,7 +575,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 /* The driver's range marker (ViewChances DriverRange): a track, the span between the two chances and the two dots; only the left/width the numbers give are set by the component. */
 .ok-an-track { position: relative; height: 4px; background: var(--factor-light); border-radius: 2px; }
 .ok-an-span { position: absolute; left: var(--an-left, 0); width: var(--an-width, 0); top: 0; height: 100%; background: var(--option); border-radius: 2px; }
-.ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-top: -4px; border-radius: 4px; }
+.ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-top: -4px; border-radius: 50%; }
 .ok-an-dot-low { background: var(--surface-card); border: 2px solid var(--option); }
 .ok-an-dot-high { background: var(--option); }
 

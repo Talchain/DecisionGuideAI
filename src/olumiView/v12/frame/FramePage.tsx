@@ -6,7 +6,7 @@ import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
-import { VIEW_EDIT_CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { targetCardOf } from '../../model/targets'
 import { useModelEdit } from '../../model/editing'
@@ -46,8 +46,9 @@ export const FRAME_WORDS = {
 export const moreCardsWords = (n: number): string => `${n} more ${n === 1 ? 'card' : 'cards'} in the full graph`
 
 const CARD_BOX = 'grid gap-1 rounded-md border p-3'
-const EDIT = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 text-text-body underline underline-offset-2 hover:text-text-header focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
-const BTN = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center rounded-md border border-panel-border px-2 text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50`
+const EDIT = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 text-text-body underline underline-offset-2 hover:text-text-header focus-visible:outline-none focus-visible:ring-2`
+const BTN = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center rounded-md border border-panel-border px-2 text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2`
+const OLDER_FOCUS = 'focus-visible:ring-info/50'
 
 /** Core's finding words, verbatim: `run.most_likely.text`, else the head, label and text of `run.waits_on`. */
 export function findingOf(model: NonNullable<View['model']>): readonly string[] | null {
@@ -72,7 +73,7 @@ function Aim({ card, onEdit, lane }: { card: ViewCard; onEdit: (() => void) | nu
     <li className={`${CARD_BOX} ${own ? 'border-dashed border-info' : 'border-panel-border'}`} data-testid={`frame-card-${card.id}`} data-olumi-card={own ? '' : undefined}>
       <div className="flex items-start gap-1.5">
         <span className={`${BODY} min-w-0 flex-1 break-words`} data-frame="heading"><Mark card={card} bound={false} /> {card.heading}</span>
-        {onEdit === null ? null : <button type="button" className={lane ? VIEW_EDIT_CHIP_CLASS : EDIT} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
+        {onEdit === null ? null : <button type="button" className={lane ? VIEW_CHIP_CLASS : `${EDIT} ${OLDER_FOCUS}`} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
           onClick={onEdit}>{FRAME_WORDS.edit}</button>}
       </div>
       <Hover className={`${BODY} text-text-light`} data-frame="bound" words={b?.title}>
@@ -87,14 +88,18 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
   const surface = useFindingSurface()
   const { base } = useModelEdit()
   const lane = isOlumiCoreLane()
+  const focus = lane ? 'focus-visible:ring-text-header' : OLDER_FOCUS
   if (model == null) return null
   const renderAim = (card: ViewCard) => {
     const bar = barCardOf(model, card.id)
     const target = bar === null ? targetCardOf(model, card) : bar.figure?.edit == null ? null : bar
-    const edit = !lane ? () => useLaneInspector.getState().open({ kind: 'card', id: card.id })
-      : target === null || base === null ? null : () => {
-        if (useLaneInspector.getState().openFigure({ kind: 'card', id: target.id })) onClose()
-      }
+    const openDetails = () => {
+      const opened = useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: card.id } })
+      if (lane && opened) onClose()
+    }
+    const edit = !lane || target === null ? openDetails : base === null ? null : () => {
+      if (useLaneInspector.getState().openFigure({ kind: 'card', id: target.id })) onClose()
+    }
     return <Aim key={card.id} card={card} onEdit={edit} lane={lane} />
   }
   const q = model.question
@@ -107,13 +112,13 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
       <section className="grid gap-2" aria-label={FRAME_WORDS.question}>
         <div className="flex items-start gap-2">
           <h2 className={`${typography.viewPanelBody} m-0 min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="frame-question">{q.text}</h2>
-          {model.cards.length === 0 ? null : <HoverButton type="button" className={EDIT} data-testid="frame-edit-question" words="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</HoverButton>}
+          {model.cards.length === 0 ? null : <HoverButton type="button" className={`${EDIT} ${focus}`} data-testid="frame-edit-question" words="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</HoverButton>}
         </div>
       </section>
       {model.cards.length === 0 ? (
         <section className="grid gap-2" data-testid="frame-no-model">
           <p className={H}>{FRAME_WORDS.noModel}</p>
-          <div><button type="button" className={BTN} data-testid="frame-build" onClick={() => { onClose(); editQuestion() }}>{FRAME_WORDS.build}</button></div>
+          <div><button type="button" className={`${BTN} ${focus}`} data-testid="frame-build" onClick={() => { onClose(); editQuestion() }}>{FRAME_WORDS.build}</button></div>
         </section>
       ) : (
         <>
@@ -137,7 +142,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
           )}
           <div className="flex flex-wrap items-center gap-3">
             {more > 0 ? <span className={`${BODY} text-text-light`} data-testid="frame-more">{moreCardsWords(more)}</span> : null}
-            <button type="button" className={BTN} data-testid="frame-full-graph" onClick={onClose}><OkIcon id="show-in-workspace" size={14} decorative inherit className="mr-1" />{FRAME_WORDS.fullGraph}</button>
+            <button type="button" className={`${BTN} ${focus}`} data-testid="frame-full-graph" onClick={onClose}><OkIcon id="show-in-workspace" size={14} decorative inherit className="mr-1" />{FRAME_WORDS.fullGraph}</button>
           </div>
         </>
       )}

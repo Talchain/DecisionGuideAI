@@ -153,8 +153,8 @@ const MIN_NON_MODAL_PIXEL_FRACTION = 0.015
 export const VIEWPORTS = [
   { name: '1280x800', width: 1280, height: 800 },
   { name: '1440x900', width: 1440, height: 900 },
-  { name: '2000x1205', width: 2000, height: 1205, deviceScaleFactor: 1.33 },
-  { name: '1232x704', width: 1232, height: 704, deviceScaleFactor: 1.33 },
+  { name: '2000x1205', width: 2000, height: 1205, deviceScaleFactor: 1 },
+  { name: '1232x704', width: 1232, height: 704, deviceScaleFactor: 1 },
   { name: '1128x680', width: 1128, height: 680, deviceScaleFactor: 1.33 },
 ] as const
 

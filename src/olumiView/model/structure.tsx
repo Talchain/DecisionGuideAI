@@ -11,7 +11,7 @@ import { runWrite, useWriteSending } from '../../olumiCore/team/writes'
 import { useGuidanceStore } from '../../canvas/stores/guidanceStore'
 import { requestAsk } from '../../canvas/ui/inspector-v2/askSemantic'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
-import { VIEW_EDIT_CHIP_CLASS } from '../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS } from '../../v5/blocks/chipClass'
 import { useLaneInspector } from '../v12/edit/inspectorStore'
 import { openLaneAdd, openLinkRemoval } from '../v12/edit/structuralEdits'
 import { focusWhenDrawn } from '../AddFigure'
@@ -48,7 +48,7 @@ function LaneAddRow(): JSX.Element | null {
   const opener = useLaneInspector((s) => s.current?.kind === 'add-menu' ? s.current.opener : null)
   return base === null ? null : (
     <button ref={button} type="button" aria-haspopup="menu" aria-expanded={opener !== null && opener === button.current}
-      data-testid="model-add" className={VIEW_EDIT_CHIP_CLASS} onClick={(e) => openLaneAdd(e.currentTarget)}>Add</button>
+      data-testid="model-add" className={VIEW_CHIP_CLASS} onClick={(e) => openLaneAdd(e.currentTarget)}>Add</button>
   )
 }
 
@@ -138,7 +138,7 @@ function LaneRemoveLink({ link, row }: { link: ViewLink; row: string }): JSX.Ele
   const { base } = useModelEdit()
   if (base === null || link.remove == null) return null
   return (
-    <button type="button" className={VIEW_EDIT_CHIP_CLASS} data-model-remove-link-open={row} onClick={(e) => {
+    <button type="button" className={VIEW_CHIP_CLASS} data-model-remove-link-open={row} onClick={(e) => {
       e.stopPropagation()
       openLinkRemoval(link, e.currentTarget)
     }}>Remove link</button>

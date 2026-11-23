@@ -1,4 +1,4 @@
-import { VIEW_EDIT_CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_CHIP_OUTLINE_CLASS } from '../../../v5/blocks/chipClass'
 import { useModelEdit } from '../../model/editing'
 import type { ViewLink } from '../../client'
 import { OkIcon } from '../../look/icons'
@@ -10,7 +10,7 @@ export function LaneLinkRemoveButton({ edge, link }: { edge: string; link: ViewL
   if (base === null || link.remove == null) return null
   return (
     <HoverButton type="button" data-link-for={edge} words="Review what depends on this link before removing it"
-      className={`nodrag nopan pointer-events-auto border border-panel-border bg-panel ${VIEW_EDIT_CHIP_CLASS}`} onClick={(e) => {
+      className={`nodrag nopan pointer-events-auto ${VIEW_CHIP_OUTLINE_CLASS}`} onClick={(e) => {
         e.stopPropagation()
         openLinkRemoval(link, e.currentTarget)
       }}>
