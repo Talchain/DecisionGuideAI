@@ -29,8 +29,8 @@ interface InspectorAccordionProps {
   testId?: string
 }
 
-/** Section header style: 11px, uppercase, text-text-light, 1px letter-spacing */
-const SECTION_TITLE_CLASS = 'text-[11px] font-semibold uppercase tracking-[1px] text-text-light'
+/** Section header style: 12px, uppercase, text-text-light, 1px letter-spacing */
+const SECTION_TITLE_CLASS = 'text-[12px] font-semibold uppercase tracking-[1px] text-text-light'
 
 export function InspectorAccordion({
   summary,

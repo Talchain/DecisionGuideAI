@@ -120,7 +120,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank, influenceProve
         {fromLastRun ? LAST_RUN_PREFIX : ''}{INLINE_LABELS.influenceOnResults}
       </div>
       {mayStateThePercentage && (
-        <button type="button" className="text-[11px] underline" aria-expanded={open} onClick={() => setOpen(v => !v)}>
+        <button type="button" className={`${typography.caption} underline`} aria-expanded={open} onClick={() => setOpen(v => !v)}>
           {open ? 'Hide details' : 'Show details'}
         </button>
       )}

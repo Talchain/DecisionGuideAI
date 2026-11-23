@@ -70,7 +70,7 @@ export const INSPECTOR_SHELL_STYLE = {
 } as const
 
 const BUTTON_BASE =
-  'inline-flex items-center justify-center gap-1.5 rounded-[8px] border px-[9px] py-[5px] text-[11px] leading-[1.4] font-sans transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info disabled:cursor-default disabled:opacity-60'
+  'inline-flex items-center justify-center gap-1.5 rounded-[8px] border px-[9px] py-[5px] text-[12px] leading-[1.4] font-sans transition-colors focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-info disabled:cursor-default disabled:opacity-60'
 
 /** `.button.small` — the one secondary button. */
 export const inspectorButton =
