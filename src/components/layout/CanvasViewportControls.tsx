@@ -67,7 +67,7 @@ import { CanvasLegendPopover } from '../../canvas/components/CanvasLegendPopover
 import { useCanvasStore } from '../../canvas/store'
 import { coreLaneShowsSurface, isOlumiCoreLane } from '../../olumiCore/lane'
 import { ViewLegend } from '../../olumiView/ViewLegend'
-import { Menu, MenuItem } from '../../olumiView/look/Menu'
+import { Menu, MenuItem } from '../../olumiView/look/Menu.tsx'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
 import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'

@@ -9,7 +9,7 @@
 import { useState, useRef, useEffect, useCallback, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OkIcon } from '../../olumiView/look/icons'
-import { Menu, MenuItem, MenuSeparator } from '../../olumiView/look/Menu'
+import { Menu, MenuItem, MenuSeparator } from '../../olumiView/look/Menu.tsx'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
 import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { HoverButton } from '../../olumiView/look/Hover'

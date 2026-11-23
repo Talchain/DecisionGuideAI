@@ -20,7 +20,7 @@
 import { HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../olumiView/look/Menu'
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../olumiView/look/Menu.tsx'
 import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
 import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
