@@ -22,10 +22,10 @@ describe("the look's recipes, each written once", () => {
     const bodyOf = (needle: string) => rules.filter((r) => r.selectors.some((x) => x.includes(needle))).map((r) => r.body.trim())
     // One rule greys a ruled-out card's name on both faces: the Simple and the Detailed hook are its two selectors.
     const greys = rules.filter((r) => r.selectors.some((x) => x.includes(":has([data-simple-set-aside]) [data-testid='node-title']")))
-    expect(greys.map((r) => [r.selectors.map((x) => /data-(simple|detailed)-set-aside/.exec(x)?.[1] ?? null), r.body.trim()])).toEqual([[['simple', 'detailed'], 'color: var(--text-light) !important;']])
+    expect(greys.map((r) => [r.selectors.map((x) => /data-(simple|detailed)-set-aside/.exec(x)?.[1] ?? null), r.body.trim()])).toEqual([[['simple', 'detailed'], 'color: var(--text-light);']])
     expect(bodyOf('[data-simple-foot] .ok-am svg')).toEqual(['width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s));'])
     // CONTRAST: a live card's name keeps the header ink (the base title rule), and no rule sizes a mark outside the Simple foot this way.
-    expect(rules.filter((r) => r.selectors.includes(".olumi-look .react-flow__node [data-testid='node-title']") && /color:/.test(r.body)).map((r) => /color: var\(--text-header\) !important/.test(r.body))).toEqual([true])
+    expect(rules.filter((r) => r.selectors.includes(".olumi-look .react-flow__node [data-testid='node-title']") && /color:/.test(r.body)).map((r) => /color: var\(--text-header\)/.test(r.body))).toEqual([true])
     expect(rules.filter((r) => /\.ok-am svg/.test(r.selectors.join(',')) && !r.selectors.every((x) => x.includes('[data-simple-foot]')))).toEqual([])
   })
   it('the Detailed card\'s floor is never wider than its layout slot (--ok-slot): at 1232 a 228.8 px floor drew cards over their neighbours', () => {

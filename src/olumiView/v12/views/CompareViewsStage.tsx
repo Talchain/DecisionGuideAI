@@ -8,7 +8,7 @@
  * this page's person; it reads only `collab.shared` and core's revealed differences. It closes itself the moment either stops holding.
  * Nothing is ranked, averaged or marked right; no backend change, no new data.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { useViewStore } from '../../store'
 import type { View } from '../../client'
 import { isForThisPage, useMe } from '../../../olumiCore/me'
@@ -99,7 +99,7 @@ export function CompareViewsStage(): JSX.Element | null {
   // Commit opens the Team tab's commitment form beside the comparison (the draft is written; the form lives in the dock's Commit step).
   const toCommit = () => startCommit(sid!, v, () => useUIStore.getState().setActiveOutputTab('team'))
   return (
-    <div role="region" aria-label={COMPARE_WORDS.control} data-testid="compare-stage" className="absolute inset-y-0 left-0 z-[1250] overflow-y-auto bg-canvas" style={{ right: inset }}>
+    <div role="region" aria-label={COMPARE_WORDS.control} data-testid="compare-stage" className="absolute inset-y-0 left-0 right-[var(--board-dock-inset)] z-[1250] overflow-y-auto bg-canvas" style={{ '--board-dock-inset': `${inset}px` } as CSSProperties}>
       <div className="mx-auto grid max-w-[1440px] gap-6 px-6 pb-12 pt-16">
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" data-testid="compare-back" onClick={hide}

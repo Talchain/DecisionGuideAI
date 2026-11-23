@@ -100,20 +100,20 @@ const DEFAULT_SIZE = 14
 const LEGACY_DEFAULT_SIZE = 16
 const defaultSize = () => isOlumiCoreLane() ? DEFAULT_SIZE : LEGACY_DEFAULT_SIZE
 
-const BandShapes = ({ size = 12, className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-flex', gap: 2, ...style }} {...rest}>
+const BandShapes = ({ size = 12, className, ...rest }: IconDrawProps) => (
+  <span className={`inline-flex gap-0.5 ${className ?? ''}`} {...rest}>
     {(['option', 'factor', 'outcome', 'risk', 'goal'] as const).map((k) => (
       <NodeShapeIndicator key={k} nodeKind={k} size={Number(size)} />
     ))}
   </span>
 )
-const LimitShape = ({ size = 12, className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-flex', ...style }} {...rest}>
+const LimitShape = ({ size = 12, className, ...rest }: IconDrawProps) => (
+  <span className={`inline-flex ${className ?? ''}`} {...rest}>
     <NodeShapeIndicator nodeKind="constraint" size={Number(size)} dashedOutline />
   </span>
 )
-const Hairline = ({ className, style, ...rest }: IconDrawProps) => (
-  <span className={className} style={{ display: 'inline-block', width: 16, borderTop: '1px solid var(--border-default)', ...style }} {...rest} />
+const Hairline = ({ className, ...rest }: IconDrawProps) => (
+  <span className={`inline-block w-4 border-t border-panel-border ${className ?? ''}`} {...rest} />
 )
 
 const OLUMI_STATIC: IconComponent = OlumiAiIcon as IconComponent

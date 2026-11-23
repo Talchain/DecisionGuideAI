@@ -225,6 +225,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const coreKind = card === null ? null : cardKind(card, model, viewNow)
   const dsKind = coreKind === null ? dsKindOf(null, drawKind) : cardDsKindOf(coreKind)
   const width = (props.data as { width?: number }).width
+  const olumiLook = hosted && isOlumiCoreLane()
   const label = id === QUESTION ? model?.question.text ?? '' : card?.heading ?? ''
   // Core's face title (FL1: the person's words, Olumi's caption, or the name), as the retired card drew it; the heading stays the card's
   // accessible name and its quick actions' label (`label`). Where core sends none, or the same words, the heading.
@@ -333,7 +334,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const triedMark = tried === null || tryOn?.kind === 'tried' ? null
     : <Hover focusable={false} words={tried} className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-panel px-2 py-0.5 text-text-header ${typography.viewLabel}`} data-whatif-mark={id}>{WHAT_IF_COPY.whatIf}: {tried}</Hover>
   const restsFar = restsOn === null ? null
-    : <Hover focusable={false} words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 !leading-tight tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</Hover>
+    : <Hover focusable={false} words={restsOn.olumi && card?.olumi ? card.olumi.title : undefined} className={`inline-flex flex-none items-center justify-center rounded-full border bg-panel px-1 ok-card-far-mark tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-rests-on-far="">{restsOn.n}</Hover>
   // THE DETAILED FACE (DL-529's nine faces, redrawn 17 Nov for Paul's "not overwhelming but truly valuable with rich data"), core's words
   // verbatim; nothing formatted, rounded or worked out here. Each fact is said once on the board (v12/detailed/said.ts), whose it is is a
   // mark, and what a sentence used to say is a visual where the View gives one:
@@ -460,9 +461,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     <div className={preMortem === 'other' ? 'opacity-40 transition-opacity' : 'contents'} data-premortem={preMortem ?? undefined}
       // `--ok-slot`: the width the lane's layout placed this card at, so the Detailed face's floor (olumiLook.css) never draws it wider than its
       // slot and over its neighbour (1232 and 1128: the floor beat a narrower slot by 6 to 26 px).
-      style={letter === null && !(hosted && width !== undefined) ? undefined : ({ ...(letter === null ? {} : { '--ok-letter': `"${letter}"` }), ...(hosted && width !== undefined ? { '--ok-slot': `${width}px` } : {}) } as CSSProperties)}>
-    <BaseNode {...props} data={data} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
-      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} !leading-tight text-info shrink-0`} /></>}
+      style={{
+        '--ok-letter': letter === null ? undefined : `"${letter}"`,
+        '--ok-slot': hosted && width !== undefined ? `${width}px` : undefined,
+      } as CSSProperties}>
+    <BaseNode {...props} data={data} olumiLook={olumiLook} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
+      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} ok-card-far-mark text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its

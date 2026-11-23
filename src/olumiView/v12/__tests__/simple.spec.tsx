@@ -234,7 +234,7 @@ describe('V12 Simple faces', () => {
     expect(container.querySelector('[data-testid="simple-axis-min"]')!.textContent).toBe('0')
     expect(container.querySelector('[data-testid="simple-axis-max"]')!.textContent).toBe(`${axis.max.toLocaleString('en-GB')} ${aim.unit}`)
     const tick = container.querySelector<HTMLElement>('[data-testid="simple-goal-tick"]')!
-    expect([tick.getAttribute('data-at'), tick.style.left]).toEqual([String(aim.value), `${pctOf(axis, aim.value)}%`])
+    expect([tick.getAttribute('data-at'), tick.style.getPropertyValue('--chart-x')]).toEqual([String(aim.value), `${pctOf(axis, aim.value)}%`])
     for (const r of bandRowsOf(c, model)) expect(container.querySelector<HTMLElement>(`[data-simple-band="${r.option}"] i[data-band-from]`)!.getAttribute('data-band-from')).toBe(r.lo.toFixed(1))
     // CONTRAST: a card that is not the aim's quantity has the axis ends but no goal tick.
     const other = face('churn_rate').container

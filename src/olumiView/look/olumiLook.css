@@ -16,24 +16,23 @@
 /* 12px padding, 12px radius (Paul, 27 Oct), a 1px solid border in the kind's own hue (never a fill, never faded: R2, 16 Nov). The hue is the card's
    own (BaseNode colors.frame, and the kind rule below); a frame that says something else (Olumi's blue, challenge orange, doubt dashes) is the
    card's own class, so no border colour is declared here to override it. */
+/* The core-lane frame takes its slot from BaseNode. Detailed can size within it below. */
+.olumi-look .react-flow__node .ok-card-frame {
+  width: var(--ok-frame-width);
+  min-width: var(--ok-frame-min-width);
+}
 .olumi-look .react-flow__node [role='group'][aria-label] {
-  border-radius: 12px !important;
-  background: var(--bg-panel) !important;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
   border-width: 1px;
-  padding: calc(12px * var(--o-s)) !important;
-  /* QUIET (DL 02:1xZ, UI-BRIEF-20261115): no card shadows; the border carries the edge. */
-  box-shadow: none !important;
+  padding: calc(var(--space-3) * var(--o-s));
+  box-shadow: none;
   transition: background-color 120ms ease;
 }
-.olumi-look .react-flow__node:has([data-ok-family='question']) [role='group'][aria-label] {
-  /* The question is the person's, not Olumi's: its frame is the card's own (colors.ts decision: grey), never Olumi's blue (R9, 16 Nov). */
-  border-width: 1px !important;
-  box-shadow: none !important;
-}
-/* Hover changes the background only, never position or scale. Selected is the board's one 2px ring, neutral (the profile bans blue focus rings). */
-.olumi-look .react-flow__node [role='group'][aria-label]:hover { background: var(--bg-panel-hover) !important; }
+/* Hover changes the background only. Selection draws the board's neutral 2px ring. */
+.olumi-look .react-flow__node [role='group'][aria-label]:hover { background: var(--bg-panel-hover); }
 .olumi-look .react-flow__node.selected [role='group'][aria-label] {
-  box-shadow: 0 0 0 2px var(--focus-color, var(--text-light)) !important;
+  box-shadow: 0 0 0 2px var(--focus-color, var(--text-light));
 }
 /* C1: a card's ACTION controls (add, edit, add-figure, fold) show on hover, keyboard focus and selection only. Information marks never carry
    the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest.
@@ -45,10 +44,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 
 /* The title: 14 / 500, header ink. The kind marker is BaseNode's own (the real shape on the top edge, about 19 px); the option's letter is drawn further down. */
 .olumi-look .react-flow__node [data-testid='node-title'] {
-  color: var(--text-header) !important;
-  font-size: calc(14px * var(--o-s)) !important;
-  font-weight: 500 !important;
-  line-height: 1.3 !important;
+  color: var(--text-header);
+  font-size: calc(14px * var(--o-s));
+  font-weight: 500;
+  line-height: 1.3;
 }
 
 /* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
@@ -106,11 +105,11 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-count { color: var(--text-light); }
 .olumi-look .ok-count button { color: inherit; }
 /* The edit pill: max-content, never stretched to the card. */
-.olumi-look .ok-edit button { gap: 4px; width: max-content; color: var(--text-light); text-decoration: none !important; }
+.olumi-look .ok-edit button { gap: 4px; width: max-content; color: var(--text-light); text-decoration: none; }
 .olumi-look .ok-edit button:hover { color: var(--text-body); }
 
-/* The goal and the question keep their full width for core's words (the previous frame reserved a rail beside an anchor card's body). */
-.olumi-look .react-flow__node [data-testid="anchor-body-rail-beside"]:has(> .ok-face) { padding-right: 0 !important; }
+/* BaseNode reserves the rail in the last row. The core face uses the full row. */
+.olumi-look .ok-card-frame [data-testid="anchor-body-rail-beside"]:not(:has(> .ok-face)) { padding-right: var(--ok-anchor-rail-padding); }
 
 /* Worked steps (slice 2): closed by default, so a card's height on the board is unchanged; each step one line of core's words. */
 .olumi-look .ok-steps > ol { margin-top: calc(8px * var(--o-s)); display: grid; gap: calc(12px * var(--o-s)); }
@@ -149,12 +148,12 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* No card's name is clipped (DL-529 for the aim and the question; DL-538 for every card, now the stage narrows the cards: the target
    wraps each name whole at about 145px). */
 .olumi-look .react-flow__node [data-testid='node-title'] {
-  display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; overflow-wrap: break-word;
+  display: block; -webkit-line-clamp: unset; overflow: visible; overflow-wrap: break-word;
 }
 /* D2 (the lead, 17 Nov: shorter cards on Simple): a card's title is drawn on two lines at most, a clean ellipsis after, the whole title its hover
    (BaseNode `title`) and on Detailed; its one quiet line is one line. The question is never cut. */
 .olumi-look .react-flow__node:not(.react-flow__node-viewQuestion) [data-simple-compact] [data-testid='node-title'] {
-  display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2 !important; overflow: hidden !important;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 /* A card's one quiet line (its state, basis or what it waits on) takes two lines, never one cut with an ellipsis at 1232/1128 (S4 details, 19 Nov); the whole words stay the hover. */
 .olumi-look .ok-two-lines { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
@@ -170,24 +169,27 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* Each option's worked-out value: one quiet line, no rule (the card's status line keeps the rule). */
 .olumi-look .ok-face [data-core-value] { border-left: 0; padding-left: 0; }
 /* A card that carries marks at its foot (the What would change driver, a goal's marks) keeps their row, so no mark sits on its words. */
-.olumi-look .react-flow__node [role='group'][aria-label]:has(> [data-testid*='-bottom-marks-'] > *) { padding-bottom: calc(31px * var(--o-s)) !important; }
+.olumi-look .react-flow__node [role='group'][aria-label]:where(:not([data-simple-compact]):has(> [data-testid*='-bottom-marks-'] > *)) { padding-bottom: calc(31px * var(--o-s)); }
 /* An option's chance at true scale: core's number (rows[].chance), no multiplier, no marker, no leader styling. */
 .olumi-look .ok-track { display: block; position: relative; height: 3px; border-radius: 999px; background: var(--border-default); margin: 0; }
-.olumi-look .ok-track > span { display: block; height: 100%; background: var(--text-light); border-radius: 999px; position: relative; }
+.olumi-look .ok-track > span { display: block; height: 100%; width: var(--chart-width); background: var(--text-light); border-radius: 999px; position: relative; }
 /* Core's range as a band behind the fill and the chance marked on it: both out of flow, so the track keeps its height and margins. An open end
    ("under", "over") runs to the track's end with a squared edge there, never a rounded one that would read as a limit. */
-.olumi-look .ok-track > .ok-band { position: absolute; top: -1px; bottom: -1px; background: color-mix(in srgb, var(--edge-neutral) 55%, transparent); border-radius: 999px; }
+.olumi-look .ok-track > .ok-band { position: absolute; left: var(--chart-x); width: var(--chart-width); top: -1px; bottom: -1px; background: color-mix(in srgb, var(--edge-neutral) 55%, transparent); border-radius: 999px; }
 .olumi-look .ok-track > .ok-band[data-open-low] { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .olumi-look .ok-track > .ok-band[data-open-high] { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .olumi-look .ok-track > .ok-tick { position: absolute; top: -2px; bottom: -2px; width: 1px; margin-left: -0.5px; background: var(--border-emphasis); }
+.olumi-look .ok-tick-quarter { left: 25%; }
+.olumi-look .ok-tick-half { left: 50%; }
+.olumi-look .ok-tick-three-quarters { left: 75%; }
 .olumi-look .ok-track[tabindex] { cursor: help; outline: none; }
 .olumi-look .ok-track[tabindex]::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }
 .olumi-look .ok-track[tabindex]:focus-visible { box-shadow: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--text-header); }
-.olumi-look .ok-track > .ok-mark-chance { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-header); border-radius: 999px; }
+.olumi-look .ok-track > .ok-mark-chance { position: absolute; left: var(--chart-x); top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text-header); border-radius: 999px; }
 /* How much of the result rests on Olumi's estimates against the person's own figures: Olumi's blue, the ink, the rest left as the track. */
 .olumi-look .ok-share { display: flex; flex-direction: column; align-items: flex-start; gap: calc(4px * var(--o-s)); max-width: 100%; text-align: left; }
 .olumi-look .ok-share-bar { display: flex; width: 100%; height: 3px; border-radius: 999px; background: var(--border-default); overflow: hidden; }
-.olumi-look .ok-share-bar > i { display: block; height: 100%; }
+.olumi-look .ok-share-bar > i { display: block; height: 100%; width: var(--chart-width); }
 .olumi-look .ok-share-olumi { background: var(--info); }
 .olumi-look .ok-share-person { background: var(--text-header); }
 .olumi-look .ok-share-unassigned { background: color-mix(in srgb, var(--text-light) 45%, transparent); }
@@ -195,18 +197,30 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 [data-presentation="v10"] .react-flow__node.v10-pulse { animation: ok-ring-pulse 700ms ease-out 1; }
 @media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
+/* The conversation is portalled to the body. Its existing 10px radius is between the small and medium tokens. */
+.ok-chat-float {
+  left: var(--chat-float-x);
+  top: var(--chat-float-y);
+  width: var(--chat-float-width);
+  height: var(--chat-float-height);
+  border-radius: calc((var(--radius-sm) + var(--radius-md)) / 2);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-2);
+}
+.ok-card-far-mark[class] { line-height: 1.25; }
+
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
 /* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). Their name is inside it, as on
    every message: whose words these are is always drawn. */
 .ok-said {
-  background: var(--bg-panel-hover) !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  border-radius: 12px !important;
-  padding: 8px 12px !important;
+  background: var(--bg-panel-hover);
+  color: var(--text-body);
+  word-break: break-word;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
   margin-left: auto;
-  width: fit-content !important;
-  max-width: 88% !important;
+  width: fit-content;
+  max-width: 88%;
 }
 .ok-said-by { margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--text-light); }
 /* Olumi's reply: its paragraphs and lists set as type, its cites small and quiet. Olumi's mark sits at the start of the FIRST line and the
@@ -217,11 +231,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   float: left; margin: 0 6px 0 0; display: inline-grid; place-items: center; width: 18px; height: 18px;
   border: 1px solid var(--info); border-radius: 999px; color: var(--info); font-size: 12px; line-height: 1;
 }
-.ok-reply [data-reply-list] { list-style: none; padding-left: 12px; }
-.ok-reply [data-reply-list] > li { position: relative; margin-bottom: 4px; }
-.ok-reply [data-reply-list] > li::before {
-  content: ''; position: absolute; left: -12px; top: 7px; width: 4px; height: 4px; border-radius: 999px; background: var(--text-light);
-}
+ul[data-reply-list] { margin: 0; list-style: none; padding-left: var(--space-3); }
+ul[data-reply-list] > li { margin-bottom: var(--space-1); }
+ul[data-reply-list] > li:last-child { margin-bottom: 0; }
+ul[data-reply-list] > li::before { background: var(--text-light); }
 .ok-reply sup { color: var(--text-light); font-size: 12px; margin-left: 1px; }
 .ok-reply details > summary { color: var(--text-light); font-weight: 500; cursor: pointer; }
 /* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
@@ -291,11 +304,11 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .ok-pinned .ok-actions-foot { position: sticky; bottom: 0; z-index: 1; background: var(--bg-panel); }
 /* The selected card (the dock's selection row on the core lane): one card, the target's "SELECTED" label over the card's heading,
    whose it is, and core's sentence for its headline. */
-.ok-selected {
-  margin: 8px 16px; padding: 12px !important; border: 1px solid var(--border-default); border-radius: 12px; background: var(--bg-panel);
-  row-gap: 4px !important;
+.ok-selected.flex {
+  margin: 8px 16px; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: 12px; background: var(--bg-panel);
+  row-gap: var(--space-1);
 }
-.ok-selected > span:first-child { flex-basis: 100%; font-size: 12px !important; font-weight: 500; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--text-light); }
+.ok-selected > span:first-child { flex-basis: 100%; font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0; text-transform: none; color: var(--text-light); }
 .ok-selected [data-testid='selected-headline-title'] { color: var(--text-body); font-size: 12px; font-weight: 400; line-height: 18px; }
 /* A long headline sentence scrolls inside the card, so the thread keeps its room at 1128. */
 .ok-selected { max-height: 24vh; overflow-y: auto; }
@@ -320,13 +333,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 
 /* ── V12 Simple: the compact card (BaseNode `data.compact`). Its type is the board's own scale (--o-s, set per board by ViewCanvas from layout.ts
    simpleScaleOf: production's counter-scale), its padding the card's own, and no title or line is clamped: a long name wraps whole (R6, 16 Nov). ── */
-/* The compact card's padding is the card's own, at the board's scale: the reserve a card with foot marks takes in the base rule (31 px) is not taken here, so
-   a board does not grow a band taller for it (frame fix006b); the author mark stands in the card's own flow. */
-.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label] { padding: calc(12px * var(--o-s)) !important; }
 /* A compact option card with the main-driver badge at its foot keeps a row for it, and so does a worked-out card holding an option's withheld row
    (the foot marks otherwise sat over its words). Only those: a reserve on every card with foot marks made the board a band taller. */
-.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label]:has(> [data-testid*='-bottom-marks-'] [data-testid^='view-driver-']) { padding-bottom: calc(28px * var(--o-s)) !important; }
-.olumi-look .react-flow__node [data-simple-compact][role='group'][aria-label][aria-label][aria-label]:has(> [data-testid*='-bottom-marks-'] > *):has([data-simple-withheld]) { padding-bottom: calc(28px * var(--o-s)) !important; }
+.olumi-look .react-flow__node [role='group'][aria-label]:where([data-simple-compact]:has(> [data-testid*='-bottom-marks-'] [data-testid^='view-driver-'])) { padding-bottom: calc(28px * var(--o-s)); }
+.olumi-look .react-flow__node [role='group'][aria-label]:where([data-simple-compact]:has(> [data-testid*='-bottom-marks-'] > *):has([data-simple-withheld])) { padding-bottom: calc(28px * var(--o-s)); }
 
 /* ── Shape says what a thing is (DS v5 section 10; C2). CoreCard puts the kind on the face (`data-ok-kind`: factor | option | goal | outcome |
    risk | decision; an assumption also `data-ok-assumption`) and hands the same kind to BaseNode, which draws its real marker (NodeShapeIndicator,
@@ -344,7 +354,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
    class below wins). It follows the kind rules so it overrides the factor hue the board draws it as. */
 .olumi-look .react-flow__node:has([data-ok-condition]) { --ok-kc: var(--text-light); }
 /* The frame is the kind's full hue, 1 px, solid (R2); where the frame says something else (Olumi's blue, challenge orange) the card's own class wins. */
-.olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc) !important; }
+.olumi-look .react-flow__node:has([data-ok-kind]) [role='group'][aria-label]:not([class*='border-info']):not([class*='olumi-mark-orange']) { border-color: var(--ok-kc); }
 
 /* An option's letter (A, B, C... in core's option card order; CoreCard sets `--ok-letter`): plain 12 / 500 light text before the title, a 6px
    gap, no box. Drawn absolutely so it holds in the compact card's clamped (-webkit-box) title; the title makes room only where a letter exists. */
@@ -380,9 +390,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   margin: 0; color: var(--text-light); overflow-wrap: break-word;
 }
 /* A card core no longer holds as live (`status`, e.g. "ruled out"): its name in the light ink, so it does not read as a live option at a glance;
-   the foot's first mark (Simple) or its quiet status line (Detailed) says why, in core's word. (The title's ink above is set with !important, so this one must be too.) */
+   the foot's first mark (Simple) or its quiet status line (Detailed) says why, in core's word. */
 .olumi-look .react-flow__node:has([data-simple-set-aside]) [data-testid='node-title'],
-.olumi-look .react-flow__node:has([data-detailed-set-aside]) [data-testid='node-title'] { color: var(--text-light) !important; }
+.olumi-look .react-flow__node:has([data-detailed-set-aside]) [data-testid='node-title'] { color: var(--text-light); }
 /* The Simple foot's marks read at the card's small text size on screen, as its words do: the board is zoomed out, so a raw 12 px icon drew at
    about 7 px beside 12 px words (measured 17 Nov). Simple only: the Detailed face keeps its own sizes. */
 .olumi-look [data-simple-foot] .ok-am svg { width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s)); }
@@ -396,6 +406,11 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* "Olumi has a question about this": Olumi's mark, Olumi's blue. The ring is the mark's own (OlumiAiIcon draws it): the wrapper adds no second border. */
 .olumi-look .ok-asks { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: 18px; height: 18px; color: var(--info); }
 /* Simple's figure colours by whose it is (Olumi's blue, the quiet ink) and an aim's bound in the goal's colour: classes from tokens, never an inline style. */
+.ok-simple-goal-tick { left: var(--chart-x); border-color: var(--goal); }
+.ok-simple-band { left: var(--chart-x); width: var(--chart-width); background: color-mix(in srgb, var(--text-header) 75%, transparent); }
+.ok-simple-band-olumi { background: color-mix(in srgb, var(--semantic-info) 75%, transparent); }
+.ok-simple-track { background: var(--border-default); }
+.ok-simple-mid { left: var(--chart-x); }
 .olumi-look .ok-tone-info { color: var(--semantic-info); }
 .olumi-look .ok-tone-ink { color: var(--text-header); }
 .olumi-look .ok-tone-goal { color: var(--edge-positive); }
@@ -406,17 +421,26 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   font-size: calc(12px * var(--o-s)); font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums;
 }
 
-/* Band labels ("Options you could take"): 12 / 500, sentence case, light. The label's colour is set inline by BandLayer, so only !important wins. */
-.olumi-look [data-band-label] { color: var(--text-light) !important; font-size: calc(12px * var(--o-s)); font-weight: 500 !important; text-transform: none; letter-spacing: 0; }
+/* Band labels sit just above the top row's kind markers. */
+.ok-band-label {
+  left: var(--band-x);
+  top: var(--band-y);
+  transform: translateY(calc(-100% - var(--band-marker-overhang) * var(--o-s, 1)));
+  color: var(--text-light);
+  font-size: calc(12px * var(--o-s, 1));
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
 
 /* ── V12 DETAILED (17 Nov 2026; Paul: "a much better version of the detailed view to make it not overwhelming but truly valuable with rich
    data"). Scoped to the Detailed face (`data-ok-detailed`, CoreCard); Simple's rules above are untouched. Each fact said once on the board
    (v12/detailed/said.ts), whose it is a mark, a text action an icon with its words on hover, a chart where the View gives numbers. Type is the
    card's own 12 / 14 / 18 at the board's scale; tokens only. ── */
-/* The card is as wide as its content needs, from a floor up to the layout's slot (BaseNode sets the slot as width and max-width inline). The floor
-   is never wider than the slot (`--ok-slot`, CoreCard): a wider floor drew the card over its neighbour where the stage is narrow. */
+/* Detailed fits its content within the slot that BaseNode caps with max-width.
+   Its floor cannot exceed the slot width from CoreCard on narrow boards. */
 .olumi-look .react-flow__node:not(.react-flow__node-viewQuestion):has([data-ok-detailed]) [role='group'][aria-label] {
-  width: fit-content !important; min-width: min(calc(208px * var(--o-s)), var(--ok-slot, calc(208px * var(--o-s)))) !important;
+  width: fit-content; min-width: min(calc(208px * var(--o-s)), var(--ok-slot, calc(208px * var(--o-s))));
 }
 /* The foot (C1, 20 Nov): one compact row at the bottom right on both faces (Simple's is `[data-simple-foot]`, `ml-auto`): state marks, count badges, whose it is last. */
 .olumi-look .ok-dt-foot {
@@ -451,7 +475,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look [data-ok-detailed] .ok-share { width: 100%; cursor: pointer; }
 /* A mini track: core's chance as a bar. Nothing is drawn where there is no chance (Paul, 16 Nov: no empty track at rest). */
 .olumi-look .ok-dt-mini { position: relative; display: block; height: calc(4px * var(--o-s)); border-radius: 999px; background: var(--border-default); overflow: hidden; }
-.olumi-look .ok-dt-mini > i { display: block; height: 100%; background: var(--text-light); border-radius: 999px; }
+.olumi-look .ok-dt-mini > i { display: block; height: 100%; width: var(--chart-width); background: var(--text-light); border-radius: 999px; }
 /* An option's other aims: the aim's marker, a mini track, core's value; the aim's name on hover (said on its own card). */
 .olumi-look .ok-dt-aims { display: grid; gap: calc(8px * var(--o-s)); margin-top: calc(4px * var(--o-s)); }
 .olumi-look .ok-dt-aim {
@@ -473,10 +497,15 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-dt-rail .ok-letter, .olumi-look .ok-dt-strips .ok-letter, .olumi-look .ok-dt-aims .ok-letter { margin-right: 0; }
 .olumi-look .ok-dt-rail-axis { position: absolute; top: 0; bottom: 0; left: calc(20px * var(--o-s)); right: calc(128px * var(--o-s)); pointer-events: none; }
 .olumi-look .ok-dt-rail-axis > i { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--border-default); }
+.olumi-look .ok-dt-rail-axis > i:nth-child(1) { left: 0; }
+.olumi-look .ok-dt-rail-axis > i:nth-child(2) { left: 25%; }
+.olumi-look .ok-dt-rail-axis > i:nth-child(3) { left: 50%; }
+.olumi-look .ok-dt-rail-axis > i:nth-child(4) { left: 75%; }
+.olumi-look .ok-dt-rail-axis > i:nth-child(5) { left: 100%; }
 .olumi-look .ok-dt-rail-lane { position: relative; display: block; height: calc(10px * var(--o-s)); }
 .olumi-look .ok-dt-rail-lane::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--border-default); }
-.olumi-look .ok-dt-rail-whisker { position: absolute; top: 50%; height: 4px; margin-top: -2px; border-radius: 999px; background: var(--edge-neutral); }
-.olumi-look .ok-dt-rail-dot { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--text-header); box-shadow: 0 0 0 2px var(--bg-panel); }
+.olumi-look .ok-dt-rail-whisker { position: absolute; left: var(--chart-x); width: var(--chart-width); top: 50%; height: 4px; margin-top: -2px; border-radius: 999px; background: var(--edge-neutral); }
+.olumi-look .ok-dt-rail-dot { position: absolute; left: var(--chart-x); top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--text-header); box-shadow: 0 0 0 2px var(--bg-panel); }
 /* A rail whose result words are longer than a number: one wider words column for every row (lanes stay aligned), the axis inset to match. */
 .olumi-look .ok-dt-rail.ok-dt-rail-wide { max-width: calc(720px * var(--o-s)); }
 .olumi-look .ok-dt-rail-wide .ok-dt-rail-row { grid-template-columns: calc(12px * var(--o-s)) minmax(calc(120px * var(--o-s)), 1fr) calc(260px * var(--o-s)); }
@@ -493,10 +522,10 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   column-gap: calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
 .olumi-look .ok-dt-strip-lane { position: relative; display: block; height: calc(8px * var(--o-s)); border-radius: 999px; background: var(--border-default); }
-.olumi-look .ok-dt-strip-band { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--text-header) 45%, transparent); }
+.olumi-look .ok-dt-strip-band { position: absolute; left: var(--chart-x); width: var(--chart-width); top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--text-header) 45%, transparent); }
 .olumi-look .ok-dt-olumi-band { background: color-mix(in srgb, var(--info) 60%, transparent); }
-.olumi-look .ok-dt-strip-mid { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
-.olumi-look .ok-dt-goal-tick { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--goal); }
+.olumi-look .ok-dt-strip-mid { position: absolute; left: var(--chart-x); top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
+.olumi-look .ok-dt-goal-tick { position: absolute; left: var(--chart-x); top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--goal); }
 .olumi-look .ok-dt-strip-val { min-width: 0; color: var(--text-body); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 .olumi-look .ok-dt-strip-axis { color: var(--text-light); }
 .olumi-look .ok-dt-strip-ends { display: flex; justify-content: space-between; gap: calc(8px * var(--o-s)); white-space: nowrap; }
@@ -584,6 +613,8 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .ok-link-tone-neutral { --link-tone: var(--edge-neutral); }
 .olumi-look .ok-link-tone-ink { --link-tone: var(--text-header); }
 .olumi-look .ok-link-tone-goal { --link-tone: var(--goal); }
+/* The question-to-option line keeps its neutral 1px stroke through React Flow's focus states. */
+.olumi-look .react-flow__edge .react-flow__edge-path.ok-root-link { stroke: var(--edge-neutral); stroke-width: 1px; }
 /* The line: the one 2 px width (L3: no width implies a strength), in screen px so zooming out does not thin it. Four classes deep so React Flow's own selected-edge stroke never wins. */
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line { stroke: var(--link-tone); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
@@ -621,5 +652,47 @@ button.ok-team-go[aria-disabled='true'] { cursor: not-allowed; border-color: var
 button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoration-line: none; color: var(--text-light); }
 /* key */
 /* The key's samples draw the canvas's own line recipes (KeyPill): the dotted reason line, and the halo underlays (.ok-link-halo-*, above) which may stand past the sample's box. */
+.ok-key-unsettled { color: var(--edge-neutral); }
 .olumi-look .ok-key-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
 .olumi-look .ok-key-underlay { overflow: visible; }
+
+/* Scale charts keep their original track, marks and labels. Only their measured values come from React. */
+.ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }
+.ok-scale-range { margin: var(--space-1) 0; }
+.ok-scale-track { position: relative; height: 16px; background: var(--border-default); border-radius: calc(var(--radius-control) / 2); }
+.ok-scale-range-band, .ok-scale-conditional-span, .ok-scale-outcome-band {
+  position: absolute; left: var(--scale-x); width: var(--scale-width);
+}
+.ok-scale-range-band { top: 5px; height: 6px; border-radius: calc(var(--space-1) / 2); background: color-mix(in srgb, var(--text-body) 55%, transparent); }
+.ok-scale[data-by='olumi'] .ok-scale-range-band { top: 4px; height: 8px; border: 2px dotted var(--semantic-info); background: transparent; }
+.ok-scale-dot { position: absolute; top: 3px; left: calc(var(--scale-x) - 5px); width: 10px; height: 10px; border-radius: 50%; }
+.ok-scale-likely { background: var(--text-header); border: 2px solid var(--bg-panel); }
+.ok-scale[data-by='olumi'] .ok-scale-likely { background: var(--semantic-info); }
+.ok-scale-deadline { position: absolute; top: 0; bottom: 0; left: var(--scale-x); border-left: 2px solid var(--goal); }
+.ok-scale-tried { position: absolute; top: -2px; bottom: -2px; left: var(--scale-x); border-left: 2px dashed var(--text-header); }
+.ok-scale-conditional-dot { background: var(--option); }
+.ok-scale-conditional-span { top: 7px; height: 2px; background: color-mix(in srgb, var(--text-header) 40%, transparent); }
+
+.ok-scale-pending { border: 1px dashed var(--text-light); border-radius: var(--space-1); padding: var(--space-1) var(--space-2); }
+.ok-scale-outcomes { position: relative; margin: 6px 0 2px; padding-left: 22px; }
+.ok-scale-letter { position: absolute; left: -22px; width: 18px; text-align: right; font-weight: 500; }
+.ok-scale-outcome-band { top: 3px; height: 10px; border-radius: calc(var(--space-1) / 2); background: color-mix(in srgb, var(--text-header) 35%, transparent); }
+.ok-scale-median { position: absolute; top: 1px; left: calc(var(--scale-x) - 1px); width: 2px; height: 14px; background: var(--text-header); }
+.ok-scale-withheld { display: flex; align-items: center; padding-left: var(--space-2); background: transparent; border: 1px dashed var(--text-light); }
+.ok-scale-withheld .ok-scale-letter { left: -23px; }
+.ok-scale-outcome-deadline { top: -4px; bottom: -4px; width: 0; }
+.ok-scale-deadline-label { position: absolute; top: -13px; left: 3px; white-space: nowrap; color: var(--text-header); }
+.ok-scale-axis { position: relative; height: 14px; margin-top: 2px; border-top: 1px solid var(--text-light); }
+.ok-scale-tick { position: absolute; top: 1px; left: var(--scale-x); transform: translateX(-50%); }
+
+/* The v10 outcome bars retain their original track and marker dimensions. */
+.ok-v10-option-track, .ok-v10-value-track { background: var(--factor-light); }
+.ok-v10-option-track { height: 6px; border-radius: calc(var(--radius-control) / 2); }
+.ok-v10-value-track { height: var(--space-1); border-radius: calc(var(--space-1) / 2); }
+.ok-v10-option-fill, .ok-v10-value-fill { left: var(--chart-x); width: var(--chart-width); background: var(--option); }
+.ok-v10-option-fill { border-radius: calc(var(--radius-control) / 2); }
+.ok-v10-value-fill { border-radius: calc(var(--space-1) / 2); }
+[data-olumi='true'] .ok-v10-value-fill { background: var(--semantic-info); }
+.ok-v10-chart-aim, .ok-v10-chart-median { left: var(--chart-x); width: 2px; margin-left: -1px; }
+.ok-v10-chart-aim { top: -3px; bottom: -3px; background: var(--goal); }
+.ok-v10-chart-median { top: -1px; bottom: -1px; background: var(--text-header); border-radius: calc(var(--space-1) / 4); }

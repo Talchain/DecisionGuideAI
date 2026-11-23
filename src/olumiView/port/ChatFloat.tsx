@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { OkIcon } from '../look/icons'
 import { isMenuOpen } from '../look/menuArbiter'
 import { Hover } from '../look/Hover'
+import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
+import '../look/olumiLook.css'
 
 // Previous OlumiTabBody's pop-out labels (A2 stop/float, DL 10 Nov).
 export const CHAT_POPOUT_LABEL = 'Open Olumi in floating panel'
@@ -178,14 +180,17 @@ export function ChatFloatHost({ children, composer }: { children: ReactNode; com
   const kept = height ?? null
   const still = position === null ? standing ?? defaultPlace(box) : null
   const size = still === null ? sizeOf(box, kept) : { ...sizeOf(box), height: still.height }, placed = still ?? contained(position!, box, kept)
-  // Previous shell: radius 10, --border-default and --shadow-2 (A2 stop/float, DL 10 Nov).
   return <>{createPortal(
     <div ref={panel} role="dialog" aria-label="Olumi conversation" data-testid="view-chat-float"
-      className="fixed flex flex-col overflow-hidden bg-panel text-text-body"
-      style={{ zIndex: 300, left: placed.x, top: placed.y, ...size, borderRadius: 10, border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-2)' }}>
+      className={`ok-chat-float fixed flex flex-col overflow-hidden bg-panel text-text-body ${CANVAS_LAYER_CLASS.chatFloat}`}
+      style={{
+        '--chat-float-x': `${placed.x}px`,
+        '--chat-float-y': `${placed.y}px`,
+        '--chat-float-width': `${size.width}px`,
+        '--chat-float-height': `${size.height}px`,
+      } as CSSProperties}>
       <div data-testid="view-chat-float-header" onPointerDown={startDrag}
-        className="flex min-h-[44px] shrink-0 select-none items-center justify-end border-b border-panel-border px-1"
-        style={{ cursor: 'grab', touchAction: 'none' }}>
+        className="flex min-h-[44px] shrink-0 cursor-grab touch-none select-none items-center justify-end border-b border-panel-border px-1">
         <ChatDockBack inWindow />
       </div>
       <div ref={attach} className="flex flex-1 min-h-0 flex-col" />

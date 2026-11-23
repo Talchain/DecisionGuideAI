@@ -44,7 +44,7 @@ describe('slice (1): the option card shows its headline as the View serves it', 
     expect([el.querySelector(`[data-core-lead="${o.id}"] .ok-chance [data-core-lead-clamp]`)?.textContent, el.querySelector(`[data-view="${o.id}.headline.qualifier"]`)]).toEqual([head, null])
     // the track is core's number at true scale (rows[].chance), bound by the headline's aim
     const row = o.rows.find((r) => r.kind === 'chance' && r.aim_id === o.headline!.aim_id) as { chance: number }
-    expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.width).toBe(`${row.chance * 100}%`)
+    expect((el.querySelector(`[data-view="${o.id}.chance.track"] > span`) as HTMLElement).style.getPropertyValue('--chart-width')).toBe(`${row.chance * 100}%`)
     cleanup()
     // CONTRAST: a clause of this option's own (invented) is its qualifier line, whole; DL-543: never cut to shorten the card
     const ownClause = 'on an invented condition of this option alone'

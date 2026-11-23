@@ -161,7 +161,7 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
     // the frame is the kind's full hue, never the 30 % mix.
     expect(css).not.toMatch(/\[role='group'\]\[aria-label\]::before/)
     expect(css).not.toMatch(/node-type-glyph'\] \{ display: none/)
-    expect(css).toMatch(/border-color: var\(--ok-kc\) !important/)
+    expect(css).toMatch(/border-color: var\(--ok-kc\)/)
     expect(css).not.toMatch(/color-mix\(in srgb, var\(--(ok-kc|option|factor|goal)\) 30%/)
     // The V12 boards' own shape language (pills, double outlines, state dashes) is gone: nothing styles a card from data-ok-shape or data-ok-state.
     expect(css).not.toMatch(/data-ok-(shape|state)/)

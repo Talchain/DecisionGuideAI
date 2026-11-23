@@ -21,7 +21,7 @@ describe('OutcomeStrips', () => {
       expect(screen.getByTestId(`strip-letter-${v.option}`).textContent).toBe(letters.get(v.option))
       expect(screen.getByTestId(`strip-range-${v.option}`).getAttribute('data-p90')).toBe(String(v.p90))
     }
-    const left = (id: string) => parseFloat(/([\d.]+)%/.exec((screen.getByTestId(id) as HTMLElement).style.left)![1]!)
+    const left = (id: string) => parseFloat(/([\d.]+)%/.exec((screen.getByTestId(id) as HTMLElement).style.getPropertyValue('--scale-x'))![1]!)
     // true scale: 663 sits right of 511 in the ratio of the values on one 0-based axis
     expect(left('strip-median-broader_entry') / left('strip-median-single_country_test')).toBeCloseTo(663.0754988387507 / 510.98840023662854, 2)
     expect(screen.getAllByTestId('outcome-tick')[0]!.textContent).toBe('0')
@@ -89,7 +89,12 @@ describe('RangeBar', () => {
     expect(screen.getByTestId('range-tried'), 'CONTRAST: a tried mark keeps the track').toBeTruthy()
     cleanup()
     const w = withRange('person'), band = render(<RangeBar card={w.c} view={w.mm} />).getByTestId('range-band')
-    expect([band.getAttribute('data-style'), band.style.background.includes('var(--text-body)'), band.style.background.includes('55%'), band.style.height]).toEqual(['solid', true, true, '6px'])
+    expect(band.getAttribute('data-style')).toBe('solid')
+    expect(band).toHaveClass('ok-scale-range-band')
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const recipe = /\.ok-scale-range-band \{([^}]*height:[^}]*)\}/.exec(css)?.[1]
+    expect(recipe).toContain('height: 6px;')
+    expect(recipe).toContain('background: color-mix(in srgb, var(--text-body) 55%, transparent);')
   })
   it('R2 draws nothing with no range', () => {
     const { container } = render(<RangeBar card={card(m, 'extra_sold_per_oven')} view={m} />)

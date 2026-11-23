@@ -15,7 +15,7 @@ import type { View } from '../client'
 import { useViewStore } from '../store'
 import { hoverWords, tipOf } from './tipHelpers'
 import { useMe } from '../../olumiCore/me'
-import { RootLinkEdge, ROOT_LINK_STROKE } from '../previous/RootLinkEdge'
+import { RootLinkEdge } from '../previous/RootLinkEdge'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { HeldProposalLine } from '../ViewChances'
@@ -47,9 +47,10 @@ describe('the graph', () => {
   it('PB1 (G1): the question-to-option line is stroked with a colour the stylesheets define; the old token is defined nowhere', () => {
     const Edge = RootLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
     const c = render(<ReactFlowProvider><svg><Edge id="root:o" source="q" target="o" sourceX={0} sourceY={0} targetX={0} targetY={80} sourcePosition={Position.Bottom} targetPosition={Position.Top} /></svg></ReactFlowProvider>).container
-    const stroke = c.querySelector<SVGPathElement>('path.react-flow__edge-path')!.style.stroke
-    expect(stroke).toBe(ROOT_LINK_STROKE)
-    const token = /^var\((--[\w-]+)\)$/.exec(stroke)![1]!
+    expect(c.querySelector('path.react-flow__edge-path')).toHaveClass('ok-root-link')
+    const look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+    const token = /\.ok-root-link \{ stroke: var\((--edge-neutral)\); stroke-width: 1px;/.exec(look)?.[1]
+    expect(token).toBe('--edge-neutral')
     expect(new RegExp(`${token}:\\s*#[0-9a-fA-F]{6}\\b`).test(css()), `${token} is a hex colour in the stylesheets`).toBe(true)
     expect(/--border-strong\s*:/.test(css()), 'CONTRAST: the old token is defined nowhere').toBe(false)
   })

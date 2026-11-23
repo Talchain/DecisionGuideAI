@@ -5,7 +5,7 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
-import { useCallback, useEffect, useId, useRef, useState, Fragment, type FocusEvent, type MouseEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, Fragment, type FocusEvent, type MouseEvent, type CSSProperties } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { typography } from '../../../styles/typography'
 import type { ViewCard, ViewModel, ViewRow } from '../../client'
@@ -145,7 +145,7 @@ function ResultRow({ lead, r, at, words, hover, mark, reason, blockers }: { lead
     <Hover as="div" className="ok-dt-aim" words={hover} data-view={at} data-aim-row={r.kind} {...mark} {...ring?.pointer} {...ring?.focus}>
       {lead}
       {r.kind === 'none' ? <span className="ok-dt-mini-none" data-withheld-row={at} />
-        : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ width: `${chance * 100}%` }} /></span>
+        : chance !== null ? <span className="ok-dt-mini" data-at={chance}><i style={{ '--chart-width': `${chance * 100}%` } as CSSProperties} /></span>
         : <span className="ok-dt-mini-none" />}
       <span className="ok-dt-aim-val" data-view={r.kind === 'none' ? undefined : `${at}.value`}><RowWords words={words} at={at} reason={reason} ring={ring} /></span>
       {r.olumi == null ? <span /> : <OlumiMark words={r.olumi.title} />}

@@ -4,6 +4,7 @@
  * view. Everything is read from the View (resultRange.ts); Olumi's estimates take Olumi's blue, the person's own figures the ink, and what
  * core does not attribute (`unassigned`) its own grey segment, never counted as the person's. The words are core's own line for the entry, whatever the split (restWordsOf), held to two lines on the card with the whole line in the button's Tip and in the Rests on view, or a neutral link where it serves none; the shares set the bar widths only. Entries of kind 'limit' are deliberately not drawn on the card, and the first goal entry for the option and aim is the one used (restsShareOf). The track keeps its 3 px height and margins: the band and the mark are drawn out of flow.
  */
+import type { CSSProperties } from 'react'
 import { useState } from 'react'
 import { Hover, HoverButton } from './look/Hover'
 import type { ViewCard } from './client'
@@ -23,12 +24,12 @@ export function ChanceBand({ card }: { card: ViewCard }): JSX.Element | null {
     <Hover words={words} data-node-tooltip={words === null ? undefined : true} className={`ok-track${words === null ? '' : ' nodrag'}`} aria-hidden={words === null ? 'true' : undefined} role={words === null ? undefined : 'img'}
       aria-label={words ?? undefined} tabIndex={words === null ? undefined : 0} data-view={`${id}.chance.track`}>
       {band === null ? null : <i className="ok-band" data-band={id} data-open-low={band.openLow ? '' : undefined} data-open-high={band.openHigh ? '' : undefined}
-        style={{ left: `${band.from}%`, width: `${band.to - band.from}%` }} />}
-      <span style={{ width: `${at * 100}%` }} />
-      <i className="ok-tick" style={{ left: '25%' }} aria-hidden="true" />
-      <i className="ok-tick" style={{ left: '50%' }} aria-hidden="true" />
-      <i className="ok-tick" style={{ left: '75%' }} aria-hidden="true" />
-      <i className="ok-mark-chance" data-chance-mark={id} style={{ left: `${at * 100}%` }} />
+        style={{ '--chart-x': `${band.from}%`, '--chart-width': `${band.to - band.from}%` } as CSSProperties} />}
+      <span style={{ '--chart-width': `${at * 100}%` } as CSSProperties} />
+      <i className="ok-tick ok-tick-quarter" aria-hidden="true" />
+      <i className="ok-tick ok-tick-half" aria-hidden="true" />
+      <i className="ok-tick ok-tick-three-quarters" aria-hidden="true" />
+      <i className="ok-mark-chance" data-chance-mark={id} style={{ '--chart-x': `${at * 100}%` } as CSSProperties} />
     </Hover>
   )
 }
@@ -48,9 +49,9 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
       <HoverButton type="button" data-node-tooltip={whole ? true : undefined} className="ok-share nodrag nopan" data-rests-share={card.id} data-rests-basis={said.basis} words={whole} aria-expanded={open}
         onClick={() => { setOpen((o) => !o); useViewLens.setState({ lens: 'rests_on' }) }}>
         <span className="ok-share-bar" aria-hidden="true">
-          <i className="ok-share-olumi" data-share-olumi={card.id} style={{ width: `${w.olumi}%` }} />
-          <i className="ok-share-person" data-share-person={card.id} style={{ width: `${w.person}%` }} />
-          <i className="ok-share-unassigned" data-share-unassigned={card.id} style={{ width: `${w.unassigned}%` }} />
+          <i className="ok-share-olumi" data-share-olumi={card.id} style={{ '--chart-width': `${w.olumi}%` } as CSSProperties} />
+          <i className="ok-share-person" data-share-person={card.id} style={{ '--chart-width': `${w.person}%` } as CSSProperties} />
+          <i className="ok-share-unassigned" data-share-unassigned={card.id} style={{ '--chart-width': `${w.unassigned}%` } as CSSProperties} />
         </span>
         {/* DL 15 Nov (Paul: "so much text and busy content"): core's line is off the card face. The face says only the UI's short label; core's
             line is the button's Tip, and pressing it opens Rests on, which draws every entry's line whole (restsOf). */}

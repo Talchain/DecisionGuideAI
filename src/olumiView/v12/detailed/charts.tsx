@@ -10,6 +10,7 @@
  *    reason, with no lane; the aim's own value a gold tick where this card is what the aim measures.
  * Read only from the View (railRows.ts, SimpleFace.tsx, contract.ts); nothing is worked out, rounded or reworded here. Look: `.ok-dt-*`.
  */
+import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
 import { useViewStore } from '../../store'
@@ -48,7 +49,7 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
   const wide = rail.rows.some((r) => (qualifier === null ? r.text : chanceParts(r.text).head).length > RAIL_WORDS_NARROW)
   return (
     <div className={`ok-dt-rail nodrag${wide ? ' ok-dt-rail-wide' : ''}`} data-chance-rail="" data-detailed-rail="" data-rail-wide={wide ? '' : undefined}>
-      <div className="ok-dt-rail-axis" aria-hidden="true">{[0, 25, 50, 75, 100].map((t) => <i key={t} style={{ left: `${t}%` }} />)}</div>
+      <div className="ok-dt-rail-axis" aria-hidden="true"><i /><i /><i /><i /><i /></div>
       {lanes.map((l) => {
         // Core's line is drawn whole: its number, then its own condition in the quiet ink (both are slices of core's string, nothing re-joined).
         // The number alone only where the one condition every row shares is said once under the rail (`qualifier`).
@@ -63,8 +64,8 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
             <span className="ok-letter" data-letter-chip={letterOf(letters, l.id)}>{letterOf(letters, l.id)}</span>
             {l.on ? (
               <span className="ok-dt-rail-lane" role="img" aria-label={`${l.name}: ${l.text}`} data-rail-lane={l.id}>
-                {l.band !== null ? <i className="ok-dt-rail-whisker" data-rail-whisker={l.id} style={{ left: `${l.band.from}%`, width: `${l.band.to - l.band.from}%` }} /> : null}
-                <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ left: `${l.at * 100}%` }} />
+                {l.band !== null ? <i className="ok-dt-rail-whisker" data-rail-whisker={l.id} style={{ '--chart-x': `${l.band.from}%`, '--chart-width': `${l.band.to - l.band.from}%` } as CSSProperties} /> : null}
+                <i className="ok-dt-rail-dot" data-rail-dot={l.id} data-at={l.at * 100} style={{ '--chart-x': `${l.at * 100}%` } as CSSProperties} />
               </span>
             ) : null}
             {/* The value cell wraps and clips nothing; core's words are their own element and the challenge mark sits beside them, never inside them. */}
@@ -88,9 +89,9 @@ export function Strips({ card, model }: { card: ViewCard; model: ViewModel | nul
         <Hover as="div" key={b.option} className="ok-dt-strip" words={`${b.heading} · ${b.text}`} data-strip={b.option} data-core-value={`${card.id}.${b.option}`}>
           <span className="ok-letter">{b.letter}</span>
           <span className="ok-dt-strip-lane">
-            {b.hi > b.lo ? <i className={`ok-dt-strip-band ${b.olumi ? 'ok-dt-olumi-band' : ''}`} style={{ left: `${b.lo}%`, width: `${b.hi - b.lo}%` }} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
-            {b.mid === null ? null : <i className="ok-dt-strip-mid" style={{ left: `${b.mid}%` }} />}
-            {axis?.goalAt == null ? null : <i className="ok-dt-goal-tick" style={{ left: `${axis.goalAt}%` }} data-at={axis.goal ?? undefined} />}
+            {b.hi > b.lo ? <i className={`ok-dt-strip-band ${b.olumi ? 'ok-dt-olumi-band' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
+            {b.mid === null ? null : <i className="ok-dt-strip-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
+            {axis?.goalAt == null ? null : <i className="ok-dt-goal-tick" style={{ '--chart-x': `${axis.goalAt}%` } as CSSProperties} data-at={axis.goal ?? undefined} />}
           </span>
           <span className="ok-dt-strip-val">{b.text}{(() => {
             // Core's mark on a value a held proposal would change (its glyph, its words the name), by the value's own place in `values`.

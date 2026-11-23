@@ -25,7 +25,8 @@
  *
  * The methods are v10's (`V10_METHODS`), the composer's icon row in ViewChat.tsx.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import './look/olumiLook.css'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import Tooltip from '../components/Tooltip'
 import { isOlumiCoreLane } from '../olumiCore/lane'
@@ -140,24 +141,24 @@ export function useOptionBands(): ReadonlyMap<string, OptionBand> {
 export function ViewOptionBand({ id, band }: { id: string; band: OptionBand }) {
   return (
     <Hover as="div" className="mt-1 min-w-0" data-testid={`view-option-band-${id}`} words={band.title === '' ? band.text : `${band.text}\n${band.title}`}>
-      <div className="relative" role="img" aria-label={band.text} style={{ height: 6, background: 'var(--factor-light)', borderRadius: 3 }}>
+      <div className="relative ok-v10-option-track" role="img" aria-label={band.text}>
         {band.aim === null ? (
-          <div className="absolute top-0 h-full" data-testid={`view-option-band-range-${id}`}
-            style={{ left: `${band.leftPct}%`, width: `${band.widthPct}%`, background: 'var(--option)', borderRadius: 3 }} />
+          <div className="absolute top-0 h-full ok-v10-option-fill" data-testid={`view-option-band-range-${id}`}
+            style={{ '--chart-x': `${band.leftPct}%`, '--chart-width': `${band.widthPct}%` } as CSSProperties} />
         ) : (
           // With an aim, the range in two parts (v10 board 4): the part that meets the aim solid, the part that misses it lighter.
           <>
-            {band.aim.miss === null ? null : <div className="absolute top-0 h-full" data-testid={`view-option-band-miss-${id}`}
-              style={{ left: `${band.aim.miss.left}%`, width: `${band.aim.miss.width}%`, background: 'var(--option)', opacity: 0.35, borderRadius: 3 }} />}
-            {band.aim.meet === null ? null : <div className="absolute top-0 h-full" data-testid={`view-option-band-meet-${id}`}
-              style={{ left: `${band.aim.meet.left}%`, width: `${band.aim.meet.width}%`, background: 'var(--option)', borderRadius: 3 }} />}
-            <Hover as="div" className="absolute" data-testid={`view-option-band-aim-${id}`} words={band.aim.text}
-              style={{ left: `${band.aim.pct}%`, top: -3, bottom: -3, width: 2, marginLeft: -1, background: 'var(--goal)' }} />
+            {band.aim.miss === null ? null : <div className="absolute top-0 h-full ok-v10-option-fill opacity-[0.35]" data-testid={`view-option-band-miss-${id}`}
+              style={{ '--chart-x': `${band.aim.miss.left}%`, '--chart-width': `${band.aim.miss.width}%` } as CSSProperties} />}
+            {band.aim.meet === null ? null : <div className="absolute top-0 h-full ok-v10-option-fill" data-testid={`view-option-band-meet-${id}`}
+              style={{ '--chart-x': `${band.aim.meet.left}%`, '--chart-width': `${band.aim.meet.width}%` } as CSSProperties} />}
+            <Hover as="div" className="absolute ok-v10-chart-aim" data-testid={`view-option-band-aim-${id}`} words={band.aim.text}
+              style={{ '--chart-x': `${band.aim.pct}%` } as CSSProperties} />
           </>
         )}
         {band.medianPct === null ? null : (
-          <div className="absolute" data-testid={`view-option-band-median-${id}`}
-            style={{ left: `${band.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />
+          <div className="absolute ok-v10-chart-median" data-testid={`view-option-band-median-${id}`}
+            style={{ '--chart-x': `${band.medianPct}%` } as CSSProperties} />
         )}
       </div>
       {/* The band's words on hover (first in the wrapper's Tip, core's hover after them), as the bar's label and in the DOM for readers, not a
@@ -192,9 +193,9 @@ export function valueBars(card: ViewCard): readonly ValueBar[] {
 function ValueBarRow({ cardId, bar, blue }: { cardId: string; bar: ValueBar; blue: boolean }) {
   return (
     <Hover as="div" className="flex items-center gap-1.5" words={bar.text} role="img" aria-label={bar.text} data-testid={`view-values-${cardId}-${bar.option}`} data-olumi={blue || undefined}>
-      <div className="relative flex-1" style={{ height: 4, background: 'var(--factor-light)', borderRadius: 2 }}>
-        <div className="absolute top-0 h-full" data-values-range style={{ left: `${bar.leftPct}%`, width: `${bar.widthPct}%`, background: blue ? 'var(--info)' : 'var(--option)', borderRadius: 2 }} />
-        {bar.medianPct === null ? null : <div className="absolute" style={{ left: `${bar.medianPct}%`, top: -1, bottom: -1, width: 2, marginLeft: -1, background: 'var(--text-header)', borderRadius: 1 }} />}
+      <div className="relative flex-1 ok-v10-value-track">
+        <div className="absolute top-0 h-full ok-v10-value-fill" data-values-range style={{ '--chart-x': `${bar.leftPct}%`, '--chart-width': `${bar.widthPct}%` } as CSSProperties} />
+        {bar.medianPct === null ? null : <div className="absolute ok-v10-chart-median" style={{ '--chart-x': `${bar.medianPct}%` } as CSSProperties} />}
       </div>
     </Hover>
   )

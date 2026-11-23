@@ -99,8 +99,8 @@ export function LinkRemove({ edge, from, remove }: { edge: string; from: string;
   const close = () => { setAsking(false); setError(null); setFocusTo('open') }
   const quiet = `${typography.viewLabel} min-h-[24px] cursor-pointer px-1`
   return (
-    <div className={`nodrag nopan ${typography.viewLabel} max-w-[220px] space-y-1 rounded-sm border border-panel-border bg-panel px-2 py-1 shadow-sm`}
-      style={{ pointerEvents: 'auto' }} data-link-for={edge} data-testid={`view-link-remove-${id}`}
+    <div className={`pointer-events-auto nodrag nopan ${typography.viewLabel} max-w-[220px] space-y-1 rounded-sm border border-panel-border bg-panel px-2 py-1 shadow-sm`}
+      data-link-for={edge} data-testid={`view-link-remove-${id}`}
       // The link's own press opens its details (ViewLinkEdge); presses on this control are its own, never the link's.
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && asking && !sending) close() }}>

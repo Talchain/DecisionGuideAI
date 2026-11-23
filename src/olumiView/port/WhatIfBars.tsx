@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { WHATIF_LEGEND_SAVED, WHATIF_LEGEND_TRIED } from '../../canvas/artefacts/whatIfCopy'
 import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { optionCards } from '../layout'
@@ -45,9 +46,9 @@ export function WhatIfTrack({ saved, tried }: { saved: number | null; tried: num
       <span className="absolute inset-y-0 left-0 w-px bg-panel-border" />
       <span className="absolute inset-y-0 left-1/2 w-px bg-panel-border" />
       <span className="absolute inset-y-0 left-full w-px bg-panel-border" />
-      {width === 0 ? null : <span className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-option" style={{ left: `${left}%`, width: `${width}%` }} data-testid="view-whatif-span" />}
-      <span className={`${MARK} ${RING}`} style={{ left: `${savedPct}%` }} data-testid="view-whatif-saved" />
-      <span className={`${MARK} ${DOT}`} style={{ left: `${triedPct}%` }} data-testid="view-whatif-tried" />
+      {width === 0 ? null : <span className="absolute left-[var(--chart-x)] w-[var(--chart-width)] top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-option" style={{ '--chart-x': `${left}%`, '--chart-width': `${width}%` } as CSSProperties} data-testid="view-whatif-span" />}
+      <span className={`${MARK} left-[var(--chart-x)] ${RING}`} style={{ '--chart-x': `${savedPct}%` } as CSSProperties} data-testid="view-whatif-saved" />
+      <span className={`${MARK} left-[var(--chart-x)] ${DOT}`} style={{ '--chart-x': `${triedPct}%` } as CSSProperties} data-testid="view-whatif-tried" />
     </div>
   )
 }

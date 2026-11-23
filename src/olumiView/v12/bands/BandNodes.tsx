@@ -7,7 +7,7 @@
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import type { NodeType } from '../../../canvas/domain/nodes'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import type { KeptIdea } from './keptIdeas'
@@ -22,7 +22,7 @@ import type { GroupKind } from './groups'
 export const VIEW_IDEA = 'viewIdea', VIEW_FOLD = 'viewFold'
 export const IDEA_H = 60, FOLD_H = 44
 /** The board's own type scale (ViewCanvas sets `--o-s` on every node, layout.ts simpleScaleOf): 12 px at the board's scale, 18 px lines, the idea's whole text and no clamp (R4, R6). */
-const BOARD_TEXT = { fontSize: 'calc(12px * var(--o-s, 1))', lineHeight: 1.5 } as const
+const BOARD_TEXT = 'box-border min-h-[var(--band-card-min-height)] text-[length:calc(12px*var(--o-s,1))] leading-[1.5] w-[var(--band-card-width)]'
 /** The product's own count of notes (canvas/nodes/shared/NodeNotesMark). */
 export const notesCount = (n: number): string => `${n} ${n === 1 ? 'note' : 'notes'}`
 /** A grouped kind's marker: the design system's shape for it (cards/kind.ts dsKindOf), a note outlined and dashed as an assumption is. */
@@ -38,7 +38,8 @@ export function IdeaCard({ data }: NodeProps) {
   const { idea, width } = data as { idea: KeptIdea; width: number }
   return (
     <Hover as="div" data-view-idea={idea.id} data-testid="view-idea-card" words={`${ideaProvenance(idea)}\n${replyWordsOf(idea.text)}`}
-      className="relative rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body" style={{ width, minHeight: IDEA_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+      className={`${BOARD_TEXT} relative rounded-md border border-panel-border bg-panel px-3 py-2 text-text-body`}
+      style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${IDEA_H}px` } as CSSProperties}>
       {idea.olumis ? <span data-idea-mark="olumi" aria-label="Olumi's idea" role="img" className="absolute -top-1.5 -right-1.5 grid h-5 w-5 place-items-center rounded-full bg-panel border border-panel-border"><OkIcon id="olumi-mark" size={14} decorative /></span> : null}
       {/* The kept words as the conversation draws the reply they came from (DL, pair v3: the card showed `**` and "## " raw), at the board's type size. */}
       <div className="space-y-1 break-words" data-testid="view-idea-text"><ReplyBlocks text={idea.text} /></div>
@@ -79,21 +80,21 @@ export function FoldCard({ id, data }: NodeProps) {
     return (
       <>{handles}<HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
         onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover} tipSpacing="list"
-        className={`flex items-center gap-1.5 rounded-md border bg-panel p-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
-        style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+        className={`${BOARD_TEXT} flex items-center gap-1.5 rounded-md border bg-panel p-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
+        style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${FOLD_H}px` } as CSSProperties}>
         {proposed || olumis ? <OlumiMark words={group.words} /> : null}
         <span className="font-medium tabular-nums text-text-header">{heading}</span>
         {words !== undefined ? <span className="min-w-0 truncate">{words}</span> : null}
         {group.challenged > 0 ? <Hover role="img" focusable={false} data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} words={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></Hover> : null}
         <span className="ml-auto flex flex-none items-center gap-1" aria-hidden="true" data-group-kinds={group.kinds.join(' ')}>
-          {group.kinds.map((k) => <span key={k} className="inline-flex" style={{ width: 'calc(10px * var(--o-s, 1))', height: 'calc(10px * var(--o-s, 1))' }}><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
+          {group.kinds.map((k) => <span key={k} className="inline-flex h-[calc(10px*var(--o-s,1))] w-[calc(10px*var(--o-s,1))]"><NodeShapeIndicator nodeKind={MARKER[k].kind} dashedOutline={MARKER[k].dashed} size={12} className="h-full w-full" /></span>)}
         </span>
       </HoverButton></>
     )
   }
   return (
     <>{handles}<HoverButton type="button" data-testid="view-inputs-fold" data-group-count={count} aria-expanded={false} onClick={() => { if (sid !== null) setInputsOpen(sid, true) }}
-      words="Show these inputs in place" className="rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body" style={{ width, minHeight: FOLD_H, boxSizing: 'border-box', ...BOARD_TEXT }}>
+      words="Show these inputs in place" className={`${BOARD_TEXT} rounded-md border border-panel-border bg-panel text-text-light hover:text-text-body`} style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${FOLD_H}px` } as CSSProperties}>
       {heading}
     </HoverButton></>
   )

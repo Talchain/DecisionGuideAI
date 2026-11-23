@@ -167,6 +167,7 @@ interface BaseNodeProps extends NodeProps {
    * it is not a goal/decision (e.g. the leading option). */
   lodKeepLabel?: boolean
   maxWidth?: number
+  olumiLook?: boolean
   headerSlot?: ReactNode
   /**
    * ⭐ GAP 11: this now renders FIRST IN THE CARD'S STATE ROW (under the title),
@@ -414,7 +415,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, olumiLook = false, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
   const anchorBandHasMarks = useBottomBandHasMarks()
@@ -1994,6 +1995,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       // `__tests__/nodeCopyIsNeverCentred.spec.tsx`.
       className={`
         text-left
+        ${olumiLook ? 'ok-card-frame' : ''}
         group relative rounded-md border ${
           /* ⭐ ONE RESTING ELEVATION ON EVERY FAMILY, THE GOAL INCLUDED (contract
              v3.1 FRAME-05 / ANC-08: `.node{box-shadow:0 2px 4px #25252005}`,
@@ -2045,7 +2047,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         outlineOffset: isAnalysisDriver || runChangeMark !== null ? '3px' : undefined,
         // ⚠ THE INLINE PAINT MUST STAND DOWN WHERE THE KIND FILL APPLIES, or the
         // class below is overridden by specificity and the fix is invisible.
-        backgroundColor: lodKindFillClass === '' ? 'var(--bg-panel)' : undefined,
+        backgroundColor: !olumiLook && lodKindFillClass === '' ? 'var(--bg-panel)' : undefined,
         // ⚠ THIS IS A DISJUNCTION, AND THE COMMENT THAT USED TO SIT HERE
         // DENIED IT. It said the reservation "follows the SAME condition rather
         // than a hand-listed pair of node types". It does not: `4a337f70` OR'd
@@ -2126,7 +2128,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         //     (FRAME-02 — see `legacyBorderPx`).
         // Written as four longhands, not the shorthand, so a `calc()` one engine
         // declines cannot take the other three sides down with it.
-        ...cardPadding(),
+        ...(!olumiLook ? cardPadding() : {}),
         // The card's own floor is the LAYOUT floor, imported rather than
         // restated: this was a hardcoded `'140px'` that happened to equal
         // `NODE_LAYOUT_MIN_W`, i.e. two copies of one number with nothing to
@@ -2135,7 +2137,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         // header of `nodeLayoutConstants.ts`.
         // ...bounded by the width the card is drawn at, as the title's measure floor is (DL-538: the core lane sizes its cards to the stage,
         // and a floor wider than the box ELK placed the card in drew each card over its neighbour).
-        minWidth: `${Math.min(NODE_LAYOUT_MIN_W, renderedCardW)}px`,
+        ...(olumiLook
+          ? { '--ok-frame-min-width': `${Math.min(NODE_LAYOUT_MIN_W, renderedCardW)}px` }
+          : { minWidth: `${Math.min(NODE_LAYOUT_MIN_W, renderedCardW)}px` }),
         // Width policy:
         //  - Non-expanded: use caller's maxWidth if given, else the last layout's
         //    width, else fall back to NODE_CARD_MAX_W so rendered width matches ELK.
@@ -2166,7 +2170,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
          * `maxWidth` is kept beside it so the expanded branch and any caller
          * passing an explicit `maxWidth` still bound the card.
          */
-        width: `${renderedCardW}px`,
+        ...(olumiLook ? { '--ok-frame-width': `${renderedCardW}px` } : { width: `${renderedCardW}px` }),
         maxWidth: `${renderedCardW}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
@@ -2823,7 +2827,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                all five starters, 87 titles): 0 card-height changes, 0 title
                line-count changes, 0 titles cut. Anchors keep their ink
                (`text-text-header`) as the hierarchy step. */
-            style={lodHideTitle ? { visibility: 'hidden', fontWeight: titleWeight } : { fontWeight: titleWeight }}
+            style={{ visibility: lodHideTitle ? 'hidden' : undefined, fontWeight: olumiLook ? undefined : titleWeight }}
           >
             {/* Gap 11: a right float one title line tall keeps LINE 1 clear of
                 the corner marks, or — where they cannot share it with the
@@ -3080,7 +3084,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           className="relative text-left"
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
-          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : anchorRailBeside ? anchorBodyBox : undefined}
+          style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : !anchorRailBeside ? undefined : olumiLook
+            ? ({ minHeight: anchorBodyBox?.minHeight, '--ok-anchor-rail-padding': anchorBodyBox?.paddingRight } as CSSProperties)
+            : anchorBodyBox}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
           {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}
         >
