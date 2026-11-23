@@ -523,7 +523,7 @@ function ViewFlow() {
           if (card !== undefined && (card.family === 'option' || isOlumiCoreLane())) useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
         onKeyDown={isOlumiCoreLane() ? (e) => {
-          if (e.key !== 'Enter' && e.key !== ' ') return
+          if (e.key !== 'Enter') return
           if (!(e.target instanceof Element) || !e.target.matches(`.react-flow__edge-${VIEW_LINK}`)) return
           const id = focusedLinkOf(e.target)
           if (id === null) return
