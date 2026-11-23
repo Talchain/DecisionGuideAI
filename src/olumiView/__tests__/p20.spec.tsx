@@ -113,4 +113,12 @@ it('opens the selected link’s details from the rendered line and from its focu
   expect(edge).toHaveFocus()
   fireEvent.keyDown(edge, { key: 'Enter' })
   expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(link.title)
+  fireEvent.click(screen.getByRole('button', { name: 'Close details' }))
+  // The link's remove control is its own press: Remove link, Keep and Yes never open the link's details over the removal.
+  expect(link.remove).not.toBeNull()
+  const open = document.querySelector<HTMLButtonElement>('[data-testid^="view-link-remove-open-"]')!
+  fireEvent.click(open)
+  expect(screen.queryByTestId('lane-inspector')).toBeNull()
+  fireEvent.click(document.querySelector<HTMLButtonElement>('[data-testid^="view-link-remove-keep-"]')!)
+  expect(screen.queryByTestId('lane-inspector')).toBeNull()
 })
