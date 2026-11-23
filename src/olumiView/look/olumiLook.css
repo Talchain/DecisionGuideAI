@@ -641,6 +641,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .ok-link-halo-alert { stroke: var(--olumi-mark-orange); stroke-width: 10px; }
 .olumi-look .ok-link-halo-proposed { stroke: var(--semantic-info); stroke-width: 8px; }
 .olumi-look .ok-link-halo-proposed.ok-link-halo-inner { stroke-width: 6px; }
+.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-reason-alert { stroke: var(--olumi-mark-orange); }
 /* The midpoint mark: one small grey icon from the typed direction, counter-scaled to the board. Hover and focus are the link's one Tip. */
 .olumi-look .ok-link-mark { color: var(--edge-neutral); pointer-events: auto; }
 .olumi-look .ok-link-mark svg { width: calc(12px * var(--canvas-label-scale, 1)); height: calc(12px * var(--canvas-label-scale, 1)); }

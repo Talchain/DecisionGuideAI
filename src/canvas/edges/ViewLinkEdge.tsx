@@ -209,16 +209,15 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const markVisible = markShown && !hidden
   // L1: every View link is drawn at rest (the old fold of reason links and route rails to hover and selection is gone); only `focusPath` fades a link, and
   // only while a path is lit.
-  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; every other line, a plain structural one and a reason link (a note,
-  // a route "considered against this aim") included, is neutral, and an effect's colour is never borrowed for it. EVERY line is one width (L3).
+  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; structural and reason links use neutral ink by default. EVERY line is one width (L3).
   // A dash means doubt and nothing else; a reason link is DOTTED (L1, a round-dot recipe, never a dash).
-  // L4, four channels that coexist on every kind of line: polarity is the COLOUR (a line with none of its own is the neutral grey), doubt the DASH,
-  // alert (core's orange) and proposal (Olumi's blue) each its own HALO underlay, so neither overwrites the other nor the direction. A driver link
-  // (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model already approved; on a first draft everything is
+  // L4: polarity is the colour, doubt the dash, and alert and proposal each have a halo. On a reason link, alert colours the stroke instead.
+  // A driver link (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model already approved; on a first draft everything is
   // proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model is Olumi's whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
   const olumiInk = (link.proposed || byOlumi) && !firstDraft
   const coloured = styled !== null || modelled
-  const haloAlert = link.alert, haloProposed = olumiInk
+  const reasonAlert = link.alert && link.kind === 'reason'
+  const haloAlert = link.alert && link.kind !== 'reason', haloProposed = olumiInk
   const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : driver ? 'var(--text-header)' : EDGE_NEUTRAL
   // The ink is a tone class on the `<g>` (olumiLook.css `.ok-link-tone-*` sets `--link-tone` from a token); the line, its end and its leader read it. No inline style.
   const tone = toneOf(stroke)
@@ -289,7 +288,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
+    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-reason-alert={reasonAlert ? '' : undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
       ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}
       onClick={isOlumiCoreLane() ? () => {
         linkTip.dismiss()
@@ -298,7 +297,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
       {haloProposed ? <path data-link-halo-path="proposed" d={path} className={haloAlert ? 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner' : 'ok-link-halo ok-link-halo-proposed'} /> : null}
-      <BaseEdge id={id} path={path} className={`ok-link-line${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+      <BaseEdge id={id} path={path} className={`ok-link-line${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}${reasonAlert ? ' ok-link-reason-alert' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
       />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}

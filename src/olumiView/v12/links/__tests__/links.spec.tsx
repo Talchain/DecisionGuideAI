@@ -275,7 +275,13 @@ describe('every link is drawn at rest (panel-visual system L1)', () => {
     }
   })
   it('L1c a reason link core marks challenged or proposed is drawn at rest as before; a link no one hovers is no longer folded away', () => {
-    expect(line(draw(reason({ alert: true })))).not.toBeNull(); cleanup()
+    const alerted = draw(reason({ alert: true }))
+    expect(line(alerted)).toHaveClass('ok-link-dotted', 'ok-link-reason-alert')
+    expect(g(alerted)).toHaveAttribute('data-link-reason-alert', '')
+    expect(g(alerted)).not.toHaveAttribute('data-link-halo')
+    expect(alerted.querySelector('[data-link-halo-path="alert"]')).toBeNull()
+    expect(declared('ok-link-reason-alert', 'react-flow__edge-path').stroke).toBe('var(--olumi-mark-orange)')
+    cleanup()
     expect(line(draw(reason({ proposed: true })))).not.toBeNull(); cleanup()
     useViewHover.setState({ id: 'z' })
     expect(line(draw(reason()))).not.toBeNull()
@@ -490,16 +496,21 @@ describe('modifier channels (panel-visual system L4)', () => {
     const c = draw(both({ doubt: true, alert: true, proposed: true }))
     expect([applied(line(c)).stroke, applied(line(c)).strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
   })
-  it('L4d alert and proposal survive together on a neutral line and on a reason line, as two separate halos; the line keeps its neutral stroke (it was orange only, and the proposal vanished)', () => {
+  it('L4d a neutral relation keeps both halos, and an alert reason line keeps its proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
     const plain = (extra: object) => ({ ...first, causal: null, role: null, kind: 'relation', doubt: false, alert: false, proposed: false, ...extra }) as unknown as ViewLink
-    for (const l of [plain({ alert: true, proposed: true }), plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' })]) {
-      const c = draw(l)
-      expect([applied(line(c)).stroke, g(c).getAttribute('data-link-halo')]).toEqual([EDGE_NEUTRAL, 'alert proposed'])
-      expect(c.querySelector('[data-link-halo-path="alert"]')).not.toBeNull()
-      expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
-      cleanup()
-    }
+    const relation = draw(plain({ alert: true, proposed: true }))
+    expect([applied(line(relation)).stroke, g(relation).getAttribute('data-link-halo')]).toEqual([EDGE_NEUTRAL, 'alert proposed'])
+    expect(relation.querySelector('[data-link-halo-path="alert"]')).toHaveClass('ok-link-halo-alert')
+    expect(relation.querySelector('[data-link-halo-path="proposed"]')).toHaveClass('ok-link-halo-inner')
+    cleanup()
+    const reason = draw(plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' }))
+    expect(g(reason)).toHaveAttribute('data-link-halo', 'proposed')
+    expect(reason.querySelector('[data-link-halo-path="alert"]')).toBeNull()
+    const proposalHalo = reason.querySelector('[data-link-halo-path="proposed"]')
+    expect(proposalHalo).toHaveClass('ok-link-halo-proposed')
+    expect(proposalHalo).not.toHaveClass('ok-link-halo-inner')
+    cleanup()
     // One channel alone is still one halo; a first draft still marks no proposal (R3).
     const a = draw(plain({ alert: true })); expect(g(a).getAttribute('data-link-halo')).toBe('alert'); cleanup()
     useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
