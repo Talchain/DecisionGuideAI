@@ -227,6 +227,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         {pinned ? closeX : null}
       </div>
       <div className={`min-h-0 overflow-y-auto ${pinned ? 'space-y-3' : 'space-y-4'}`}>
+        {/* A held proposal's change to this card (core's `change`, the card's own ↻ or + mark, ViewCardNode.tsx:317/:429): said here too, so a value waiting for approval never reads as settled. */}
+        {c.change == null ? null : <p className={`m-0 whitespace-pre-line break-words ${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-change" data-change-kind={c.change.kind}><span aria-hidden="true">{c.change.glyph} </span>{c.change.title}</p>}
         {/* 2. Value and whose it is; pinned, what it rests on, its chart and the one editor. */}
         {value === null ? null : (
           <div className={row} data-testid="lane-inspector-value">
