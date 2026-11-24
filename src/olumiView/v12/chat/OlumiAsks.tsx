@@ -1,6 +1,6 @@
 /**
  * "Olumi's question" card (17 Nov, calm panel mock v2, Paul; W3 24 Nov: the full list). At rest it is ONE row (Olumi's mark, the chosen question,
- * a chevron), with "N left to check" above it when there are several (18 Nov audit chat-2, chat-3: nothing open over the thread). Opened, it lists
+ * a chevron), with "N left to check" above it (18 Nov audit chat-2, chat-3: nothing open over the thread). Opened, it lists
  * EVERY question core serves, numbered, in core's order; a number chooses its question for the one answer box, the person's green "Use this" and
  * Skip as a neutral icon. Nothing is counted as answered: core serves no answer receipt here, and a question core has its answer for is simply no
  * longer served, so N is what is left. The four method icons are the composer's alone, never repeated here (Paul, 19 Nov).
@@ -59,7 +59,8 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   /** The person's words for this question, through the conversation's own send; true once sent. */
   onAnswer: (q: AskedQuestion, answer: string) => Promise<boolean>
 }): JSX.Element | null {
-  const [at, setAt] = useState(0)
+  // The chosen question by its identity, not its place: core drops a question once it has its answer, so a place would skip the next one (buddy, 24 Nov).
+  const [atKey, setAtKey] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({})
   const [sending, setSending] = useState(false)
   const [open, setOpen] = useState(false)
@@ -71,7 +72,8 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
   const n = questions.length
   const setKey = JSON.stringify([viewer, ...questions.map((x) => draftKeyOf(scope, x))])
   if (n === 0 || removed.has(setKey)) return null
-  const i = Math.min(at, n - 1), q = questions[i]!
+  const found = atKey === null ? -1 : questions.findIndex((x) => x.key === atKey)
+  const i = found >= 0 ? found : 0, q = questions[i]!
   const head = n === 1 ? 'Olumi’s question' : 'Olumi’s questions'
   const own = q.id !== null && q.edit !== null
   const mine = draftKeyOf(scope, q)
@@ -81,7 +83,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
     if (sending || held || typed.trim() === '') return
     setSending(true)
     try {
-      if (await onAnswer(q, typed)) { setDrafts((d) => ({ ...d, [mine]: '' })); setAt(Math.min(i + 1, n - 1)) }
+      if (await onAnswer(q, typed)) { setDrafts((d) => ({ ...d, [mine]: '' })); setAtKey(questions[i + 1]?.key ?? null) }
     } finally { setSending(false) }
   }
   return (
@@ -90,13 +92,15 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex-none"><OkIcon id="olumi-mark" size={14} decorative /></span>
         <div className="min-w-0 flex-1 space-y-1">
-          {n === 1 ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-question-count">{n} left to check</p>}
+          <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-question-count">{n} left to check</p>
           {/* At rest the chosen question alone; open, every question core serves, numbered, in core's order (W3, 24 Nov). */}
           <ol className="space-y-1" data-testid="view-question-list">
             {questions.map((x, k) => (
-              <li key={x.key} hidden={!open && k !== i} className="flex items-start gap-2" aria-current={open && n > 1 && k === i ? 'step' : undefined}>
+              <li key={x.key} hidden={!open && k !== i}
+                // `flex` would beat the base [hidden] rule (Tailwind preflight), so a folded row carries no display class at all (buddy, 24 Nov).
+                className={!open && k !== i ? undefined : 'flex items-start gap-2'} aria-current={open && n > 1 && k === i ? 'step' : undefined}>
                 {!open || n === 1 ? null : (
-                  <button type="button" onClick={() => setAt(k)} aria-label={`Question ${k + 1} of ${n}`} data-testid={`view-question-pick-${k}`}
+                  <button type="button" onClick={() => setAtKey(x.key)} aria-label={`Question ${k + 1} of ${n}`} data-testid={`view-question-pick-${k}`}
                     className={`${typography.viewPanelMeta} ${HIT_44} mt-0.5 w-4 flex-none text-left ${k === i ? 'font-medium text-text-header' : 'text-text-light'}`}>{k + 1}</button>
                 )}
                 <div className="min-w-0 flex-1" data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
@@ -120,7 +124,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           )}
           <div className="flex flex-wrap items-center gap-1">
             {own || typed.trim() === '' ? null : <button type="button" disabled={held || sending} onClick={() => void use()} className={USE_CLASS} data-testid="view-question-use">{USE_THIS}</button>}
-            {i >= n - 1 ? null : <OkIconButton id="skip-question" tone="ghost" testid="view-question-skip" onClick={() => setAt(i + 1)} />}
+            {i >= n - 1 ? null : <OkIconButton id="skip-question" tone="ghost" testid="view-question-skip" onClick={() => setAtKey(questions[i + 1]?.key ?? null)} />}
           </div>
         </div>
       )}

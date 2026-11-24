@@ -406,7 +406,7 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(three).toEqual(all.slice(0, 3))
     expect(chatQuestionsAllOf(null)).toEqual([]) // CONTRAST: no model, no questions
   })
-  it('Skip (a neutral icon) and a number each choose a question; neither earns anything: the count stays "3 left to check"; the last has no Skip (CONTRAST: a single question draws no count and no numbers)', () => {
+  it('Skip (a neutral icon) and a number each choose a question; neither earns anything: the count stays "3 left to check"; the last has no Skip (CONTRAST: a single question draws "1 left to check" and no numbers)', () => {
     const view = asked()
     const c = mount(view)
     const card = open(q(c, 'view-model-question')!)
@@ -426,7 +426,8 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     const one = asked(); one.model!.coaching_questions = [one.model!.coaching_questions![0]!]
     const c1 = mount(one)
     open(q(c1, 'view-model-question')!)
-    expect([q(c1, 'view-question-count'), q(c1, 'view-question-skip'), c1.querySelector('[data-testid^="view-question-pick-"]')]).toEqual([null, null, null])
+    // CHANGED (buddy, 24 Nov): a single question says its count too; still no numbers and no Skip.
+    expect([q(c1, 'view-question-count')!.textContent, q(c1, 'view-question-skip'), c1.querySelector('[data-testid^="view-question-pick-"]')]).toEqual(['1 left to check', null, null])
   })
   it('"Use this" is green and drawn only once words are typed; it sends the person\'s answer ALONE (never core\'s question as theirs) through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
     const bodies: string[] = []
