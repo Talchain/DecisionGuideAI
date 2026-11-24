@@ -366,7 +366,7 @@ function MenuRow({ id, icon, label, trailing, content, description, checked, hre
   }
 
   const focused = current === id
-  const ink = disabled ? 'cursor-not-allowed text-text-light opacity-50'
+  const ink = disabled ? 'cursor-not-allowed text-text-light'
     : lane ? `cursor-pointer hover:bg-panel-hover ${danger ? 'text-warning-ink' : 'text-text-body'}`
       : focused ? `cursor-pointer bg-panel-hover ${danger ? 'text-danger' : 'text-text-body'}`
         : 'cursor-pointer text-text-body hover:bg-panel-hover'
@@ -374,7 +374,7 @@ function MenuRow({ id, icon, label, trailing, content, description, checked, hre
   const rowClass = lane
     ? `group flex w-full min-w-0 items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-text-header ${row} ${ink} ${checked ? 'bg-panel-hover font-medium' : ''}`
     : `group flex ${row} w-full items-center ${nested ? 'gap-1.5' : 'justify-between gap-2'} outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset transition-colors ${ink}`
-  const iconInk = lane ? 'text-text-light'
+  const iconInk = lane || disabled ? 'text-text-light'
     : focused ? 'text-text-body' : 'text-text-light group-hover:text-text-body'
   const labelGroup = <>
     {icon || iconColumn ? <span aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center ${iconInk} ${lane ? 'size-3.5' : 'size-4'}`}>{icon}</span> : null}
