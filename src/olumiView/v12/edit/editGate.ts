@@ -13,10 +13,11 @@ import { TEAM_PAST_HELD } from '../../../olumiCore/team/writes'
 
 export type EditGate =
   | { readonly ok: true; readonly sid: string; readonly base: number }
-  | { readonly ok: false; readonly why: string }
+  | { readonly ok: false; readonly why: string; readonly held?: true }
 
 export const NO_MODEL_YET = 'There is no saved model to change yet.'
 export const CATCHING_UP = 'Olumi is catching up with the latest change. Try again in a moment.'
+export const REVIEW_PROPOSAL = 'Review Olumi’s proposal.'
 
 export function editGateNow(): EditGate {
   const s = useViewStore.getState()
@@ -25,6 +26,6 @@ export function editGateNow(): EditGate {
   if (s.at !== null) return { ok: false, why: TEAM_PAST_HELD }
   const { sid, base, held } = modelEditNow()
   if (sid !== null && base !== null) return { ok: true, sid, base }
-  if (held !== null) return { ok: false, why: s.view.model_words?.withdrawnHeld ?? held.heading }
+  if (held !== null) return { ok: false, why: s.view.model_words?.withdrawnHeld ?? held.heading, held: true }
   return { ok: false, why: s.error !== null || s.stale ? CATCHING_UP : NO_MODEL_YET }
 }
