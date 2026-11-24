@@ -514,7 +514,8 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     expect(getByTestId('view-chat-pinned').contains(getByTestId('view-model-question'))).toBe(true)
     expect(posts).toEqual([])
   })
-  it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): the first three, in core\'s order, each reachable in the foot panel; the fourth is not drawn', () => {
+  // RE-PINNED (W3, 24 Nov, with A2-A3's ViewChat swap 4ccb8291): the panel lists EVERY served question (chatQuestionsAllOf), so all six are reachable; was three at most.
+  it('ORDER-UI-5 (2), real View (golden s_ce285b3617bb, core\'s funding draft with six open questions): every one, in core\'s order, each reachable in the foot panel; none beyond them', () => {
     const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
     const qs = real.model!.coaching_questions!
     expect(qs.length, 'precondition: core sends more than three').toBeGreaterThan(3)
@@ -525,7 +526,7 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     // Now the first is painted and the other two are in the page, in core's words, hidden until Skip (or a progress dash) reaches them.
     fireEvent.click(getByTestId('view-chat-foot-asks'))
     fireEvent.click(getByTestId('view-question-toggle')) // CHANGED 18 Nov (audit chat-3): the card is one quiet row at rest; Skip is behind the chevron
-    for (const at of [0, 1, 2]) {
+    for (const at of qs.map((_, k) => k)) {
       if (at > 0) fireEvent.click(getByTestId('view-question-skip'))
       const el = getByTestId(at === 0 ? 'view-model-question-text' : `view-model-question-text-${at}`)
       expect([el.textContent, el.getAttribute('data-view')], `question ${at}`).toEqual([qs[at], `model.coaching_questions.${at}`])
@@ -533,11 +534,11 @@ describe('the shown model’s existing open question in the ordinary panel', () 
       expect(scroll.contains(el), `question ${at} is outside the thread`).toBe(false)
       for (let e: HTMLElement | null = el; e !== null && e !== getByTestId('view-chat-pinned'); e = e.parentElement) expect(e.hidden || /\b(hidden|sr-only|truncate|line-clamp-\d)\b/.test(e.className), `question ${at}: ${e.tagName} hides it`).toBe(false)
     }
-    expect(queryByTestId('view-model-question-text-3')).toBeNull()
-    expect(queryByText(qs[3]!)).toBeNull()
+    expect(queryByTestId(`view-model-question-text-${qs.length}`)).toBeNull()
+    expect(queryByText(qs[3]!)).not.toBeNull() // CHANGED BY DESIGN (W3): the fourth is drawn now
     expect(posts).toEqual([])
   })
-  it('ORDER-UI-5 (2), SEAM-13 c2 13bd106e: a question core gives with its figure (model.trial_questions) is painted first and opens THAT figure\'s editor; core\'s bare questions are words; three at most', () => {
+  it('ORDER-UI-5 (2), SEAM-13 c2 13bd106e: a question core gives with its figure (model.trial_questions) is painted first and opens THAT figure\'s editor; core\'s bare questions are words; every one is listed (W3 re-pin: was three at most)', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's in-place editor (on the lane the question opens the figure's Value row in the details: oneFigureEditor.spec.tsx)
     const real: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/s_ce285b3617bb.view.json'), 'utf8'))
     const card = real.model!.cards.find((c) => c.id === 'horizon')!
@@ -559,7 +560,8 @@ describe('the shown model’s existing open question in the ordinary panel', () 
     const second = getByTestId('view-model-question-text-1')
     expect([second.textContent, second.querySelector('button')]).toEqual([real.model!.coaching_questions![0], null])
     expect(getByTestId('view-model-question-text-2').textContent).toBe(real.model!.coaching_questions![1])
-    expect(queryByTestId('view-model-question-text-3')).toBeNull()
+    expect(getByTestId('view-model-question-text-3').textContent).toBe(real.model!.coaching_questions![2]) // CHANGED BY DESIGN (W3): was not drawn
+    expect(queryByTestId(`view-model-question-text-${1 + real.model!.coaching_questions!.length}`)).toBeNull()
     expect(posts).toEqual([])
   })
   it('SEAM-13 c2: a trial question with no edit (a proposal is held) is core\'s words, never dropped and never a control', () => {
