@@ -82,8 +82,9 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   }
   if (!open) return (
     <>
+      {/* Panel controls use 28px and card controls keep 24px to preserve card layout (UI lead, 24 Nov). */}
       <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
-        className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
+        className={`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 min-w-7 [.react-flow__node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
       {tip.tip}
     </>
   )
@@ -97,7 +98,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
         <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
           className={isOlumiCoreLane() ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
         <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
-          className={`${typography.viewLabel} min-h-[24px] cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
+          className={`${typography.viewLabel} min-h-7 [.react-flow__node_&]:min-h-6 cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </div>
   )
@@ -166,7 +167,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   // A RISK's chance and size, or a link's strength, is core's `…/size` route, never `…/edit` (which refuses it: a risk is not a figure). Core
   // says so with `route: 'size'`; the lane's own size form takes it, in core's field words. A plain figure edit keeps this editor.
   // C1: the pencil is a card action (hidden at rest by the look); `contents` takes no box and `visibility` inherits to the button.
-  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
+  if (isSizeEdit(edit)) return <span className="contents" {...(glyph !== undefined ? { 'data-card-action': '' } : {})}><SizeEditButton edit={edit} subject={label} label={label} glyph={glyph} className={glyph === undefined ? `nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}` : `nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 min-w-7 [.react-flow__node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}>{opener}</SizeEditButton></span>
   // No version to edit (a proposal is held): nothing is offered, but an editor already open stays, with its typing (row 6).
   if (live === null && !open) return opener ?? null
   const heldNote = live === null ? view.model_words?.withdrawnHeld ?? null : null
@@ -204,9 +205,9 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
     return (
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
-          className={solid ? `nodrag ${primaryClass}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
+          className={solid ? `nodrag ${primaryClass}` : `nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
         : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
-          className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
+          className={`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 min-w-7 [.react-flow__node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
         {/* S1 (Paul's "do now", 11 Nov): core's lead ends on the control ("Give your figure with ✎"); no stop of the UI's after it. */}
@@ -234,18 +235,18 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
       {heldNote === null ? null : <p role="status" className={`${typography.viewLabel} text-text-body`} data-testid={`${place}-held-${id}`} data-view="model_words.withdrawnHeld">{heldNote}</p>}
       {live !== null && opened !== null && opened !== live ? (
         <p className={`${typography.viewLabel} text-text-body`} data-testid={`${place}-moved-${id}`}>{MOVED_ON}{' '}
-          <button type="button" disabled={sending} data-testid={`${place}-rebase-${id}`} className="nodrag inline-flex min-h-[24px] items-center underline underline-offset-2 hover:text-text-header"
+          <button type="button" disabled={sending} data-testid={`${place}-rebase-${id}`} className="nodrag inline-flex min-h-7 [.react-flow__node_&]:min-h-6 items-center underline underline-offset-2 hover:text-text-header"
             onClick={() => { setOpened(live); setError(null) }}>{USE_LATEST}</button></p>
       ) : null}
       {/* Try is the person's act, in ink, never Olumi's blue (blue audit, 10 Nov). */}
       {/* D2: each button on one line (they wrapped to three in a card); the row wraps between buttons, never inside one. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <button type={primary === 'set' ? 'submit' : 'button'} data-testid={`${place}-set-${id}`} disabled={sending || typed.trim() === '' || live === null} onClick={primary === 'set' ? undefined : () => void save()}
-          className={primary === 'set' ? `${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body`}>Set figure</button>
+          className={primary === 'set' ? `${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-7 [.react-flow__node_&]:min-h-6 whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body`}>Set figure</button>
         <button type={primary === 'try' ? 'submit' : 'button'} data-testid={`${place}-try-${id}`} disabled={sending || trying || typed.trim() === '' || live === null} onClick={primary === 'try' ? undefined : () => void tryIt()}
-          className={primary === 'try' ? `order-first ${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body hover:text-text-header`}>Try without saving</button>
+          className={primary === 'try' ? `order-first ${primaryClass} whitespace-nowrap` : `${typography.viewLabel} min-h-7 [.react-flow__node_&]:min-h-6 whitespace-nowrap cursor-pointer rounded-sm px-2 py-0.5 disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body hover:text-text-header`}>Try without saving</button>
         <button type="button" disabled={sending} onClick={() => { setOpen(false); setError(null) }}
-          className={`${typography.viewLabel} min-h-[24px] whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
+          className={`${typography.viewLabel} min-h-7 [.react-flow__node_&]:min-h-6 whitespace-nowrap cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </form>
     </>
@@ -286,9 +287,9 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   }
   return glyph === undefined
     ? <><button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
-      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-[24px] items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
+      className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : `nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
     : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
-      className={`nodrag ${typography.viewLabel} inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-text-light hover:text-text-body`}>
+      className={`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow__node_&]:min-h-6 min-w-7 [.react-flow__node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}>
       <EditIcon testid={`${place}-glyph-${id}`} />
       {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
     </button>{tip.tip}</span>
