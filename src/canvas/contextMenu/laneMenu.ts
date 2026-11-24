@@ -2,8 +2,10 @@
  * THE LANE'S RIGHT-CLICK MENU (V12 manual editing, 16 Nov; MANUAL-EDITING-MAP, reply 002): a pure builder from what was right-clicked and
  * what core currently lets the person do. Every edit row opens the lane's one small form (`olumiView/v12/edit/EditForm.tsx`), which calls the
  * real core route; no row writes through the legacy canvas store, and no row is faked. A row that cannot act is OMITTED (Paul, 19 Nov: "a menu that
- * does nothing new goes"): no Delete or connected card (core has no route), no Rename, Add or Undo while core takes no edit. This reverses the
- * earlier "shown disabled, never absent" rule: each builder returns its row only where it can act, so `tidyDividers` below only tidies the dividers.
+ * does nothing new goes"): no Delete or connected card (core has no route), no Rename, Add or Undo while core takes no edit. The one exception is a
+ * held proposal (A1, Paul's UI plan 24 Nov: "never hide an edit"): its edit rows are drawn disabled with core's reason and "Review Olumi's proposal.".
+ * This reverses the earlier "shown disabled, never absent" rule: each builder returns its row only where it can act (or, held, disabled with its
+ * reason), so `tidyDividers` below only tidies the dividers.
  *
  * Nothing here imports a legacy writer (`actions.ts`' graph mutations, `runCanvasUndo`, `handleLayoutWithRecovery`): the builder gets its
  * effects as callbacks, so a spec can say exactly which route each row reaches.
@@ -13,7 +15,7 @@ import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import type { DsKind } from '../../olumiView/v12/cards/kind'
 import type { IconId } from '../../olumiView/look/icons'
 import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
-import type { EditGate } from '../../olumiView/v12/edit/editGate'
+import { REVIEW_PROPOSAL, type EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
@@ -65,9 +67,13 @@ function figureRow(c: LaneMenuCtx, id: string, label: string, tooltip: string, a
   return editRow(c, id, label, 'edit', tooltip, spec, open === undefined ? {} : { action: () => open(at) })
 }
 
-/** An edit row, only where core takes an edit now: no row (nothing to read, nothing to press) while it does not. */
+/** An edit row, only where core takes an edit now: no row (nothing to read, nothing to press) while it does not, except while a proposal is held,
+ *  when the row is drawn disabled with core's reason and REVIEW_PROPOSAL and does nothing (A1). */
 function editRow(c: { gate: EditGate; act: Pick<LaneMenuCtx['act'], 'open'> }, id: string, label: string, iconId: IconId | undefined, tooltip: string, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec, extra: Partial<MenuItemDef> = {}): MenuItemDef[] {
   const g = c.gate
+  if (!g.ok && g.held === true) {
+    return [{ id, label, ...(iconId === undefined ? {} : { iconId }), tooltip, ...extra, enabled: false, disabledReason: `${g.why} ${REVIEW_PROPOSAL}`, action: () => undefined }]
+  }
   return g.ok ? [{ id, label, ...(iconId === undefined ? {} : { iconId }), tooltip, enabled: true, action: () => c.act.open(spec(g)), ...extra }] : []
 }
 

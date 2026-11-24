@@ -158,7 +158,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => {
     const Icon = r.icon
-    return <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={() => { setMore(false); r.action() }}
+    return <HoverButton key={r.id} type="button" disabled={!r.enabled} words={r.enabled ? r.tooltip : (r.disabledReason ?? r.tooltip)} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (!r.enabled) return; setMore(false); r.action() }}
       className={VIEW_CHIP_CLASS}>{Icon && <Icon size={14} />}{r.label}</HoverButton>
   }
 
@@ -338,7 +338,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
       {rows.length === 0 ? null : (
         <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label="Edit">
           {rows.map((r) => (
-            <HoverButton key={r.id} type="button" words={r.tooltip} data-testid={`lane-inspector-${r.id}`} onClick={r.action}
+            <HoverButton key={r.id} type="button" disabled={!r.enabled} words={r.enabled ? r.tooltip : (r.disabledReason ?? r.tooltip)} data-testid={`lane-inspector-${r.id}`} onClick={r.enabled ? r.action : undefined}
               className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>{r.label}</HoverButton>
           ))}
         </div>
