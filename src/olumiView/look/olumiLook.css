@@ -267,8 +267,6 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 /* The conversation and the open foot panel have separate scroll areas. Keep a readable share
    of the chat even when a long review and a person-opened form are both present. */
 .ok-pinned[hidden] { display: none; }
-/* The heading opens the same review when the dock is too narrow for the Review chip. */
-@container (max-width: 330px) { .ok-pinned .ok-review-toggle { display: none; } }
 .ok-pinned [data-testid='view-next-step'] > *, .ok-pinned [data-testid='view-chat-proposal'] > * { flex: none; }
 
 .ok-form-foot { flex: 0 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-1) var(--space-3); }

@@ -80,8 +80,8 @@ describe('1. the proposal waits behind one foot-row chip', () => {
     expect(approve.closest('[hidden]')).toBeNull() // in view at rest, not inside a hidden body
     expect(qa(top, 'view-set-aside')).toHaveLength(1) // CONTRAST to the readings row below: no reading waits, so Set aside is offered at rest
     expect(q(top, 'view-changes')).toBeNull() // the list is read on a press, never approved blind from it
-    // CONTRAST: opening the row draws the list under the same card, Approve still there once.
-    fireEvent.click(q(top, 'view-proposal-row')!)
+    // Review draws the list under the same card, with Approve still there once.
+    fireEvent.click(q(top, 'view-proposal-review-toggle')!)
     expect(review.getAttribute('data-open')).toBe('true')
     expect(q(top, 'view-changes')).not.toBeNull()
     expect(qa(c, 'view-approve')).toHaveLength(1)
