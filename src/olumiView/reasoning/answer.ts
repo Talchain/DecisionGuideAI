@@ -37,6 +37,10 @@ export function questionsOf(model: ViewModel): Question[] {
   })
 }
 
+export function measureQuestionOf(model: ViewModel, cardId: string): Question | null {
+  return questionsOf(model).find((question) => question.role === 'measure' && question.about === cardId) ?? null
+}
+
 /** Core's examinations (`view.reasoning.examined`, AS BUILT), in core's order; none on an older core. An item missing its identity is not drawn. */
 export function examinedOf(view: unknown): Examination[] {
   const raw = (view as { reasoning?: { examined?: unknown } } | null)?.reasoning?.examined

@@ -7,6 +7,8 @@ import { linkCards } from '../../layout'
 
 type Headline = NonNullable<ViewCard['headline']>
 
+export const NOT_COUNTED_YET = 'Not counted yet'
+
 export function bareReasonOfRow(r: ViewRow): string | null {
   return r.kind === 'none' && r.bare_fallback === true ? r.title || null : null
 }
