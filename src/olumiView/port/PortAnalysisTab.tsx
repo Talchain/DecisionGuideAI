@@ -143,7 +143,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && !compared) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
         <FoldChevron open={open} />{ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
