@@ -1,12 +1,14 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { useMe } from '../../../olumiCore/me'
 import type { View } from '../../client'
 import { chatQuestionsAllOf } from '../../layout'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
 import { useViewStore } from '../../store'
+import { useHasShowCamera } from '../../v12/showInWorkspace/cameraPort'
+import { recordReach, showRecord } from '../../v12/showInWorkspace/show'
 import { NEXT_STEP_WORDS, ViewChat } from '../../ViewChat'
 import { CheckFirst, checkFirstCount, estimateChangesOf, missingInputsOf } from '../CheckFirst'
 
@@ -14,6 +16,17 @@ vi.mock('../../reasoning/tabRing', async (original) => ({
   ...(await original<typeof import('../../reasoning/tabRing')>()),
   pressCard: vi.fn(),
   ringFrom: vi.fn(),
+}))
+
+vi.mock('../../v12/showInWorkspace/cameraPort', async (original) => ({
+  ...(await original<typeof import('../../v12/showInWorkspace/cameraPort')>()),
+  useHasShowCamera: vi.fn(),
+}))
+
+vi.mock('../../v12/showInWorkspace/show', async (original) => ({
+  ...(await original<typeof import('../../v12/showInWorkspace/show')>()),
+  recordReach: vi.fn(),
+  showRecord: vi.fn(),
 }))
 
 const fixture = (name: string): View => JSON.parse(readFileSync(`src/olumiView/fixtures/${name}.view3.json`, 'utf8'))
@@ -25,6 +38,11 @@ const ready = (view: View) => {
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
 const figureIds = (root: HTMLElement) => [...root.querySelectorAll('[data-find-out-figure]')].map((row) => row.getAttribute('data-find-out-figure'))
+
+beforeEach(() => {
+  vi.mocked(useHasShowCamera).mockReturnValue(true)
+  vi.mocked(recordReach).mockReturnValue('card')
+})
 
 afterEach(() => {
   cleanup()
@@ -236,4 +254,99 @@ it('draws the ranking in place of the missing input fallback', () => {
   expect(check.querySelector('[data-check-first-target]')).toBeNull()
   expect(within(check).queryByText('Fallback words')).toBeNull()
   expect(checkFirstCount(view, 'asks')).toBe(1)
+})
+
+it('draws nothing in asks or pending when the ranking is person-owned', () => {
+  const view = fixture('core-38eebca9/bakery')
+  view.model!.run!.find_out![0]!.figures[1]!.whose = 'theirs'
+  const option = view.model!.cards.find((card) => card.id === 'longer_hours')!
+  option.rows[0] = {
+    ...option.rows[0]!,
+    kind: 'none',
+    next_test: 'Fallback words',
+    blocked_by: [{ role: 'figure', ref: 'extra_hours_sold' }],
+  } as (typeof option.rows)[number]
+
+  expect(checkFirstCount(view, 'asks')).toBe(0)
+  expect(checkFirstCount(view, 'pending')).toBe(0)
+  const { container, rerender } = render(<CheckFirst view={view} place="asks" />)
+  expect(container).toBeEmptyDOMElement()
+  expect(screen.queryByText('Fallback words')).toBeNull()
+  rerender(<CheckFirst view={view} place="pending" />)
+  expect(container).toBeEmptyDOMElement()
+  expect(screen.queryByText('Fallback words')).toBeNull()
+})
+
+it('omits retained missing inputs from ruled-out options', () => {
+  const view = cafe(), model = view.model!
+  const option = model.cards.find((card) => card.id === 'opt_a')!
+  option.status = 'ruled out'
+  const row = option.rows[0]!
+  if (row.kind !== 'none') throw new Error('Expected the cafe option to have a missing input')
+  row.next_test = 'Retained words'
+
+  expect(missingInputsOf(model).map(({ text }) => text)).not.toContain('Retained words')
+  render(<CheckFirst view={view} place="asks" />)
+  const check = within(screen.getByTestId('check-first'))
+  expect(check.queryByText('Retained words')).toBeNull()
+  expect(check.getAllByText(missingText, { exact: true })).toHaveLength(1)
+})
+
+it('draws plain text when the workspace cannot reach the target', () => {
+  vi.mocked(useHasShowCamera).mockReturnValue(false)
+  render(<CheckFirst view={cafe()} place="asks" />)
+  const check = screen.getByTestId('check-first')
+  const sentence = within(check).getByText(missingText, { exact: true })
+  expect(sentence.tagName).toBe('P')
+  expect(sentence).toHaveAttribute('data-check-first-input', '')
+  expect(check.querySelector('button')).toBeNull()
+  fireEvent.click(sentence)
+  expect(pressCard).not.toHaveBeenCalled()
+  expect(showRecord).not.toHaveBeenCalled()
+})
+
+it('draws plain text when the live workspace has no placement plan', () => {
+  vi.mocked(recordReach).mockReturnValue(null)
+  render(<CheckFirst view={cafe()} place="asks" />)
+  const check = screen.getByTestId('check-first')
+  const sentence = within(check).getByText(missingText, { exact: true })
+  expect(sentence.tagName).toBe('P')
+  expect(sentence).toHaveAttribute('data-check-first-input', '')
+  expect(check.querySelector('button')).toBeNull()
+  expect(recordReach).toHaveBeenCalledWith('tip_gain')
+  fireEvent.click(sentence)
+  expect(pressCard).not.toHaveBeenCalled()
+  expect(showRecord).not.toHaveBeenCalled()
+})
+
+it('replaces the button with the same plain text when workspace reach is lost before press', () => {
+  render(<CheckFirst view={cafe()} place="asks" />)
+  const check = screen.getByTestId('check-first')
+  const target = within(check).getByRole('button', { name: missingText })
+  vi.mocked(recordReach).mockReturnValue(null)
+  fireEvent.click(target)
+  expect(check.querySelector('button')).toBeNull()
+  const sentence = within(check).getByText(missingText, { exact: true })
+  expect(sentence.tagName).toBe('P')
+  expect(sentence).toHaveAttribute('data-check-first-input', '')
+  expect(pressCard).not.toHaveBeenCalled()
+  expect(showRecord).not.toHaveBeenCalled()
+})
+
+it('uses the current workspace reach when it changes after render', () => {
+  render(<CheckFirst view={cafe()} place="asks" />)
+  const target = within(screen.getByTestId('check-first')).getByRole('button', { name: missingText })
+  vi.mocked(recordReach).mockReturnValue('show')
+  fireEvent.click(target)
+  expect(showRecord).toHaveBeenCalledWith('tip_gain')
+  expect(pressCard).not.toHaveBeenCalled()
+})
+
+it('shows the target when workspace reach is show', () => {
+  vi.mocked(recordReach).mockReturnValue('show')
+  render(<CheckFirst view={cafe()} place="asks" />)
+  const target = within(screen.getByTestId('check-first')).getByRole('button', { name: missingText })
+  fireEvent.click(target)
+  expect(showRecord).toHaveBeenCalledWith('tip_gain')
+  expect(pressCard).not.toHaveBeenCalled()
 })
