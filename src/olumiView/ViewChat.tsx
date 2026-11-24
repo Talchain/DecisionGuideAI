@@ -1002,6 +1002,8 @@ export interface ViewChatState {
   readonly busy: boolean
   /** Core's words for the last write that did not go through, or SAVED_NOT_SHOWN. */
   readonly said: string | null
+  /** W2: counts this viewer's own accepted sends (a message or a menu question); never another member's activity. Absent in an older store state: 0. */
+  readonly sent?: number
   /**
    * A challenge that did not go through, its words waiting in the composer: sending those words again resends THAT challenge, with its
    * op id (it may already be saved), never a plain message (review 00002 #3). Changed words are a new message.
@@ -1021,7 +1023,9 @@ export interface ViewChatState {
   readonly prefilled?: string | null
 }
 
-export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null }))
+export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null, sent: 0 }))
+/** W2: this viewer's own message or menu question was accepted (each acceptance a new number), so the thread follows the turn and the reply it brings. */
+const ownSendAccepted = (): void => useViewChat.setState({ sent: (useViewChat.getState().sent ?? 0) + 1 })
 // Any write to the text (typing, a send, a restore) that is not the prefill itself makes the box the person's: `prefilled` is cleared at the one place every write passes.
 useViewChat.subscribe((st, was) => { if (st.text !== was.text && st.prefilled != null && st.text !== st.prefilled) useViewChat.setState({ prefilled: null }) })
 
@@ -1286,7 +1290,7 @@ function say(text: string, words = false, about: string | null = selectedRecord(
     // A press's kind (typed fields 13b) goes only with its card; the same words pressed differently are another write.
     : ((about, kind) => write(about === null ? 'message' : `message:${about}${kind === null ? '' : `:${kind}`}`, text, async (op) => { keepPendingTurn(sid!, text, op, about, kind); const r = await writes.message(sid!, text, op, about, kind); dropPendingTurn(op); return r }))(about, about === null ? null : press)
       // A new message starts a new exchange: the last save's receipt and comparison stand down (they followed the thread's newest line).
-      .then((sent) => { if (sent) useModelNotice.setState({ notice: null }); return sent })
+      .then((sent) => { if (sent) { useModelNotice.setState({ notice: null }); ownSendAccepted() } return sent })
 }
 
 /**
@@ -1361,6 +1365,7 @@ export async function askMethod(method: string): Promise<boolean> {
     try { return await writes.method(sid, method, op, option ?? undefined, about) } catch (e) { if (method === PRE_MORTEM && e instanceof TeamApiError && e.status === 409) refused = true; throw e }
   }, false, uuid)
   if (refused) await openPreMortemEntry()
+  if (sent) ownSendAccepted()
   return sent
 }
 
@@ -1906,6 +1911,10 @@ export function ViewChat() {
     followedTop.current = el.scrollTop
     setAway(false)
   }, [])
+  // W2 (Paul 0950 point 7): the viewer's own accepted send brings its turn, and then the reply it brings, into view however far up they had scrolled;
+  // another member's activity never moves them (only this viewer's own sends count, useViewChat `sent`). Followed now too: the View may already hold the turn.
+  const ownSent = useViewChat((s) => s.sent ?? 0)
+  useEffect(() => { if (ownSent === 0) return; follows.current = true; readerTop.current = null; followedTop.current = null; followNewest() }, [ownSent, followNewest])
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
   // The model-less floor and the early answer redraw the thread too (14 Nov): a new reply there is followed like a new turn.
