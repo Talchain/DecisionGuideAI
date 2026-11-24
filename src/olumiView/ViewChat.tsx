@@ -267,6 +267,14 @@ const NO_CARDS: readonly string[] = []
 export const PRESSED_WORDS = ICONS['method-mark'].hover
 
 /** Keep authorship before the reply (UI recovery witness row 11, DL 10 Nov). */
+/** A pressed menu question (core's typed ask 'method', W2): the question in core's own words, then the heading of the card it was asked about (core's `about`) where the
+ *  reader's model has it. Drawn as the press it is, never as words the person typed. */
+function MethodPress({ said, about, at }: { said: string; about: string | null | undefined; at: string }): JSX.Element {
+  const view = useViewStore((st) => st.view)
+  const heading = typeof about === 'string' ? view?.model?.cards.find((c) => c.id === about)?.heading.trim() || null : null
+  // The mark beside it is decorative, so a screen reader is told in words that this was a press (the cue the fixed words used to carry).
+  return <><span className="sr-only" data-testid="view-chat-method-cue">{`${PRESSED_WORDS}: `}</span><span data-view={`${at}.said`}>{said}</span>{heading === null ? null : <> · <span data-view={`${at}.about`} data-testid="view-chat-method-about">{heading}</span></>}</>
+}
 /** A message sent by a press on the canvas (typed fields 13b): core's label, then the pressed card's heading where the reader's model has it.
  *  Never `said` as words the person typed. */
 function PressedLine({ press, at }: { press: TurnPress; at: string }): JSX.Element {
@@ -328,7 +336,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const pressed = asked === 'challenge' || asked === 'method' ? asked : asked !== null ? null : pressOf(whole?.draft, t)
   const typed = pressFieldOf(t)
   const said = <div className="ok-said" data-testid="view-chat-said-bubble">{by}{typed !== null ? <PressedLine press={typed} at={at} /> : pressed !== null
-    ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={pressed}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
+    ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={pressed}><OkIcon id="method-mark" size={14} decorative />{pressed === 'method' && asked === 'method' ? <MethodPress said={t.said} about={t.about} at={at} /> : PRESSED_WORDS}</p>
     : <p className={typography.viewPanelBody} data-view={`${at}.said`}>{method === null ? null : <MethodMark id={method.id} />}{t.said}</p>}</div>
   // Olumi's reply carries Olumi's own mark (core's key item for Olumi, by its id: layout.ts olumiKey), in the margin beside its words.
   const model = useViewStore((st) => st.view?.model ?? null)
@@ -557,7 +565,7 @@ export function TurnInFlight({ turn, me, view, shown = false, replyVisible = fal
         {shown || replyVisible || turn === null ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
           : <div className="ok-said">{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
-            ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{PRESSED_WORDS}</p>
+            ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{turn.ask === 'method' ? <MethodPress said={turn.said} about={turn.about} at="turn" /> : PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
         {shown || replyVisible ? null : (
           <p role="status" aria-live="polite" className={`${typography.viewPanelBody} m-0 ok-waiting`} data-testid="view-chat-turn-wait">
@@ -1335,9 +1343,12 @@ export async function askMethod(method: string): Promise<boolean> {
   if (sid === null) return false
   // "What could go wrong?" and the pre-mortem name the one option card selected (core's named route, rule 1); none or several selected sends none.
   const option = (method === 'go_wrong' || method === PRE_MORTEM) && view !== null ? optionInFocusOf(view, useCanvasStore.getState().selection.nodeIds) : null
+  // W2: the one card selected goes with the question, by id (core's `about`, checked against what this reader sees); the same question about another card is another write.
+  // Where the question names the selected option (its own favoured-option rule, above), that option IS the card, and the body stays exactly as before.
+  const about = option === null ? selectedRecord() : null
   let refused = false
-  const sent = await write('method', option === null ? method : `${method}:${option}`, async (op) => {
-    try { return await writes.method(sid, method, op, option ?? undefined) } catch (e) { if (method === PRE_MORTEM && e instanceof TeamApiError && e.status === 409) refused = true; throw e }
+  const sent = await write('method', `${option === null ? method : `${method}:${option}`}${about === null ? '' : `@${about}`}`, async (op) => {
+    try { return await writes.method(sid, method, op, option ?? undefined, about) } catch (e) { if (method === PRE_MORTEM && e instanceof TeamApiError && e.status === 409) refused = true; throw e }
   }, false, uuid)
   if (refused) await openPreMortemEntry()
   return sent

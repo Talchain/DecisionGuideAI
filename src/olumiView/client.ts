@@ -98,7 +98,7 @@ export const writes = {
   /** "Show me Olumi's now" (`POST …/pre-mortem/show`): a logged choice that opens Olumi's stories for them alone; writes no reasons. No AI call. */
   preMortemShow: (sid: string) => call<{ state: 'chose' | 'wrote' }>('POST', `${scenarioPath(sid)}/pre-mortem/show`, {}),
   /** One plain question from the View's `session.methods` (core API `POST …/method`): one answered turn; it may propose a change, held for the person's approval. */
-  method: (sid: string, method: string, op: string, option?: string) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, option === undefined ? { method, op } : { method, op, option }),
+  method: (sid: string, method: string, op: string, option?: string, about: string | null = null) => call<{ proposal: number | null; discussion?: boolean }>('POST', `${scenarioPath(sid)}/method`, { method, op, ...(option === undefined ? {} : { option }), ...(about === null ? {} : { about }) }),
   /**
    * The coach's next move, taken in one tap: a structured choice, never words (DL 16:36Z, option b). Core's route (API v1.12, "Taking the
    * offered coaching move by one tap", 400b672, in the View vendored at d1fe5e2): `{ move, at, op? }` with no `text`; the person's turn is

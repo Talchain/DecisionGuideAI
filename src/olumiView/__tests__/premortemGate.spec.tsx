@@ -153,7 +153,8 @@ describe('a tap on the pre-mortem move while the gate is closed opens the entry 
     pick(['add_one']); await act(async () => { await askMethod('rests') })
     expect(posts.map((p) => p.url)).toEqual(Array(4).fill(`/api/scenarios/${SID}/method`))
     expect(posts.map((p) => { const { op: _op, ...rest } = p.body as { op: string }; return rest })).toEqual([
-      { method: 'pre_mortem', option: 'add_one' }, { method: 'pre_mortem' }, { method: 'pre_mortem' }, { method: 'rests' },
+      // W2: another question with one card selected names no option, and sends that card as `about`.
+      { method: 'pre_mortem', option: 'add_one' }, { method: 'pre_mortem' }, { method: 'pre_mortem' }, { method: 'rests', about: 'add_one' },
     ])
     pick([])
   })

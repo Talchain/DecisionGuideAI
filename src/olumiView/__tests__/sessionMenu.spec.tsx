@@ -290,7 +290,8 @@ describe('a press asks that question as a discussion-only turn', () => {
     expect(posts[1]!.body).toEqual({ method: 'go_wrong', op: OP })
     useCanvasStore.setState({ selection: { nodeIds: new Set(['add_one']), edgeIds: new Set<string>(), anchorPosition: null } })
     openMenu(c); await press(methods(c).find((b) => b.dataset['method'] === 'rests')!)
-    expect(posts[2]!.body).toEqual({ method: 'rests', op: OP })
+    // W2: another press names no option; it sends the one selected card as `about` (core's card in focus).
+    expect(posts[2]!.body).toEqual({ method: 'rests', op: OP, about: 'add_one' })
     useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set<string>(), anchorPosition: null } })
   })
 
