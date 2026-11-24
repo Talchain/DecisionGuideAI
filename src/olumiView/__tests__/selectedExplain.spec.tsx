@@ -1,24 +1,25 @@
 /**
  * DL journey (3), 14 Nov: select an option, read its explanation in the selected card without hover. Real path: the dock's selection row as
  * the lane draws it (SelectionPill after={selectedRename}) on the served View of run 2's approved board (core f6447f70, s_e399f8a9d922).
- * Bound by card id; every expected word is core's field.
+ * Bound by card id; explanation sections use core's fields.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import type { View } from '../client'
+import type { View, ViewCard } from '../client'
 import { useViewStore } from '../store'
 import { SelectionPill } from '../../canvas/components/SelectionPill'
 import { useCanvasStore } from '../../canvas/store'
 import { selectedRename } from '../SelectedRename'
+import { movedBy, NO_FIGURE_WORDS } from '../look/SelectedExplain'
 
 const RUN2 = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/live-v51-run2-approved.view.json'), 'utf8')) as View
 const cards = RUN2.model!.cards
-const select = (id: string) => {
-  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: RUN2.id, view: RUN2, status: 'ready', error: null, stale: false } as never)
-  useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: cards.find((c) => c.id === id)!.heading } }] as never, edges: [] as never,
+const select = (id: string, view = RUN2) => {
+  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false } as never)
+  useCanvasStore.setState({ nodes: [{ id, position: { x: 0, y: 0 }, data: { label: view.model!.cards.find((c) => c.id === id)!.heading } }] as never, edges: [] as never,
     selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null } } as never)
   return render(<SelectionPill after={selectedRename} />).container
 }
@@ -50,10 +51,58 @@ describe('a selected option explains itself (journey 3)', () => {
   })
 
   it('E3 CONTRAST: an option with nothing set, assumed or moved explains nothing more; a figure card has no option explanation', () => {
-    const bare = cards.find((c) => c.family === 'option' && (c.sets ?? []).length === 0 && (c.premises ?? []).length === 0 && !RUN2.model!.links.some((l) => l.kind === 'through' && l.from === c.id))!
-    expect(select(bare.id).querySelector('[data-testid="selected-explain"]')).toBeNull(); cleanup()
+    const bare = cards.find((c) => c.family === 'option' && (c.sets ?? []).length === 0 && (c.premises ?? []).length === 0 && movedBy(RUN2, c).length === 0)!
+    // CHANGED BY DESIGN (S4 Details sentence, 24 Nov): a bare option says it changes no figure yet.
+    const root = select(bare.id).querySelector('[data-testid="selected-explain"]')!
+    expect(root.textContent).toBe(NO_FIGURE_WORDS)
+    expect(root.querySelector('p[data-testid="selected-explain-none"]')?.textContent).toBe(NO_FIGURE_WORDS)
+    expect(root.querySelector('[data-testid="selected-explain-sets"], [data-testid="selected-explain-premises"], [data-testid="selected-explain-steps"]')).toBeNull()
+    cleanup()
     const fig = cards.find((c) => c.family === 'quantity')!
     expect(select(fig.id).querySelector('[data-testid="selected-explain"]')).toBeNull()
+  })
+
+  it('E4 the sentence is never drawn beside an explanation: the option with sets, premises and steps (angel) has no -none line', () => {
+    const root = select(angel.id).querySelector('[data-testid="selected-explain"]')!
+    for (const section of ['sets', 'premises', 'steps']) {
+      expect(root.querySelector(`[data-testid="selected-explain-${section}"]`)).not.toBeNull()
+    }
+    expect(root.querySelector('[data-testid="selected-explain-none"]')).toBeNull()
+  })
+
+  const bareId = 'keep_sending_cold_emails_and_seeking_warm_connections'
+  const expectNoExplanation = (view: View) => {
+    const el = select(bareId, view)
+    expect(el.querySelector('[data-testid="selected-explain-none"]')).toBeNull()
+    expect(el.querySelector('[data-testid="selected-explain"]')).toBeNull()
+  }
+
+  it('E5 withheld is not zero: the bare option whose figures a card withholds (values_withheld for that option) draws nothing', () => {
+    const view = structuredClone(RUN2)
+    const figure = view.model!.cards.find((c) => c.family === 'quantity')!
+    figure.values_withheld = [...(figure.values_withheld ?? []), { option: bareId, text: 'Value withheld', cause: 'not_covered' }]
+    expectNoExplanation(view)
+  })
+
+  it('E6 a Run all withheld, or no Run yet, draws nothing for the bare option', () => {
+    const withheld = structuredClone(RUN2)
+    withheld.model!.run!.all_withheld = true
+    expectNoExplanation(withheld)
+    cleanup()
+
+    const pending = structuredClone(RUN2)
+    pending.model!.run = null
+    expectNoExplanation(pending)
+  })
+
+  it('E7 an older View without the sets or premises key says nothing about them: the bare option draws nothing', () => {
+    for (const key of ['sets', 'premises'] as const) {
+      const view = structuredClone(RUN2)
+      const bare: Partial<ViewCard> = view.model!.cards.find((c) => c.id === bareId)!
+      delete bare[key]
+      expectNoExplanation(view)
+      cleanup()
+    }
   })
 })
 

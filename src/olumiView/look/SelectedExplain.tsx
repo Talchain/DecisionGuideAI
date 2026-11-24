@@ -1,6 +1,6 @@
 /**
  * A SELECTED OPTION'S EXPLANATION (DL journey 3, 14 Nov): what Paul reads after selecting an option, in the selected card, without hover.
- * Every word is core's; nothing is inferred from words:
+ * The explanation uses core's fields:
  *  - what the option changes: its `sets[]` (the figure each lever takes with this option, and whose that figure is);
  *  - what it rests on: its `premises[]` (core's glyph and words; core's source on hover);
  *  - how the figure it moves is worked out: the steps (look/WorkedSteps.tsx) of each card a `through` link from this option, or from a figure
@@ -11,6 +11,8 @@ import type { View, ViewCard } from '../client'
 import { Hover } from './Hover'
 import { movedByWorked, WorkedSteps, workedStepsOf } from './WorkedSteps'
 
+export const NO_FIGURE_WORDS = 'This route changes no figure in the model yet.'
+
 /** The cards this option moves through a sized term: `through` links from the option or a figure it sets, into a card worked out. */
 export function movedBy(view: View, option: ViewCard): string[] {
   const from = new Set([option.id, ...(option.sets ?? []).map((s) => s.id)])
@@ -19,15 +21,26 @@ export function movedBy(view: View, option: ViewCard): string[] {
   return [...new Set([...into.filter((id) => workedStepsOf(view, id).length > 0), ...movedByWorked(view, option.id)])]
 }
 
+export function changesNoFigure(view: View, card: ViewCard): boolean {
+  const model = view.model
+  return Array.isArray(card.sets) && card.sets.length === 0
+    && Array.isArray(card.premises) && card.premises.length === 0
+    && model?.run != null && model.run.all_withheld !== true
+    && movedBy(view, card).length === 0
+    && !model.cards.some((c) => c.values_withheld?.some((value) => value.option === card.id))
+}
+
 /** `testid`: the root test id (default the dock's; the details panel passes its own, so one page never holds two of the same). */
 export function SelectedExplain({ view, id, testid = 'selected-explain' }: { view: View; id: string; testid?: string }): JSX.Element | null {
   const card = view.model?.cards.find((c) => c.id === id) ?? null
   if (card === null || card.family !== 'option') return null
   const sets = card.sets ?? [], premises = card.premises ?? [], moved = movedBy(view, card)
+  const empty = sets.length === 0 && premises.length === 0 && moved.length === 0
+  if (empty && !changesNoFigure(view, card)) return null
   const own = new Set([card.id, ...sets.map((s) => s.id)])
-  if (sets.length === 0 && premises.length === 0 && moved.length === 0) return null
   return (
     <div className="ok-explain basis-full" data-testid={testid} data-ok-own={[...own].join(' ')}>
+      {empty ? <p data-testid={`${testid}-none`}>{NO_FIGURE_WORDS}</p> : null}
       {sets.length === 0 ? null : (
         <section data-testid={`${testid}-sets`}>
           <p className="ok-explain-head">What it changes</p>

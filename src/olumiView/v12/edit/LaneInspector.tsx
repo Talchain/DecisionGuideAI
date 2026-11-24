@@ -46,7 +46,7 @@ import { OLDER_DETAILS_FORM_ANCHOR, openLaneForm, openLinkRemoval } from './stru
 import { RenameHeading } from './RenameHeading'
 import { canRenameCard } from './renameCard'
 import { CardWords } from '../../SelectedRename'
-import { movedBy, SelectedExplain } from '../../look/SelectedExplain'
+import { changesNoFigure, movedBy, SelectedExplain } from '../../look/SelectedExplain'
 import { detailsOf, useLaneInspector } from './inspectorStore'
 import { optionValuesOf } from './optionValues'
 import { DETAILS_H, DETAILS_X, DETAILS_Y, PEEK_RESERVE, stayBeside } from './placeBeside'
@@ -200,7 +200,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   // C6 (20 Nov, said once): a sentence core's `detail` already holds is the detail's, drawn once there, never again as its own line.
   const inDetail = (s: string | null | undefined): boolean => s != null && s !== '' && c.detail.includes(s)
   const figureSaid = c.figure !== null && c.figure.title !== '' && c.figure.title !== c.figure.text && !inDetail(c.figure.title) ? c.figure.title : null
-  const explain = option && view !== null && ((c.sets ?? []).length > 0 || (c.premises ?? []).length > 0 || movedBy(view, c).length > 0)
+  const explain = option && view !== null && ((c.sets ?? []).length > 0 || (c.premises ?? []).length > 0 || movedBy(view, c).length > 0 || changesNoFigure(view, c))
   // The rest of what the card's old pop-up said, in core's words, each once: an option's own line, the reason, and (lens on) what it drives.
   // (A person's author line carries core's account of it, their own words quoted: drawn here, not left to a browser tip.)
   const also = [c.author != null && c.author.by !== 'olumi' && c.author.title !== c.author.text ? c.author.title : null, option ? c.face?.line?.text ?? null : null, c.figure === null && c.rows.length === 0 ? null : c.reason ?? null, ...(drives ?? []).map((o) => o.driver?.title ?? null)]
