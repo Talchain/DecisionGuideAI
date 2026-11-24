@@ -177,7 +177,8 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
     const said = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }) => (!g.list && !g.leadIn && g.lines.length === 1 && g.lines[0]!.every((x) => x.kind === 'text') && lineOf(g) === null
       ? g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('').trim() : null)
     const at = groups.findIndex((g, gi) => gi >= from && said(g) === omit.trim())
-    if (at !== -1) groups.splice(at, 1)
+    // A check that is nothing but the lead keeps its heading and paragraph: the fold then still says it is the check.
+    if (at !== -1 && !(under !== undefined && groups.length - from === 1)) groups.splice(at, 1)
   }
   const lead = groups.length > 0 && lineOf(groups[0]!) === 'label' ? 1 : 0
   // Olumi's check against the model (core's heading line) and everything after it always show: the fold hides only the first answer's later
@@ -1004,6 +1005,8 @@ export interface ViewChatState {
   readonly said: string | null
   /** W2: counts this viewer's own accepted sends (a message or a menu question); never another member's activity. Absent in an older store state: 0. */
   readonly sent?: number
+  /** W2: the scenario that send was made on; the thread follows only on that scenario. */
+  readonly sentSid?: string | null
   /**
    * A challenge that did not go through, its words waiting in the composer: sending those words again resends THAT challenge, with its
    * op id (it may already be saved), never a plain message (review 00002 #3). Changed words are a new message.
@@ -1025,7 +1028,7 @@ export interface ViewChatState {
 
 export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null, sent: 0 }))
 /** W2: this viewer's own message or menu question was accepted (each acceptance a new number), so the thread follows the turn and the reply it brings. */
-const ownSendAccepted = (): void => useViewChat.setState({ sent: (useViewChat.getState().sent ?? 0) + 1 })
+const ownSendAccepted = (): void => useViewChat.setState({ sent: (useViewChat.getState().sent ?? 0) + 1, sentSid: useViewStore.getState().sid })
 // Any write to the text (typing, a send, a restore) that is not the prefill itself makes the box the person's: `prefilled` is cleared at the one place every write passes.
 useViewChat.subscribe((st, was) => { if (st.text !== was.text && st.prefilled != null && st.text !== st.prefilled) useViewChat.setState({ prefilled: null }) })
 
@@ -1186,7 +1189,7 @@ export function sayAgain(): Promise<boolean> {
   const was = (t as { about?: unknown }).about
   const card = p !== null ? p.card : typeof was === 'string' ? was : null
   const about = card !== null && view?.model?.cards.some((c) => c.id === card) ? card : null
-  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op, about, about === null || p === null ? null : p.kind))
+  return write('turn-again', `${sid}:${t.job}`, (op) => writes.message(sid, said, op, about, about === null || p === null ? null : p.kind)).then((sent) => { if (sent) ownSendAccepted(); return sent })
 }
 
 /** A brief sent whose answer has not named its scenario yet: kept in this tab (sessionStorage) under the person's id, never another's. */
@@ -1333,6 +1336,7 @@ export async function challenge(kind: string, record: string, text: string, at =
   const { sid, uuid } = at
   if (sid === null) return false
   const sent = await write(`challenge:${kind}:${record}`, text, (op) => writes.challenge(sid, kind, record, op), false, uuid)
+  if (sent) ownSendAccepted()
   useViewChat.setState({ held: sent ? null : { text, kind, record, sid, uuid } })
   return sent
 }
@@ -1486,6 +1490,7 @@ async function takeMove(turn: number, next: Next): Promise<boolean> {
     // Core's one-turn-at-a-time refusal is a 409 too, told apart by its code (`turn_busy`): that move is still offered, so it is never dropped.
     try { return await writes.move(sid, next.move, next.at, op) } catch (e) { if (e instanceof TeamApiError && e.status === 409 && e.code !== 'turn_busy') stale = true; throw e }
   }, false, uuid)
+  if (sent) ownSendAccepted()
   // The pre-mortem tap with the gate closed is also a 409: it opens the entry; any other 409 is the stale move below.
   if (stale && next.move === PRE_MORTEM && await openPreMortemEntry()) return sent
   if (stale) {
@@ -1914,7 +1919,10 @@ export function ViewChat() {
   // W2 (Paul 0950 point 7): the viewer's own accepted send brings its turn, and then the reply it brings, into view however far up they had scrolled;
   // another member's activity never moves them (only this viewer's own sends count, useViewChat `sent`). Followed now too: the View may already hold the turn.
   const ownSent = useViewChat((s) => s.sent ?? 0)
-  useEffect(() => { if (ownSent === 0) return; follows.current = true; readerTop.current = null; followedTop.current = null; followNewest() }, [ownSent, followNewest])
+  useEffect(() => {
+    if (ownSent === 0 || useViewChat.getState().sentSid !== useViewStore.getState().sid) return
+    follows.current = true; readerTop.current = null; followedTop.current = null; followNewest()
+  }, [ownSent, followNewest])
   // Start long replies at their first lines, without moving someone reading back (pre-screen 4b92d394 row 14).
   const turns = view?.chat.length ?? 0, lastTurn = view?.chat[turns - 1]?.id ?? null, job = view?.turn?.job ?? null
   // The model-less floor and the early answer redraw the thread too (14 Nov): a new reply there is followed like a new turn.

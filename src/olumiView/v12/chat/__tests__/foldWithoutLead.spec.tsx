@@ -81,4 +81,9 @@ describe('"Full answer" never repeats the lead it sits under', () => {
     const t0 = show(withTurn(base, 0, { answer: [{ text: FIRST }], first_answer: { label: LABEL, heading: HEADING }, lead: { opening: OPENING, points: [] } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
     expect([drawnTimes(t0, OPENING), drawnTimes(t0, CHECK), t0.querySelector('[data-reply-label]')?.textContent]).toEqual([2, 1, LABEL])
   })
+
+  it('a first draft whose check is nothing but the lead keeps its heading and that paragraph, so the fold still says it is the check', () => {
+    const t0 = show(withTurn(base, 0, { answer: [{ text: FIRST }], first_answer: { label: LABEL, heading: HEADING }, lead: { opening: CHECK, points: [] } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
+    expect([drawnTimes(t0, CHECK), t0.querySelector('[data-reply-heading]')?.textContent]).toEqual([2, HEADING])
+  })
 })
