@@ -2,6 +2,7 @@
  * V12 right-click menus on the lane: the pure builder says which rows exist and what each opens; the mounted menu then calls the real route.
  * A row that cannot act is OMITTED (Paul, 19 Nov: "a menu that does nothing new goes"): no Delete (core has no route), no connected card, no
  * Rename, Add or Undo while core takes no edit or has nothing to undo. Nothing is shown disabled with a reason.
+ * Except (A1, Paul's UI plan 24 Nov): while Olumi's proposal is held, edit rows are drawn disabled with the reason (heldEditRows.spec.tsx).
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -60,8 +61,8 @@ describe('canvas menu', () => {
     expect(none).toMatchObject({ enabled: false, disabledReason: 'Add a figure for this risk to affect.' })
     expect(byId(buildLaneMenu(pane, ctx({ model: { ...approved().model!, cards: [] } })), 'add'), 'CONTRAST: Add stays while any of its rows can act').toBeDefined()
   })
-  it('while core takes no edit (Olumi\'s change held) there is no Add row at all, and no row says "Not right now"', () => {
-    const held = ctx({ gate: { ok: false, why: 'Set aside the pending change first.' } })
+  it('while core takes no edit for a reason other than a held proposal there is no Add row at all, and no row says "Not right now"', () => {
+    const held = ctx({ gate: { ok: false, why: 'There is no saved model to change yet.' } })
     const m = buildLaneMenu(pane, held)
     for (const id of ['add', 'add-factor', 'add-option', 'add-risk', 'add-claim', 'add-question']) expect(byId(m, id), id).toBeUndefined()
     expect(byId(m, 'ask-olumi'), 'CONTRAST: what can still act stays').toBeDefined()
