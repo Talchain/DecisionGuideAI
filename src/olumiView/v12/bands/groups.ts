@@ -1,11 +1,6 @@
 /**
  * V12 Simple: fewer cards at rest (the owner's ruling, 17 Nov; the lead's D1). Pure: the View in, the groups out. Detailed draws every card.
- *  - D1a: a card Olumi proposed that the person has not approved, of kind driver, risk, result or note, is not drawn on Simple; ONE group card per row
- *    stands for them, their links run to it, and one press opens that row's group in place for the session. Options, aims and positions are never
- *    grouped; the person's own cards and approved cards never are.
- *  - D1a on a FIRST model (the lead, 18 Nov, on Paul's first-model complaint): while nothing is approved yet (`view.version === null`: types.ts View.version,
- *    core's own "no saved version"), Olumi's proposed figures, drivers, results and risks are DRAWN, each keeping its proposed mark and its accept, edit and
- *    reject; drawing is never approving. Its proposed NOTES still fold into the group. Once a version is approved, a proposal adds to an approved model and folds as above.
+ *  - D1a: Olumi's unreviewed notes fold into one proposed group per row on Simple. Non-note cards stay drawn.
  *  - D1b (DL 17 Nov, after looking at the approved funding board): on Simple an APPROVED record that is only a sentence (core's kind `note`: a claim,
  *    an assumption, evidence, a left-out note, an earlier statement; no figure) folds into ONE notes stack per row, whoever wrote it, as v1 drew it.
  *    Structural cards (options, figures, risks, results, aims, positions) are never folded once approved. Detailed draws every note. (v2 had briefly
@@ -18,20 +13,11 @@
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { cardKind, type CardKindName } from '../fields/fields'
-import { unsizedWords } from '../cards/words'
 import { useWhatIf } from '../../whatif'
 import { useWhatIfFocus } from '../inspect/whatIfFocus'
 import { detailsOf, useLaneInspector } from '../edit/inspectorStore'
 import { bandOf, type BandId } from './bands'
 
-/**
- * D1c (v9; pilot loop 12:17Z: all nine journeys called the canvas cluttered; Codex UI reviewer 008 v8 clutter answers): on Simple an APPROVED
- * driver or result that OLUMI wrote and that holds a figure with no value yet folds into ONE count per row, "N more from Olumi", with Olumi's mark.
- * "No value yet" is core's own state, never the absence of a figure: core's gap words on an empty figure (`unsizedWords`: "not given yet · …") or a
- * calculation waiting on an input (`figure.state === 'waits'`). A qualitative card (no figure) is never swept in; options, aims, positions, risks and
- * notes are not in this rule; the person's, the brief's and mixed cards never fold. What the newest reply points at, the figure being tried and the
- * card open in the details panel stay drawn (`foldKeepOf`). Detailed draws every card; the existing one-press open reveals the row's cards.
- */
 export type GroupKind = 'proposed' | 'notes' | 'olumi'
 export type GroupBand = Exclude<BandId, 'ideas'>
 export type CardGroup = { readonly id: string; readonly kind: GroupKind; readonly band: GroupBand; readonly cards: readonly string[]; readonly kinds: readonly CardKindName[] }
@@ -45,23 +31,12 @@ export function groupBandOf(id: string): GroupBand | null {
   return m === null ? null : (m[1] as GroupBand)
 }
 
-/** The kinds a proposal group may hold (D1a); options, aims and positions never. */
-const PROPOSAL_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'risk', 'result', 'note'])
-/** The scenario has no approved version yet: core sends `version: null` (types.ts View.version; schema view.v3.json "version" anyOf object | null). */
-export const firstModelOf = (view: View | null): boolean => view != null && view.version === null
 /** Olumi proposed it and the person has not approved it (see the header for the fields). */
 export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null && card.author?.by === 'olumi'
 /** An approved record that is only a sentence (D1b): core's kind `note`, no change pending, no figure. */
 const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null && card.figure == null
 
-/** D1c: an approved Olumi driver or result whose figure core holds with no value yet (see the rule above `GroupKind`). */
-const UNSIZED_KINDS: ReadonlySet<CardKindName> = new Set<CardKindName>(['driver', 'result'])
-const olumiUnsized = (card: ViewCard, kind: CardKindName): boolean =>
-  card.change == null && card.author?.by === 'olumi' && UNSIZED_KINDS.has(kind) && (unsizedWords(card) !== null || card.figure?.state === 'waits')
-
-/** The active cards D1c keeps drawn, as the canvas hook subscribes to them (Codex UI reviewer 008 v9 reactivity: a getState() read alone is not an
- *  input the board is derived from). `tried`: the what-if shown on this View's scenario; `pressed`: What if just pressed; `inspected`: the card
- *  open in details. */
+/** Active card ids supplied by the canvas hook. */
 export type FoldActive = { readonly tried: string | null; readonly pressed: string | null; readonly inspected: string | null }
 /** The same ids read once from the existing stores, for a caller that is not subscribed (Show in workspace's targets, a one-off layout). */
 export function foldActiveNow(view: View | null): FoldActive {
@@ -69,8 +44,7 @@ export function foldActiveNow(view: View | null): FoldActive {
   return { tried: shown !== null && (view === null || shown.sid === view.id) ? shown.quantity : null, pressed: useWhatIfFocus.getState().id, inspected: open?.kind === 'card' ? open.id : null }
 }
 
-/** The cards D1c never folds: what the newest reply points at (its `next.at` and `next.about`), the figure being tried (the what-if shown, or the
- *  one just pressed) and the card open in the details panel. Read from the View and the active ids; nothing is worked out. */
+/** The card ids from the newest reply and the active card ids. */
 export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow(view)): ReadonlySet<string> {
   const keep = new Set<string>(), chat = view?.chat ?? []
   for (let i = chat.length - 1; i >= 0; i--) {
@@ -84,16 +58,15 @@ export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow
   return keep
 }
 
-/** Which group a card folds into on Simple, or null where it is drawn. `keep`: the cards D1c leaves drawn (foldKeepOf). */
-export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, keep: ReadonlySet<string> = new Set()): GroupKind | null {
+/** Which group a card folds into on Simple, or null where it is drawn. */
+export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, _keep: ReadonlySet<string> = new Set()): GroupKind | null {
   const { kind } = cardKind(card, model, view)
-  if (olumiUnreviewed(card) && PROPOSAL_KINDS.has(kind)) return kind !== 'note' && firstModelOf(view) ? null : 'proposed'
+  if (olumiUnreviewed(card) && kind === 'note') return 'proposed'
   if (approvedNote(card, kind)) return 'notes'
-  return olumiUnsized(card, kind) && !keep.has(card.id) ? 'olumi' : null
+  return null
 }
 
-/** The groups of the drawn model, per row (band), in band order then proposed, notes and Olumi's in the order their cards come; a group stands for
- *  one card or more. */
+/** The groups of the drawn model, per row (band); a group stands for one card or more. */
 export function cardGroupsOf(model: ViewModel, view: View | null, keep: ReadonlySet<string> = foldKeepOf(view)): CardGroup[] {
   const by = new Map<string, { kind: GroupKind; band: GroupBand; cards: string[]; kinds: CardKindName[] }>()
   for (const card of model.cards) {

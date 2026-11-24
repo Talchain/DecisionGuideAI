@@ -174,6 +174,8 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
   // detail, never the model's check or correction of it (Codex, 16 Nov: a folded reply could show the unverified claim and hide its correction).
   const check = groups.findIndex((g) => lineOf(g) === 'heading')
   const head = check === -1 ? groups.length : check
+  // A heading with nothing after it labels nothing.
+  if (head === groups.length - 1) groups.pop()
   // What shows at rest, by group: core's label; the opening (a paragraph whole, or the first three items of a list it opens with); after an
   // opening paragraph, the first three items of a list that follows it. Whole groups and whole list items only: no sentence is ever cut.
   const rest = new Map<number, number>()
@@ -215,8 +217,7 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
       {/* The CURRENT answer has the authority position (Codex 19:46:53Z, after replay 012: a first answer later found wrong stood large above its
           own correction). With `under`, the caller's lead and the check it folds are drawn FIRST; the first answer follows as earlier material
           under core's own label. Core's check heading opens the folded check; nothing is said twice. */}
-      {/* (A heading core sent with nothing after it labels nothing: there is no check to fold, so no fold is drawn for it.) */}
-      {under === undefined ? null : under(check === -1 || check + 1 >= groups.length ? null : <>{groups.slice(check).map((g, gi) => groupEl(g, check + gi))}</>)}
+      {under === undefined ? null : under(head === groups.length ? null : <>{groups.slice(head).map((g, gi) => groupEl(g, head + gi))}</>)}
       {groups.slice(0, head).map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}

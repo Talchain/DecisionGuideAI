@@ -10,7 +10,6 @@ import { useSimpleBudgetKey, useViewCanvas, VIEW_CARD, VIEW_LINK } from '../../c
 import { cardLinks, drawnModelOf } from '../../layout'
 import { cardGroupsOf } from '../bands/groups'
 import { useLaneInspector } from '../edit/inspectorStore'
-import { setGroupOpen } from '../bands/foldStore'
 import { useWhatIf } from '../../whatif'
 import { chanceParts } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
@@ -41,9 +40,6 @@ beforeEach(() => {
 })
 afterEach(() => { setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' }); useLaneInspector.setState({ current: null }); useWhatIf.setState({ shown: null }) })
 
-// CHANGED BY DESIGN (the owner's ruling, 17 Nov; the DL's correction ~03:50Z the same day): on Simple, Olumi's unreviewed proposals fold into one group
-// card per row, and APPROVED records that are only a sentence (core's kind `note`: assumptions, claims, conditions, notes; no figure) into one notes
-// stack per row; approved structural cards (figures, options, aims, risks, results) are always drawn; Detailed draws every card (v12/bands/groups.ts).
 // S1 puts two of Olumi's own figures into a pending proposal (core's `change` mark, an invented title), the one field that makes them unreviewed.
 const PENDING = { glyph: '+', title: 'An invented proposal', kind: 'added' }
 const PROPOSED = ['horizon', 'existing_market_acquisitions']
@@ -58,13 +54,13 @@ const drawnApproved = whole.cards.filter((c) => !approvedGrouped.has(c.id)).map(
 const SENTENCES = ['country_readiness', 'customer_flow_assumptions', 'shared_churn_stress']
 const drawn = () => useCanvasStore.getState().nodes.filter((n) => n.type === VIEW_CARD).map((n) => n.id)
 const groupCounts = () => useCanvasStore.getState().nodes.filter((n) => (n.data as { group?: unknown }).group !== undefined).map((n) => [n.id, (n.data as { count: number }).count])
-describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals and approved sentence-only records folded (D1)', () => {
+describe('V12 Simple draws the model\'s structure; Olumi\'s proposed and approved notes folded (D1)', () => {
   it('S1 Simple draws every card but the folded ones, each row\'s group card standing for them by count; Detailed draws every card and every link', async () => {
     act(() => useViewStore.setState({ view: proposing }))
     const { rerender } = renderHook(() => useViewCanvas(true))
     const links = () => useCanvasStore.getState().edges.filter((e) => e.type === VIEW_LINK).length
     expect(levelOf(SID)).toBe('simple')
-    expect(groups.filter((g) => g.kind === 'proposed').flatMap((g) => g.cards).sort(), 'precondition: the proposal group holds exactly the two proposed figures').toEqual([...PROPOSED].sort())
+    expect(PROPOSED.filter((id) => grouped.has(id))).toEqual([])
     expect(PROPOSED.map((id) => card(id).author?.by)).toEqual(['olumi', 'olumi'])
     await vi.waitFor(() => expect(drawn()).toEqual(drawnOnSimple))
     expect(groupCounts()).toEqual(groups.map((g) => [g.id, g.cards.length]))
@@ -75,13 +71,11 @@ describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals
     expect(groupCounts(), 'Detailed folds nothing').toEqual([])
     expect(links()).toBe(cardLinks(wholeP).length)
   })
-  // CHANGED BY DESIGN (v9 D1c; pilot loop 12:17Z "cluttered", Codex UI reviewer 008 answers): Olumi's approved `profitability`, which core holds
-  // "not sized yet", now folds behind "1 more from Olumi"; the sentence-only records still fold into notes stacks; every option and aim is drawn.
-  it('S1a the approved model as served: its sentence-only records fold into notes stacks and Olumi\'s figure with no value yet behind one count; every option and aim is drawn', async () => {
+  it('S1a the approved model as served: notes fold and Olumi\'s figure with no value yet is drawn', async () => {
     expect(european.proposal ?? null).toBeNull()
     expect([card('profitability').author?.by, card('profitability').figure?.text, card('profitability').figure?.title.startsWith('not sized yet')], 'precondition: Olumi\'s, no value yet').toEqual(['olumi', '', true])
     expect([...approvedGroups.filter((g) => g.kind === 'notes').flatMap((g) => g.cards)].sort()).toEqual(SENTENCES)
-    expect(approvedGroups.filter((g) => g.kind === 'olumi').map((g) => g.cards)).toEqual([['profitability']])
+    expect(approvedGrouped.has('profitability')).toBe(false)
     expect(approvedGroups.every((g) => g.kind !== 'proposed'), 'nothing is pending').toBe(true)
     expect(SENTENCES.map((id) => card(id).figure ?? null), 'precondition: none of them holds a figure').toEqual([null, null, null])
     renderHook(() => useViewCanvas(true))
@@ -91,34 +85,27 @@ describe('V12 Simple draws the model\'s structure; Olumi\'s unreviewed proposals
     for (const id of ['horizon', 'customers', 'reach_customer_target', 'investment_limit', 'broader_entry']) expect(drawn(), id).toContain(id)
     expect(groupCounts()).toEqual(approvedGroups.map((g) => [g.id, g.cards.length]))
   })
-  // Codex UI reviewer 008 v9 reactivity: the active card is an input the mounted board is derived from, on an UNCHANGED View.
-  it('S1b on the mounted canvas, with the View unchanged: opening Olumi\'s folded figure in details draws it and closing folds it again; a what-if on it holds it the same way', async () => {
+  it('S1b Olumi\'s figure stays drawn before, during and after details or a what-if', async () => {
     renderHook(() => useViewCanvas(true))
     await vi.waitFor(() => expect(drawn()).toEqual(drawnApproved))
-    expect(drawn(), 'precondition: folded at rest').not.toContain('profitability')
+    expect(drawn(), 'drawn at rest').toContain('profitability')
     const before = useViewStore.getState().view
     act(() => useLaneInspector.getState().open({ kind: 'card', id: 'profitability' }))
     await vi.waitFor(() => expect(drawn()).toContain('profitability'))
     act(() => useLaneInspector.getState().close())
-    await vi.waitFor(() => expect(drawn()).not.toContain('profitability'))
+    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
     act(() => useWhatIf.setState({ shown: { sid: european.id, base: 1, quantity: 'profitability', typed: '5', variant: {} as never } }))
     await vi.waitFor(() => expect(drawn()).toContain('profitability'))
     act(() => useWhatIf.setState({ shown: null }))
-    await vi.waitFor(() => expect(drawn()).not.toContain('profitability'))
+    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
     expect(useViewStore.getState().view, 'the View never changed').toBe(before)
   })
-  // v9 look (17 Nov): opening "2 more from Olumi" swapped option B and option A, because the options row took the layout's own x.
-  it('S1c the options read A, B, C left to right in core\'s option order, at rest and after Olumi\'s folded row is opened', async () => {
+  it('S1c the options read A, B, C left to right in core\'s option order', async () => {
     const options = model.cards.filter((c) => c.family === 'option').map((c) => c.id)
     expect(options.length, 'precondition: three options').toBe(3)
     const leftToRight = () => [...useCanvasStore.getState().nodes].filter((n) => options.includes(n.id)).sort((a, b) => a.position.x - b.position.x).map((n) => n.id)
     renderHook(() => useViewCanvas(true))
     await vi.waitFor(() => expect(leftToRight()).toEqual(options))
-    const olumiRow = approvedGroups.find((g) => g.kind === 'olumi')!
-    act(() => setGroupOpen(SID, olumiRow.id))
-    await vi.waitFor(() => expect(drawn()).toContain('profitability'))
-    expect(leftToRight(), 'after the open').toEqual(options)
-    act(() => setGroupOpen(SID, olumiRow.id, false))
   })
 })
 

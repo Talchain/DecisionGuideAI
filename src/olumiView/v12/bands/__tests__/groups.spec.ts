@@ -1,15 +1,10 @@
-/**
- * D1 (the owner's ruling, 17 Nov; the lead's D1a and D1b): on Simple, Olumi's unreviewed proposals of kind driver, risk, result or note fold into ONE
- * group card per row, and approved notes into ONE notes stack per row; options, aims and positions never fold, nor do the person's own or approved
- * cards. Bound by card id on the in-repo bakery fixture (invented words), each rule by the one field that differs. Pure: groups.ts.
- */
 import { describe, expect, it, vi } from 'vitest'
 // groups.ts reaches the store through the bands; the store's backend client is not part of what these rows read.
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View, ViewCard, ViewModel } from '../../../client'
-import { cardGroupsOf, challengedIn, groupIdOf, groupKindOf, groupLinksOf, withoutGrouped } from '../groups'
+import { cardGroupsOf, groupIdOf, groupKindOf, groupLinksOf, withoutGrouped } from '../groups'
 
 const base = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/bakery-asked.view3.json'), 'utf8')) as View
 const card = (id: string) => base.model!.cards.find((c) => c.id === id)!
@@ -23,9 +18,9 @@ const withCards = (cards: ViewCard[]): { model: ViewModel; view: View } => {
 }
 
 describe('which cards fold on Simple (D1a, D1b): read from change, author.by and core\'s kind', () => {
-  it('G1 an Olumi driver in the pending proposal is grouped; the same card approved (change null) is not; an Olumi option in the proposal is not', () => {
+  it('G1 a pending or approved Olumi driver is drawn; a pending Olumi option is drawn', () => {
     const { model, view } = withCards([as('budget', 'driver', olumi, added), as('second_oven', 'option', olumi, added)])
-    expect(groupKindOf(model.cards.find((c) => c.id === 'budget')!, model, view), 'proposed by Olumi, not approved').toBe('proposed')
+    expect(groupKindOf(model.cards.find((c) => c.id === 'budget')!, model, view), 'proposed by Olumi').toBeNull()
     const approved = as('budget', 'driver', olumi, null)
     expect(groupKindOf(approved, withCards([approved]).model, withCards([approved]).view), 'CONTRAST: approved').toBeNull()
     expect(groupKindOf(model.cards.find((c) => c.id === 'second_oven')!, model, view), 'CONTRAST: an option is never grouped').toBeNull()
@@ -53,40 +48,22 @@ describe('which cards fold on Simple (D1a, D1b): read from change, author.by and
   })
 })
 
-describe('one group card per row, its links run to it', () => {
+describe('non-note proposals and their links stay on the drawn cards', () => {
   const { model, view } = withCards([as('budget', 'driver', olumi, added), as('oven_price', 'driver', olumi, added), as('fitting', 'driver', olumi, added), as('oven_repair', 'risk', olumi, added)])
-  // The fixture's `spend` is an approved Olumi calculation waiting on an input, which D1c (v9) folds on its own; it is held drawn here so these rows
-  // read the proposal rule alone and its links to `spend` (foldOlumi.spec.tsx F1 holds D1c).
-  const groups = cardGroupsOf(model, view, new Set(['spend']))
-  it('G3 a row\'s proposals make ONE group card, by row (the risk in its own row), with the kinds it holds', () => {
-    const byId = new Map(groups.map((g) => [g.id, g]))
-    const inputs = byId.get(groupIdOf('proposed', 'inputs'))!, outcomes = byId.get(groupIdOf('proposed', 'outcomes'))!
-    expect([inputs.cards, inputs.kinds, outcomes.cards, outcomes.kinds]).toEqual([['budget', 'oven_price', 'fitting'], ['driver'], ['oven_repair'], ['risk']])
-    expect(withoutGrouped(model, groups).cards.map((c) => c.id)).not.toContain('budget')
+  const groups = cardGroupsOf(model, view)
+  it('G3 the proposed drivers and risk have no row group', () => {
+    expect(groups.filter((g) => g.kind === 'proposed')).toEqual([])
+    expect(withoutGrouped(model, groups).cards.map((c) => c.id)).toContain('budget')
   })
-  it('G4 the grouped cards\' links run to the group card as ONE neutral connector per pair of drawn ends: a count and two ends, nothing of any member (Codex P1)', () => {
+  it('G4 the proposed drivers and risk have no group connectors', () => {
     const drawn = new Set([...withoutGrouped(model, groups).cards.map((c) => c.id), ...groups.map((g) => g.id)])
     const links = groupLinksOf(model, groups, drawn)
-    const g = groupIdOf('proposed', 'inputs')
-    // oven_price -> spend and fitting -> spend are one connector from the group (count 2); budget -> within_budget its own.
-    expect(links.map((l) => `${l.from}>${l.to}:${l.count}`).sort()).toEqual([`${g}>spend:2`, `${g}>within_budget:1`, `${groupIdOf('proposed', 'outcomes')}>sales:1`].sort())
-    // No member's record, removal, title, sign or place: the connector's only fields are its ends and its count.
-    for (const l of links) expect(Object.keys(l).sort()).toEqual(['count', 'from', 'to'])
+    expect(links.filter((l) => [groupIdOf('proposed', 'inputs'), groupIdOf('proposed', 'outcomes')].includes(l.from))).toEqual([])
     // CONTRAST: a link between two drawn cards is not rerouted.
     expect(links.some((l) => l.from === 'base_sales')).toBe(false)
   })
-  it('G5 a folded group says what it holds that is challenged: its challenged cards and the alert links at them; none where there is none', () => {
-    const inputs = groups.find((x) => x.id === groupIdOf('proposed', 'inputs'))!
-    expect(challengedIn(model, inputs)).toBe(0)
-    const hot = { ...model, cards: model.cards.map((c) => (c.id === 'budget' ? { ...c, challenged: true } : c)), links: model.links.map((l) => (l.from === 'fitting' ? { ...l, alert: true } : l)) }
-    expect(challengedIn(hot, inputs)).toBe(2)
-    // CONTRAST: a challenge outside the group is not counted in it.
-    expect(challengedIn({ ...model, cards: model.cards.map((c) => (c.id === 'base_sales' ? { ...c, challenged: true } : c)) }, inputs)).toBe(0)
-  })
 })
 
-// D1a on a first model (the lead, 18 Nov): with nothing approved yet (`view.version === null`) Olumi's proposed figures, drivers, results and risks are drawn,
-// still marked as proposals; only its proposed notes fold. Once a version is approved the proposal adds to an approved model and folds as before.
 describe('D1a on a first model: Olumi\'s proposed figures, drivers, results and risks are drawn; only its notes fold', () => {
   const PROPOSED: ReadonlyArray<readonly [string, string]> = [['budget', 'driver'], ['oven_repair', 'risk'], ['sales', 'result'], ['fitting', 'note']]
   const pending = () => withCards(PROPOSED.map(([id, kind]) => as(id, kind, olumi, added)))
@@ -106,13 +83,12 @@ describe('D1a on a first model: Olumi\'s proposed figures, drivers, results and 
     // Order #22 (23 Nov): a note stands among the points raised by Core's kind, never in "What drives it", so its proposed group is the points row's.
     expect(groups.filter((g) => g.kind === 'proposed').map((g) => [g.id, g.cards]), 'only the note is in a proposed group').toEqual([[groupIdOf('proposed', 'points'), ['fitting']]])
   })
-  it('F3 CONTRAST: on an approved model the same pending proposal folds as before: driver, risk, result and note into their rows\' groups', () => {
+  it('F3 on an approved model, the proposed driver, risk and result are drawn; the proposed note still folds', () => {
     const { model, view } = pending(), groups = cardGroupsOf(model, view)
-    // Order #22: the driver stays in the inputs row's group; the note 'fitting' folds into the points row's group (its kind is note).
-    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))!.cards).toEqual(['budget'])
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'inputs'))).toBeUndefined()
     expect(groups.find((g) => g.id === groupIdOf('proposed', 'points'))!.cards).toEqual(['fitting'])
-    expect(groups.find((g) => g.id === groupIdOf('proposed', 'outcomes'))!.cards.slice().sort()).toEqual(['oven_repair', 'sales'])
-    for (const id of ['budget', 'oven_repair', 'sales']) expect(groupKindOf(model.cards.find((c) => c.id === id)!, model, view), id).toBe('proposed')
+    expect(groups.find((g) => g.id === groupIdOf('proposed', 'outcomes'))).toBeUndefined()
+    for (const id of ['budget', 'oven_repair', 'sales']) expect(groupKindOf(model.cards.find((c) => c.id === id)!, model, view), id).toBeNull()
   })
   it('F4 no card object is mutated: the drawn card is the very object core sent, change and author intact', () => {
     const { model, view } = firstOf(pending()), before = JSON.stringify(model.cards)
