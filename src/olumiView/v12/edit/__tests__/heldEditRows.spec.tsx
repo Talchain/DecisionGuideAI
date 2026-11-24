@@ -90,6 +90,9 @@ describe('A1 mounted: held rows are reachable, say why, and do nothing', () => {
     act(() => useLaneInspector.getState().show({ kind: 'menu', target: nodeT(fig) }))
     const row = await screen.findByRole('menuitem', { name: /Rename/ })
     expect(row).toHaveAttribute('aria-disabled', 'true')
+    // DS Button.md:24 and Paul's no-fade gate (noFadeAtRest): a disabled row is light ink, never reduced opacity.
+    expect(row.className.split(/\s+/)).toContain('text-text-light')
+    expect(row.className, 'no opacity token').not.toMatch(/(^|\s)opacity-\d+(\s|$)/)
     vi.useFakeTimers(); fireEvent.pointerEnter(row); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(screen.getByRole('tooltip').textContent, 'the reason is said on the row').toContain(REASON)
     vi.useRealTimers()
