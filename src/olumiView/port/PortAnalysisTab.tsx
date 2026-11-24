@@ -27,7 +27,10 @@ import { TYPE } from './type'
 import { FailureAfterYours, TippingPerOption } from './AnalysisReaders'
 import { WhatMovesIt } from './WhatMovesIt'
 import { FoldChevron } from '../look/FoldChevron'
-import { REASONING_LABELS, RestsOn, StartHere } from '../ViewReasoning'
+import { REASONING_LABELS, RestsOn } from '../ViewReasoning'
+import { actionable, examineOf } from '../reasoning/examine'
+import { COMMITMENT_WORDS, displayedDissent } from '../reasoning/TowardsCommitment'
+import { useReasoningFocus } from '../reasoning/focusRequest'
 import { useUIStore } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { useAnchoredTip } from '../look/Tip'
@@ -159,18 +162,21 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   )
 }
 
-/**
- * With no chance yet, the questions that would move the model on are the Reasoning tab's (core's `coaching_questions`): one press goes there,
- * with their count, rather than saying them twice.
- */
-function ToQuestions({ model }: { model: ViewModel }) {
-  const n = (model.coaching_questions ?? []).filter((q) => q !== '').length
-  if (n === 0) return null
+function ToReasoning({ model }: { model: ViewModel }) {
+  const view = useViewStore((s) => s.view)
+  const dissent = view?.collab.dissent ?? []
+  const items = examineOf(model, view?.session?.methods ?? null, (view?.model_words ?? null) as Record<string, unknown> | null, new Set(dissent.map((d) => d.id)))
+  const first = items.find(actionable)
+  if (first === undefined && !dissent.some(displayedDissent)) return null
   return (
-    <button type="button" onClick={() => useUIStore.getState().forceActivateOutputTab('analysisNew')} data-testid="analysis-to-questions"
+    <button type="button" data-testid="analysis-to-reasoning" onClick={() => {
+      const { sid } = useViewStore.getState()
+      if (sid !== null) useReasoningFocus.setState({ request: { sid, key: first?.key ?? 'commitment' } })
+      useUIStore.getState().forceActivateOutputTab('analysisNew')
+    }}
       className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-body hover:bg-panel-hover`}>
-      <span className="min-w-0 flex-1">{REASONING_LABELS.questions}</span>
-      <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{n}</span>
+      <span className="min-w-0 flex-1">{first === undefined ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine}</span>
+      {first === undefined ? null : <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{items.length}</span>}
     </button>
   )
 }
@@ -189,13 +195,10 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
       {state === 'chance' ? <TippingPerOption model={model} /> : null}
       {state === 'chance' ? <RestsOn model={model} run={model.run ?? null} /> : null}
       {state === 'chance' ? <FailureAfterYours model={model} /> : null}
-      {/* No chance yet (a model in words, or one not sized): the tab opens on something to DO, the Reasoning tab's own place to start, and only
-          then on what a result would need (Codex 011: unknowns support a useful activity, not a repeated demand for figures). */}
-      {state === 'none' ? <StartHere model={model} /> : null}
+      {state === 'chance' ? null : <ToReasoning model={model} />}
       <Limits model={model} />
       {state === 'chance' ? null : <LeavesOut model={model} />}
       <ResultNeeds model={model} under={state !== 'none'} />
-      {state === 'chance' ? null : <ToQuestions model={model} />}
       {/* Core's reading speaks of the chances shown; with none shown it would offer what no chance rests on (Paul's finding), so it is not drawn. */}
       {state === 'chance' ? <WhyThisReading model={model} /> : null}
     </div>

@@ -13,7 +13,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { moveKey, NEXT_STEP_WORDS, nextStepOf, useViewChat, ViewChat, ViewComposer } from '../ViewChat'
 import { leadLineOf, withheldWords } from '../previous/CoreCard'
-import { isOpen, rowOf, setOpen } from './reviewRow'
+import { isOpen, reviewToggleOf, setOpen } from './reviewRow'
 import { useVersionsPanelStore } from '../../canvas/versions/versionsPanelStore'
 import { catchUpCounts, CATCH_UP_WORDS } from '../v12/journey/CatchUp'
 
@@ -90,10 +90,10 @@ describe('the next step', () => {
     expect([s.tagName, s.getAttribute('aria-label'), s.getAttribute('data-step')]).toEqual(['SECTION', 'Next step', 'approve'])
     expect(s.closest('[data-testid="view-chat-pinned"]')).not.toBeNull() // still mounted in the pinned box
     const review = s.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
-    expect(rowOf(review).getAttribute('aria-expanded')).toBe('false')
+    expect(reviewToggleOf(review).getAttribute('aria-expanded')).toBe('false')
     expect(isOpen(review)).toBe(false) // closed at rest
     const row = review.querySelector('[data-testid="view-proposal-row"]')!
-    expect(row.tagName).toBe('BUTTON')
+    expect(row.tagName).toBe('SPAN')
     expect(row.textContent).toBe(`${p.heading} · ${p.on}`) // core's words, exactly
     expect(row.querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
     expect(row.querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)

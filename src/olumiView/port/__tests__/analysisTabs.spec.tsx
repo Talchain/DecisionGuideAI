@@ -5,7 +5,8 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
@@ -18,7 +19,9 @@ import { optionCards, outcomePlace } from '../../layout'
 import { OUTCOME_WORDS } from '../LikelyOutcome'
 import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
-import { ViewReasoningBlock } from '../../ViewReasoning'
+import { REASONING_LABELS, ViewReasoningBlock } from '../../ViewReasoning'
+import { COMMITMENT_WORDS } from '../../reasoning/TowardsCommitment'
+import { useReasoningFocus } from '../../reasoning/focusRequest'
 import { actionable, examineOf } from '../../reasoning/examine'
 import { TIPPING_FIGURE } from '../AnalysisReaders'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, rangeOf, tabStateOf, trackPct } from '../pick'
@@ -343,37 +346,118 @@ describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232;
   })
 })
 
-describe('no chance yet: something to do before what a result needs (Codex 011)', () => {
-  it('app-launch (no option has a chance): the tab opens on the Reasoning tab\'s own place to start, the same item and words, above "What a result needs". CONTRASTS: bakery (chances drawn) offers none here; a model with nothing to start offers none', () => {
+const withoutExamineItems = () => {
+  const view = structuredClone(viewOf('golden/app-launch'))
+  view.model_words = null as never
+  Object.assign(view.model!, { questions: [], coaching_questions: [], sharpen: [] })
+  for (const card of view.model!.cards) card.challenged = false
+  view.collab.dissent = []
+  return view
+}
+
+describe('no chance yet: a link to Reasoning before what a result needs', () => {
+  it('app-launch: one row with the full list count above readiness, while Reasoning keeps the item words', () => {
     const launch = viewOf('golden/app-launch'), model = launch.model!
-    const first = examineOf(model, launch.session?.methods ?? null, (launch.model_words ?? null) as Record<string, unknown> | null).find(actionable)
-    expect([tabStateOf(model), first !== undefined], 'fixture: no chance, and something to start').toEqual(['none', true])
+    const items = examineOf(model, launch.session?.methods ?? null, (launch.model_words ?? null) as Record<string, unknown> | null, new Set(launch.collab.dissent.map((d) => d.id)))
+    const first = items.find(actionable)
+    expect([tabStateOf(model), first !== undefined]).toEqual(['none', true])
     ready(launch); render(<PortAnalysisTab />)
-    const focus = screen.getByTestId('reasoning-focus'), needs = screen.getByTestId('analysis-needs')
-    expect([tab().contains(focus), focus.dataset['focusKind'], focus.querySelectorAll('button').length > 0]).toEqual([true, first!.kind, true])
-    expect(focus.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING, 'the activity comes before the readiness list').toBeTruthy()
-    const said = focus.textContent
+    const link = screen.getByTestId('analysis-to-reasoning'), needs = screen.getByTestId('analysis-needs')
+    expect(tab().contains(link)).toBe(true)
+    expect(within(tab()).getAllByTestId('analysis-to-reasoning')).toHaveLength(1)
+    expect(link).toHaveTextContent(REASONING_LABELS.examine)
+    expect(link.querySelector('[data-count]')?.textContent).toBe(String(items.length))
+    expect(link.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const w = first!.kind === 'question' ? first!.q : first!.kind === 'challenge' ? first!.card.heading : first!.kind === 'widen' ? first!.w.label : first!.s.lead
+    expect(link.textContent).not.toContain(w)
+    expect(link.textContent).not.toContain('Start here')
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
     cleanup()
-    // An item of the Reasoning tab's own list (its words, said there too), offered under a neutral label: no "Start here" claim on either tab.
-    expect(said).not.toContain('Start here')
     ready(launch); render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
     fireEvent.click(screen.queryByTestId('reasoning-examine-more') ?? document.createElement('i'))
-    const w = first!.kind === 'question' ? first!.q : first!.kind === 'challenge' ? first!.card.heading : first!.kind === 'widen' ? first!.w.label : first!.s.lead
     expect(screen.getByTestId('reasoning-examine').textContent).toContain(w)
+  })
+
+  it('a challenge alone opens Reasoning and focuses its row when activated with Enter', async () => {
+    const user = userEvent.setup()
+    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    card.challenged = true
+    ready(view)
+    useUIStore.setState({ activeOutputTab: 'results' })
+    render(<PortAnalysisTab />)
+    const link = screen.getByTestId('analysis-to-reasoning')
+    expect(link).toHaveTextContent(REASONING_LABELS.examine)
+    expect(link.querySelector('[data-count]')).toHaveTextContent('1')
+    link.focus()
+    await user.keyboard('{Enter}')
+    expect(useReasoningFocus.getState().request).toEqual({ sid: view.id, key: `c:${card.id}` })
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
-    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
-    expect([tab().dataset['analysisState'], screen.queryByTestId('reasoning-focus')]).toEqual(['chance', null])
+    render(<ViewReasoningBlock />)
+    const challenge = screen.getByTestId('reasoning-challenge-show').closest('li')
+    expect(challenge).toHaveAttribute('data-reasoning-challenge', card.id)
+    expect(challenge).toHaveFocus()
+    expect(challenge).toHaveAttribute('tabindex', '-1')
+    expect(useReasoningFocus.getState().request).toBeNull()
+  })
+
+  it('dissent alone opens Reasoning and focuses Towards commitment', () => {
+    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    card.challenged = true
+    view.collab.dissent = [{ id: card.id, holder: 'Sarah', position: 'Keep this risk open.', holder_id: null, confirmed: null }]
+    ready(view)
+    useUIStore.setState({ activeOutputTab: 'results' })
+    render(<PortAnalysisTab />)
+    const link = screen.getByRole('button', { name: COMMITMENT_WORDS.heading })
+    expect(link.querySelector('[data-count]')).toBeNull()
+    fireEvent.click(link)
+    expect(useReasoningFocus.getState().request).toEqual({ sid: view.id, key: 'commitment' })
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
-    // Nothing to start (no method, question or widening, and no challenged card): no start block; the needs list is drawn as before.
-    const bare = structuredClone(launch); bare.model_words = null as never
-    bare.model!.sharpen = []; bare.model!.coaching_questions = []
-    const left = examineOf(bare.model!, bare.session?.methods ?? null, null).filter((e) => e.kind !== 'challenge').find(actionable)
-    expect(left, 'fixture: nothing but challenged cards could remain').toBeUndefined()
-    const still = examineOf(bare.model!, bare.session?.methods ?? null, null).find(actionable)
-    ready(bare); render(<PortAnalysisTab />)
-    expect(screen.queryByTestId('reasoning-focus') === null).toBe(still === undefined)
-    expect(screen.queryByTestId('reasoning-focus')?.dataset['focusKind'] ?? null).toBe(still?.kind ?? null)
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-commitment')).toHaveFocus()
+    expect(useReasoningFocus.getState().request).toBeNull()
+  })
+
+  it('no actionable item and no dissent leaves the readiness list without a link', () => {
+    ready(withoutExamineItems()); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-to-reasoning')).toBeNull()
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    expect(screen.getByTestId('analysis-needs')).toBeInTheDocument()
+  })
+
+  it('a typed question on the current saved view has its AnswerBox in Reasoning only', () => {
+    const view = withoutExamineItems()
+    const question = { id: 'release-date', text: 'When is the release?', about: null, role: null, unit: null }
+    view.model!.questions = [question]
+    ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
+    expect(within(tab()).queryByText(question.text)).toBeNull()
+    expect(within(tab()).queryByTestId('reasoning-answer-input')).toBeNull()
+    expect(within(screen.getByTestId('view-reasoning')).getByTestId('reasoning-answer-input').closest('form')).toHaveAttribute('data-answer-for', question.id)
+  })
+
+  it('leaves another scenario’s request alone until the scenario changes', () => {
+    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    card.challenged = true
+    ready(view)
+    const request = { sid: 's_other', key: `c:${card.id}` }
+    useReasoningFocus.setState({ request })
+    render(<ViewReasoningBlock />)
+    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+    expect(useReasoningFocus.getState().request).toEqual(request)
+    act(() => { useViewStore.setState({ sid: request.sid }) })
+    expect(useReasoningFocus.getState().request).toBeNull()
+    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+  })
+
+  it('clears a request for an item that is no longer present', () => {
+    const view = withoutExamineItems()
+    ready(view)
+    useReasoningFocus.setState({ request: { sid: view.id, key: 'c:missing' } })
+    render(<ViewReasoningBlock />)
+    expect(useReasoningFocus.getState().request).toBeNull()
+    expect(screen.getByTestId('reasoning-commitment')).not.toHaveFocus()
   })
 })
 
@@ -540,18 +624,19 @@ describe('what a result needs', () => {
   })
 })
 
-describe('no chance yet: the questions that would move it on are one press away, on the Reasoning tab', () => {
-  it('app-launch: one row with the count of core\'s coaching questions; a press fronts the Reasoning tab; CONTRAST: bakery (a chance) draws none', () => {
+describe('the Analysis link to Reasoning', () => {
+  it('app-launch opens Reasoning from the item count; bakery has no link when it shows chances', () => {
     const view = viewOf('golden/app-launch')
-    useUIStore.setState({ activeOutputTab: 'results' } as never)
+    useUIStore.setState({ activeOutputTab: 'results' })
     ready(view); render(<PortAnalysisTab />)
-    const row = screen.getByTestId('analysis-to-questions')
-    expect(row.querySelector('[data-count]')!.textContent).toBe(String(view.model!.coaching_questions!.length))
+    const row = screen.getByTestId('analysis-to-reasoning')
+    const items = examineOf(view.model!, view.session?.methods ?? null, (view.model_words ?? null) as Record<string, unknown> | null, new Set(view.collab.dissent.map((d) => d.id)))
+    expect(row.querySelector('[data-count]')?.textContent).toBe(String(items.length))
     fireEvent.click(row)
     expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
     ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
-    expect(screen.queryByTestId('analysis-to-questions')).toBeNull()
+    expect([tab().dataset['analysisState'], screen.queryByTestId('analysis-to-reasoning'), screen.queryByTestId('reasoning-focus')]).toEqual(['chance', null, null])
   })
 })
 
