@@ -379,10 +379,9 @@ describe('the writes go straight to core, and the View is read again', () => {
     const MADE = 's_0000000000ab'
     beforeEach(() => { try { localStorage.clear() } catch { /* none */ } })
 
-    it('keeps the accepted brief read-only through the first View read, then shows it once in the thread', async () => {
+    const openWithFirstReadHeld = async (brief: string, readAgain?: () => Response | Promise<Response>) => {
       useCanvasStore.setState({ currentScenarioId: null })
       useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-      const brief = 'Should we raise the price of our pastries?'
       const drafting: View = { ...view, id: MADE, version: null, proposal: null, model: null, chat: [], brief,
         draft: { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model' } }
       let finishFirstRead!: (response: Response) => void
@@ -390,13 +389,22 @@ describe('the writes go straight to core, and the View is read again', () => {
       const draftResponse = () => new Response(JSON.stringify(drafting), { status: 200 })
       const viewUrl = `/api/scenarios/${MADE}/view?schema=3`
       const viewReads = () => reads.filter((url) => url === viewUrl)
-      answer(() => new Response(JSON.stringify(accepted(MADE)), { status: 202 }), drafting,
-        (url) => url === viewUrl && viewReads().length === 1 ? firstRead : draftResponse())
+      answer(() => new Response(JSON.stringify(accepted(MADE)), { status: 202 }), drafting, (url) => {
+        if (url === '/api/me') return new Response(JSON.stringify({ me: null }), { status: 200 })
+        if (url !== viewUrl) return draftResponse()
+        return viewReads().length === 1 ? firstRead : (readAgain ?? draftResponse)()
+      })
       const tab = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>)
       type(tab.container, brief)
       await send(tab.container)
       await waitFor(() => expect(viewReads()).toEqual([viewUrl]))
       expect(useViewStore.getState().view).toBeNull()
+      return { tab, finishFirstRead, draftResponse }
+    }
+
+    it('keeps the accepted brief read-only through the first View read, then shows it once in the thread', async () => {
+      const brief = 'Should we raise the price of our pastries?'
+      const { tab, finishFirstRead, draftResponse } = await openWithFirstReadHeld(brief)
       try {
         const box = tab.getByRole('textbox', { name: 'Your brief' })
         expect(box).toBeVisible()
@@ -414,6 +422,41 @@ describe('the writes go straight to core, and the View is read again', () => {
       expect(tab.queryByRole('textbox', { name: 'Your brief' })).toBeNull()
       expect(tab.getByRole('textbox', { name: 'Message Olumi' })).toHaveValue('')
       expectBriefOnceInOpenDock(tab.container, brief)
+    })
+
+    it('leaves the thread quiet during the first accepted View read, then shows the drafting stage on the board', async () => {
+      const { tab, finishFirstRead, draftResponse } = await openWithFirstReadHeld('Should we raise the price of our pastries?')
+      try {
+        const { briefSend, busy } = useViewChat.getState()
+        expect(briefSend).toMatchObject({ phase: 'accepted', to: useViewStore.getState().uuid })
+        expect(busy).toBe(true)
+        expect(tab.queryByTestId('view-chat-turn-job')).toBeNull()
+        expect(tab.queryByText(THINKING_WORDS)).toBeNull()
+      } finally {
+        await act(async () => { finishFirstRead(draftResponse()) })
+      }
+      expect(await tab.findByTestId('view-drafting-words')).toHaveTextContent('Building the model')
+      expect(tab.queryByTestId('view-chat-turn-job')).toBeNull()
+    })
+
+    it('shows a read error after acceptance and still allows the thread waiting cue when busy', async () => {
+      let finishReadAgain!: (response: Response) => void
+      const secondRead = new Promise<Response>((resolve) => { finishReadAgain = resolve })
+      const readAgain = vi.fn(() => secondRead)
+      const { tab, finishFirstRead, draftResponse } = await openWithFirstReadHeld('Should we raise the price of our pastries?', readAgain)
+      const error = 'Olumi could not do that this time.'
+      try {
+        await act(async () => { finishFirstRead(new Response(JSON.stringify({ error }), { status: 500 })) })
+        const alert = await tab.findByTestId('view-chat-unread')
+        expect(readAgain).toHaveBeenCalledTimes(1)
+        expect(alert).toHaveAttribute('role', 'alert')
+        expect(alert).toHaveTextContent(error)
+        expect(alert).toBeVisible()
+        expect(tab.getByTestId('view-chat-turn-job')).toBeVisible()
+        expect(tab.getByText(THINKING_WORDS)).toBeVisible()
+      } finally {
+        await act(async () => { finishReadAgain(draftResponse()) })
+      }
     })
 
     it('leaves a fresh brief blank and without a sending cue while another write is held', async () => {

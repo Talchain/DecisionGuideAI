@@ -39,6 +39,7 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
   const words = <span className="ok-lead-action-words" data-view={`${at}.text`}>{a.text}</span>
   return (
     <li className="ok-lead-action" data-lead-action="card">
+      <OkIcon id="show-in-workspace" size={14} decorative />
       <HoverButton words={a.basis} type="button" className="ok-lead-action-link nodrag" data-lead-action-card={id}
         onClick={() => { if (recordReach(id) === 'show') void showRecord(id); else pressCard(id) }}>{words}</HoverButton>
     </li>

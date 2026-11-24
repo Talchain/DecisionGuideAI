@@ -1883,6 +1883,7 @@ export function ViewChat() {
   // "Let us give our figure first": the entry and Olumi's figure shown instead are this scenario's only; the side by side is the View's.
   const ff = view === null ? null : figureFirstOf(view)
   const uuid = useViewStore((s) => s.uuid)
+  const firstRead = useViewChat((s) => s.briefSend?.phase === 'accepted' && s.briefSend.to === uuid) && view === null && error === null
   const ffMine = useFigureFirst((s) => s.uuid === uuid)
   const ffOpen = useFigureFirst((s) => s.entry !== null || s.said !== null || s.reading)
   const ffShown = useFigureFirst((s) => s.shown !== null)
@@ -2035,20 +2036,14 @@ export function ViewChat() {
             </div>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
             {view === null ? null : <ViewConversation chat={view.chat} floor={floor} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
-            {/* P1: ONE waiting mount from Send through acceptance: before core accepts, `turn` is null; the same element then takes core's turn (no remount, so the loader and its seconds never restart). */}
-            {view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight view={view} turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} replyVisible={replyVisible} />}
+            {/* The canvas owns the wait for an accepted brief's first View. Other in-flight turns keep the thread's waiting mount. */}
+            {firstRead ? null : view?.turn == null && !(busy && !takesBrief(sid, view)) ? null : <TurnInFlight view={view} turn={view?.turn ?? null} me={view?.you_id ?? null} shown={view === null || view.turn == null ? false : turnAlreadyShown(view)} replyVisible={replyVisible} />}
             {/* DL journey (4): the model's newest saved version and what it changed, after the thread's newest line (brought into view when it
                 lands, below), so the person sees it where they are reading. */}
             <ModelNoticeLine />
           </div>
         </div>
       </div>
-      {/* "Latest" sits in its own row under the thread, never over it: drawn over the scroller it covered the review's words at 1232 (DL 15 Nov). */}
-      {away ? (
-        <div className="flex shrink-0 justify-end p-3" data-testid="view-chat-latest-row">
-          <OkIconButton id="go-latest" tone="ghost" words="Go to the latest message" testid="view-chat-to-latest" className="ok-to-latest" onClick={toLatest} />
-        </div>
-      ) : null}
       {/* Person-opened forms dock above the quiet row; none belongs to the conversation. */}
       <div className="ok-form-foot" data-testid="view-chat-form">
         <CommitFormFoot />
@@ -2074,7 +2069,7 @@ export function ViewChat() {
         { id: 'kept', label: 'Kept ideas', icon: 'idea-keep', count: keptIdeasOf(view).length, content: <KeptIdeas /> },
         { id: 'intake', label: 'What you said', icon: 'file-read', count: intakeOf(view).length, content: <IntakeSheet /> },
         { id: 'expectation', label: EXPECTATION_WORDS.expect, icon: 'committed', count: savedExpectationCount, content: <CommitFormSlot /> },
-      ]} />
+      ]} trailing={away ? <OkIconButton id="go-latest" tone="ghost" words="Go to the latest message" testid="view-chat-to-latest" className="ok-to-latest" onClick={toLatest} /> : null} />
     </div>
   )
   // The dock keeps only its return control; one thread and composer (A2 stop/float, DL 10 Nov).

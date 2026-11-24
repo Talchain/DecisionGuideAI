@@ -20,6 +20,7 @@ import { useCanvasStore } from '../../canvas/store'
 import { ViewComposer, isDrafting, pendingBrief, useViewChat } from '../ViewChat'
 import { DraftingBoard, boardDraftOf } from '../DraftingBoard'
 import { VIEW_CHIP_CLASS } from '../../v5/blocks/chipClass'
+import { typography } from '../../styles/typography'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -76,6 +77,12 @@ describe('the drafting board', () => {
     const words = getByText(brief)
     expect(details).toContainElement(words)
     expect(words).not.toBeVisible()
+  })
+
+  it('uses the panel meta type for the Your brief summary', () => {
+    on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), brief: 'Should we raise the price of our pastries?' })
+    const { getByTestId } = render(<DraftingBoard />)
+    expect(getByTestId('view-draft-brief').querySelector('summary')).toHaveClass(typography.viewPanelMeta)
   })
 
   it('U1 draws core\'s words verbatim as an accessible status, with the seconds since core accepted the brief, so a reload counts from the same moment', async () => {

@@ -240,15 +240,15 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 /* UI-BRIEF-20261115 step 2: a reply leads with its first Why line, in core's words, one size up; the rest waits behind "Why". */
 .ok-reply .ok-reply-more { margin-top: 2px; }
 .ok-reply .ok-reply-more[open] > summary { margin-bottom: 8px; }
-/* A reply lead's actions (core `lead.actions`): one short line each, under the opening. A linked line is a quiet underlined button that selects its card;
+/* A reply lead's actions (core `lead.actions`): one short line each, under the opening. A linked line carries a workspace mark and selects its card;
    a line about the world carries Olumi's general-suggestion mark and no link. The basis rides the one Tip. */
 .ok-lead-actions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .ok-lead-action { display: flex; align-items: flex-start; gap: var(--space-1); min-width: 0; color: var(--text-body); }
 .ok-lead-action-link {
   margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: var(--text-body); cursor: pointer;
-  text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere;
+  overflow-wrap: anywhere;
 }
-.ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); }
+.ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); text-decoration: underline; text-underline-offset: 2px; }
 .ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }
 .ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
 /* A world action's basis (core's words): its own row, under the words and in line with them past the 14 px mark. */

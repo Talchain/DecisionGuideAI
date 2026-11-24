@@ -44,7 +44,7 @@ it('keeps the note slot mounted while closed, shows its chip on portal arrival, 
   expect(slot).toBeInTheDocument()
   expect(slot).toHaveAttribute('hidden')
   const portal = render(createPortal(<section>The existing note</section>, slot))
-  await waitFor(() => expect(getByTestId('view-chat-foot-note')).toHaveTextContent('Olumi’s note · 1'))
+  await waitFor(() => expect(getByTestId('view-chat-foot-note')).toHaveAccessibleName('Olumi’s note · 1'))
   expect(slot).not.toBeVisible()
   fireEvent.click(getByTestId('view-chat-foot-note'))
   expect(container.querySelector(`[${VIEW_NOTE_SLOT}]`)).toBe(slot)
@@ -65,14 +65,14 @@ it('draws no empty chips or row and follows a source removing itself', async () 
   const { queryByTestId, getByTestId, rerender } = render(<ChatFootRow sources={[]} />)
   expect(queryByTestId('view-chat-foot-row')).toBeNull()
   rerender(<ChatFootRow sources={[source]} />)
-  await waitFor(() => expect(getByTestId('view-chat-foot-asks')).toHaveTextContent('2'))
+  await waitFor(() => expect(getByTestId('view-chat-foot-asks')).toHaveAccessibleName('Olumi asks · 2'))
   fireEvent.click(getByTestId('view-chat-foot-asks'))
   rerender(<ChatFootRow sources={[{ ...source, content: null }]} />)
   await waitFor(() => expect(queryByTestId('view-chat-foot-row')).toBeNull())
   expect(getByTestId('view-chat-pinned')).toHaveAttribute('hidden')
 })
 
-it('shows readable labels and counts beside the icons in a horizontally scrolling row', () => {
+it('shows only icons and counts in a horizontally scrolling row and keeps each accessible name', () => {
   const { getByTestId } = render(<ChatFootRow sources={[
     { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: 1, content: <section>Proposal</section> },
     { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: 2, content: <section>Questions</section> },
@@ -80,14 +80,26 @@ it('shows readable labels and counts beside the icons in a horizontally scrollin
     { id: 'intake', label: 'What you said', icon: 'file-read', count: 12, content: <section>Intake</section> },
   ]} />)
   expect(getByTestId('view-chat-foot-row')).toHaveClass('overflow-x-auto')
-  for (const [id, label] of [
-    ['proposal', 'Olumi’s proposal'], ['asks', 'Olumi asks · 2'], ['kept', 'Kept ideas · 3'], ['intake', 'What you said · 12'],
+  for (const [id, label, count] of [
+    ['proposal', 'Olumi’s proposal', ''], ['asks', 'Olumi asks · 2', '2'], ['kept', 'Kept ideas · 3', '3'], ['intake', 'What you said · 12', '12'],
   ]) {
     const chip = getByTestId(`view-chat-foot-${id}`)
-    expect(chip).toHaveTextContent(label)
+    expect(chip.textContent).toBe(count)
     expect(chip).toHaveAccessibleName(label)
     expect(chip.querySelector('span')).toBeVisible()
     expect(chip.querySelector('.sr-only')).toBeNull()
   }
   expect(getByTestId('view-chat-foot-proposal')).not.toHaveTextContent('· 1')
+})
+
+it('keeps the trailing control reachable when there are no chips', () => {
+  const label = 'Go to the latest message'
+  const { getByTestId, getByRole } = render(<ChatFootRow sources={[]} trailing={<button type="button" aria-label={label} />} />)
+  const row = getByTestId('view-chat-foot-row')
+  const latest = getByRole('button', { name: label })
+  expect(row).toBeVisible()
+  expect(row).toContainElement(getByTestId('view-chat-latest-row'))
+  expect(getByTestId('view-chat-latest-row')).toContainElement(latest)
+  latest.focus()
+  expect(latest).toHaveFocus()
 })

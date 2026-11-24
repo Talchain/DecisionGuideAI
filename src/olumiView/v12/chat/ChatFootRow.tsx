@@ -14,7 +14,7 @@ interface Source {
   readonly content: ReactNode
 }
 
-export function ChatFootRow({ sources }: { sources: readonly Source[] }): JSX.Element {
+export function ChatFootRow({ sources, trailing }: { sources: readonly Source[]; trailing?: ReactNode }): JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const [present, setPresent] = useState<Readonly<Record<string, boolean>>>({})
   const box = useRef<HTMLDivElement>(null), row = useRef<HTMLDivElement>(null)
@@ -63,18 +63,20 @@ export function ChatFootRow({ sources }: { sources: readonly Source[] }): JSX.El
         </div>
       ))}
     </div>
-    {available.length === 0 ? null : <div ref={row} className="shrink-0 overflow-x-auto px-3 py-2" data-testid="view-chat-foot-row">
+    {available.length > 0 || trailing != null ? <div ref={row} className="shrink-0 overflow-x-auto px-3 py-2" data-testid="view-chat-foot-row">
       <div className="flex items-center gap-1 whitespace-nowrap">
         {available.map((source) => {
           const label = source.id === 'proposal' && source.count === 1 ? source.label : `${source.label} · ${source.count}`
-          return <HoverButton key={source.id} type="button" words={label}
+          return <HoverButton key={source.id} type="button" words={label} aria-label={label}
             aria-expanded={open === source.id} aria-controls={open === source.id ? panelId : undefined}
             className={`${VIEW_CHIP_CLASS} shrink-0`} data-testid={`view-chat-foot-${source.id}`}
             onClick={() => { if (open === source.id) close(); else setOpen(source.id) }}>
-            <OkIcon id={source.icon} size={14} decorative /><span>{label}</span>
+            <OkIcon id={source.icon} size={14} decorative />
+            {source.id === 'proposal' && source.count === 1 ? null : <span>{source.count}</span>}
           </HoverButton>
         })}
+        {trailing == null ? null : <span className="ml-auto" data-testid="view-chat-latest-row">{trailing}</span>}
       </div>
-    </div>}
+    </div> : null}
   </>
 }

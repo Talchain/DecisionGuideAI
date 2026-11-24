@@ -120,14 +120,27 @@ describe('a reply lead\'s actions', () => {
   })
 
   // CHANGED BY DESIGN (DL 20 Nov, slice-3 proof at 1232): the world action's basis is read at rest, a quiet line under its words, so the mark beside it is decorative.
-  it('a world action carries Olumi\'s mark and core\'s basis as a quiet line at rest; a linked one has neither', () => {
+  it('a world action carries Olumi\'s mark and core\'s basis as a quiet line at rest; a linked one keeps its basis in the Tip', () => {
     // Core's own basis (slice 3 on trial28: "Olumi's general suggestion, not from this model."), never the UI's.
     const BASIS = 'Olumi’s general suggestion, not from this model.'
     const t = turn([act('Count the walkers.', { record: card }), act('Ask the staff.', { world: true }, BASIS)])
     const [linked, world] = [...t.querySelectorAll<HTMLElement>('[data-lead-action]')]
     const line = world!.querySelector<HTMLElement>('[data-view$=".basis"]')
     expect([line?.textContent, line?.classList.contains('text-text-light'), world!.querySelector('svg') !== null]).toEqual([BASIS, true, true])
-    expect([linked!.querySelector('svg'), linked!.querySelector('[data-view$=".basis"]')]).toEqual([null, null])
+    expect(linked!.querySelector('[data-view$=".basis"]')).toBeNull()
+  })
+
+  it('a card action starts with a decorative workspace icon and underlines its button only on hover or keyboard focus', () => {
+    const t = turn([act('Count the walkers.', { record: card })])
+    const line = t.querySelector('[data-lead-action="card"]')!
+    const mark = line.firstElementChild!
+    expect(mark).toHaveAttribute('aria-hidden', 'true')
+    expect(mark.querySelector('svg.lucide-locate-fixed')).toBeInTheDocument()
+    expect(mark.nextElementSibling).toHaveClass('ok-lead-action-link')
+    const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const resting = css.match(/\.ok-lead-action-link\s*\{([^}]+)\}/)![1]
+    expect(resting).not.toMatch(/text-decoration(?:-line)?\s*:[^;]*\bunderline\b/)
+    expect(css).toMatch(/\.ok-lead-action-link:hover,\s*\.ok-lead-action-link:focus-visible\s*\{[^}]*text-decoration:\s*underline\b/)
   })
 
   it('a linked line\'s basis is the one Tip on its words; a world line\'s is said once, at rest; never a native title', async () => {
