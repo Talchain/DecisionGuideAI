@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { View, ViewCard } from '../../olumiView/client'
 import { useViewStore } from '../../olumiView/store'
 import { useCanvasStore } from '../../canvas/store'
+import { registerFocusHelpers } from '../../canvas/utils/focusHelpers'
 import { useInputsOpen } from '../../olumiView/v12/bands/foldStore'
 import { cardGroupsOf } from '../../olumiView/v12/bands/groups'
 import { showCard } from '../compare'
@@ -20,11 +21,16 @@ const install = (): View => {
 afterEach(() => { useInputsOpen.setState({ open: {} }); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', at: null } as never); useCanvasStore.setState({ nodes: [], edges: [] }) })
 
 describe('S4 press 1: a changed figure outside row groups', () => {
-  it('P1 an unsized Olumi figure belongs to no row group and the press opens none', () => {
-    const view = install()
-    expect(cardGroupsOf(view.model!, view).some((g) => g.cards.includes('oven_price'))).toBe(false)
-    showCard(view.id, 'oven_price')
-    expect(Object.keys(useInputsOpen.getState().open).filter((k) => k.includes('#'))).toEqual([])
+  it('P1 an unsized Olumi figure belongs to no row group, the press opens none, and focus reaches its card once the board draws it', () => {
+    const view = install(), focus = vi.fn(), off = registerFocusHelpers(focus, () => undefined)
+    try {
+      expect(cardGroupsOf(view.model!, view).some((g) => g.cards.includes('oven_price'))).toBe(false)
+      showCard(view.id, 'oven_price')
+      expect(Object.keys(useInputsOpen.getState().open).filter((k) => k.includes('#'))).toEqual([])
+      expect(focus, 'not drawn yet, so no focus yet').not.toHaveBeenCalled()
+      useCanvasStore.setState({ nodes: [{ id: 'oven_price', position: { x: 0, y: 0 }, data: {} }] } as never)
+      expect(focus.mock.calls, 'the drawn card, by its id, once').toEqual([['oven_price']])
+    } finally { off() }
   })
   it('P1b CONTRAST: a figure in no group opens no group (only the inputs fold, as before)', () => {
     const view = install()

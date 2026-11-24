@@ -118,6 +118,10 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect(q(p0, 'view-reply-fold')).toBeNull() // CHANGED BY DESIGN (Codex UI P1, 17 Nov): no lead, drawn whole
     expect(p0).toHaveTextContent(MIDDLE)
     expect(q(p0, 'view-chat-early')?.closest('details')).toBeNull()
+    cleanup()
+    // CONTRAST 4 (RC4): NO lead, core's heading with nothing after it: the plain path draws no bare heading; the opening stays (the positive check above holds).
+    const n0 = show(withTurn(base, 0, { answer: [{ text: BARE }], first_answer: { label: LABEL, heading: HEADING } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
+    expect([q(n0, 'view-reply-lead'), n0.querySelector('[data-reply-heading]'), n0.textContent!.includes(HEADING), n0.textContent!.includes(OPENING)]).toEqual([null, null, false, true])
   })
 
   it('the panel\'s one large line, on the NEWEST reply: the CURRENT answer\'s lead is the large line, and an earlier first answer beneath it never is, however short. With NO lead (a reply stored before leads existed) the first answer under core\'s label is still never the large line, and nothing is folded or reordered. CONTRASTS: a no-lead reply with no first answer keeps its large opening; a lead with no first answer is the large line', () => {
