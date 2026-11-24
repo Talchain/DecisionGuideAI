@@ -91,7 +91,7 @@ describe('no edit is sent when core takes none', () => {
     const v = approved()
     useViewStore.setState({ view: { ...v, proposal: { id: 4, base: 1, heading: 'A change', on: 'x' }, model: { ...v.model!, edit_base: null }, model_words: { ...(v.model_words ?? {}), withdrawnHeld: 'Set aside the pending change first.' } } as never })
     const g = editGateNow()
-    expect(g).toEqual({ ok: false, why: 'Set aside the pending change first.' })
+    expect(g).toEqual({ ok: false, why: 'Set aside the pending change first.', held: true })
     await expect(submitEdit({ ...open, kind: 'rename', record: 'a', current: '' }, { label: 'x' })).rejects.toMatchObject({ message: 'Set aside the pending change first.' })
     expect(stub.posts()).toHaveLength(0)
   })
