@@ -52,7 +52,7 @@ describe('a selected option explains itself (journey 3)', () => {
 
   it('E3 CONTRAST: an option with nothing set, assumed or moved explains nothing more; a figure card has no option explanation', () => {
     const bare = cards.find((c) => c.family === 'option' && (c.sets ?? []).length === 0 && (c.premises ?? []).length === 0 && movedBy(RUN2, c).length === 0)!
-    // CHANGED BY DESIGN (S4 Details sentence, 24 Nov): a bare option says it changes no figure yet.
+    // CHANGED BY DESIGN (S4 Details sentence, 24 Nov; wording PL 1202): a bare option says no figure change is shown for it yet.
     const root = select(bare.id).querySelector('[data-testid="selected-explain"]')!
     expect(root.textContent).toBe(NO_FIGURE_WORDS)
     expect(root.querySelector('p[data-testid="selected-explain-none"]')?.textContent).toBe(NO_FIGURE_WORDS)

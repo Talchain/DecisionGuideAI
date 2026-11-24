@@ -11,7 +11,8 @@ import type { View, ViewCard } from '../client'
 import { Hover } from './Hover'
 import { movedByWorked, WorkedSteps, workedStepsOf } from './WorkedSteps'
 
-export const NO_FIGURE_WORDS = 'This route changes no figure in the model yet.'
+/** Said where the served fields show this route no figure change. It describes the display, never a numerical zero (PL 1202): a Run can exist from other facts, and band rows omit missing and unsampled withheld rows. */
+export const NO_FIGURE_WORDS = 'No figure change is shown for this route yet.'
 
 /** The cards this option moves through a sized term: `through` links from the option or a figure it sets, into a card worked out. */
 export function movedBy(view: View, option: ViewCard): string[] {
@@ -21,6 +22,7 @@ export function movedBy(view: View, option: ViewCard): string[] {
   return [...new Set([...into.filter((id) => workedStepsOf(view, id).length > 0), ...movedByWorked(view, option.id)])]
 }
 
+/** The served fields show this option nothing to explain: sets and premises present and empty, nothing it moves, the Run shown and not all withheld, and no value withheld for it. That is an empty visible explanation, not proof of a zero. */
 export function changesNoFigure(view: View, card: ViewCard): boolean {
   const model = view.model
   return Array.isArray(card.sets) && card.sets.length === 0
