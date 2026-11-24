@@ -10,14 +10,18 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View, ViewCard } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useMe } from '../../../../olumiCore/me'
 import * as coreLane from '../../../../olumiCore/lane'
 import { useCanvasStore } from '../../../../canvas/store'
+import { ViewCardNode } from '../../../../canvas/nodes/ViewCardNode'
+import { useUIStore } from '../../../../stores/uiStore'
 import { CoreCard } from '../../../previous/CoreCard'
+import { useReasoningFocus } from '../../../reasoning/focusRequest'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
 import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
@@ -67,6 +71,89 @@ const faceOf = (el: HTMLElement, id: string) => el.querySelector<HTMLElement>(`[
 
 beforeEach(() => { window.localStorage.clear(); useSimpleLevel.setState({ levels: {} }) })
 afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+
+describe.each(['SimpleFace', 'Detailed ViewCard'] as const)('%s goal measure line', (face) => {
+  const goal = cardOf(ASKED, 'sell_360')
+  const bound = { text: 'At least 360 loaves a week', title: 'The weekly bakery sales target', olumi: null }
+  const unmeasured = { ...bound, measured: false }
+  const question = { id: 'goal-measure', role: 'measure' as const, about: goal.id, text: 'What should we count to track bakery sales?', unit: null }
+  const label = 'Not counted yet'
+
+  const drawGoal = (servedBound: ViewCard['bound'], doubt: boolean, questions = [question], onCard = vi.fn()) => {
+    const card = { ...goal, bound: servedBound, doubt }
+    const view = withCard(ASKED, card)
+    const model = { ...view.model!, coaching_questions: questions.map((q) => q.text), questions }
+    useViewStore.setState({ sid: view.id, view: { ...view, model } })
+    const { container } = render(
+      <div onPointerDown={onCard} onClick={onCard}>
+        {face === 'SimpleFace' ? <SimpleFace card={card} model={model} noted={false} /> : (
+          <ReactFlowProvider><ViewCardNode {...({ id: card.id, data: { card }, selected: false, type: 'viewCard' } as unknown as NodeProps)} /></ReactFlowProvider>
+        )}
+      </div>,
+    )
+    const renderedFace = container.querySelector<HTMLElement>(face === 'SimpleFace' ? '[data-simple-card]' : '[data-view-card]')
+    expect(renderedFace).toBeInTheDocument()
+    return within(renderedFace!)
+  }
+
+  it('(a) keeps the measured bound text even with a measure question', () => {
+    const card = drawGoal({ ...bound, measured: true }, true)
+    expect(card.queryByText(label)).toBeNull()
+    expect(card.getByText(bound.text)).toBeVisible()
+  })
+
+  it('(b) swaps the waiting bound text for a single line with the question Tip and a click or Enter action', async () => {
+    const user = userEvent.setup()
+    const onCard = vi.fn()
+    const previousUI = useUIStore.getState()
+    const previousFocus = useReasoningFocus.getState()
+    try {
+      const card = drawGoal(unmeasured, true, [question], onCard)
+      const line = card.getByRole('button', { name: label })
+      expect(card.getAllByText(label)).toEqual([line])
+      expect(line).toBeVisible()
+      expect(line).toHaveClass('ok-quiet')
+      expect(line.parentElement).toHaveAttribute(
+        face === 'SimpleFace' ? 'data-simple-bound-state' : 'data-view',
+        face === 'SimpleFace' ? goal.id : `${goal.id}.bound`,
+      )
+      expect(card.queryByText(bound.text)).toBeNull()
+      expect(hoverAll(line)).toEqual([question.text])
+      for (const activate of [() => user.click(line), () => user.keyboard('{Enter}')]) {
+        useReasoningFocus.setState({ request: null })
+        useUIStore.setState({ activeOutputTab: 'results' })
+        await activate()
+        expect(line).toHaveFocus()
+        expect(useReasoningFocus.getState().request).toEqual({ sid: ASKED.id, key: 'q:goal-measure' })
+        expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
+      }
+      expect(onCard).not.toHaveBeenCalled()
+    } finally {
+      useReasoningFocus.setState(previousFocus)
+      useUIStore.setState(previousUI)
+    }
+  })
+
+  it('(c) keeps the unmeasured bound wording when there is no measure question', () => {
+    const card = drawGoal(unmeasured, true, [])
+    expect(card.queryByText(label)).toBeNull()
+    expect(card.getByText(bound.text)).toBeVisible()
+  })
+
+  it('(d) keeps the in-words bound wording even with a stale measure question', () => {
+    const card = drawGoal(unmeasured, false)
+    expect(card.queryByText(label)).toBeNull()
+    expect(card.getByText(bound.text)).toBeVisible()
+  })
+
+  it('(e) omits the label when measured is absent or the bound is null', () => {
+    const olderBound = bound as NonNullable<ViewCard['bound']>
+    const card = drawGoal(olderBound, true)
+    expect(card.queryByText(label)).toBeNull()
+    expect(card.getByText(bound.text)).toBeVisible()
+    expect(drawGoal(null, true).queryByText(label)).toBeNull()
+  })
+})
 
 describe('a limit is drawn as a limit, never as a goal (DL from Paul\'s test, 17 Nov: three turns asking why a limit looked like a goal)', () => {
   it('L1 at both levels a limit card carries the limit kind (outlined square marker, grey frame) and the key\'s word "limit" with its meaning as the hover; CONTRAST: the goal on the same board keeps the goal kind and no tag', () => {
