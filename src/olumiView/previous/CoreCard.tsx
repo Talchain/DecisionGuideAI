@@ -237,8 +237,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const coreAbout = card === null ? null : (driverOfNow !== null ? driverOfNow.map((o) => o.driver!.title)
     : [card.figure !== null && card.figure.text === '' && card.figure.title !== '' ? `${card.figure.title} · ${card.detail}` : card.detail, ...openedWordsOf({ ...card, status: simple ? card.status : null, author: coreValue !== null ? null : card.author })]).filter((x) => x !== '')
   // (The author line is left out where the Value row speaks: that row carries the value's OWN attribution, Codex PL-851.)
-  // V12: Simple draws a compact card (BaseNode `compact`: two title lines, 6 px padding, the quick actions below the card, never in a reserved band).
-  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, ...(card !== null && isOlumiCoreLane() ? { peek: true } : {}), glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, dsKind, shape?.shape, card === null])
+  // Simple uses the compact frame. The board question keeps its quick actions beside its body.
+  const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, ...(card !== null && isOlumiCoreLane() ? { peek: true } : {}), glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}), ...(id === QUESTION ? { railInset: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, id, dsKind, shape?.shape, card === null])
   const lead = card === null ? null : leadLineOf(card)
   const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'

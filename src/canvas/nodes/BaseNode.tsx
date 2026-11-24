@@ -1023,8 +1023,9 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
   const labelType = isCoreCard ? typography.viewLabel : typography.nodeLabel
   // A core heading can be a paragraph (the fresh draft's challenge: 280 characters, no face line); the card's accessible name keeps it whole and
   // the title's hover too (Codex PL-500, DL 12 Nov). Core's words are never rewritten.
-  // V12 Simple (`data.compact`): a compact card, its type at the board's own scale and its quick actions below the card.
+  // V12 Simple (`data.compact`): a compact card with type at the board's own scale.
   const compact = isCoreCard && (data as { compact?: boolean } | undefined)?.compact === true
+  const railInset = isCoreCard && (data as { railInset?: boolean } | undefined)?.railInset === true
   // A core card's name is never clamped (R6, 16 Nov: a title is not cut so that its end is lost); the other cards keep their two lines.
   const titleClamp = isCoreCard ? '' : 'line-clamp-2'
   const isIncomplete = isCoreCard ? false : (() => {
@@ -1578,7 +1579,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * can therefore never rise above the body's top, and the title keeps the
    * card's full measure at every scale.
    */
-  const anchorRailBeside = isAnchorCard && showQuickActions && !compact
+  const anchorRailBeside = isAnchorCard && showQuickActions && (!compact || railInset)
   /**
    * The anchor body's box beside its rail — drawn wherever the rail is beside it,
    * and DECLARED on the body at every rung (`NODE_BODY_BOUND_STYLE_ATTR`) so the
@@ -1588,7 +1589,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    */
   const anchorBodyBox = isAnchorCard ? anchorBodyRailStyle(anchorRailButtons) : undefined
   /** Quick actions inside the card: every card at Normal, and an anchor wherever its rail is mounted. */
-  // A compact card reserves no band for the rail: it hangs below the card, as it does below the landing floor.
+  // Compact cards keep the rail below unless the anchor uses its body reserve.
   const quickActionsInset = anchorRailBeside || (atNormalZoom && !compact)
   /**
    * The card's padding AT A RUNG — `normal` is the Normal (`full`) rung, where the
@@ -3085,7 +3086,12 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           data-testid={anchorRailBeside ? 'anchor-body-rail-beside' : undefined}
           data-anchor-rail-buttons={anchorRailBeside ? anchorRailButtonsKey(anchorRailButtons) : undefined}
           style={lodBodyBlanked ? LOD_BLANKED_BODY_STYLE : !anchorRailBeside ? undefined : olumiLook
-            ? ({ minHeight: anchorBodyBox?.minHeight, '--ok-anchor-rail-padding': anchorBodyBox?.paddingRight } as CSSProperties)
+            ? ({
+                minHeight: anchorBodyBox?.minHeight,
+                '--ok-anchor-rail-padding': anchorBodyBox?.paddingRight,
+                // The look's CSS leaves .ok-face at full width. Reserve room on the compact question.
+                ...(compact && railInset ? { paddingRight: anchorBodyBox?.paddingRight } : {}),
+              } as CSSProperties)
             : anchorBodyBox}
           {...(lodBodyBlanked ? { [LOD_BLANKED_BODY_ATTR]: 'true' } : {})}
           {...(anchorBodyBox ? { [NODE_BODY_BOUND_STYLE_ATTR]: JSON.stringify(anchorBodyBox) } : {})}

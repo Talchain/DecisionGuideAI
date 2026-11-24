@@ -9,12 +9,13 @@ import { readFileSync, readdirSync } from 'node:fs'
 // The chat's proposal (PB9) is mounted alone: the sign-in client it imports is not reached.
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 import path from 'node:path'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { hoverWords, tipOf } from './tipHelpers'
 import { useMe } from '../../olumiCore/me'
+import * as coreLane from '../../olumiCore/lane'
 import { RootLinkEdge } from '../previous/RootLinkEdge'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
@@ -27,9 +28,11 @@ import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/comp
 import type { NodeProps } from '@xyflow/react'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
 import { useCanvasStore } from '../../canvas/store'
+import { NODE_BODY_BOUND_STYLE_ATTR } from '../../canvas/utils/zoomLegibility'
+import { VIEW_QUESTION } from '../canvas'
 import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
-import { setLevel } from '../v12/simpleStore'
+import { setLevel, useSimpleLevel } from '../v12/simpleStore'
 import { railOf } from '../../canvas/edges/linkRail'
 import { frameDue, FRAME_WAIT_MS, REVEAL_MS } from '../ViewCanvas'
 import { Proposal } from '../ViewChat'
@@ -171,6 +174,42 @@ describe('what core folded is content, shown at rest (Codex H07 17:12Z)', () => 
   const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
   const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
+  it.each(['simple', 'working'] as const)('DL-REQ-2240: the selected question keeps its action rail inside the frame at %s', (level) => {
+    const lane = vi.spyOn(coreLane, 'isOlumiCoreLane').mockReturnValue(true)
+    const previousLevelState = useSimpleLevel.getState()
+    try {
+      ready(EU)
+      useSimpleLevel.setState({ levels: { ...previousLevelState.levels, [EU.id]: level } })
+      const option = EU.model!.cards.find((card) => card.family === 'option')!
+      const goal = EU.model!.cards.find((card) => card.family === 'goal')!
+      const { container } = render(<ReactFlowProvider>
+        <Node {...props(QUESTION, undefined)} type={VIEW_QUESTION} data={{ question: EU.model!.question }} selected />
+        <Node {...props(option.id, option)} />
+        <Node {...props(goal.id, goal)} selected />
+      </ReactFlowProvider>)
+      const board = within(container)
+      const rail = board.getByTestId(`node-card-rail-${QUESTION}`)
+      expect(rail).toHaveAttribute('data-rail-placement', 'inset')
+      // jsdom has no layout. Pin the positioned frame and the rail's inset offsets.
+      const frame = rail.closest<HTMLElement>('.ok-card-frame')!
+      expect(frame).toHaveClass('relative')
+      expect(rail).toHaveClass('absolute', 'bottom-[6px]', 'right-[6px]')
+      const body = within(frame).getByTestId('anchor-body-rail-beside')
+      const reserve = JSON.parse(body.getAttribute(NODE_BODY_BOUND_STYLE_ATTR) ?? 'null')
+      expect(body.style.minHeight).toMatch(/var\(--canvas-glyph-scale, 1\)/)
+      expect(body.style.minHeight).toBe(reserve.minHeight)
+      expect(body.style.getPropertyValue('--ok-anchor-rail-padding')).toBe(reserve.paddingRight)
+      if (level === 'simple') {
+        expect(body.style.paddingRight).toBe(reserve.paddingRight)
+        expect(board.getByTestId(`node-card-rail-${option.id}`)).toHaveAttribute('data-rail-placement', 'below')
+        expect(board.getByTestId(`node-card-rail-${goal.id}`)).toHaveAttribute('data-rail-placement', 'below')
+      }
+    } finally {
+      cleanup()
+      useSimpleLevel.setState(previousLevelState)
+      lane.mockRestore()
+    }
+  })
   it('PB7b: no badge line is a hover-only action, on a card or on the question; and the Simple question pill draws its notes badge', () => {
     ready(EU)
     for (const level of ['working', 'simple'] as const) {
