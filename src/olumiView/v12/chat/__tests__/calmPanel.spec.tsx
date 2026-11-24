@@ -24,7 +24,7 @@ import { ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { SELECTION_DETAIL_WORDS } from '../../../../canvas/components/SelectionPill'
 import { aboutCountWords } from '../AboutChip'
 import { draftKeyOf, resetRemovedQuestions } from '../OlumiAsks'
-import { chatQuestionsOf } from '../../../layout'
+import { chatQuestionsAllOf, chatQuestionsOf } from '../../../layout'
 import { typography } from '../../../../styles/typography'
 import { setOpen } from '../../../__tests__/reviewRow'
 import { controls } from '../../../../styles/controls'
@@ -378,40 +378,55 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     open(card)
     expect((q(card, 'view-question-answer') as HTMLTextAreaElement).value).toBe('By the end of June')
   })
-  it('shows one question, "1 of 3", three progress dashes; the other two stay in the page, hidden, in core\'s words', () => {
+  // CHANGED BY DESIGN (W3, 24 Nov, DL/PL 476ea6a2): was ONE question with "1 of 3" and three progress dashes. Now the card stays ONE quiet row at
+  // rest with "N left to check", and opened it lists EVERY served question, numbered, in core's order; nothing is ever counted as answered.
+  it('W3: at rest ONE question and "3 left to check"; opened, all three listed, numbered 1-3 in core\'s order, the first chosen; no dashes and no "answered" count', () => {
     const view = asked(), qs = view.model!.coaching_questions!
     const c = mount(view)
-    const card = open(q(c, 'view-model-question')!)
-    expect(visible(card)).toHaveLength(1)
-    expect(visible(card)[0]!.textContent).toBe(qs[0])
-    expect(q(card, 'view-question-count')!.textContent).toBe('1 of 3')
-    expect(qa(card, 'view-question-dashes').length).toBe(1)
-    expect(card.querySelectorAll('[data-testid^="view-question-dash-"]')).toHaveLength(3)
-    expect(q(card, 'view-model-question-text-1')!.hidden).toBe(true)
-    expect(q(card, 'view-model-question-text-1')!.textContent).toBe(qs[1])
-    expect(card.querySelector(`[data-testid="view-model-question-text-3"]`)).toBeNull() // three at most
+    const card = q(c, 'view-model-question')!
+    const chip = card.closest('[data-testid="view-chat"]')!.querySelector<HTMLElement>('[data-testid="view-chat-foot-asks"]')!
+    if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip) // the asks section shown, the question card itself still at rest
+    expect(card.getAttribute('data-open')).toBeNull()
+    expect(visible(card).map((e) => e.textContent)).toEqual([qs[0]])
+    expect(q(card, 'view-question-count')!.textContent).toBe('3 left to check')
+    expect(card.querySelector('[data-testid^="view-question-pick-"]'), 'no numbers at rest').toBeNull()
+    fireEvent.click(q(card, 'view-question-toggle')!)
+    expect(visible(card).map((e) => e.textContent)).toEqual([qs[0], qs[1], qs[2]])
+    expect([...card.querySelectorAll('[data-testid^="view-question-pick-"]')].map((b) => b.textContent)).toEqual(['1', '2', '3'])
+    expect([...card.querySelectorAll('[data-testid="view-question-list"] > li')].map((li) => li.getAttribute('aria-current'))).toEqual(['step', null, null])
+    expect(card.querySelector('[data-testid="view-question-dashes"], [data-testid^="view-question-dash-"]')).toBeNull()
+    expect(card.textContent).not.toMatch(/answered|\d+ of \d+/)
     expect(card.className).toContain('border-info/30') // Olumi\'s card: a token at opacity, no new colour (CHANGED 18 Nov: was border-info/40 on a bg-info/10 fill)
   })
-  it('Skip (a neutral icon) moves to the next question and "2 of 3"; the last has no Skip (CONTRAST: a single question draws no count)', () => {
-    const view = asked(), qs = view.model!.coaching_questions!
+  it('W3: the panel list is every served question; the cards keep the first three with the same numbers (chatQuestionsOf = chatQuestionsAllOf, first three)', () => {
+    const view = asked()
+    view.model!.coaching_questions = ['First?', 'Second?', 'Third?', 'Fourth?', 'Fifth?']
+    const all = chatQuestionsAllOf(view.model), three = chatQuestionsOf(view.model)
+    expect(all.map((x) => x.text)).toEqual(['First?', 'Second?', 'Third?', 'Fourth?', 'Fifth?'])
+    expect(three).toEqual(all.slice(0, 3))
+    expect(chatQuestionsAllOf(null)).toEqual([]) // CONTRAST: no model, no questions
+  })
+  it('Skip (a neutral icon) and a number each choose a question; neither earns anything: the count stays "3 left to check"; the last has no Skip (CONTRAST: a single question draws no count and no numbers)', () => {
+    const view = asked()
     const c = mount(view)
     const card = open(q(c, 'view-model-question')!)
+    const current = () => [...card.querySelectorAll('[data-testid="view-question-list"] > li')].findIndex((li) => li.getAttribute('aria-current') === 'step')
     const skip = q(card, 'view-question-skip')!
     expect(skip.textContent).toBe('')
     expect(tipWords(skip)).toBe('Skip')
     expect(skip.className.split(/\s+/)).toContain('text-text-light')
     fireEvent.click(skip)
-    expect(q(card, 'view-question-count')!.textContent).toBe('2 of 3')
-    expect(visible(card)[0]!.textContent).toBe(qs[1])
-    fireEvent.click(q(card, 'view-question-skip')!)
-    expect(q(card, 'view-question-count')!.textContent).toBe('3 of 3')
+    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([1, '3 left to check'])
+    fireEvent.click(q(card, 'view-question-pick-2')!)
+    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([2, '3 left to check'])
     expect(q(card, 'view-question-skip')).toBeNull()
+    fireEvent.click(q(card, 'view-question-pick-0')!)
+    expect(current()).toBe(0)
     cleanup()
-    const one = asked(); one.model!.coaching_questions = [qs[0]!]
+    const one = asked(); one.model!.coaching_questions = [one.model!.coaching_questions![0]!]
     const c1 = mount(one)
     open(q(c1, 'view-model-question')!)
-    expect(q(c1, 'view-question-count')).toBeNull()
-    expect(q(c1, 'view-question-skip')).toBeNull()
+    expect([q(c1, 'view-question-count'), q(c1, 'view-question-skip'), c1.querySelector('[data-testid^="view-question-pick-"]')]).toEqual([null, null, null])
   })
   it('"Use this" is green and drawn only once words are typed; it sends the person\'s answer ALONE (never core\'s question as theirs) through the conversation\'s own message write, then moves on; the method icons are neutral and send nothing', async () => {
     const bodies: string[] = []
