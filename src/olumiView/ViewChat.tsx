@@ -85,6 +85,7 @@ import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } fro
 import { useBriefPanelLeft } from './BriefPanel'
 import { boardDraftOf } from './DraftingBoard'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
+import { CheckFirst, checkFirstCount } from './port/CheckFirst'
 
 /*
  * The panel wears DGAI's own conversation look (DL, 4 Nov: Paul's original UI, staging #/canvas): the person's words in the panel-filled
@@ -1749,7 +1750,7 @@ export const NEXT_STEP_WORDS = {
  * `display: contents` (olumiLook.css), so the step's words, the change list and the actions are the pinned column's own items and the list
  * keeps its bounded scroll (Codex 15 Nov: a block wrapper, as a <details> body is, let the list grow and the whole box scroll instead).
  */
-export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['proposal']>; busy: boolean; evidence: View['evidence'] }) {
+export function ProposalReview({ p, busy, view }: { p: NonNullable<View['proposal']>; busy: boolean; view: View }) {
   const [open, setOpen] = useState(false)
   const body = `view-proposal-body-${p.id}`
   const self = useRef<HTMLDivElement>(null)
@@ -1780,8 +1781,8 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
       {/* PANEL-SPEC 1: closed, the body draws only core's alerts and the actions, so Approve is in view at rest; open, the step's words, the
           change list and the readings join them, above the line. The Proposal stays mounted either way, so ticks and reading choices are kept. */}
       <div id={body} data-review-body="">
-        {open ? <p>{NEXT_STEP_WORDS.approve}</p> : null}
-        <Proposal p={p} busy={busy} evidence={evidence} inRow open={open} onOpen={() => setOpen(true)} lead={lead} />
+        {open ? <><p>{NEXT_STEP_WORDS.approve}</p><CheckFirst view={view} place="pending" /></> : null}
+        <Proposal p={p} busy={busy} evidence={view.evidence} inRow open={open} onOpen={() => setOpen(true)} lead={lead} />
       </div>
     </div>
   )
@@ -1811,7 +1812,7 @@ function NextStepCard({ view, busy }: { view: View; busy: boolean }) {
   const p = view.proposal!
   return (
     <section className={`${typography.viewPanelBody} space-y-2`} data-testid="view-next-step" data-step="approve" aria-label="Next step">
-      <ProposalReview key={p.id} p={p} busy={busy} evidence={view.evidence} />
+      <ProposalReview key={p.id} p={p} busy={busy} view={view} />
     </section>
   )
 }
@@ -2013,6 +2014,7 @@ export function ViewChat() {
   // P2 (system spec): the panel pins only a proposal Olumi holds. The reply's own next step is drawn once, at that reply's end.
   const step = view === null ? null : nextStepOf(view)
   const pinned = step?.kind === 'approve'
+  const questions = chatQuestionsAllOf(view?.model)
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
       {/* Catch up (overnight/journey SYNTHESIS item 4): one quiet row of counts at the very top, one press to the scenario record in the
@@ -2059,16 +2061,16 @@ export function ViewChat() {
       <ChatFootRow key={view?.id ?? ''} sources={[
         { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
           content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
-        { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: chatQuestionsAllOf(view?.model).length,
-          content: <OlumiAsks
+        { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: questions.length + (pinned || view === null ? 0 : checkFirstCount(view, 'asks')),
+          content: <>{pinned || view === null ? null : <CheckFirst view={view} place="asks" />}<OlumiAsks
               key={view?.id ?? ''}
               scope={view?.id ?? ''}
-              questions={chatQuestionsAllOf(view?.model)}
+              questions={questions}
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
               // A question core sent typed (CONTRACT §3) carries its id (`answers`): the answer is bound to it on core's answer route (same op for the same words; a refusal is core's). Else today's message.
               // The question card draws no method row of its own (batch 2): the composer's one row is the place for a method.
-              onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} /> },
+              onAnswer={(q, answer) => { const id = q.answers ?? null, sid = useViewStore.getState().sid; return id === null || sid === null ? say(answer) : write(`answer:${id}`, answer, (op) => answerQuestion(sid, id, answer, op)) }} /></> },
         { id: 'kept', label: 'Kept ideas', icon: 'idea-keep', count: keptIdeasOf(view).length, content: <KeptIdeas /> },
         { id: 'intake', label: 'What you said', icon: 'file-read', count: intakeOf(view).length, content: <IntakeSheet /> },
         { id: 'expectation', label: EXPECTATION_WORDS.expect, icon: 'committed', count: savedExpectationCount, content: <CommitFormSlot /> },
