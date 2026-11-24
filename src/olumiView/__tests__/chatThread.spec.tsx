@@ -7,7 +7,7 @@ import { useViewStore } from '../store'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { NEXT_STEP_WORDS, THINKING_WORDS, ViewChat, ViewComposer, useViewChat } from '../ViewChat'
 import { useUIStore } from '../../stores/uiStore'
-import { bodyOf, isOpen, rowOf, setOpen } from './reviewRow'
+import { bodyOf, isOpen, reviewToggleOf, rowOf, setOpen } from './reviewRow'
 import { tipOf } from './tipHelpers'
 
 // Bind saved core turns, not invented replies (UI recovery witness row 11, DL 10 Nov).
@@ -636,12 +636,14 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     expect(step.className).not.toContain('border-info')
     expect([...step.querySelectorAll('p')].map((e) => e.textContent), 'no Next step header').not.toContain('Next step')
     const review = getByTestId('view-proposal-review')
-    expect(rowOf(review).getAttribute('aria-expanded')).toBe('false')
+    expect(reviewToggleOf(review).getAttribute('aria-expanded')).toBe('false')
     expect(review).toHaveClass('ok-row-review')
     expect(isOpen(review), 'closed at rest').toBe(false)
     expect(step.firstElementChild, 'the review is the step\'s only child').toBe(review)
     const row = getByTestId('view-proposal-row')
-    expect(row.tagName).toBe('BUTTON')
+    expect(row.tagName).toBe('SPAN')
+    expect(row).not.toHaveAttribute('aria-expanded')
+    expect(row).not.toHaveAttribute('aria-controls')
     // CHANGED BY DESIGN (17 Nov, the calm panel): the row is in the actions line (the review's foot), not the review's first child.
     expect(review.firstElementChild).toBe(bodyOf(review))
     expect(row.closest('[data-testid="view-proposal-actions"]')).not.toBeNull()
@@ -669,9 +671,11 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     // CHANGED BY DESIGN (17 Nov, the calm panel): the heading is the actions line's own row, inside the proposal part, drawn once.
     expect(proposalPart.querySelectorAll('[data-view="proposal.heading"]'), 'the proposal draws its heading once, in its line').toHaveLength(1)
     fireEvent.click(rowOf(review))
-    expect(isOpen(review), 'pressing the row again closes it').toBe(false)
-    fireEvent.click(rowOf(review))
-    expect(isOpen(review), 'pressing the row opens it').toBe(true)
+    expect(isOpen(review), 'pressing the heading leaves the review open').toBe(true)
+    fireEvent.click(reviewToggleOf(review))
+    expect(isOpen(review), 'pressing Review again closes it').toBe(false)
+    fireEvent.click(reviewToggleOf(review))
+    expect(isOpen(review), 'pressing Review opens it').toBe(true)
     expect(posts, 'opening sends nothing').toEqual([])
   })
 

@@ -1672,7 +1672,7 @@ export const NEXT_STEP_WORDS = {
 
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
 /**
- * Contract 3: the one row of Olumi's waiting proposal. A button (core's heading · on) opens and closes it; keyed on the proposal, so a new one
+ * Contract 3: the one row of Olumi's waiting proposal. The Review chip opens and closes it; keyed on the proposal, so a new one
  * starts closed. Its body stays mounted while closed (the person's ticks and reading choices are kept) and is `hidden`; while open it is
  * `display: contents` (olumiLook.css), so the step's words, the change list and the actions are the pinned column's own items and the list
  * keeps its bounded scroll (Codex 15 Nov: a block wrapper, as a <details> body is, let the list grow and the whole box scroll instead).
@@ -1692,13 +1692,12 @@ export function ProposalReview({ p, busy, evidence }: { p: NonNullable<View['pro
   // filled button and Set aside as an icon (Proposal's actions). The mark is beside core's words, never in their place.
   const lead = (
     <>
-      <HoverButton words={p.on === '' ? p.heading : `${p.heading} · ${p.on}`} type="button" className="flex min-h-7 min-w-0 flex-[1_1_12rem] cursor-pointer items-center gap-2 text-left" data-testid="view-proposal-row"
-        aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
+      <Hover words={p.on === '' ? p.heading : `${p.heading} · ${p.on}`} className="flex min-h-7 min-w-0 flex-[1_1_12rem] items-center gap-2 text-left" data-testid="view-proposal-row">
         <OkIcon id="olumi-mark" size={14} decorative />
         {/* One flowing run: the heading, the dot and the version wrap together, never three flex columns (DL look at 1500x904 at 1.33). It wraps and is never cut: Paul, 19 Nov. */}
         <span className="min-w-0 flex-1 break-words" data-testid="view-proposal-words"><span className={`${typography.viewPanelHeading} text-text-header`} data-view="proposal.heading">{p.heading}</span>{p.on === '' ? null : <> · <span data-view="proposal.on">{p.on}</span></>}</span>
-      </HoverButton>
-      <button type="button" className={`${VIEW_CHIP_CLASS} ok-review-toggle`}
+      </Hover>
+      <button type="button" className={VIEW_CHIP_CLASS}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
         Review<FoldChevron open={open} />
       </button>

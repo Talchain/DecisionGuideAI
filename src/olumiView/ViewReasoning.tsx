@@ -12,7 +12,7 @@
  *   4. Assumptions and evidence: every premise core puts on a card, once, behind one door.
  * Every word about the person's model is core's, at its View path (`data-view`); headings and action labels are the tab's own chrome.
  */
-import { useId, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ViewModel, ViewRun } from './client'
 import { FigureEdit } from './FigureEdit'
 import { premisesOnce } from './layout'
@@ -23,6 +23,7 @@ import { prefillComposer, runMethod } from './ViewChat'
 import { Door, SignalRow } from './reasoning/parts'
 import { actionable, examineOf, type Examine } from './reasoning/examine'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
+import { useReasoningFocus } from './reasoning/focusRequest'
 import { AnswerBox, AnsweredList } from './reasoning/AnswerBox'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
@@ -299,8 +300,24 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const words = useViewStore((s) => s.view?.model_words ?? null) as Record<string, unknown> | null
   const view = useViewStore((s) => s.view)
   const items = examineOf(model, methods, words, new Set((view?.collab.dissent ?? []).map((d) => d.id)))
+  const panel = useRef<HTMLDivElement>(null)
+  const request = useReasoningFocus((s) => s.request)
+  useLayoutEffect(() => {
+    if (request === null || request.sid !== useViewStore.getState().sid || useReasoningFocus.getState().request !== request) return
+    const item = items.find((e) => e.key === request.key)
+    const match = request.key === 'commitment' ? ['data-testid', 'reasoning-commitment'] as const : item && Object.entries(rowData(item))[0]
+    useReasoningFocus.setState({ request: null })
+    if (match === undefined) return
+    const [attribute, value] = match
+    const rows = panel.current?.querySelectorAll<HTMLElement>(`[${attribute}]`)
+    const target = Array.from(rows ?? []).find((row) => row.getAttribute(attribute) === value)
+    if (!target) return
+    target.tabIndex = -1
+    target.focus({ preventScroll: true })
+    target.scrollIntoView?.({ block: 'nearest' })
+  }, [items, request])
   return (
-    <div className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
+    <div ref={panel} className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
       <WhatIfShown model={model} labelled={!stated} />
       <RestsOn model={model} run={run} />
       <Examined items={items} />

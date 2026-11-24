@@ -388,7 +388,7 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     expect(section.getAttribute('aria-label')).toBe('Next step')
     expect(screen.getByTestId('view-chat-pinned').contains(section), 'still in the pinned box').toBe(true)
     expect(isOpen(review())).toBe(false)
-    expect(row().tagName).toBe('BUTTON')
+    expect(row().tagName).toBe('SPAN')
     expect(row().textContent).toBe(`${p.heading} · ${p.on}`)
     expect(row().querySelector('[data-view="proposal.heading"]')?.textContent).toBe(p.heading)
     expect(row().querySelector('[data-view="proposal.on"]')?.textContent).toBe(p.on)
@@ -420,14 +420,14 @@ describe('contract 3: the waiting proposal is one row, closed at rest', () => {
     expect(posts, 'reading is not approving').toHaveLength(0)
   })
 
-  it('CATCH: pressing the row opens it and a second press closes it again; a new proposal starts closed (before: no row to press)', () => {
+  it('CATCH: pressing Review opens the list and a second press closes it again; a new proposal starts closed', () => {
     show(golden)
-    const row = screen.getByTestId('view-proposal-row')
+    const toggle = screen.getByTestId('view-proposal-review-toggle')
     fireEvent.click(screen.getByTestId('view-chat-foot-proposal'))
-    fireEvent.click(row)
+    fireEvent.click(toggle)
     expect(isOpen(review())).toBe(true)
     expect(screen.getByTestId('view-changes')).toBeVisible()
-    fireEvent.click(row)
+    fireEvent.click(toggle)
     expect(isOpen(review())).toBe(false)
     // CHANGED BY DESIGN (sx-panel, PANEL-SPEC 1): closing hides the list; the actions stay in view. Was: the actions hid with it.
     expect(screen.queryByTestId('view-changes')).toBeNull()
