@@ -13,9 +13,6 @@
  */
 import type { View, ViewCard, ViewModel } from '../../client'
 import { cardKind, type CardKindName } from '../fields/fields'
-import { useWhatIf } from '../../whatif'
-import { useWhatIfFocus } from '../inspect/whatIfFocus'
-import { detailsOf, useLaneInspector } from '../edit/inspectorStore'
 import { bandOf, type BandId } from './bands'
 
 export type GroupKind = 'proposed' | 'notes' | 'olumi'
@@ -36,30 +33,8 @@ export const olumiUnreviewed = (card: ViewCard): boolean => card.change != null 
 /** An approved record that is only a sentence (D1b): core's kind `note`, no change pending, no figure. */
 const approvedNote = (card: ViewCard, kind: CardKindName): boolean => kind === 'note' && card.change == null && card.figure == null
 
-/** Active card ids supplied by the canvas hook. */
-export type FoldActive = { readonly tried: string | null; readonly pressed: string | null; readonly inspected: string | null }
-/** The same ids read once from the existing stores, for a caller that is not subscribed (Show in workspace's targets, a one-off layout). */
-export function foldActiveNow(view: View | null): FoldActive {
-  const shown = useWhatIf.getState().shown, open = detailsOf(useLaneInspector.getState())
-  return { tried: shown !== null && (view === null || shown.sid === view.id) ? shown.quantity : null, pressed: useWhatIfFocus.getState().id, inspected: open?.kind === 'card' ? open.id : null }
-}
-
-/** The card ids from the newest reply and the active card ids. */
-export function foldKeepOf(view: View | null, active: FoldActive = foldActiveNow(view)): ReadonlySet<string> {
-  const keep = new Set<string>(), chat = view?.chat ?? []
-  for (let i = chat.length - 1; i >= 0; i--) {
-    const a = chat[i]!.answer
-    if (a == null) continue
-    if (a.next.at != null) keep.add(a.next.at)
-    for (const id of a.next.about) keep.add(id)
-    break
-  }
-  for (const id of [active.tried, active.pressed, active.inspected]) if (id !== null) keep.add(id)
-  return keep
-}
-
 /** Which group a card folds into on Simple, or null where it is drawn. */
-export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null, _keep: ReadonlySet<string> = new Set()): GroupKind | null {
+export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null): GroupKind | null {
   const { kind } = cardKind(card, model, view)
   if (olumiUnreviewed(card) && kind === 'note') return 'proposed'
   if (approvedNote(card, kind)) return 'notes'
@@ -67,10 +42,10 @@ export function groupKindOf(card: ViewCard, model: ViewModel, view: View | null,
 }
 
 /** The groups of the drawn model, per row (band); a group stands for one card or more. */
-export function cardGroupsOf(model: ViewModel, view: View | null, keep: ReadonlySet<string> = foldKeepOf(view)): CardGroup[] {
+export function cardGroupsOf(model: ViewModel, view: View | null): CardGroup[] {
   const by = new Map<string, { kind: GroupKind; band: GroupBand; cards: string[]; kinds: CardKindName[] }>()
   for (const card of model.cards) {
-    const g = groupKindOf(card, model, view, keep)
+    const g = groupKindOf(card, model, view)
     if (g === null) continue
     const band = bandOf(card, model), id = groupIdOf(g, band), kind = cardKind(card, model, view).kind
     const at = by.get(id) ?? { kind: g, band, cards: [], kinds: [] }
