@@ -93,6 +93,64 @@ describe('details panel', () => {
       expect(screen.getByTestId('lane-inspector-value-source')).toHaveTextContent(SAID)
     })
   })
+  describe('a card with a held proposal', () => {
+    const changeTitle = 'An invented change\nvalue 10 → 12'
+    const withCard = (change?: { glyph: string; title: string; kind: 'added' | 'changed' } | null) => {
+      const v = approved(), m = v.model!
+      const q = {
+        ...m.cards.find((c) => c.family === 'quantity')!,
+        id: 'pending_est',
+        heading: 'Pending estimate',
+        figure: { text: '£12,000/year', title: 'An invented figure', edit: null },
+        change,
+      }
+      if (change === undefined) Reflect.deleteProperty(q, 'change')
+      useViewStore.setState({ view: { ...v, model: { ...m, cards: [...m.cards, q] } } as never })
+    }
+
+    it('shows the change glyph and both title lines in the pinned box and preview', () => {
+      withCard({ glyph: '↻', title: changeTitle, kind: 'changed' })
+      useLaneInspector.getState().open({ kind: 'card', id: 'pending_est' })
+      mount()
+      const pinnedChange = screen.getByTestId('lane-inspector-change')
+      expect(pinnedChange, 'the pinned box identifies a changed card').toHaveAttribute('data-change-kind', 'changed')
+      expect(pinnedChange.textContent, 'the pinned box shows the glyph and preserves both title lines').toBe(`↻ ${changeTitle}`)
+
+      cleanup()
+      useLaneInspector.setState({ current: null, peek: { kind: 'card', id: 'pending_est' } })
+      mount()
+      const previewChange = screen.getByTestId('lane-inspector-change')
+      expect(screen.getByTestId('lane-peek'), 'the change appears inside the card preview').toContainElement(previewChange)
+      expect(previewChange, 'the preview identifies a changed card').toHaveAttribute('data-change-kind', 'changed')
+      expect(previewChange.textContent, 'the preview shows the glyph and preserves both title lines').toBe(`↻ ${changeTitle}`)
+    })
+
+    it('shows the addition glyph and title for an added card', () => {
+      withCard({ glyph: '+', title: 'An invented addition', kind: 'added' })
+      useLaneInspector.getState().open({ kind: 'card', id: 'pending_est' })
+      mount()
+      const change = screen.getByTestId('lane-inspector-change')
+      expect(change, 'the box identifies an added card').toHaveAttribute('data-change-kind', 'added')
+      expect(change.textContent, 'the box shows the addition glyph and its title').toBe('+ An invented addition')
+    })
+
+    it('keeps the figure visible when the change is null', () => {
+      withCard(null)
+      useLaneInspector.getState().open({ kind: 'card', id: 'pending_est' })
+      mount()
+      expect(screen.queryByTestId('lane-inspector-change'), 'a null change produces no change line').toBeNull()
+      expect(screen.getByTestId('lane-inspector-figure'), 'the figure remains visible').toHaveTextContent('£12,000/year')
+    })
+
+    it('keeps the title and figure visible when the change key is absent', () => {
+      withCard()
+      useLaneInspector.getState().open({ kind: 'card', id: 'pending_est' })
+      mount()
+      expect(screen.queryByTestId('lane-inspector-change'), 'an absent change key produces no change line').toBeNull()
+      expect(screen.getByTestId('lane-inspector-title'), 'the older card still shows its title').toHaveTextContent('Pending estimate')
+      expect(screen.getByTestId('lane-inspector-figure'), 'the older card still shows its figure').toHaveTextContent('£12,000/year')
+    })
+  })
   it('closes when the item is no longer in the model', async () => {
     useLaneInspector.getState().open({ kind: 'card', id: 'gone' })
     mount()
