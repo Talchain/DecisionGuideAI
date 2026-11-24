@@ -105,6 +105,8 @@ describe('A1 mounted: held rows are reachable, say why, and do nothing', () => {
     const chip = screen.getByTestId('lane-inspector-add-claim')
     expect(chip).toHaveAttribute('aria-disabled', 'true')
     expect(chip).not.toHaveAttribute('disabled')
+    // DS Button.md:24, a disabled control reads as disabled by token, not opacity: the lane recipe styles aria-disabled, not only :disabled.
+    for (const k of ['aria-disabled:text-text-light', 'aria-disabled:cursor-not-allowed']) expect(chip.className.split(/\s+/), k).toContain(k)
     vi.useFakeTimers(); fireEvent.pointerEnter(chip); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(screen.getByRole('tooltip').textContent, 'the reason is said on the chip').toContain(REASON)
     vi.useRealTimers()
