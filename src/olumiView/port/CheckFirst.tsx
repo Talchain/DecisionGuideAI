@@ -1,5 +1,5 @@
 import type { View, ViewModel } from '../client'
-import { allOptionCards } from '../layout'
+import { optionCards } from '../layout'
 import { Hover } from '../look/Hover'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 import { figureRange } from '../v12/contract'
@@ -14,7 +14,7 @@ type MissingInput = { aim: string | null; text: string; at: string; refs: string
 
 export function missingInputsOf(model: ViewModel): MissingInput[] {
   const groups = new Map<string, MissingInput>()
-  for (const card of allOptionCards(model)) {
+  for (const card of optionCards(model)) {
     card.rows.forEach((row, j) => {
       if (row.kind !== 'none' || !row.next_test || row.aim_role === 'reference') return
       const key = JSON.stringify([row.aim_id, row.next_test])
@@ -50,10 +50,11 @@ type Place = 'pending' | 'asks'
 function checkFirstOf(view: View, place: Place) {
   const { model } = view
   const run = model?.run ?? null
-  const ranked = findOutOf(run).aims.reduce((count, { aim }) =>
+  const { aims } = findOutOf(run)
+  const ranked = aims.reduce((count, { aim }) =>
     count + aim.figures.filter(({ whose }) => ESTIMATE_AUTHORS.includes(whose)).length, 0)
-  const inputs = ranked === 0 && model !== null ? missingInputsOf(model) : []
-  const estimates = ranked === 0 && place === 'pending' ? estimateChangesOf(view) : []
+  const inputs = aims.length === 0 && model !== null ? missingInputsOf(model) : []
+  const estimates = aims.length === 0 && place === 'pending' ? estimateChangesOf(view) : []
   return { run, ranked, inputs, estimates, count: ranked + inputs.length + estimates.length }
 }
 
@@ -70,7 +71,8 @@ export function CheckFirst({ view, place }: { view: View; place: Place }) {
       {ranked > 0 ? <FindOutRanking run={run} only={ESTIMATE_AUTHORS} edit={place === 'asks'} /> : null}
       {inputs.map(({ at, text, refs }) => {
         const target = refs.length === 1 ? cardOf(model, refs[0]) : null
-        if (target === null) return <p key={at} className={`${TYPE.meta} m-0 text-text-body`} data-check-first-input="" data-view={`${at}.next_test`}>{text}</p>
+        const reach = target === null ? null : recordReach(target.id)
+        if (target === null || reach === null) return <p key={at} className={`${TYPE.meta} m-0 text-text-body`} data-check-first-input="" data-view={`${at}.next_test`}>{text}</p>
         const { id } = target
         const ring = () => ringFrom('check-first', [id])
         const clear = () => ringFrom('check-first', [])
@@ -78,7 +80,7 @@ export function CheckFirst({ view, place }: { view: View; place: Place }) {
           <Hover key={at} as="button" type="button" words={undefined}
             className={`${TYPE.meta} block rounded-sm text-left text-text-body underline-offset-2 hover:underline`}
             data-check-first-target={id} data-view={`${at}.next_test`}
-            onClick={() => { if (recordReach(id) === 'show') void showRecord(id); else pressCard(id) }}
+            onClick={() => { if (reach === 'show') void showRecord(id); else pressCard(id) }}
             onFocus={ring} onMouseEnter={ring} onBlur={clear} onMouseLeave={clear}>{text}</Hover>
         )
       })}
