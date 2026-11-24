@@ -589,15 +589,16 @@ export function WorkspaceShellTabStrip({
                 {/* Only the LABEL truncates. The affordances after it are
                     protected content and carry `shrink-0`. */}
                 {surface.id === 'olumi' ? (
-                  // 17 Nov (the calm panel mock v2, Paul): the tab row is icon-only; the Olumi tab is just Olumi's logo, named "Olumi" on hover
-                  // (title and aria-label above), never a word beside it. The selected tab is told apart by its pill.
+                  // Core lane: a tab is its icon; the SELECTED tab also shows its label (Tabs.md, PL Order 36, 24 Nov), Olumi's beside its logo.
                   <>
                     <OkIcon id="olumi-mark" decorative inherit testid="outputs-dock-tab-olumi-mark" />
+                    {coreLane && isActive ? <span className="min-w-0 truncate">{surface.label}</span> : null}
                   </>
                 ) : coreLane ? (
-                  (() => {
-                    return <OkIcon id={LANE_TAB_ICON[surface.id]} size={14} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
-                  })()
+                  <>
+                    <OkIcon id={LANE_TAB_ICON[surface.id]} size={14} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
+                    {isActive ? <span className="min-w-0 truncate">{surface.label}</span> : null}
+                  </>
                 ) : (
                   // R25 (DL 7 Nov: "Analy…", "Reasoni…" at 1232): on the olumi-core lane the labels are 12px (scale A), set tight so all
                   // five fit the 347px dock whole; the legacy lane is unchanged.
