@@ -380,20 +380,23 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
   })
   // CHANGED BY DESIGN (W3, 24 Nov, DL/PL 476ea6a2): was ONE question with "1 of 3" and three progress dashes. Now the card stays ONE quiet row at
   // rest with "N left to check", and opened it lists EVERY served question, numbered, in core's order; nothing is ever counted as answered.
-  it('W3: at rest ONE question and "3 left to check"; opened, all three listed, numbered 1-3 in core\'s order, the first chosen; no dashes and no "answered" count', () => {
-    const view = asked(), qs = view.model!.coaching_questions!
+  // RE-PINNED for the join (DL 24 Nov): with A2-A3's ViewChat swap (4ccb8291) the panel gets EVERY served question (chatQuestionsAllOf), so N is
+  // the whole served list (the fixture serves 6), not three. On this branch alone, before the swap, these two rows are red by design.
+  it('W3: at rest ONE question and "N left to check" for EVERY served question; opened, all listed, numbered 1..N in core\'s order, the first chosen; no dashes and no "answered" count', () => {
+    const view = asked(), qs = view.model!.coaching_questions!, n = chatQuestionsAllOf(view.model).length
+    expect(n, 'the fixture serves more than three').toBeGreaterThan(3)
     const c = mount(view)
     const card = q(c, 'view-model-question')!
     const chip = card.closest('[data-testid="view-chat"]')!.querySelector<HTMLElement>('[data-testid="view-chat-foot-asks"]')!
     if (chip.getAttribute('aria-expanded') === 'false') fireEvent.click(chip) // the asks section shown, the question card itself still at rest
     expect(card.getAttribute('data-open')).toBeNull()
     expect(visible(card).map((e) => e.textContent)).toEqual([qs[0]])
-    expect(q(card, 'view-question-count')!.textContent).toBe('3 left to check')
+    expect(q(card, 'view-question-count')!.textContent).toBe(`${n} left to check`)
     expect(card.querySelector('[data-testid^="view-question-pick-"]'), 'no numbers at rest').toBeNull()
     fireEvent.click(q(card, 'view-question-toggle')!)
-    expect(visible(card).map((e) => e.textContent)).toEqual([qs[0], qs[1], qs[2]])
-    expect([...card.querySelectorAll('[data-testid^="view-question-pick-"]')].map((b) => b.textContent)).toEqual(['1', '2', '3'])
-    expect([...card.querySelectorAll('[data-testid="view-question-list"] > li')].map((li) => li.getAttribute('aria-current'))).toEqual(['step', null, null])
+    expect(visible(card).map((e) => e.textContent)).toEqual(qs.slice(0, n))
+    expect([...card.querySelectorAll('[data-testid^="view-question-pick-"]')].map((b) => b.textContent)).toEqual(qs.slice(0, n).map((_, k) => String(k + 1)))
+    expect([...card.querySelectorAll('[data-testid="view-question-list"] > li')].map((li) => li.getAttribute('aria-current'))).toEqual(qs.slice(0, n).map((_, k) => (k === 0 ? 'step' : null)))
     expect(card.querySelector('[data-testid="view-question-dashes"], [data-testid^="view-question-dash-"]')).toBeNull()
     expect(card.textContent).not.toMatch(/answered|\d+ of \d+/)
     expect(card.className).toContain('border-info/30') // Olumi\'s card: a token at opacity, no new colour (CHANGED 18 Nov: was border-info/40 on a bg-info/10 fill)
@@ -406,8 +409,8 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(three).toEqual(all.slice(0, 3))
     expect(chatQuestionsAllOf(null)).toEqual([]) // CONTRAST: no model, no questions
   })
-  it('Skip (a neutral icon) and a number each choose a question; neither earns anything: the count stays "3 left to check"; the last has no Skip (CONTRAST: a single question draws "1 left to check" and no numbers)', () => {
-    const view = asked()
+  it('Skip (a neutral icon) and a number each choose a question; neither earns anything: the count stays "N left to check"; the last has no Skip (CONTRAST: a single question draws "1 left to check" and no numbers)', () => {
+    const view = asked(), n = chatQuestionsAllOf(view.model).length, left = `${n} left to check`
     const c = mount(view)
     const card = open(q(c, 'view-model-question')!)
     const current = () => [...card.querySelectorAll('[data-testid="view-question-list"] > li')].findIndex((li) => li.getAttribute('aria-current') === 'step')
@@ -416,9 +419,9 @@ describe('7. Olumi\'s question: ONE at a time, the rest behind it', () => {
     expect(tipWords(skip)).toBe('Skip')
     expect(skip.className.split(/\s+/)).toContain('text-text-light')
     fireEvent.click(skip)
-    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([1, '3 left to check'])
-    fireEvent.click(q(card, 'view-question-pick-2')!)
-    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([2, '3 left to check'])
+    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([1, left])
+    fireEvent.click(q(card, `view-question-pick-${n - 1}`)!)
+    expect([current(), q(card, 'view-question-count')!.textContent]).toEqual([n - 1, left])
     expect(q(card, 'view-question-skip')).toBeNull()
     fireEvent.click(q(card, 'view-question-pick-0')!)
     expect(current()).toBe(0)
