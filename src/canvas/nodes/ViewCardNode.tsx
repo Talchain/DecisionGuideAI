@@ -14,7 +14,7 @@ import { SELECTED_RING } from '../../styles/selected'
 import { panToKeepInView } from '../utils/keepInView'
 import { ChevronDown } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ViewCard as Card, ViewReading, ViewRow } from '../../olumiView/client'
+import type { ViewCard as Card, ViewModel, ViewReading, ViewRow } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { CARD_WIDTH, drawKindOf, ifApprovedMarkOf, leadChanceIndex, optionsNotYet, readingOf, sharedAimsOf, type RestsOnItem, type TryOnCard } from '../../olumiView/layout'
 import { clearWhatIf } from '../../olumiView/whatif'
@@ -23,6 +23,7 @@ import { ReducedFace } from './ReducedFace'
 import { ifApprovedFieldOf } from '../../olumiView/standin'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { isDashedCardKind } from '../../olumiView/v12/cards/kind'
+import { GoalMeasureLine, waitingMeasureQuestion } from '../../olumiView/v12/cards/GoalMeasureLine'
 import { panelSide } from './panelSide'
 import { cardBoxesOf, sameBoxes, type CardBox } from '../edges/ViewLinkEdge'
 import { useCanvasStore } from '../store'
@@ -204,8 +205,9 @@ function OptionValueRow({ at, option, text, mark = null }: { at: string; option:
 }
 
 /** One View card, pure: a test draws it from a golden View. */
-export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = drawKindOf(card, null), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { reducedPx?: number; tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
+export function ViewCard({ card, model = null, reducedPx = 0, selected = false, side = 'right', restsOn = null, driverOf = null, tried = null, pulsed = false, kind = drawKindOf(card, null), ifApproved = null, reading = null, shared = NO_AIMS, notYet = false , tryOn = null, version = null}: ViewCardData & { model?: ViewModel | null; reducedPx?: number; tryOn?: TryOnCard | null; version?: number | null; reading?: ViewReading | null; shared?: readonly string[]; notYet?: boolean; selected?: boolean; side?: 'right' | 'left'; restsOn?: RestsOnItem | null; driverOf?: readonly Card[] | null; tried?: string | null; pulsed?: boolean; kind?: ReturnType<typeof drawKindOf>; ifApproved?: IfApproved }) {
   const id = card.id, lead = leadChanceIndex(card)
+  const measureQuestion = waitingMeasureQuestion(card, model)
   // A figure card core marks as Olumi's (its ◆, or ◐ for a person's figure Olumi reads as a range) reads at a glance as Olumi's estimate:
   // the figure in Olumi's colour, its hover core's mark, and the way to give yours always shown (core L1/L2: "give yours with ✎").
   // K5 (R3): Olumi's failure stories resting on this card, and an option's story most within the team's control (./k5.ts, ahead of core).
@@ -327,7 +329,12 @@ export function ViewCard({ card, reducedPx = 0, selected = false, side = 'right'
         <p className={`${typography.viewLabel} text-text-body`} data-face-words={faceLine.words} data-view={`${id}.face.line.text`}>{faceLine.text}</p>
       )}
       {says ? <Disclosed at={`${id}.reason-line`} title={card.reason!}><span data-view={`${id}.reason`}>{card.reason}</span></Disclosed> : null}
-      {card.bound === null ? null : (
+      {card.bound === null ? null : measureQuestion !== null ? (
+        <div className="flex min-w-0 items-center gap-1" data-view={`${id}.bound`}>
+          <GoalMeasureLine question={measureQuestion} className={`${typography.viewLabel} ok-quiet min-w-0 flex-1 break-words text-text-light`} />
+          <Mark at={`${id}.bound.olumi`} mark={card.bound.olumi} />
+        </div>
+      ) : (
         // An aim's or limit's target, core's own words from its target record ("at least 10%"), on the face under the heading, as the
         // previous PoC's "Target: …" line (DL 6 Nov: a label names the outcome alone, so the number is never hidden behind a selection).
         <p className={typography.viewValue} title={card.bound.title}><span data-view={`${id}.bound.text`}>{card.bound.text}</span>
@@ -560,7 +567,7 @@ export function ViewCardNode({ id, data, selected }: NodeProps) {
       onMouseEnter={() => setNear(true)} onMouseLeave={() => setNear(false)} onFocus={() => setNear(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setNear(false) }}>
       {/* UI restore stage 1: a link enters a card on the side its causes are on and leaves on the other, for the layout's direction. */}
       <Handle type="target" position={sides.into as Position} isConnectable={false} className="!opacity-0" />
-      <ViewCard card={card} reducedPx={reducedPx} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
+      <ViewCard card={card} model={model} reducedPx={reducedPx} reading={model === null ? null : readingOf(model, id)} selected={open} side={side} restsOn={restsOn} driverOf={driverOf} tried={tryOn?.kind === 'tried' ? null : tried} tryOn={tryOn} version={view?.version?.n ?? null} pulsed={pulsed} kind={kind} ifApproved={ifApproved} shared={shared} notYet={notYet} />
       {reducedPx > 0 ? null : <div className="absolute left-3 bottom-2"><NodeCoachingMarker nodeId={id} /></div>}
       {/* Olumi's corner controls at rest only on the card Olumi's note is about; on any card while hovered or selected. */}
       {/* J1 gate: nothing on the board sits below full strength at rest, so the controls are not drawn at rest (they were there at
