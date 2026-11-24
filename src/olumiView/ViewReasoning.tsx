@@ -214,9 +214,17 @@ function Row({ e }: { e: Examine }) {
   )
 }
 
-function Examined({ items }: { items: Examine[] }) {
+function Examined({ items, onReveal }: { items: Examine[]; onReveal: () => void }) {
   const [all, setAll] = useState(false)
   const listId = useId()
+  const request = useReasoningFocus((s) => s.request)
+  useLayoutEffect(() => {
+    if (request === null || request.sid !== useViewStore.getState().sid || useReasoningFocus.getState().request !== request) return
+    if (items.findIndex((item) => item.key === request.key) < LIST_AT_REST) return
+    // Expanding this list mounts the row without rerendering ViewReasoning.
+    if (all) onReveal()
+    else setAll(true)
+  }, [all, items, onReveal, request])
   if (items.length === 0) return null
   const shown = all ? items : items.slice(0, LIST_AT_REST)
   return (
@@ -302,25 +310,29 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const items = examineOf(model, methods, words, new Set((view?.collab.dissent ?? []).map((d) => d.id)))
   const panel = useRef<HTMLDivElement>(null)
   const request = useReasoningFocus((s) => s.request)
-  useLayoutEffect(() => {
+  function focusRequestedRow() {
     if (request === null || request.sid !== useViewStore.getState().sid || useReasoningFocus.getState().request !== request) return
     const item = items.find((e) => e.key === request.key)
     const match = request.key === 'commitment' ? ['data-testid', 'reasoning-commitment'] as const : item && Object.entries(rowData(item))[0]
-    useReasoningFocus.setState({ request: null })
-    if (match === undefined) return
+    if (match === undefined) {
+      useReasoningFocus.setState({ request: null })
+      return
+    }
     const [attribute, value] = match
     const rows = panel.current?.querySelectorAll<HTMLElement>(`[${attribute}]`)
     const target = Array.from(rows ?? []).find((row) => row.getAttribute(attribute) === value)
     if (!target) return
+    useReasoningFocus.setState({ request: null })
     target.tabIndex = -1
     target.focus({ preventScroll: true })
     target.scrollIntoView?.({ block: 'nearest' })
-  }, [items, request])
+  }
+  useLayoutEffect(focusRequestedRow)
   return (
     <div ref={panel} className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning" onMouseLeave={() => ringFrom(RING, [])}>
       <WhatIfShown model={model} labelled={!stated} />
       <RestsOn model={model} run={run} />
-      <Examined items={items} />
+      <Examined items={items} onReveal={focusRequestedRow} />
       <AnsweredList view={view} model={model} />
       {view === null ? null : <TowardsCommitment view={view} />}
       <Premises model={model} />

@@ -20,6 +20,7 @@ import { OUTCOME_WORDS } from '../LikelyOutcome'
 import { CHART_WORDS } from '../ChanceChart'
 import { PortAnalysisTab } from '../PortAnalysisTab'
 import { REASONING_LABELS, ViewReasoningBlock } from '../../ViewReasoning'
+import { SimpleFace } from '../../v12/SimpleFace'
 import { COMMITMENT_WORDS } from '../../reasoning/TowardsCommitment'
 import { useReasoningFocus } from '../../reasoning/focusRequest'
 import { actionable, examineOf } from '../../reasoning/examine'
@@ -435,6 +436,35 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(within(tab()).queryByText(question.text)).toBeNull()
     expect(within(tab()).queryByTestId('reasoning-answer-input')).toBeNull()
     expect(within(screen.getByTestId('view-reasoning')).getByTestId('reasoning-answer-input').closest('form')).toHaveAttribute('data-answer-for', question.id)
+  })
+
+  it('Enter on the waiting goal measure line reveals and focuses the folded question', async () => {
+    const user = userEvent.setup()
+    const view = withoutExamineItems(), model = view.model!
+    const goal = model.cards.find((card) => card.id === 'protect_user_trust')!
+    goal.bound = { ...goal.bound!, measured: false }
+    goal.doubt = true
+    for (const card of model.cards.filter((card) => card !== goal).slice(0, 4)) card.challenged = true
+    const question = { id: 'goal-measure', text: 'What should we count to track user trust?', about: goal.id, role: 'measure' as const, unit: null }
+    model.questions = [question]
+    ready(view)
+    render(<><SimpleFace card={goal} model={model} noted={false} /><ViewReasoningBlock /></>)
+    const examined = screen.getByTestId('reasoning-examine')
+    const row = () => examined.querySelector(`[data-examine="q:${question.id}"]`)
+    const more = within(examined).getByTestId('reasoning-examine-more')
+    const line = screen.getByRole('button', { name: 'Not counted yet' })
+
+    expect(within(examined).getAllByTestId('reasoning-challenge-show')).toHaveLength(4)
+    expect(row()).toBeNull()
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    line.focus()
+    await user.keyboard('{Enter}')
+
+    expect(row()).toBeInTheDocument()
+    expect(row()).toHaveFocus()
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    expect(more).toHaveTextContent(REASONING_LABELS.fewer)
+    expect(useReasoningFocus.getState().request).toBeNull()
   })
 
   it('leaves another scenario’s request alone until the scenario changes', () => {
