@@ -129,7 +129,7 @@ export const SHOW_LESS = 'Show less'
 /** A drawn line's plain words (its list marker dropped, whitespace squashed), for `everyLine`; null where it holds a cite (no prose entry does). */
 const lineWords = (l: readonly Piece[]): string | null =>
   l.some((x) => x.kind === 'cite') ? null : l.map((x) => (x.kind === 'text' ? x.s : '')).join('').replace(ITEM_MARK, '').replace(/\s+/g, ' ').trim() || null
-export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false, under }: { parts: Said; at: string; first?: number; /** A first draft's reply that has a lead: what is drawn FIRST, in the authority position, given the check's own blocks under core's heading to fold (null where the reply ends at the first answer). The first answer follows it as earlier material: core's label, its opening at rest, its later detail one press away. */ under?: (check: ReactNode | null) => ReactNode; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
+export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = false, lines: coreLines = null, lead: big = false, under, omit }: { parts: Said; at: string; first?: number; /** W2: the reply's lead as drawn above the fold (core's `lead.opening`), left out of these blocks where one whole paragraph is exactly it. */ omit?: string; /** A first draft's reply that has a lead: what is drawn FIRST, in the authority position, given the check's own blocks under core's heading to fold (null where the reply ends at the first answer). The first answer follows it as earlier material: core's label, its opening at rest, its later detail one press away. */ under?: (check: ReactNode | null) => ReactNode; /** `item` is offered on a paragraph's lines too, not only a list's (a floor reply: core offers each line of Olumi's prose, words-start CONTRACT 4). */ everyLine?: boolean; /** Core's own label and check heading for this reply (`answer.first_answer`); null: no such lines. */ lines?: FirstAnswerLines | null; /** V12: drawn under a list line, given that line's words when it is plain words (a method reply's own approaches, each kept on its own). */ item?: (words: string) => ReactNode; /** sx-panel (PANEL-SPEC 2): a long reply shows its opening (core's label, if any, then its first paragraph and the first three items of a list that follows it), then one press for the rest; a first draft's check (core's heading line) and all after it always show. Off unless asked (the conversation asks). */ fold?: boolean; /** The newest reply: its opening paragraph is the panel's one 18 px line when it is {@link LEAD_WORDS} words or fewer. */ lead?: boolean }) {
   const [whole, setWhole] = useState(false)
   const lines: Piece[][] = [[]]
   parts.forEach((p, i) => {
@@ -168,6 +168,16 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
     if (g.list || g.leadIn || g.lines.length !== 1) return null
     const only = g.lines[0]!
     return only.every((x) => x.kind === 'text') ? replyLineOf(only.map((x) => (x.kind === 'text' ? x.s : '')).join(''), coreLines) : null
+  }
+  // W2 (Paul 0950: the full answer repeated what was already shown): core's lead IS the reply's first paragraph, word for word (run/direct-reply.ts leadOf), and it is
+  // drawn above the fold, so the fold leaves out that one paragraph, by exact match of a whole paragraph of plain words, never part of one, a list, a lead-in, a label
+  // or a heading. Under a first draft's check (`under`), only the check's own paragraphs are looked at: the first answer above it is earlier material and stays whole.
+  if (omit !== undefined && omit.trim() !== '') {
+    const heading = groups.findIndex((g) => lineOf(g) === 'heading'), from = under === undefined ? 0 : heading === -1 ? groups.length : heading + 1
+    const said = (g: { list: boolean; leadIn?: boolean; lines: Piece[][] }) => (!g.list && !g.leadIn && g.lines.length === 1 && g.lines[0]!.every((x) => x.kind === 'text') && lineOf(g) === null
+      ? g.lines[0]!.map((x) => (x.kind === 'text' ? x.s : '')).join('').trim() : null)
+    const at = groups.findIndex((g, gi) => gi >= from && said(g) === omit.trim())
+    if (at !== -1) groups.splice(at, 1)
   }
   const lead = groups.length > 0 && lineOf(groups[0]!) === 'label' ? 1 : 0
   // Olumi's check against the model (core's heading line) and everything after it always show: the fold hides only the first answer's later
@@ -365,7 +375,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         // never folded out of reach (Codex 011: the practical answer had been hidden under the lead) and its own later detail one press away (progressive disclosure; merging with "Full answer" is a later restructure). No flag and no reading of its words.
         // Paul, 19 Nov ("buried behind repeated disclosures"; Codex: one expansion): the first answer is drawn whole under core's label, so its
         // finding and next steps read at rest; "Full answer" (the check) is the reply's one fold. No second "Show the whole first answer".
-        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)}
+        ? <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} omit={lead.opening}
             under={(checkBody) => {
               const folded = early === null && floor == null && checkBody === null ? null : <>
                 {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
@@ -378,7 +388,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         ? <ReplyLead lead={lead} at={`${at}.answer`} big={latest && lead.opening.trim().split(/\s+/).length <= LEAD_WORDS}>
             {early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
             {floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
-            <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} />
+            <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} omit={lead.opening} />
           </ReplyLead>
         : leads
         // Codex UI reviewer P1 (shared note 15:35:01Z, DL): a reply with no lead is drawn whole, never folded; only a valid lead's "Full answer" folds.
@@ -487,7 +497,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   // A saved message whose reply failed or was lost (core `floor[].unanswered`): their words, then core's own sentence for that job as a quiet
   // line. No reply, no Keep and no Try again here: only the newest turn (`turn`) retries, and it is never also in the floor.
   const un = f.unanswered
-  const text = <section className="space-y-3 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine /></section>
+  const text = <section className="space-y-3 text-left text-text-body" data-testid="view-floor-reply-text"><Blocks parts={[{ text: f.text }]} at={`floor.${f.job}.text`} item={keepEach} everyLine omit={f.lead?.opening} /></section>
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-4">
       <div className="ok-said" data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
