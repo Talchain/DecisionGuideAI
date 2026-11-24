@@ -215,7 +215,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
       <HeldNotice />
       <div className="flex justify-end">
         <button type="button" data-testid="view-model-toggle-all" aria-expanded={allOpen} aria-controls={openLists.join(' ') || undefined} onClick={() => setOpened(allOpen ? new Set() : new Set(ids))}
-          className={`${typography.viewPanelMeta} rounded-sm py-1 text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
+          className={`${typography.viewPanelMeta} inline-flex min-h-7 items-center rounded-sm text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
           {allOpen ? MODEL_OUTLINE_LABELS.collapse : MODEL_OUTLINE_LABELS.expand}
         </button>
       </div>

@@ -15,7 +15,7 @@ export function ComparePanel({ sid, view }: { sid: string; view: View }): JSX.El
     <section data-testid="team-review" aria-label="Record and versions" className="grid gap-2">
       <h3 className={H}>Record and versions</h3>
       <p className={META}>
-        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-[24px] items-center ${PLAIN_LINK}`} data-testid="team-record-link">Printable record</a>
+        <a href={`/s/${encodeURIComponent(sid)}/record`} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-7 items-center ${PLAIN_LINK}`} data-testid="team-record-link">Printable record</a>
       </p>
       {latest < 2 ? null : (
         <details data-testid="team-compare" className="group">
