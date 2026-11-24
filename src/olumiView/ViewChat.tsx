@@ -20,7 +20,7 @@ import { verdictOf } from './verdict'
 import { toReadOf } from './toRead'
 import { useViewStore } from './store'
 import { usePreMortemGate, useViewLens } from './lens'
-import { chatQuestionsOf, isFirstLook, readingHeadingOf, figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
+import { chatQuestionsAllOf, isFirstLook, readingHeadingOf, figureFirstOf, nextCardsOf, olumiKey, optionInFocusOf, restingRingOf, sessionOf, type Session } from './layout'
 import { derivedUuidOf } from '../olumiCore/team/sid'
 import { isForThisPage, useMe } from '../olumiCore/me'
 import { useCanvasStore } from '../canvas/store'
@@ -1974,11 +1974,11 @@ export function ViewChat() {
       <ChatFootRow key={view?.id ?? ''} sources={[
         { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
           content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
-        { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: chatQuestionsOf(view?.model).length,
+        { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: chatQuestionsAllOf(view?.model).length,
           content: <OlumiAsks
               key={view?.id ?? ''}
               scope={view?.id ?? ''}
-              questions={chatQuestionsOf(view?.model)}
+              questions={chatQuestionsAllOf(view?.model)}
               body={(q) => <QuestionLine text={q.text} id={q.id} edit={q.edit as { prompt: string; ask: string } | null} />}
               held={held}
               // A question core sent typed (CONTRACT §3) carries its id (`answers`): the answer is bound to it on core's answer route (same op for the same words; a refusal is core's). Else today's message.
