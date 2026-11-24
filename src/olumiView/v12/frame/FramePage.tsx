@@ -46,8 +46,8 @@ export const FRAME_WORDS = {
 export const moreCardsWords = (n: number): string => `${n} more ${n === 1 ? 'card' : 'cards'} in the full graph`
 
 const CARD_BOX = 'grid gap-1 rounded-md border p-3'
-const EDIT = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 text-text-body underline underline-offset-2 hover:text-text-header focus-visible:outline-none focus-visible:ring-2`
-const BTN = `${typography.viewPanelMeta} inline-flex min-h-[24px] items-center rounded-md border border-panel-border px-2 text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2`
+const EDIT = `${typography.viewPanelMeta} inline-flex min-h-7 items-center gap-1 text-text-body underline underline-offset-2 hover:text-text-header focus-visible:outline-none focus-visible:ring-2`
+const BTN = `${typography.viewPanelMeta} inline-flex min-h-7 items-center rounded-md border border-panel-border px-2 text-text-body hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2`
 const OLDER_FOCUS = 'focus-visible:ring-info/50'
 
 /** Core's finding words, verbatim: `run.most_likely.text`, else the head, label and text of `run.waits_on`. */

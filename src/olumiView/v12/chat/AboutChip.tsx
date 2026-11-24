@@ -40,7 +40,7 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
       <button type="button" onClick={() => { dismiss(); focusNodeById(ids[0]!) }} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }}
         {...handlers} onFocus={(e) => { pointRing(ids); handlers.onFocus(e) }} onBlur={() => { endRing(); handlers.onBlur() }} aria-describedby={describedBy}
         data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        className={`${typography.viewPanelMeta} inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="on-canvas" size={14} decorative /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
       </button>
       {tip}
