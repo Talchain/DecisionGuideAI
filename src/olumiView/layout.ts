@@ -1311,8 +1311,9 @@ export function readingHeadingOf(marks: NonNullable<View['proposal']>['marks'], 
   }
 }
 
-/** The three questions shown beside the model keep their exact paths, even when another question is blank. */
-export function chatQuestionsOf(model: ViewModel | null | undefined) {
+/** Every question the View serves, in core's order (trial questions, then core's check-first-ordered `model.questions`, else the coaching
+ *  texts), each keeping its exact path even when another question is blank. The chat panel lists all of them (W3, 24 Nov). */
+export function chatQuestionsAllOf(model: ViewModel | null | undefined) {
   const trial = (model?.trial_questions ?? []).flatMap((t, at) => t.title === '' ? [] : [{
     key: 't:' + t.id, view: 'model.trial_questions.' + at + '.title', text: t.title, id: t.id, edit: t.edit, answers: null as string | null,
   }])
@@ -1324,5 +1325,10 @@ export function chatQuestionsOf(model: ViewModel | null | undefined) {
     : (model?.coaching_questions ?? []).flatMap((text, at) => text === '' ? [] : [{
       key: 'c:' + at, view: 'model.coaching_questions.' + at, text, id: null, edit: null, answers: null as string | null,
     }])
-  return [...trial, ...coaching].slice(0, 3)
+  return [...trial, ...coaching]
+}
+
+/** The first three of those, numbered as in the panel: the question marks drawn on cards (CoreCard questionRingOf, marks.tsx). */
+export function chatQuestionsOf(model: ViewModel | null | undefined) {
+  return chatQuestionsAllOf(model).slice(0, 3)
 }
