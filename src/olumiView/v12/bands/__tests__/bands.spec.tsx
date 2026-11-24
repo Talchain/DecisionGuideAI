@@ -390,9 +390,11 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
     setInputsOpen(view.id, false)
     showWholeModel(view.id)
   })
+  // CHANGED BY DESIGN (RC3, 24 Nov): only Olumi's unreviewed notes fold into the proposed group, so the members are figure-free proposed notes, in
+  // the points row; Olumi's proposed drivers are drawn in place (groups.spec G3/G4 are that contrast).
   it('D3 one-way folded links keep their arrows, a mixed pair draws one plain line, and opening the group draws the real links', async () => {
     const members = ['budget', 'oven_price', 'fitting']
-    const group = groupIdOf('proposed', 'inputs')
+    const group = groupIdOf('proposed', 'points')
     const forward = model.links.filter((l) => members.includes(l.from))
     const reverse = { ...forward[0]!, from: 'spend', to: 'fitting', kind: 'plain' as const }
     const core = {
@@ -400,7 +402,7 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
       cards: model.cards
         .filter((c) => [...members, 'spend', 'within_budget'].includes(c.id))
         .map((c) => members.includes(c.id)
-          ? { ...c, kind: 'driver' as const, author: { by: 'olumi' as const, text: '', title: '' }, change: { kind: 'added' as const, glyph: '+', title: '' } }
+          ? { ...c, kind: 'note' as const, figure: null, author: { by: 'olumi' as const, text: '', title: '' }, change: { kind: 'added' as const, glyph: '+', title: '' } }
           : { ...c, author: { by: 'person' as const, text: '', title: '' } }),
       links: [...forward, reverse],
     }

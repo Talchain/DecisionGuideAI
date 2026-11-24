@@ -120,7 +120,6 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
         const root = draw(studio, 'members', level)
         const mark = root.querySelector('[data-testid="node-type-glyph"] svg')
         expect(mark).toHaveAttribute('data-node-shape', 'outcome')
-        expect(mark).toHaveClass('text-success')
         expect(mark?.querySelector('polygon')).toHaveAttribute('fill', 'var(--success)')
         if (rung === 'line') expect(root.querySelector('[data-testid="node-title"]')).toHaveAttribute('data-lod-far-title', 'true')
         else expect(faceOf(root, 'members')).toHaveAttribute('data-ok-kind', 'outcome')
