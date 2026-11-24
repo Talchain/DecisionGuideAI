@@ -3,6 +3,7 @@
  * the writes going straight to core's v1 routes with what core takes, then the View read again.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
@@ -10,7 +11,7 @@ import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewChat, ViewComposer, ViewTurns, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, THINKING_WORDS } from '../ViewChat'
+import { ViewChat, ViewComposer, ViewTurns, sentBriefOf, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, SENDING_BRIEF, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
 import { withheldWords, leadLineOf } from '../previous/CoreCard'
 import { isOpen, setOpen } from './reviewRow'
@@ -91,9 +92,9 @@ describe('a withheld chance says core\'s reason, picked by field (why, else titl
 describe('the writes go straight to core, and the View is read again', () => {
   const view = golden('pricing')
   let posts: { url: string; body: unknown }[] = [], reads: string[] = []
-  const answer = (respond: (url: string, body: unknown) => Response | Promise<Response>) => setTeamFetch((async (url: string, init?: RequestInit) => {
+  const answer = (respond: (url: string, body: unknown) => Response | Promise<Response>, served = view) => setTeamFetch((async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { const body = JSON.parse(String(init.body)); posts.push({ url, body }); return respond(url, body) }
-    reads.push(url); return new Response(JSON.stringify(view), { status: 200 })
+    reads.push(url); return new Response(JSON.stringify(served), { status: 200 })
   }) as unknown as typeof fetch)
   beforeEach(() => { posts = []; reads = []; useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view, error: null, status: 'ready' }) })
   // The address is reset too: the first-answer rows move it (`/#/scenario/<uuid>`), and a write for another scenario is refused under it (Codex 006 #1).
@@ -436,14 +437,78 @@ describe('the writes go straight to core, and the View is read again', () => {
       await waitFor(() => expect(reads).toContain(`/api/scenarios/${MADE}/view?schema=3`))
     })
 
-    it('a refused brief keeps what was typed and says core\'s own words', async () => {
+    it('a refused brief keeps the text, focus and retry op, and says core\'s own words', async () => {
       useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
-      answer(() => new Response(JSON.stringify({ error: 'brief is too long (at most 12,000 characters)' }), { status: 413 }))
+      const refusal = 'brief is too long (at most 12,000 characters)'
+      const refused = () => new Response(JSON.stringify({ error: refusal }), { status: 413 })
+      let respond!: (response: Response) => void
+      answer(() => posts.length === 1 ? new Promise<Response>((resolve) => { respond = resolve }) : refused())
       const { container } = renderTab()
+      const box = container.querySelector<HTMLTextAreaElement>('#view-chat-text')!
+      const sending = () => container.querySelector('[data-testid="view-brief-sending"]')
+      const intro = () => container.querySelector('[data-testid="view-brief-intro"]')
+      const sendButton = container.querySelector<HTMLButtonElement>('[data-testid="view-composer-send"]')!
+      expect(box).toHaveFocus()
+      expect(sending()).toBeNull()
       type(container, 'A brief')
+      expect(fireEvent.mouseDown(sendButton, { button: 0 })).toBe(false)
       await send(container)
-      await waitFor(() => expect(container.querySelector('[data-testid="view-chat-said"]')?.textContent).toBe('brief is too long (at most 12,000 characters)'))
-      expect((container.querySelector('#view-chat-text') as HTMLTextAreaElement).value).toBe('A brief')
+      expect(box).toHaveFocus()
+      expect(box.disabled).toBe(false)
+      expect(box.readOnly).toBe(true)
+      expect(box.getAttribute('aria-readonly')).toBe('true')
+      expect(box.value).toBe('A brief')
+      expect(sending()?.textContent).toBe(SENDING_BRIEF)
+      expect(intro()).toBeNull()
+      expect(container.querySelector('[data-testid="view-composer-attach"]')).toBeNull()
+      expect(container.querySelector('[data-testid="view-composer-talk-first"]')?.getAttribute('aria-disabled')).toBe('true')
+      expect(sendButton.disabled).toBe(true)
+      await act(async () => { respond(refused()) })
+      expect(sending()).toBeNull()
+      expect(intro()?.textContent).toBe(BRIEF_INTRO)
+      expect(box).toHaveFocus()
+      expect(box.readOnly).toBe(false)
+      expect(box.hasAttribute('aria-readonly')).toBe(false)
+      expect(box.value).toBe('A brief')
+      expect(container.querySelector('[data-testid="view-chat-said"][role="alert"]')?.textContent).toBe(refusal)
+      expect(posts[0]).toEqual({ url: '/api/scenarios', body: { brief: 'A brief', op: expect.any(String) } })
+      await send(container)
+      expect(posts).toEqual([posts[0], posts[0]])
+      expect(box).toHaveFocus()
+      expect(box.value).toBe('A brief')
+    })
+
+    it('shows one sending cue during create, counts from Send at five seconds, and hands off to the drafting board on acceptance', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+      try {
+        useCanvasStore.setState({ currentScenarioId: null } as never)
+        useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+        const brief = 'Should we raise the price of our pastries?'
+        const draft = { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model' } as const
+        let accept!: (response: Response) => void
+        answer(() => new Promise<Response>((resolve) => { accept = resolve }),
+          { ...view, id: MADE, version: null, proposal: null, model: null, chat: [], brief, draft })
+        const { container } = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>)
+        const cues = () => container.querySelectorAll('[data-testid="view-brief-sending"]')
+        expect(cues()).toHaveLength(0)
+        type(container, brief)
+        await send(container)
+        expect(posts.map((post) => post.url)).toEqual(['/api/scenarios'])
+        expect(cues()).toHaveLength(1)
+        const cue = cues()[0]!
+        expect(cue.getAttribute('role')).toBe('status')
+        expect(cue.getAttribute('aria-live')).toBe('polite')
+        expect(cue.querySelector('[aria-hidden="true"] [data-testid="thinking-indicator"]')).not.toBeNull()
+        expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
+        act(() => { vi.advanceTimersByTime(4000) })
+        expect(cue.textContent).toBe('Sending your brief…')
+        act(() => { vi.advanceTimersByTime(1000) })
+        expect(cue.querySelector('.tabular-nums[aria-hidden="true"]')?.textContent).toBe(' 5 s')
+        await act(async () => { accept(new Response(JSON.stringify(accepted(MADE)), { status: 202 })) })
+        await waitFor(() => expect(container.querySelector('[data-testid="view-drafting-words"]')?.textContent).toBe(draft.words))
+        expect(cues()).toHaveLength(0)
+        expect(container.querySelectorAll('[data-testid="thinking-indicator"]')).toHaveLength(1)
+      } finally { vi.useRealTimers() }
     })
   })
 })
@@ -485,5 +550,108 @@ describe('honest degradation on a model-less floor reply (core floor[].degraded)
     r.unmount()
     const r2 = render(<ViewConversation chat={[]} floor={[{ ...floor[0], degraded: undefined }] as never} draft={null} me={null} />)
     expect(r2.container.querySelector('[data-testid="view-chat-turn-degraded"]')).toBeNull()
+  })
+})
+
+describe('the saved brief before the first model', () => {
+  const base = golden('pricing')
+  const brief = 'Should we raise the price of our pastries?'
+  const draft = { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model' } as const
+  const first: View = { ...base, brief, brief_by: base.you_id, version: null, proposal: null, model: null, chat: [], draft, turn: null }
+  const entry = { seq: 2, kind: 'brief', job: 2, proposal: 9, by_id: base.you_id, ask: null, discussion: null, state: null } as const
+  const row: View['chat'][number] = {
+    id: entry.proposal, by: base.you, by_id: entry.by_id, version: 'version 1', earlier: false, status: null,
+    answer: null, said: brief, broke: null, problem: null, marks: [], choice: null,
+  }
+  const floor = { job: entry.job, at: draft.at, by: base.you, by_id: entry.by_id, said: brief, text: 'A first reply.' }
+  const associated = { ...first, draft: { ...draft, conversation: [entry] } }
+  const failed = { ...first, draft: { ...draft, status: 'failed' as const } }
+
+  it.each([
+    { case: 'drafting with empty chat', view: first, shows: true },
+    { case: 'done with a version set', view: { ...first, version: base.version, draft: { ...draft, status: 'done' as const } }, shows: false },
+    { case: 'failed with no turn', view: failed, shows: true },
+    { case: 'a drawn saved row with matching proposal and author', view: { ...associated, chat: [{ ...row, said: 'Different words' }] }, shows: false },
+    { case: 'a drawn floor row with matching job and author', view: { ...associated, floor: [floor] }, shows: false },
+    { case: 'an unrelated first saved row repeating the brief', view: { ...associated, chat: [{ ...row, id: 1 }] }, shows: true },
+    { case: 'an unpaired saved row whose id equals the entry sequence', view: { ...associated, chat: [{ ...row, id: entry.seq }] }, shows: true },
+    { case: 'a matching saved row folded as a consecutive retry', view: { ...associated, chat: [{ ...row, problem: 'The reply failed.' }, { ...row, id: 10 }] }, shows: true },
+    { case: 'the matching proposal belongs to another author', view: { ...associated, chat: [{ ...row, by_id: 'p_teammate' }] }, shows: true },
+    { case: 'the matching floor job belongs to another author', view: { ...associated, floor: [{ ...floor, by_id: 'p_teammate' }] }, shows: true },
+    { case: 'blank brief', view: { ...first, brief: ' \n ' }, shows: false },
+  ])('sentBriefOf handles $case', ({ view, shows }) => {
+    expect(sentBriefOf(view)).toEqual(shows ? { text: brief, by: base.you_id } : null)
+  })
+
+  const bubble = (c: HTMLElement) => c.querySelector('[data-testid="view-chat-sent-brief"]')
+  const fold = (c: HTMLElement) => c.querySelector<HTMLDetailsElement>('[data-testid="view-draft-brief"]')
+  const show = (view: View) => useViewStore.setState({ view, sid: view.id, at: null, error: null })
+  const surfaces = () => <><DraftingBoard /><ViewChat /></>
+
+  afterEach(() => {
+    cleanup()
+    useViewStore.setState({ view: null, sid: null })
+  })
+
+  it('shows only the brief bubble while running, then only the thread row in view on hand-off', () => {
+    show({ ...associated, chat: [] })
+    const { container, getAllByText } = render(surfaces())
+    const runningBrief = bubble(container)?.querySelector('[data-view="brief"]')
+    expect(getAllByText(brief)).toEqual([runningBrief])
+    expect(runningBrief).toBeVisible()
+    expect(fold(container)).toBeNull()
+    expect(container.querySelector('[data-view="chat.0.said"]')).toBeNull()
+
+    act(() => show({ ...base, brief, chat: [row] }))
+    const threadBrief = container.querySelector('[data-view="chat.0.said"]')
+    expect(getAllByText(brief)).toEqual([threadBrief])
+    expect(threadBrief).toBeVisible()
+    expect(bubble(container)).toBeNull()
+    expect(fold(container)).toBeNull()
+  })
+
+  it('cold-mounts a running View with no conversation array and shows the brief once', () => {
+    show(first)
+    const { container, getAllByText } = render(surfaces())
+    const runningBrief = bubble(container)?.querySelector('[data-view="brief"]')
+    expect(getAllByText(brief)).toEqual([runningBrief])
+    expect(runningBrief).toBeVisible()
+    expect(fold(container)).toBeNull()
+  })
+
+  it('shows the brief once in the bubble after failure and keeps the board fold closed', () => {
+    show(failed)
+    const { container, getAllByText } = render(surfaces())
+    const bubbleBrief = bubble(container)?.querySelector('[data-view="brief"]')
+    const details = fold(container)
+    const foldedBrief = details?.querySelector('p')
+    expect(getAllByText(brief)).toEqual([foldedBrief, bubbleBrief])
+    expect(bubbleBrief).toBeVisible()
+    expect(details?.open).toBe(false)
+    expect(details?.querySelector('summary')).toHaveTextContent('Your brief')
+    expect(foldedBrief).not.toBeVisible()
+  })
+
+  it('names only a resolved member and styles the viewer’s own brief as their turn', () => {
+    show(first)
+    const { container } = render(surfaces())
+    const name = () => bubble(container)?.querySelector('[data-testid="view-said-by"]')
+    expect(name()).toHaveTextContent('You')
+    expect(name()).toHaveClass('text-text-light')
+
+    act(() => show({ ...first, brief_by: 'p_teammate', members: [...base.members, { id: 'p_teammate', name: 'Ada' }] }))
+    expect(name()).toHaveTextContent('Ada')
+    expect(name()).toHaveClass('text-text-body')
+    expect(name()).not.toHaveClass('text-text-light')
+
+    act(() => show({ ...first, brief_by: 'p_unknown' }))
+    expect(name()).toBeNull()
+    act(() => show({ ...first, members: [] }))
+    expect(name()).toBeNull()
+
+    const { brief_by: _author, ...withoutAuthor } = first
+    act(() => show(withoutAuthor))
+    expect(sentBriefOf(withoutAuthor)).toEqual({ text: brief, by: null })
+    expect(name()).toBeNull()
   })
 })

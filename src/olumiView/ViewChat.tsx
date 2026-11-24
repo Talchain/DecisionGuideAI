@@ -83,6 +83,7 @@ import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
 import { useBriefPanelLeft } from './BriefPanel'
+import { boardDraftOf } from './DraftingBoard'
 import { CHAT_POPOUT_LABEL, CHAT_POPOUT_TITLE, ChatDockBack, ChatFloatHost, popOutChat, useChatFloat } from './port/ChatFloat'
 
 /*
@@ -464,6 +465,29 @@ export const retriedAt = (chat: View['chat'], i: number): boolean => {
   const t = chat[i], next = chat[i + 1]
   return t !== undefined && next !== undefined && t.answer === null && t.problem !== null && !!t.by_id && next.by_id === t.by_id && next.said === t.said
 }
+
+export function shownRows(chat: View['chat'], rows: ReturnType<typeof threadRows>): ReturnType<typeof threadRows> {
+  return rows.filter((row, position) => {
+    if (row.index === null) return true
+    // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
+    return !(rows[position + 1]?.index === row.index + 1 && row.floor === null && earlyOf(chat[row.index]) === null && retriedAt(chat, row.index))
+  })
+}
+
+/** The board's saved brief stays in the thread until a drawn row carries its conversation association. */
+export function sentBriefOf(view: View | null): { text: string; by: string | null } | null {
+  if (view === null || boardDraftOf(view) === null || typeof view.brief !== 'string' || view.brief.trim() === '') return null
+  const { chat } = view
+  const entries = entriesOf(view.draft)
+  const brief = entries?.find((entry) => entry.kind === 'brief')
+  if (brief !== undefined && shownRows(chat, threadRows(chat, floorShown(view), entries)).some(({ index, floor }) => {
+    const saved = index === null ? undefined : chat[index]
+    return (saved !== undefined && saved.id === brief.proposal && saved.by_id === brief.by_id) ||
+      (floor !== null && floor.job === brief.job && floor.by_id === brief.by_id)
+  })) return null
+  return { text: view.brief, by: view.brief_by ?? null }
+}
+
 /** v10 review item 6/11: "Ask this again" on a message that got no answer. It copies that message's words into the composer's draft and sends nothing,
  *  writes nothing and calls no AI; the person reads them, edits if they wish, and sends. A draft already typed is kept: the words follow it. */
 export const ASK_AGAIN = 'Ask this again'
@@ -521,7 +545,7 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
 /** One row per accepted contribution, with its immediate and model-grounded replies together. */
 export function ViewConversation({ chat, floor = [], draft, moves = false, primary = false, me }: { chat: View['chat']; floor?: readonly FloorTurn[]; draft?: View['draft']; moves?: boolean; primary?: boolean; me?: string | null }) {
   const entries = entriesOf(draft)
-  const rows = threadRows(chat, floor, entries)
+  const rows = shownRows(chat, threadRows(chat, floor, entries))
   if (!rows.length) return null
   // The final row can be an independent floor exchange. Find the last saved row in the actual display order.
   let newestSaved: number | null = null
@@ -532,9 +556,6 @@ export function ViewConversation({ chat, floor = [], draft, moves = false, prima
         const latest = position === rows.length - 1
         if (row.index === null) return <FloorLine key={`floor:${row.floor!.job}`} f={row.floor!} me={me} latest={latest} />
         const t = chat[row.index]!
-        const next = rows[position + 1]
-        // Fold only consecutive attempts. A floor reply may add distinct context even when the subsequent message repeats the words.
-        if (next?.index === row.index + 1 && row.floor === null && earlyOf(t) === null && retriedAt(chat, row.index)) return null
         const latestAnswer = row.index === newestSaved
         return <Turn key={t.id} t={t} at={`chat.${row.index}`} floor={row.floor} latest={latestAnswer} moves={moves} primary={primary} me={me} />
       })}
@@ -1932,6 +1953,9 @@ export function ViewChat() {
   const savedReply = entry === undefined ? undefined : view?.chat.find((row) => row.id === entry.proposal && row.by_id === entry.by_id)
   const replyVisible = isAnswering(view) && (floor.some((row) => row.job === job && row.unanswered === undefined) ||
     (savedReply !== undefined && (earlyOf(savedReply) !== null || savedReply.answer?.answer.some((part) => 'text' in part && part.text.trim() !== '') === true)))
+  const sentBrief = sentBriefOf(view)
+  const ownBrief = sentBrief?.by != null && sentBrief.by === view?.you_id
+  const briefName = sentBrief?.by == null ? null : view?.members.find((member) => member.id === sentBrief.by)?.name ?? null
   const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
   const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
   // The person's own save is what they look for (DL journey (4)): each new notice (a new object, even for the same version) makes its
@@ -1983,6 +2007,10 @@ export function ViewChat() {
           <div ref={content} className="space-y-4 p-3">
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
+            {sentBrief === null ? null : <div className="ok-said" data-testid="view-chat-sent-brief">
+              {briefName === null ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${ownBrief ? 'text-text-light' : 'text-text-body'}`} data-testid="view-said-by">{ownBrief ? 'You' : briefName}</p>}
+              <p className={`${typography.viewPanelBody} whitespace-pre-wrap`} data-view="brief">{sentBrief.text}</p>
+            </div>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}
             {view === null ? null : <ViewConversation chat={view.chat} floor={floor} draft={view.draft} moves primary={!pinned} me={view.you_id} />}
             {/* P1: ONE waiting mount from Send through acceptance: before core accepts, `turn` is null; the same element then takes core's turn (no remount, so the loader and its seconds never restart). */}
@@ -2049,9 +2077,9 @@ function ModelNoticeLine() {
   )
 }
 
-// A brief's drafting is said on the board (DraftingBoard.tsx, the View's `draft.words`); no UI words for it here.
 // While a message is in flight the thread's one waiting line (TurnInFlight) says it: the brand loader, the words and the seconds, from Send through acceptance.
 export const THINKING_WORDS = 'Olumi is answering'
+export const SENDING_BRIEF = 'Sending your brief…'
 
 /** What a first-time person needs before their brief (lane C, Paul 3 Nov: understood within a minute): what to write and what happens. */
 /** The composer's one sentence once there is something to ask about (V12 boards); the brief's example stays for the first brief. */
@@ -2094,6 +2122,15 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
     el.style.overflowY = el.scrollHeight > cap && text !== '' ? 'auto' : 'hidden'
   }, [text, unknown])
   const brief = takesBrief(sid, view)
+  const sendingBrief = brief && busy && !drafting
+  const [briefSeconds, setBriefSeconds] = useState(0)
+  useLayoutEffect(() => {
+    if (!sendingBrief) return
+    const sent = Date.now()
+    setBriefSeconds(0)
+    const timer = setInterval(() => setBriefSeconds(Math.max(0, Math.floor((Date.now() - sent) / 1000))), 1000)
+    return () => clearInterval(timer)
+  }, [sendingBrief])
   // A brief whose answer was lost before a reload is back in the box, with its op (restorePendingBrief); nothing is sent until Send.
   const me = useMe((m) => m.me)
   useEffect(() => { if (me !== null && sid === null) restorePendingBrief() }, [me, sid])
@@ -2110,7 +2147,11 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   if (sid !== null && view === null && error === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
   const sendHeld = held || answering || text.trim() === ''
-  const submit = () => { if (!sendHeld) void send() }
+  const submit = () => {
+    if (sendHeld) return
+    if (brief) box.current?.focus()
+    void send()
+  }
   // The four methods as icon buttons under the typing line (Paul, 15 Nov: "I don't want to lose the functions and the icons"): same rule as
   // "More ways" (they need a model; none for a brief, a model-less conversation or while a write holds the composer). What a press does: `pressChallenge`.
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
@@ -2128,8 +2169,11 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         </p>
       )}
       <label className={brief ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
-      {/* What to write, until it is written: once the brief is sent, the box holds it and the board says what happens. */}
-      {brief && !busy && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      {sendingBrief ? <p role="status" aria-live="polite" className={`${typography.viewPanelBody} m-0 ok-waiting`} data-testid="view-brief-sending">
+        <span aria-hidden="true"><ThinkingIndicator kinds={boardKindsOf(view)} /></span>
+        <span className="ok-thinking-words">{SENDING_BRIEF}</span>
+        {briefSeconds >= 5 ? <span aria-hidden="true" className={`${typography.viewPanelMeta} whitespace-nowrap tabular-nums text-text-light`}> {briefSeconds} s</span> : null}
+      </p> : brief && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
@@ -2138,7 +2182,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         {armed === null ? null : <p role="status" className={`${typography.viewPanelMeta} m-0 px-3 pt-2 text-text-light`} data-testid="view-composer-armed">{V10_METHODS.find((m) => m.key === armed)!.label}: {PICK_A_CARD}</p>}
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
-          rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined} disabled={held}
+          rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined}
+          disabled={held && !sendingBrief} readOnly={sendingBrief} aria-readonly={sendingBrief || undefined}
           onChange={(e) => useViewChat.setState({ text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
         <div className="flex items-center gap-1 px-2 pb-1.5" data-testid="view-composer-footer">
@@ -2177,6 +2222,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             </HoverButton>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
+            onMouseDown={(event) => { if (brief && event.button === 0 && document.activeElement === box.current) event.preventDefault() }}
             className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${controls.act}`}>
             <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>

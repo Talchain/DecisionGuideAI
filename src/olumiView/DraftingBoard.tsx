@@ -19,6 +19,7 @@ import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { typography } from '../styles/typography'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
 import { Button } from '../components/ui/Button'
+import { VIEW_CHIP_CLASS } from '../v5/blocks/chipClass'
 import { ThinkingIndicator } from '../canvas/conversation/zones/ThinkingIndicator'
 import { boardKindsOf } from './boardKindsOf'
 import { useBesideZoom } from './BelowCue'
@@ -116,15 +117,14 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
         </p>
         {early === null ? null : <EarlyAnswer text={early} testid="view-drafting-early" />}
         {early === null || running ? null : <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-drafting-early-failed">{EARLY_FAILED}</p>}
-        {/* 17 Nov (the calm panel): Stop is a quiet icon beside the timer, not a box. Core's own label is its name and its title the hover. */}
         {running
           ? (s === null && draft.stop == null ? null : (
             <div className="flex items-center justify-center gap-1">
               {s === null ? null : <p className={`${typography.viewPanelMeta} text-text-light tabular-nums`} aria-hidden="true" data-testid="view-drafting-seconds">{s} s</p>}
               {draft.stop == null ? null : (
                 <HoverButton type="button" disabled={busy} words={draft.stop.title} aria-label={draft.stop.label} data-view="draft.stop.label" data-testid="view-drafting-stop" onClick={() => void stopDraft()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
-                  <OkIcon id="stop" size={14} decorative /><span className="sr-only">{draft.stop.label}</span>
+                  className={VIEW_CHIP_CLASS}>
+                  <OkIcon id="stop" size={14} decorative />{draft.stop.label}
                 </HoverButton>
               )}
             </div>

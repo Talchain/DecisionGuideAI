@@ -7,6 +7,7 @@
  */
 import { laneTipOf } from './tipHelpers'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, renderHook } from '@testing-library/react'
@@ -18,6 +19,7 @@ import { DRAFT_POLL_MS, POLL_MS, useViewPoll } from '../poll'
 import { useCanvasStore } from '../../canvas/store'
 import { ViewComposer, isDrafting, pendingBrief, useViewChat } from '../ViewChat'
 import { DraftingBoard, boardDraftOf } from '../DraftingBoard'
+import { VIEW_CHIP_CLASS } from '../../v5/blocks/chipClass'
 
 const DIR = path.resolve('src/olumiView')
 const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'golden', `${n}.view.json`), 'utf8'))
@@ -102,6 +104,14 @@ describe('the drafting board', () => {
     const c = render(<DraftingBoard />).container
     const stop = c.querySelector<HTMLButtonElement>('[data-testid="view-drafting-stop"]')!
     expect([stop.textContent, laneTipOf(stop), stop.getAttribute('data-view')]).toEqual([STOP.label, STOP.title, 'draft.stop.label'])
+    expect(stop).toBeVisible()
+    expect(stop.querySelector('.sr-only')).toBeNull()
+    act(() => { useViewChat.setState({ busy: true }) })
+    expect(stop.getAttribute('aria-disabled')).toBe('true')
+    expect(stop.className).toBe(VIEW_CHIP_CLASS)
+    expect(stop.classList.contains('aria-disabled:text-text-light')).toBe(true)
+    expect(stop.className).not.toMatch(/opacity-/)
+    act(() => { useViewChat.setState({ busy: false }) })
     await act(async () => { fireEvent.click(stop) })
     await tick(0)
     expect(posts).toEqual([{ url: `/api/scenarios/${SID_A}/jobs/7/stop`, body: {} }])
@@ -257,11 +267,15 @@ describe('reload and a lost acceptance answer', () => {
     useViewStore.setState({ uuid: page, sid: null, view: null, error: null, status: 'none', stale: false, at: null })
     post = () => { throw new TypeError('the connection dropped') } // the 202 never reached the page
     const first = render(<ViewComposer />).container
-    fireEvent.change(first.querySelector('#view-chat-text')!, { target: { value: brief } })
+    const box = first.querySelector<HTMLTextAreaElement>('#view-chat-text')!
+    expect(box).toHaveFocus()
+    fireEvent.change(box, { target: { value: brief } })
     await act(async () => { fireEvent.click(first.querySelector('[data-testid="view-composer-send"]')!) })
     await tick(0)
     expect(posts).toHaveLength(1)
     const op = (posts[0]!.body as { op: string }).op
+    expect(box).toHaveFocus()
+    expect(box.value).toBe(brief)
     expect(pendingBrief('7')).toEqual({ brief, op })
     expect(pendingBrief('8')).toBeNull() // kept for this person only
     // The reload: this page's memory is gone; the tab's sessionStorage is not.
