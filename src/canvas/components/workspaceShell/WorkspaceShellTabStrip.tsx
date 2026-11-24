@@ -54,7 +54,7 @@ import {
  */
 
 const rowIconControl = (lane: boolean) =>
-  'inline-flex items-center justify-center w-6 h-6 rounded border border-field ' +
+  `inline-flex items-center justify-center ${lane ? 'w-7 h-7' : 'w-6 h-6'} rounded border border-field ` +
   `${lane ? typography.viewPanelMeta : typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
 
 /**
