@@ -42,6 +42,7 @@ import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
 import { SimpleFace } from '../v12/SimpleFace'
+import { GoalMeasureLine, waitingMeasureQuestion } from '../v12/cards/GoalMeasureLine'
 import { CardDisputeMark, CardSplit, usePeopleOnCard } from '../../olumiCore/team/CardDispute'
 import { CommittedMark } from '../v12/team/CommittedMark'
 import { RestsOn } from '../v12/cards/RestsOn'
@@ -345,6 +346,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const setAside = card !== null && card.status != null && card.status !== ''
   const setAsideChance = card !== null && setAside && card.family === 'option' && card.headline?.state === 'chance' ? card.headline : null
   const sharedRows = useMemo(() => sharedRowStates(model), [model])
+  const measureQuestion = card === null || simple ? null : waitingMeasureQuestion(card, model)
+  const showsBound = card?.bound != null && lead === card.bound.text && lead !== card.figure?.text
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
     // An option core sends no headline for (its rows only): each aim's card says its rows by letter (AimResults). Only where nothing can be worked
@@ -429,12 +432,18 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {estimate && !olumi && card.olumi != null ? <span className="ok-dt-num-mark" data-view={`${id}.olumi`}><OlumiMark words={card.olumi.title} /></span> : null}{trail}</p>
       </Hover>
     )
-    if (card.bound != null && lead === card.bound.text) {
+    if (card.bound != null && showsBound) {
+      const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} /></span>
+      if (measureQuestion !== null) return (
+        <div className="flex min-w-0 items-center gap-1" data-core-lead={id} data-ok-face="target">
+          <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 flex-1 break-words" />
+          {mark}
+        </div>
+      )
       // DL 06:57Z (1): the aim's question opens its target figure's own editor, found by core's `target` line (targets.ts); nothing where core
       // offers no edit. Where Olumi proposed the target, Olumi's mark beside it, core's words its name.
       const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
       const words = <span data-core-lead-clamp={id}>{lead}</span>
-      const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} /></span>
       return (
         <Hover as="div" focusable={false} data-core-lead={id} data-ok-face="target" words={hover} className={target === null ? undefined : 'relative'}>
           {target === null
@@ -492,6 +501,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {/* A card core no longer holds as live (`status`, e.g. "ruled out"): core's word, once, where the card's state is said; its name goes light (olumiLook.css).
               Where that withholds a chance headline from the face, core's own chance words and their title are this line's hover. */}
           {setAside ? <Hover as="p" focusable={false} className="ok-quiet" data-view={`${id}.status`} words={setAsideChance === null ? undefined : [setAsideChance.text, setAsideChance.title].filter((x) => x !== '').join('\n')}>{card.status}</Hover> : null}
+          {measureQuestion === null || showsBound ? null : <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 self-start" />}
           {faceOf()}
           {/* An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover, as the Simple face
               says them; no empty bar at rest (Paul, 16 Nov), and nothing at all where core sends no words for the gap. */}

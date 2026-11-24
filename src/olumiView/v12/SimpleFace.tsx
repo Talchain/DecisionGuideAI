@@ -29,6 +29,7 @@ import { targetCardOf } from '../model/targets'
 import { barCardOf, olumiKey } from '../layout'
 import { figureRange, isBaseline, isFigureNumber, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
+import { GoalMeasureLine, waitingMeasureQuestion } from './cards/GoalMeasureLine'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
 import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
@@ -243,6 +244,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const mark = bar !== null && whoseOf(bar) !== null ? <AuthorGlyph card={bar} /> : olumi ? <OlumiMark words={card.bound.olumi!.title} /> : null
     const bound = <span className="min-w-0 break-words text-text-header">{card.bound.text}</span>
     const quietBound = <span className="min-w-0 break-words">{card.bound.text}</span>
+    const question = waitingMeasureQuestion(card, model)
     visual = (
       // The aim's mark is the diamond before its name (the look's); here its bound, core's words, as a quiet outlined pill.
       // A bound core has not measured (`bound.measured` false: "not checked yet: nothing in the model is counted against it") is the card's state, so it is its quiet
@@ -254,6 +256,11 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             {mark}
           </span>
         </Hover>
+      ) : question !== null ? (
+        <div className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
+          <GoalMeasureLine question={question} className="ok-quiet min-w-0 flex-1 break-words" />
+          {mark}
+        </div>
       ) : (
         <Hover focusable={false} as="p" words={card.bound.title !== '' ? card.bound.title : card.bound.text} className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
           {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
