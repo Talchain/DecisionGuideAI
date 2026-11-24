@@ -1022,6 +1022,7 @@ export interface ViewChatState {
    */
   readonly ops: ReadonlyMap<string, string>
   readonly busy: boolean
+  readonly briefSend: { op: string; text: string; phase: 'sending' | 'accepted'; to: string | null } | null
   /** Core's words for the last write that did not go through, or SAVED_NOT_SHOWN. */
   readonly said: string | null
   /** W2: counts this viewer's own accepted sends (a message or a menu question); never another member's activity. Absent in an older store state: 0. */
@@ -1047,7 +1048,12 @@ export interface ViewChatState {
   readonly prefilled?: string | null
 }
 
-export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null, sent: 0 }))
+export const useViewChat = create<ViewChatState>()(() => ({ text: '', ops: new Map(), busy: false, briefSend: null, said: null, held: null, gone: null, sent: 0 }))
+
+function clearBriefSend(op: string): void {
+  if (useViewChat.getState().briefSend?.op === op) useViewChat.setState({ briefSend: null })
+}
+
 /** W2: this viewer's own message or menu question was accepted (each acceptance a new number), so the thread follows the turn and the reply it brings. */
 const ownSendAccepted = (): void => useViewChat.setState({ sent: (useViewChat.getState().sent ?? 0) + 1, sentSid: useViewStore.getState().sid })
 // Any write to the text (typing, a send, a restore) that is not the prefill itself makes the box the person's: `prefilled` is cleared at the one place every write passes.
@@ -1097,38 +1103,52 @@ const firstMessageOp = (op: string) => `${op}-m`.slice(0, 64)
 async function startScenario(brief: string, op: string, uuid: string | null, words = false): Promise<void> {
   watchPageMoves()
   const left = pageMoves
-  // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
-  // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
-  keepPending(brief, op, words)
-  const made = words ? await createInWords(brief, op) : await writes.create(brief, op)
-  // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
-  if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
-  // Words-start (Codex root 04:07:06Z #1): the first message's receipt (the brief, its op) is saved for the named scenario BEFORE the brief's
-  // receipt is dropped and before any read, so a close or reload in between still finds the brief to send, by that same op.
-  const mop = firstMessageOp(op)
-  if (words) keepPendingTurn(made.scenario, brief, mop)
-  dropPending(op)
-  const derived = derivedUuidOf(made.scenario)
-  if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
-  // The page moved away while the answer was on its way, even if it has since come back (A → B → A): it moves nothing (review 00002).
-  if (pageMoves !== left || useCanvasStore.getState().currentScenarioId !== uuid) return
-  useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
-  setCurrentScenarioId(derived)
-  try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
-  await useViewStore.getState().use(derived)
-  if (words) {
-    // The brief is sent ONCE as the first message, under its op saved above (as any message's), so a reload or a lost acceptance asks core
-    // again by that op. If it does not go through, the words go back in this scenario's box with that op and core's
-    // own words, so one press sends the same message again; the person never types it again.
-    try { await writes.message(made.scenario, brief, mop); dropPendingTurn(mop) } catch (e) {
-      const said = e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.'
-      if (useViewStore.getState().uuid === derived) useViewChat.setState({ text: brief, said, ops: new Map(useViewChat.getState().ops).set(opKey(derived, 'message', brief), mop) })
-      throw e
+  try {
+    // AI jobs (core API v1.26): core accepts the brief at once (202) and drafts it in the server. Until it names the scenario, the brief and its
+    // op stay in this tab for this person, so an answer lost on the way is recovered after a reload by the same op (pendingBrief), never redrafted.
+    keepPending(brief, op, words)
+    useViewChat.setState({ briefSend: { op, text: brief, phase: 'sending', to: null } })
+    const made = words ? await createInWords(brief, op) : await writes.create(brief, op)
+    // An answer that names no scenario (unreadable, or JSON null) may still have been saved: uncertain, never "nothing saved" (00054 #4).
+    if (typeof made?.scenario !== 'string' || !/^s_[0-9a-f]+$/.test(made.scenario)) throw new TeamApiError(0, UNCERTAIN_WRITE, true)
+    // Words-start (Codex root 04:07:06Z #1): the first message's receipt (the brief, its op) is saved for the named scenario BEFORE the brief's
+    // receipt is dropped and before any read, so a close or reload in between still finds the brief to send, by that same op.
+    const mop = firstMessageOp(op)
+    if (words) keepPendingTurn(made.scenario, brief, mop)
+    dropPending(op)
+    const derived = derivedUuidOf(made.scenario)
+    if (derived === null) throw new TeamApiError(502, 'Olumi made the scenario but named it in a way this page cannot open. Reload the page.')
+    // An answer moves nothing after a page change (including A → B → A) or a fresh start that cleared the send at the same address.
+    if (pageMoves !== left || useCanvasStore.getState().currentScenarioId !== uuid || useViewChat.getState().briefSend?.op !== op) {
+      clearBriefSend(op)
+      return
     }
+    useCanvasStore.setState(scenarioIdWrite(useCanvasStore.getState().currentScenarioId, derived))
+    setCurrentScenarioId(derived)
+    try { window.history.replaceState(window.history.state, '', `/#/scenario/${derived}`) } catch { /* the address bar keeps its old address */ }
+    // The accepted brief now has its own display. Release those words from the editable draft before the thread draws them.
+    useViewChat.setState((state) => ({
+      briefSend: { op, text: brief, phase: 'accepted', to: derived },
+      ...(state.text === brief ? { text: '', wordsBrief: null, pressBack: null } : {}),
+    }))
+    await useViewStore.getState().use(derived)
+    if (words) {
+      // The brief is sent ONCE as the first message, under its op saved above (as any message's), so a reload or a lost acceptance asks core
+      // again by that op. If it does not go through, the words go back in this scenario's box with that op and core's
+      // own words, so one press sends the same message again; the person never types it again.
+      try { await writes.message(made.scenario, brief, mop); dropPendingTurn(mop) } catch (e) {
+        const said = e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.'
+        if (useViewStore.getState().uuid === derived) useViewChat.setState({ text: brief, said, ops: new Map(useViewChat.getState().ops).set(opKey(derived, 'message', brief), mop) })
+        throw e
+      }
+    }
+    // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
+    const opened = useViewStore.getState()
+    if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && (words || opened.view?.draft?.status === 'drafting')) revealOlumiSurface()
+  } catch (e) {
+    clearBriefSend(op)
+    throw e
   }
-  // The central brief box goes away when a draft starts. Take this writer to the ordinary follow-up composer, wherever they keep Olumi.
-  const opened = useViewStore.getState()
-  if (opened.uuid === derived && useCanvasStore.getState().currentScenarioId === derived && (words || opened.view?.draft?.status === 'drafting')) revealOlumiSurface()
 }
 
 /** How many times the page has moved to another scenario: an answer is applied only to the page it was asked from. */
@@ -2099,7 +2119,7 @@ export function ViewComposer({ analysisAction }: { analysisAction?: AIInputBarPr
 // The same composer in either surface (A2 stop/float, DL 10 Nov).
 function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps['analysisAction'] }): ReactNode {
   const sid = useViewStore((s) => s.sid), view = useViewStore((s) => s.view), error = useViewStore((s) => s.error), past = useViewStore((s) => s.at)
-  const { text, busy, said, prefilled } = useViewChat()
+  const { text, busy, said, prefilled, briefSend } = useViewChat()
   const popped = useChatFloat((st) => st.floating)
   const drafting = isDrafting(view), answering = isAnswering(view)
   // A scenario whose View is not read yet (its first read failed): what it holds is unknown, so nothing is sent until it is (Codex r1 #4).
@@ -2110,19 +2130,26 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   // its text added to the box for the person to check before they send (BriefDocumentUpload, the old composer's own reader); nothing is uploaded.
   // #26: the read belongs to the page it was chosen on (the scenario's address, as `act` binds a write); one that ends after a move adds nothing.
   const page = useViewStore((s) => s.uuid)
+  const waitingBrief = briefSend?.phase === 'accepted' && briefSend.to === page && view === null && error === null ? briefSend : null
+  useEffect(() => {
+    const accepted = useViewChat.getState().briefSend
+    if (accepted?.phase === 'accepted' && (accepted.to !== page || view !== null || error !== null)) clearBriefSend(accepted.op)
+  }, [page, view, error])
   const attach = useBriefDocumentUpload({ draft: text, setDraft: (t) => useViewChat.setState({ text: t }), onAdded: () => box.current?.focus(), inChat: !takesBrief(sid, view), page })
   // Fit up to six lines, including restored text; clearing returns to one (pre-screen 4b92d394 row 13).
+  const shownText = waitingBrief?.text ?? text
   useEffect(() => {
     const el = box.current
     if (el === null) return
     el.style.height = 'auto'
     const css = getComputedStyle(el)
     const cap = (parseFloat(css.lineHeight) || 24) * 6 + (parseFloat(css.paddingTop) || 0) + (parseFloat(css.paddingBottom) || 0)
-    el.style.height = text === '' ? '' : `${Math.min(el.scrollHeight, cap)}px`
-    el.style.overflowY = el.scrollHeight > cap && text !== '' ? 'auto' : 'hidden'
-  }, [text, unknown])
+    el.style.height = shownText === '' ? '' : `${Math.min(el.scrollHeight, cap)}px`
+    el.style.overflowY = el.scrollHeight > cap && shownText !== '' ? 'auto' : 'hidden'
+  }, [shownText, unknown])
   const brief = takesBrief(sid, view)
-  const sendingBrief = brief && busy && !drafting
+  const sendingBrief = briefSend?.phase === 'sending' && brief
+  const briefReadOnly = sendingBrief || waitingBrief !== null
   const [briefSeconds, setBriefSeconds] = useState(0)
   useLayoutEffect(() => {
     if (!sendingBrief) return
@@ -2144,9 +2171,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const armed = useArmedChallenge()
   // An untouched prefill is not a draft: Escape clears it (one press, the one Escape rule). A word edited, added or deleted makes it the person's, and it is never discarded.
   useEscapeLayer(text !== '' && text === prefilled, () => useViewChat.setState({ text: '', prefilled: null }))
-  if (sid !== null && view === null && error === null) return null
+  if (unknown && error === null && waitingBrief === null) return null
   const blocked = analysisAction !== undefined && !analysisAction.canRun && !analysisAction.isRunning
-  const sendHeld = held || answering || text.trim() === ''
+  const sendHeld = held || waitingBrief !== null || answering || text.trim() === ''
   const submit = () => {
     if (sendHeld) return
     if (brief) box.current?.focus()
@@ -2157,7 +2184,9 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
   const methods = view !== null && !held && !takesBrief(sid, view) && !onFloor(view)
   const session = view === null || brief ? null : sessionOf(view), menu = view === null || brief ? null : menuOf(view), build = buildOfferOf(view)
   // V12 boards: one sentence in the box once there is a model to ask about (it replaces the stage-by-stage lines); the first brief keeps its example.
-  const placeholder = brief ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
+  const briefLabel = brief || waitingBrief !== null
+  const intro = brief && !drafting && waitingBrief === null
+  const placeholder = briefLabel ? BRIEF_EXAMPLE : COMPOSER_PLACEHOLDER
   return (
     <div className={`${typography.viewPanelBody} p-3 space-y-2`} data-testid="view-composer">
       {said === null ? null : <p role="alert" data-testid="view-chat-said">{said}</p>}
@@ -2168,25 +2197,25 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
           <button type="button" className="rounded-sm px-2 py-1 border border-panel-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
         </p>
       )}
-      <label className={brief ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{brief ? 'Your brief' : 'Message Olumi'}</label>
+      <label className={briefLabel ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{briefLabel ? 'Your brief' : 'Message Olumi'}</label>
       {sendingBrief ? <p role="status" aria-live="polite" className={`${typography.viewPanelBody} m-0 ok-waiting`} data-testid="view-brief-sending">
         <span aria-hidden="true"><ThinkingIndicator kinds={boardKindsOf(view)} /></span>
         <span className="ok-thinking-words">{SENDING_BRIEF}</span>
         {briefSeconds >= 5 ? <span aria-hidden="true" className={`${typography.viewPanelMeta} whitespace-nowrap tabular-nums text-text-light`}> {briefSeconds} s</span> : null}
-      </p> : brief && !drafting ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
+      </p> : intro ? <p id="view-brief-intro" className="text-text-body" data-testid="view-brief-intro">{BRIEF_INTRO}</p> : null}
       {/* Keep the first line compact as the brief or message grows (pre-screen 4b92d394 row 13). */}
       <div className="relative bg-panel border border-panel-border rounded-md transition-colors focus-within:border-text-light">
         {/* 17 Nov (the calm panel): the selected card is a chip inside the composer, "About: <card heading>" with an X to clear it. */}
-        <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} useQuiet={useDetailsOpenFor} />
+        {waitingBrief === null ? <SelectionPill chip after={selectedRename} mark={selectedKindMark} onAsk={askAboutSelection} useQuiet={useDetailsOpenFor} /> : null}
         {/* A challenge waiting for its card says so here, in words (the pressed icon alone is not enough on touch or by keyboard). */}
-        {armed === null ? null : <p role="status" className={`${typography.viewPanelMeta} m-0 px-3 pt-2 text-text-light`} data-testid="view-composer-armed">{V10_METHODS.find((m) => m.key === armed)!.label}: {PICK_A_CARD}</p>}
+        {armed === null || waitingBrief !== null ? null : <p role="status" className={`${typography.viewPanelMeta} m-0 px-3 pt-2 text-text-light`} data-testid="view-composer-armed">{V10_METHODS.find((m) => m.key === armed)!.label}: {PICK_A_CARD}</p>}
         <textarea ref={box} id="view-chat-text" className={`${typography.viewPanelBody} block w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light pt-2 pb-1 px-3`}
           // The brief's example is what to write: shown whole until something is typed (it wraps; one row cut it mid-sentence at 1232, DL 10 Nov).
-          rows={brief && !busy && !drafting && text === '' ? 3 : 1} value={text} placeholder={placeholder} aria-describedby={brief && !busy && !drafting ? 'view-brief-intro' : undefined}
-          disabled={held && !sendingBrief} readOnly={sendingBrief} aria-readonly={sendingBrief || undefined}
+          rows={intro && !busy && text === '' ? 3 : 1} value={shownText} placeholder={placeholder} aria-describedby={intro && !busy ? 'view-brief-intro' : undefined}
+          disabled={held && !briefReadOnly} readOnly={briefReadOnly} aria-readonly={briefReadOnly || undefined}
           onChange={(e) => useViewChat.setState({ text: e.target.value })}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit() } }} />
-        <div className="flex items-center gap-1 px-2 pb-1.5" data-testid="view-composer-footer">
+        {waitingBrief !== null ? null : <div className="flex items-center gap-1 px-2 pb-1.5" data-testid="view-composer-footer">
           {held ? null : <span className="flex items-center" data-testid="view-composer-attach">{attach.trigger}</span>}
           {!methods ? null : (
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
@@ -2227,10 +2256,10 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>
         </div>
-        </div>
+        </div>}
       </div>
       {/* What the file added and the way to take it out again, only once a file was read (or failed). */}
-      {attach.feedback}
+      {waitingBrief === null ? attach.feedback : null}
     </div>
   )
 }

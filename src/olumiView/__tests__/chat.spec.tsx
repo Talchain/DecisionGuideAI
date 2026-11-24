@@ -8,10 +8,11 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { setTeamFetch, UNCERTAIN_WRITE } from '../../olumiCore/team/api'
+import { startFreshScenario } from '../../olumiCore/accounts/MyScenariosPage'
 import type { View } from '../client'
 import { currentModel, useViewStore } from '../store'
 import { useCanvasStore } from '../../canvas/store'
-import { ViewChat, ViewComposer, ViewTurns, sentBriefOf, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, SENDING_BRIEF, THINKING_WORDS } from '../ViewChat'
+import { ViewChat, ViewComposer, ViewTurns, challenge, sentBriefOf, useViewChat, SAVED_NOT_SHOWN, BRIEF_INTRO, BRIEF_EXAMPLE, SENDING_BRIEF, THINKING_WORDS } from '../ViewChat'
 import { DraftingBoard } from '../DraftingBoard'
 import { withheldWords, leadLineOf } from '../previous/CoreCard'
 import { isOpen, setOpen } from './reviewRow'
@@ -32,6 +33,22 @@ const golden = (n: string): View => JSON.parse(readFileSync(path.join(DIR, 'gold
 const accepted = (sid: string) => ({ scenario: sid, proposal: null, status_url: `/api/scenarios/${sid}/jobs/2`,
   job: { id: 2, kind: 'draft', scenario: sid, status: 'running', stage: 'reading', words: 'Reading the brief', reason: null, proposal: null, started: '2026-11-08T15:00:00.000Z', at: '2026-11-08T15:00:00.000Z' } })
 const at = (v: unknown, p: string): unknown => p.split('.').reduce<unknown>((x, k) => (x === null || x === undefined ? undefined : (x as Record<string, unknown>)[k]), v)
+
+function expectBriefOnceInOpenDock(container: HTMLElement, brief: string): void {
+  const bubble = container.querySelector('[data-testid="view-chat-sent-brief"] [data-view="brief"]')
+  const fold = container.querySelector<HTMLDetailsElement>('[data-testid="view-draft-brief"]')
+  const foldedBrief = fold?.querySelector('p')
+  const textNodes = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  const matches: (HTMLElement | null)[] = []
+  for (let node = textNodes.nextNode(); node !== null; node = textNodes.nextNode()) {
+    if (node.textContent === brief) matches.push(node.parentElement)
+  }
+  // Every matching text node is accounted for, and exactly one is visible.
+  expect(matches).toEqual([foldedBrief, bubble])
+  expect(fold?.open).toBe(false)
+  expect(foldedBrief).not.toBeVisible()
+  expect(bubble).toBeVisible()
+}
 
 describe.each(['s_ce285b3617bb', 'proposal'])('the conversation is drawn exactly as the View holds it (%s)', (name) => {
   const view = golden(name)
@@ -92,13 +109,14 @@ describe('a withheld chance says core\'s reason, picked by field (why, else titl
 describe('the writes go straight to core, and the View is read again', () => {
   const view = golden('pricing')
   let posts: { url: string; body: unknown }[] = [], reads: string[] = []
-  const answer = (respond: (url: string, body: unknown) => Response | Promise<Response>, served = view) => setTeamFetch((async (url: string, init?: RequestInit) => {
+  const answer = (respond: (url: string, body: unknown) => Response | Promise<Response>, served = view,
+    read: (url: string) => Response | Promise<Response> = () => new Response(JSON.stringify(served), { status: 200 })) => setTeamFetch((async (url: string, init?: RequestInit) => {
     if (init?.method === 'POST') { const body = JSON.parse(String(init.body)); posts.push({ url, body }); return respond(url, body) }
-    reads.push(url); return new Response(JSON.stringify(served), { status: 200 })
+    reads.push(url); return read(url)
   }) as unknown as typeof fetch)
   beforeEach(() => { posts = []; reads = []; useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: 's_000000000001', view, error: null, status: 'ready' }) })
   // The address is reset too: the first-answer rows move it (`/#/scenario/<uuid>`), and a write for another scenario is refused under it (Codex 006 #1).
-  afterEach(() => { window.history.replaceState(null, '', '/'); setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null }) })
+  afterEach(() => { window.history.replaceState(null, '', '/'); setTeamFetch(null); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useViewChat.setState({ text: '', ops: new Map(), busy: false, briefSend: null, said: null }) })
 
   // The tab draws the conversation; the dock's footer holds the composer (review 00052 #3). Both read one store.
   const renderTab = () => render(<><ViewChat /><ViewComposer /></>)
@@ -361,6 +379,92 @@ describe('the writes go straight to core, and the View is read again', () => {
     const MADE = 's_0000000000ab'
     beforeEach(() => { try { localStorage.clear() } catch { /* none */ } })
 
+    it('keeps the accepted brief read-only through the first View read, then shows it once in the thread', async () => {
+      useCanvasStore.setState({ currentScenarioId: null })
+      useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' })
+      const brief = 'Should we raise the price of our pastries?'
+      const drafting: View = { ...view, id: MADE, version: null, proposal: null, model: null, chat: [], brief,
+        draft: { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model' } }
+      let finishFirstRead!: (response: Response) => void
+      const firstRead = new Promise<Response>((resolve) => { finishFirstRead = resolve })
+      const draftResponse = () => new Response(JSON.stringify(drafting), { status: 200 })
+      const viewUrl = `/api/scenarios/${MADE}/view?schema=3`
+      const viewReads = () => reads.filter((url) => url === viewUrl)
+      answer(() => new Response(JSON.stringify(accepted(MADE)), { status: 202 }), drafting,
+        (url) => url === viewUrl && viewReads().length === 1 ? firstRead : draftResponse())
+      const tab = render(<><DraftingBoard /><ViewChat /><ViewComposer /></>)
+      type(tab.container, brief)
+      await send(tab.container)
+      await waitFor(() => expect(viewReads()).toEqual([viewUrl]))
+      expect(useViewStore.getState().view).toBeNull()
+      try {
+        const box = tab.getByRole('textbox', { name: 'Your brief' })
+        expect(box).toBeVisible()
+        expect(box).toBeEnabled()
+        expect(box).toHaveValue(brief)
+        expect(box).toHaveAttribute('readonly')
+        expect(box).toHaveAttribute('aria-readonly', 'true')
+        expect(tab.queryByTestId('view-brief-sending')).toBeNull()
+        expect(tab.queryByTestId('view-brief-intro')).toBeNull()
+        expect(tab.queryByTestId('view-composer-send')).toBeNull()
+      } finally {
+        await act(async () => { finishFirstRead(draftResponse()) })
+      }
+      expect(await tab.findByTestId('view-drafting-board')).toBeVisible()
+      expect(tab.queryByRole('textbox', { name: 'Your brief' })).toBeNull()
+      expect(tab.getByRole('textbox', { name: 'Message Olumi' })).toHaveValue('')
+      expectBriefOnceInOpenDock(tab.container, brief)
+    })
+
+    it('leaves a fresh brief blank and without a sending cue while another write is held', async () => {
+      useCanvasStore.setState({ currentScenarioId: useViewStore.getState().uuid })
+      let respond!: (response: Response) => void
+      answer(() => new Promise<Response>((resolve) => { respond = resolve }))
+      const tab = renderTab()
+      let held!: Promise<boolean>
+      act(() => { held = challenge('assumption', 'factor', 'What are we assuming?') })
+      await waitFor(() => expect(posts).toHaveLength(1))
+      expect(posts[0]!.url).toContain('/challenge')
+      expect(useViewChat.getState().busy).toBe(true)
+      try {
+        act(() => { startFreshScenario() })
+        const box = tab.getByRole('textbox', { name: 'Your brief' })
+        expect(box).toHaveValue('')
+        expect(tab.queryByTestId('view-brief-sending')).toBeNull()
+        expect(box).not.toHaveAttribute('readonly')
+        expect(box).not.toHaveAttribute('aria-readonly')
+      } finally {
+        await act(async () => { respond(new Response(JSON.stringify({ proposal: 9 }), { status: 201 })); await held })
+      }
+    })
+
+    it('keeps a fresh page blank before and after a stale create answer', async () => {
+      const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+      useCanvasStore.setState({ currentScenarioId: uuid })
+      useViewStore.setState({ uuid, sid: null, view: null, error: null, status: 'none' })
+      let accept!: (response: Response) => void
+      answer(() => new Promise<Response>((resolve) => { accept = resolve }))
+      const tab = renderTab()
+      const brief = 'Should we raise the price of our pastries?'
+      type(tab.container, brief)
+      await send(tab.container)
+      expect(posts.map((post) => post.url)).toEqual(['/api/scenarios'])
+      expect(tab.getByTestId('view-brief-sending')).toBeVisible()
+      try {
+        act(() => { startFreshScenario() })
+        expect(tab.queryByTestId('view-brief-sending')).toBeNull()
+        expect(tab.getByRole('textbox', { name: 'Your brief' })).toHaveValue('')
+      } finally {
+        await act(async () => { accept(new Response(JSON.stringify(accepted(MADE)), { status: 202 })) })
+      }
+      await waitFor(() => expect(useViewChat.getState().busy).toBe(false))
+      expect(useCanvasStore.getState().currentScenarioId).toBeNull()
+      expect(reads).not.toContain(`/api/scenarios/${MADE}/view?schema=3`)
+      expect(tab.queryByTestId('view-brief-sending')).toBeNull()
+      expect(tab.getByRole('textbox', { name: 'Your brief' })).toHaveValue('')
+      expect(tab.queryByTestId('view-chat-sent-brief')).toBeNull()
+    })
+
     it('posts the brief, moves the page to the new scenario\'s one address (any member\'s browser opens it there), and reads its View', async () => {
       const uuid = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
       useCanvasStore.setState({ currentScenarioId: uuid } as never)
@@ -593,13 +697,10 @@ describe('the saved brief before the first model', () => {
     useViewStore.setState({ view: null, sid: null })
   })
 
-  it('shows only the brief bubble while running, then only the thread row in view on hand-off', () => {
+  it('shows the brief once with the dock open while running, then only the thread row in view on hand-off', () => {
     show({ ...associated, chat: [] })
     const { container, getAllByText } = render(surfaces())
-    const runningBrief = bubble(container)?.querySelector('[data-view="brief"]')
-    expect(getAllByText(brief)).toEqual([runningBrief])
-    expect(runningBrief).toBeVisible()
-    expect(fold(container)).toBeNull()
+    expectBriefOnceInOpenDock(container, brief)
     expect(container.querySelector('[data-view="chat.0.said"]')).toBeNull()
 
     act(() => show({ ...base, brief, chat: [row] }))
@@ -612,11 +713,8 @@ describe('the saved brief before the first model', () => {
 
   it('cold-mounts a running View with no conversation array and shows the brief once', () => {
     show(first)
-    const { container, getAllByText } = render(surfaces())
-    const runningBrief = bubble(container)?.querySelector('[data-view="brief"]')
-    expect(getAllByText(brief)).toEqual([runningBrief])
-    expect(runningBrief).toBeVisible()
-    expect(fold(container)).toBeNull()
+    const { container } = render(surfaces())
+    expectBriefOnceInOpenDock(container, brief)
   })
 
   it('shows the brief once in the bubble after failure and keeps the board fold closed', () => {

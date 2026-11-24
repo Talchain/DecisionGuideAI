@@ -131,7 +131,7 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
           ))
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
               className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
-        {running || typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-text-header">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
+        {typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className="cursor-pointer text-text-header">Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
       </div>
     </div>
   )

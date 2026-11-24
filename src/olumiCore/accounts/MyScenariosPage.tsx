@@ -5,6 +5,7 @@ import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
 import { clearAutosave, clearCurrentScenarioId } from '../../canvas/store/scenarios'
 import { useViewStore } from '../../olumiView/store'
+import { useViewChat } from '../../olumiView/ViewChat'
 import { TeamApiError } from '../team/api'
 import { accountsApi, mine, whenOf, type MyScenario } from './api'
 import { BODY, CARD, ERR, FIELD, LINK, META, SignedInFrame, useWho } from './Frame'
@@ -22,6 +23,7 @@ function Open({ s }: { s: MyScenario }): JSX.Element {
  * canvas with a model in memory; it returns early on an empty one, so the remembered id and autosave are cleared here too.
  */
 export function startFreshScenario(): void {
+  useViewChat.setState(({ briefSend, text }) => ({ briefSend: null, text: briefSend?.text === text ? '' : text }))
   useCanvasStore.getState().resetCanvas()
   clearCurrentScenarioId()
   clearAutosave()

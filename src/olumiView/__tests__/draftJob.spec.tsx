@@ -64,6 +64,20 @@ const tick = async (ms: number) => { await act(async () => { await vi.advanceTim
 const on = (sid: string, uuid: string, view: View) => useViewStore.setState({ uuid, sid, view, status: 'ready', error: null, stale: false, at: null })
 
 describe('the drafting board', () => {
+  it('shows a closed Your brief fold while drafting with the dock closed', () => {
+    const brief = 'Should we raise the price of our pastries?'
+    on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), brief })
+    const { getByTestId, getByText } = render(<DraftingBoard />)
+    const details = getByTestId('view-draft-brief')
+    expect((details as HTMLDetailsElement).open).toBe(false)
+    const summary = details.querySelector('summary')
+    expect(summary?.textContent).toBe('Your brief')
+    expect(summary).toBeVisible()
+    const words = getByText(brief)
+    expect(details).toContainElement(words)
+    expect(words).not.toBeVisible()
+  })
+
   it('U1 draws core\'s words verbatim as an accessible status, with the seconds since core accepted the brief, so a reload counts from the same moment', async () => {
     on(SID_A, UUID_A, drafting(SID_A, 'building'))
     const first = render(<DraftingBoard />).container
