@@ -97,7 +97,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
               <li key={x.key} hidden={!open && k !== i} className="flex items-start gap-2" aria-current={open && n > 1 && k === i ? 'step' : undefined}>
                 {!open || n === 1 ? null : (
                   <button type="button" onClick={() => setAt(k)} aria-label={`Question ${k + 1} of ${n}`} data-testid={`view-question-pick-${k}`}
-                    className={`${typography.viewPanelMeta} ${HIT_44} mt-0.5 w-4 flex-none text-left ${k === i ? 'font-semibold text-text-header' : 'text-text-light'}`}>{k + 1}</button>
+                    className={`${typography.viewPanelMeta} ${HIT_44} mt-0.5 w-4 flex-none text-left ${k === i ? 'font-medium text-text-header' : 'text-text-light'}`}>{k + 1}</button>
                 )}
                 <div className="min-w-0 flex-1" data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
               </li>
