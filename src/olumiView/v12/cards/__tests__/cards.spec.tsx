@@ -502,6 +502,35 @@ describe('an assumption wears its tag', () => {
   })
 })
 
+describe('figure values at rest', () => {
+  it('Simple CoreCard draws the ranged figure in Core\'s words without axis end labels', () => {
+    const base = cardOf(ASKED, 'extra_hours_sold')
+    const figure = { ...base.figure!, text: '40 to 80 loaves/week', range: { low: 40, likely: null, high: 80, unit: 'loaf/week' } }
+    const el = draw(withCard(ASKED, { ...base, figure }), base.id, 'simple')
+    expect(el.querySelector(`[data-simple-figure-text="${base.id}"]`)).toHaveTextContent(figure.text)
+    const card = within(el)
+    expect(card.getByTestId('range-bar')).toBeVisible()
+    expect(card.queryByTestId('range-min')).toBeNull()
+    expect(card.queryByTestId('range-max')).toBeNull()
+  })
+
+  it('Detailed strips draw Core\'s value words for every option without an axis row', () => {
+    const sales = cardOf(ASKED, 'sales')
+    const el = draw(ASKED, sales.id)
+    const strips = el.querySelector('[data-detailed-strips="sales"]')!
+    const rows = [...strips.querySelectorAll('[data-strip]')]
+    expect(rows.map((row) => [row.getAttribute('data-strip'), row.querySelector('.ok-dt-strip-val')?.textContent]))
+      .toEqual(sales.values!.map((value) => [value.option, value.text]))
+    expect(strips.querySelector('.ok-dt-strip-axis')).toBeNull()
+  })
+
+  it('SimpleFace keeps both axis end labels on a worked-out figure with bands', () => {
+    const { getByTestId } = render(<SimpleFace card={cardOf(EU, 'customers')} model={EU.model} noted={false} />)
+    expect(getByTestId('simple-axis-min').textContent).toBe('0')
+    expect(getByTestId('simple-axis-max').textContent).toBe('2,000 customer')
+  })
+})
+
 describe('a calculated figure core could not calculate for an option says so, with core\'s reason (canvas rules 4 and 5)', () => {
   const sales = cardOf(ASKED, 'sales')
   // Core's field (contract.ts withheldValues): `values_withheld` [{ option, text }], text being core's reason; values[] holds only the real bands. The text is a stand-in.

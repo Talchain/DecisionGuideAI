@@ -106,9 +106,6 @@ export function Strips({ card, model }: { card: ViewCard; model: ViewModel | nul
           <span className="ok-dt-strip-val ok-dt-strip-none ok-dt-quiet">{w.text}</span>
         </Hover>
       ))}
-      {axis === null || rows.length === 0 ? null : (
-        <div className="ok-dt-strip ok-dt-strip-axis" aria-hidden="true"><span /><span className="ok-dt-strip-ends"><span>{axis.min}</span><span>{axis.max}{axis.unit === null ? '' : ` ${axis.unit}`}</span></span><span /></div>
-      )}
     </div>
   )
 }

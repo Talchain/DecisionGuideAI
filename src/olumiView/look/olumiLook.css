@@ -522,8 +522,6 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-dt-strip-mid { position: absolute; left: var(--chart-x); top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
 .olumi-look .ok-dt-goal-tick { position: absolute; left: var(--chart-x); top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--goal); }
 .olumi-look .ok-dt-strip-val { min-width: 0; color: var(--text-body); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
-.olumi-look .ok-dt-strip-axis { color: var(--text-light); }
-.olumi-look .ok-dt-strip-ends { display: flex; justify-content: space-between; gap: calc(8px * var(--o-s)); white-space: nowrap; }
 .olumi-look .ok-dt-rail-val.ok-dt-rail-none { grid-column: 2 / -1; font-weight: 400; color: var(--text-light); white-space: normal; }
 .olumi-look .ok-dt-strip-none { grid-column: 2 / -1; }
 .olumi-look .ok-dt-quiet { color: var(--text-light); white-space: normal; }
