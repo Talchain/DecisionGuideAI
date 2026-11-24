@@ -39,7 +39,7 @@ const show = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false })
   const r = render(<ViewChat />)
   const review = r.container.querySelector('[data-testid="view-proposal-review"]')
-  if (review !== null && review.getAttribute('data-open') !== 'true') fireEvent.click(review.querySelector('[data-testid="view-proposal-row"]')!)
+  if (review !== null && review.getAttribute('data-open') !== 'true') fireEvent.click(review.querySelector('[data-testid="view-proposal-review-toggle"]')!)
   return r
 }
 // PL-1083 (2): the line by Approve says only who is recorded as approving; it never claims what Approve keeps or uses (core may refuse).

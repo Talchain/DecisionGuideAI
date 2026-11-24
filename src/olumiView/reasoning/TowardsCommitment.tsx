@@ -78,13 +78,15 @@ function Recorded({ k, view }: { k: Commitment; view: View }) {
   )
 }
 
+export const displayedDissent = (d: View['collab']['dissent'][number]) => (d.confirmed?.words ?? d.position) !== ''
+
 export function TowardsCommitment({ view }: { view: View }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)
   const differences = useRevealedDifferences()
   const c = view.collab, commitments = c.commitments ?? []
   // The form is offered only where it may be written: this page's own View, the latest version, for the person it is for.
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
-  const dissent = (c.dissent ?? []).filter((d) => (d.confirmed?.words ?? d.position) !== '')
+  const dissent = (c.dissent ?? []).filter(displayedDissent)
   // Figure differences: one row per card (core may run one per aim; Team's WhereYouDiffer says every aim of that card). Others: core's sentence.
   const differ: { key: string; card: { id: string; heading: string } | null; d: Difference | null }[] = []
   for (const d of differences?.differences ?? []) {

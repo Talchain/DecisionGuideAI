@@ -12,6 +12,7 @@ vi.mock('../../../../olumiCore/lane', async (orig) => ({ ...(await orig<typeof i
 import { PanelWidthProvider } from '../usePanelWidth'
 import type { WorkspaceSurfaceDescriptor } from '../shellContract'
 import { SELECTED } from '../../../../styles/selected'
+import { laneTipOf } from '../../../../olumiView/__tests__/tipHelpers'
 
 afterEach(() => { cleanup(); lane.core = true })
 const surfaces: WorkspaceSurfaceDescriptor[] = [
@@ -65,27 +66,30 @@ describe('DL 06:57Z (2): on the narrow lane dock (1128: 317 px) the tabs keep on
   })
 })
 
-// CHANGED BY DESIGN (17 Nov, calm panel mock v2, Paul: "tab row icon-only"): the selected tab is its icon too, told apart by its pill; its name stays as title and aria-label.
-describe('v10 review item 8: lane dock tabs are icons, the selected tab told apart by its pill', () => {
-  it('T8a catch: every lane tab is an icon with title and aria-label and no visible word, no separator', () => {
+describe('the selected core tab shows its icon and label', () => {
+  it('T8a: core tabs keep their Tip and aria-label, and only the selected tab shows its label', () => {
     draw()
     const off = screen.getByTestId('outputs-dock-tab-compare')
-    expect(off.getAttribute('title')).toBe('Compare')
+    expect(laneTipOf(off)).toBe('Compare')
     expect(off.getAttribute('aria-label')).toBe('Compare')
     expect(off.textContent).toBe('')
     expect(screen.getByRole('tab', { name: 'Compare' })).toBe(off)
     expect(off.querySelector('[data-testid="outputs-dock-tab-icon-compare"]')).not.toBeNull()
     expect(cls(off)).toContain('before:hidden')
     const on = screen.getByTestId('outputs-dock-tab-results')
-    expect(on.textContent).toBe('')
+    expect(on.textContent).toBe('Analysis')
+    expect(laneTipOf(on)).toBe('Analysis')
     expect(on.getAttribute('aria-label')).toBe('Analysis')
-    expect(on.querySelector('[data-testid="outputs-dock-tab-icon-results"]')).not.toBeNull()
+    const icon = on.querySelector('[data-testid="outputs-dock-tab-icon-results"]')
+    expect(icon).not.toBeNull()
+    expect(icon?.nextElementSibling).toHaveClass('min-w-0', 'truncate')
   })
   it('T8b contrast: the legacy lane keeps words on every tab and no lane icons', () => {
     lane.core = false
     draw()
     const off = screen.getByTestId('outputs-dock-tab-compare')
     expect(off.textContent).toBe('Compare')
+    expect(off).toHaveAttribute('title', 'Compare')
     expect(off.querySelector('[data-testid="outputs-dock-tab-icon-compare"]')).toBeNull()
     expect(cls(off)).not.toContain('before:hidden')
   })

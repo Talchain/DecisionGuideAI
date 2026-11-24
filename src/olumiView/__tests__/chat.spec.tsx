@@ -142,7 +142,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     const { container } = renderTab()
     const card = container.querySelector<HTMLElement>('[data-testid="view-chat-proposal"]')!
     for (const el of card.querySelectorAll<HTMLElement>('[data-view]')) expect(el.textContent, el.dataset['view']).toBe(at(held, el.dataset['view']!))
-    // Contract 3: core's heading and `on` are the one row's own line (its row, a button), drawn once. CHANGED BY DESIGN (17 Nov, the calm panel): that row is now
+    // Contract 3: core's heading and `on` are the one row's own line, drawn once. CHANGED BY DESIGN (17 Nov, the calm panel): that row is now
     // the first item of the card's actions line at the thread's foot, so it is inside the card, still exactly once; reverting moves it back above the body and fails this row.
     const review = container.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
     const row = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
@@ -171,7 +171,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     const review = step.querySelector<HTMLElement>('[data-testid="view-proposal-review"]')!
     expect(isOpen(review)).toBe(false)
     expect(review.closest('[data-testid="view-chat-pinned"]')).not.toBeNull()
-    const row = review.querySelector<HTMLElement>('button[data-testid="view-proposal-row"]')!
+    const row = review.querySelector<HTMLElement>('[data-testid="view-proposal-row"]')!
     expect(row.textContent).toBe(p.on === '' ? p.heading : `${p.heading} · ${p.on}`)
     // the heading line is drawn once, in the row, never again in the body
     expect(step.querySelectorAll('[data-view="proposal.heading"]')).toHaveLength(1)
@@ -180,7 +180,7 @@ describe('the writes go straight to core, and the View is read again', () => {
     setOpen(review, true)
     expect(review.querySelector('[data-testid="view-chat-proposal"]')).not.toBeNull()
     // CHANGED BY DESIGN (18 Nov, Paul: smallest possible buttons): Approve is a tick icon button, not words: its name and hover say Approve and what it approves;
-    // Review, Approve and Set aside share one 28px height class (and the row's own button), so they sit on one centre line. The post is unchanged (row above).
+    // The heading, Review, Approve and Set aside share one 28px height class, so they sit on one centre line.
     const approve = review.querySelector<HTMLElement>('[data-testid="view-approve"]')!
     expect([approve.getAttribute('aria-label'), approve.getAttribute('title'), approve.textContent]).toEqual(['Approve these changes', null, ''])
     expect(await hoverWords(approve), 'its hover is the one Tip, after 150 ms').toBe('Approve these changes')
