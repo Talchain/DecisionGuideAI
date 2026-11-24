@@ -1,11 +1,13 @@
 /**
- * "Olumi's question" card (17 Nov, calm panel mock v2, Paul): ONE of Olumi's questions at a time, the rest behind it (progress dashes and "1 of N"),
- * an answer field, the person's green "Use this" and Skip as a neutral icon. The four method icons are the composer's alone, never repeated here (Paul, 19 Nov).
- * The card is Olumi's (a panel with an --info border); every word of it is viewPanelBody. At rest it is ONE row (Olumi's mark, the question, a
- * chevron); pressing opens the answer box, the dashes, Skip (18 Nov audit chat-2, chat-3: nothing open over the thread).
+ * "Olumi's question" card (17 Nov, calm panel mock v2, Paul; W3 24 Nov: the full list). At rest it is ONE row (Olumi's mark, the chosen question,
+ * a chevron), with "N left to check" above it when there are several (18 Nov audit chat-2, chat-3: nothing open over the thread). Opened, it lists
+ * EVERY question core serves, numbered, in core's order; a number chooses its question for the one answer box, the person's green "Use this" and
+ * Skip as a neutral icon. Nothing is counted as answered: core serves no answer receipt here, and a question core has its answer for is simply no
+ * longer served, so N is what is left. The four method icons are the composer's alone, never repeated here (Paul, 19 Nov).
+ * The card is Olumi's (a panel with an --info border); every word of it is viewPanelBody.
  *
- * The questions are core's, in core's words, as `chatQuestionsOf` draws them (model.trial_questions first, then model.coaching_questions, three
- * at most). Core serves no answer type, so a question that names a figure with its editor (`id` and `edit`) is answered in that figure's own
+ * The questions are core's, in core's words, as `chatQuestionsAllOf` draws them (model.trial_questions first, then core's check-first-ordered
+ * model.questions, else model.coaching_questions). Core serves no answer type, so a question that names a figure with its editor (`id` and `edit`) is answered in that figure's own
  * editor (`body`, ViewChat's QuestionLine: its own write), and every other question takes plain words. "Use this" sends the person's words,
  * and only those, through the conversation's own send path (`onAnswer`: the same `say` a typed message uses; core's question is never sent as
  * the person's); nothing else is sent. The
@@ -88,9 +90,19 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex-none"><OkIcon id="olumi-mark" size={14} decorative /></span>
         <div className="min-w-0 flex-1 space-y-1">
-          {questions.map((x, k) => (
-            <div key={x.key} hidden={k !== i} data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
-          ))}
+          {n === 1 ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-question-count">{n} left to check</p>}
+          {/* At rest the chosen question alone; open, every question core serves, numbered, in core's order (W3, 24 Nov). */}
+          <ol className="space-y-1" data-testid="view-question-list">
+            {questions.map((x, k) => (
+              <li key={x.key} hidden={!open && k !== i} className="flex items-start gap-2" aria-current={open && n > 1 && k === i ? 'step' : undefined}>
+                {!open || n === 1 ? null : (
+                  <button type="button" onClick={() => setAt(k)} aria-label={`Question ${k + 1} of ${n}`} data-testid={`view-question-pick-${k}`}
+                    className={`${typography.viewPanelMeta} ${HIT_44} mt-0.5 w-4 flex-none text-left ${k === i ? 'font-semibold text-text-header' : 'text-text-light'}`}>{k + 1}</button>
+                )}
+                <div className="min-w-0 flex-1" data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
+              </li>
+            ))}
+          </ol>
         </div>
         <HoverButton words={open ? CLOSE_ANSWER : OPEN_ANSWER} type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
           className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
@@ -101,17 +113,6 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
       </div>
       {!open ? null : (
         <div id="view-question-open" className="space-y-3" data-testid="view-question-open">
-          {n === 1 ? null : (
-            <div className="flex items-center gap-2">
-              <span role="group" aria-label="Progress" className="flex items-center gap-1" data-testid="view-question-dashes">
-                {questions.map((x, k) => (
-                  <button key={x.key} type="button" onClick={() => setAt(k)} aria-label={`Question ${k + 1} of ${n}`} aria-current={k === i ? 'step' : undefined} data-testid={`view-question-dash-${k}`}
-                    className={`${HIT_44} inline-block h-1 w-4 rounded-full ${k === i ? 'bg-info' : 'bg-info/30'}`} />
-                ))}
-              </span>
-              <span className={`${typography.viewPanelMeta} text-text-light`} data-testid="view-question-count">{i + 1} of {n}</span>
-            </div>
-          )}
           {own ? null : (
             <textarea rows={2} value={typed} disabled={held || sending} aria-label={q.text} placeholder={ANSWER_PLACEHOLDER} data-testid="view-question-answer"
               onChange={(e) => { const v = e.target.value; setDrafts((d) => ({ ...d, [mine]: v })) }}
