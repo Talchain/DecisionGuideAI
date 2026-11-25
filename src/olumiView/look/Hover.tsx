@@ -44,11 +44,11 @@ export function Hover({ anchorRef, words, tipSpacing, tipIcon, as = 'span', focu
   }
   if (has) {
     Object.assign(props, {
-      onPointerEnter: (e: Parameters<typeof handlers.onPointerEnter>[0]) => { handlers.onPointerEnter(e); onPointerEnter?.(e as never) },
+      onPointerEnter: (e: Parameters<NonNullable<typeof onPointerEnter>>[0]) => { handlers.onPointerEnter(e); onPointerEnter?.(e) },
       onPointerLeave: (e: Parameters<NonNullable<typeof onPointerLeave>>[0]) => { handlers.onPointerLeave(); onPointerLeave?.(e) },
-      onFocus: (e: Parameters<typeof handlers.onFocus>[0]) => { if (e.target === e.currentTarget || (!focusable && !isButton)) handlers.onFocus(e); onFocus?.(e as never) },
+      onFocus: (e: Parameters<NonNullable<typeof onFocus>>[0]) => { if (e.target === e.currentTarget || (!focusable && !isButton)) handlers.onFocus(e); onFocus?.(e) },
       onBlur: (e: Parameters<NonNullable<typeof onBlur>>[0]) => { handlers.onBlur(); onBlur?.(e) },
-      onKeyDown: (e: Parameters<typeof handlers.onKeyDown>[0]) => { handlers.onKeyDown(e); onKeyDown?.(e) },
+      onKeyDown: (e: Parameters<NonNullable<typeof onKeyDown>>[0]) => { handlers.onKeyDown(e); onKeyDown?.(e) },
       'aria-describedby': [rest['aria-describedby'], describedBy].filter(Boolean).join(' ') || undefined,
     })
     props['tabIndex'] = tabIndex ?? (focusable && !isButton ? 0 : undefined)

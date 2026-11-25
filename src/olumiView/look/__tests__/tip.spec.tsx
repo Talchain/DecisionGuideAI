@@ -195,6 +195,42 @@ describe('the one Tip', () => {
       vi.useRealTimers()
     }
   })
+  it('a rect-only anchor opens its tip inside the window margin from pointer and focus', () => {
+    const currentTarget = { getBoundingClientRect: () => rect(100, 0, 20, 20) }
+    function RectOnlyTrigger() {
+      const { handlers, tip } = useAnchoredTip('Icon words')
+      return <button type="button" data-testid="rect-only-trigger"
+        onPointerEnter={() => handlers.onPointerEnter({ currentTarget })}
+        onPointerLeave={handlers.onPointerLeave}
+        onFocus={() => handlers.onFocus({ currentTarget })}
+      >{tip}</button>
+    }
+
+    vi.useFakeTimers()
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, 80, 32))
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
+    try {
+      render(<RectOnlyTrigger />)
+      const trigger = screen.getByTestId('rect-only-trigger')
+      const expected = [`${120 + TIP_GAP}px`, `${TIP_GAP}px`]
+
+      fireEvent.pointerEnter(trigger)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition()).toEqual(expected)
+
+      fireEvent.pointerLeave(trigger)
+      expect(screen.queryByTestId('lane-tip')).toBeNull()
+
+      fireEvent.focus(trigger)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition()).toEqual(expected)
+    } finally {
+      cleanup()
+      restorePlaceHost()
+      spy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
   it('a tip is never interactive: a long body renders WHOLE (every word in the DOM), with no overflow or height style and no scroll recipe in the stylesheet', () => {
     const body = Array.from({ length: 200 }, (_, i) => `word${i}`).join(' ')
     render(<Tip text={`Title\n${body}`} anchorRect={rect(100, 100, 20, 20)} />)

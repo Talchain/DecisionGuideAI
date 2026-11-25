@@ -10,7 +10,7 @@
  * 240 px at most, read only (the pointer passes through, no scroll: the whole text is always drawn). Its position is written
  * to two custom properties.
  */
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { typography } from '../../styles/typography'
@@ -25,16 +25,25 @@ export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-
 
 export type TipSpacing = 'peek' | 'list'
 
-function anchorElement(anchor: HTMLElement | undefined): HTMLElement | undefined {
-  return typeof anchor?.closest === 'function' ? anchor : undefined
+export type TipAnchor = {
+  getBoundingClientRect(): DOMRect
+  closest?(selector: string): Element | null
+  matches?(selector: string): boolean
 }
 
-export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: HTMLElement; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
+export type ClosestAnchor = Pick<Required<TipAnchor>, 'closest'>
+type TipEvent = { currentTarget: TipAnchor }
+
+function closestAnchor(anchor: TipAnchor | undefined): ClosestAnchor | null {
+  return typeof anchor?.closest === 'function' ? { closest: anchor.closest.bind(anchor) } : null
+}
+
+export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: TipAnchor; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const t = el.current
     if (t === null || anchorRect === null) return
-    const element = anchorElement(anchor) ?? null
+    const element = closestAnchor(anchor)
     const open = placeHost.openBoxes().filter((box) => !(
       box.left <= anchorRect.left && box.right >= anchorRect.right &&
       box.top <= anchorRect.top && box.bottom >= anchorRect.bottom
@@ -73,12 +82,12 @@ export const useCanvasCardTip = create<{ tipId: string | null }>(() => ({ tipId:
 
 /** The tip's delay (default TIP_DELAY, 150 ms): shown that long after the pointer comes to rest on a row, gone at once when it leaves. */
 export function useTipDelay(delay = TIP_DELAY) {
-  const [active, setActive] = useState<{ text: string; rect: DOMRect; element: HTMLElement; itemId?: string } | null>(null)
+  const [active, setActive] = useState<{ text: string; rect: DOMRect; element: TipAnchor; itemId?: string } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const close = useRef<() => void>(() => {})
   close.current = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; setActive(null) }
   const mine = useRef(() => close.current())
-  const showTooltip = (text: string, element: HTMLElement, itemId?: string) => {
+  const showTooltip = (text: string, element: TipAnchor, itemId?: string) => {
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       if (openTip !== null && openTip !== mine.current) openTip()
@@ -94,8 +103,8 @@ export function useTipDelay(delay = TIP_DELAY) {
   return { activeTooltip: active, showTooltip, hideTooltip }
 }
 
-export const focusRing = (e: SyntheticEvent<HTMLElement>): boolean => {
-  try { return e.currentTarget.matches(':focus-visible') } catch { return true }
+export const focusRing = (e: TipEvent): boolean => {
+  try { return e.currentTarget.matches?.(':focus-visible') ?? true } catch { return true }
 }
 
 /** The anchor moves under a scroll or a resize and the tip keeps its first measure: close it rather than leave it detached. The one place that rule lives (an icon, a button and the context menu all use it). */
@@ -122,19 +131,20 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, 
   // Two ways to be active, tracked apart: the tip closes only when neither is left (or on Escape / press / scroll / resize).
   const sources = useRef({ pointer: false, focus: false })
   const text = words ?? ''
-  const open = (e: SyntheticEvent<HTMLElement>) => { if (text !== '') showTooltip(text, e.currentTarget) }
+  const open = (e: TipEvent) => { if (text !== '') showTooltip(text, e.currentTarget) }
   const release = (source: 'pointer' | 'focus') => { sources.current[source] = false; if (!sources.current.pointer && !sources.current.focus) hideTooltip() }
   const dismiss = () => { sources.current.pointer = false; sources.current.focus = false; hideTooltip() }
   const handlers = {
-    onPointerEnter: (e: SyntheticEvent<HTMLElement> & { pointerType?: string }) => { if (e.pointerType !== 'touch') { sources.current.pointer = true; open(e) } },
+    onPointerEnter: (e: TipEvent & { pointerType?: string }) => { if (e.pointerType !== 'touch') { sources.current.pointer = true; open(e) } },
     onPointerLeave: () => release('pointer'),
-    onFocus: (e: SyntheticEvent<HTMLElement>) => { if (focusRing(e)) { sources.current.focus = true; open(e) } },
+    onFocus: (e: TipEvent) => { if (focusRing(e)) { sources.current.focus = true; open(e) } },
     onBlur: () => release('focus'),
-    onKeyDown: (e: KeyboardEvent<HTMLElement>) => { if (e.key === 'Escape') hideTooltip() },
+    onKeyDown: (e: { key: string }) => { if (e.key === 'Escape') hideTooltip() },
   }
   const shown = activeTooltip !== null && text !== ''
-  const anchor = anchorElement(activeTooltip?.element)
-  const cardTipOpen = shown && anchor !== undefined && anchor.closest('.react-flow__node') !== null
+  const anchor = activeTooltip?.element
+  const element = closestAnchor(anchor)
+  const cardTipOpen = shown && element !== null && element.closest('.react-flow__node') !== null
   useLayoutEffect(() => {
     if (!cardTipOpen) return
     useCanvasCardTip.setState({ tipId: id })

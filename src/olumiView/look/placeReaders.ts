@@ -1,6 +1,7 @@
 import { canvasCardRects, viewportSize } from '../../canvas/components/hoverCard/hoverCardPlacement'
 import { DOCK_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR } from '../../canvas/utils/computeFitPadding'
 import { FOOT_CONTROLS, frameTop, LENS_KEYS, type Rect } from '../regions'
+import type { ClosestAnchor } from './Tip'
 
 /** The canvas below the head and top bar, between the left rail and the dock. */
 export function freeCanvas(): Rect {
@@ -11,7 +12,7 @@ export function freeCanvas(): Rect {
   return { left, top: Math.max(frameTop(0), barBottom), right: viewportSize().width, bottom: window.innerHeight }
 }
 
-export function regionFor(el: Element | 'canvas' | null = null): Rect {
+export function regionFor(el: ClosestAnchor | 'canvas' | null = null): Rect {
   if (el === 'canvas') return freeCanvas()
   const dock = el?.closest(DOCK_SELECTOR)
   if (dock) return dock.getBoundingClientRect()
@@ -34,5 +35,5 @@ export function openBoxes({ except, chromeOnly = false }: { except?: Element; ch
 export const lanePlaceHost = {
   regionFor,
   openBoxes,
-  cards: (el: Element | null) => (el?.closest('.react-flow') ? canvasCardRects(el.closest('.react-flow__node')) : []),
+  cards: (el: ClosestAnchor | null) => (el?.closest('.react-flow') ? canvasCardRects(el.closest('.react-flow__node')) : []),
 }

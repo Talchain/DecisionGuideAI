@@ -7,7 +7,7 @@
  * still means doubt and only doubt. A modelled effect carries a small midpoint icon from its typed direction (L2). Polarity (colour), doubt (dash),
  * alert (orange) and proposal (blue) are four channels (L4): on a line that has a direction, alert and proposal are a halo under it, never its colour.
  */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { reducedFaceSize } from '../../olumiView/camera'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
@@ -25,7 +25,7 @@ import { useDriverLink } from '../../olumiView/lens'
 import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
-import { useAnchoredTip } from '../../olumiView/look/Tip'
+import { useAnchoredTip, type TipAnchor } from '../../olumiView/look/Tip'
 import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
 import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
 import { placeAt } from '../../olumiView/v12/links/place'
@@ -237,26 +237,25 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const tipNow = useRef(linkTip); tipNow.current = linkTip
   // The hook anchors on `event.currentTarget`, which here is the link's `<g>` (or a focus target outside it), so the Tip is anchored by a stand-in that answers
   // with the mark's rect when the mark is on screen, else the pointer's own point (or the link's box for focus).
-  const anchored = (e: SyntheticEvent, at: 'pointer' | 'focus'): SyntheticEvent<HTMLElement> => {
-    const pointer = e as unknown as { clientX?: number; clientY?: number }
+  const anchored = (pointer?: ReactPointerEvent<SVGGElement>) => {
     const rect = (): DOMRect => {
       if (markEl.current !== null && markVisible) return markEl.current.getBoundingClientRect()
-      if (at === 'pointer') { const px = pointer.clientX ?? 0, py = pointer.clientY ?? 0; return { x: px, y: py, left: px, top: py, right: px, bottom: py, width: 0, height: 0, toJSON: () => ({}) } }
+      if (pointer !== undefined) { const px = pointer.clientX ?? 0, py = pointer.clientY ?? 0; return { x: px, y: py, left: px, top: py, right: px, bottom: py, width: 0, height: 0, toJSON: () => ({}) } }
       return gRef.current?.getBoundingClientRect() ?? ({ x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) })
     }
     const wrapper = gRef.current?.closest('.react-flow__edge') ?? null
-    const ring = (): boolean => { if (at === 'pointer' || wrapper === null) return true; try { return wrapper.matches(':focus-visible') } catch { return true } }
-    const currentTarget = {
+    const ring = (): boolean => { if (pointer !== undefined || wrapper === null) return true; try { return wrapper.matches(':focus-visible') } catch { return true } }
+    const currentTarget: TipAnchor = {
       getBoundingClientRect: rect,
       matches: ring,
       closest: (selector: string) => gRef.current?.closest(selector) ?? null,
     }
-    return Object.create(e, { currentTarget: { value: currentTarget } }) as SyntheticEvent<HTMLElement>
+    return { currentTarget, pointerType: pointer?.pointerType }
   }
   // A link with keyboard focus (links are focusable; the canvas writes `useViewFocusLink`) opens the same Tip as the pointer, through the same hook.
   useEffect(() => {
     if (!focused) return
-    tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
+    tipNow.current.handlers.onFocus(anchored())
     return () => tipNow.current.handlers.onBlur()
   }, [focused]) // eslint-disable-line react-hooks/exhaustive-deps -- `anchored` and the hook's handlers are read fresh through refs; focus opening is the only trigger
   // Escape closes it whichever way it opened, the pointer's or the focus's.
@@ -288,13 +287,13 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     lastViewport.current = viewport
     if (before === null || viewport === null || before === viewport) return
     tipNow.current.dismiss()
-    if (focused) tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
+    if (focused) tipNow.current.handlers.onFocus(anchored())
   }, [viewport]) // eslint-disable-line react-hooks/exhaustive-deps -- a new viewport is the only trigger
   const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
   const arrow = `view-link-arrow-${i}`
   return (
     <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-reason-alert={reasonAlert ? '' : undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
-      ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}
+      ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e)) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}
       onClick={isOlumiCoreLane() ? () => {
         linkTip.dismiss()
         useLaneInspector.getState().open({ kind: 'link', id })

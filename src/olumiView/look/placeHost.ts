@@ -1,9 +1,10 @@
 import type { Rect } from './placeNear'
+import type { ClosestAnchor } from './Tip'
 
 type PlaceHost = {
-  regionFor(el: Element | null): Rect
+  regionFor(el: ClosestAnchor | null): Rect
   openBoxes(): readonly Rect[]
-  cards(el: Element | null): readonly Rect[]
+  cards(el: ClosestAnchor | null): readonly Rect[]
 }
 
 const defaults: PlaceHost = {
