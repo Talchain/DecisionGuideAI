@@ -8,6 +8,7 @@ import { boardOf, drawViewCanvas } from '../canvas'
 import { QUESTION } from '../layout'
 import { ViewCanvas } from '../ViewCanvas'
 import { approved, install, uninstall } from '../v12/edit/__tests__/harness'
+import { useLaneInspector } from '../v12/edit/inspectorStore'
 import { DETAILS_H, DETAILS_X, DETAILS_Y } from '../v12/edit/placeBeside'
 import { setDefaultLevel } from '../v12/simpleStore'
 
@@ -135,4 +136,50 @@ it('opens the selected link’s details from the rendered line and from its focu
   fireEvent.keyDown(edge, { key: 'Enter' })
   expect(screen.getByTestId('lane-inspector')).toHaveAttribute('data-kind', 'link')
   expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(link.title)
+})
+
+const CARD_ID = 'slow_ramp'
+
+function renderCardNode(id: string) {
+  const view = approved(), model = view.model!
+  install(view)
+  drawViewCanvas({ ...model, cards: model.cards.filter((card) => card.id === CARD_ID), links: [] }, new Map([
+    [CARD_ID, { x: 80, y: 150 }],
+  ]))
+  const { container } = render(<ViewCanvas />)
+  return container.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`)!
+}
+
+it('opens a focused model card’s details on Enter', () => {
+  const card = renderCardNode(CARD_ID)
+  act(() => card.focus())
+  expect(card).toHaveFocus()
+  fireEvent.keyDown(card, { key: 'Enter' })
+  expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD_ID } })
+})
+
+it('opens a focused model card’s details on Space', () => {
+  const card = renderCardNode(CARD_ID)
+  act(() => card.focus())
+  expect(card).toHaveFocus()
+  fireEvent.keyDown(card, { key: ' ' })
+  expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD_ID } })
+})
+
+it('leaves details closed on Enter from a button inside a model card', () => {
+  const card = renderCardNode(CARD_ID)
+  act(() => card.focus())
+  const button = card.querySelector<HTMLButtonElement>(`button[data-testid="view-figure-edit-${CARD_ID}"]`)!
+  act(() => button.focus())
+  expect(button).toHaveFocus()
+  fireEvent.keyDown(button, { key: 'Enter' })
+  expect(useLaneInspector.getState().current).toBeNull()
+})
+
+it('leaves details closed on Enter from the focused question card', () => {
+  const question = renderCardNode(QUESTION)
+  act(() => question.focus())
+  expect(question).toHaveFocus()
+  fireEvent.keyDown(question, { key: 'Enter' })
+  expect(useLaneInspector.getState().current).toBeNull()
 })

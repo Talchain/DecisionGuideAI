@@ -90,6 +90,11 @@ import { keptIdeasOf } from './v12/ideas'
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
 const nodeTypes = { [VIEW_CARD]: CoreCard, [VIEW_QUESTION]: CoreCard, [VIEW_IDEA]: IdeaCard, [VIEW_FOLD]: FoldCard }
 const edgeTypes = { [VIEW_LINK]: ViewLinkEdge, [ROOT_LINK]: RootLinkEdge, [GROUP_LINK]: GroupLinkEdge }
+// The lane opens details for any model card. The older look opens them for options only.
+function opensCardDetails(id: string): boolean {
+  const card = useViewStore.getState().view?.model?.cards.find((c) => c.id === id)
+  return card !== undefined && (card.family === 'option' || isOlumiCoreLane())
+}
 /** Pan with the left button on empty canvas or the middle button anywhere; a card drags with the left. */
 const PAN_BUTTONS = [0, 1]
 const SELECT_PAN_BUTTONS = [1]
@@ -518,11 +523,16 @@ function ViewFlow() {
         onNodeClick={(e, n) => {
           // The lane's own (the older look keeps its press as it was): a press on one of the card's own controls (its pencil, a quick action) or the open figure editor's panel, label and padding included, is that control's, never also "open details": it would close what the control just opened.
           if (isOlumiCoreLane() && e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [data-card-action], [data-figure-edit-panel]') !== null) return
-          // Surfaces step 3: on the lane a press on ANY model card opens its details (beside it); the older look opens them for an option only, as before.
-          const card = useViewStore.getState().view?.model?.cards.find((c) => c.id === n.id)
-          if (card !== undefined && (card.family === 'option' || isOlumiCoreLane())) useLaneInspector.getState().open({ kind: 'card', id: n.id })
+          if (opensCardDetails(n.id)) useLaneInspector.getState().open({ kind: 'card', id: n.id })
         }}
         onKeyDown={isOlumiCoreLane() ? (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && e.target instanceof Element && e.target.classList.contains('react-flow__node')) {
+            const id = e.target.getAttribute('data-id')
+            if (id === null || !opensCardDetails(id)) return
+            e.preventDefault()
+            useLaneInspector.getState().open({ kind: 'card', id })
+            return
+          }
           if (e.key !== 'Enter') return
           if (!(e.target instanceof Element) || !e.target.matches(`.react-flow__edge-${VIEW_LINK}`)) return
           const id = focusedLinkOf(e.target)
