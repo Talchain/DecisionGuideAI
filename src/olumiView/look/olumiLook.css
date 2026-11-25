@@ -211,7 +211,7 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
 /* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). The author's name is inside it.
-   The viewer's own name is hidden while they are the only member. */
+   The viewer's own name is kept for screen readers only while they are the only member (Paul, 17 and 25 Nov). */
 .ok-said {
   background: var(--bg-panel-hover);
   color: var(--text-body);

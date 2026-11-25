@@ -781,11 +781,13 @@ describe('the saved brief before the first model', () => {
     const name = () => bubble(container)?.querySelector('[data-testid="view-said-by"]')
     expect(name()).toHaveTextContent('You')
     expect(name()).toHaveClass('text-text-light')
+    expect(name()).not.toHaveClass('sr-only')
 
     act(() => show({ ...first, brief_by: teammate.id, members: [...base.members, teammate] }))
     expect(name()).toHaveTextContent('Ada')
     expect(name()).toHaveClass('text-text-body')
     expect(name()).not.toHaveClass('text-text-light')
+    expect(name()).not.toHaveClass('sr-only')
 
     act(() => show({ ...first, brief_by: 'p_unknown' }))
     expect(name()).toBeNull()
@@ -798,21 +800,23 @@ describe('the saved brief before the first model', () => {
     expect(name()).toBeNull()
   })
 
-  it('hides the viewer’s name on their sent brief with one member', () => {
+  it('keeps the viewer’s sent brief label for screen readers only with one member', () => {
     show(first)
     const { container } = render(surfaces())
-    expect(bubble(container)?.querySelector('[data-testid="view-said-by"]')).toBeNull()
+    const name = bubble(container)?.querySelector('[data-testid="view-said-by"]')
+    expect(name?.textContent).toBe('You')
+    expect(name).toHaveClass('sr-only')
   })
 
   it.each([
-    { case: 'hides the viewer’s name with one member', members: base.members, turn: row, author: null },
-    { case: 'shows the viewer’s name with two members', members: [...base.members, teammate], turn: row, author: row.by },
-    { case: 'shows another author’s name with one member', members: base.members, turn: { ...row, by_id: teammate.id, by: teammate.name }, author: teammate.name },
-  ])('a saved message $case', ({ members, turn, author }) => {
+    { case: 'keeps the viewer’s name for screen readers only with one member', members: base.members, turn: row, screenReaderOnly: true },
+    { case: 'shows the viewer’s name with two members', members: [...base.members, teammate], turn: row, screenReaderOnly: false },
+    { case: 'shows another author’s name with one member', members: base.members, turn: { ...row, by_id: teammate.id, by: teammate.name }, screenReaderOnly: false },
+  ])('a saved message $case', ({ members, turn, screenReaderOnly }) => {
     show({ ...base, members, chat: [turn] })
     const { getByTestId } = render(surfaces())
     const name = getByTestId('view-chat-said-bubble').querySelector('[data-testid="view-said-by"]')
-    if (author === null) expect(name).toBeNull()
-    else expect(name?.textContent).toBe(author)
+    expect(name?.textContent).toBe(turn.by)
+    expect(name?.classList.contains('sr-only')).toBe(screenReaderOnly)
   })
 })

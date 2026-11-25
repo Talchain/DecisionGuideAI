@@ -2,7 +2,7 @@
  * The calm, coloured AI panel (Paul, 17 Nov 2026), bound by test id and by core's words read back from the View.
  * 1. One quiet footer row per reply: the cards (one icon with a count), show in the workspace, keep, and the version stamp as an icon with a hover.
  * 2. The pending proposal is ONE line pinned at the thread's foot, above the composer, outside the scrolling thread.
- * 3. The person's own name is hidden while they are alone in the thread, and shown once a colleague has written.
+ * 3. The author's name is always said, with the viewer's own name kept for screen readers only while they are the only member.
  * 4. The selected card is a chip inside the composer ("About: <heading>" with an X), not a box above it.
  * 5-9 (calm panel mock v2, Paul 17 Nov, and the three defects D1-D3 of the independent review of 833c1609): icons carry no hue, one type scale, Olumi's question
  *   card (one at a time), the composer's green Send, core's version words visible, the ask control kept, the heading's basis, the change-mix bar.
@@ -156,23 +156,23 @@ describe('2. the pending proposal is ONE line at the thread\'s foot, above the c
   })
 })
 
-describe('3. whose words a message holds is always drawn', () => {
-  // CHANGED BY DESIGN (Codex NO-GO on 07657eb3; review 008: authorship stays legible): the person's own name is drawn on their own message
-  // whether or not anyone else has written. It was kept for screen readers only while they were alone in the thread.
+describe('3. the author’s name is always said, with the viewer’s own name for screen readers only while they are the only member', () => {
+  // Paul kept the viewer's own name for screen readers only on 17 Nov, review 008 drew it at all times to keep authorship legible, and Paul restored the only-member rule on 25 Nov.
   const nameOf = (c: ParentNode, i: number) => c.querySelector<HTMLElement>(`[data-view="chat.${i}.by"]`)!
-  it('alone in the thread: every message draws its writer\'s name, in core\'s words', () => {
+  it('alone in the thread: each of the viewer’s turns keeps their name in core’s words for screen readers only', () => {
     const view = session('after-find-first')
-    expect(new Set(view.chat.map((t) => t.by_id)).size).toBe(1) // one writer: the case that used to hide the name
+    expect(view.members).toHaveLength(1)
+    expect(new Set(view.chat.map((t) => t.by_id))).toEqual(new Set([view.you_id]))
     const c = mount(view)
     view.chat.forEach((t, i) => {
-      expect(nameOf(c, i).textContent).toBe(t.by)
-      expect(nameOf(c, i).className).not.toContain('sr-only')
-      expect(nameOf(c, i).closest('.sr-only')).toBeNull()
+      const name = nameOf(c, i)
+      expect(name?.textContent).toBe(t.by)
+      expect(name).toHaveClass('sr-only')
     })
   })
   it('with a colleague in the thread: both names are drawn, each on its own message (bound by the turn, not the position)', () => {
     const base = session('after-find-first')
-    const view = { ...base, chat: base.chat.map((t, i) => (i === 0 ? { ...t, by: 'Ben', by_id: '2' } : t)) } as View
+    const view = { ...base, members: [...base.members, { id: '2', name: 'Ben' }], chat: base.chat.map((t, i) => (i === 0 ? { ...t, by: 'Ben', by_id: '2' } : t)) } as View
     const c = mount(view)
     expect(nameOf(c, 0).textContent).toBe('Ben')
     expect(nameOf(c, 1).textContent).toBe(base.chat[1]!.by)
