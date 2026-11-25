@@ -16,6 +16,8 @@ import { setDefaultLevel, useSimpleLevel } from '../../simpleStore'
 import { useFocusPath } from '../../bands/focusPath'
 import { TIP_DELAY } from '../../../look/Tip'
 import { ICONS } from '../../../look/icons'
+import { installPlaceHost } from '../../../look/placeHost'
+import { lanePlaceHost } from '../../../look/placeReaders'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../../../../canvas/utils/goalChanceDriverLinks'
 import { applied, declared, isHidden, standsAt } from './applied'
 
@@ -365,6 +367,38 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
     expect(document.body.querySelectorAll('[title]'), 'no native title on the edge or its words').toHaveLength(0)
     expect(document.body.querySelector('g[data-view-link] title'), 'no SVG <title> either').toBeNull()
   })
+  it('a link Tip stays inside the canvas and clear of the dock and card', () => {
+    vi.useFakeTimers()
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.matches('aside[aria-label="Outputs dock"]')) return new DOMRect(650, 0, 350, 800)
+      if (this.matches('[data-view-link-mark]')) return new DOMRect(630, 200, 12, 12)
+      if (this.matches('.react-flow__node')) return new DOMRect(500, 150, 125, 70)
+      if (this.matches('[data-testid="lane-tip"]')) return new DOMRect(0, 0, 100, 40)
+      return new DOMRect()
+    })
+    try {
+      const link = withText()
+      const { container } = render(<>
+        <aside aria-label="Outputs dock" />
+        <div className="react-flow">
+          <div className="react-flow__node" />
+          <ReactFlowProvider><EdgeLabelLayer><svg>
+            <Edge id="e" source={link.from} target={link.to} sourceX={0} sourceY={0} targetX={100} targetY={100}
+              sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} />
+          </svg></EdgeLabelLayer></ReactFlowProvider>
+        </div>
+      </>)
+      fireEvent.pointerEnter(g(container))
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      const { style } = screen.getByRole('tooltip')
+      expect([style.getPropertyValue('--tip-x'), style.getPropertyValue('--tip-y')]).toEqual(['542px', '220px'])
+    } finally {
+      restorePlaceHost()
+      spy.mockRestore()
+    }
+  })
+
   it('a link with only a core title (no mark, no effect) says that title in the Tip; so do an input, a measures and a size line, whose titles had no hover once the native title went', () => {
     vi.useFakeTimers()
     const only = (extra: object) => ({ ...first, doubt: false, alert: false, proposed: false, causal: null, kind: 'plain', label: '', effect: null, title: 'What core says of this link', ...extra }) as unknown as ViewLink

@@ -246,7 +246,12 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     }
     const wrapper = gRef.current?.closest('.react-flow__edge') ?? null
     const ring = (): boolean => { if (at === 'pointer' || wrapper === null) return true; try { return wrapper.matches(':focus-visible') } catch { return true } }
-    return Object.create(e, { currentTarget: { value: { getBoundingClientRect: rect, matches: ring } } }) as SyntheticEvent<HTMLElement>
+    const currentTarget = {
+      getBoundingClientRect: rect,
+      matches: ring,
+      closest: (selector: string) => gRef.current?.closest(selector) ?? null,
+    }
+    return Object.create(e, { currentTarget: { value: currentTarget } }) as SyntheticEvent<HTMLElement>
   }
   // A link with keyboard focus (links are focusable; the canvas writes `useViewFocusLink`) opens the same Tip as the pointer, through the same hook.
   useEffect(() => {

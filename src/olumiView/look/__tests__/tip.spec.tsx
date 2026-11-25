@@ -236,4 +236,46 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
       vi.unstubAllEnvs()
     }
   })
+
+  it('a tip with a stand-in anchor opens inside the window margin and leaves the hover preview visible', () => {
+    const anchor = { getBoundingClientRect: () => rect(100, 0, 20, 20), matches: () => true }
+    function StandInTrigger() {
+      const t = useAnchoredTip('Icon words')
+      return <button type="button" data-testid="stand-in-trigger" onFocus={(event) => {
+        t.handlers.onFocus(Object.create(event, { currentTarget: { value: anchor } }))
+      }}>{t.tip}</button>
+    }
+
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    vi.useFakeTimers()
+    install()
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.matches('.react-flow__node')) return rect(250, 150, 100, 40)
+      return rect(0, 0, 80, 32)
+    })
+    const target = { kind: 'card', id: 'starting_customers' } as const
+    try {
+      useLaneInspector.getState().setPeek(target)
+      render(<ToastProvider>
+        <div className="react-flow">
+          <div className="react-flow__node" data-id={target.id}><StandInTrigger /></div>
+        </div>
+        <LaneInspector />
+      </ToastProvider>)
+      expect(screen.getByTestId('lane-peek')).toBeVisible()
+      fireEvent.focus(screen.getByTestId('stand-in-trigger'))
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition()).toEqual([`${120 + TIP_GAP}px`, `${TIP_GAP}px`])
+      expect(screen.getByTestId('lane-peek')).toBeVisible()
+    } finally {
+      cleanup()
+      spy.mockRestore()
+      restorePlaceHost()
+      useLaneInspector.setState({ current: null, peek: null })
+      uninstall()
+      vi.useRealTimers()
+      vi.unstubAllEnvs()
+    }
+  })
 })

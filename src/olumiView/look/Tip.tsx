@@ -25,19 +25,24 @@ export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-
 
 export type TipSpacing = 'peek' | 'list'
 
+function anchorElement(anchor: HTMLElement | undefined): HTMLElement | undefined {
+  return typeof anchor?.closest === 'function' ? anchor : undefined
+}
+
 export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: HTMLElement; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const t = el.current
     if (t === null || anchorRect === null) return
+    const element = anchorElement(anchor) ?? null
     const open = placeHost.openBoxes().filter((box) => !(
       box.left <= anchorRect.left && box.right >= anchorRect.right &&
       box.top <= anchorRect.top && box.bottom >= anchorRect.bottom
     ))
     const { left, top } = placeNear(anchorRect, t.getBoundingClientRect(), {
-      region: placeHost.regionFor(anchor ?? null),
+      region: placeHost.regionFor(element),
       open,
-      cards: placeHost.cards(anchor ?? null),
+      cards: placeHost.cards(element),
       gap: TIP_GAP,
       limit: TIP_GAP,
     })
@@ -128,7 +133,8 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, 
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => { if (e.key === 'Escape') hideTooltip() },
   }
   const shown = activeTooltip !== null && text !== ''
-  const cardTipOpen = shown && activeTooltip.element.closest('.react-flow__node') !== null
+  const anchor = anchorElement(activeTooltip?.element)
+  const cardTipOpen = shown && anchor !== undefined && anchor.closest('.react-flow__node') !== null
   useLayoutEffect(() => {
     if (!cardTipOpen) return
     useCanvasCardTip.setState({ tipId: id })
@@ -137,7 +143,7 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, 
     }
   }, [cardTipOpen, id])
   useTipDismissOnMove(shown, hideTooltip)
-  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} anchor={activeTooltip.element} spacing={spacing} icon={icon} />, document.body) : null
+  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} anchor={anchor} spacing={spacing} icon={icon} />, document.body) : null
   return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }
 
