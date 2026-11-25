@@ -176,10 +176,18 @@ it('leaves details closed on Enter from a button inside a model card', () => {
   expect(useLaneInspector.getState().current).toBeNull()
 })
 
-it('leaves details closed on Enter from the focused question card', () => {
+it('opens nothing on Enter from the focused question card and leaves the open details box as it was', () => {
   const question = renderCardNode(QUESTION)
+  act(() => useLaneInspector.getState().open({ kind: 'card', id: CARD_ID }))
+  expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', target: { kind: 'card', id: CARD_ID } })
+
   act(() => question.focus())
   expect(question).toHaveFocus()
   fireEvent.keyDown(question, { key: 'Enter' })
-  expect(useLaneInspector.getState().current).toBeNull()
+
+  const current = useLaneInspector.getState().current
+  const target = current?.kind === 'details' ? current.target : undefined
+  expect(current?.kind, 'current.kind').toBe('details')
+  expect(target?.kind, 'current.target.kind').toBe('card')
+  expect(target?.id, 'current.target.id').toBe(CARD_ID)
 })
