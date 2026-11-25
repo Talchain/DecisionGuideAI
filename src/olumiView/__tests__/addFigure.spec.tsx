@@ -12,6 +12,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { AddFigure, ADD_FIGURE_WORDS, focusWhenDrawn } from '../AddFigure'
+import { useProposalAsk } from '../v12/chat/proposalAsk'
 import { LaneEditingLayer } from '../v12/edit/LaneEditingLayer'
 import { ToastProvider } from '../../canvas/ToastContext'
 import { setTeamFetch } from '../../olumiCore/team/api'
@@ -48,6 +49,7 @@ afterEach(() => {
   cleanup(); setTeamFetch(null); resetWrites(); unregister(); useModelNotice.setState({ notice: null })
   useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' }); useMe.setState({ me: null } as never)
   useCanvasStore.setState({ nodes: [] } as never)
+  useProposalAsk.setState(useProposalAsk.getInitialState())
 })
 const posts = () => calls.filter((c) => c.method === 'POST')
 const openFigure = () => {
@@ -129,11 +131,12 @@ describe('add a figure', () => {
   it('the + stays in place while a proposal is held: focusable, and it says why (audit F19); never on an earlier version or someone else\'s page', () => {
     useViewStore.setState({ view: { ...approved, proposal: { id: 9 }, model: { ...approved.model!, edit_base: null } } as unknown as View })
     const held = render(<AddFigure />).getByTestId('canvas-add-to-model-held')
-    expect(held).toHaveAttribute('aria-disabled', 'true')
+    expect(held).not.toHaveAttribute('aria-disabled')
     expect(held).not.toBeDisabled()
     expect(held).toHaveAccessibleName(`Add to model: ${ADD_FIGURE_WORDS.heldProposal}`)
     expect(held).not.toHaveAttribute('title')
     fireEvent.click(held)
+    expect(useProposalAsk.getState()).toEqual({ id: 9, n: 1 })
     expect(screen.queryByRole('menu')).toBeNull()
     cleanup()
     useViewStore.setState({ at: 2 })

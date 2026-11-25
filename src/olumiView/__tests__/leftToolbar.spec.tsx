@@ -7,6 +7,7 @@ import type { ReactFlowProps } from '@xyflow/react'
 import type { View } from '../client'
 import { ViewCanvas } from '../ViewCanvas'
 import { useViewStore } from '../store'
+import { useProposalAsk } from '../v12/chat/proposalAsk'
 import { useMe } from '../../olumiCore/me'
 import { useCanvasStore } from '../../canvas/store'
 import { LeftSidebar } from '../../components/layout/LeftSidebar'
@@ -29,6 +30,7 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 const bakery = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8')) as View
+const proposal = (JSON.parse(readFileSync(path.resolve('src/olumiView/golden/proposal.view.json'), 'utf8')) as View).proposal!
 beforeEach(() => {
   useViewStore.setState({ uuid: 'u', sid: bakery.id, view: bakery, status: 'ready', error: null, stale: false, at: null })
   useMe.setState({ me: { id: bakery.you_id, name: bakery.you }, status: 'ready' })
@@ -40,6 +42,7 @@ afterEach(() => {
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, at: null })
   useMe.setState({ me: null, status: 'none' })
   useCanvasStore.setState({ nodes: [], edges: [] })
+  useProposalAsk.setState(useProposalAsk.getInitialState())
 })
 const mount = () => render(<div style={{ width: 1232, height: 704 }}><ViewCanvas /></div>)
 const toolbar = () => screen.getByRole('toolbar', { name: 'Canvas tools' })
@@ -99,26 +102,32 @@ describe('core lane left toolbar', () => {
     mount()
     // In particular, an already-open menu cannot carry write access to another person's page.
     fireEvent.click(plus())
+    const noEditBase = unavailable === 'no edit_base'
     act(() => {
-      if (unavailable === 'no edit_base') useViewStore.setState({ view: { ...bakery, model: { ...bakery.model!, edit_base: null } } })
+      if (noEditBase) useViewStore.setState({ view: { ...bakery, model: { ...bakery.model!, edit_base: null } } })
       else if (unavailable === 'past version') useViewStore.setState({ at: 1 })
       else useMe.setState({ me: { id: 'someone-else', name: 'Someone else' } })
     })
     expect(within(toolbar()).queryByTestId('canvas-add-to-model')).toBeNull()
     expect(screen.queryByRole('menu')).toBeNull()
-    // Paul's left menu keeps its + in place (audit F19): with no edit base it is there, disabled, and says why; never on a past version or another's page.
-    const held = unavailable === 'no edit_base' ? ['canvas-add-to-model-held'] : []
+    const held = noEditBase ? ['canvas-add-to-model-held'] : []
     expect(within(toolbar()).getAllByRole('button').map((b) => b.dataset.testid)).toEqual([...held, 'canvas-tool-select', 'canvas-tool-hand', 'lane-undo', 'v12-layers-button'])
-    if (held.length > 0) {
-      const button = within(toolbar()).getByTestId('canvas-add-to-model-held')
-      expect(button).toHaveAttribute('aria-disabled', 'true')
-      button.focus()
-      expect(button).toHaveFocus()
-      fireEvent.click(button)
-      expect(screen.queryByRole('menu')).toBeNull()
+    if (noEditBase) {
+      expect(within(toolbar()).getByTestId('canvas-add-to-model-held')).toHaveAttribute('aria-disabled', 'true')
     }
     fireEvent.click(within(toolbar()).getByTestId('canvas-tool-select'))
     expect(within(toolbar()).getByTestId('canvas-tool-select')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('keeps + pressable while a proposal is pending and requests Review for that proposal', () => {
+    useViewStore.setState({ view: { ...bakery, proposal, model: { ...bakery.model!, edit_base: null } } })
+    mount()
+    const button = within(toolbar()).getByTestId('canvas-add-to-model-held')
+    expect(button).not.toHaveAttribute('aria-disabled')
+    expect(button).not.toBeDisabled()
+    fireEvent.click(button)
+    expect(useProposalAsk.getState()).toEqual({ id: proposal.id, n: 1 })
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('keeps the legacy sidebar defaults: Add, Select, Hand and Undo', () => {

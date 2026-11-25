@@ -14,9 +14,15 @@ interface Source {
   readonly content: ReactNode
 }
 
-export function ChatFootRow({ sources, trailing }: { sources: readonly Source[]; trailing?: ReactNode }): JSX.Element {
+export function ChatFootRow({ sources, trailing, ask, onAskOpened }: {
+  sources: readonly Source[]
+  trailing?: ReactNode
+  ask?: { readonly source: string; readonly n: number } | null
+  onAskOpened?: () => void
+}): JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const [present, setPresent] = useState<Readonly<Record<string, boolean>>>({})
+  const openedAsk = useRef<number | null>(null)
   const box = useRef<HTMLDivElement>(null), row = useRef<HTMLDivElement>(null)
   const panelId = useId()
   const close = useCallback(() => {
@@ -42,6 +48,12 @@ export function ChatFootRow({ sources, trailing }: { sources: readonly Source[];
   useEffect(() => {
     if (open !== null && !present[open]) close()
   }, [close, open, present])
+  useEffect(() => {
+    if (ask == null || !present[ask.source] || openedAsk.current === ask.n) return
+    openedAsk.current = ask.n
+    setOpen(ask.source)
+    onAskOpened?.()
+  }, [ask, onAskOpened, present])
   useEffect(() => {
     if (open === null) return
     const outside = (event: PointerEvent) => {

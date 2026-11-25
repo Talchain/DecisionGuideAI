@@ -9,6 +9,7 @@ import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { placeViewCards } from '../../olumiView/canvas'
 import { QUESTION } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
+import { askProposalReview } from '../../olumiView/v12/chat/proposalAsk'
 import { toggleSimple, useLevel } from '../../olumiView/v12/simpleStore'
 import { editGateNow } from '../../olumiView/v12/edit/editGate'
 import { openLaneForm, openLinkRemoval } from '../../olumiView/v12/edit/structuralEdits'
@@ -43,6 +44,7 @@ export function useLaneCtx(o: CtxOptions): LaneMenuCtx {
       // Surfaces step 5: on the lane a figure is changed in the details' Value row, whichever control asked. The older look keeps its small form.
       openRename: isOlumiCoreLane() ? (id) => { if (openRenameCard(id)) onClose() } : undefined,
       openFigure: isOlumiCoreLane() ? (t) => { useLaneInspector.getState().openFigure(t); onClose() } : undefined,
+      review: isOlumiCoreLane() ? () => { askProposalReview(); onClose() } : undefined,
       ask: (t, intent) => { askAI(t, intent, showToast); onClose() },
       prefill: (text, label, targetId) => { if (requestAsk({ text, label, targetId, source: 'node-coaching-icon' }) === 'none') showToast('The conversation is not open yet. Try again in a moment.', 'warning'); onClose() },
       pressUndo: (dir) => { void pressUndo(dir).then((r) => { if (!r.ok) showToast(r.words, 'error'); else if (r.kind === 'saved' && r.warning !== undefined) showToast(r.warning, 'warning') }); onClose() },

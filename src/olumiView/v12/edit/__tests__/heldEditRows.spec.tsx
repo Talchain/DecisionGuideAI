@@ -5,7 +5,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
 import { buildLaneMenu, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
@@ -15,6 +15,7 @@ import { editGateNow } from '../editGate'
 import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useLaneInspector } from '../inspectorStore'
 import { useViewStore } from '../../../store'
+import { useProposalAsk } from '../../chat/proposalAsk'
 import { TIP_DELAY } from '../../../look/Tip'
 import { QUESTION } from '../../../layout'
 import { BASE, SID, approved, install, uninstall, type Stub } from './harness'
@@ -33,6 +34,7 @@ const ctx = (gate: LaneMenuCtx['gate'], model = approved().model!): LaneMenuCtx 
 const pane: ContextTarget = { kind: 'pane', screenPos: { x: 10, y: 10 } }
 const fig = 'starting_customers'
 const nodeT = (id: string): ContextTarget => ({ kind: 'node', nodeId: id, nodeType: 'factor', node: { id, position: { x: 0, y: 0 }, data: {} } as never, screenPos: { x: 10, y: 10 } })
+const edgeT = (index: number): ContextTarget => ({ kind: 'edge', edgeId: 'e', isStructural: false, screenPos: { x: 10, y: 10 }, edge: { id: 'e', data: { link: approved().model!.links[index] } } as never })
 const heldView = (): View => {
   const v = approved()
   return { ...v, proposal: { id: 4, base: 1, heading: 'A change', on: 'x' }, model: { ...v.model!, edit_base: null }, model_words: { ...(v.model_words ?? {}), withdrawnHeld: WHY } } as never
@@ -77,14 +79,75 @@ describe('A1: the builder draws held edits disabled, with the reason', () => {
   })
 })
 
+describe('reviewing a held proposal from the menu', () => {
+  const menus = [
+    { name: 'card', target: nodeT(fig), firstEdit: 'rename' },
+    { name: 'link', target: edgeT(1), firstEdit: 'size' },
+    { name: 'pane', target: pane, firstEdit: 'add' },
+  ]
+
+  it.each(menus)('the $name menu offers one enabled Review row immediately before its edits', ({ target, firstEdit }) => {
+    const review = vi.fn(), c = ctx(HELD)
+    const menu = buildLaneMenu(target, { ...c, act: { ...c.act, review } })
+    const rows = flat(menu).filter((row) => row.id === 'review-proposal')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ iconId: 'olumi-mark', tooltip: WHY, enabled: true })
+    expect(menu[menu.indexOf(rows[0]!) + 1]).toMatchObject({ id: firstEdit })
+    rows[0]!.action()
+    expect(review).toHaveBeenCalledTimes(1)
+    expect(opened).toHaveLength(0)
+  })
+
+  it('keeps the held link edits disabled with the same reason and offers Review even on a link without edits', () => {
+    const review = vi.fn(), c = ctx(HELD)
+    const withReview = { ...c, act: { ...c.act, review } }
+    const editable = buildLaneMenu(edgeT(1), withReview)
+    for (const id of ['size', 'remove-link']) {
+      const row = byId(editable, id)!
+      expect(row).toMatchObject({ enabled: false, disabledReason: REASON })
+      row.action()
+    }
+    expect(opened).toHaveLength(0)
+    expect(review).not.toHaveBeenCalled()
+    const plain = buildLaneMenu(edgeT(0), withReview)
+    expect(byId(plain, 'size')).toBeUndefined()
+    expect(byId(plain, 'remove-link')).toBeUndefined()
+    expect(flat(plain).filter((row) => row.id === 'review-proposal')).toHaveLength(1)
+  })
+
+  it('omits Review if editing is allowed, the refusal is unrelated, or there is no review action', () => {
+    const allowed = ctx({ ok: true, sid: SID, base: BASE }), refused = ctx({ ok: false, why: WHY })
+    const review = vi.fn()
+    for (const { target } of menus) {
+      for (const c of [allowed, refused]) {
+        expect(byId(buildLaneMenu(target, { ...c, act: { ...c.act, review } }), 'review-proposal')).toBeUndefined()
+      }
+      expect(byId(buildLaneMenu(target, ctx(HELD)), 'review-proposal')).toBeUndefined()
+    }
+  })
+})
+
 describe('A1 mounted: held rows are reachable, say why, and do nothing', () => {
   let stub: Stub
   beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1'); stub = install(heldView()); clearLayoutUndo() })
-  afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }) })
+  afterEach(() => { cleanup(); uninstall(); vi.unstubAllEnvs(); useLaneInspector.setState({ current: null }); useProposalAsk.setState(useProposalAsk.getInitialState()) })
   const Host = (): JSX.Element => {
     const target = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
     return <ToastProvider>{target === null ? null : <CanvasContextMenu target={target} onClose={() => useLaneInspector.getState().close('menu')} screenToFlowPosition={(p) => p} interactionMode="select" onSetInteractionMode={() => undefined} />}<LaneEditingLayer /></ToastProvider>
   }
+  it('pressing Review from the graph asks for the held proposal and closes the menu', async () => {
+    render(<Host />)
+    act(() => useLaneInspector.getState().show({ kind: 'menu', target: nodeT(fig) }))
+    const row = await waitFor(() => {
+      const item = screen.getByRole('menu').querySelector('[data-menu-row="review-proposal"]')
+      expect(item).toBeInTheDocument()
+      return item!
+    })
+    fireEvent.click(row)
+    expect(useProposalAsk.getState().id).toBe(heldView().proposal!.id)
+    expect(useLaneInspector.getState().current).toBeNull()
+    expect(stub.posts()).toHaveLength(0)
+  })
   it('the right-click Rename row is drawn aria-disabled, says the reason on hover, and pressing it opens no editor', async () => {
     render(<Host />)
     act(() => useLaneInspector.getState().show({ kind: 'menu', target: nodeT(fig) }))

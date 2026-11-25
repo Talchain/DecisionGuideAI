@@ -15,7 +15,7 @@ import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import type { DsKind } from '../../olumiView/v12/cards/kind'
 import type { IconId } from '../../olumiView/look/icons'
 import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
-import { REVIEW_PROPOSAL, type EditGate } from '../../olumiView/v12/edit/editGate'
+import { REVIEW_PROPOSAL, REVIEW_PROPOSAL_ROW, type EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
@@ -48,6 +48,7 @@ export type LaneMenuCtx = {
     readonly openRename?: (id: string) => void
     readonly openRemove?: (link: ViewLink) => void
     readonly openFigure?: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
+    readonly review?: () => void
     readonly ask: (target: ContextTarget, intent: AskIntent) => void
     /** Puts `text` in the AI box for the person to finish and send (the card's Olumi badge does the same); sends nothing. */
     readonly prefill?: (text: string, label: string, targetId: string) => void
@@ -60,6 +61,12 @@ export type LaneMenuCtx = {
 
 const DIV: MenuEntry = { type: 'divider' }
 const figureCards = (m: ViewModel | null): ViewCard[] => (m?.cards ?? []).filter((c) => c.family === 'quantity')
+
+function reviewRow(c: LaneMenuCtx): MenuItemDef[] {
+  return !c.gate.ok && c.gate.held === true && c.act.review !== undefined
+    ? [{ id: 'review-proposal', label: REVIEW_PROPOSAL_ROW, iconId: 'olumi-mark', tooltip: c.gate.why, enabled: true, action: () => c.act.review!() }]
+    : []
+}
 
 /** The row that changes a figure: on the lane it opens the item's Value row (`openFigure`), the one place that is done; the older look opens the small form for it. Drawn by the same gate. */
 function figureRow(c: LaneMenuCtx, id: string, label: string, tooltip: string, at: { readonly kind: 'card' | 'link'; readonly id: string }, spec: (g: Extract<EditGate, { ok: true }>) => EditSpec): MenuItemDef[] {
@@ -138,7 +145,7 @@ function paneMenu(target: Extract<ContextTarget, { kind: 'pane' }>, c: LaneMenuC
       id: 'interaction-mode', label: c.mode === 'select' ? LANE_MENU_WORDS.hand : LANE_MENU_WORDS.select, iconId: c.mode === 'select' ? 'tool-hand' : 'selected-row', shortcut: c.mode === 'select' ? 'H' : 'V',
       tooltip: c.mode === 'select' ? 'Drag the canvas to move around' : 'Click and drag to select cards', enabled: true, action: () => c.act.setMode!(c.mode === 'select' ? 'hand' : 'select'),
     } satisfies MenuItemDef, DIV] : []),
-    ...add,
+    ...reviewRow(c), ...add,
     ask(c, target, [['ask-missing', LANE_MENU_WORDS.missing, 'review_model_gaps']]),
     DIV, ...undoRows(c), DIV,
     ...((c.model?.cards.length ?? 0) > 0 ? [{ id: 'auto-arrange', label: LANE_MENU_WORDS.autoArrange, iconId: 'layout-grid', shortcut: '⇧A', tooltip: 'Put the cards back in their own places', enabled: true, action: () => c.act.autoArrange() } satisfies MenuItemDef] : []),
@@ -152,7 +159,7 @@ function nodeMenu(target: Extract<ContextTarget, { kind: 'node' }>, c: LaneMenuC
     { id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this card', enabled: true, action: () => c.act.openDetails({ kind: 'card', id }) },
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element'], ['ask-challenge', LANE_MENU_WORDS.challenge, 'challenge_element']]),
   ]
-  const edits: MenuEntry[] = card !== null && !isQuestion ? [...cardEditRows(card, c)] : []
+  const edits = [...reviewRow(c), ...(card !== null && !isQuestion ? cardEditRows(card, c) : [])]
   const prefill = c.act.prefill, name = card?.heading ?? ''
   const asks: MenuEntry[] = card !== null && !isQuestion && prefill !== undefined ? [
     { id: 'ask-add-outcome', label: LANE_MENU_WORDS.addOutcome, icon: ADD_KIND_ICONS.outcome, tooltip: 'Ask Olumi to add an outcome that follows from this', enabled: true, action: () => prefill(`Add an outcome that follows from ${name}: `, LANE_MENU_WORDS.addOutcome, id) },
@@ -195,7 +202,7 @@ export const edgeIdOf = (l: Pick<ViewLink, 'from' | 'to' | 'kind'>): string => `
 
 function edgeMenu(target: Extract<ContextTarget, { kind: 'edge' }>, c: LaneMenuCtx): MenuEntry[] {
   const link = (target.edge as unknown as { data?: { link?: ViewLink } }).data?.link
-  const rows = linkEditRows(link, c)
+  const rows = [...reviewRow(c), ...linkEditRows(link, c)]
   return [
     ...(link === undefined ? [] : [{ id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this link', enabled: true, action: () => c.act.openDetails({ kind: 'link', id: target.edgeId }) } satisfies MenuItemDef]),
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element']]), ...(rows.length > 0 ? [DIV, ...rows] : [])]

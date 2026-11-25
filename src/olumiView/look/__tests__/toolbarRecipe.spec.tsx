@@ -18,6 +18,7 @@ import { ViewZoomNotice } from '../../ViewZoomNotice'
 import { VIEW_CARD } from '../../canvas'
 import { useViewLens } from '../../lens'
 import { UndoControl } from '../../v12/UndoControl'
+import { useProposalAsk } from '../../v12/chat/proposalAsk'
 import { approved, install, uninstall } from '../../v12/edit/__tests__/harness'
 import { LensesMenu } from '../../v12/lenses/LensesMenu'
 
@@ -75,6 +76,7 @@ afterEach(() => {
   uninstall()
   useViewLens.setState({ lens: 'full' })
   useCanvasStore.setState({ lodRung: 'full' })
+  useProposalAsk.setState(useProposalAsk.getInitialState())
   vi.unstubAllEnvs()
 })
 
@@ -118,12 +120,13 @@ describe('the compact floating toolbar recipe', () => {
       expect(surface.querySelectorAll('button[tabindex="0"]')).toHaveLength(1)
     }
     const add = screen.getByTestId('canvas-add-to-model-held')
-    expect(add).toHaveAttribute('aria-disabled', 'true')
+    expect(add).not.toHaveAttribute('aria-disabled')
     expect(add).not.toBeDisabled()
     expect(add.tabIndex).toBe(0)
     act(() => add.focus())
     expect(await screen.findByRole('tooltip')).toHaveTextContent(ADD_FIGURE_WORDS.heldProposal)
     fireEvent.click(add)
+    expect(useProposalAsk.getState()).toEqual({ id: 9, n: 1 })
     expect(screen.queryByRole('menu')).toBeNull()
     fireEvent.keyDown(add, { key: 'ArrowDown' })
     const select = screen.getByRole('button', { name: 'Select mode' })

@@ -21,6 +21,7 @@ import { focusNodeById } from '../canvas/utils/focusHelpers'
 import { useCanvasStore } from '../canvas/store'
 import { writes } from './client'
 import { isOlumiCoreLane } from '../olumiCore/lane'
+import { askProposalReview } from './v12/chat/proposalAsk'
 import { openLaneAdd } from './v12/edit/structuralEdits'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useViewStore } from './store'
@@ -96,7 +97,7 @@ export function AddFigure(): JSX.Element | null {
   const sending = useWriteSending(key)
   const live = view?.model?.edit_base ?? null
   if (sid === null || view === null || at !== null || !isForThisPage(view, me)) return null
-  // Paul's left menu keeps its + (15 Nov, 2.png): while core gives no edit base it stays in its place, disabled, and says why (no dead control).
+  // The + stays in place while core gives no edit base, says why, and opens any pending proposal for review.
   const why = live !== null ? null : view.model == null ? ADD_FIGURE_WORDS.heldNoModel : view.proposal != null ? ADD_FIGURE_WORDS.heldProposal : ADD_FIGURE_WORDS.heldOther
 
   const close = () => { useLaneInspector.getState().close('add'); setError(null) }
@@ -120,8 +121,8 @@ export function AddFigure(): JSX.Element | null {
   return (
     <div className="relative flex flex-col nodrag nopan">
       {why !== null ? (
-        <HoverButton ref={opener} type="button" disabled words={why} className={TOOLBAR_RAIL_ICON}
-          aria-label={`Add to model: ${why}`} data-testid="canvas-add-to-model-held">
+        <HoverButton ref={opener} type="button" words={why} className={TOOLBAR_RAIL_ICON} disabled={view.proposal == null}
+          aria-label={`Add to model: ${why}`} data-testid="canvas-add-to-model-held" onClick={askProposalReview}>
           <OkIcon id="add" size={14} decorative inherit />
         </HoverButton>
       ) : (

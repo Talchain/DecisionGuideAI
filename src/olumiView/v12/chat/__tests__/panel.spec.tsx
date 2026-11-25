@@ -22,6 +22,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { REST_ITEMS, REVIEW_CHANGES, ViewChat, ViewComposer, useViewChat } from '../../../ViewChat'
 import { VIEW_NOTE_SLOT } from '../../../note'
 import { typography } from '../../../../styles/typography'
+import { askProposalReview, useProposalAsk } from '../proposalAsk'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 const session = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/session', `${n}.view3.json`), 'utf8'))
@@ -39,6 +40,7 @@ const withAnswer = (v: View, i: number, a: Partial<Answer>): View => ({ ...v, ch
 beforeEach(() => useUIStore.setState({ activeOutputTab: 'olumi' } as never))
 afterEach(() => {
   cleanup()
+  useProposalAsk.setState(useProposalAsk.getInitialState())
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none', error: null, at: null })
   useViewChat.setState({ text: '', ops: new Map(), busy: false, said: null, held: null, gone: null })
 })
@@ -134,6 +136,104 @@ describe('1. the proposal waits behind one foot-row chip', () => {
     expect(qa(c, 'view-approve')).toHaveLength(1) // and Approve with it, once
     expect(qa(c, 'view-set-aside')).toHaveLength(1) // and Set aside, where Keep the original can be sent with it
   })
+})
+
+describe('the pending proposal’s reply', () => {
+  it('puts one Review chip between the matching reply and its facts, even with a newer turn', () => {
+    const view = golden('proposal'), p = view.proposal!
+    const c = show({ ...view, chat: [...view.chat, { ...view.chat[0]!, id: p.id + 1 }] })
+    const turn = c.querySelector(`[data-view-turn="chat.${view.chat.findIndex((t) => t.id === p.id)}"]`)!
+    const chip = q(turn, 'view-chat-reply-review')!
+    expect(qa(c, 'view-chat-reply-review')).toEqual([chip])
+    expect(chip.previousElementSibling).toBe(q(turn, 'view-chat-answer'))
+    expect(chip.nextElementSibling).toBe(q(turn, 'view-reply-tools'))
+  })
+
+  it('does not draw a Review chip on the pending proposal’s turn when it has no answer', () => {
+    const view = golden('proposal'), id = view.proposal!.id
+    const chat = view.chat.map((t) => (t.id === id ? { ...t, answer: null } : t))
+    const c = show({ ...view, chat })
+    const turn = c.querySelector(`[data-view-turn="chat.${chat.findIndex((t) => t.id === id)}"]`)
+    expect(turn).toBeInTheDocument()
+    expect(q(c, 'view-chat-foot-proposal')).toBeVisible()
+    expect(q(turn!, 'view-chat-reply-review')).toBeNull()
+  })
+
+  it('removes the original reply’s Review chip when the proposal is replaced or cleared', () => {
+    const view = golden('proposal'), p = view.proposal!
+    const c = show(view)
+    expect(q(c, 'view-chat-reply-review')).toBeVisible()
+    act(() => useViewStore.setState({ view: { ...view, proposal: { ...p, id: p.id + 1 } } }))
+    expect(q(c, 'view-chat-reply-review')).toBeNull()
+    act(() => useViewStore.setState({ view: { ...view, proposal: null } }))
+    expect(q(c, 'view-chat-reply-review')).toBeNull()
+  })
+
+  it('asks to review the pending proposal and opens its foot source and change list on a press', () => {
+    const view = golden('proposal')
+    const c = show(view)
+    const foot = q(c, 'view-chat-foot-proposal')!
+    expect(foot).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(q(c, 'view-chat-reply-review')!)
+    expect(useProposalAsk.getState()).toEqual({ id: null, n: 1 })
+    expect(foot).toHaveAttribute('aria-expanded', 'true')
+    expect(q(c, 'view-proposal-review')).toHaveAttribute('data-open', 'true')
+    expect(q(c, 'view-changes')).toBeVisible()
+  })
+
+  it('keeps the proposal row closed when the same View remounts after a served Review request', () => {
+    const view = golden('proposal')
+    const c = show(view)
+    const foot = q(c, 'view-chat-foot-proposal')!
+    fireEvent.click(q(c, 'view-chat-reply-review')!)
+    expect(foot).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(foot)
+    expect(foot).toHaveAttribute('aria-expanded', 'false')
+
+    cleanup()
+    const remounted = render(<ViewChat />).container
+    expect(q(remounted, 'view-chat-foot-proposal')).toHaveAttribute('aria-expanded', 'false')
+    expect(q(remounted, 'view-proposal-review')).toHaveAttribute('data-open', 'false')
+  })
+
+  it('opens the proposal row and change list on mount after a Review request from another tab', () => {
+    const view = golden('proposal')
+    useViewStore.setState({ view })
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    expect(askProposalReview()).toBe(true)
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+
+    const c = show(view)
+    expect(q(c, 'view-chat-foot-proposal')).toHaveAttribute('aria-expanded', 'true')
+    expect(q(c, 'view-proposal-review')).toHaveAttribute('data-open', 'true')
+    expect(q(c, 'view-changes')).toBeVisible()
+    expect(useProposalAsk.getState()).toEqual({ id: null, n: 1 })
+  })
+
+  it('clears a Review request when no proposal row is offered and leaves a later row closed', async () => {
+    const view = golden('proposal'), id = view.proposal!.id
+    const c = show({ ...view, proposal: null })
+    expect(q(c, 'view-chat-foot-proposal')).toBeNull()
+    act(() => useProposalAsk.setState({ id, n: 1 }))
+    expect(useProposalAsk.getState()).toEqual({ id: null, n: 1 })
+
+    act(() => useViewStore.setState({ view }))
+    await waitFor(() => expect(q(c, 'view-chat-foot-proposal')).toBeInTheDocument())
+    expect(q(c, 'view-chat-foot-proposal')).toHaveAttribute('aria-expanded', 'false')
+    expect(q(c, 'view-proposal-review')).toHaveAttribute('data-open', 'false')
+  })
+})
+
+it('keeps the in-flight turn’s name visible when the viewer has no id yet', () => {
+  const view = golden('proposal'), member = view.members[0]!
+  // The page can receive a name before core supplies ids.
+  const c = show({ ...view, members: [member], you_id: null, turn: {
+    job: 31, status: 'answering', said: view.chat[0]!.said, ask: 'message', by: member.name,
+    by_id: null, words: null, started: '2026-11-25T12:00:00Z', at: '2026-11-25T12:00:00Z',
+  } } as unknown as View)
+  const name = q(q(c, 'view-chat-turn-job')!, 'view-said-by')!
+  expect(name).toBeVisible()
+  expect(name).not.toHaveClass('sr-only')
 })
 
 describe('2. the opening of every reply shows; a long reply folds its tail', () => {

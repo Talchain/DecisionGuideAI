@@ -7,6 +7,39 @@ import { VIEW_NOTE_SLOT } from '../../../note'
 
 afterEach(cleanup)
 
+const proposalSource = { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark' as const, count: 1, content: <section>Proposal</section> }
+
+it('stays closed at rest with no ask, then opens a present source when asked', () => {
+  const { getByTestId, rerender } = render(<ChatFootRow sources={[proposalSource]} ask={null} />)
+  const chip = getByTestId('view-chat-foot-proposal')
+  expect(chip).toHaveAttribute('aria-expanded', 'false')
+  expect(getByTestId('view-chat-pinned')).toHaveAttribute('hidden')
+  rerender(<ChatFootRow sources={[proposalSource]} ask={{ source: proposalSource.id, n: 1 }} />)
+  expect(chip).toHaveAttribute('aria-expanded', 'true')
+})
+
+it('opens the requested source when its content arrives after the ask', async () => {
+  const ask = { source: proposalSource.id, n: 1 }
+  const { getByTestId, queryByTestId, rerender } = render(<ChatFootRow sources={[{ ...proposalSource, content: null }]} ask={ask} />)
+  expect(queryByTestId('view-chat-foot-proposal')).toBeNull()
+  rerender(<ChatFootRow sources={[proposalSource]} ask={ask} />)
+  await waitFor(() => expect(getByTestId('view-chat-foot-proposal')).toHaveAttribute('aria-expanded', 'true'))
+})
+
+it.each(['chip', 'Escape', 'outside press'])('stays closed after %s until the ask number changes', (dismiss) => {
+  const { getByTestId, rerender } = render(<ChatFootRow sources={[proposalSource]} ask={{ source: proposalSource.id, n: 1 }} />)
+  const chip = getByTestId('view-chat-foot-proposal')
+  expect(chip).toHaveAttribute('aria-expanded', 'true')
+  if (dismiss === 'chip') fireEvent.click(chip)
+  else if (dismiss === 'Escape') fireEvent.keyDown(chip, { key: 'Escape' })
+  else fireEvent.pointerDown(document.body)
+  expect(chip).toHaveAttribute('aria-expanded', 'false')
+  rerender(<ChatFootRow sources={[proposalSource]} ask={{ source: proposalSource.id, n: 1 }} />)
+  expect(chip).toHaveAttribute('aria-expanded', 'false')
+  rerender(<ChatFootRow sources={[proposalSource]} ask={{ source: proposalSource.id, n: 2 }} />)
+  expect(chip).toHaveAttribute('aria-expanded', 'true')
+})
+
 it('opens one source upward, closes on a second press, Escape or outside press, and returns focus', () => {
   const { getByTestId } = render(<ChatFootRow sources={[
     { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: 1, content: <section>Proposal</section> },

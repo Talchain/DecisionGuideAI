@@ -79,6 +79,7 @@ import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedR
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ChatFootRow } from './v12/chat/ChatFootRow'
+import { askProposalReview, clearProposalAsk, useProposalAsk } from './v12/chat/proposalAsk'
 import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -352,6 +353,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   const keepEach = keepSid === null || approaches.length === 0 ? undefined : (words: string) => (approaches.includes(words) ? <KeepIdea sid={keepSid} turn={t.id} text={words} inline /> : null)
   // V12: the person's message is a method chip when it is, word for word, one of core's menu questions.
   const whole = useViewStore((st) => st.view)
+  const review = t.answer !== null && t.id === whole?.proposal?.id && pinsProposal(whole)
   const method = methodOfSaid(whole, t.said)
   const aboutCards = t.answer === null ? [] : aboutCardsOf(whole, t.answer.next)
   // A question the page drafted that the person pressed (core's typed ask 'challenge' or 'method') is their act, not words they typed: drawn as chrome.
@@ -446,7 +448,9 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {t.receipt === undefined ? null : <p className={`${typography.viewPanelMeta} text-text-light m-0`} data-testid="view-receipt" data-receipt={t.receipt.why} data-view={`${at}.receipt`}>{t.receipt.words}</p>}
       {lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
-      {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
+      {answer}
+      {review ? <button type="button" className={VIEW_CHIP_CLASS} data-testid="view-chat-reply-review" onClick={askProposalReview}>{REVIEW_LABEL}</button> : null}
+      {heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
       {/* K1: a lead that is not drawn (it repeats the answer) still says core's `lead.not_held`, under the whole answer, as the lead would have. */}
       {lead !== null || t.answer === null || leadNotHeldOf(t.answer) === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.answer.lead.not_held`}>{leadNotHeldOf(t.answer)}</p>}
       {history !== null && history.lines.length > 0 ? (
@@ -619,7 +623,7 @@ export function TurnInFlight({ turn, me, view, shown = false, replyVisible = fal
             The bubble keeps 24 px clear of the waiting line, one 18 px line more than the 4 px it had; the two margins collapse, so the larger one is the gap (Paul, 25 Nov). */}
         {shown || replyVisible || turn === null ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className="ok-said mb-6">{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}${alone && turn.by_id === me ? ' sr-only' : ''}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
+          : <div className="ok-said mb-6">{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}${alone && me != null && turn.by_id === me ? ' sr-only' : ''}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{turn.ask === 'method' ? <MethodPress said={turn.said} about={turn.about} at="turn" /> : PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
         {shown || replyVisible ? null : (
@@ -1759,6 +1763,10 @@ export function nextStepOf(view: View): NextStep | null {
   return nextStepFor(view)
 }
 
+const pinsProposal = (view: View | null): boolean => view !== null && nextStepOf(view)?.kind === 'approve'
+
+export const REVIEW_LABEL = 'Review'
+
 export const NEXT_STEP_WORDS = {
   // R25 (Paul's 6 Nov test: no ✎ appeared while a proposal waited): say why, here, where the decision is (core holds edits by contract).
   // Paul, 20 Nov: one sentence, no waffle. Keeps R25's reason (edits wait while a proposal is open).
@@ -1768,12 +1776,23 @@ export const NEXT_STEP_WORDS = {
 /** The next step, highlighted at the top of the Olumi tab: its words and the one control that does it. */
 /**
  * Contract 3: the one row of Olumi's waiting proposal. The Review chip opens and closes it; keyed on the proposal, so a new one
- * starts closed. Its body stays mounted while closed (the person's ticks and reading choices are kept) and is `hidden`; while open it is
- * `display: contents` (olumiLook.css), so the step's words, the change list and the actions are the pinned column's own items and the list
+ * starts closed unless a Review request is waiting. Its body stays mounted and `hidden` while closed (the person's ticks and reading choices
+ * are kept). While open it is `display: contents` (olumiLook.css), so the step's words, the change list and the actions are the pinned column's own items and the list
  * keeps its bounded scroll (Codex 15 Nov: a block wrapper, as a <details> body is, let the list grow and the whole box scroll instead).
  */
 export function ProposalReview({ p, busy, view }: { p: NonNullable<View['proposal']>; busy: boolean; view: View }) {
   const [open, setOpen] = useState(false)
+  const { id, n } = useProposalAsk()
+  const lastAsk = useRef(n)
+  // The proposal ID is the row's key, so it stays fixed for this mount.
+  useEffect(() => {
+    if (useProposalAsk.getState().id === p.id) setOpen(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (lastAsk.current === n) return
+    lastAsk.current = n
+    if (id === p.id) setOpen(true)
+  }, [id, n, p.id])
   const body = `view-proposal-body-${p.id}`
   const self = useRef<HTMLDivElement>(null)
   // The list opens ABOVE the one line at the foot, so an opened review starts at its first words (Codex 15 Nov, held 329, nine changes: a long
@@ -1794,7 +1813,7 @@ export function ProposalReview({ p, busy, view }: { p: NonNullable<View['proposa
       </Hover>
       <button type="button" className={VIEW_CHIP_CLASS}
         data-testid="view-proposal-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
-        Review<FoldChevron open={open} />
+        {REVIEW_LABEL}<FoldChevron open={open} />
       </button>
     </>
   )
@@ -1899,6 +1918,7 @@ export function ViewChat() {
   useAnswersAsks()
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
+  const { id: askedProposal, n: askNumber } = useProposalAsk()
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at), sid = useViewStore((s) => s.sid)
   const savedExpectationCount = useSavedExpectationCount()
   const surface = useFindingSurface()
@@ -2036,8 +2056,11 @@ export function ViewChat() {
   const give = () => void giveFigureFirst().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-given') })
   const show = () => void showOlumiFigure().then((sent) => { if (sent) bringIntoView(tab.current, 'view-figure-first-shown') })
   // P2 (system spec): the panel pins only a proposal Olumi holds. The reply's own next step is drawn once, at that reply's end.
-  const step = view === null ? null : nextStepOf(view)
-  const pinned = step?.kind === 'approve'
+  const pinned = pinsProposal(view)
+  const pendingProposalId = view?.proposal?.id
+  useEffect(() => {
+    if (askedProposal !== null && (!pinned || askedProposal !== pendingProposalId)) clearProposalAsk()
+  }, [askedProposal, pendingProposalId, pinned])
   const questions = chatQuestionsAllOf(view?.model)
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
@@ -2077,7 +2100,8 @@ export function ViewChat() {
       </div>
       {/* CatchUp only opens the history panel, with no inline open area. Use the permitted foot-row fallback
           for kept ideas and intake rather than rewriting CatchUp and its history-panel contract. */}
-      <ChatFootRow key={view?.id ?? ''} sources={[
+      <ChatFootRow key={view?.id ?? ''} ask={pinned && askedProposal === pendingProposalId ? { source: 'proposal', n: askNumber } : null}
+        onAskOpened={clearProposalAsk} sources={[
         { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
           content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
         { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: questions.length + (pinned || view === null ? 0 : checkFirstCount(view, 'asks')),
