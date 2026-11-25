@@ -1837,6 +1837,10 @@ export type View = {
         label: string
         heading: string | null
       }
+      history?: {
+        heading: string
+        lines: Array<string>
+      }
       lead?: {
         opening: string
         points: Array<string>
@@ -1852,10 +1856,6 @@ export type View = {
           basis: string
         }>
         not_held?: string
-      }
-      history?: {
-        heading: string
-        lines: Array<string>
       }
     } | null
     broke: string | null
