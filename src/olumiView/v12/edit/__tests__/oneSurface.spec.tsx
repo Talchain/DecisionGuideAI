@@ -14,13 +14,12 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces, drawKindOf } from '../../../layout'
 import { connectionsOf } from '../../inspect/connections'
-import { MENU_ROW, MENU_SHELL } from '../../../look/menu'
+import { canvasChromeMenuBoundary, MENU_ROW, MENU_SHELL } from '../../../look/menu'
 import { LENSES_TESTID } from '../../lenses/LensesMenu'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
 import { useFrameStage } from '../../frame/useFrameStage'
-import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside, stayBeside } from '../placeBeside'
-import { registerBoxCamera, type View as BoardView } from '../makeRoom'
+import { anchorOf, FORM_MIN_SHOWN, freeCanvas, placeBeside } from '../placeBeside'
 import { HOVER_CARD_GAP } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import type { View } from '../../../client'
@@ -579,7 +578,7 @@ describe('surfaces step 3: details beside their card', () => {
     expect(form.querySelector('[data-testid="lane-edit-save"], button[type="submit"]'), 'Save is drawn').not.toBeNull()
   })
 
-  it('S3-o the panel never covers a foot control (the "N more cards below" cue): it is cut to end a gap above it; CONTRAST without the cue it keeps its height', () => {
+  it('S3-o the panel never covers a foot control (the "N more cards below" cue): it takes a clear alignment and keeps its height', () => {
     const free = { left: 0, top: 0, right: 900, bottom: 700 }, card = { left: 100, top: 300, right: 320, bottom: 420 }
     const cueBox = { left: 340, top: 620, right: 520, bottom: 656 }
     const without = placeBeside(card, null, { width: 280, height: 360 }, free)
@@ -592,9 +591,11 @@ describe('surfaces step 3: details beside their card', () => {
       const bottom = p.top + (p.maxHeight ?? 360)
       const coversCue = p.left < cueBox.right && p.left + 280 > cueBox.left && p.top < cueBox.bottom && bottom > cueBox.top
       expect(coversCue, `panel ${p.left},${p.top} h ${p.maxHeight}`).toBe(false)
+      expect(p.top).toBeLessThan(without.top)
+      expect(p.maxHeight).toBeNull()
       expect(p.left + 280 <= card.left || p.left >= card.right || bottom <= card.top || p.top >= card.bottom, 'still clear of its own card').toBe(true)
     } finally { spy.mockRestore(); cue.remove() }
-    expect(without.maxHeight, 'CONTRAST: with no cue the same place keeps its full height').toBeNull()
+    expect(without.top).toBe(card.top)
   })
 
   it('S3-p (Codex 30422 hold) lifting the panel off a foot control never puts it on its own card: with a clear place above the card, that place is chosen', () => {
@@ -614,123 +615,126 @@ describe('surfaces step 3: details beside their card', () => {
     } finally { spy.mockRestore(); cue.remove() }
   })
 
-  it('S3-r (Paul 19 Nov) a card at the board\'s foot with a card row above it: the box is not slid up onto that row; it stands beside the card at the card\'s own top, cut to the room below (its body scrolls). CONTRAST with no row above the hover rule\'s own place is kept', () => {
-    const free = { left: 0, top: 0, right: 1000, bottom: 700 }, card = { left: 400, top: 560, right: 620, bottom: 680 }
-    const row = [{ left: 640, top: 300, right: 900, bottom: 420 }, { left: 120, top: 300, right: 380, bottom: 420 }]
-    const size = { width: 280, height: 360 }
-    const nodes = row.map(() => { const n = document.createElement('div'); n.className = 'react-flow__node'; document.body.appendChild(n); return n })
-    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      const i = nodes.indexOf(this as HTMLDivElement), r = i >= 0 ? row[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
-      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
-    })
-    try {
-      const p = placeBeside(card, null, size, free)
-      const box = { left: p.left, top: p.top, right: p.left + size.width, bottom: p.top + (p.maxHeight ?? size.height) }
-      const on = (b: typeof box, c: { left: number; top: number; right: number; bottom: number }) => b.left < c.right && b.right > c.left && b.top < c.bottom && b.bottom > c.top
-      expect(row.some((c) => on(box, c)), `box ${JSON.stringify(box)} on the row above`).toBe(false)
-      expect(p.top, 'at the card\'s own top, not lifted').toBe(card.top)
-      expect(p.maxHeight, 'cut to the room below, its body scrolls').not.toBeNull()
-    } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()) }
-    const free2 = placeBeside(card, null, size, free)
-    expect(free2.top, 'CONTRAST: with the row gone the same card keeps the hover rule\'s lifted place').toBeLessThan(card.top)
-  })
-
-  it('S3-s (Paul 19 Nov, "pop-overs cover the risk cards") a pinned box on a FULL board, where every side of its card has another card: the board slides once so the card and its box both stand in the window, and after the slide no card is under the box; CONTRAST with no board to slide the box still lands on a card', () => {
-    // A 3 x 3 board filling the window (1024 x 768 in jsdom), 30 px between cards: the middle card has a card on every side, closer than the box is wide.
-    const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => ({ left: x, top: y, right: x + 300, bottom: y + 200 })))
-    const mid = 4, size = { width: 280, height: 300 }
-    const nodes = grid.map((_, i) => { const n = document.createElement('div'); n.className = 'react-flow__node'; n.setAttribute('data-id', `g${i}`); document.body.appendChild(n); return n })
-    const el = document.createElement('aside'); document.body.appendChild(el)
-    const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      const i = nodes.indexOf(this as HTMLDivElement), r = this === el ? { left: 0, top: 0, right: size.width, bottom: size.height } : i >= 0 ? grid[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
-      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
-    })
-    const vars = { x: '--t-x', y: '--t-y', h: '--t-h' }
-    const boxAt = () => { const left = parseFloat(el.style.getPropertyValue(vars.x)), top = parseFloat(el.style.getPropertyValue(vars.y)), h = parseFloat(el.style.getPropertyValue(vars.h)) || size.height; return { left, top, right: left + size.width, bottom: top + h } }
-    const on = (b: { left: number; top: number; right: number; bottom: number }, c: typeof b) => Math.min(b.right, c.right) - Math.max(b.left, c.left) > 2 && Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top) > 2
-    const slides: BoardView[] = []
-    try {
-      const off = registerBoxCamera({ get: () => ({ x: 0, y: 0, zoom: 1 }), set: (v) => { slides.push(v) } })
-      const stop = stayBeside(() => el, { kind: 'card', id: `g${mid}` }, vars, 280, undefined, () => 0, () => true)
-      stop(); off()
-      expect(slides.length, 'the board slides once').toBe(1)
-      const { x: dx, y: dy } = slides[0]!, b = boxAt(), card = grid[mid]!
-      const moved = grid.map((c) => ({ left: c.left + dx, top: c.top + dy, right: c.right + dx, bottom: c.bottom + dy }))
-      expect(moved.filter((c) => on(b, c)).length, `box ${JSON.stringify(b)} after a slide of ${dx},${dy}: no card under it, its own included`).toBe(0)
-      expect(b.left >= 0 && b.right <= window.innerWidth && b.top >= 0 && b.bottom <= window.innerHeight, 'the box is inside the window').toBe(true)
-      const c = moved[mid]!
-      expect(c.left >= 0 && c.right <= window.innerWidth && c.top >= 0 && c.bottom <= window.innerHeight, `its card ${JSON.stringify(card)} is still whole in the window after the slide`).toBe(true)
-      // CONTRAST: no camera (nothing can slide), the same press: the box can only stand beside its card, on another one.
-      const stop2 = stayBeside(() => el, { kind: 'card', id: `g${mid}` }, vars, 280, undefined, () => 0, () => true)
-      stop2()
-      expect(grid.some((g, i) => i !== mid && on(boxAt(), g)), 'CONTRAST: with nothing to slide the box is on a card').toBe(true)
-    } finally { spy.mockRestore(); nodes.forEach((n) => n.remove()); el.remove() }
-  })
-
-  // A full board driven frame by frame: a fake clock and animation frames, and a camera that moves every card by the slide (or, `cut`, lets a slide go
-  // nowhere, as when another move of the board interrupts it).
-  const slideRig = (boxH: number) => {
-    const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => ({ left: x, top: y, right: x + 300, bottom: y + 200 })))
-    const nodes = grid.map((_, i) => { const n = document.createElement('div'); n.className = 'react-flow__node'; n.setAttribute('data-id', `g${i}`); document.body.appendChild(n); return n })
-    const el = document.createElement('aside'); document.body.appendChild(el)
-    const box = { h: boxH }
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      const i = nodes.indexOf(this as HTMLDivElement), r = this === el ? { left: 0, top: 0, right: 280, bottom: box.h } : i >= 0 ? grid[i]! : { left: 0, top: 0, right: 0, bottom: 0 }
-      return { ...r, x: r.left, y: r.top, width: r.right - r.left, height: r.bottom - r.top, toJSON: () => ({}) } as DOMRect
-    })
-    let t = 1000, frames: FrameRequestCallback[] = []
-    vi.spyOn(performance, 'now').mockImplementation(() => t)
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => { frames.push(cb); return frames.length })
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { frames = [] })
-    const view = { x: 0, y: 0 }, slides: BoardView[] = [], camera = { cut: false }
-    const off = registerBoxCamera({ get: () => ({ ...view, zoom: 1 }), set: (v) => {
-      slides.push(v)
-      if (camera.cut) return
-      const dx = v.x - view.x, dy = v.y - view.y
-      for (const g of grid) { g.left += dx; g.right += dx; g.top += dy; g.bottom += dy }
-      view.x = v.x; view.y = v.y
-    } })
-    const vars = { x: '--t-x', y: '--t-y', h: '--t-h' }
-    const frame = (n = 1, ms = 50) => { for (let k = 0; k < n; k += 1) { t += ms; const f = frames; frames = []; f.forEach((cb) => cb(t)) } }
-    const shown = () => { const left = parseFloat(el.style.getPropertyValue(vars.x)), top = parseFloat(el.style.getPropertyValue(vars.y)), cap = parseFloat(el.style.getPropertyValue(vars.h)), h = Number.isNaN(cap) ? box.h : Math.min(cap, box.h); return { left, top, right: left + 280, bottom: top + h, h } }
-    const under = () => { const b = shown(); return grid.filter((c) => Math.min(b.right, c.right) - Math.max(b.left, c.left) > 2 && Math.min(b.bottom, c.bottom) - Math.max(b.top, c.top) > 2).length }
-    const inWindow = () => { const b = shown(); return b.left >= 0 && b.top >= 0 && b.right <= window.innerWidth && b.bottom <= window.innerHeight }
-    const start = () => stayBeside(() => el, { kind: 'card', id: 'g4' }, vars, 280, undefined, () => 0, () => true)
-    const done = () => { off(); nodes.forEach((n) => n.remove()); el.remove() }
-    return { el, box, camera, slides, frame, shown, under, inWindow, start, done }
+  function neighbourCards(boxes: Box[]): void {
+    for (const [i, box] of boxes.entries()) {
+      const id = `neighbour${i}`
+      const node = document.createElement('div')
+      node.className = 'react-flow__node'
+      node.setAttribute('data-id', id)
+      cards[id] = box
+      document.body.appendChild(node)
+      extras.push(node)
+    }
   }
 
-  it('S3-t (pair check 19 Nov, 1.33 scale) a tall box on a full board gets a slide for its whole height: it is never cut shorter to save sliding the board', () => {
-    const rig = slideRig(300)
-    try {
-      const stop = rig.start()
-      rig.frame(12)
-      stop()
-      expect([rig.slides.length, rig.under(), rig.shown().h], 'one slide, no card under the box, and the whole box').toEqual([1, 0, 300])
-      expect(rig.inWindow(), 'inside the window').toBe(true)
-    } finally { rig.done() }
+  function whatIfBox(box: Box): DOMRect {
+    const lens = document.createElement('section')
+    lens.setAttribute('data-testid', 'view-whatif-key')
+    document.body.appendChild(lens)
+    extras.push(lens)
+    chrome.push(['[data-testid="view-whatif-key"]', box])
+    return rectOf(box)
+  }
+
+  it('S3-r the box takes a nearby gap clear of every card when the usual sides cover neighbouring cards', () => {
+    mockBoxes()
+    const free = { left: 0, top: 70, right: 900, bottom: 300 }
+    const card = { left: 330, top: 100, right: 550, bottom: 280 }
+    const neighbours = [
+      { left: 42, top: 70, width: 280, height: 230 },
+      { left: 558, top: 70, width: 26, height: 230 },
+    ]
+    neighbourCards(neighbours)
+    const p = placeBeside(card, null, { width: 280, height: 130 }, free)
+    expect(p).toMatchObject({ left: 584, near: true })
+    const box = rectOf({ ...p, width: 280, height: p.maxHeight ?? 130 })
+    expect(neighbours.every((n) => area(box, rectOf(n)) === 0)).toBe(true)
+    expect(p.left - card.right).toBeLessThanOrEqual(48)
   })
 
-  it('S3-u (pair check 19 Nov) a slide another move of the board cut short is checked once the board is still: the board slides again and no card is under the box. CONTRAST with nothing cut, one slide', () => {
-    const cut = slideRig(300)
-    try {
-      cut.camera.cut = true
-      const stop = cut.start()
-      cut.frame(3)
-      cut.camera.cut = false
-      cut.frame(20)
-      stop()
-      expect(cut.slides.length, 'the slide that went nowhere, then one that landed').toBe(2)
-      expect(cut.under(), `no card under the box (${JSON.stringify(cut.shown())})`).toBe(0)
-      expect(cut.inWindow(), 'inside the window').toBe(true)
-    } finally { cut.done() }
-    const clean = slideRig(300)
-    try {
-      const stop = clean.start()
-      clean.frame(20)
-      stop()
-      expect([clean.slides.length, clean.under()], 'CONTRAST: a slide that lands is the only one').toEqual([1, 0])
-    } finally { clean.done() }
+  it('S3-s when every nearby side covers another card, the box uses the nearby side covering the least card area', () => {
+    mockBoxes()
+    const free = { left: 0, top: 70, right: 900, bottom: 300 }
+    const card = { left: 330, top: 100, right: 550, bottom: 280 }
+    neighbourCards([
+      { left: 0, top: 70, width: 220, height: 230 },
+      { left: 558, top: 70, width: 342, height: 230 },
+    ])
+    const p = placeBeside(card, null, { width: 280, height: 130 }, free)
+    expect(p).toEqual({ left: 42, top: 100, near: true, maxHeight: null })
+  })
+
+  it('S3-t a tall box shrinks to a usable height when that leaves it beside a wide card', () => {
+    const free = { left: 0, top: 0, right: 900, bottom: 400 }
+    const card = { left: 20, top: 130, right: 880, bottom: 270 }
+    const p = placeBeside(card, null, { width: 280, height: 300 }, free)
+    expect(p).toEqual({ left: 20, top: 278, maxHeight: 114, near: true })
+  })
+
+  it('S3-u when the lens blocks every nearby side, the box stays visible at the nearest clear place inside the free canvas', () => {
+    mockBoxes()
+    const lens = whatIfBox({ left: 0, top: 0, width: 600, height: 700 })
+    const free = { left: 0, top: 0, right: 1100, bottom: 700 }
+    const card = { left: 100, top: 400, right: 300, bottom: 520 }
+    const p = placeBeside(card, null, { width: 280, height: 150 }, free)
+    const box = rectOf({ ...p, width: 280, height: p.maxHeight ?? 150 })
+    expect(p).toMatchObject({ left: lens.right, near: false })
+    expect(area(box, lens)).toBe(0)
+    expect(area(box, rectOf({ left: card.left, top: card.top, width: 200, height: 120 }))).toBe(0)
+    expect(box.right).toBeLessThanOrEqual(free.right)
+    expect(box.top).toBeGreaterThanOrEqual(free.top)
+    expect(box.bottom).toBeLessThanOrEqual(free.bottom)
+    expect(placeBeside(card, null, { width: 280, height: 300 }, free, undefined, p)).toEqual(p)
+  })
+
+  it('D2 the details box moves to a side clear of the open what-if panel beside its card', async () => {
+    mockBoxes()
+    Object.assign(window, { innerWidth: 1100, innerHeight: 700 })
+    await board()
+    cards[FIG] = { left: 400, top: 220, width: 220, height: 120 }
+    fireEvent.click(node(FIG)); await settle()
+    expect(panelBox(inspector()).left).toBe(628)
+    const lens = whatIfBox({ left: 628, top: 0, width: 320, height: 700 })
+    await settle()
+    const box = rectOf(panelBox(inspector()))
+    expect(box.right).toBeLessThanOrEqual(cards[FIG]!.left)
+    expect(area(box, lens)).toBe(0)
+    expect(area(box, ownCard(FIG))).toBe(0)
+  })
+
+  it('D2 the edit form follows its card and keeps clear of the open what-if panel', async () => {
+    mockBoxes()
+    Object.assign(window, { innerWidth: 1100, innerHeight: 700 })
+    await board()
+    const lens = whatIfBox({ left: 628, top: 0, width: 320, height: 700 })
+    cards[FIG] = { left: 400, top: 220, width: 220, height: 120 }
+    fireEvent.click(node(FIG)); await settle()
+    formHeight.now = FORM_HEIGHT
+    fireEvent.click(OPEN_EDIT()); await settle()
+    const form = screen.getByTestId('lane-edit-form')
+    const box = rectOf(formBox(form))
+    expect(box.right).toBeLessThanOrEqual(cards[FIG]!.left)
+    expect(area(box, lens)).toBe(0)
+    expect(area(box, ownCard(FIG))).toBe(0)
+    cards[FIG]!.left += 25
+    await settle()
+    expect(formBox(form).left).toBe(box.left + 25)
+  })
+
+  it('D2 the lens menu boundary uses the canvas region above the visible lens and foot controls', async () => {
+    mockBoxes(); withChrome()
+    Object.assign(window, { innerWidth: 560, innerHeight: 512 })
+    await board()
+    const lens = whatIfBox({ left: 90, top: 330, width: 320, height: 120 })
+    const foot = document.createElement('div')
+    foot.setAttribute('data-foot-zoom', '')
+    document.body.appendChild(foot)
+    extras.push(foot)
+    const footTop = 460
+    chrome.push(['[data-foot-zoom]', { left: 90, top: footTop, width: 100, height: 40 }])
+    expect(canvasChromeMenuBoundary.rect()).toEqual({ x: 76, y: 112, width: 460, height: lens.top - 112 })
+    extras.find((el) => el.matches('[data-testid="view-whatif-key"]'))!.style.visibility = 'hidden'
+    expect(canvasChromeMenuBoundary.rect().height).toBe(footTop - 112)
   })
 
   it('S3-m a capped form is never cut below its least useful height (Save stays whole): with 100 px of room on every side a form keeps FORM_MIN_SHOWN; CONTRAST a panel may be cut lower', () => {
@@ -853,6 +857,17 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     expect(b.left >= card.right || b.right <= card.left || b.top >= card.bottom || b.bottom <= card.top, `never on its own card: ${JSON.stringify(b)}`).toBe(true)
   })
 
+  it('D2 A-5 a box that only changes size keeps its corner and shrinks to the available height; a corner on its own card is rejected', () => {
+    const free = { left: 0, top: 0, right: 900, bottom: 700 }, card = { left: 100, top: 400, right: 320, bottom: 520 }
+    const small = placeBeside(card, null, { width: 280, height: 160 }, free)
+    const kept = placeBeside(card, null, { width: 280, height: 420 }, free, undefined, { left: small.left, top: small.top })
+    expect([kept.left, kept.top]).toEqual([small.left, small.top])
+    expect(kept.maxHeight).toBe(free.bottom - 8 - kept.top)
+    const onCard = placeBeside(card, null, { width: 280, height: 420 }, free, undefined, { left: card.left + 8, top: card.top - 40 })
+    const b = { left: onCard.left, top: onCard.top, right: onCard.left + 280, bottom: onCard.top + (onCard.maxHeight ?? 420) }
+    expect(b.left >= card.right || b.right <= card.left || b.top >= card.bottom || b.bottom <= card.top, `never on its own card: ${JSON.stringify(b)}`).toBe(true)
+  })
+
   it('A-6 the older look is unchanged: off the lane the same hover draws the old pop-up, names no preview and the box is not drawn', async () => {
     lane.on = false
     await board()
@@ -925,6 +940,21 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 
+  const finalRectCovers = (at: number[], shownH: number, o: { left: number; top: number; width: number; height: number }) =>
+    Math.min(at[0]! + 280, o.left + o.width) - Math.max(at[0]!, o.left) > 2 && Math.min(at[1]! + shownH, o.top + o.height) - Math.max(at[1]!, o.top) > 2
+  const lowCardRig = (extra: (el: Element) => { left: number; top: number; width: number; height: number } | null) => {
+    const CARD = { left: 100, top: 520, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
+    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
+    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const other = extra(this)
+      if (other !== null) return rectOf(other)
+      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(CARD)
+      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
+      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
+    })
+    return { CARD, H, at }
+  }
   it('C8 (20 Nov) a preview stands BESIDE its hovered card: the reserve (360 px, for the pinned box) chooses the side only, and the preview is clamped by its own height, so on a card low on the board it is not lifted 200 px above it. The press still does not move it. CONTRAST: the reserve alone would have lifted it', async () => {
     const CARD = { left: 100, top: 520, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }, WINDOW_H = 700
     const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
@@ -941,7 +971,7 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       const [x, y] = at(box()!)
       const reserveLift = WINDOW_H - 360 - 8
       expect(x >= CARD.left + CARD.width || x + 280 <= CARD.left, `the preview is beside its card, not on it (${x},${y})`).toBe(true)
-      expect(Math.abs(y! - CARD.top), `the preview's top is within 16 px of its card's top (placed ${y}, card ${CARD.top})`).toBeLessThanOrEqual(16)
+      expect(y === CARD.top || y! + H.peek === CARD.top + CARD.height, 'the preview shares its top edge or its bottom edge with its card').toBe(true)
       expect(CARD.top - reserveLift, 'CONTRAST: the reserve-height rule alone would have lifted it this far').toBeGreaterThan(100)
       expect(y! + H.peek, 'and it stands whole inside the window').toBeLessThanOrEqual(WINDOW_H)
       fireEvent.click(node(FIG2)); await settle()
@@ -950,23 +980,6 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 
-  // C8 revalidation (Codex 20 Nov): the preview's own-height clamp runs AFTER the side is chosen, so the FINAL rectangle is checked against the neighbouring cards and the
-  // foot controls. A card low on the board with a neighbour (or a foot control) just right of it at the height the clamp would stand: the preview must not lie on them.
-  const finalRectCovers = (at: number[], shownH: number, o: { left: number; top: number; width: number; height: number }) =>
-    Math.min(at[0]! + 280, o.left + o.width) - Math.max(at[0]!, o.left) > 2 && Math.min(at[1]! + shownH, o.top + o.height) - Math.max(at[1]!, o.top) > 2
-  const lowCardRig = (extra: (el: Element) => { left: number; top: number; width: number; height: number } | null) => {
-    const CARD = { left: 100, top: 520, width: 220, height: 120 }, H = { peek: 160, pinned: 420 }
-    const rectOf = (b: { left: number; top: number; width: number; height: number }) => ({ ...b, x: b.left, y: b.top, right: b.left + b.width, bottom: b.top + b.height, toJSON: () => ({}) }) as DOMRect
-    const at = (el: HTMLElement) => [parseFloat(el.style.getPropertyValue('--lane-details-x')), parseFloat(el.style.getPropertyValue('--lane-details-y'))]
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      const other = extra(this)
-      if (other !== null) return rectOf(other)
-      if (this.closest('.react-flow__node')?.getAttribute('data-id') === FIG2) return rectOf(CARD)
-      if (this.matches('[data-box-card]')) { const el = this as HTMLElement, full = H[el.getAttribute('data-state') as 'peek' | 'pinned'], cap = parseFloat(el.style.getPropertyValue('--lane-details-h')); const [x, y] = at(el); return rectOf({ left: x || 0, top: y || 0, width: 280, height: Number.isNaN(cap) ? full : Math.min(full, cap) }) }
-      return rectOf({ left: 0, top: 0, width: 0, height: 0 })
-    })
-    return { CARD, H, at }
-  }
   it('C8-n the preview beside a low card does not lie on a neighbouring card that the own-height clamp would reach; pinned, it keeps its side and its near edge (no jump)', async () => {
     const NEIGH = { left: 340, top: 560, width: 150, height: 60 }
     const { H, at } = lowCardRig((el) => (el.closest('.react-flow__node')?.getAttribute('data-id') === OPT ? NEIGH : null))
@@ -978,12 +991,8 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       expect(finalRectCovers(peek, Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap), NEIGH), `the preview (${peek}) is not on the neighbouring card`).toBe(false)
       fireEvent.click(node(FIG2)); await settle()
       expect(box()!.getAttribute('data-state')).toBe('pinned')
-      // No jump: the pinned box keeps the preview's side and its near edge. Beside the card that is the same top; above it the preview stands on its bottom edge, next to
-      // the card, so the taller pinned box grows upward and keeps the same bottom (it cannot keep its top without lying on the card). Never on the neighbour either.
       const pinned = at(box()!), pcap = parseFloat(box()!.style.getPropertyValue('--lane-details-h')), pinnedH = Number.isNaN(pcap) ? H.pinned : Math.min(H.pinned, pcap)
-      const peekH = Number.isNaN(cap) ? H.peek : Math.min(H.peek, cap)
-      expect(pinned[0], 'pinned on the same side').toBe(peek[0])
-      expect([pinned[1], pinned[1]! + pinnedH].some((edge, i) => edge === (i === 0 ? peek[1]! : peek[1]! + peekH)), `pinned (${pinned}) keeps the preview's top or its bottom edge (${peek})`).toBe(true)
+      expect(pinned).toEqual(peek)
       expect(finalRectCovers(pinned, pinnedH, NEIGH), 'the pinned box is not on the neighbouring card').toBe(false)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
@@ -1022,6 +1031,45 @@ describe('surfaces step A: the card\'s one box previews on hover and pins on pre
       expect(box()!.getAttribute('data-state')).toBe('pinned')
       expect(at(box()!), 'pinned where it was previewed').toEqual(previewed)
     } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
+  it('D2 A-8 a pinned box grows from the preview corner and stops at the card below it', async () => {
+    const NEIGH = { left: 340, top: 0, width: 280, height: 700 }
+    const { CARD, H, at } = lowCardRig((el) => (el.closest('.react-flow__node')?.getAttribute('data-id') === OPT ? NEIGH : null))
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const previewed = at(box()!)
+      expect(previewed[1]! + H.peek).toBeLessThan(CARD.top)
+      fireEvent.click(node(FIG2)); await settle()
+      const cap = parseFloat(box()!.style.getPropertyValue('--lane-details-h'))
+      expect(at(box()!)).toEqual(previewed)
+      expect(cap).toBe(CARD.top - previewed[1]!)
+      expect(cap).toBeGreaterThan(H.peek)
+    } finally { vi.restoreAllMocks(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
+  })
+
+  it('D2 the preview and the box it becomes on a press share one corner with a lens panel open', async () => {
+    const lens = document.createElement('section')
+    lens.setAttribute('data-testid', 'view-whatif-key')
+    document.body.appendChild(lens)
+    const lensBox = { left: 328, top: 0, width: 320, height: 650 }
+    const { H, at } = lowCardRig((el) => el === lens ? lensBox : null)
+    const win = { w: window.innerWidth, h: window.innerHeight }; Object.assign(window, { innerWidth: 900, innerHeight: 700 })
+    try {
+      await board()
+      vi.useFakeTimers(); rest(FIG2); vi.useRealTimers(); await settle()
+      const preview = screen.getByTestId('lane-peek')
+      const corner = at(preview)
+      expect(finalRectCovers(corner, H.peek, lensBox)).toBe(false)
+      fireEvent.click(node(FIG2)); await settle()
+      const pinned = screen.getByTestId('lane-inspector')
+      expect(pinned).toBe(preview)
+      expect(at(pinned)).toEqual(corner)
+      const cap = parseFloat(pinned.style.getPropertyValue('--lane-details-h'))
+      expect(finalRectCovers(corner, Number.isNaN(cap) ? H.pinned : cap, lensBox)).toBe(false)
+    } finally { vi.restoreAllMocks(); lens.remove(); Object.assign(window, { innerWidth: win.w, innerHeight: win.h }) }
   })
 })
 

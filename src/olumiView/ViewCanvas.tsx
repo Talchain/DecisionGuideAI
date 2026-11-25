@@ -73,7 +73,6 @@ import { StrategyOverviewStage } from './strategy/overview/StrategyOverviewOpene
 export { showSimple, showWholeModel, toggleSimple } from './v12/simpleStore'
 import { levelOf, useLevel, useSimpleLevel } from './v12/simpleStore'
 import { LaneEditingLayer } from './v12/edit/LaneEditingLayer'
-import { registerBoxCamera } from './v12/edit/makeRoom'
 import { UndoControl } from './v12/UndoControl'
 import { LensesMenu } from './v12/lenses/LensesMenu'
 import { LayerCanvasStyle } from './v12/lenses/LayerCanvasStyle'
@@ -451,8 +450,6 @@ function ViewFlow() {
   // node focus is registered: the legacy fit and pan seams stay unregistered on this lane, so the applied-edit pulse never moves the
   // camera off the question and options (fit-real-model, bakery).
   const { setCenter, getZoom, getInternalNode, getViewport, setViewport } = useReactFlow()
-  // A pinned box on a full board: the board slides to make room beside its card, and back when nothing is open (v12/edit/makeRoom.ts).
-  useEffect(() => registerBoxCamera({ get: getViewport, set: (v, ms) => { void setViewport(v, { duration: ms }) } }), [getViewport, setViewport])
   useEffect(() => registerRevealReturnCamera(() => {
     const before = getViewport()
     return () => { userMoved.current = true; hand(); void setViewport(before, { duration: 0 }) }

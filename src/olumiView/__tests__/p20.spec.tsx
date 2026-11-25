@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { Position } from '@xyflow/react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
 import { edgeIdOf } from '../../canvas/contextMenu/laneMenu'
 import { useCanvasStore } from '../../canvas/store'
 import { boardOf, drawViewCanvas } from '../canvas'
@@ -18,6 +18,7 @@ vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { id: 'u1
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: 'u1', accessToken: null }), supabase: {} }))
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
+beforeAll(() => { ;(window as unknown as { DOMMatrixReadOnly?: unknown }).DOMMatrixReadOnly ??= class { m22 = 1 } })
 beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
 afterEach(() => {
   cleanup()
@@ -31,6 +32,10 @@ afterEach(() => {
 
 const overlaps = (a: DOMRect, b: DOMRect): boolean =>
   a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+const distanceBetween = (a: DOMRect, b: DOMRect): number => Math.hypot(
+  Math.max(0, a.left - b.right, b.left - a.right),
+  Math.max(0, a.top - b.bottom, b.top - a.bottom),
+)
 
 it('places the hidden bar’s editor beside its aim and clear of the question at 1128 × 680', () => {
   const view = approved(), model = view.model!
@@ -75,6 +80,7 @@ it('places the hidden bar’s editor beside its aim and clear of the question at
   const top = parseFloat(sheet.style.getPropertyValue(DETAILS_Y))
   expect([left, top].every(Number.isFinite)).toBe(true)
   const placed = new DOMRect(left, top, 280, parseFloat(sheet.style.getPropertyValue(DETAILS_H)) || 221)
+  expect(distanceBetween(placed, aimBox)).toBeLessThanOrEqual(48)
   expect(overlaps(placed, aimBox)).toBe(false)
   expect(overlaps(placed, questionBox)).toBe(false)
 })
@@ -139,6 +145,44 @@ it('opens the selected link’s details from the rendered line and from its focu
 })
 
 const CARD_ID = 'slow_ramp'
+
+it('D2 a details box on a full board stays within 48 px of its card without moving the board', async () => {
+  const view = approved(), model = view.model!
+  const target = model.cards.find((card) => card.id === CARD_ID)!
+  const cards = model.cards.filter((card) => card.id !== CARD_ID).slice(0, 8)
+  cards.splice(4, 0, target)
+  const fullBoard = { ...model, cards, links: [] }
+  install({ ...view, model: fullBoard })
+  const grid = [20, 350, 680].flatMap((x) => [40, 290, 540].map((y) => new DOMRect(x, y, 300, 200)))
+  const rects = new Map(cards.map((card, i) => [card.id, grid[i]!]))
+  drawViewCanvas(fullBoard, new Map([...rects].map(([id, rect]) => [id, { x: rect.x, y: rect.y }])))
+
+  vi.stubGlobal('innerWidth', 1024)
+  vi.stubGlobal('innerHeight', 768)
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const id = this.closest('.react-flow__node')?.getAttribute('data-id')
+    if (this.matches('[data-testid="lane-inspector"]')) return new DOMRect(0, 0, 280, 300)
+    return rects.get(id ?? '') ?? new DOMRect()
+  })
+  const { container } = render(<ViewCanvas />)
+  const settleBoard = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 60)) })
+  await settleBoard()
+  const viewport = container.querySelector<HTMLElement>('.react-flow__viewport')!
+  const before = viewport.style.transform
+  expect(container.querySelectorAll('.react-flow__node').length).toBeGreaterThanOrEqual(cards.length)
+  fireEvent.click(container.querySelector(`.react-flow__node[data-id="${CARD_ID}"]`)!)
+  await settleBoard()
+
+  const details = screen.getByTestId('lane-inspector')
+  const left = parseFloat(details.style.getPropertyValue(DETAILS_X))
+  const top = parseFloat(details.style.getPropertyValue(DETAILS_Y))
+  const box = new DOMRect(left, top, 280, parseFloat(details.style.getPropertyValue(DETAILS_H)) || 300)
+  const card = rects.get(CARD_ID)!
+  expect(distanceBetween(box, card)).toBeLessThanOrEqual(48)
+  expect(overlaps(box, card)).toBe(false)
+  expect(grid.some((neighbour) => neighbour !== card && overlaps(box, neighbour))).toBe(true)
+  expect(viewport.style.transform).toBe(before)
+})
 
 function renderCardNode(id: string) {
   const view = approved(), model = view.model!
