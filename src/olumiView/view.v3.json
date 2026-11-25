@@ -10039,6 +10039,26 @@
           ],
           "additionalProperties": false
          },
+         "history": {
+          "type": "object",
+          "properties": {
+           "heading": {
+            "type": "string"
+           },
+           "lines": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+             "type": "string"
+            }
+           }
+          },
+          "required": [
+           "heading",
+           "lines"
+          ],
+          "additionalProperties": false
+         },
          "lead": {
           "type": "object",
           "properties": {
@@ -10120,26 +10140,6 @@
           "required": [
            "opening",
            "points"
-          ],
-          "additionalProperties": false
-         },
-         "history": {
-          "type": "object",
-          "properties": {
-           "heading": {
-            "type": "string"
-           },
-           "lines": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-             "type": "string"
-            }
-           }
-          },
-          "required": [
-           "heading",
-           "lines"
           ],
           "additionalProperties": false
          }
