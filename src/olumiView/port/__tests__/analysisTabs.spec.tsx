@@ -540,6 +540,27 @@ describe('what would change it', () => {
 })
 
 describe('what a result needs', () => {
+  it('app-launch (no chance yet): the Reasoning link comes before what a result needs, then Olumi\'s notes, with each list drawn once', () => {
+    ready(viewOf('golden/app-launch')); render(<PortAnalysisTab />)
+    expect(tab().dataset['analysisState']).toBe('none')
+    const needs = screen.getAllByTestId('analysis-needs')
+    const notes = screen.getAllByTestId('analysis-leaves-out')
+    expect(needs).toHaveLength(1)
+    expect(notes).toHaveLength(1)
+    expect(screen.getByTestId('analysis-to-reasoning').compareDocumentPosition(needs[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(needs[0]!.compareDocumentPosition(notes[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('bakery (chance shown): Olumi\'s notes come before what a result needs, with each list drawn once', () => {
+    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
+    expect(tab().dataset['analysisState']).toBe('chance')
+    const needs = screen.getAllByTestId('analysis-needs')
+    const notes = screen.getAllByTestId('analysis-leaves-out')
+    expect(needs).toHaveLength(1)
+    expect(notes).toHaveLength(1)
+    expect(notes[0]!.compareDocumentPosition(needs[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('app-launch (no chance yet): core\'s blockers first in core\'s order, then what the chances wait on, each card once; each row core\'s words at its path', () => {
     const view = viewOf('golden/app-launch'), run = view.model!.run!
     ready(view); render(<PortAnalysisTab />)

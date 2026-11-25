@@ -197,8 +197,8 @@ export function PortAnalysis({ model, stated = false }: { model: ViewModel; stat
       {state === 'chance' ? <FailureAfterYours model={model} /> : null}
       {state === 'chance' ? null : <ToReasoning model={model} />}
       <Limits model={model} />
-      {state === 'chance' ? null : <LeavesOut model={model} />}
       <ResultNeeds model={model} under={state !== 'none'} />
+      {state === 'chance' ? null : <LeavesOut model={model} />}
       {/* Core's reading speaks of the chances shown; with none shown it would offer what no chance rests on (Paul's finding), so it is not drawn. */}
       {state === 'chance' ? <WhyThisReading model={model} /> : null}
     </div>
