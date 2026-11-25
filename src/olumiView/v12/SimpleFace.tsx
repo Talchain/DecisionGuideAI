@@ -256,6 +256,12 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
             {mark}
           </span>
         </Hover>
+      ) : question !== null && bar !== null ? (
+        <div className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
+          {target === null ? quietBound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={quietBound} />}
+          <GoalMeasureLine question={question} className="ok-quiet min-w-0 flex-1 break-words" />
+          {mark}
+        </div>
       ) : question !== null ? (
         <div className="ok-quiet flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
           <GoalMeasureLine question={question} className="ok-quiet min-w-0 flex-1 break-words" />

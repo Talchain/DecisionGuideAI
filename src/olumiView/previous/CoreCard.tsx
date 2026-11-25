@@ -21,7 +21,7 @@ import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
 import { typography } from '../../styles/typography'
 import type { ViewCard } from '../client'
-import { CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
+import { barCardOf, CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
 import { failedOf, failedReasonOf } from '../k5'
@@ -55,7 +55,7 @@ import { cardKindOf, isAssumptionShape } from '../v12/cards/kind'
 import { optionLetters } from '../v12/cards/letters'
 import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
-import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark } from '../v12/cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark, whoseOf } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
 import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
 import { fixedParts } from '../v12/cards/words'
@@ -434,12 +434,25 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     )
     if (card.bound != null && showsBound) {
       const mark = card.bound.olumi == null ? null : <span className="ok-dt-num-mark" data-view={`${id}.bound.olumi`}><OlumiMark words={card.bound.olumi.title} /></span>
-      if (measureQuestion !== null) return (
-        <div className="flex min-w-0 items-center gap-1" data-core-lead={id} data-ok-face="target">
-          <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 flex-1 break-words" />
-          {mark}
-        </div>
-      )
+      if (measureQuestion !== null) {
+        const bar = model === null ? null : barCardOf(model, id)
+        if (bar !== null && model !== null) {
+          const editor = model.edit_base !== null && bar.figure?.edit != null ? bar : null
+          const words = <span data-core-lead-clamp={id}>{lead}</span>
+          return (
+            <div className="flex min-w-0 items-center gap-1" data-core-lead={id} data-ok-face="target">
+              <div className="ok-target">{editor === null ? words : <FigureEdit id={bar.id} edit={bar.figure!.edit ?? null} place="view-aim" opener={words} />}{whoseOf(bar) !== null ? <AuthorMark card={bar} /> : null}</div>
+              <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 flex-1 break-words" />
+            </div>
+          )
+        }
+        return (
+          <div className="flex min-w-0 items-center gap-1" data-core-lead={id} data-ok-face="target">
+            <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 flex-1 break-words" />
+            {mark}
+          </div>
+        )
+      }
       // DL 06:57Z (1): the aim's question opens its target figure's own editor, found by core's `target` line (targets.ts); nothing where core
       // offers no edit. Where Olumi proposed the target, Olumi's mark beside it, core's words its name.
       const target = model === null || model.edit_base === null ? null : targetCardOf(model, card)
