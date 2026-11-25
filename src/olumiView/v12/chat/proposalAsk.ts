@@ -15,3 +15,9 @@ export function askProposalReview(): boolean {
   useUIStore.getState().forceActivateOutputTab('olumi')
   return true
 }
+
+/** Requests review when the live proposal matches id, otherwise returns false without changing either store. */
+export function askProposalReviewOf(id: number): boolean {
+  if (useViewStore.getState().view?.proposal?.id !== id) return false
+  return askProposalReview()
+}

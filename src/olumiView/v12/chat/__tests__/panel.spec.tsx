@@ -181,6 +181,31 @@ describe('the pending proposal’s reply', () => {
     expect(q(c, 'view-changes')).toBeVisible()
   })
 
+  it('ignores a stale Review press and opens the displayed proposal when it is still pending', () => {
+    const view = golden('proposal'), p = view.proposal!
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    const c = show(view)
+    const chip = q(c, 'view-chat-reply-review')!
+
+    act(() => {
+      useViewStore.setState({ view: { ...view, proposal: { ...p, id: p.id + 1 } } })
+      expect(q(c, 'view-chat-reply-review')).toBe(chip)
+      fireEvent.click(chip)
+    })
+    expect(useProposalAsk.getState()).toEqual({ id: null, n: 0 })
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
+    expect(q(c, 'view-proposal-review')).toHaveAttribute('data-open', 'false')
+    expect(q(c, 'view-chat-foot-proposal')).toHaveAttribute('aria-expanded', 'false')
+
+    cleanup()
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+    const remounted = show(view)
+    fireEvent.click(q(remounted, 'view-chat-reply-review')!)
+    expect(useProposalAsk.getState().n).toBe(1)
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    expect(q(remounted, 'view-proposal-review')).toHaveAttribute('data-open', 'true')
+  })
+
   it('keeps the proposal row closed when the same View remounts after a served Review request', () => {
     const view = golden('proposal')
     const c = show(view)

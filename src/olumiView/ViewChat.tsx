@@ -79,7 +79,7 @@ import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedR
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ChatFootRow } from './v12/chat/ChatFootRow'
-import { askProposalReview, clearProposalAsk, useProposalAsk } from './v12/chat/proposalAsk'
+import { askProposalReviewOf, clearProposalAsk, useProposalAsk } from './v12/chat/proposalAsk'
 import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -449,7 +449,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {lead !== null || early === null ? null : <EarlyAnswer text={early} testid="view-chat-early" />}
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}
-      {review ? <button type="button" className={VIEW_CHIP_CLASS} data-testid="view-chat-reply-review" onClick={askProposalReview}>{REVIEW_LABEL}</button> : null}
+      {review ? <button type="button" className={VIEW_CHIP_CLASS} data-testid="view-chat-reply-review" onClick={() => askProposalReviewOf(t.id)}>{REVIEW_LABEL}</button> : null}
       {heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
       {/* K1: a lead that is not drawn (it repeats the answer) still says core's `lead.not_held`, under the whole answer, as the lead would have. */}
       {lead !== null || t.answer === null || leadNotHeldOf(t.answer) === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.answer.lead.not_held`}>{leadNotHeldOf(t.answer)}</p>}
