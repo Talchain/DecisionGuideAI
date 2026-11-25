@@ -134,7 +134,8 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     show({ ...fixture, turn: running })
     const { getByTestId } = render(<ViewChat />)
     const bubble = getByTestId('view-chat-turn-job').querySelector('.ok-said')
-    expect(bubble).toHaveClass('mb-4')
+    expect(bubble).toHaveClass('mb-6')
+    expect(bubble).not.toHaveClass('mb-4')
     expect(getByTestId('view-chat-turn-wait').previousElementSibling).toBe(bubble)
   })
 
