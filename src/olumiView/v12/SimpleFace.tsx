@@ -52,14 +52,14 @@ export type BandRow = { readonly option: string; readonly letter: string; readon
 export const QUIET_BASIS = 'flex-[1_1_7rem]'
 export const optionLetterOf =(model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
 
-/** The served bands of one card (not the withheld ones) and the axis they share: the same axisOf / pctOf / unitOf as the Detailed strips (scale/OutcomeStrips.tsx). */
+/** The served bands of one card (not the withheld ones) and the axis they share: axisOf / pctOf / unitOf (scale/axis.ts). */
 type Bands = { readonly values: ReadonlyArray<NonNullable<ViewCard['values']>[number]>; readonly axis: Axis; readonly unit: string | null; readonly goal: number | null }
 function bandsOf(card: ViewCard, model: ViewModel | null): Bands | null {
   const held = new Set(withheldValues(card).map((w) => w.option))
   const values = (card.values ?? []).filter((v) => !held.has(v.option) && Number.isFinite(v.p10) && Number.isFinite(v.p90))
   if (values.length === 0) return null
   const aim = model === null ? null : aimOf(model), unit = unitOf(card, aim)
-  // The aim's own value, a gold tick, only where this card is the aim's quantity and the units match (as OutcomeStrips does).
+  // The aim's own value, a gold tick, only where this card is the aim's quantity and the units match.
   const goal = aim !== null && aim.quantity === card.id && (unit === null || aim.unit === unit) ? aim.value : null
   const p50s = values.flatMap((v) => (v.p50 !== null && Number.isFinite(v.p50) ? [v.p50] : []))
   const axis = axisOf(Math.min(...values.map((v) => v.p10), ...p50s, 0), Math.max(...values.map((v) => v.p90), ...p50s, goal ?? -Infinity, 0))
