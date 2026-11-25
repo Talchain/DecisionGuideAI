@@ -18,6 +18,24 @@ export type View = {
     changed: Array<string>
     at?: string
     at_text?: string
+    review?: {
+      changes: Array<{
+        id: string
+        top: boolean
+        text: string
+        detail: string
+        family: string
+        olumi: {
+          glyph: string
+          title: string
+        } | null
+      }>
+      groups: Array<{
+        heading: string
+        lines: Array<number>
+      }> | null
+      turn?: number
+    }
   } | null
   model: {
     question: {
