@@ -23,5 +23,5 @@ export function openBoxes(): Rect[] {
 export const lanePlaceHost = {
   regionFor,
   openBoxes,
-  cards: (el: Element | null) => (el?.closest('.react-flow') ? canvasCardRects(null) : []),
+  cards: (el: Element | null) => (el?.closest('.react-flow') ? canvasCardRects(el.closest('.react-flow__node')) : []),
 }

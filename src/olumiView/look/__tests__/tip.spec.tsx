@@ -138,6 +138,40 @@ describe('the one Tip', () => {
       vi.useRealTimers()
     }
   })
+  it('a card part tip stays on its own card to avoid a neighbour and takes the right side when the neighbour is removed', () => {
+    vi.useFakeTimers()
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.matches('[data-testid="card-with-part"]')) return rect(130, 110, 135, 110)
+      if (this.matches('[data-testid="card-part"]')) return rect(200, 150, 57, 26)
+      if (this.matches('[data-testid="neighbour-card"]')) return rect(300, 145, 80, 40)
+      return rect(0, 0, 57, 26)
+    })
+    const scene = (withNeighbour: boolean) => (
+      <div className="react-flow">
+        <div className="react-flow__node" data-testid="card-with-part">
+          <Anchored words="1 years" testid="card-part" />
+        </div>
+        {withNeighbour ? <div className="react-flow__node" data-testid="neighbour-card" /> : null}
+      </div>
+    )
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
+    try {
+      const { rerender } = render(scene(true))
+      const part = screen.getByTestId('card-part')
+      fireEvent.pointerEnter(part)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition().map(Number.parseFloat)).toEqual([135, 150])
+      fireEvent.pointerLeave(part)
+      rerender(scene(false))
+      fireEvent.pointerEnter(part)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition().map(Number.parseFloat)).toEqual([265, 150])
+    } finally {
+      restorePlaceHost()
+      spy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
   it('without a host, a tip stands beside its anchor inside the window margin and ignores cards and boxes', () => {
     vi.useFakeTimers()
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
