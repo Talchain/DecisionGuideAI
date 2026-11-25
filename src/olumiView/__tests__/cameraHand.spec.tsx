@@ -49,6 +49,19 @@ afterEach(() => {
 const mount = () => render(<div style={{ width: 1232, height: 704 }}><ViewCanvas /></div>)
 
 describe('the person\'s own camera controls on the real canvas', () => {
+  it('leaves Space available to a focused summary', () => {
+    mount()
+    const details = document.createElement('details')
+    details.innerHTML = '<summary>Fold</summary><p>x</p>'
+    document.body.append(details)
+    try {
+      const summary = details.querySelector('summary')!
+      summary.focus()
+      expect(fireEvent.keyDown(summary, { key: ' ', code: 'Space' })).toBe(true)
+    } finally {
+      details.remove()
+    }
+  })
   it('CH1 catch: "Zoom in for detail" counts as the person\'s move (movedAt rises by one) and stamps the activity as no drag', () => {
     vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-15T01:00:00Z'))
     mount()

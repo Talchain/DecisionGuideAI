@@ -548,7 +548,7 @@ function ViewFlow() {
         // A press on the empty canvas lets go of any card or link held by focus (a removed control fires no blur).
         onPaneClick={() => { useViewFocusLink.setState({ id: null }); useViewFocusCard.setState({ id: null }); useLaneInspector.getState().dismiss(false) }}
         onMoveStart={mine} onMoveEnd={mineEnd} selectionOnDrag={tool === 'select'} panOnDrag={tool === 'select' ? SELECT_PAN_BUTTONS : PAN_BUTTONS} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM}
-        nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null}
+        nodesConnectable={false} edgesFocusable elevateEdgesOnSelect={false} deleteKeyCode={REACT_FLOW_DELETE_KEY_CODE} selectionKeyCode={null} multiSelectionKeyCode={null} panActivationKeyCode={null}
         proOptions={{ hideAttribution: true }} data-testid="view-canvas"
       >
         {/* The three-dot menu's canvas settings (Paul's audit, 17 Nov): show the grid at its size, and snap a moved card to it. */}
