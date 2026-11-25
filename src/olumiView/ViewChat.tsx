@@ -300,7 +300,17 @@ function PressedLine({ press, at }: { press: TurnPress; at: string }): JSX.Eleme
   )
 }
 
+/** True for a members array of exactly one. A View without a members key returns false, so names stay.
+ *  Only controls whether the viewer's own name is drawn (Paul, 25 Nov). */
+export function useAlone(): boolean {
+  return useViewStore((st) => {
+    const members = st.view?.members
+    return Array.isArray(members) && members.length === 1
+  })
+}
+
 function Turn({ t, at, latest = false, moves = false, primary = false, me, floor }: { t: ViewTurn; floor?: FloorTurn | null; at: string; latest?: boolean; moves?: boolean; /** The move tap is the filled primary button: only when no Approve / Set aside is pinned beside it (14 Nov). */ primary?: boolean; me?: string | null }) {
+  const alone = useAlone()
   // The cards this turn's next step lit are cleared if the turn leaves the page while they are lit (Codex review dgai-v10 00002 ledger).
   const about = t.answer === null ? NO_CARDS : nextCardsOf(t.answer.next)
   const gone = useViewChat((st) => st.gone ?? null)
@@ -321,10 +331,10 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
     restRing(restKey === '' ? NO_CARDS : restKey.split('\u0000'))
     return () => restRing(NO_CARDS)
   }, [latest, restKey])
-  // DL-538 (the target panel): the bubble names whose words it holds, inside it (core's `by`): another person's name in ink, the viewer's own
-  // quieter. A turn core names no one for has none.
+  // DL-538 (the target panel): the bubble names whose words it holds (core's `by`). The viewer's own name is quieter and is hidden
+  // while they are the only member. A turn core names no one for has none.
   const other = me !== undefined && t.by_id !== null && t.by_id !== me
-  const by = t.by_id === null || t.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
+  const by = t.by_id === null || t.by === '' || (alone && me != null && !other) ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-view={`${at}.by`} data-testid="view-said-by">{t.by}</p>
   const early = earlyOf(t)
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
@@ -516,6 +526,7 @@ function DegradedLine({ of, at }: { of: unknown; at: string }): JSX.Element | nu
 /** One exchange of the model-less floor (`view.floor[i]`, 14 Nov): the person's words and Olumi's plain reply, drawn as an ordinary turn (no label,
  *  no model-grounded parts: there is no model). The words are core's, verbatim. */
 function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest: boolean }) {
+  const alone = useAlone()
   const other = me !== undefined && me !== null && f.by_id !== '' && f.by_id !== me
   // Words-start CONTRACT 4 (Codex 04:16:02Z, root 04:22:35Z and 04:41:16Z): core offers what can be kept on this row (`prose`: each line of Olumi's
   // own prose, as served, one entry each). Each entry is offered on the line that draws it and kept VERBATIM (Codex root 05:32:34Z): no length
@@ -534,7 +545,8 @@ function FloorLine({ f, me, latest }: { f: FloorTurn; me?: string | null; latest
   return (
     <li data-testid="view-floor-turn" data-floor-job={f.job} data-unanswered={un?.status} className="space-y-4">
       <div className="ok-said" data-testid="view-floor-said-bubble" data-latest-floor={latest && un !== undefined && un.words === null ? '' : undefined}>
-        {f.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-testid="view-said-by">{f.by}</p>}
+        {/* The bubble names its author, with the viewer's own name hidden while they are the only member. */}
+        {f.by === '' || (alone && me != null && f.by_id !== '' && !other) ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${other ? 'text-text-body' : 'text-text-light'}`} data-testid="view-said-by">{f.by}</p>}
         {f.press === undefined ? <p className={typography.viewPanelBody} data-testid="view-floor-said">{f.said}</p> : <PressedLine press={f.press} at={`floor.${f.job}`} />}
       </div>
       {/* Contract 3 (Codex 15 Nov): the newest floor exchange's marker is on Olumi's reply, so the thread rests on the reply's first line,
@@ -584,6 +596,7 @@ export function turnAlreadyShown(view: Pick<View, 'chat' | 'turn'>): boolean {
 
 /** `shown`: the saved row already draws this turn's message and its failure, so only Try again is added (one notice, one retry). */
 export function TurnInFlight({ turn, me, view, shown = false, replyVisible = false }: { turn: NonNullable<View['turn']> | null; me: string | null; view?: View | null; shown?: boolean; replyVisible?: boolean }) {
+  const alone = useAlone()
   // `turn` null: the write is in flight and core has not yet accepted it. The SAME mount then carries through acceptance (one loader, one clock,
   // no restart: ViewChat draws it at one place in the thread), with the page's one waiting sentence until core's own words arrive.
   const running = turn === null || turn.status === 'answering'
@@ -601,11 +614,11 @@ export function TurnInFlight({ turn, me, view, shown = false, replyVisible = fal
   return (
     <ol className={`${typography.viewPanelBody} space-y-4`} data-testid="view-chat-turn-job" data-turn={turn?.status ?? 'answering'} data-shown={shown ? '' : undefined} data-reply-visible={replyVisible ? '' : undefined}>
       <li className="space-y-1">
-        {/* DL-538: the bubble names whose words it holds, inside it, as a saved turn's does (Turn); with no words, the name stands alone.
+        {/* DL-538: the bubble names its author, with the viewer's own name hidden while they are the only member. With no words, the name stands alone.
             The bubble keeps one full line clear of the waiting line below it (Paul, 25 Nov). */}
         {shown || replyVisible || turn === null ? null : turn.said === null
           ? (turn.by_id === me ? null : <p className={typography.viewPanelMeta} data-view="turn.by">{turn.by}</p>)
-          : <div className="ok-said mb-4">{turn.by === '' ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
+          : <div className="ok-said mb-4">{turn.by === '' || (alone && turn.by_id === me) ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${turn.by_id === me ? 'text-text-light' : 'text-text-body'}`} data-view="turn.by" data-testid="view-said-by">{turn.by}</p>}{pressFieldOf(turn) !== null ? <PressedLine press={pressFieldOf(turn)!} at="turn" /> : turn.ask === 'challenge' || turn.ask === 'method'
             ? <p className={`${typography.viewPanelBody} inline-flex items-center gap-1.5`} data-testid="view-chat-pressed" data-pressed={turn.ask}><OkIcon id="method-mark" size={14} decorative />{turn.ask === 'method' ? <MethodPress said={turn.said} about={turn.about} at="turn" /> : PRESSED_WORDS}</p>
             : <p className={typography.viewPanelBody} data-view="turn.said">{turn.said}</p>}</div>}
         {shown || replyVisible ? null : (
@@ -1881,6 +1894,7 @@ const THREAD_INSET = 12
 
 /** The thread and the Next step. The ways in to Olumi's questions are the composer's ⋯ menu (V12: one action system). */
 export function ViewChat() {
+  const alone = useAlone()
   useAnswersAsks()
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
@@ -1985,7 +1999,7 @@ export function ViewChat() {
     (savedReply !== undefined && (earlyOf(savedReply) !== null || savedReply.answer?.answer.some((part) => 'text' in part && part.text.trim() !== '') === true)))
   const sentBrief = sentBriefOf(view)
   const ownBrief = sentBrief?.by != null && sentBrief.by === view?.you_id
-  const briefName = sentBrief?.by == null ? null : view?.members.find((member) => member.id === sentBrief.by)?.name ?? null
+  const briefName = sentBrief?.by == null ? null : view?.members?.find((member) => member.id === sentBrief.by)?.name ?? null
   const noticeKey = useModelNotice((s) => (s.notice === null ? '' : `${s.notice.kind}:${s.notice.n}`))
   const sinceTo = useViewStore((s) => s.view?.model?.run?.since?.to.n ?? null)
   // The person's own save is what they look for (DL journey (4)): each new notice (a new object, even for the same version) makes its
@@ -2039,7 +2053,8 @@ export function ViewChat() {
             {/* A read that failed says so, before a View or after a good one (lane audit 5.4). */}
             {error === null ? null : <p role="alert" data-testid="view-chat-unread">{error}</p>}
             {sentBrief === null ? null : <div className="ok-said" data-testid="view-chat-sent-brief">
-              {briefName === null ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${ownBrief ? 'text-text-light' : 'text-text-body'}`} data-testid="view-said-by">{ownBrief ? 'You' : briefName}</p>}
+              {/* The viewer's own brief says "You" while they share the scenario. The label is hidden while they are the only member. */}
+              {briefName === null || (alone && ownBrief) ? null : <p className={`ok-said-by ${typography.viewPanelMeta} ${ownBrief ? 'text-text-light' : 'text-text-body'}`} data-testid="view-said-by">{ownBrief ? 'You' : briefName}</p>}
               <p className={`${typography.viewPanelBody} whitespace-pre-wrap`} data-view="brief">{sentBrief.text}</p>
             </div>}
             {/* The newest reply's own move, once, at the end of that reply: the filled button, unless Olumi's proposal is pinned (then it is the one filled button). */}

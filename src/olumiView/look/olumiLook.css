@@ -210,8 +210,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .ok-card-far-mark[class] { line-height: 1.25; }
 
 /* ── The panel (DL-538 priority 2, the target's structured panel) ──────────────────────────────────── */
-/* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). Their name is inside it, as on
-   every message: whose words these are is always drawn. */
+/* The person's own message: a light bubble set to the right, nothing heavier (17 Nov, the calm panel). The author's name is inside it.
+   The viewer's own name is hidden while they are the only member. */
 .ok-said {
   background: var(--bg-panel-hover);
   color: var(--text-body);

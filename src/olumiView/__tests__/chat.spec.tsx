@@ -705,6 +705,7 @@ describe('the saved brief before the first model', () => {
   const brief = 'Should we raise the price of our pastries?'
   const draft = { status: 'drafting', reason: null, at: '2026-11-08T15:00:00.000Z', job: 2, stage: 'building', words: 'Building the model' } as const
   const first: View = { ...base, brief, brief_by: base.you_id, version: null, proposal: null, model: null, chat: [], draft, turn: null }
+  const teammate = { id: 'p_teammate', name: 'Ada' }
   const entry = { seq: 2, kind: 'brief', job: 2, proposal: 9, by_id: base.you_id, ask: null, discussion: null, state: null } as const
   const row: View['chat'][number] = {
     id: entry.proposal, by: base.you, by_id: entry.by_id, version: 'version 1', earlier: false, status: null,
@@ -774,13 +775,14 @@ describe('the saved brief before the first model', () => {
   })
 
   it('names only a resolved member and styles the viewer’s own brief as their turn', () => {
-    show(first)
+    // The viewer's own brief shows "You" in a shared scenario.
+    show({ ...first, members: [...base.members, teammate] })
     const { container } = render(surfaces())
     const name = () => bubble(container)?.querySelector('[data-testid="view-said-by"]')
     expect(name()).toHaveTextContent('You')
     expect(name()).toHaveClass('text-text-light')
 
-    act(() => show({ ...first, brief_by: 'p_teammate', members: [...base.members, { id: 'p_teammate', name: 'Ada' }] }))
+    act(() => show({ ...first, brief_by: teammate.id, members: [...base.members, teammate] }))
     expect(name()).toHaveTextContent('Ada')
     expect(name()).toHaveClass('text-text-body')
     expect(name()).not.toHaveClass('text-text-light')
@@ -794,5 +796,23 @@ describe('the saved brief before the first model', () => {
     act(() => show(withoutAuthor))
     expect(sentBriefOf(withoutAuthor)).toEqual({ text: brief, by: null })
     expect(name()).toBeNull()
+  })
+
+  it('hides the viewer’s name on their sent brief with one member', () => {
+    show(first)
+    const { container } = render(surfaces())
+    expect(bubble(container)?.querySelector('[data-testid="view-said-by"]')).toBeNull()
+  })
+
+  it.each([
+    { case: 'hides the viewer’s name with one member', members: base.members, turn: row, author: null },
+    { case: 'shows the viewer’s name with two members', members: [...base.members, teammate], turn: row, author: row.by },
+    { case: 'shows another author’s name with one member', members: base.members, turn: { ...row, by_id: teammate.id, by: teammate.name }, author: teammate.name },
+  ])('a saved message $case', ({ members, turn, author }) => {
+    show({ ...base, members, chat: [turn] })
+    const { getByTestId } = render(surfaces())
+    const name = getByTestId('view-chat-said-bubble').querySelector('[data-testid="view-said-by"]')
+    if (author === null) expect(name).toBeNull()
+    else expect(name?.textContent).toBe(author)
   })
 })

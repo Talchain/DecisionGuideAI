@@ -138,6 +138,17 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     expect(getByTestId('view-chat-turn-wait').previousElementSibling).toBe(bubble)
   })
 
+  it('hides the viewer’s name on their in-flight turn while alone', () => {
+    const turn = { ...running, by_id: fixture.you_id, by: fixture.you }
+    show({ ...fixture, turn })
+    const { getByTestId } = render(<ViewChat />)
+    const name = () => getByTestId('view-chat-turn-job').querySelector('.ok-said')?.querySelector('[data-testid="view-said-by"]')
+    expect(name()).toBeNull()
+
+    act(() => show({ ...fixture, turn, members: [...fixture.members, ...failed.members] }))
+    expect(name()?.textContent).toBe(turn.by)
+  })
+
   it('uses only the waiting line until the open job has reply text', () => {
     const active = { ...fixture, turn: running }
     show(active)

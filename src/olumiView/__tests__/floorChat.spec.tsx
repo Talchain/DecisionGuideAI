@@ -61,6 +61,17 @@ describe('view.floor is drawn as an ordinary conversation where the chat is', ()
     expect(c.querySelector('[data-testid="view-floor-reply-text-label"]')).toBeNull()
     expect(turns[0]!.getAttribute('data-floor-job')).toBe('9')
   })
+  it('hides the viewer’s name on their floor message while alone', () => {
+    const members = [{ id: floorRow.by_id, name: floorRow.by }]
+    const view = noModel({ draft: draft('failed'), floor: [floorRow], members })
+    const c = show(view, <ViewChat />)
+    const name = () => c.querySelector('[data-testid="view-floor-said-bubble"]')?.querySelector('[data-testid="view-said-by"]')
+    expect(name()).toBeNull()
+
+    act(() => useViewStore.setState({ view: { ...view, members: [...members, { id: '50', name: 'Jordan' }] } }))
+    expect(name()?.textContent).toBe(floorRow.by)
+  })
+
   it('contrast: with no early on the board the brief\'s reply IS drawn, in order, before the later exchange; absent field = today\'s empty thread', () => {
     const first = { job: 7, at: AT, by: 'Paul', by_id: '7', said: BRIEF, text: EARLY }
     const c = show(noModel({ draft: draft('failed'), floor: [first, floorRow] }), <ViewChat />)
