@@ -15,7 +15,7 @@ import { NodeShapeIndicator } from '../nodes/NodeShapeIndicator'
 import type { DsKind } from '../../olumiView/v12/cards/kind'
 import type { IconId } from '../../olumiView/look/icons'
 import type { ViewCard, ViewLink, ViewModel } from '../../olumiView/client'
-import { REVIEW_PROPOSAL, REVIEW_PROPOSAL_ROW, type EditGate } from '../../olumiView/v12/edit/editGate'
+import { REVIEW_CHANGES, REVIEW_PROPOSAL, REVIEW_PROPOSAL_ROW, type EditGate } from '../../olumiView/v12/edit/editGate'
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
@@ -35,6 +35,7 @@ export const LANE_MENU_WORDS = {
 export type AskIntent = 'explain_element' | 'challenge_element' | 'review_model_gaps' | 'explain_subgraph'
 export type LaneMenuCtx = {
   readonly gate: EditGate
+  readonly reviewVersion: number | null
   readonly model: ViewModel | null
   readonly undo: { readonly undo: UndoChoice; readonly redo: UndoChoice }
   readonly level: 'simple' | 'working'
@@ -49,6 +50,7 @@ export type LaneMenuCtx = {
     readonly openRemove?: (link: ViewLink) => void
     readonly openFigure?: (t: { readonly kind: 'card' | 'link'; readonly id: string }) => void
     readonly review?: () => void
+    readonly reviewVersion?: (id: number) => void
     readonly ask: (target: ContextTarget, intent: AskIntent) => void
     /** Puts `text` in the AI box for the person to finish and send (the card's Olumi badge does the same); sends nothing. */
     readonly prefill?: (text: string, label: string, targetId: string) => void
@@ -63,6 +65,10 @@ const DIV: MenuEntry = { type: 'divider' }
 const figureCards = (m: ViewModel | null): ViewCard[] => (m?.cards ?? []).filter((c) => c.family === 'quantity')
 
 function reviewRow(c: LaneMenuCtx): MenuItemDef[] {
+  const id = c.reviewVersion, reviewVersion = c.act.reviewVersion
+  if (c.gate.ok && id != null && reviewVersion !== undefined) {
+    return [{ id: 'review-version', label: REVIEW_CHANGES, iconId: 'version-tag', tooltip: '', enabled: true, action: () => reviewVersion(id) }]
+  }
   return !c.gate.ok && c.gate.held === true && c.act.review !== undefined
     ? [{ id: 'review-proposal', label: REVIEW_PROPOSAL_ROW, iconId: 'olumi-mark', tooltip: c.gate.why, enabled: true, action: () => c.act.review!() }]
     : []

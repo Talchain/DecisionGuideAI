@@ -22,7 +22,7 @@ export function ChatFootRow({ sources, trailing, ask, onAskOpened }: {
 }): JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const [present, setPresent] = useState<Readonly<Record<string, boolean>>>({})
-  const openedAsk = useRef<number | null>(null)
+  const openedAsk = useRef<NonNullable<typeof ask> | null>(null)
   const box = useRef<HTMLDivElement>(null), row = useRef<HTMLDivElement>(null)
   const panelId = useId()
   const close = useCallback(() => {
@@ -49,8 +49,8 @@ export function ChatFootRow({ sources, trailing, ask, onAskOpened }: {
     if (open !== null && !present[open]) close()
   }, [close, open, present])
   useEffect(() => {
-    if (ask == null || !present[ask.source] || openedAsk.current === ask.n) return
-    openedAsk.current = ask.n
+    if (ask == null || !present[ask.source] || (openedAsk.current?.source === ask.source && openedAsk.current.n === ask.n)) return
+    openedAsk.current = { source: ask.source, n: ask.n }
     setOpen(ask.source)
     onAskOpened?.()
   }, [ask, onAskOpened, present])
@@ -78,13 +78,14 @@ export function ChatFootRow({ sources, trailing, ask, onAskOpened }: {
     {available.length > 0 || trailing != null ? <div ref={row} className="shrink-0 overflow-x-auto px-3 py-2" data-testid="view-chat-foot-row">
       <div className="flex items-center gap-1 whitespace-nowrap">
         {available.map((source) => {
-          const label = source.id === 'proposal' && source.count === 1 ? source.label : `${source.label} · ${source.count}`
+          const labelOnly = (source.id === 'proposal' || source.id === 'version') && source.count === 1
+          const label = labelOnly ? source.label : `${source.label} · ${source.count}`
           return <HoverButton key={source.id} type="button" words={label} aria-label={label}
             aria-expanded={open === source.id} aria-controls={open === source.id ? panelId : undefined}
             className={`${VIEW_CHIP_CLASS} shrink-0`} data-testid={`view-chat-foot-${source.id}`}
             onClick={() => { if (open === source.id) close(); else setOpen(source.id) }}>
             <OkIcon id={source.icon} size={14} decorative />
-            {source.id === 'proposal' && source.count === 1 ? null : <span>{source.count}</span>}
+            {labelOnly ? null : <span>{source.count}</span>}
           </HoverButton>
         })}
         {trailing == null ? null : <span className="ml-auto" data-testid="view-chat-latest-row">{trailing}</span>}

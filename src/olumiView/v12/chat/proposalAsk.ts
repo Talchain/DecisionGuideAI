@@ -21,3 +21,18 @@ export function askProposalReviewOf(id: number): boolean {
   if (useViewStore.getState().view?.proposal?.id !== id) return false
   return askProposalReview()
 }
+
+import { versionReviewOf } from './versionReview'
+
+export const useVersionAsk = create<{ id: number | null; n: number }>(() => ({ id: null, n: 0 }))
+
+export function clearVersionAsk(): void {
+  useVersionAsk.setState({ id: null })
+}
+
+export function askVersionReview(id: number): boolean {
+  if (versionReviewOf(useViewStore.getState().view)?.version.id !== id) return false
+  useVersionAsk.setState(({ n }) => ({ id, n: n + 1 }))
+  useUIStore.getState().forceActivateOutputTab('olumi')
+  return true
+}

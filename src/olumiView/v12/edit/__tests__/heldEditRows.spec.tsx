@@ -4,18 +4,22 @@
  * reason (no saved model, an earlier version, another person's page) still omits its rows (Paul, 19 Nov). Frozen text: lane-authored.
  */
 import '@testing-library/jest-dom/vitest'
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
 import { buildLaneMenu, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
+import { useLaneCtx } from '../../../../canvas/contextMenu/useLaneMenu'
 import { isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from '../../../../canvas/contextMenu/types'
+import { useUIStore } from '../../../../stores/uiStore'
 import { chooseRedo, chooseUndo, clearLayoutUndo } from '../undo'
 import { editGateNow } from '../editGate'
 import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useLaneInspector } from '../inspectorStore'
 import { useViewStore } from '../../../store'
 import { useProposalAsk } from '../../chat/proposalAsk'
+import * as proposalAsk from '../../chat/proposalAsk'
 import { TIP_DELAY } from '../../../look/Tip'
 import { QUESTION } from '../../../layout'
 import { BASE, SID, approved, install, uninstall, type Stub } from './harness'
@@ -28,7 +32,7 @@ const byId = (es: MenuEntry[], id: string) => flat(es).find((i) => i.id === id)
 const noUndo = { undo: chooseUndo({ undo: [], savedSeq: 0 }, null), redo: chooseRedo({ redo: [] }) }
 const opened: unknown[] = []
 const ctx = (gate: LaneMenuCtx['gate'], model = approved().model!): LaneMenuCtx => ({
-  gate, model, undo: noUndo, level: 'simple', mode: 'select', questionId: QUESTION,
+  gate, reviewVersion: null, model, undo: noUndo, level: 'simple', mode: 'select', questionId: QUESTION,
   act: { open: (s) => opened.push(s), openDetails: () => undefined, ask: () => undefined, pressUndo: () => undefined, autoArrange: () => undefined, toggleLevel: () => undefined },
 })
 const pane: ContextTarget = { kind: 'pane', screenPos: { x: 10, y: 10 } }
@@ -179,5 +183,98 @@ describe('A1 mounted: held rows are reachable, say why, and do nothing', () => {
     fireEvent.click(chip)
     expect(screen.queryByTestId('lane-edit-form')).toBeNull()
     expect(stub.posts()).toHaveLength(0)
+  })
+})
+
+describe('saved version review menus', () => {
+  const saved: View = JSON.parse(readFileSync('src/olumiView/golden/capacity-v3.view.json', 'utf8'))
+  const changes = [
+    { id: 'goal', top: true, text: 'Set the capacity goal.', detail: 'The threshold is per week.', family: 'aim', olumi: null },
+    { id: 'demand', top: false, text: 'Add weekend demand.', detail: '', family: 'quantity', olumi: { glyph: '✦', title: 'Olumi estimated demand' } },
+    { id: 'staff', top: false, text: 'Add the staffing constraint.', detail: '', family: 'limit', olumi: null },
+  ]
+  const version = { ...saved.version!, review: { changes, groups: null } }
+  const reviewed = { ...saved, proposal: null, version }
+  const pending = { ...reviewed, proposal: heldView().proposal, model: { ...reviewed.model!, edit_base: null } }
+  const targets = [nodeT(saved.model!.cards[0]!.id), edgeT(1), pane]
+  const options = { showToast: vi.fn(), onClose: vi.fn(), openForm: vi.fn() }
+  const reviewRows = (target: ContextTarget, c: LaneMenuCtx) => flat(buildLaneMenu(target, c)).filter(({ id }) => id === 'review-proposal' || id === 'review-version')
+
+  beforeEach(() => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    options.onClose.mockClear()
+    install(reviewed)
+    useUIStore.setState({ activeOutputTab: 'results' })
+  })
+  afterEach(() => {
+    cleanup()
+    uninstall()
+    vi.unstubAllEnvs()
+    useProposalAsk.setState(useProposalAsk.getInitialState())
+    const ask = proposalAsk.useVersionAsk
+    ask?.setState(ask.getInitialState())
+    useUIStore.setState(useUIStore.getInitialState())
+  })
+
+  it('offers one saved Review row in the card, link and board menus, gives held proposals their own action, and omits Review without either', () => {
+    const { result } = renderHook(() => useLaneCtx(options))
+    for (const target of targets) {
+      const rows = reviewRows(target, result.current)
+      expect(rows).toMatchObject([{ id: 'review-version', label: 'Review the changes', iconId: 'version-tag', enabled: true }])
+      const n = proposalAsk.useVersionAsk.getState().n
+      act(() => rows[0]!.action())
+      expect(proposalAsk.useVersionAsk.getState()).toEqual({ id: version.id, n: n + 1 })
+      expect(useProposalAsk.getState().id).toBeNull()
+      expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    }
+
+    act(() => useViewStore.setState({ view: pending }))
+    const savedAsk = proposalAsk.useVersionAsk.getState()
+    for (const target of targets) {
+      const rows = reviewRows(target, result.current)
+      expect(rows).toMatchObject([{ id: 'review-proposal', label: 'Review Olumi’s proposal', iconId: 'olumi-mark', enabled: true }])
+      const n = useProposalAsk.getState().n
+      act(() => rows[0]!.action())
+      expect(useProposalAsk.getState()).toEqual({ id: pending.proposal!.id, n: n + 1 })
+      expect(proposalAsk.useVersionAsk.getState()).toBe(savedAsk)
+    }
+    expect(options.onClose).toHaveBeenCalledTimes(2 * targets.length)
+
+    act(() => useViewStore.setState({ view: { ...saved, proposal: null } }))
+    for (const target of targets) expect(reviewRows(target, result.current)).toEqual([])
+  })
+
+  it('binds each drawn card, link and board Review action to its version through a replacement or a pending proposal', () => {
+    const { result } = renderHook(() => useLaneCtx(options))
+    const rows = targets.map((target) => {
+      const row = byId(buildLaneMenu(target, result.current), 'review-version')
+      expect(row).toBeDefined()
+      return row!
+    })
+
+    const newer = { ...version, id: version.id + 1, label: 'version 2', review: { changes: [...changes].reverse(), groups: null } }
+    for (const view of [{ ...reviewed, version: newer }, pending]) {
+      act(() => useViewStore.setState({ view }))
+      const savedAsk = proposalAsk.useVersionAsk.getState()
+      const heldAsk = useProposalAsk.getState()
+      const ui = useUIStore.getState()
+      for (const row of rows) {
+        act(() => row.action())
+        expect(proposalAsk.useVersionAsk.getState()).toBe(savedAsk)
+        expect(useProposalAsk.getState()).toBe(heldAsk)
+        expect(useProposalAsk.getState().id).toBeNull()
+        expect(useUIStore.getState()).toBe(ui)
+        expect(useUIStore.getState().activeOutputTab).toBe('results')
+      }
+    }
+
+    act(() => useViewStore.setState({ view: reviewed }))
+    for (const row of rows) {
+      const n = proposalAsk.useVersionAsk.getState().n
+      act(() => row.action())
+      expect(proposalAsk.useVersionAsk.getState()).toEqual({ id: version.id, n: n + 1 })
+      expect(useProposalAsk.getState().id).toBeNull()
+      expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+    }
   })
 })

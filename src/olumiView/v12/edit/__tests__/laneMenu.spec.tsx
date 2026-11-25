@@ -33,7 +33,7 @@ const noUndo = { undo: chooseUndo({ undo: [], savedSeq: 0 }, null), redo: choose
 const calls: string[] = []
 const spec: unknown[] = []
 const ctx = (over: Partial<LaneMenuCtx> = {}): LaneMenuCtx => ({
-  gate: GATE_OK, model: approved().model!, undo: noUndo, level: 'simple', mode: 'select', questionId: QUESTION,
+  gate: GATE_OK, reviewVersion: null, model: approved().model!, undo: noUndo, level: 'simple', mode: 'select', questionId: QUESTION,
   act: { open: (s) => spec.push(s), openDetails: (t) => calls.push(`details:${t.kind}:${t.id}`), ask: (_t, i) => calls.push(`ask:${i}`), pressUndo: (d) => calls.push(d), autoArrange: () => calls.push('arrange'), toggleLevel: () => calls.push('level'), setMode: (m) => calls.push(`mode:${m}`) },
   ...over,
 })
