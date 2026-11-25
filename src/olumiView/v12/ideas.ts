@@ -49,6 +49,7 @@ export async function keepIdea({ sid, turn, text, base, op, floor = false }: { s
  * The words kept: Olumi's own, verbatim, from the reply's answer (its first paragraph, then further paragraphs while they fit, never cut
  * mid-sentence). A first paragraph over core's limit is taken sentence by sentence; null when not even its first sentence fits (nothing is kept
  * that Olumi did not say, and nothing is shortened by rewording).
+ * A reply's folded proposal history (`answer.history`, PL ff6da644) is not part of `answer.answer` on olumi.view/3, so a newly kept idea omits it; ideas kept before are unchanged.
  */
 export function ideaTextOf(answer: NonNullable<ViewTurn['answer']>): string | null {
   const whole = answer.answer.flatMap((p) => ('text' in p ? [p.text] : [])).join('')
