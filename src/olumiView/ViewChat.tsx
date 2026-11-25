@@ -329,6 +329,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
   const lead = drawnLeadOf(t, floor)
+  const history = t.answer?.history ?? null
   // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
   // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
   // a method reply with no such lines is kept whole.
@@ -438,6 +439,12 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {answer}{heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
       {/* K1: a lead that is not drawn (it repeats the answer) still says core's `lead.not_held`, under the whole answer, as the lead would have. */}
       {lead !== null || t.answer === null || leadNotHeldOf(t.answer) === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.answer.lead.not_held`}>{leadNotHeldOf(t.answer)}</p>}
+      {history !== null && history.lines.length > 0 ? (
+        <details data-testid="view-chat-history" data-view={`${at}.answer.history`} className={typography.viewPanelMeta}>
+          <summary className="cursor-pointer">{history.heading}</summary>
+          <ul>{history.lines.map((l, j) => <li key={j} data-view={`${at}.answer.history.lines.${j}`}>{l}</li>)}</ul>
+        </details>
+      ) : null}
       {tools}
       {t.broke === null ? null : <p data-view={`${at}.broke`}>{t.broke}</p>}
       {t.problem === null ? null : <p role="alert" data-view={`${at}.problem`}>{t.problem}</p>}

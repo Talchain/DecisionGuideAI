@@ -101,6 +101,7 @@ describe('keepIdea', () => {
   it('keeps Olumi\'s own words, whole sentences only, inside core\'s limit', () => {
     const a = (t: string) => ({ answer: [{ text: t }], why: [], next: { label: '', text: [], about: [], at: null, newest: true, move: 'other_method' } }) as never
     expect(ideaTextOf(a('One idea.\n\nA second one.\n\nA third.'))).toBe('One idea. A second one. A third.')
+    expect(ideaTextOf(Object.assign(a('Prose.'), { history: { heading: 'H', lines: ['L'] } }))).toBe('Prose.')
     const long = 'First sentence. ' + 'word '.repeat(120) + 'ends here.'
     expect(ideaTextOf(a(long))).toBe('First sentence.')
     expect([...(ideaTextOf(a('P1 ' + 'a'.repeat(200) + '.\n\nP2 ' + 'b'.repeat(300) + '.')) ?? '')].length).toBeLessThanOrEqual(IDEA_MAX)

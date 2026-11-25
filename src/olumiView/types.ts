@@ -1853,6 +1853,10 @@ export type View = {
         }>
         not_held?: string
       }
+      history?: {
+        heading: string
+        lines: Array<string>
+      }
     } | null
     broke: string | null
     problem: string | null
