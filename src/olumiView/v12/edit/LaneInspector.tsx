@@ -14,6 +14,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
+import { useCanvasCardTip } from '../../look/Tip'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
 import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
@@ -125,7 +126,8 @@ function Connections({ card, peek }: { card: ViewCard; peek: boolean }): JSX.Ele
 /** The lane: ONE box for the card pressed (pinned) or, while nothing at all is open, the card previewed. */
 function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const pinnedOn = useLaneInspector(detailsOf)
-  const peeked = useLaneInspector((s) => (s.current === null ? s.peek : null))
+  const cardTipOpen = useCanvasCardTip((s) => s.tipId !== null)
+  const peeked = useLaneInspector((s) => (s.current === null && !cardTipOpen ? s.peek : null))
   const section = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' ? s.current.section ?? null : null))
   const close = useLaneInspector((s) => s.close)
   const target = pinnedOn ?? peeked, pinned = pinnedOn !== null

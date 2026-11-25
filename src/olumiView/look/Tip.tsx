@@ -1,19 +1,22 @@
 /**
  * THE ONE HOVER (panel-and-visual system rule 4, 20 Nov): every hover on the lane is this Tip. 150 ms after the pointer comes to rest or keyboard focus arrives
- * (a focus ring, not a mouse press); beside its anchor (right, else left), clamped inside the window on both axes; one layout, a title line (the
+ * (a focus ring, not a mouse press); placed beside its anchor in its own region; one layout, a title line (the
  * words' first line) and an optional body (the rest), in the 12/16 type scale. `useAnchoredTip` is the one way an icon or a control gets it, so no
  * site writes a native `title` for a hover.
  *
  * THE LANE'S ONE TIP (surfaces step B, 18 Nov): the small box that says what a row cannot fit or why it cannot act. On the lane it stands in for the
  * right-click menu's own tooltip (canvas/contextMenu/MenuTooltip, a second look: rounded-lg, 11 px, grey on the page ground), which the older look,
  * off the lane, keeps until that look has been pictured. One look: the panel's ground and border, 12/16 text,
- * 240 px at most, read only (the pointer passes through, no scroll: the whole text is always drawn). It stands right of its row, or left of it at the window's edge, and never below the
- * window's foot; where it stands is written to two custom properties, never an inline style.
+ * 240 px at most, read only (the pointer passes through, no scroll: the whole text is always drawn). Its position is written
+ * to two custom properties.
  */
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { create } from 'zustand'
 import { typography } from '../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
+import { canvasCardRects } from '../../canvas/components/hoverCard/hoverCardPlacement'
+import { openBoxes, placeNear, regionFor } from './placeNear'
 
 export const TIP_GAP = 8
 /** The one open delay for every hover (ms). */
@@ -22,22 +25,25 @@ export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-
 
 export type TipSpacing = 'peek' | 'list'
 
-export function Tip({ id, text, anchorRect, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
+export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: HTMLElement; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const t = el.current
     if (t === null || anchorRect === null) return
-    const r = t.getBoundingClientRect()
-    let left = anchorRect.right + TIP_GAP, top = anchorRect.top
-    if (left + r.width > window.innerWidth) left = anchorRect.left - r.width - TIP_GAP
-    // Neither side has room (a narrow window, a wide tip): stay inside the window rather than off its edge.
-    left = Math.min(left, window.innerWidth - r.width - TIP_GAP)
-    // A tip is never interactive and never scrolls: its whole text is always drawn (olumiLook.css `.ok-tip` caps only the width, so the text wraps).
-    // Below the window's foot it flips up (its foot level with the anchor's), and a box taller than the window stays at the margin.
-    if (top + r.height > window.innerHeight - TIP_GAP) top = Math.min(anchorRect.bottom - r.height, window.innerHeight - r.height - TIP_GAP)
-    t.style.setProperty('--tip-x', `${Math.max(TIP_GAP, left)}px`)
-    t.style.setProperty('--tip-y', `${Math.max(TIP_GAP, top)}px`)
-  }, [anchorRect, text, spacing, icon])
+    const open = openBoxes().filter((box) => !(
+      box.left <= anchorRect.left && box.right >= anchorRect.right &&
+      box.top <= anchorRect.top && box.bottom >= anchorRect.bottom
+    ))
+    const { left, top } = placeNear(anchorRect, t.getBoundingClientRect(), {
+      region: regionFor(anchor),
+      open,
+      cards: anchor?.closest('.react-flow') ? canvasCardRects(null) : [],
+      gap: TIP_GAP,
+      limit: TIP_GAP,
+    })
+    t.style.setProperty('--tip-x', `${left}px`)
+    t.style.setProperty('--tip-y', `${top}px`)
+  }, [anchorRect, anchor, text, spacing, icon])
   if (anchorRect === null || text === '') return null
   const [head = '', ...rest] = text.split('\n')
   const body = rest.join('\n')
@@ -58,9 +64,11 @@ export function Tip({ id, text, anchorRect, spacing, icon }: { id?: string; text
  *  one before; since pointerenter reaches an ancestor before its child, the innermost element's tip is the one left open. */
 let openTip: (() => void) | null = null
 
+export const useCanvasCardTip = create<{ tipId: string | null }>(() => ({ tipId: null }))
+
 /** The tip's delay (default TIP_DELAY, 150 ms): shown that long after the pointer comes to rest on a row, gone at once when it leaves. */
 export function useTipDelay(delay = TIP_DELAY) {
-  const [active, setActive] = useState<{ text: string; rect: DOMRect; itemId?: string } | null>(null)
+  const [active, setActive] = useState<{ text: string; rect: DOMRect; element: HTMLElement; itemId?: string } | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const close = useRef<() => void>(() => {})
   close.current = () => { if (timer.current) clearTimeout(timer.current); timer.current = null; setActive(null) }
@@ -70,7 +78,7 @@ export function useTipDelay(delay = TIP_DELAY) {
     timer.current = setTimeout(() => {
       if (openTip !== null && openTip !== mine.current) openTip()
       openTip = mine.current
-      setActive({ text, rect: element.getBoundingClientRect(), itemId })
+      setActive({ text, rect: element.getBoundingClientRect(), element, itemId })
     }, delay)
   }
   const hideTooltip = () => {
@@ -120,8 +128,16 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, 
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => { if (e.key === 'Escape') hideTooltip() },
   }
   const shown = activeTooltip !== null && text !== ''
+  const cardTipOpen = shown && activeTooltip.element.closest('.react-flow__node') !== null
+  useLayoutEffect(() => {
+    if (!cardTipOpen) return
+    useCanvasCardTip.setState({ tipId: id })
+    return () => {
+      if (useCanvasCardTip.getState().tipId === id) useCanvasCardTip.setState({ tipId: null })
+    }
+  }, [cardTipOpen, id])
   useTipDismissOnMove(shown, hideTooltip)
-  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} spacing={spacing} icon={icon} />, document.body) : null
+  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} anchor={activeTooltip.element} spacing={spacing} icon={icon} />, document.body) : null
   return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }
 
