@@ -130,6 +130,14 @@ describe('chat as a thread (UI recovery witness row 11, DL 10 Nov)', () => {
     } finally { vi.useRealTimers(); useViewChat.setState({ busy: false }) }
   })
 
+  it('leaves a full line of space between the in-flight bubble and the waiting line', () => {
+    show({ ...fixture, turn: running })
+    const { getByTestId } = render(<ViewChat />)
+    const bubble = getByTestId('view-chat-turn-job').querySelector('.ok-said')
+    expect(bubble).toHaveClass('mb-4')
+    expect(getByTestId('view-chat-turn-wait').previousElementSibling).toBe(bubble)
+  })
+
   it('uses only the waiting line until the open job has reply text', () => {
     const active = { ...fixture, turn: running }
     show(active)
