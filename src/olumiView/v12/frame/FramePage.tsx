@@ -76,9 +76,7 @@ function Aim({ card, onEdit, lane }: { card: ViewCard; onEdit: (() => void) | nu
         {onEdit === null ? null : <button type="button" className={lane ? VIEW_CHIP_CLASS : `${EDIT} ${OLDER_FOCUS}`} data-testid={`frame-edit-${card.id}`} aria-label={`${FRAME_WORDS.edit}: ${card.heading}`}
           onClick={onEdit}>{FRAME_WORDS.edit}</button>}
       </div>
-      <Hover className={`${BODY} text-text-light`} data-frame="bound" words={b?.title}>
-        {b != null && b.measured ? b.text : FRAME_WORDS.inWords}<Mark card={card} bound />
-      </Hover>
+      {b == null ? null : <Hover className={`${BODY} text-text-light`} data-frame="bound" words={b.title}>{b.text}<Mark card={card} bound /></Hover>}
     </li>
   )
 }

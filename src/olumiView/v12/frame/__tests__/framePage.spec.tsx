@@ -72,13 +72,13 @@ describe('the Frame page', () => {
     expect(c.querySelector('[data-person-mark]')).toBeNull()
     expect(within(c).getByText('at most £5,000')).toBeInTheDocument()
   })
-  it('the person\'s aim and Olumi\'s aim are both shown, each with its own mark, never merged; a bound not measured reads "kept in words"', () => {
+  it('the person\'s aim and Olumi\'s aim are both shown, each with its own mark, never merged; an aim with no bound draws no bound line (PL a350f889)', () => {
     page(viewOf([mine, olumiAim]))
     const a = screen.getByTestId('frame-card-aim_mine'), o = screen.getByTestId('frame-card-aim_olumi')
     expect(screen.getByTestId('frame-aims').querySelectorAll('li')).toHaveLength(2)
     expect(a.textContent).toContain('Pay back within 12 months'); expect(o.textContent).toContain('Payback time within one year')
     expect(a.querySelector('[data-person-mark]')).not.toBeNull(); expect(a.querySelector('[data-olumi-mark]')).toBeNull()
-    expect(a.querySelector('[data-frame="bound"]')!.textContent).toBe('kept in words')
+    expect(a.querySelector('[data-frame="bound"]')).toBeNull()
     expect(o).toHaveAttribute('data-olumi-card'); expect(o.querySelector('[data-olumi-mark]')).not.toBeNull(); expect(o.querySelector('[data-person-mark]')).toBeNull()
     expect(a.querySelector('[data-person-mark]')!.getAttribute('aria-label')).toBe('Your words')
   })
@@ -116,14 +116,42 @@ describe('the Frame page', () => {
 })
 
 describe('an Olumi bound is marked on the bound alone whether or not it is measured', () => {
-  it('measured: its words and the mark; not measured: "kept in words" and the mark; a person\'s unmeasured bound: no mark', () => {
+  it('measured or not, the bound line is Core\'s own words with the mark on Olumi\'s bounds alone (PL a350f889)', () => {
     const unmeasured = card({ id: 'lim_u', family: 'limit', heading: 'Cap', bound: bound('hidden words', OLUMI, false) })
     const plain = card({ id: 'lim_p', family: 'limit', heading: 'Cap two', bound: bound('hidden words', null, false) })
     page(viewOf([limit, unmeasured, plain]))
     const at = (id: string) => screen.getByTestId(`frame-card-${id}`).querySelector('[data-frame="bound"]')!
     expect(at('lim_cap').textContent).toBe('at most £5,000'); expect(at('lim_cap').querySelector('[data-olumi-mark]')).not.toBeNull()
-    expect(at('lim_u').textContent).toBe(FRAME_WORDS.inWords); expect(at('lim_u').querySelector('[data-olumi-mark]')).not.toBeNull()
-    expect(at('lim_p').textContent).toBe(FRAME_WORDS.inWords); expect(at('lim_p').querySelector('[data-olumi-mark]')).toBeNull()
+    expect(at('lim_u').textContent).toBe('hidden words'); expect(at('lim_u').querySelector('[data-olumi-mark]')).not.toBeNull()
+    expect(at('lim_p').textContent).toBe('hidden words'); expect(at('lim_p').querySelector('[data-olumi-mark]')).toBeNull()
+  })
+})
+
+describe('the Question frame says Core\'s bound words (PL a350f889)', () => {
+  it('draws the bound text verbatim whenever Core supplies a bound', () => {
+    const uncheckedLimit = 'at most £5,000; not checked yet: nothing in the model is counted against it'
+    page(viewOf([
+      card({ id: 'aim_waiting', family: 'goal', bound: bound('needs a target', null, false) }),
+      card({ id: 'aim_budget', family: 'goal', bound: bound('£40,000', null, false) }),
+      card({
+        id: 'budget_bar', family: 'quantity', bar_of: 'aim_budget',
+        figure: { text: '£40,000', title: '£40,000', edit: { prompt: 'New figure', ask: 'Type a new figure.' } },
+      }),
+      card({ id: 'limit_unchecked', family: 'limit', bound: bound(uncheckedLimit, null, false) }),
+      card({ id: 'aim_words', family: 'goal', bound: bound('kept in words, not measured', null, false) }),
+      card({ id: 'aim_measured', family: 'goal', bound: bound('at least 20%', null) }),
+      card({ id: 'aim_no_bound', family: 'goal', bound: null }),
+    ]))
+    const cardAt = (id: string) => screen.getByTestId(`frame-card-${id}`)
+    const boundAt = (id: string) => cardAt(id).querySelector('[data-frame="bound"]')
+    expect(boundAt('aim_waiting')?.textContent).toBe('needs a target')
+    expect(boundAt('aim_budget')?.textContent).toBe('£40,000')
+    expect(cardAt('aim_budget').textContent).not.toContain('kept in words')
+    expect(cardAt('aim_budget').textContent).not.toContain('chance')
+    expect(boundAt('limit_unchecked')?.textContent).toBe(uncheckedLimit)
+    expect(boundAt('aim_words')?.textContent).toBe('kept in words, not measured')
+    expect(boundAt('aim_measured')?.textContent).toBe('at least 20%')
+    expect(boundAt('aim_no_bound')).toBeNull()
   })
 })
 
