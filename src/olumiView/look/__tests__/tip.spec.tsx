@@ -14,6 +14,8 @@ import { LaneInspector } from '../../v12/edit/LaneInspector'
 import { useLaneInspector } from '../../v12/edit/inspectorStore'
 import { install, uninstall } from '../../v12/edit/__tests__/harness'
 import { Tip, TIP_GAP, TIP_DELAY, rowTipOf, useAnchoredTip } from '../Tip'
+import { installPlaceHost } from '../placeHost'
+import { lanePlaceHost } from '../placeReaders'
 
 afterEach(() => { cleanup() })
 
@@ -81,6 +83,7 @@ describe('the one Tip', () => {
       if (this.matches('[data-testid="dock-row"]')) return rect(820, 200, 20, 20)
       return rect(0, 0, 200, 60)
     })
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
     try {
       render(<aside aria-label="Outputs dock"><Anchored words="Edge" testid="dock-row" /></aside>)
       fireEvent.pointerEnter(screen.getByTestId('dock-row'))
@@ -89,6 +92,7 @@ describe('the one Tip', () => {
       act(() => { vi.advanceTimersByTime(1) })
       expect(tipPosition()).toEqual(['800px', '228px'])
     } finally {
+      restorePlaceHost()
       spy.mockRestore()
       vi.useRealTimers()
     }
@@ -116,6 +120,7 @@ describe('the one Tip', () => {
       <div className="react-flow"><Anchored words="Low" testid="canvas-row" /></div>
       {pinned ? <aside data-testid="lane-inspector" /> : null}
     </>
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
     try {
       const { rerender } = render(scene(false))
       const row = screen.getByTestId('canvas-row')
@@ -127,6 +132,30 @@ describe('the one Tip', () => {
       fireEvent.pointerEnter(row)
       act(() => { vi.advanceTimersByTime(TIP_DELAY) })
       expect(tipPosition()).toEqual(['405px', '128px'])
+    } finally {
+      restorePlaceHost()
+      spy.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+  it('without a host, a tip stands beside its anchor inside the window margin and ignores cards and boxes', () => {
+    vi.useFakeTimers()
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      if (this.matches('[data-testid="canvas-row"]')) return rect(100, 0, 20, 20)
+      if (this.matches('.react-flow__node, [data-testid="lane-inspector"]')) return rect(128, 8, 80, 32)
+      return rect(0, 0, 80, 32)
+    })
+    try {
+      render(<>
+        <div className="react-flow">
+          <Anchored words="Edge" testid="canvas-row" />
+          <div className="react-flow__node" />
+        </div>
+        <aside data-testid="lane-inspector" />
+      </>)
+      fireEvent.pointerEnter(screen.getByTestId('canvas-row'))
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(tipPosition()).toEqual(['128px', '8px'])
     } finally {
       spy.mockRestore()
       vi.useRealTimers()
@@ -169,6 +198,7 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     vi.useFakeTimers()
     install()
+    const restorePlaceHost = installPlaceHost(lanePlaceHost)
     const target = { kind: 'card', id: 'starting_customers' } as const
     try {
       useLaneInspector.getState().setPeek(target)
@@ -199,6 +229,7 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
       expect(screen.queryByTestId('lane-inspector')).not.toBeNull()
     } finally {
       cleanup()
+      restorePlaceHost()
       useLaneInspector.setState({ current: null, peek: null })
       uninstall()
       vi.useRealTimers()

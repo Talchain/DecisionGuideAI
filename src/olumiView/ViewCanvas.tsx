@@ -54,6 +54,8 @@ import { ViewLensBar } from './ViewLensBar'
 import { AddFigure } from './AddFigure'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { FootRow } from './look/FootRow'
+import { installPlaceHost } from './look/placeHost'
+import { lanePlaceHost } from './look/placeReaders'
 import { LaneHelp } from './v12/LaneHelp'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useSettingsStore } from '../canvas/settingsStore'
@@ -510,6 +512,9 @@ function ViewFlow() {
   const showGrid = useSettingsStore((s) => s.showGrid), gridSize = useSettingsStore((s) => s.gridSize), snapToGrid = useSettingsStore((s) => s.snapToGrid)
   const snapGrid = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
   useEffect(() => { useSettingsStore.getState().loadSettings() }, [])
+  useEffect(() => {
+    if (isOlumiCoreLane()) return installPlaceHost(lanePlaceHost)
+  }, [])
   // Codex 008e #1: kept ideas with no model are the board (their band alone), so the welcome does not stand over them. The dock's own message
   // box takes the words then (DockComposer draws it whenever no welcome is up). No toolbar or model control is shown for a model that is not there.
   const ideasOnly = useViewStore((s) => s.view !== null && s.view.model == null && keptIdeasOf(s.view).length > 0)

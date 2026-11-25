@@ -15,8 +15,8 @@ import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { typography } from '../../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
-import { canvasCardRects } from '../../canvas/components/hoverCard/hoverCardPlacement'
-import { openBoxes, placeNear, regionFor } from './placeNear'
+import { placeNear } from './placeNear'
+import { placeHost } from './placeHost'
 
 export const TIP_GAP = 8
 /** The one open delay for every hover (ms). */
@@ -30,14 +30,14 @@ export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: stri
   useLayoutEffect(() => {
     const t = el.current
     if (t === null || anchorRect === null) return
-    const open = openBoxes().filter((box) => !(
+    const open = placeHost.openBoxes().filter((box) => !(
       box.left <= anchorRect.left && box.right >= anchorRect.right &&
       box.top <= anchorRect.top && box.bottom >= anchorRect.bottom
     ))
     const { left, top } = placeNear(anchorRect, t.getBoundingClientRect(), {
-      region: regionFor(anchor),
+      region: placeHost.regionFor(anchor ?? null),
       open,
-      cards: anchor?.closest('.react-flow') ? canvasCardRects(null) : [],
+      cards: placeHost.cards(anchor ?? null),
       gap: TIP_GAP,
       limit: TIP_GAP,
     })
