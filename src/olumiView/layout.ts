@@ -192,7 +192,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   if (direction !== 'DOWN' && direction !== 'UP') return places
   const packed = packRows(places, QUESTION, options.row?.cardW ?? W, options.row?.gapX ?? ROW_GAP_X)
-  // DL-538: the question bar spans the options row (questionBarWidth), so it starts where the row starts.
+  // The question bar is up to two cards wide; Detailed at the row's start, Simple centred (DL-REQ-0020 retires DL-538's span).
   const opts = allOptionCards(model).map((c) => packed.get(c.id)).filter((p): p is { x: number; y: number } => p !== undefined), q = packed.get(QUESTION)
   if (options.row !== undefined && q !== undefined && opts.length > 0) packed.set(QUESTION, { x: Math.min(...opts.map((p) => p.x)), y: q.y })
   if (options.row !== undefined && direction === 'DOWN') besideTheMeasure(model, packed, options.row)
@@ -245,6 +245,9 @@ export function simpleBand(row: SimpleRow, n: number): { sizes: number[]; w: num
   return { sizes, w: row.budget === undefined ? row.cardW : simpleCardW(row.budget, Math.max(...sizes)) }
 }
 const rowWidth = (k: number, w: number): number => k * w + (k - 1) * SIMPLE_GAP_X
+const QUESTION_CARDS = 2
+const capQuestionWidth = (span: number, cardW: number, gapX: number): number =>
+  Math.min(span, QUESTION_CARDS * cardW + (QUESTION_CARDS - 1) * gapX)
 /** The type scale a Simple board of this width is drawn at: production's own counter-scale for the zoom its width fits across the room at. */
 export const simpleScaleOf = (boardW: number, roomW: number | undefined): number =>
   labelCounterScale(roomW === undefined || roomW <= 0 ? 1 : Math.min(1, roomW / Math.max(1, boardW)))
@@ -287,10 +290,10 @@ function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: Si
   })
   return out
 }
-/** The question bar's width in Simple: the options' first row, as wide as that row is drawn. */
+/** The question bar's width in Simple uses the card width and gap drawn in the options' first row. */
 export function simpleQuestionW(model: ViewModel, row: SimpleRow): number {
   const { sizes, w } = simpleBand(row, Math.max(1, allOptionCards(model).length))
-  return rowWidth(sizes[0]!, w)
+  return capQuestionWidth(rowWidth(sizes[0]!, w), w, SIMPLE_GAP_X)
 }
 
 /** A node that is not a model card but stands in a Simple band: a kept idea (`ideas`), the folded inputs' group (`inputs`). */
@@ -1280,7 +1283,7 @@ const READABLE_FLOOR = 11 / 12
 /**
  * DL-538 (14 Nov, the target screen): the board's rows are sized to the stage. The card width (and the row gap) are the ones at which the
  * widest row of options fits the free canvas across (`roomW`, ViewCanvas's insets) at the readable floor: the full card and the full gap
- * where they fit, else the layout's node gap and a card between CARD_MIN_W and the full card. The question bar spans that row. A stage
+ * where they fit, else the layout's node gap and a card between CARD_MIN_W and the full card. A stage
  * too narrow even at CARD_MIN_W pans (the camera never shrinks the board to a zoomed-out face).
  */
 export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number; perRow?: number } {
@@ -1293,12 +1296,11 @@ export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX
   const cardW = Math.max(CARD_MIN_W, Math.min(W, Math.floor((room - (n - 1) * LAYOUT_NODE_GAP) / n)))
   return { cardW, gapX: LAYOUT_NODE_GAP, perRow: fit(cardW, LAYOUT_NODE_GAP) }
 }
-/** The question bar's width over a row of options: the whole row. */
+/** The question bar is up to two cards wide; Detailed at the row's start, Simple centred (DL-REQ-0020 retires DL-538's span). */
 export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }): number => {
-  // V12 Simple: the bar spans the options' first row, as wide as that row is drawn (simpleQuestionW).
   if (row.simple === true) return simpleQuestionW(model, row)
   const n = Math.max(1, allOptionCards(model).length)
-  return n * row.cardW + (n - 1) * row.gapX
+  return capQuestionWidth(n * row.cardW + (n - 1) * row.gapX, row.cardW, row.gapX)
 }
 
 /** A reading explanation is shared only across matching rows with the same non-empty heading. */

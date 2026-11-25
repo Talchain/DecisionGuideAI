@@ -38,7 +38,7 @@ async function laidOut(roomW: number, h: Heights): Promise<{ boxes: Box[]; row: 
   const row = simpleStageRow(roomW)
   const size = new Map([[QUESTION, { width: questionBarWidth(model, row), height: h.question }], ...model.cards.map((c, i) => [c.id, { width: row.cardW, height: h.card(i) }] as const)])
   const places = await causalPlaces(model, size, { row })
-  // Each card is as wide as its band gives it (the place's `w`), the question as wide as the options' first row.
+  // Each card and the question use the width from their places.
   return { row, boxes: [...size].map(([id, s]) => ({ id, x: places.get(id)!.x, y: places.get(id)!.y, w: places.get(id)!.w ?? s.width, h: s.height })) }
 }
 const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
@@ -136,7 +136,9 @@ describe('Simple: the whole scenario in view', () => {
     for (let i = 1; i < rows.length; i += 1) expect(rows[i]![0]!.y - Math.max(...rows[i - 1]!.map((b) => b.y + b.h)), 'rows are 48 apart').toBe(48)
     expect(rows[0]![0]!.y - (q.y + q.h), 'the first band is 48 under the question').toBe(48)
     const first = rows[0]!
-    expect(q.w, 'the question is as wide as the options\' first row').toBe(Math.max(...first.map((b) => b.x + b.w)) - Math.min(...first.map((b) => b.x)))
+    // CHANGED BY DESIGN (DL-REQ-0020): the question uses at most two cards' width.
+    const span = Math.max(...first.map((b) => b.x + b.w)) - Math.min(...first.map((b) => b.x))
+    expect(q.w).toBe(Math.min(span, 2 * first[0]!.w + row.gapX))
     expect(row.budget).toBe(1536)
   })
 

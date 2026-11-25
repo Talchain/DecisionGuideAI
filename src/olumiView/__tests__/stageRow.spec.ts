@@ -10,11 +10,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
 import { READABLE_WHOLE_ZOOM } from '../camera'
-import { aimsOf, allOptionCards, CARD_WIDTH, CARD_MIN_W, causalPlaces, QUESTION, questionBarWidth, ROW_GAP_X, stageRow } from '../layout'
+import { aimsOf, allOptionCards, CARD_WIDTH, CARD_MIN_W, causalPlaces, QUESTION, questionBarWidth, ROW_GAP_X, simpleBand, simpleStageRow, stageRow } from '../layout'
 
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures', f), 'utf8')) as View
 const BOARDS = { run2: load('live-v51-run2-approved.view.json'), run1: load('live-v51-run1-pending.view.json') }
 const FREE_1128 = 1128 - (1128 - 811) - 45, FREE_2000 = 2000 - (2000 - 1640) - 45
+const FREE_1440 = 1440 - 360 - 45
 
 describe('the options row is sized to the stage (DL-538)', () => {
   for (const [name, view] of Object.entries(BOARDS)) {
@@ -31,9 +32,9 @@ describe('the options row is sized to the stage (DL-538)', () => {
       const span = Math.max(...xs.map((p) => p.x)) + row.cardW - Math.min(...xs.map((p) => p.x))
       expect(span).toBe(ids.length * row.cardW + (ids.length - 1) * row.gapX)
       if (ids.length <= 5) expect(span * READABLE_WHOLE_ZOOM).toBeLessThanOrEqual(FREE_1128 + 0.5)
-      // the question bar starts where the options row starts and spans it
+      // CHANGED BY DESIGN (DL-REQ-0020): the question bar starts where the options row starts.
       expect(places.get(QUESTION)!.x).toBe(Math.min(...xs.map((p) => p.x)))
-      expect(questionBarWidth(model, row)).toBe(ids.length * row.cardW + (ids.length - 1) * row.gapX)
+      expect(questionBarWidth(model, row)).toBe(Math.min(span, 2 * row.cardW + row.gapX))
     })
 
     it(`${name} at 2000: the full card and gap where they fit (CONTRAST: the stage does not shrink a board that fits)`, () => {
@@ -81,4 +82,59 @@ describe('the options row is sized to the stage (DL-538)', () => {
     const xs = [...places].filter(([id]) => id !== QUESTION).map(([, p]) => p.x)
     expect((Math.max(...xs) + row.cardW - Math.min(...xs)) * READABLE_WHOLE_ZOOM, 'the whole board').toBeLessThanOrEqual(FREE_1232 + 0.5)
   })
+})
+
+describe('DL-REQ-0020 question bar', () => {
+  const model = BOARDS.run2.model!
+  const options = allOptionCards(model)
+  const removedOptions = new Set(options.slice(1).map((c) => c.id))
+  const single = {
+    ...model,
+    cards: model.cards.filter((c) => !removedOptions.has(c.id)),
+    links: model.links.filter((l) => !removedOptions.has(l.from) && !removedOptions.has(l.to)),
+  }
+  const removedAfterTwo = new Set(options.slice(2).map((c) => c.id))
+  const two = {
+    ...model,
+    cards: model.cards.filter((c) => !removedAfterTwo.has(c.id)),
+    links: model.links.filter((l) => !removedAfterTwo.has(l.from) && !removedAfterTwo.has(l.to)),
+  }
+
+  for (const simple of [false, true]) {
+    const mode = simple ? 'Simple' : 'Detailed'
+
+    it.each([[1440, FREE_1440], [2000, FREE_2000]])(`${mode} at %i with the dock open: five options, two-card question, at the options row start (Detailed) / centred over the first options row (Simple)`, async (_stageW, roomW) => {
+      const row = simple ? simpleStageRow(roomW) : stageRow(model, roomW)
+      expect(options).toHaveLength(5)
+      const cardW = simple ? simpleBand(row, options.length).w : row.cardW
+      const cap = 2 * cardW + row.gapX
+      const width = questionBarWidth(model, row)
+      const size = new Map([[QUESTION, { width, height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
+      const places = await causalPlaces(model, size, { row })
+      const question = places.get(QUESTION)!
+      expect(width).toBe(cap)
+      expect(question.w ?? width).toBe(cap)
+      const optionPlaces = options.map((c) => places.get(c.id)!)
+      if (simple) {
+        const firstY = Math.min(...optionPlaces.map((p) => p.y))
+        const first = optionPlaces.filter((p) => p.y === firstY)
+        const centre = (Math.min(...first.map((p) => p.x)) + Math.max(...first.map((p) => p.x + p.w!))) / 2
+        expect(Math.abs(question.x + width / 2 - centre)).toBeLessThanOrEqual(1)
+      } else {
+        expect(question.x).toBe(Math.min(...optionPlaces.map((p) => p.x)))
+      }
+    })
+
+    it(`${mode} with one option: the question keeps the card's width`, () => {
+      const row = simple ? simpleStageRow(FREE_2000) : stageRow(single, FREE_2000)
+      const cardW = simple ? simpleBand(row, 1).w : row.cardW
+      expect(questionBarWidth(single, row)).toBe(cardW)
+    })
+
+    it(`${mode} with two options: the question keeps the two-card span`, () => {
+      const row = simple ? simpleStageRow(FREE_2000) : stageRow(two, FREE_2000)
+      const cardW = simple ? simpleBand(row, 2).w : row.cardW
+      expect(questionBarWidth(two, row)).toBe(2 * cardW + row.gapX)
+    })
+  }
 })
