@@ -18,6 +18,7 @@ export type EditGate =
 export const NO_MODEL_YET = 'There is no saved model to change yet.'
 export const CATCHING_UP = 'Olumi is catching up with the latest change. Try again in a moment.'
 export const REVIEW_PROPOSAL_ROW = 'Review Olumi’s proposal'
+export const REVIEW_CHANGES = 'Review the changes'
 export const REVIEW_PROPOSAL = `${REVIEW_PROPOSAL_ROW}.`
 
 export function editGateNow(): EditGate {

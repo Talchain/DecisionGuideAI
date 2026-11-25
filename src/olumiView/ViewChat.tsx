@@ -79,7 +79,9 @@ import { selectedKindMark, selectedRename, useDetailsOpenFor } from './SelectedR
 import { methodOfSaid, MethodMark } from './v12/chat/MethodChip'
 import { KeptIdeas } from './v12/chat/KeptIdeas'
 import { ChatFootRow } from './v12/chat/ChatFootRow'
-import { askProposalReviewOf, clearProposalAsk, useProposalAsk } from './v12/chat/proposalAsk'
+import { askProposalReviewOf, askVersionReview, clearProposalAsk, clearVersionAsk, useProposalAsk, useVersionAsk } from './v12/chat/proposalAsk'
+import { versionReviewOf } from './v12/chat/versionReview'
+import { REVIEW_CHANGES } from './v12/edit/editGate'
 import { CatchUp } from './v12/journey/CatchUp'
 import { ITEM_MARK, LEAD_IN, richText } from './v12/chat/richText'
 import { firstAnswerOf, replyLineOf, type FirstAnswerLines, type ReplyLine } from './v12/chat/replyLabels'
@@ -354,6 +356,8 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // V12: the person's message is a method chip when it is, word for word, one of core's menu questions.
   const whole = useViewStore((st) => st.view)
   const review = t.answer !== null && t.id === whole?.proposal?.id && pinsProposal(whole)
+  const savedReview = t.answer === null ? null : versionReviewOf(whole)
+  const reviewVersion = savedReview?.turn === t.id ? savedReview.version.id : null
   const method = methodOfSaid(whole, t.said)
   const aboutCards = t.answer === null ? [] : aboutCardsOf(whole, t.answer.next)
   // A question the page drafted that the person pressed (core's typed ask 'challenge' or 'method') is their act, not words they typed: drawn as chrome.
@@ -450,6 +454,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
       {lead !== null || floor == null ? null : <div data-floor-job={floor.job}><p className={typography.viewPanelMeta}>Olumi’s initial reply</p><EarlyAnswer text={floor.text} testid="view-floor-reply-text" bare /></div>}
       {answer}
       {review ? <button type="button" className={VIEW_CHIP_CLASS} data-testid="view-chat-reply-review" onClick={() => askProposalReviewOf(t.id)}>{REVIEW_LABEL}</button> : null}
+      {reviewVersion === null ? null : <button type="button" className={VIEW_CHIP_CLASS} data-testid="view-chat-reply-review" onClick={() => askVersionReview(reviewVersion)}>{REVIEW_LABEL}</button>}
       {heldNot === null ? null : <NotHeldLine n={heldNot} at={at} />}
       {/* K1: a lead that is not drawn (it repeats the answer) still says core's `lead.not_held`, under the whole answer, as the lead would have. */}
       {lead !== null || t.answer === null || leadNotHeldOf(t.answer) === null ? null : <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-not-held" data-view={`${at}.answer.lead.not_held`}>{leadNotHeldOf(t.answer)}</p>}
@@ -668,25 +673,25 @@ const refusedNeedsOf = (e: unknown): Need[] => { if (!(e instanceof TeamApiError
  * One change line of core's change card (View `proposal.changes`, L8): its tick, core's line, and what a tap opens (`detail`), with Olumi's
  * mark on a line of Olumi's. Every word is core's.
  */
-function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], without = [], refused = [], oneOf = null }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one: why this line is ticked. */ neededBy?: readonly string[]; /** Core's `why` of each such need, with where core sent it (`needs[k].why` of the line that needs this one). */ reasons?: readonly { at: string; why: string }[]; /** The optional associations this ticked line is kept WITHOUT: core's text of each left-off line and core's why. */ without?: readonly { at: string; text: string; why: string }[]; /** Core's why for each need its refusal named this line for. */ refused?: readonly string[]; /** A ticked line that needs one of several lines, none ticked yet: core's why for it, with where core sent it. */ oneOf?: { at: string; why: string } | null }) {
+function ChangeLine({ c, i, ticked, toggle, busy, neededBy = [], reasons = [], without = [], refused = [], oneOf = null, at = 'proposal.changes' }: { c: Change; i: number; ticked: boolean | null; toggle: (c: Change) => void; busy: boolean; /** Core's text of each TICKED line that is approved only with this one: why this line is ticked. */ neededBy?: readonly string[]; /** Core's `why` of each such need, with where core sent it (`needs[k].why` of the line that needs this one). */ reasons?: readonly { at: string; why: string }[]; /** The optional associations this ticked line is kept WITHOUT: core's text of each left-off line and core's why. */ without?: readonly { at: string; text: string; why: string }[]; /** Core's why for each need its refusal named this line for. */ refused?: readonly string[]; /** A ticked line that needs one of several lines, none ticked yet: core's why for it, with where core sent it. */ oneOf?: { at: string; why: string } | null; at?: string }) {
   // R4 (core v1.13): a line approved only with others carries core's why as its hover, verbatim (`together.why`).
   const why = c.together?.why ?? null
   // Under a summary (the line has detail) the summary is the one tab stop and owns the hover; the spans are plain there.
   const detailed = c.detail !== ''
   const olumiWords = c.olumi === null ? null : c.olumi.title
   const summaryTip = useAnchoredTip([why, olumiWords].filter((w): w is string => w !== null && w !== '').join('\n') || undefined)
-  const line = <><Hover words={detailed ? null : why} data-view={`proposal.changes.${i}.text`} data-view-hover={why === null ? undefined : `proposal.changes.${i}.together.why`}>{c.text}</Hover>{c.olumi === null ? null : <> <Hover words={detailed ? null : c.olumi.title} aria-label={c.olumi.title} data-view={`proposal.changes.${i}.olumi.glyph`}>{c.olumi.glyph}</Hover></>}</>
+  const line = <><Hover words={detailed ? null : why} data-view={`${at}.${i}.text`} data-view-hover={why === null ? undefined : `${at}.${i}.together.why`}>{c.text}</Hover>{c.olumi === null ? null : <> <Hover words={detailed ? null : c.olumi.title} aria-label={c.olumi.title} data-view={`${at}.${i}.olumi.glyph`}>{c.olumi.glyph}</Hover></>}</>
   return (
     <li className="flex items-start gap-2" data-change={keyOf(c)}>
       {/* R25 (24px targets): the box sits in a 24px label, the label the target. */}
       {ticked === null ? null : <label className="inline-flex min-h-[24px] min-w-[24px] flex-none cursor-pointer items-center justify-center" data-target-for={`view-change-tick-${i}`}><input type="checkbox" checked={ticked} disabled={busy} onChange={() => toggle(c)} aria-label={`Choose ${c.text}`} data-testid={`view-change-tick-${i}`} /></label>}
       <div className="min-w-0">
         {c.detail === '' ? <span>{line}</span> : (
-          <details><summary className="cursor-pointer" {...summaryTip.handlers} aria-describedby={summaryTip.describedBy}>{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`proposal.changes.${i}.detail`}>{c.detail}</p>{summaryTip.tip}</details>
+          <details><summary className="cursor-pointer" {...summaryTip.handlers} aria-describedby={summaryTip.describedBy}>{line}</summary><p className="whitespace-pre-line text-text-light" data-view={`${at}.${i}.detail`}>{c.detail}</p>{summaryTip.tip}</details>
         )}
         {/* A tick that brings other lines with it is never silent (015; Codex root 21:32Z): once ticked, the line says core's why at rest (its hover
             before), and each line it brought says which ticked line needs it, by that line's own words from core. */}
-        {ticked === true && why !== null ? <p className="m-0 text-text-light" data-view={`proposal.changes.${i}.together.why`} data-testid={`view-change-why-${i}`}>{why}</p> : null}
+        {ticked === true && why !== null ? <p className="m-0 text-text-light" data-view={`${at}.${i}.together.why`} data-testid={`view-change-why-${i}`}>{why}</p> : null}
         {ticked === true && neededBy.length > 0 ? <p className="m-0 text-text-light" data-testid={`view-change-needed-by-${i}`}>{NEEDED_BY} {neededBy.join(' · ')}</p> : null}
         {ticked === true ? reasons.map((r) => <p key={r.at} className="m-0 text-text-light" data-view={r.at} data-change-reason="">{r.why}</p>) : null}
         {/* An optional link left off: said on the kept line before it is approved, in core's words, never silently; the line keeps its own author mark. */}
@@ -735,7 +740,7 @@ function QuestionLine({ text, id, edit }: { text: string; id: string | null; edi
 }
 
 /** The filled button of a closed review where Approve cannot be pressed blind (Olumi's readings wait for a choice, or core does not support the change). */
-export const REVIEW_CHANGES = 'Review the changes'
+export { REVIEW_CHANGES }
 /** The fold of core's noted points (`proposal.to_read.noted`): chrome words only; the sentence it folds is core's. */
 export const NOTED_SHOW_ALL = 'Show all'
 export const NOTED_SHOW_FEWER = 'Show fewer'
@@ -1829,6 +1834,51 @@ export function ProposalReview({ p, busy, view }: { p: NonNullable<View['proposa
   )
 }
 
+function VersionReview({ review }: { review: NonNullable<ReturnType<typeof versionReviewOf>> }) {
+  const { version, changes, groups } = review
+  const [open, setOpen] = useState(false)
+  const { id, n } = useVersionAsk()
+  const lastAsk = useRef(n)
+  useEffect(() => {
+    if (useVersionAsk.getState().id === version.id) setOpen(true)
+  }, [version.id])
+  useEffect(() => {
+    if (lastAsk.current === n) return
+    lastAsk.current = n
+    if (id === version.id) setOpen(true)
+  }, [id, n, version.id])
+
+  const body = `view-version-body-${version.id}`
+  const line = (i: number) => {
+    const change: Change = { ...changes[i]!, together: null, needs: [] }
+    return <ChangeLine key={keyOf(change)} c={change} i={i} ticked={null} toggle={() => undefined} busy={false} at="version.review.changes" />
+  }
+  return (
+    <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-version-review" data-open={open ? 'true' : 'false'}>
+      <div className="flex min-h-7 items-center gap-2">
+        <OkIcon id="version-tag" size={14} decorative />
+        <span className={`${typography.viewPanelHeading} min-w-0 flex-1 break-words text-text-header`} data-view="version.label">{version.label}</span>
+        <button type="button" className={VIEW_CHIP_CLASS}
+          data-testid="view-version-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
+          {REVIEW_LABEL}<FoldChevron open={open} />
+        </button>
+      </div>
+      <div id={body} hidden={!open}>
+        {!open ? null : <ul className="m-0 max-h-[min(34vh,12rem)] list-none space-y-1 overflow-y-auto break-words p-0" tabIndex={0} data-testid="view-changes">
+          {groups === null ? changes.map((_, i) => line(i)) : groups.map((group, i) => (
+            <li key={i}>
+              <details>
+                <summary className="cursor-pointer font-medium text-text-header" data-view={`version.review.groups.${i}.heading`}>{group.heading}</summary>
+                <ul className="m-0 mt-1 grid list-none gap-1 p-0 pl-3">{group.lines.map(line)}</ul>
+              </details>
+            </li>
+          ))}
+        </ul>}
+      </div>
+    </div>
+  )
+}
+
 /** The presses the menu and the next step share: one action system. A question is asked as one answered turn that may propose a change, held for approval (askMethod); "Let us give
  *  our figure first" opens its blind entry; the reply or the entry is brought into view once drawn. */
 export function runMethod(id: string): void {
@@ -1919,6 +1969,7 @@ export function ViewChat() {
   const floating = useChatFloat((s) => s.floating)
   const view = useViewStore((s) => s.view), error = useViewStore((s) => s.error)
   const { id: askedProposal, n: askNumber } = useProposalAsk()
+  const { id: askedVersion, n: versionAskNumber } = useVersionAsk()
   const busy = useViewChat((s) => s.busy), past = useViewStore((s) => s.at), sid = useViewStore((s) => s.sid)
   const savedExpectationCount = useSavedExpectationCount()
   const surface = useFindingSurface()
@@ -2061,6 +2112,13 @@ export function ViewChat() {
   useEffect(() => {
     if (askedProposal !== null && (!pinned || askedProposal !== pendingProposalId)) clearProposalAsk()
   }, [askedProposal, pendingProposalId, pinned])
+  const savedReview = versionReviewOf(view)
+  const reviewVersion = savedReview?.version.id
+  useEffect(() => {
+    if (askedVersion !== null && askedVersion !== reviewVersion) clearVersionAsk()
+  }, [askedVersion, reviewVersion])
+  const footAsk = pinned && askedProposal === pendingProposalId ? { source: 'proposal', n: askNumber }
+    : reviewVersion !== undefined && askedVersion === reviewVersion ? { source: 'version', n: versionAskNumber } : null
   const questions = chatQuestionsAllOf(view?.model)
   const chat = (
     <div ref={tab} className="flex flex-1 min-h-0 flex-col" data-testid="view-chat">
@@ -2100,10 +2158,12 @@ export function ViewChat() {
       </div>
       {/* CatchUp only opens the history panel, with no inline open area. Use the permitted foot-row fallback
           for kept ideas and intake rather than rewriting CatchUp and its history-panel contract. */}
-      <ChatFootRow key={view?.id ?? ''} ask={pinned && askedProposal === pendingProposalId ? { source: 'proposal', n: askNumber } : null}
-        onAskOpened={clearProposalAsk} sources={[
+      <ChatFootRow key={view?.id ?? ''} ask={footAsk}
+        onAskOpened={footAsk?.source === 'version' ? clearVersionAsk : clearProposalAsk} sources={[
         { id: 'proposal', label: 'Olumi’s proposal', icon: 'olumi-mark', count: pinned ? 1 : 0,
           content: view === null || !pinned ? null : <NextStepCard view={view} busy={busy} /> },
+        ...(savedReview === null ? [] : [{ id: 'version', label: savedReview.version.label, icon: 'version-tag' as const, count: 1,
+          content: <VersionReview key={savedReview.version.id} review={savedReview} /> }]),
         { id: 'asks', label: 'Olumi asks', icon: 'ask-about-this', count: questions.length + (pinned || view === null ? 0 : checkFirstCount(view, 'asks')),
           content: <>{pinned || view === null ? null : <CheckFirst view={view} place="asks" />}<OlumiAsks
               key={view?.id ?? ''}

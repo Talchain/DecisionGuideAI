@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { createPortal } from 'react-dom'
 import { ChatFootRow } from '../ChatFootRow'
@@ -135,4 +135,27 @@ it('keeps the trailing control reachable when there are no chips', () => {
   expect(getByTestId('view-chat-latest-row')).toContainElement(latest)
   latest.focus()
   expect(latest).toHaveFocus()
+})
+
+it('serves the same sequence once per source and ignores an already served source and sequence', () => {
+  const versionSource = { id: 'version', label: 'version 1', icon: 'version-tag' as const, count: 1, content: <section>Saved version</section> }
+  const sources = [proposalSource, versionSource]
+  const onAskOpened = vi.fn()
+  const { getByTestId, rerender } = render(<ChatFootRow sources={sources} ask={{ source: 'proposal', n: 1 }} onAskOpened={onAskOpened} />)
+  const proposal = getByTestId('view-chat-foot-proposal')
+  const version = getByTestId('view-chat-foot-version')
+  expect(proposal).toHaveAttribute('aria-expanded', 'true')
+  expect(onAskOpened).toHaveBeenCalledTimes(1)
+  fireEvent.click(proposal)
+  expect(proposal).toHaveAttribute('aria-expanded', 'false')
+
+  rerender(<ChatFootRow sources={sources} ask={{ source: 'version', n: 1 }} onAskOpened={onAskOpened} />)
+  expect(version).toHaveAttribute('aria-expanded', 'true')
+  expect(onAskOpened).toHaveBeenCalledTimes(2)
+  fireEvent.click(version)
+  expect(version).toHaveAttribute('aria-expanded', 'false')
+
+  rerender(<ChatFootRow sources={sources} ask={{ source: 'version', n: 1 }} onAskOpened={onAskOpened} />)
+  expect(version).toHaveAttribute('aria-expanded', 'false')
+  expect(onAskOpened).toHaveBeenCalledTimes(2)
 })
