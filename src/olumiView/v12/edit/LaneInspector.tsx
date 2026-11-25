@@ -152,7 +152,8 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   useEffect(() => { setMore(false) }, [at, pinned])
   useLayoutEffect(() => {
     if (at === '' || target === null) return
-    return stayBeside(() => box.current, target, { x: DETAILS_X, y: DETAILS_Y, h: DETAILS_H }, undefined, undefined, () => (box.current?.getAttribute('data-state') === 'peek' ? PEEK_RESERVE : 0), () => box.current?.getAttribute('data-state') === 'pinned')
+    return stayBeside(() => box.current, target, { x: DETAILS_X, y: DETAILS_Y, h: DETAILS_H }, undefined, undefined,
+      () => box.current?.dataset.state === 'peek' ? PEEK_RESERVE : 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
   if (target === null || (card === null && link === null)) return null

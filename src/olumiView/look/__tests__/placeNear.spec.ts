@@ -46,6 +46,84 @@ describe('placeNear', () => {
     expect(placeNear(anchor, size, { ...clear, region })).toEqual(at(148, 80))
   })
 
+  it('takes a whole clear side over the first clear side cut by the region bottom', () => {
+    const region = rect(0, 0, 40, 100)
+    const acrossRegion = rect(0, 52, 40, 20)
+    const tall = { width: 40, height: 40 }
+    // Below (0, 80) has 20 px of room. Above (0, 4) has 40 px. Both cover 0 px².
+    expect(placeNear(acrossRegion, tall, { ...clear, region, shrink: true, minShown: 20 })).toEqual(at(0, 4))
+  })
+
+  it('takes the whole side when every side covers a card and the cut side covers less area', () => {
+    const region = rect(0, 0, 40, 100)
+    const acrossRegion = rect(0, 52, 40, 20)
+    const tall = { width: 40, height: 40 }
+    const cards = [rect(0, 0, 40, 52), rect(0, 72, 40, 28)]
+    // The cards and anchor fill the region. Below (0, 80) covers 40 × 20; above (0, 4) covers 40 × 40.
+    expect(placeNear(acrossRegion, tall, { ...clear, region, cards, shrink: true, minShown: 20 })).toEqual(at(0, 4))
+  })
+
+  it('takes a cut clear side over a whole side that covers a card', () => {
+    const region = rect(0, 0, 40, 100)
+    const acrossRegion = rect(0, 52, 40, 20)
+    const tall = { width: 40, height: 40 }
+    const cards = [rect(0, 0, 40, 52)]
+    // Below (0, 80) has 20 px of room and covers 0 px². Above (0, 4) has 40 px and covers 1,600 px².
+    expect(placeNear(acrossRegion, tall, { ...clear, region, cards, shrink: true, minShown: 20 })).toEqual(at(0, 80, true, 20))
+  })
+
+  it('takes a whole side over a clear side that shows less than half', () => {
+    const region = rect(0, 0, 40, 95)
+    const acrossRegion = rect(0, 52, 40, 20)
+    const tall = { width: 40, height: 40 }
+    const cards = [rect(0, 0, 40, 52)]
+    // Below (0, 80) shows 15 px and covers 0 px². Above (0, 4) shows 40 px and covers 1,600 px².
+    expect(placeNear(acrossRegion, tall, { ...clear, region, cards, shrink: true, minShown: 10 })).toEqual(at(0, 4))
+  })
+
+  it('takes the whole side covering less card area when the nearby clear gaps show less than half', () => {
+    const region = rect(0, 0, 40, 140)
+    const acrossRegion = rect(0, 60, 40, 20)
+    const tall = { width: 40, height: 40 }
+    const cards = [rect(0, 0, 40, 44), rect(0, 98, 40, 42)]
+    // The clear gaps show 8 px above and 10 px below. Both listed sides show 40 px.
+    // Below (0, 88) covers 1,200 px². Above (0, 12) covers 1,280 px².
+    expect(placeNear(acrossRegion, tall, { ...clear, region, cards, shrink: true })).toEqual(at(0, 88))
+  })
+
+  it('takes the tallest stub when no place can show half', () => {
+    const region = rect(0, 0, 40, 56)
+    const acrossRegion = rect(0, 20, 40, 20)
+    const tall = { width: 40, height: 40 }
+    const cards = [rect(0, 0, 40, 12)]
+    // Below (0, 48) shows 8 px and covers 0 px². Above (0, 0) shows 12 px and covers 480 px².
+    expect(placeNear(acrossRegion, tall, { ...clear, region, cards, shrink: true })).toEqual(at(0, 0, true, 12))
+  })
+
+  it('leaves the anchor gap when searching for a nearby place clear of cards', () => {
+    const region = rect(0, 30, 120, 68)
+    const middle = rect(40, 50, 40, 20)
+    const cards = [rect(40, 30, 40, 12), rect(40, 78, 40, 20)]
+    // The listed sides show 12 px above (480 px² covered) and 20 px below (800 px² covered).
+    // At x=0 and x=80 both gaps are clear. Below fits 20 px, starting 8 px from the anchor.
+    expect(placeNear(middle, size, { ...clear, region, cards, shrink: true })).toEqual(at(0, 78))
+  })
+
+  it('uses reserve to choose a side while keeping the corner and cap at the box’s own height', () => {
+    const region = rect(0, 0, 100, 100)
+    const atLeft = rect(0, 40, 40, 20)
+    const open = [rect(48, 66, 40, 34)]
+    // Right (48, 40) has 26 px to the open box, below (0, 68) has 32 px to the region bottom, and above (0, 12) has 20 px to the gap.
+    expect(placeNear(atLeft, size, { ...clear, region, open, shrink: true, reserve: 32 })).toEqual(at(0, 68))
+  })
+
+  it('takes the first listed side below when above and below show the same height', () => {
+    const region = rect(0, 0, 40, 100)
+    const acrossRegion = rect(0, 40, 40, 20)
+    const tall = { width: 40, height: 60 }
+    expect(placeNear(acrossRegion, tall, { ...clear, region, shrink: true, minShown: 20 })).toEqual(at(0, 68, true, 32))
+  })
+
   it('keeps an allowed corner even with card overlap and drops it when an open box occupies it', () => {
     const keep = { left: 100, top: 108 }
     const occupied = rect(keep.left, keep.top, size.width, size.height)
@@ -77,7 +155,7 @@ describe('placeNear', () => {
     const options = { ...clear, region, shrink: true, minShown: 42 }
     expect(placeNear(upper, tall, options)).toEqual(at(0, 58, true, 42))
     expect(placeNear(lower, tall, options)).toEqual(at(0, 0, true, 42))
-    expect(placeNear(upper, tall, { ...options, minShown: 43 })).toEqual(at(0, 50, false, 50))
+    expect(placeNear(upper, tall, { ...options, minShown: 43 })).toEqual(at(0, 57, false, 43))
     expect(placeNear(upper, tall, { ...options, shrink: false })).toEqual(at(0, 30, false))
   })
 })

@@ -1,6 +1,7 @@
 export type Rect = { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }
 
 type Corner = { left: number; top: number }
+type KeptCorner = Corner & { near?: boolean }
 type Size = { width: number; height: number }
 type Options = {
   region: Rect
@@ -8,9 +9,10 @@ type Options = {
   cards: readonly Rect[]
   gap?: number
   limit: number
-  keep?: Corner
+  keep?: KeptCorner
   minShown?: number
   shrink?: boolean
+  reserve?: number
 }
 type Placement = Corner & { maxHeight: number | null; near: boolean }
 
@@ -26,9 +28,11 @@ const distance = (a: Rect, b: Rect) => Math.hypot(
 )
 
 /** Places a box in screen coordinates. Shared edges are clear, and distance is measured between the rectangles. */
-export function placeNear(anchor: Rect, { width, height }: Size, { region, open, cards, gap = 8, limit, keep, minShown = 1, shrink = false }: Options): Placement {
+export function placeNear(anchor: Rect, { width, height }: Size, { region, open, cards, gap = 8, limit, keep, minShown = 1, shrink = false, reserve = 0 }: Options): Placement {
   const obstacles = [anchor, ...open]
   const minHeight = shrink ? Math.min(height, minShown) : height
+  const usableHeight = height / 2
+  const roomLimit = Math.max(height, reserve)
   const lastLeft = region.right - width
   const boxAt = (left: number, top: number, shown: number): Rect => ({ left, top, right: left + width, bottom: top + shown })
   const result = (left: number, top: number, shown: number, near: boolean): Placement => ({
@@ -36,27 +40,51 @@ export function placeNear(anchor: Rect, { width, height }: Size, { region, open,
   })
   const inside = (box: Rect) => box.left >= region.left && box.right <= region.right && box.top >= region.top && box.bottom <= region.bottom
   const clear = (box: Rect) => !obstacles.some((obstacle) => hits(box, obstacle))
-  const candidate = (left: number, top: number, requested = height) => {
+  const heightAt = (left: number, top: number, avoid: readonly Rect[], requested = height) => {
+    let shown = Math.min(requested, region.bottom - top)
+    const span = boxAt(left, top, minHeight)
+    for (const obstacle of avoid) {
+      if (across(span, obstacle) && top < obstacle.bottom) shown = Math.min(shown, obstacle.top - top)
+    }
+    return shown
+  }
+  const candidate = (left: number, top: number, requested = height, reach = limit) => {
     const shown = shrink ? Math.min(requested, region.bottom - top) : requested
     const box = boxAt(left, top, shown)
-    return shown >= minHeight && inside(box) && clear(box) && distance(anchor, box) <= limit ? { box, shown } : null
+    return shown >= minHeight && inside(box) && clear(box) && distance(anchor, box) <= reach ? { box, shown } : null
   }
 
-  if (keep !== undefined) {
-    const kept = candidate(keep.left, keep.top)
-    if (kept !== null) return result(keep.left, keep.top, kept.shown, true)
+  const kept = keep === undefined ? null : candidate(
+    keep.left, keep.top,
+    shrink ? heightAt(keep.left, keep.top, obstacles) : height,
+    keep.near === false ? Infinity : limit,
+  )
+  if (kept !== null && distance(anchor, kept.box) <= limit) {
+    return result(kept.box.left, kept.box.top, kept.shown, true)
   }
 
   let best: Placement | null = null
-  let leastCovered = Infinity
+  let bestShown = -Infinity
+  let bestCovered = Infinity
+  let bestRoom = -Infinity
   const consider = (left: number, top: number, requested?: number) => {
     const placed = candidate(left, top, requested)
     if (placed === null) return
-    const covered = cards.reduce((total, card) => total + overlap(placed.box, card), 0)
-    if (covered < leastCovered) {
-      leastCovered = covered
-      best = result(left, top, placed.shown, true)
+    const { box, shown } = placed
+    if (shown < usableHeight) {
+      if (shown <= bestShown) return
+    } else {
+      const covered = cards.reduce((total, card) => total + overlap(box, card), 0)
+      const room = shrink ? heightAt(left, top, [{ ...anchor, top: anchor.top - gap }, ...open], roomLimit) : height
+      const offCards = covered === 0
+      const sameCardClearance = offCards === (bestCovered === 0)
+      const preferred = sameCardClearance ? room > bestRoom || (room === bestRoom && covered < bestCovered) : offCards
+      if (bestShown >= usableHeight && !preferred) return
+      bestCovered = covered
+      bestRoom = room
     }
+    bestShown = shown
+    best = result(left, top, shown, true)
   }
   const tops = [anchor.top, anchor.bottom - height, clamp(anchor.top, region.top, region.bottom - height)]
   const lefts = [anchor.left, anchor.right - width, clamp(anchor.left, region.left, lastLeft)]
@@ -66,42 +94,64 @@ export function placeNear(anchor: Rect, { width, height }: Size, { region, open,
   for (const top of tops) consider(anchor.left - gap - width, top)
   for (const left of lefts) consider(left, anchor.bottom + gap)
   for (const left of lefts) consider(left, aboveBottom - aboveHeight, aboveHeight)
-  if (best !== null) return best
+  if (best !== null && bestCovered === 0) return best
 
   // An obstacle stops blocking a corner at its far edge or one box span before its near edge.
   // Those edges and the region bounds also include the projections that minimise distance to the anchor.
-  const lastTop = region.bottom - minHeight
-  if (lastLeft >= region.left && lastTop >= region.top) {
+  const nearestClear = (avoid: readonly Rect[], near: boolean): Placement | null => {
+    const requiredHeight = near ? Math.max(minHeight, usableHeight) : minHeight
+    const lastTop = region.bottom - requiredHeight
+    if (lastLeft < region.left || lastTop < region.top) return null
     const xs = new Set([
       region.left, lastLeft,
-      ...obstacles.flatMap((r) => [r.left - width, r.right]).map((x) => clamp(x, region.left, lastLeft)),
+      ...avoid.flatMap((r) => [r.left - width, r.right]).map((x) => clamp(x, region.left, lastLeft)),
     ])
     const ys = new Set([
       region.top, lastTop, clamp(anchor.top - height, region.top, lastTop),
-      ...obstacles.flatMap((r) => [r.top - minHeight, r.bottom]).map((y) => clamp(y, region.top, lastTop)),
+      ...avoid.flatMap((r) => [r.top - requiredHeight, r.bottom]).map((y) => clamp(y, region.top, lastTop)),
     ])
-    let nearest = Infinity
+    let found: Placement | null = null
+    let nearest = near ? limit : Infinity
     let mostShown = -1
     for (const left of xs) {
       for (const top of ys) {
-        const minimum = boxAt(left, top, minHeight)
-        if (!clear(minimum)) continue
-        let shown = Math.min(height, region.bottom - top)
-        if (shrink) {
-          for (const obstacle of obstacles) {
-            if (across(minimum, obstacle) && top < obstacle.bottom) shown = Math.min(shown, obstacle.top - top)
-          }
-        }
-        if (shown < minHeight) continue
+        const minimum = boxAt(left, top, requiredHeight)
+        if (avoid.some((obstacle) => hits(minimum, obstacle))) continue
+        const shown = shrink ? heightAt(left, top, avoid) : height
+        if (shown < requiredHeight) continue
         const away = distance(anchor, boxAt(left, top, shown))
         if (away < nearest || (away === nearest && shown > mostShown)) {
           nearest = away
           mostShown = shown
-          best = result(left, top, shown, false)
+          found = result(left, top, shown, near)
         }
       }
     }
-    if (best !== null) return best
+    return found
+  }
+
+  const searchObstacles = shrink ? [{
+    left: anchor.left - gap, right: anchor.right + gap, top: anchor.top - gap, bottom: anchor.bottom + gap,
+  }, ...open] : obstacles
+
+  // A panel that can shrink may fit in a nearby gap even when the usual sides cover a card.
+  if (shrink && cards.length > 0) {
+    const reach = { left: anchor.left - width - limit, right: anchor.right + width + limit, top: anchor.top - height - limit, bottom: anchor.bottom + height + limit }
+    const nearbyCards = cards.filter((card) => hits(reach, card))
+    if (nearbyCards.length > 0) {
+      const clearOfCards = nearestClear([...searchObstacles, ...nearbyCards], true)
+      if (clearOfCards !== null) return clearOfCards
+    }
+  }
+  if (best !== null) return best
+  const clearPlace = nearestClear(searchObstacles, false)
+  if (clearPlace !== null) {
+    // A previous fallback keeps its corner while it is still one of the closest clear places.
+    const clearBox = boxAt(clearPlace.left, clearPlace.top, clearPlace.maxHeight ?? height)
+    if (kept !== null && distance(anchor, kept.box) <= distance(anchor, clearBox)) {
+      return result(kept.box.left, kept.box.top, kept.shown, false)
+    }
+    return clearPlace
   }
 
   // At a fixed height the least anchor overlap is at a region corner. The minimum permitted height

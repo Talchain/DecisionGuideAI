@@ -116,12 +116,6 @@ export function openClearOf(box: Rect, panel: Rect | undefined, r: Regions): { d
   return over > 0 ? { dx: c.dx, dy: Math.trunc(c.dy - Math.min(over, Math.max(0, box.top + c.dy - r.head.bottom))) } : c
 }
 
-/** While the details box slides the board to make room (makeRoom.ts), this rule's move waits until the slide is done: a second move started during it would
- *  cut the slide short. (A guard: the 19 Nov pair-check trace did not show this rule as what stopped a slide.) Until when, in `performance` ms. */
-let heldUntil = 0
-const clock = (): number => (typeof performance === 'undefined' ? Date.now() : performance.now())
-export function holdBoard(ms: number): void { heldUntil = Math.max(heldUntil, clock() + ms) }
-
 /**
  * The z-order rule's mechanism: when focus enters a canvas card (opening it, or its editor), once the card has kept its size for a frame the
  * board moves by `clearOf`. Nothing moves when it is clear; nothing zooms.
@@ -145,8 +139,6 @@ export function useCardClearOfRegions(): void {
         const here = `${b.top},${b.height}`
         if (!card.isConnected || ticks > 40) { clearInterval(t!); t = null; return }
         if (here !== last) { last = here; return }
-        // The box's slide is running: this move waits for it (ticking on), then is made from where the slide left the board.
-        if (clock() < heldUntil) return
         clearInterval(t!); t = null
         const { dx, dy } = openClearOf(b, p, regionsOf())
         if (dx === 0 && dy === 0) return
