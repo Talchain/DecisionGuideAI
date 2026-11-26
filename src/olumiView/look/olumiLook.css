@@ -74,9 +74,15 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* No chance yet: core's words as a quiet pill; "Why not" opens core's reason; the next step is ONE line. */
 /* THE OUTLINED PILL, ONE RECIPE (V12 spec §2: 2 x 8 px, 12 px text, outlined only, never filled with colour): core's short words on a
    card, and the edit control in the worked steps. */
+.olumi-look .ok-pill, .olumi-look .ok-edit button, .ok-face-mark-bound {
+  --ok-pill-font-size: calc(12px * var(--o-s));
+  --ok-pill-line-height: 1.4;
+  --ok-pill-padding-block: calc(2px * var(--o-s));
+  --ok-pill-border-width: 1px;
+}
 .olumi-look .ok-pill, .olumi-look .ok-edit button {
-  display: inline-flex; align-items: center; border: 1px solid var(--border-default); border-radius: 999px;
-  padding: calc(2px * var(--o-s)) calc(8px * var(--o-s)); font-size: calc(12px * var(--o-s)); line-height: 1.4;
+  display: inline-flex; align-items: center; border: var(--ok-pill-border-width) solid var(--border-default); border-radius: var(--radius-pill);
+  padding: var(--ok-pill-padding-block) calc(8px * var(--o-s)); font-size: var(--ok-pill-font-size); line-height: var(--ok-pill-line-height);
 }
 .olumi-look .ok-pill { align-self: flex-start; color: var(--text-body); background: var(--bg-panel); white-space: nowrap; flex-shrink: 0; }
 /* THE CARD'S TEXT ACTION, ONE RECIPE: a press that opens something ("Why not", the worked steps, what a result rests on). Underlined, light,
@@ -407,7 +413,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .ok-face-mark {
   display: block;
   box-sizing: border-box;
-  border: 1px dashed var(--border-field);
+  border: 1px dashed var(--text-light);
   background: transparent;
 }
 .ok-far-face > .ok-face-mark { max-height: 100%; }
@@ -423,8 +429,9 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 }
 .ok-face-mark-bound {
   width: var(--space-8);
-  height: var(--space-5);
-  border-radius: var(--space-5);
+  height: calc(var(--ok-pill-font-size) * var(--ok-pill-line-height) + 2 * var(--ok-pill-padding-block) + 2 * var(--ok-pill-border-width));
+  border-width: var(--ok-pill-border-width);
+  border-radius: var(--radius-pill);
 }
 .ok-simple-track { background: var(--border-default); }
 .ok-simple-mid { left: var(--chart-x); }

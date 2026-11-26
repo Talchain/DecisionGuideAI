@@ -6,6 +6,7 @@ This page transcribes decisions already made. It does not redesign them. Sources
 
 - the chart system v6 (23 Nov 20:25, S4; published as the "Olumi Chart System" artifact);
 - the chart inventory (CHART-MAP, 23 Nov);
+- `components/CardFace.md` for card face anatomy;
 - `components/LinkLine.md`;
 - Paul's rulings of 17, 18, 23 and 26 Nov.
 

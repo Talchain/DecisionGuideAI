@@ -13,11 +13,12 @@ A card on the board: one record of the model, with its kind, title, figure and s
 - **Kind marker**: 19.2px, on the top edge.
 - **Title**: `viewTitle` (14/500), at most two lines.
 - **Figure**: `viewValue` (14/500), with tabular numerals.
-- **Range bar**: 4px. An unknown is an empty dashed track.
+- **Range bar**: 16px. An unknown is an empty dashed track.
 - **Chance**: `viewHeadline` (18/500), with a gauge in the option colour.
 - **Bound**: a pill (`2px 8px`, `radius-pill`, `border-default`).
 - **Gaps inside the face**: 8px.
 - **Foot**: state marks first, then the author last. At most three marks, then "+N".
+- At rest the face carries no sentences: each state is a value or a mark, words on the hover (s7-faces-and-charts.md, FACE rows).
 - **Detailed**: the same frame, at least 208px wide and fit to its content, with a fuller foot.
 
 ## States
