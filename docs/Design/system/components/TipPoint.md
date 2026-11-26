@@ -18,7 +18,10 @@ solid for a person. The axis ends use formatted values, 12px meta text
 and `text-light`. Omit units when absent.
 
 The picture is aria-hidden. Core’s line carries the meaning. Omit the
-picture when a threshold or tested bound is non-finite or the bounds match.
+picture when a threshold or tested bound is non-finite, the tested low is
+not below its high, or no honest axis exists (`spanAxisOf` null). The
+outline covers only the span Core tested; the tip value prints one digit
+finer than the ends.
 
 Glance tier is Core’s line and the picture. Expert tier is Core’s hover
 and the try-a-figure editor.

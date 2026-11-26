@@ -6,6 +6,7 @@ import { TippingPerOption } from '../../../port/AnalysisReaders'
 import { cardOf } from '../../../port/pick'
 import { WhatMovesIt } from '../../../port/WhatMovesIt'
 import { TipPoint } from '..'
+import { spanAxisOf } from '../axis'
 
 const model = (JSON.parse(readFileSync('src/olumiView/fixtures/cardface/studio.view3.json', 'utf8')) as View).model!
 const tipping = model.run!.tipping[0]!
@@ -26,7 +27,7 @@ const widthOf = (element: HTMLElement) => element.style.getPropertyValue('--scal
 
 describe('TipPoint', () => {
   it.each([
-    { side: 'above' as const, start: '40%', width: '60%' },
+    { side: 'above' as const, start: '40%', width: '40%' },  // only what Core tested: 40 to 80, never the axis margin
     { side: 'below' as const, start: '0%', width: '40%' },
   ])('marks the tipping value and outlines the $side side of the same axis', ({ side, start, width }) => {
     render(<TipPoint tipping={{ ...tested, side }} card={withRange('person')} />)
@@ -58,11 +59,18 @@ describe('TipPoint', () => {
 
   it('zooms to the figure so which side of the line it sits on is visible (studio: tip 19.7 inside 18.3 to 20.7)', () => {
     render(<TipPoint tipping={tipping} card={figureCard} />)
+    const ends = screen.getByTestId('tip-point').querySelector('.ok-scale-tip-ends')!
+    const [min, max] = [ends.firstElementChild!, ends.lastElementChild!].map((e) => parseFloat(e.textContent!.replace(/,/g, '')))
+    // The printed ends enclose everything drawn, and are not a 0-based axis.
+    expect(min).toBeGreaterThan(0)
+    expect(min).toBeLessThanOrEqual(Math.min(tipping.low, tipping.at))
+    expect(max).toBeGreaterThanOrEqual(Math.max(tipping.high, tipping.at))
+    // The marker sits where the printed ends say it should, and in the middle band of the track.
     const at = parseFloat(positionOf(screen.getByTestId('tip-marker')))
+    expect(at).toBeCloseTo(((tipping.at - min) / (max - min)) * 100, 1)
     expect(at).toBeGreaterThan(20)
     expect(at).toBeLessThan(80)
-    const ends = screen.getByTestId('tip-point').querySelector('.ok-scale-tip-ends')!
-    expect(ends.firstElementChild!.textContent).not.toMatch(/^0( |$)/)
+    expect(screen.getByText(tipping.at.toFixed(1))).toBeVisible()
   })
 
   it.each([figureCard, null])('shows the threshold without a range, likely dot or unit when the card supplies no range (%#)', (card) => {
@@ -82,13 +90,20 @@ describe('TipPoint', () => {
     },
   )
 
+  it.each([[1, 1 + Number.EPSILON], [-1e308, 1e308], [0, Number.MIN_VALUE], [5, 4], [0, Infinity]])(
+    'has no axis (so draws nothing) where none is honest: %s to %s', (lo, hi) => {
+      expect(spanAxisOf(lo, hi)).toBeNull()
+      const { container } = render(<TipPoint tipping={{ ...tested, at: lo, low: lo, high: hi }} card={null} />)
+      expect(container.firstChild).toBeNull()
+    })
+
   it('puts the picture below Core’s verbatim per-option line in the studio run', () => {
     render(<TippingPerOption model={model} />)
     const line = screen.getByText(tipping.line)
     expect(line).toHaveAttribute('data-view', 'run.tipping.0.line')
     const picture = screen.getByTestId('tip-point')
     expect(line.closest('p')?.nextElementSibling).toBe(picture)
-    expect(within(picture).getByText('19.71')).toBeVisible()
+    expect(within(picture).getByText('19.7')).toBeVisible()
   })
 
   it('puts the picture below the lead line once when Core marks the row as a lead crossing', () => {

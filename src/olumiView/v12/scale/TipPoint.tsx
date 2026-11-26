@@ -4,11 +4,11 @@ import type { ViewCard } from '../../client'
 import type { TippingLine } from '../../tipping'
 import { typography } from '../../../styles/typography'
 import { figureRange } from '../contract'
-import { fmt, pctOf, spanAxisOf } from './axis'
+import { fmtAt, pctOf, spanAxisOf } from './axis'
 
 export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCard | null }) {
   const { at, low, high, side, figure } = tipping
-  if (![at, low, high].every(Number.isFinite) || low === high) return null
+  if (![at, low, high].every(Number.isFinite) || !(low < high)) return null
 
   const range = card === null ? null : figureRange(card)
   const values = [at, low, high]
@@ -17,11 +17,14 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
     if (range.likely !== null) values.push(range.likely)
   }
   const axis = spanAxisOf(Math.min(...values), Math.max(...values))
+  if (axis === null) return null
   const marker = pctOf(axis, at)
-  const regionStart = side === 'above' ? marker : 0
-  const regionEnd = side === 'above' ? 100 : marker
+  // The outline covers only what Core tested (low to high), on the side that tips: never the axis margin, which Core did not test.
+  const regionStart = side === 'above' ? marker : pctOf(axis, Math.min(low, at))
+  const regionEnd = side === 'above' ? pctOf(axis, Math.max(high, at)) : marker
   const olumi = card?.author?.by === 'olumi' || figure?.whose === 'olumi'
-  const label = (value: number) => range?.unit ? `${fmt(value)} ${range.unit}` : fmt(value)
+  // The ends at the axis's precision; the tip point one digit finer, so it never reads as a rounded end.
+  const label = (value: number, digits = axis.digits) => range?.unit ? `${fmtAt(value, digits)} ${range.unit}` : fmtAt(value, digits)
 
   return (
     <div aria-hidden="true" data-testid="tip-point" data-by={olumi ? 'olumi' : 'person'}
@@ -38,7 +41,7 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
         <span data-testid="tip-marker" className="ok-scale-tip-marker" style={{ '--scale-x': `${marker}%` } as CSSProperties} />
       </div>
       <div className="ok-scale-tip-value">
-        <span style={{ '--scale-x': `${marker}%` } as CSSProperties}>{label(at)}</span>
+        <span style={{ '--scale-x': `${marker}%` } as CSSProperties}>{label(at, Math.min(6, axis.digits + 1))}</span>
       </div>
       <div className="ok-scale-tip-ends">
         <span>{label(axis.min)}</span>
