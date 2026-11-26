@@ -22,6 +22,10 @@ Each rule needs a check that fails when the rule is broken. This page lists the 
 
 ## Checks that are not run automatically
 
+| Check | What it catches | What it misses |
+|---|---|---|
+| `pnpm run ci:guard:forms` (in `ci:all`, which `ci.yml` does not run; run by the UI lead's gate) | Unregistered literal form IDs, missing chart root IDs, chart primitives outside registered and legacy files, link role key drift, and unregistered dash literals. | Visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim. New primitives inside a legacy file (including `olumiLook.css`). Its SVG rule also matches inline icons, so the legacy list holds icon files too: a new inline SVG icon fails it, which pushes icons to the registry. |
+
 - `npm run visual` takes pixel baselines at 1280 by 800 and 1440 by 900. It does not cover the three sizes this system requires.
 - The spacing census in the 22 Nov spacing audit was a one-off script.
 - The real-board picture runs at 2000, 1232 and 1.33 belong to the UI lead's gate and are not part of CI.

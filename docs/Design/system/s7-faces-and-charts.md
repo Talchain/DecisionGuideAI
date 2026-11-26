@@ -1,6 +1,6 @@
 # Card faces, charts, lines and tab tools
 
-This page is binding. Every brief that touches a card face, a chart, a link line or a right-hand tab cites the ID it implements. The forms below are the only ones allowed. A new form needs a new row here first. `ci:guard:forms` is planned to fail unregistered forms, within the limits stated under Conformance.
+This page is binding. Every brief that touches a card face, a chart, a link line or a right-hand tab cites the ID it implements. The forms below are the only ones allowed. A new form needs a new row here first. `ci:guard:forms` fails unregistered forms within the limits stated under Conformance.
 
 This page transcribes decisions already made. It does not redesign them. Sources:
 
@@ -110,18 +110,18 @@ The chat is the only place for running text. The other right-hand tabs become to
 
 ## Legacy forms
 
-The chart inventory of 23 Nov listed 22 chart-like forms. They are frozen: the guard lists them by file, re-derived at the head it lands on, each with the ID that replaces it. A legacy form may be deleted or converged. It may not be copied into a new place.
+The chart inventory of 23 Nov listed 22 chart-like forms. The guard's legacy list records the files that matched a primitive when it landed, with a replacement ID where one is clear. A legacy form may be deleted or converged. It may not be copied into a new place. Edit the registry by hand. `node tools/ci-guards/check-forms.mjs --list` prints the current primitive matches.
 
 ## Conformance
 
-Status: **planned**. Neither check exists yet; this section is the brief for building them.
+Status: **built: ci:guard:forms**. The face-text spec is **planned**.
 
 - **`ci:guard:forms`** (`tools/ci-guards/check-forms.mjs`, with the registry in `docs/Design/system/forms.json`) is static, and so only checks what a scan can see:
   - every literal `data-form` ID is in the registry;
   - each registered component root carries its ID;
-  - new chart drawing uses a registered primitive or lives in an allowlisted renderer module, checked by scanning **added and modified** files for definitions and imports of chart primitives (track, band, axis and dot components and their CSS classes) outside those modules;
-  - `LINK_STYLES`, the dash and marker definitions, and the edge precedence change only together with this page's LN table.
+  - the guard scans the current tree for chart primitive imports, class names and SVG drawing outside the renderer and legacy files in the registry. The SVG scan skips directories named `icon`, `icons`, `marker` and `markers`;
+  - `LINK_STYLES` roles must match the registry, and literal dash values must be registered. Marker definitions and edge precedence remain governed by the LN table.
   - Scope: `src/olumiView`, `src/olumiCore` and `src/canvas`.
 - It **cannot** see visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim.
 - **A face-text spec** renders fixture Views covering each FACE row and counts the words at rest on each card family against a budget that is ratcheted down. It covers only the states its fixtures contain, and its fixture list says so.
-- Both join the enforcing gate and `ci:all`, and each is shown failing on a planted breach before it is accepted.
+- `ci:guard:forms` runs in `ci:all`. Its spec exercises planted breaches and the real tree. The face-text spec will join the enforcing gate and `ci:all` once it has been shown failing on a planted breach.

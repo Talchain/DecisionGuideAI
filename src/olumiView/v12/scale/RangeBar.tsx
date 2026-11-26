@@ -25,7 +25,7 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
   // The person's band is lighter and thinner (v10 review item 4); Olumi's dotted band keeps its own geometry (a 2 px dotted border needs the 8 px).
   return (
-    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} className="ok-scale ok-scale-range">
+    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} className="ok-scale ok-scale-range" data-form="CH-range">
       <div className="ok-scale-track">
         <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
           className="ok-scale-range-band" style={{ '--scale-x': `${a}%`, '--scale-width': `${Math.max(1, b - a)}%` } as CSSProperties} />
