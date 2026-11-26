@@ -4,7 +4,7 @@ export function ChanceDots({ chance }: { chance?: number | null }) {
 
   const filled = Math.round(chance * 10)
   return (
-    <span className="inline-flex shrink-0 gap-[var(--space-1)]" aria-hidden="true" data-chance-dots="">
+    <span className="inline-flex shrink-0 gap-[var(--space-1)]" aria-hidden="true" data-chance-dots="" data-form="CH-chance">
       {Array.from({ length: 10 }, (_, i) => (
         <span key={i} className={`size-[var(--space-3)] rounded-full border border-[color:var(--option)] ${i < filled ? 'bg-[color:var(--option)]' : 'bg-transparent'}`}
           data-chance-dot={i < filled ? 'filled' : 'empty'} />

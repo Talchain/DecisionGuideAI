@@ -1,0 +1,212 @@
+{
+  "faces": [
+    "FACE-chance",
+    "FACE-fixed",
+    "FACE-noresult",
+    "FACE-shared",
+    "FACE-value",
+    "FACE-range",
+    "FACE-bands",
+    "FACE-unsized",
+    "FACE-waits",
+    "FACE-whatif",
+    "FACE-bound",
+    "FACE-notcounted",
+    "FACE-tips"
+  ],
+  "charts": [
+    {
+      "id": "CH-chance",
+      "component": "src/olumiView/v12/scale/ChanceDots.tsx",
+      "status": "open"
+    },
+    {
+      "id": "CH-range",
+      "component": "src/olumiView/v12/scale/RangeBar.tsx",
+      "status": "built"
+    },
+    {
+      "id": "CH-bands",
+      "component": null,
+      "status": "built, to converge"
+    },
+    {
+      "id": "CH-rests",
+      "component": null,
+      "status": "planned"
+    },
+    {
+      "id": "CH-tip",
+      "component": "src/olumiView/v12/scale/TipPoint.tsx",
+      "status": "built, number labels wait for Core display strings (F1)"
+    },
+    {
+      "id": "CH-tested",
+      "component": null,
+      "status": "planned"
+    },
+    {
+      "id": "CH-differ",
+      "component": null,
+      "status": "planned"
+    },
+    {
+      "id": "CH-worth",
+      "component": null,
+      "status": "planned"
+    },
+    {
+      "id": "CH-status",
+      "component": null,
+      "status": "planned"
+    }
+  ],
+  "lines": [
+    "LN-effect",
+    "LN-raise",
+    "LN-lower",
+    "LN-input",
+    "LN-measures",
+    "LN-target",
+    "LN-size",
+    "LN-driver",
+    "LN-reason",
+    "LN-doubt",
+    "LN-leader",
+    "LN-fallback"
+  ],
+  "tabs": [
+    "TT-check",
+    "TT-compare",
+    "TT-stress",
+    "TT-differ"
+  ],
+  "renderers": [
+    "src/olumiView/v12/scale/ChanceDots.tsx",
+    "src/olumiView/v12/scale/RangeBar.tsx",
+    "src/olumiView/v12/scale/TipPoint.tsx"
+  ],
+  "primitives": {
+    "import_path": "src/olumiView/v12/scale",
+    "class_prefixes": [
+      "ok-scale-",
+      "ok-simple-band",
+      "ok-chart"
+    ],
+    "svg": {
+      "elements": [
+        "rect",
+        "line",
+        "circle",
+        "path"
+      ],
+      "excluded_directories": [
+        "icon",
+        "icons",
+        "marker",
+        "markers"
+      ]
+    }
+  },
+  "legacy": [
+    {"file": "src/canvas/ErrorBoundary.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/CanvasLegendPopover.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/DevControls.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/DraftChat.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/DraftingModelMark.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/FloatingOlumiPanel.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/FunctionalForm/FormSelector.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/LayoutPopover.tsx", "replaced_by": null},
+    {"file": "src/canvas/components/SettingsPanel.tsx", "replaced_by": null},
+    {"file": "src/canvas/conversation/zones/EmptyState.tsx", "replaced_by": null},
+    {"file": "src/canvas/help/KeyboardLegend.tsx", "replaced_by": null},
+    {"file": "src/canvas/highlight/HighlightLayer.tsx", "replaced_by": null},
+    {"file": "src/canvas/nodes/DirectionNeededLayer.tsx", "replaced_by": null},
+    {"file": "src/canvas/nodes/NodeShapeIndicator.tsx", "replaced_by": null},
+    {"file": "src/canvas/nodes/ProposalGhostLayer.tsx", "replaced_by": null},
+    {"file": "src/canvas/nodes/ViewCardNode.tsx", "replaced_by": "CH-chance"},
+    {"file": "src/canvas/nodes/WhatIfMarkLayer.tsx", "replaced_by": null},
+    {"file": "src/canvas/nodes/shared/ConnRow.tsx", "replaced_by": null},
+    {"file": "src/canvas/onboarding/EmptyState.tsx", "replaced_by": null},
+    {"file": "src/canvas/panels/_shared/PanelShell.tsx", "replaced_by": null},
+    {"file": "src/canvas/ui/inspector-v2/shared/ProbabilityArc.tsx", "replaced_by": null},
+    {"file": "src/olumiCore/team/CardDispute.tsx", "replaced_by": "CH-differ"},
+    {"file": "src/olumiView/ViewReasoning.tsx", "replaced_by": "CH-rests"},
+    {"file": "src/olumiView/look/olumiLook.css", "replaced_by": null},
+    {"file": "src/olumiView/port/AnalysisReaders.tsx", "replaced_by": "CH-tip"},
+    {"file": "src/olumiView/port/ChanceChart.tsx", "replaced_by": "CH-chance"},
+    {"file": "src/olumiView/port/LikelyOutcome.tsx", "replaced_by": "CH-range"},
+    {"file": "src/olumiView/port/WhatMovesIt.tsx", "replaced_by": "CH-tip"},
+    {"file": "src/olumiView/previous/CoreCard.tsx", "replaced_by": null},
+    {"file": "src/olumiView/v12/SimpleFace.tsx", "replaced_by": "CH-bands"},
+    {"file": "src/olumiView/v12/bands/BandLayer.tsx", "replaced_by": null},
+    {"file": "src/olumiView/v12/bands/KeyPill.tsx", "replaced_by": null},
+    {"file": "src/olumiView/v12/detailed/marks.tsx", "replaced_by": "CH-chance"},
+    {"file": "src/olumiView/v12/edit/LaneEditingLayer.tsx", "replaced_by": "CH-range"},
+    {"file": "src/olumiView/v12/inspect/FigureInspector.tsx", "replaced_by": "CH-chance"},
+    {"file": "src/olumiView/v12/journey/JourneyRecord.tsx", "replaced_by": null},
+    {"file": "src/olumiView/v12/scale/ConditionalBar.tsx", "replaced_by": "CH-chance"},
+    {"file": "src/olumiView/v12/views/DiffChart.tsx", "replaced_by": "CH-differ"}
+  ],
+  "dashes": [
+    {
+      "value": "5 4",
+      "note": "LN-doubt"
+    },
+    {
+      "value": "0.1 6",
+      "note": "LN-reason"
+    },
+    {
+      "value": "2 3",
+      "note": "LN-leader"
+    },
+    {
+      "value": "0",
+      "note": "Solid hovered driver highlight in HighlightLayer."
+    },
+    {
+      "value": "8 4",
+      "note": "Unhovered driver highlight overlay in HighlightLayer."
+    },
+    {
+      "value": "5 5",
+      "note": "Proposal ghost outline in ProposalGhostLayer."
+    },
+    {
+      "value": "5,5",
+      "note": "Existing clarifier preview style literal in canvas/store.ts. StyledEdge does not read the supplied style prop."
+    },
+    {
+      "value": "6 4",
+      "note": "Direction-needed overlay in DirectionNeededLayer."
+    },
+    {
+      "value": "2.5 2",
+      "note": "Dashed line in the conversation EmptyState icon."
+    },
+    {
+      "value": "3 2.5",
+      "note": "Dashed outline in the band icon in BandLayer."
+    },
+    {
+      "value": "2 1.5",
+      "note": "Dashed node shape icons in NodeShapeIndicator."
+    },
+    {
+      "value": "3 2",
+      "note": "Generic sample swatch in CanvasLegendPopover."
+    },
+    {
+      "value": "60",
+      "note": "Draw-on animation in DraftingModelMark."
+    }
+  ],
+  "link_roles": {
+    "effect": "LN-effect",
+    "input": "LN-input",
+    "measures": "LN-measures",
+    "target": "LN-target",
+    "size": "LN-size"
+  }
+}

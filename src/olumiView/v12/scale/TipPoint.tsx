@@ -27,7 +27,7 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
   const unit = (text: string) => range?.unit ? `${text} ${range.unit}` : text
 
   return (
-    <div aria-hidden="true" data-testid="tip-point" data-by={olumi ? 'olumi' : 'person'}
+    <div aria-hidden="true" data-testid="tip-point" data-by={olumi ? 'olumi' : 'person'} data-form="CH-tip"
       className={`ok-scale ok-scale-tip ${typography.viewPanelMeta} text-text-light`}>
       <div className="ok-scale-track ok-scale-tip-track">
         <span data-testid="tip-region" className="ok-scale-tip-region"
