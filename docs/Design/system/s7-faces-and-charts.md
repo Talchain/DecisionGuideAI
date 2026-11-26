@@ -1,6 +1,6 @@
 # Card faces, charts, lines and tab tools
 
-This page is binding. Every brief that touches a card face, a chart, a link line or a right-hand tab cites the ID it implements. The forms below are the only ones allowed. A new form needs a new row here first, and `ci:guard:forms` fails any form drawn without a registered ID (see Conformance).
+This page is binding. Every brief that touches a card face, a chart, a link line or a right-hand tab cites the ID it implements. The forms below are the only ones allowed. A new form needs a new row here first. `ci:guard:forms` is planned to fail unregistered forms, within the limits stated under Conformance.
 
 This page transcribes decisions already made. It does not redesign them. Sources:
 
@@ -30,18 +30,18 @@ The chip's words and the choice between some marks need Core's typed `card.face.
 - `state`, by family:
   - option: `chance`, `always_met`, `never_met`, `no_route`, `needs_input`, `no_measure`;
   - quantity: `unsized`, `waits`, `whatif`, `tips`;
-  - goal: `not_counted`, `open_question`.
+  - goal: `not_counted`, `open_question`, `shared_blocker` (the reason every option on this aim shares; those options' chips are then null).
 - `null` where the value or bound is itself the face.
 
 Until the field lands, a row marked **interim** draws from the typed field named in that row, puts every sentence on the hover, and draws no chip words.
 
 | ID | Card and state | Selected by (typed) | Mark at rest | Chip | Status |
 |---|---|---|---|---|---|
-| FACE-chance | option with a chance | `headline.state === 'chance'` | CH-chance glance | the chance value (`face.chip.text`; interim: the row's `value` words) | built |
+| FACE-chance | option with a chance | `headline.state === 'chance'` | CH-chance glance | the chance value (`face.chip.text`) | built; until the chip lands the face splits Core's headline with `chanceParts` and draws its qualifier at rest (breach F5, retired by the chip) |
 | FACE-fixed | option always or never meeting its aim | `face.chip.state` `always_met` or `never_met` | filled or hollow end mark | Core's short words | **waits on chip**: `headline.state === 'fixed'` does not say which; the face is unchanged until then |
 | FACE-noresult | option with no result | `headline.state === 'none'` | **open**: interim draws an empty dashed outline of the dots' footprint, for Paul to judge on 4310 (ChanceDots.md draws no dots here) | Core's short reason (chip) | interim |
-| FACE-shared | aim whose options share one blocker | `face.chip` on the aim and null on the options | the same dashed outline, on the aim | Core's short reason | **waits on chip**: interim keeps today's `sharedNoChanceOf`, which compares `headline.text` (a known breach, retired by the chip) |
-| FACE-value | quantity with a single figure | `figure.text !== ''`, no range | the figure, in whose-tone (README principle 5's "a figure is a bar" applies where there is a range or an axis; a single value is a number, as the chart system says) | none | built |
+| FACE-shared | aim whose options share one blocker | `face.chip.state === 'shared_blocker'` on the aim | the same dashed outline, on the aim | Core's short reason | **waits on chip**: interim keeps today's `sharedNoChanceOf`, which compares `headline.text` (a known breach, retired by the chip) |
+| FACE-value | quantity with a single figure | `figure.text !== ''`, no range | the figure as a number, in whose-tone (README principle 5) | none | built |
 | FACE-range | quantity with an input range | `card.figure.range` | CH-range glance | none | built |
 | FACE-bands | calculated figure per option | `card.values[].p10/p50/p90` | middle-80% bands, one per option | none | built |
 | FACE-unsized | quantity with no figure | `figure` non-null, `figure.text === ''`, not `waits` | empty dashed track | "not sized yet" (chip; the interim draws no words, and never cuts it out of `figure.title`) | interim |
@@ -84,16 +84,16 @@ Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. 
 | LN-input | input: grey, dot end | `LINK_STYLES.input` |
 | LN-measures | gold, no end | `LINK_STYLES.measures` |
 | LN-target | gold, arrow end | `LINK_STYLES.target` |
-| LN-size | grey, no end, Core's label | `LINK_STYLES.size` |
+| LN-size | grey, no end, the label `size` (a UI literal today; **open**: Core should own it) | `LINK_STYLES.size` |
 | LN-driver | `text-header` ink, only where no styled or modelled branch applies | `ViewLinkEdge` |
 | LN-reason | dotted `0.1 6` round; the alert form has an orange stroke | `ViewLinkEdge` / `olumiLook.css` |
 | LN-doubt | dash `5 4`; wins over LN-reason when both apply | `ViewLinkEdge` |
 | LN-leader | dash `2 3` at 1px | `olumiLook.css` |
-| LN-fallback | the marker an unstyled link draws | `ViewLinkEdge` markers |
+| LN-fallback | an unstyled link draws the marker it is given, else the local arrow | `ViewLinkEdge` markers |
 
 **States, not styles:** the 3px lit path, the alert halo (orange) and the Olumi-proposed halo (`info`). Any other stroke, dash or end is unregistered.
 
-**Open:** the `size` label and hover are assembled in the UI. Core should own those words.
+**Open:** the `size` label and the link hover are assembled in the UI. Core should own those words.
 
 Crossing lines and lines running behind cards are a layout fault, not a style. They are planned with the whole-model fit.
 

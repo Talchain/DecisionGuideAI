@@ -10,7 +10,7 @@ Read the pages in this order. **Status** says what is built and what is still to
 2. **The person authors; Olumi proposes.** Anything Olumi adds stays visibly Olumi's, in Olumi blue, until the person keeps it.
 3. **One meaning per channel.** Shape says what a thing is, colour says how it is doing or whose it is, and an icon says what you can do. No channel does another's job.
 4. **One focal object and one next step.** A screen has one filled button. A reply is a lead sentence plus at most three bullets, with the rest folded.
-5. **Visual first.** A figure is a bar, an unknown is an empty dashed track, a state is an icon, and whose it is shows as a mark.
+5. **Visual first.** A figure with a range is a bar and a single value is a number (chart system, 23 Nov); an unknown is an empty dashed track, a state is an icon, and whose it is shows as a mark. Card faces, charts and lines are registered in `s7-faces-and-charts.md`.
 6. **Motion explains.** Motion is used only to show a change, uses one motion per region, finishes within 900ms, and is instant under reduced motion.
 7. **Slick, never cute.** Restraint beats decoration, and nothing adds words at rest.
 8. **The older look keeps working.** Every lane change leaves the older look's values alone until someone has seen a picture of it.
