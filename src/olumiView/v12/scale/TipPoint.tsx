@@ -17,7 +17,7 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
     if (range.likely !== null) values.push(range.likely)
   }
   const axis = spanAxisOf(Math.min(...values), Math.max(...values))
-  // The tip one digit finer than the ends and never fewer than two significant figures, so a small threshold never prints as 0; none if that needs > 6 digits.
+  // The tip one digit finer than the ends and never fewer than one significant figure, so a small threshold never prints as 0; none if that needs > 6 digits.
   const tipDigits = axis === null ? null : digitsToShow(at, Math.min(6, axis.digits + 1))
   if (axis === null || tipDigits === null) return null
   const marker = pctOf(axis, at)

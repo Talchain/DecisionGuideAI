@@ -120,9 +120,14 @@ describe('TipPoint', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('prints a small threshold on a wide span to two significant figures, never as 0', () => {
+  it('prints a small threshold on a wide span as non-zero, never as 0', () => {
     render(<TipPoint tipping={{ ...tested, at: 0.004, low: 0, high: 1 }} card={null} />)
     expect(screen.getByText('0.004')).toBeVisible()
+  })
+
+  it('prints a 0.000001 threshold on a 0 to 0.00005 span (six digits is enough)', () => {
+    render(<TipPoint tipping={{ ...tested, at: 0.000001, low: 0, high: 0.00005 }} card={null} />)
+    expect(screen.getByText('0.000001')).toBeVisible()
   })
 
   it('draws nothing where the threshold would need more than 6 digits to print', () => {
