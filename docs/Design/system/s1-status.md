@@ -1,6 +1,6 @@
 # Status
 
-This page records where every part of the system stands at UI commit `9aa1b195` (branch `wip/v12-s4-paul-asks`, 22 Nov 2026). Paths are relative to the UI repository.
+This page records where every part of the system stands at UI commit `9aa1b195` (branch `wip/v12-s4-paul-asks`, 22 Nov 2026). Paths are relative to the UI repository. Card faces, charts, link lines and tab tools moved on after that: their status is in `s7-faces-and-charts.md`, at UI `b58c3c81` (26 Nov). The other component previews are still renditions at `9aa1b195`.
 
 **Built** means it is in the code and follows this system. **Partly** means it is in the code, but some of it does not follow the system yet; the row says what. **Designed** means Paul has approved the design and it is not built yet. **Proposed** means Codex and the UI lead have written it up and it waits for Paul's ruling. **Open** means it needs a decision first.
 

@@ -44,4 +44,4 @@ Cards sit 24px apart across and 48px between tiers, with at most five to a row.
 - `src/olumiView/look/olumiLook.css`
 - `src/olumiView/layout.ts`
 
-This preview is a static rendition at UI `9aa1b195`, with example content.
+The previews in the Olumi Design System artifact are captures of the real build at UI `b58c3c81` (zero calls, fixture data); each face state's row is in `s7-faces-and-charts.md`.

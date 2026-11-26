@@ -35,4 +35,4 @@ A link between two cards on the board. Its colour says which way the link pushes
 - `src/olumiView/v12/links/LinkEnds.tsx`
 - `src/olumiView/look/olumiLook.css`
 
-This preview is a static rendition at UI `9aa1b195`.
+The previews in the Olumi Design System artifact are captures of the real build at UI `b58c3c81` (zero calls, fixture boards); each line style's row is in `s7-faces-and-charts.md`.
