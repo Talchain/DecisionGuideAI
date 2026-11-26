@@ -68,6 +68,20 @@ afterEach(() => {
   useViewStore.setState({ view: null })
 })
 
+it('preserves the bound and chance mark widths while the full-width track can shrink', () => {
+  const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, selectors, body]) => ({ selectors: selectors!.split(',').map((selector) => selector.trim()), body: body! }))
+  const bodyOf = (selector: string) => rules.filter((rule) => rule.selectors.includes(selector)).map((rule) => rule.body).join('\n')
+  const keepsWidth = /(?:^|;)\s*(?:flex-shrink:\s*0|flex:\s*none)\s*;/
+
+  expect(bodyOf('.ok-face-mark-bound')).toMatch(keepsWidth)
+  expect(bodyOf('.ok-face-mark-chance')).toMatch(keepsWidth)
+  expect(bodyOf('.ok-face-mark')).not.toMatch(keepsWidth)
+  expect(bodyOf('.ok-face-mark-track')).toMatch(/\bwidth:\s*100%;/)
+  expect(bodyOf('.ok-face-mark-track')).not.toMatch(keepsWidth)
+})
+
 const cases = [
   { name: 'no result', card: withheld, model, shape: 'chance', words: [add, why, add, tips], hidden: [tipsFace, why, add, tips] },
   { name: 'shared reason', card: aim, model: sharedModel, shape: 'chance', words: [sharedLine, sharedTitle], hidden: [sharedLine, sharedTitle, aim.bound!.text] },

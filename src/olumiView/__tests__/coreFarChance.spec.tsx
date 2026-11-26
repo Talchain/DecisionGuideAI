@@ -1,8 +1,9 @@
 /**
  * DL-424 (13 Nov): at 1128x707 the whole board opens on the far (one-line) face, and the chance line was cut mid-word ("about 3% chance, on Ol…",
  * the served 9687fe63 at zoom 0.416). The far line is core's chance words whole ("about 3% chance"), with core's Olumi mark for the figure it
- * rests on, titled with core's full sentence; "No chance yet" is whole as it was. Real path: the lane's card (CoreCard) with the v4 live draft's
- * cards (fixtures/live-v4-cards.json, s_037fa202ee78), on the far rung as the canvas sets it, read from BaseNode's far line. Bound by card id.
+ * rests on, titled with Core's full sentence. A withheld chance uses an empty outline with Core's reason in hover.
+ * Real path: CoreCard with the v4 live draft's cards (fixtures/live-v4-cards.json, s_037fa202ee78), on the far rung as the canvas sets it.
+ * Read from BaseNode's far line and bound by card id.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -42,14 +43,18 @@ describe('the far face draws a chance whole (DL-424)', () => {
     expect([mark.textContent, mark.getAttribute('aria-label'), await tipOf(mark)]).toEqual([rested.olumi!.glyph, card.headline!.title, card.headline!.title])
   })
 
-  // Contract 3 (15 Nov): a withheld chance shows core's own reason, never the bare "No chance yet". The far line is leadLineOf's words.
-  it('a withheld chance is drawn whole as core\'s `why` (its own reason), with no mark', () => {
+  it('shows an empty dashed outline for a withheld chance and keeps Core’s whole reason in hover', async () => {
     const { card, line } = far('cut_monthly_spending_to_stretch_the_runway')
     expect(card.headline!.state).toBe('none')
     expect(card.headline!.text, 'precondition: core still sends the bare words').toBe('No chance yet')
     expect(card.headline!.why, 'precondition: core sends a reason').toBe("The chance for 'Cut monthly spending to stretch the runway' cannot be worked out yet: needs \"Monthly spending removed: Cut monthly spending to stretch the runway\"; rests on \"Effect of each GBP/month removed on Time until funding is secured\", which is unknown: Cutting spending stretches the runway but does not itself bring funding in sooner, so it has little direct effect on how long funding takes to arrive. It may only ease the pressure to accept poor terms; it waits on the answers to: 'Monthly spending removed: Cut monthly spending to stretch the runway'.")
-    expect(within(line).getByTestId('node-lod-line-text').textContent).toBe(card.headline!.why)
-    expect(within(line).getByTestId('node-lod-line-text').textContent).not.toBe('No chance yet')
+    const mark = line.querySelector('[data-face-mark="chance"]')
+    expect(mark).toHaveClass('ok-face-mark', 'ok-face-mark-chance')
+    expect(mark).toHaveAttribute('aria-hidden', 'true')
+    expect(within(line).queryByTestId('node-lod-line-text')).toBeNull()
+    expect(mark).toBeEmptyDOMElement()
+    expect(line.textContent).toBe('')
+    expect((await tipOf(line)).split('\n')).toContain(card.headline!.why)
     expect(line.querySelector(`[data-view="${card.id}.far.olumi.glyph"]`)).toBeNull()
   })
 

@@ -57,10 +57,11 @@ describe('a program board zoomed out: the option card keeps its chance', () => {
     expect(screen.queryByTestId('node-lod-line-text')).toBeNull()
   })
 
-  it('zoomed out the card still reads its chance, never "Changes 1 factor"', async () => {
+  it('at far zoom the card shows the current chance display from CEE', async () => {
+    const chance = served.canonical_analysis_view.options.find((option) => option.option_id === OPTION)!.cell
     await board(served, 'line')
     mount()
-    expect(reducedLine()).toBe('Model result · about 10%')
+    expect(reducedLine()).toBe(chance.display)
   })
 })
 

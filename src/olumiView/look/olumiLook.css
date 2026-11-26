@@ -417,6 +417,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
   background: transparent;
 }
 .ok-far-face > .ok-face-mark { max-height: 100%; }
+.ok-face-mark-chance, .ok-face-mark-bound { flex-shrink: 0; }
 .ok-face-mark-chance {
   width: calc(10 * var(--space-3) + 9 * var(--space-1));
   height: var(--space-3);
