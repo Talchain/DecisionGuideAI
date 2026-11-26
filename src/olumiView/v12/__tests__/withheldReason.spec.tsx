@@ -316,7 +316,7 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     expectRing()
   })
 
-  it('(d) preserves all Simple text, classes and tips while the existing status and stop control the ring', async () => {
+  it('(d) preserves the Simple mark and hover while the existing status and stop control the ring', async () => {
     const { view, card, row } = headlineFixture()
     const untouched = structuredClone(card)
     row.blocked_by = []
@@ -329,13 +329,13 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     expect(classes(container)).toEqual(beforeClasses)
     const status = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
     const stop = container.querySelector<HTMLElement>('[data-simple-card]')!
-    expect(status.hasAttribute('tabindex')).toBe(false)
+    expect(status.tabIndex).toBe(0)
     expect(stop.tabIndex).toBe(0)
     fireEvent.pointerEnter(status)
     expectRing('sales_target')
     fireEvent.pointerLeave(status)
     expectRing()
-    expect(await tipOf(status)).toBe(card.headline!.why)
+    expect(await tipOf(status)).toContain(card.headline!.why)
     act(() => stop.focus())
     expectRing('sales_target')
     act(() => stop.blur())
@@ -344,28 +344,31 @@ describe('Issue 7 withheld reasons and card blockers', () => {
     expectRing()
   })
 
-  it('(d) keeps Simple pointer-only when there are no other-results words for a card stop', () => {
+  it('(d) keeps the mark keyboard-accessible without a second card stop', () => {
     const { view, card } = headlineFixture()
     card.rows = [card.rows[0]!]
     const { container } = render(simple(view, card))
     const stop = container.querySelector<HTMLElement>('[data-simple-card]')!
     const status = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
     expect(stop.hasAttribute('tabindex')).toBe(false)
-    expect(status.hasAttribute('tabindex')).toBe(false)
+    expect(status.tabIndex).toBe(0)
     fireEvent.click(status)
     expectRing('sales_target')
     fireEvent.keyDown(document.body, { key: 'Escape' })
     expectRing()
   })
 
-  it('(d) rings the shared Simple aim status without giving it a keyboard stop', () => {
+  it('(d) rings the shared Simple aim mark on pointer and keyboard', () => {
     const view = load('app-launch'), card = cardOf(view, 'boss_discussion')
     rowOf(cardOf(view, 'option_scheduled')).blocked_by = [figure('release_offset')]
     const { container } = render(simple(view, card))
     const status = container.querySelector<HTMLElement>('[data-simple-no-chance-once]')!
-    expect(status.hasAttribute('tabindex')).toBe(false)
+    expect(status.tabIndex).toBe(0)
     expect(status.closest('[data-simple-card]')!.hasAttribute('tabindex')).toBe(false)
     fireEvent.pointerEnter(status)
+    expectRing('release_offset', 'boss_discussion')
+    fireEvent.pointerLeave(status)
+    act(() => status.focus())
     expectRing('release_offset', 'boss_discussion')
   })
 

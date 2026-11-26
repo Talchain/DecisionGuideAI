@@ -243,6 +243,9 @@ interface BaseNodeProps extends NodeProps {
    * So the owner declares it. When set, this WINS over the central resolver.
    */
   lodMetric?: string | null
+  lodMetricIsValue?: boolean
+  /** Words on the reduced Core face hover. An empty string still opts in to the quiet face. */
+  lodWords?: string
   /**
    * A caller's mark drawn beside the far line, only while the body is reduced (the olumi-core lane's Rests on number, G3 11 Nov: the
    * lens marks its cards at the whole-board first open, where the body that carries the mark at full zoom is blanked). `flex-none`, in its
@@ -415,7 +418,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, olumiLook = false, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, olumiLook = false, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMetricIsValue = false, lodWords, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
   const anchorBandHasMarks = useBottomBandHasMarks()
@@ -866,7 +869,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
     }
     // A core card (olumi-core lane, `data.core`) says only core's words: where core sends no far line, none. The previous product's
     // resolver reads the previous data model ("No changes specified" on an option core sent no line for: live draft, 12 Nov).
-    if ((data as { core?: unknown } | undefined)?.core === true) return { text: null, unconfirmedEstimate: false }
+    if (lodWords !== undefined || (data as { core?: unknown } | undefined)?.core === true) return { text: null, unconfirmedEstimate: false }
     return resolveLodMetricLineDetail({
       nodeType,
       data: (allNodes.find(n => n.id === id)?.data ?? data) as Record<string, unknown> | undefined,
@@ -874,7 +877,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       displayMetadata,
       facts: lodFacts,
     })
-  }, [bodyReduced, lodMetric, nodeType, data, id, allNodes, label, displayMetadata, lodFacts])
+  }, [bodyReduced, lodMetric, lodWords, nodeType, data, id, allNodes, label, displayMetadata, lodFacts])
   const lodBodyLine = lodBody.text
 
   /**
@@ -905,7 +908,10 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
    * any factor that is not `external`, and an option whose intervention count is
    * unknown.
    */
-  const lodBodyBlanked = bodyReduced && lodBodyLine !== null
+  const lodBodyBlanked = bodyReduced && (lodBodyLine !== null || lodWords !== undefined)
+  const lodHoverWords = lodWords ?? lodBodyLine
+  const showsLodLine = lodBodyLine !== null || lodBody.unconfirmedEstimate ||
+    (lodBodyBlanked && lodWords !== undefined && (lodMark !== null || lodWords !== ''))
 
   /**
    * ⭐ WILL THE RUN LEAVE THIS OPTION OUT? A DIFFERENT QUESTION FROM THE ONE
@@ -3073,7 +3079,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           finding anything and go back to reserving the short height, with every
           unit test still green. The rendered value stays `"true"`, which several
           specs assert. */}
-      {(children || lodBodyLine || showConstraintLines || livingOnly !== null) ? (
+      {(children || showsLodLine || showConstraintLines || livingOnly !== null) ? (
         <div
           /* ⭐ THE ANCHOR'S LAST ROW KEEPS ITS TEXT CLEAR OF THE RAIL BESIDE IT
              (contract v3.1 ANC-02 / RHY-02: `.node.wide .target-row,
@@ -3142,11 +3148,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 BELOW the hidden body it is standing in for.
               `title` carries the untruncated string, the same sighted-hover
               treatment the node title gets when its clamp ellipsises it. */}
-          {(lodBodyLine !== null || lodBody.unconfirmedEstimate) && (
+          {showsLodLine && (
             <Hover as="div"
               data-testid="node-lod-line"
-              words={lane ? lodBodyLine : undefined}
-              data-node-tooltip={lane && lodBodyLine ? true : undefined}
+              words={lane ? lodHoverWords : undefined}
+              data-node-tooltip={lane && lodHoverWords ? true : undefined}
               title={lane ? undefined : lodBodyLine ?? undefined}
               /*
                * ⚠⚠ THE TESTID AND THE VISIBILITY STAY ON THE OUTER ELEMENT, and
@@ -3163,7 +3169,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                * to the line, which is exactly why the mark beside it can escape
                * the ellipsis.
                */
-              className="absolute left-0 right-0 top-0 flex items-baseline gap-1"
+              className={`absolute left-0 right-0 top-0 flex gap-1 ${lodWords !== undefined && lodBodyLine === null ? 'ok-far-face h-full items-center' : 'items-baseline'}`}
               style={{ visibility: 'visible' }}
             >
               {lodMark}
@@ -3172,7 +3178,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                 data-testid="node-lod-line-text"
                 // `!leading-tight`: one line whose box fits the blanked body's
                 // one-body-line height exactly (see `LOD_BLANKED_BODY_STYLE`).
-                className={`${labelType} !leading-tight text-text-body truncate`}
+                className={`${lodMetricIsValue ? typography.viewValue : labelType} !leading-tight text-text-body truncate`}
               >
                 {lodBodyLine}
               </span>

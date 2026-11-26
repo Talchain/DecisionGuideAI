@@ -86,27 +86,37 @@ describe('2. an aim\'s measured bound is drawn once', () => {
     author: { by: 'person', text: 'Stated by the team', title: `Theirs: “${QUOTE}”` }, description: QUOTE, ...extra } as unknown as ViewCard)
   const model = golden('bakery').model!
   const lines = (card: ViewCard) => render(<SimpleFace card={card} model={model} noted={false} />).container
-  it('A1 core\'s description that is the quote in the card\'s own author.title is not drawn under the measured bound; the pill stays; the quote stays on the author hover', () => {
+  it('A1 keeps the measured bound visible and the person’s quote in hover', async () => {
     const c = lines(aim({}))
-    expect([c.querySelector('.ok-pill.ok-bound')?.textContent, c.querySelector('[data-simple-description]')]).toEqual(['at least 100 tickets/week', null])
-    expect((aim({}).author as { title: string }).title).toContain(QUOTE)
+    expect(c.querySelector('.ok-pill.ok-bound')?.textContent).toBe('at least 100 tickets/week')
+    expect(c.textContent).not.toContain(QUOTE)
+    expect(await tipOf(c.querySelector<HTMLElement>('[data-simple-description]')!)).toContain(QUOTE)
+    expect(await tipOf(c.querySelector<HTMLElement>('[data-simple-author]')!)).toContain(QUOTE)
   })
-  // CHANGED BY DESIGN (investor audit #5, 20 Nov): the quote is no line on ANY card, measured bound or not; only a description core did not quote is drawn.
-  it('A2 CONTRAST: a description core did not quote (not in author.title) is still drawn; the quote on an unmeasured bound is not, as on any card', () => {
-    const other = lines(aim({ description: 'by the end of the second quarter' }))
-    expect(other.querySelector('[data-simple-description]')?.textContent).toBe('by the end of the second quarter')
+
+  it('A2 keeps descriptions in hover with either bound state', async () => {
+    const description = 'by the end of the second quarter'
+    const measured = lines(aim({ description }))
+    expect(measured.textContent).not.toContain(description)
+    expect(await tipOf(measured.querySelector<HTMLElement>('[data-simple-description]')!)).toContain(description)
     cleanup()
     const unmeasured = lines(aim({ bound: { text: 'not checked yet', title: 'not checked yet', olumi: null, measured: false } }))
-    expect(unmeasured.querySelector('[data-simple-description]')).toBeNull()
+    expect(unmeasured.textContent).not.toContain(QUOTE)
+    expect(await tipOf(unmeasured.querySelector<HTMLElement>('[data-simple-description]')!)).toContain(QUOTE)
   })
-  it('A3 (investor audit #5) a figure card whose description is the person\'s quote in its author.title draws no description line; Olumi\'s own description (not quoted) is drawn', () => {
+
+  it('A3 keeps figure descriptions in hover regardless of authorship', async () => {
     const fig = (author: { by: string; text: string; title: string }, description: string) => ({ id: 'f', family: 'quantity', heading: 'Experienced receptionist calls a day', glyph: '*',
       figure: { text: '', title: '', state: null }, status: null, rows: [], premises: [], author, description } as unknown as ViewCard)
     const said = 'Should we hire one experienced receptionist, who handles 35 to 45 calls a day?'
-    expect(lines(fig({ by: 'person', text: 'Yours', title: `You said: \u201c${said}\u201d` }, said)).querySelector('[data-simple-description]')).toBeNull()
+    const theirs = lines(fig({ by: 'person', text: 'Yours', title: `You said: “${said}”` }, said))
+    expect(theirs.textContent).not.toContain(said)
+    expect(await tipOf(theirs.querySelector<HTMLElement>('[data-simple-description]')!)).toBe(said)
     cleanup()
     const note = 'Zero while carrying on; routes set it.'
-    expect(lines(fig({ by: 'olumi', text: 'Proposed by Olumi', title: `Proposed by Olumi: ${note}` }, note)).querySelector('[data-simple-description]')?.textContent).toBe(note)
+    const olumis = lines(fig({ by: 'olumi', text: 'Proposed by Olumi', title: `Proposed by Olumi: ${note}` }, note))
+    expect(olumis.textContent).not.toContain(note)
+    expect(await tipOf(olumis.querySelector<HTMLElement>('[data-simple-description]')!)).toBe(note)
   })
 })
 

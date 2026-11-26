@@ -1,3 +1,4 @@
+import { tipOf } from '../../../__tests__/tipHelpers'
 import { readFileSync } from 'node:fs'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { cleanup, render } from '@testing-library/react'
@@ -79,22 +80,31 @@ describe.each(['simple', 'working'] as const)('%s option face', (level) => {
     expect(face.textContent).not.toContain(crossing.line)
   })
 
-  it('leaves the Run’s withheld explanation out of the face and keeps the row’s own words', () => {
+  it('leaves the Run’s withheld explanation out of the face and keeps the row’s own words', async () => {
     const { view, run, card } = pricing()
     withhold(card)
     setSilences(run, silence({ option: OPTION }))
     const face = draw(view, level)
-    expect(face.textContent).toContain(WITHHELD)
+    if (level === 'simple') {
+      expect(face.textContent).not.toContain(WITHHELD)
+      expect(await tipOf(face.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).toContain(WITHHELD)
+    } else {
+      expect(face.textContent).toContain(WITHHELD)
+    }
     expect(face.textContent).not.toContain(SILENT_LINE)
     expect(face.querySelector(SCIENCE)).toBeNull()
   })
 
-  it('keeps the withheld row’s own break-even detail', () => {
+  it('keeps the withheld row’s own break-even detail', async () => {
     const { view, card, crossing } = pricing()
     withhold(card, { tips_face: TIPS_FACE, tips: TIPS })
     const face = draw(view, level)
-    const tips = level === 'simple' ? '[data-simple-face="tips"]' : `[data-row-below="tips"][data-view="${OPTION}.rows.0.tips"]`
-    expect(face.querySelector(tips)?.textContent).toContain(level === 'simple' ? TIPS_FACE : TIPS)
+    if (level === 'simple') {
+      expect(face.textContent).not.toContain(TIPS_FACE)
+      expect(await tipOf(face.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).toContain(TIPS)
+    } else {
+      expect(face.querySelector('[data-row-below="tips"][data-view="' + OPTION + '.rows.0.tips"]')?.textContent).toContain(TIPS)
+    }
     expect(face.textContent).not.toContain(crossing.line)
   })
 })

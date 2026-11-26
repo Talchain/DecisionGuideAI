@@ -165,9 +165,7 @@ describe('V12 Simple faces', () => {
     expect(container.querySelector('[data-simple-face="no-chance"]')).toBeNull()
   })
 
-  // CHANGED BY DESIGN (the lead's D2, 17 Nov: one quiet line, whole on hover; 18 Nov: an option's condition wraps to two lines, never hidden): the qualifier is the quiet line, its whole
-  // words the hover; was: the number and the qualifier wrapped whole under the track.
-  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words first, the qualifier the one quiet line, the whole words its hover', async () => {
+  it('S2b keeps the chance lead on the face and moves the whole qualifier to hover', async () => {
     const long = 'about 31% chance, on Olumi\'s assumption for \'Weeks until the second venue opens if nothing else changes\''
     const base = card('broader_entry'), h = base.headline!
     const c = { ...base, rows: base.rows.map((r) => (r.kind === 'chance' && (r as { aim_id?: string | null }).aim_id === h.aim_id ? { ...r, value: long } : r)) } as typeof base
@@ -175,8 +173,10 @@ describe('V12 Simple faces', () => {
     const { container } = render(<SimpleFace card={c} model={model} noted={false} />)
     const words = container.querySelector<HTMLElement>('[data-simple-chance="broader_entry"]')!
     const qual = container.querySelector<HTMLElement>('[data-simple-qual="broader_entry"]')!
-    expect([words.textContent, qual.textContent, qual.classList.contains('ok-two-lines')], 'core\'s words, every one, in order').toEqual([chanceParts(long).head, chanceParts(long).qualifier, true])
-    expect((await tipOf(qual)).split('\n')[0], 'the whole words are the hover').toBe(long)
+    const parts = chanceParts(long)
+    expect(words.textContent).toBe(parts.head)
+    expect(container.textContent).not.toContain(parts.qualifier)
+    expect((await tipOf(qual)).split('\n').slice(0, 2)).toEqual([parts.head, parts.qualifier])
     expect(words.className, 'the number\'s words wrap whole').not.toContain('line-clamp')
     expect(words.className).toContain('break-words')
     expect(words.className).toContain('min-w-0')
@@ -200,8 +200,9 @@ describe('V12 Simple faces', () => {
     const withheld = { ...base, headline: { ...base.headline!, state: 'none' as const, text: 'No chance yet', why, title: why, range: null, add } }
     const { container } = render(<SimpleFace card={withheld} model={model} noted={false} />)
     const face = container.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
-    expect(face.textContent, 'what is missing: core\'s next step').toBe(add)
-    expect(await tipOf(face), 'the long reason whole on hover, then the next step').toBe(`${why}\n${add}`)
+    expect(face.textContent).toBe('')
+    expect(face.querySelector('[data-face-mark="chance"]')).not.toBeNull()
+    expect((await tipOf(face)).split('\n').slice(0, 3)).toEqual([add, why, add])
     expect(container.querySelector('summary'), 'no "Why not"').toBeNull()
     expect(container.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), 'no dashed empty track at rest').toBeNull()
     expect(container.textContent, 'no "?" and no figure drawn for what is unknown').not.toMatch(/\?|0%/)
@@ -209,8 +210,8 @@ describe('V12 Simple faces', () => {
     // CONTRAST: core sends no next step: its headline\'s own text.
     const bare = { ...withheld, headline: { ...withheld.headline, add: null } }
     const b = render(<SimpleFace card={bare} model={model} noted={false} />).container
-    expect(b.querySelector('[data-simple-face="no-chance"]')!.textContent).toBe('No chance yet')
-    expect(await tipOf(b.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).toBe(why)
+    expect(b.querySelector('[data-simple-face="no-chance"]')!.textContent).toBe('')
+    expect((await tipOf(b.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).split('\n').slice(0, 2)).toEqual(['No chance yet', why])
   })
 
   it('S4 a figure with a modelled band is one range bar per option on one axis, inside 0 to 100', () => {
@@ -243,13 +244,10 @@ describe('V12 Simple faces', () => {
     expect(bandAxisOf(near, model)!.min).toBe('0')
   })
 
-  it('S4c (v10 review item 3) a card with no sized figure may take two lines for its basis line; a card with a figure or gauge keeps one', () => {
+  it('S4c an unsized figure uses an empty track', () => {
     const q = face('profitability').container.querySelector<HTMLElement>('[data-simple-face="no-figure"]')!
-    expect([q.classList.contains('ok-two-lines'), q.classList.contains('ok-one-line')]).toEqual([true, false])
-    const g = face('broader_entry').container.querySelector<HTMLElement>('[data-simple-qual="broader_entry"]')
-    // CHANGED BY DESIGN (18 Nov): an OPTION card's quiet line is the condition its chance rests on, so it never hides one: two lines, figure or not. A non-option card
-    // with a figure (cards.spec P-rows, spend) keeps one.
-    if (g !== null) expect([g.classList.contains('ok-two-lines'), g.classList.contains('ok-one-line')]).toEqual([true, false])
+    expect(q.querySelector('[data-face-mark="track"]')).not.toBeNull()
+    expect(q.textContent).toBe('')
   })
 
   it('S5 a stated figure shows core\'s words on one line; a figure with no value is a dashed empty bar', () => {
@@ -260,12 +258,13 @@ describe('V12 Simple faces', () => {
     expect(empty.querySelector('[data-simple-face="figure"]')).toBeNull()
   })
 
-  it('S6 a withheld chance shows its reason with no dots or bar', async () => {
+  it('S6 a withheld chance puts its reason in hover and uses an empty outline', async () => {
     const opt = card('broader_entry')
     const built = { ...opt, headline: { ...opt.headline!, state: 'none' as const, why: 'A figure is missing' }, rows: [] }
     const { container } = render(<SimpleFace card={built as never} model={model} noted={false} />)
     const f = container.querySelector('[data-simple-face="no-chance"]')!
-    expect(await tipOf(f as HTMLElement)).toBe('A figure is missing')
+    expect(await tipOf(f as HTMLElement)).toContain('A figure is missing')
+    expect(f.querySelector('[data-face-mark="chance"]')).not.toBeNull()
     expect(container.querySelector('[data-chance-dots], .ok-track')).toBeNull()
   })
 

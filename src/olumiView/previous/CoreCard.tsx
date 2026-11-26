@@ -20,7 +20,7 @@ import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from '../../canvas/nodes/BaseNode'
 import { NODE_REGISTRY, type NodeType } from '../../canvas/domain/nodes'
 import { typography } from '../../styles/typography'
-import type { ViewCard } from '../client'
+import type { ViewCard, ViewModel } from '../client'
 import { barCardOf, CARD_WIDTH, chatQuestionsOf, drawKindOf, QUESTION, readingOf } from '../layout'
 import { useViewStore } from '../store'
 import { useDriverOf, usePreMortemOf, useRestsOnItem, useTriedOn, useTryOn } from '../lens'
@@ -41,7 +41,7 @@ import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
-import { SimpleFace } from '../v12/SimpleFace'
+import { FaceMark, SimpleFace, noResultWords, sharedResultWords, waitingFigureWords } from '../v12/SimpleFace'
 import { GoalMeasureLine, waitingMeasureQuestion } from '../v12/cards/GoalMeasureLine'
 import { CardDisputeMark, CardSplit, usePeopleOnCard } from '../../olumiCore/team/CardDispute'
 import { CommittedMark } from '../v12/team/CommittedMark'
@@ -57,7 +57,7 @@ import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark, whoseOf } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
-import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
+import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, sharedNoChanceOf, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
 import { fixedParts } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
@@ -103,7 +103,7 @@ export function coreHoverValueOf(card: ViewCard): { text: string; source: string
   return state === '' ? null : { text: state, source: null }
 }
 
-/** The one line beneath the name when zoomed out, and the body's lead line: core's own words for this card, the first it sends of these. */
+/** The body's lead line: core's own words for this card, the first it sends of these. */
 export function leadLineOf(card: ViewCard): string | null {
   if (card.family === 'option') {
     // RULING 7: the chance of meeting the goal, core's words. Where core withholds it, core's own first line saying so, never a blank and
@@ -122,12 +122,56 @@ export function leadLineOf(card: ViewCard): string | null {
   return card.face?.line?.text ?? null
 }
 
-/** The one line beneath the name on the zoomed-out face: the lead line, or for a figure worked out per option core's own line of them all
- *  (the reduced face shows less of it, and the notice says so). */
+/** The zoomed-out face keeps chance and worked-out limit values. */
 export function farLineOf(card: ViewCard): string | null {
-  const chance = farChanceOf(card)
-  if (chance !== null) return chance
-  return leadLineOf(card) ?? (card.figure !== null && card.figure.text !== '' ? card.figure.text : null)
+  if (card.family !== 'option') return null
+  if (card.headline?.state === 'chance') return farChanceOf(card) ?? card.headline.text
+  return limitLeadOf(card)?.value ?? null
+}
+
+function farFaceOf(card: ViewCard, model: ViewModel | null) {
+  const headline = card.headline
+  const shared = card.family === 'option' ? null : sharedNoChanceOf(model, card.id, 'typed')
+  const description = cardTitle(card).description
+  const limit = card.family === 'option' ? limitLeadOf(card) : null
+  const previousLine = leadLineOf(card) ?? card.figure?.text
+  let words: (string | null | undefined)[] = [previousLine]
+  let mark: JSX.Element | null = null
+
+  if (card.family === 'option' && headline?.state === 'chance') {
+    const { head, qualifier } = chanceParts(headline.text)
+    words = [head, qualifier, headline.title]
+  } else if (card.family === 'option' && headline?.state === 'none') {
+    if (sharedNoChanceOf(model, headline.aim_id, 'typed') === null) {
+      if (limit === null) {
+        mark = <FaceMark kind="chance" />
+        words = [noResultWords(card)]
+      } else {
+        const aim = model?.cards.find((c) => c.id === limit.aim_id)
+        words = [aim?.heading, limit.value, limit.title, noResultWords(card)]
+      }
+    } else {
+      words = []
+    }
+  } else if (shared !== null) {
+    mark = <FaceMark kind="chance" />
+    words = [sharedResultWords(shared), previousLine, card.bound?.title]
+  } else if (card.bound?.measured === false) {
+    mark = <FaceMark kind="bound" />
+    words = [card.bound.text, card.bound.title]
+  } else if (card.figure?.state === 'waits') {
+    mark = <FaceMark kind="track" />
+    words = [waitingFigureWords(card)]
+  } else {
+    const gap = unsizedWords(card)
+    if (gap !== null) {
+      mark = <FaceMark kind="track" />
+      words = [gap, previousLine]
+    } else {
+      words.push(headline?.title, card.bound?.title, card.figure?.title)
+    }
+  }
+  return { mark, isLimit: limit !== null, words: [...words, description].filter(Boolean).join('\n') }
 }
 
 /**
@@ -143,9 +187,9 @@ export function farChanceOf(card: ViewCard): string | null {
 }
 
 /** The far face's Olumi mark for a chance resting on Olumi's assumption (DL-424): core's own glyph for Olumi's figure it rests on (that card's
- *  `olumi.glyph`), titled with core's full sentence for the chance. Null where the line is whole or nothing of Olumi's is rested on. */
+ *  `olumi.glyph`), titled with core's full sentence for the chance. */
 export function farMarkOf(card: ViewCard, cards: readonly ViewCard[]): { glyph: string; title: string } | null {
-  if (farChanceOf(card) === null || card.headline == null) return null
+  if (card.family !== 'option' || card.headline?.state !== 'chance') return null
   const glyph = (card.rests_on ?? []).filter((r) => r.whose === 'olumi').map((r) => cards.find((c) => c.id === r.id)?.olumi?.glyph).find((g) => g != null && g !== '')
   return glyph === undefined ? null : { glyph, title: card.headline.title }
 }
@@ -240,7 +284,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // Simple uses the compact frame. The board question keeps its quick actions beside its body.
   const data = useMemo(() => (hosted ? { ...props.data, label, kind, type: kind, core: true, coreValue, coreAbout, ...(card !== null && isOlumiCoreLane() ? { peek: true } : {}), glyphKind: dsKind, glyphDashed: isAssumptionShape(shape?.shape), ...(simple ? { compact: true } : {}), ...(id === QUESTION ? { railInset: true } : {}) } : props.data), [hosted, props.data, label, kind, coreValue?.text, coreValue?.source, coreAbout?.join('\n'), simple, id, dsKind, shape?.shape, card === null])
   const lead = card === null ? null : leadLineOf(card)
-  const farMark = card === null ? null : farMarkOf(card, model?.cards ?? [])
+  const farFace = card !== null && olumiLook ? farFaceOf(card, model) : null
+  const farMark = card === null || (farFace === null && farChanceOf(card) === null) ? null : farMarkOf(card, model?.cards ?? [])
   const olumi = card?.author?.by === 'olumi'
   // The frame says three things, each on its own channel, as the retired cards did: dashes only where core doubts it; Olumi's blue where
   // Olumi proposes it (the card, or the question); core's orange where it is challenged (RULING 6's link rule, on the card).
@@ -481,8 +526,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
         '--ok-letter': letter === null ? undefined : `"${letter}"`,
         '--ok-slot': hosted && width !== undefined ? `${width}px` : undefined,
       } as CSSProperties}>
-    <BaseNode {...props} data={data} olumiLook={olumiLook} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farLineOf(card)} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
-      lodMark={farMark === null ? restsFar : <>{restsFar}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} ok-card-far-mark text-info shrink-0`} /></>}
+    <BaseNode {...props} data={data} olumiLook={olumiLook} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farFace === null ? farChanceOf(card) ?? lead ?? (card.figure?.text || null) : farLineOf(card)} lodWords={farFace?.words} lodMetricIsValue={farFace?.isLimit} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
+      lodMark={farFace?.mark == null && farMark === null ? restsFar : <>{restsFar}{farFace?.mark}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} ok-card-far-mark text-info shrink-0`} /></>}
       titleOverride={titleOverride} borderClassOverride={frame}>
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its

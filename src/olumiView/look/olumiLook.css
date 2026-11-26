@@ -404,6 +404,28 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .ok-simple-goal-tick { left: var(--chart-x); border-color: var(--goal); }
 .ok-simple-band { left: var(--chart-x); width: var(--chart-width); background: color-mix(in srgb, var(--text-header) 75%, transparent); }
 .ok-simple-band-olumi { background: color-mix(in srgb, var(--semantic-info) 75%, transparent); }
+.ok-face-mark {
+  display: block;
+  box-sizing: border-box;
+  border: 1px dashed var(--border-field);
+  background: transparent;
+}
+.ok-far-face > .ok-face-mark { max-height: 100%; }
+.ok-face-mark-chance {
+  width: calc(10 * var(--space-3) + 9 * var(--space-1));
+  height: var(--space-3);
+  border-radius: var(--space-3);
+}
+.ok-face-mark-track {
+  width: 100%;
+  height: var(--space-4);
+  border-radius: calc(var(--radius-control) / 2);
+}
+.ok-face-mark-bound {
+  width: var(--space-8);
+  height: var(--space-5);
+  border-radius: var(--space-5);
+}
 .ok-simple-track { background: var(--border-default); }
 .ok-simple-mid { left: var(--chart-x); }
 .olumi-look .ok-tone-info { color: var(--semantic-info); }

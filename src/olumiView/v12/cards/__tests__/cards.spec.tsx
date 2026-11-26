@@ -23,7 +23,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { CoreCard } from '../../../previous/CoreCard'
 import { useReasoningFocus } from '../../../reasoning/focusRequest'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
-import { bandRowsOf, chanceWordsOf, optionLetterOf, QUIET_BASIS, SimpleFace } from '../../SimpleFace'
+import { bandRowsOf, optionLetterOf, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
 import { TIP_DELAY } from '../../../look/Tip'
@@ -134,16 +134,28 @@ describe.each(['SimpleFace', 'Detailed ViewCard'] as const)('%s goal measure lin
     }
   })
 
-  it('(c) keeps the unmeasured bound wording when there is no measure question', () => {
+  it('(c) keeps the unmeasured bound wording available when there is no measure question', () => {
     const card = drawGoal(unmeasured, true, [])
     expect(card.queryByText(label)).toBeNull()
-    expect(card.getByText(bound.text)).toBeVisible()
+    if (face === 'SimpleFace') {
+      const mark = card.getByText('', { selector: '[data-face-mark="bound"]' })
+      expect(card.queryByText(bound.text)).toBeNull()
+      expect(hover(mark.parentElement!)).toBe([bound.text, bound.title].join('\n'))
+    } else {
+      expect(card.getByText(bound.text)).toBeVisible()
+    }
   })
 
-  it('(d) keeps the in-words bound wording even with a stale measure question', () => {
+  it('(d) keeps the in-words bound wording available even with a stale measure question', () => {
     const card = drawGoal(unmeasured, false)
     expect(card.queryByText(label)).toBeNull()
-    expect(card.getByText(bound.text)).toBeVisible()
+    if (face === 'SimpleFace') {
+      const mark = card.getByText('', { selector: '[data-face-mark="bound"]' })
+      expect(card.queryByText(bound.text)).toBeNull()
+      expect(hover(mark.parentElement!)).toBe([bound.text, bound.title].join('\n'))
+    } else {
+      expect(card.getByText(bound.text)).toBeVisible()
+    }
   })
 
   it('(e) omits the label when measured is absent or the bound is null', () => {
@@ -322,18 +334,19 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
     expect(face.textContent, 'unknown is never drawn as zero').not.toMatch(/\?|0%/)
   })
 
-  it('W2 Simple: the same one line on the compact face; the reason whole on hover with core\'s next step; never the bare state words', () => {
+  it('W2 Simple: an empty outline with the reason and next step in hover', () => {
     const face = draw(ASKED, o.id, 'simple').querySelector<HTMLElement>('[data-simple-face="no-chance"]')!
-    expect(face.textContent).toBe(h.add)
-    expect(hover(face)).toBe(`${h.why}\n${h.add}`)
+    expect(face.textContent).toBe('')
+    expect(face.querySelector('[data-face-mark="chance"]')).not.toBeNull()
+    expect(hover(face)).toContain(`${h.why}\n${h.add}`)
     expect(face.querySelector(gone)).toBeNull()
     expect(face.textContent).not.toContain(h.text)
   })
 
-  it('W3 CONTRAST: where core sends no next step its headline\'s own words are the line, and no reason is made up; a chance draws none of this', () => {
+  it('W3 without a next step, the hover keeps Core’s headline words', () => {
     const bare = { ...o, headline: { ...h, why: null, title: '', add: null } } as ViewCard
     const face = render(<SimpleFace card={bare} model={ASKED.model} noted={false} />).container
-    expect([face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent, hover(face.querySelector<HTMLElement>(`[data-simple-state="${o.id}"]`)!)]).toEqual([h.text, h.text])
+    expect([face.querySelector(`[data-simple-state="${o.id}"]`)?.textContent, hover(face.querySelector<HTMLElement>(`[data-simple-state="${o.id}"]`)!)]).toEqual(['', [h.text, h.text].join('\n')])
     cleanup()
     const chance = cardOf(FACE, 'second_oven')
     expect(chance.headline!.state).toBe('chance')
@@ -343,14 +356,17 @@ describe('an option with no chance says what is missing in one quiet line (R6, 1
 })
 
 describe('a figure with no value yet, and one that waits', () => {
-  // CHANGED BY DESIGN (the lead's ruling, 18 Nov: Paul's "no empty track at rest" covers figures too): Detailed draws core's words alone, as Simple does; the dashed bar is gone.
-  it('U1 an unsized input says core\'s own words for the gap as ONE quiet line at both levels, with no empty bar and no track (R6, 16 Nov), once, the whole words the hover', () => {
+  it('U1 the unsized input uses a track on Simple and keeps the gap in hover', () => {
     const GAP = [[ASKED, 'oven_price', 'not given yet · What would the second oven cost?'], [EU, 'profitability', 'not sized yet · Revenue per customer, margins, operating costs and the accounting treatment of expansion investment were not supplied.']] as const
     for (const [view, id, words] of GAP) {
       expect([cardOf(view, id).figure!.text, cardOf(view, id).figure!.title], 'precondition: no value, and core\'s own words for the gap').toEqual(['', words])
       for (const level of ['working', 'simple'] as const) {
         const el = draw(view, id, level), quiet = el.querySelector<HTMLElement>(`[data-unsized="${id}"]`)!
-        expect([level, el.querySelectorAll(`[data-unsized="${id}"]`).length, el.querySelector('.ok-empty, .ok-unsized, [data-testid$="-empty-bar"]'), quiet.matches('p.ok-quiet'), quiet.textContent, hover(quiet)]).toEqual([level, 1, null, true, words, words]); cleanup()
+        expect(el.querySelectorAll('[data-unsized]').length).toBe(1)
+        expect(quiet.textContent).toBe(level === 'simple' ? '' : words)
+        expect(quiet.querySelector('[data-face-mark="track"]') !== null).toBe(level === 'simple')
+        expect(hover(quiet)).toContain(words)
+        cleanup()
       }
     }
   })
@@ -367,33 +383,32 @@ describe('a figure with no value yet, and one that waits', () => {
     expect(unsizedWords(cardOf(ASKED, 'base_sales'))).toBeNull()
   })
 
-  // CHANGED BY DESIGN (the lead's ruling, 18 Nov: no empty track at rest covers figures too): Detailed draws core's "waits on" words alone; the dashed track is gone.
-  it('U3 pending: a calculated figure that waits on an input is core\'s own "waits on" words, never a headline figure and never over an empty track: Detailed as its status line, Simple as one quiet line, its working closed (R6, D2)', () => {
+  it('U3 pending: a calculated figure that waits on an input is core\'s own "waits on" words, never a headline figure and never over an empty track: Detailed as its status line, Simple as an empty track, its working closed', () => {
     const spend = cardOf(ASKED, 'spend')
     expect([spend.figure!.state, spend.figure!.text], 'precondition: core says it waits, in these words').toEqual(['waits', 'waits on: oven price'])
     const card = draw(ASKED, 'spend'), detailed = card.querySelector<HTMLElement>('[data-core-lead="spend"]')!
     expect([detailed.getAttribute('data-ok-face'), detailed.hasAttribute('data-ok-pending'), card.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), [...detailed.querySelectorAll('.ok-status [data-core-lead-clamp]')].map((e) => e.textContent)])
       .toEqual(['worked', true, null, ['waits on: oven price']])
     expect(detailed.querySelector('.ok-fig')).toBeNull(); cleanup()
-    // CHANGED BY DESIGN (the lead's D2, 17 Nov: worked steps closed at rest; was R7, drawn open in the card's flow): Simple says core's "waits on" words as the
-    // one quiet line, the working is not drawn open, and what it waits on (core's `needs`, fields.ts needsOf) is the line's hover after core's title.
     const el = draw(ASKED, 'spend', 'simple'), simple = el.querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([simple.textContent, (hover(simple) ?? '').split('\n')[0], simple.classList.contains('ok-two-lines')]).toEqual([spend.figure!.text, spend.figure!.title, true])
-    expect((hover(simple) ?? '').split('\n').slice(1), 'what it waits on, by core\'s labels').toEqual(needsOf(spend).needs.map((n) => n.label))
-    expect(el.querySelector('.ok-empty, [data-testid$="-empty-bar"]')).toBeNull()
+    expect(simple.textContent).toBe('')
+    expect(simple.querySelector('[data-face-mark="track"]')).not.toBeNull()
+    expect(hover(simple)).toContain([spend.figure!.text, spend.figure!.title, ...needsOf(spend).needs.map((n) => n.label)].join('\n'))
     expect(el.querySelector('details.ok-steps-inline, [data-simple-below="spend"]'), 'the working is closed at rest').toBeNull()
     cleanup()
     expect(draw(ASKED, 'base_sales', 'simple').querySelector('[data-simple-face="pending"]'), 'CONTRAST: a stated figure').toBeNull()
   })
 
-  it('U3b CONTRAST to U3: a figure that waits and has NO working draws core\'s "waits on" words as ONE quiet line (R6): no empty track, the whole words its hover', () => {
+  it('U3b a figure that waits without working still has the empty track and its hover', () => {
     const spend = cardOf(ASKED, 'spend'), view = withCard(ASKED, { ...spend, worked: null } as unknown as ViewCard)
     const line = draw(view, 'spend', 'simple').querySelector<HTMLElement>('[data-simple-face="pending"]')!
-    expect([line.matches('p.ok-quiet'), line.textContent, hover(line), line.closest('[data-simple-card]')?.querySelector('.ok-empty, [data-testid$="-empty-bar"]')]).toEqual([true, spend.figure!.text, spend.figure!.title, null])
+    expect(line.querySelector('[data-face-mark="track"]')).not.toBeNull()
+    expect(line.textContent).toBe('')
+    expect(hover(line)).toContain([spend.figure!.text, spend.figure!.title].join('\n'))
   })
 })
 
-describe('the qualifier under a chance is its own line, with Olumi\'s mark where the chance rests on Olumi\'s figures', () => {
+describe('chance qualifiers and Olumi’s mark', () => {
   const o = cardOf(EU, 'broader_entry'), row = headlineChanceRow(o)!, parts = chanceParts(row.value)
 
   it('Q1 core\'s chance line splits at core\'s own first clause; a line with no clause is whole; the row is bound by the headline\'s aim', () => {
@@ -404,12 +419,12 @@ describe('the qualifier under a chance is its own line, with Olumi\'s mark where
     expect([row.aim_id, headlineChanceRow(cardOf(ASKED, 'second_oven'))]).toEqual([o.headline!.aim_id, null])
   })
 
-  // CHANGED BY DESIGN (the lead's D2, 17 Nov: one visual, one quiet line): the qualifier is the card's quiet line and Olumi's mark stays beside the number;
-  // was: the qualifier line inside the chance's words, led by the mark.
-  it('Q2 Simple: the number\'s words with Olumi\'s mark beside them (named by core\'s words for it), then the qualifier as the one quiet line; core\'s value words stay whole and in order', () => {
+  it('Q2 Simple keeps Olumi’s mark beside the chance and puts the qualifier in hover', () => {
     const el = draw(EU, o.id, 'simple')
     const words = el.querySelector<HTMLElement>(`[data-simple-chance="${o.id}"]`)!, qual = el.querySelector<HTMLElement>(`[data-simple-qual="${o.id}"]`)!
-    expect([words.textContent, qual.textContent, `${words.textContent}, ${qual.textContent}`]).toEqual([parts.head, parts.qualifier, chanceWordsOf(o)])
+    expect(words.textContent).toBe(parts.head)
+    expect(el.textContent).not.toContain(parts.qualifier)
+    expect(hover(qual)?.split('\n').slice(0, 2)).toEqual([parts.head, parts.qualifier])
     expect(row.olumi, 'precondition: the chance rests on Olumi\'s figures').not.toBeNull()
     expect(words.querySelector('[data-olumi-mark]')?.getAttribute('aria-label')).toBe(row.olumi!.title)
   })
@@ -552,10 +567,10 @@ describe('a calculated figure core could not calculate for an option says so, wi
     expect(el.querySelector('[data-strip="second_oven"] [data-band-from]'), 'CONTRAST: and its band').not.toBeNull()
   })
 
-  it('H2 Simple (R6, quiet): no band for the withheld option; it is named by its letter, then core\'s reason, with no dashed row and no empty track; CONTRAST: the served card draws none', () => {
+  it('H2 Simple: the withheld option keeps its letter and the reason stays in hover', () => {
     expect(bandRowsOf(cardOf(held, 'sales'), held.model).map((b) => b.option)).not.toContain('longer_hours')
     const el = draw(held, 'sales', 'simple'), row = el.querySelector<HTMLElement>('[data-simple-withheld="longer_hours"]')!
-    expect([row.querySelector('[data-letter-chip]')?.textContent, el.querySelector('[data-simple-withheld-why="longer_hours"]')?.textContent, el.querySelector('[data-simple-band="longer_hours"]')]).toEqual(['B', REASON, null])
+    expect([row.querySelector('[data-letter-chip]')?.textContent, el.querySelector('[data-simple-withheld-why="longer_hours"]')?.getAttribute('data-simple-withheld-why'), el.querySelector('[data-simple-band="longer_hours"]')]).toEqual(['B', 'longer_hours', null])
     expect(el.querySelector('.ok-empty, [data-testid$="-empty-bar"]'), 'no dashed empty track').toBeNull()
     expect(hover(row), 'the option and core\'s reason are the letter\'s hover').toContain(REASON)
     cleanup()
@@ -609,18 +624,21 @@ describe('where every option waits for one shared reason, it is said once, on th
   const golden = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', f), 'utf8')) as View
   const APP = golden('app-launch.view.json'), STUDIO = golden('studio.view.json')
   const AIM = 'boss_discussion', OPTIONS = ['option_scheduled', 'option_delay', 'option_isolate']
-  it('N1 the aim card says the options\' shared headline, core\'s own words; each option says nothing', () => {
+  it('N1 the aim’s outline carries the shared headline in hover', () => {
     const shared = cardOf(APP, OPTIONS[0]!).headline!
     expect([APP.model!.run!.all_withheld, shared.state, shared.shared, shared.aim_id]).toEqual([true, 'none', true, AIM])
     expect(sharedNoChanceOf(APP.model!, AIM)?.text).toBe(shared.text)
     const aim = draw(APP, AIM, 'simple').querySelector(`[data-simple-no-chance-once="${AIM}"]`)
-    expect(aim?.textContent, 'the aim card says it').toBe(shared.text)
+    expect(aim?.textContent).toBe('')
+    expect(hover(aim as HTMLElement)).toContain(shared.text)
     for (const id of OPTIONS) { cleanup(); expect(draw(APP, id, 'simple').querySelector(`[data-simple-state="${id}"]`), `${id} does not repeat it`).toBeNull() }
   })
   it('N2 CONTRAST: an option with a step of its own, an aim that is not the headline\'s, and a model where not every option waits keep each option\'s own line', () => {
     const own = withCard(APP, { ...cardOf(APP, OPTIONS[1]!), headline: { ...cardOf(APP, OPTIONS[1]!).headline!, add: 'Add a figure for the delay' } })
     expect(sharedNoChanceOf(own.model!, AIM)).toBeNull()
-    expect(draw(own, OPTIONS[0]!, 'simple').querySelector(`[data-simple-state="${OPTIONS[0]}"]`)?.textContent).toBe(cardOf(APP, OPTIONS[0]!).headline!.text)
+    const mark = draw(own, OPTIONS[0]!, 'simple').querySelector<HTMLElement>('[data-simple-state]')!
+    expect(mark.textContent).toBe('')
+    expect(hover(mark)).toContain(cardOf(APP, OPTIONS[0]!).headline!.text)
     cleanup()
     expect(draw(own, AIM, 'simple').querySelector('[data-simple-no-chance-once]')).toBeNull()
     expect(sharedNoChanceOf(APP.model!, 'protect_user_trust')).toBeNull()
@@ -628,92 +646,38 @@ describe('where every option waits for one shared reason, it is said once, on th
   })
 })
 
-describe('a card\'s own state is the quiet line; core\'s description is the line only where there is no state (Codex root, 1b9)', () => {
-  const golden = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', f), 'utf8')) as View
-  const APP = golden('app-launch.view.json')
+describe('descriptions in the Simple hover', () => {
+  const APP = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8')) as View
   const DESC = 'A short description from core'
-  const described = (v: View, id: string): View => withCard(v, { ...cardOf(v, id), description: DESC } as unknown as ViewCard)
-  const lineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-two-lines')
-  /** v10 review item 3: the two-line basis line, bound by its own class (only P4's card, which has no sized figure). */
-  const twoLineOf = (el: HTMLElement) => el.querySelector<HTMLElement>('.ok-quiet.ok-two-lines')
-  it('P1 a result that waits keeps core\'s "waits on" words as the line with a description sent; the description joins the hover', () => {
-    const spend = cardOf(ASKED, 'spend')
-    expect(spend.figure?.state).toBe('waits')
-    const line = lineOf(draw(described(ASKED, 'spend'), 'spend', 'simple'))!
-    expect([line.textContent, line.hasAttribute('data-simple-pending'), line.hasAttribute('data-simple-description')]).toEqual([spend.figure!.text, true, false])
-    expect((hover(line) ?? '').split('\n').at(-1)).toBe(DESC)
+  const described = (v: View, id: string): View => withCard(v, { ...cardOf(v, id), description: DESC } as ViewCard)
+
+  it('adds the description after the waiting explanation', () => {
+    const el = draw(described(ASKED, 'spend'), 'spend', 'simple')
+    const mark = el.querySelector<HTMLElement>('[data-simple-pending]')!
+    expect(mark.textContent).toBe('')
+    expect(el.textContent).not.toContain(DESC)
+    expect((hover(mark) ?? '').split('\n').at(-1)).toBe(DESC)
   })
-  it('P2 a chance keeps its condition (core\'s qualifier) as the line with a description sent', () => {
-    // The served chance whose words carry a condition (the Q rows' own card); CONTRAST below: a chance with no condition has no state to keep.
-    const o = cardOf(EU, 'broader_entry')
-    const { qualifier } = chanceParts(headlineChanceRow(o)!.value)
-    expect(qualifier, 'the fixture\'s chance has a condition').not.toBeNull()
-    // CHANGED BY DESIGN (18 Nov): an option's condition is never cut to one line, so it is the two-line class here.
-    const line = twoLineOf(draw(described(EU, o.id), o.id, 'simple'))!
-    expect([line.textContent, line.hasAttribute('data-simple-qual')]).toEqual([qualifier, true])
+
+  it('keeps the chance qualifier and description together in hover', () => {
+    const option = cardOf(EU, 'broader_entry')
+    const qualifier = chanceParts(headlineChanceRow(option)!.value).qualifier
+    const el = draw(described(EU, option.id), option.id, 'simple')
+    const line = el.querySelector<HTMLElement>('[data-simple-qual]')!
+    expect(qualifier).not.toBeNull()
+    expect(el.textContent).not.toContain(qualifier)
+    expect(hover(line)).toContain(qualifier)
+    expect(el.textContent).not.toContain(DESC)
     expect(hover(line)).toContain(DESC)
-    cleanup()
-    const plain = cardOf(FACE, 'second_oven')
-    expect(chanceParts(headlineChanceRow(plain)!.value).qualifier, 'CONTRAST: this chance has no condition').toBeNull()
-    expect(draw(described(FACE, plain.id), plain.id, 'simple').querySelector('.ok-quiet')?.hasAttribute('data-simple-description'), 'so its description is its line (an option card: two lines, 18 Nov)').toBe(true)
   })
-  it('P2b the quiet line keeps a least width on its row (DL BUILD 3: never single letters beside the chips); it takes its line rather than shrink', () => {
-    // Bound on the class the browser lays out by: grow from 7rem, never flex-1's zero basis (which let "no" narrow to one letter a line at 1232).
-    const line = lineOf(draw(described(ASKED, 'spend'), 'spend', 'simple'))!
-    expect([line.classList.contains(QUIET_BASIS), line.classList.contains('flex-1'), QUIET_BASIS]).toEqual([true, false, 'flex-[1_1_7rem]'])
-    expect(line.parentElement!.classList.contains('flex-wrap'), 'its row wraps, so the chips drop below').toBe(true)
-  })
-  it('P3 the shared no-chance line stays on the aim card with a description sent, and the options stay silent', () => {
-    const v = described(APP, 'boss_discussion')
-    const line = lineOf(draw(v, 'boss_discussion', 'simple'))!
-    expect([line.textContent, line.hasAttribute('data-simple-no-chance-once')]).toEqual([cardOf(APP, 'option_scheduled').headline!.text, true])
-  })
-  it('P5 (audit canvas-goal-said-three-times) a description that is, string for string, the card\'s heading, figure or bound is no line; any other wording is kept (identity, not fuzzy)', () => {
-    const id = 'option_scheduled' // no state of its own, so its description would be its line (P4)
-    const withDesc = (text: string) => lineOf(draw(withCard(APP, { ...cardOf(APP, id), description: text } as unknown as ViewCard), id, 'simple')) ?? twoLineOf(document.body)
-    expect(withDesc(cardOf(APP, id).heading), 'the heading said again').toBeNull()
-    cleanup()
-    expect(withDesc(`${cardOf(APP, id).heading} `), 'the same string with a trailing space').toBeNull()
-    cleanup()
-    expect(withDesc(`${cardOf(APP, id).heading} again`)?.textContent, 'CONTRAST: another wording is kept').toBe(`${cardOf(APP, id).heading} again`)
-    cleanup()
-    const goal = CAPACITY.model!.cards.find((c) => c.bound != null && c.bound.text !== '')!
-    const body = (text: string) => { const el = draw(withCard(CAPACITY, { ...goal, description: text } as unknown as ViewCard), goal.id, 'simple'); return [el.querySelector('[data-simple-description]'), el.querySelector('[data-simple-face="target"]')?.textContent] as const }
-    expect(body('at least 100 tickets a week')[0]?.textContent, 'CONTRAST: core\'s own quote of the brief, in other words, is kept').toBe('at least 100 tickets a week')
-    cleanup()
-    const [, shown] = body('x')
-    cleanup()
-    expect(body(shown!)[0], 'the bound said again').toBeNull()
-  })
-  it('P6 (Paul 19 Nov, "12 weeks" over "12") a description that is a bare number equal to the card\'s typed figure value is no line; another number, a range\'s other value or words are kept', () => {
+
+  it('adds the description to the card hover when the option has no state of its own', () => {
     const id = 'option_scheduled'
-    const base = cardOf(APP, id)
-    const line = (description: string, range: { low: number; likely: number | null; high: number; unit: string } | null) =>
-      lineOf(draw(withCard(APP, { ...base, description, figure: { text: '12 weeks', title: '', edit: null, ...(range === null ? {} : { range }) } } as unknown as ViewCard), id, 'simple')) ?? twoLineOf(document.body)
-    const point = { low: 12, likely: 12, high: 12, unit: 'weeks' }
-    expect(line('12', point), 'the figure\'s own number said again').toBeNull()
-    cleanup()
-    expect(line('12', { low: 12, likely: null, high: 12, unit: 'weeks' }), 'low equals high').toBeNull()
-    cleanup()
-    expect(line('about 12 a week', point)?.textContent, 'CONTRAST: words are kept').toBe('about 12 a week')
-    cleanup()
-    expect(line('13', point)?.textContent, 'CONTRAST: another number is kept').toBe('13')
-    cleanup()
-    expect(line('12', { low: 10, likely: null, high: 14, unit: 'weeks' })?.textContent, 'CONTRAST: a range with no likely value is not one number').toBe('12')
-  })
-  it('P5 (S4 details task 4) a card\'s quiet line wraps to two lines, never one cut with an ellipsis: no card draws ok-one-line; CONTRAST: the line is still there, whole in its hover', () => {
-    const spend = cardOf(ASKED, 'spend')
-    const line = lineOf(draw(ASKED, 'spend', 'simple'))!
-    expect([line.classList.contains('ok-one-line'), (hover(line) ?? '').split('\n')[0]]).toEqual([false, spend.figure!.title])
-  })
-  it('P4 CONTRAST: a card with no state to say draws core\'s description as its line; with neither, no line', () => {
-    const id = 'option_scheduled' // silent under the shared no-chance rule: no state of its own
-    const line = twoLineOf(draw(described(APP, id), id, 'simple'))!
-    expect([line.textContent, line.hasAttribute('data-simple-description'), hover(line)]).toEqual([DESC, true, DESC])
-    // CHANGED BY DESIGN (v10 review item 3): a card with no sized figure may take two lines for this basis line, so its last words are not cut.
-    expect([line.classList.contains('ok-two-lines'), line.classList.contains('ok-one-line')]).toEqual([true, false])
-    cleanup()
-    expect([lineOf(draw(APP, id, 'simple')), twoLineOf(document.body)]).toEqual([null, null])
+    const el = draw(described(APP, id), id, 'simple')
+    const anchor = el.querySelector<HTMLElement>('[data-simple-description]')!
+    expect(el.textContent).not.toContain(DESC)
+    expect(hover(anchor)).toContain(DESC)
+    expect(el.querySelector('[data-simple-state]')).toBeNull()
   })
 })
 

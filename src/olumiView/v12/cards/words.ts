@@ -66,13 +66,13 @@ export function tipsLineOf(card: ViewCard, h: Headline): { face: string; label: 
 /**
  * The reason every option shares, said ONCE on the aim card (DL, 17 Nov): where every option waits (`run.all_withheld`), the options that head aim
  * `aimId` with no chance, core's shared headline (`headline.shared`) and no step of their own (`headline.add`) say nothing each; the aim card says
- * their headline. Null unless every such option's words agree, so one line never speaks for options that differ. Read by field, never by words.
+ * their headline. The Detailed face also retains its legacy check that the shared sentences agree.
  */
-export function sharedNoChanceOf(model: ViewModel | null, aimId: string | null | undefined): Headline | null {
+export function sharedNoChanceOf(model: ViewModel | null, aimId: string | null | undefined, mode: 'typed' | 'legacy' = 'legacy'): Headline | null {
   if (model === null || aimId == null || model.run?.all_withheld !== true || !model.cards.some((c) => c.id === aimId)) return null
   const heads = model.cards.flatMap((c) => (c.family === 'option' && c.headline != null && c.headline.aim_id === aimId ? [c.headline] : []))
   const shared = heads.filter((h) => h.state === 'none' && h.shared === true && (h.add ?? '') === '')
-  return shared.length > 0 && shared.length === heads.length && shared.every((h) => h.text === shared[0]!.text) ? shared[0]! : null
+  return shared.length > 0 && shared.length === heads.length && (mode === 'typed' || shared.every((h) => h.text === shared[0]!.text)) ? shared[0]! : null
 }
 
 /**

@@ -7,7 +7,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
@@ -18,7 +18,7 @@ import { useMe } from '../../olumiCore/me'
 import { useViewLens } from '../lens'
 import { restsOnOf } from '../layout'
 import { useCanvasStore } from '../../canvas/store'
-import { CoreCard, farLineOf } from '../previous/CoreCard'
+import { CoreCard } from '../previous/CoreCard'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { viewOf } from '../port/__tests__/viewAt'
 
@@ -50,18 +50,16 @@ describe('G3: the Rests on number at every zoom', () => {
   const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   const restsCard = (m: NonNullable<View['model']>) => {
-    // A card the lens marks that has a far line (the zoomed-out face blanks the body only where one stands in for it).
-    const { items } = restsOnOf(m)
-    return [...items.entries()].find(([id]) => { const c = m.cards.find((x) => x.id === id); return c !== undefined && farLineOf(c) !== null })!
+    return [...restsOnOf(m).items.entries()][0]!
   }
-  it('with the Rests on lens on, at the far rung, the number is drawn in the far line (which stays visible), beside core\'s line (A6 journey, served)', () => {
+  it('keeps the Rests on number visible at far zoom without restoring the old sentence', () => {
     const view = viewOf('core/ui9-a6-since-v3'), m = view.model!, [id, item] = restsCard(m)
     ready(view); useViewLens.setState({ lens: 'rests_on' }); useCanvasStore.setState({ lodRung: 'line' } as never)
     render(<ReactFlowProvider><Node {...props(id, m.cards.find((c) => c.id === id))} /></ReactFlowProvider>)
     const line = screen.getByTestId('node-lod-line'), far = line.querySelector<HTMLElement>('[data-rests-on-far]')!
     expect([far.getAttribute('data-rests-on'), far.textContent]).toEqual([String(item.n), String(item.n)])
     expect(line.style.visibility).toBe('visible')
-    expect(within(line).getByTestId('node-lod-line-text').textContent).toBe(farLineOf(m.cards.find((c) => c.id === id)!))
+    expect(line.querySelector('[data-testid="node-lod-line-text"]')).toBeNull()
     // The body's own number is inside the blanked body (hidden with it); the far one is the one that shows.
     expect(document.querySelector('[data-lod-hidden]')!.contains(far)).toBe(true)
   })

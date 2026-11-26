@@ -1,3 +1,4 @@
+import { tipOf } from '../../../__tests__/tipHelpers'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -69,17 +70,18 @@ afterEach(() => {
 })
 
 describe('Simple receiving face', () => {
-  it('S1 shows the bound before the measure question and opens the folded bar’s details', () => {
+  it('S1 shows the empty bound mark before the measure question and opens the folded bar’s details', () => {
     const model = modelOf(true)
     const drawn = board(model, 'simple')
     const face = within(drawSimple(model).querySelector<HTMLElement>('[data-simple-bound-state]')!)
-    const words = face.getByText(bound.text)
+    const mark = face.getByText('', { selector: '[data-face-mark="bound"]' })
+    expect(face.queryByText(bound.text)).not.toBeInTheDocument()
     const line = face.getByRole('button', { name: label })
-    expect(words).toBeVisible()
+    expect(mark).toBeVisible()
     expect(line).toBeVisible()
-    expect(words.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(mark.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const edit = face.getByTestId(opener)
-    expect(edit).toContainElement(words)
+    expect(edit).toHaveAccessibleName('Change figure')
     fireEvent.click(edit)
     expect(detailsOf(useLaneInspector.getState())).toMatchObject({ kind: 'card', id: BAR })
     expect(drawn.model.cards.map((c) => c.id)).not.toContain(BAR)
@@ -94,11 +96,13 @@ describe('Simple receiving face', () => {
     expect(drawn.model.cards.map((c) => c.id)).toContain(BAR)
   })
 
-  it('S3 shows the bound as plain words when edit_base is null', () => {
+  it('S3 keeps the bound hover when edit_base is null', async () => {
     const model = { ...modelOf(true), edit_base: null }
     board(model, 'simple')
     const face = within(drawSimple(model).querySelector<HTMLElement>('[data-simple-bound-state]')!)
-    expect(face.getByText(bound.text)).toBeVisible()
+    expect(face.queryByText(bound.text)).not.toBeInTheDocument()
+    const mark = face.getByText('', { selector: '[data-face-mark="bound"]' })
+    expect(await tipOf(mark.parentElement!)).toBe([bound.text, bound.title].join('\n'))
     expect(face.queryByTestId(opener)).not.toBeInTheDocument()
   })
 
