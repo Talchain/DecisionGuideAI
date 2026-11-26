@@ -37,7 +37,7 @@ Until the field lands, a row marked **interim** draws from the typed field named
 
 | ID | Card and state | Selected by (typed) | Mark at rest | Chip | Status |
 |---|---|---|---|---|---|
-| FACE-chance | option with a chance | `headline.state === 'chance'` | CH-chance glance | the chance value (`face.chip.text`) | built; until the chip lands the face splits Core's headline with `chanceParts` and draws its qualifier at rest (breach F5, retired by the chip) |
+| FACE-chance | option with a chance | `headline.state === 'chance'` | CH-chance glance | the chance value (`face.chip.text`) | interim: the face splits the chance row's `value` with `chanceParts` (falling back to `headline.text`) and draws its qualifier at rest; breach F5, retired by the chip |
 | FACE-fixed | option always or never meeting its aim | `face.chip.state` `always_met` or `never_met` | filled or hollow end mark | Core's short words | **waits on chip**: `headline.state === 'fixed'` does not say which; the face is unchanged until then |
 | FACE-noresult | option with no result | `headline.state === 'none'` | **open**: interim draws an empty dashed outline of the dots' footprint, for Paul to judge on 4310 (ChanceDots.md draws no dots here) | Core's short reason (chip) | interim |
 | FACE-shared | aim whose options share one blocker | `face.chip.state === 'shared_blocker'` on the aim | the same dashed outline, on the aim | Core's short reason | **waits on chip**: interim keeps today's `sharedNoChanceOf`, which compares `headline.text` (a known breach, retired by the chip) |
