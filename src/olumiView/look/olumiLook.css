@@ -429,8 +429,9 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
   border-radius: calc(var(--radius-control) / 2);
 }
 .ok-face-mark-bound {
-  width: var(--space-8);
-  height: calc(var(--ok-pill-font-size) * var(--ok-pill-line-height) + 2 * var(--ok-pill-padding-block) + 2 * var(--ok-pill-border-width));
+  --ok-bound-mark-height: calc(var(--ok-pill-font-size) * var(--ok-pill-line-height) + 2 * var(--ok-pill-padding-block) + 2 * var(--ok-pill-border-width));
+  width: calc(2 * var(--ok-bound-mark-height));
+  height: var(--ok-bound-mark-height);
   border-width: var(--ok-pill-border-width);
   border-radius: var(--radius-pill);
 }

@@ -75,7 +75,10 @@ it('preserves the bound and chance mark widths while the full-width track can sh
   const bodyOf = (selector: string) => rules.filter((rule) => rule.selectors.includes(selector)).map((rule) => rule.body).join('\n')
   const keepsWidth = /(?:^|;)\s*(?:flex-shrink:\s*0|flex:\s*none)\s*;/
 
-  expect(bodyOf('.ok-face-mark-bound')).toMatch(keepsWidth)
+  const bound = bodyOf('.ok-face-mark-bound')
+  expect(bound).toMatch(keepsWidth)
+  expect(bound).toContain('width: calc(2 * var(--ok-bound-mark-height));')
+  expect(bound).toContain('height: var(--ok-bound-mark-height);')
   expect(bodyOf('.ok-face-mark-chance')).toMatch(keepsWidth)
   expect(bodyOf('.ok-face-mark')).not.toMatch(keepsWidth)
   expect(bodyOf('.ok-face-mark-track')).toMatch(/\bwidth:\s*100%;/)
