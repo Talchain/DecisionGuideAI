@@ -22,7 +22,6 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
   const regionEnd = side === 'above' ? 100 : marker
   const olumi = card?.author?.by === 'olumi' || figure?.whose === 'olumi'
   const label = (value: number) => range?.unit ? `${fmt(value)} ${range.unit}` : fmt(value)
-  const markerPosition = { '--scale-x': `${marker}%` } as CSSProperties
 
   return (
     <div aria-hidden="true" data-testid="tip-point" data-by={olumi ? 'olumi' : 'person'}
@@ -36,10 +35,10 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
         )}
         {range?.likely != null && <span data-testid="range-likely" className="ok-scale-dot ok-scale-likely"
           style={{ '--scale-x': `${pctOf(axis, range.likely)}%` } as CSSProperties} />}
-        <span data-testid="tip-marker" className="ok-scale-tip-marker" style={markerPosition} />
+        <span data-testid="tip-marker" className="ok-scale-tip-marker" style={{ '--scale-x': `${marker}%` } as CSSProperties} />
       </div>
       <div className="ok-scale-tip-value">
-        <span style={markerPosition}>{label(at)}</span>
+        <span style={{ '--scale-x': `${marker}%` } as CSSProperties}>{label(at)}</span>
       </div>
       <div className="ok-scale-tip-ends">
         <span>{label(axis.min)}</span>
