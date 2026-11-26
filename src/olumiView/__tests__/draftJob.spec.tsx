@@ -65,6 +65,39 @@ const tick = async (ms: number) => { await act(async () => { await vi.advanceTim
 const on = (sid: string, uuid: string, view: View) => useViewStore.setState({ uuid, sid, view, status: 'ready', error: null, stale: false, at: null })
 
 describe('the drafting board', () => {
+  const solid = 'bg-[var(--text-header)]'
+  const current = 'bg-[var(--option)]'
+  const outline = 'border border-[color:var(--border-default)] bg-transparent'
+  it.each([
+    ['reading', [current, outline, outline]],
+    ['building', [solid, current, outline]],
+    ['analysing', [solid, solid, current]],
+  ] as const)('draws the three steps for %s just under Core’s words', (stage, classes) => {
+    on(SID_A, UUID_A, drafting(SID_A, stage))
+    const { getByTestId } = render(<DraftingBoard />)
+    const steps = getByTestId('view-drafting-steps')
+    expect(getByTestId('view-drafting-words').parentElement?.nextElementSibling).toBe(steps)
+    expect(steps).toHaveAttribute('aria-hidden', 'true')
+    expect(steps.textContent).toBe('')
+    expect(steps.children).toHaveLength(3)
+    Array.from(steps.children).forEach((step, index) => {
+      expect(step).toHaveClass(`w-[var(--space-8)] h-[var(--space-1)] rounded-full ${classes[index]}`, { exact: true })
+    })
+  })
+
+  it.each([
+    ['drafting', null],
+    ['drafting', 'unknown'],
+    ['failed', 'building'],
+    ['lost', 'building'],
+    ['stopped', 'building'],
+  ])('omits the steps for status %s and stage %s', (status, stage) => {
+    const view = drafting(SID_A, 'building')
+    on(SID_A, UUID_A, { ...view, draft: { ...view.draft, status, stage } } as View)
+    const { queryByTestId } = render(<DraftingBoard />)
+    expect(queryByTestId('view-drafting-steps')).toBeNull()
+  })
+
   it('shows a closed Your brief fold while drafting with the dock closed', () => {
     const brief = 'Should we raise the price of our pastries?'
     on(SID_A, UUID_A, { ...drafting(SID_A, 'building'), brief })

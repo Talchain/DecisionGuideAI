@@ -85,6 +85,8 @@ const WRAP = 'pointer-events-none fixed inset-y-0 left-0 right-[var(--board-dock
 /** Secondary: beside the zoom row and above the foot cues' row (BelowCue stands at 40 px, 36 tall), never under the viewport controls. */
 const WRAP_SECONDARY = 'pointer-events-none fixed bottom-[88px] left-[var(--board-prompt-left)] right-[var(--board-dock-inset)] z-[5] flex items-end justify-start'
 
+const DRAFT_STAGES = ['reading', 'building', 'analysing'] as const
+
 function BuildOffer({ offer, secondary }: { offer: { label: string; title: string }; secondary: boolean }): JSX.Element {
   const busy = useViewChat((s) => s.busy), right = useDockInset(), left = useBesideZoom()
   return (
@@ -101,6 +103,7 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
   const view = useViewStore((s) => s.view)
   const brief = view?.brief ?? null
   const running = draft.status === 'drafting'
+  const stage = DRAFT_STAGES.findIndex((step) => step === draft.stage)
   const busy = useViewChat((s) => s.busy)
   const [now, setNow] = useState(() => Date.now())
   const right = useDockInset(), left = useBesideZoom()
@@ -115,6 +118,15 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
           {running ? <span aria-hidden="true" data-testid="view-drafting-loader"><ThinkingIndicator kinds={boardKindsOf(view)} /></span> : null}
           <span data-view="draft.words" data-testid="view-drafting-words">{draft.words}</span>
         </p>
+        {running && stage >= 0 ? (
+          <div aria-hidden="true" data-testid="view-drafting-steps" className="flex justify-center gap-[var(--space-1)]">
+            {DRAFT_STAGES.map((step, index) => (
+              <span key={step} className={`w-[var(--space-8)] h-[var(--space-1)] rounded-full ${index < stage
+                ? 'bg-[var(--text-header)]'
+                : index === stage ? 'bg-[var(--option)]' : 'border border-[color:var(--border-default)] bg-transparent'}`} />
+            ))}
+          </div>
+        ) : null}
         {early === null ? null : <EarlyAnswer text={early} testid="view-drafting-early" />}
         {early === null || running ? null : <p className={`${typography.viewPanelBody} text-text-body`} data-testid="view-drafting-early-failed">{EARLY_FAILED}</p>}
         {running
