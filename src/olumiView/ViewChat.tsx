@@ -1857,14 +1857,14 @@ function VersionReview({ review }: { review: NonNullable<ReturnType<typeof versi
     <div className={`${typography.viewPanelBody} space-y-2`} data-testid="view-version-review" data-open={open ? 'true' : 'false'}>
       <div className="flex min-h-7 items-center gap-2">
         <OkIcon id="version-tag" size={14} decorative />
-        <span className={`${typography.viewPanelHeading} min-w-0 flex-1 break-words text-text-header`} data-view="version.label">{version.label}</span>
+        <span className={`${typography.viewPanelHeading} min-w-0 flex-1 break-words text-text-header`} data-view="version.label" id={`view-version-label-${version.id}`}>{version.label}</span>
         <button type="button" className={VIEW_CHIP_CLASS}
           data-testid="view-version-review-toggle" aria-expanded={open} aria-controls={body} onClick={() => setOpen((o) => !o)}>
           {REVIEW_LABEL}<FoldChevron open={open} />
         </button>
       </div>
       <div id={body}>
-        {!open ? null : <ul className="m-0 max-h-[min(34vh,12rem)] list-none space-y-1 overflow-y-auto break-words p-0" tabIndex={0} data-testid="view-changes">
+        {!open ? null : <ul className="m-0 max-h-[min(34vh,12rem)] list-none space-y-1 overflow-y-auto break-words p-0" tabIndex={0} data-testid="view-changes" aria-labelledby={`view-version-label-${version.id}`}>
           {groups === null ? changes.map((_, i) => line(i)) : groups.map((group, i) => (
             <li key={i}>
               <details>

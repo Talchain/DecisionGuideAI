@@ -207,3 +207,29 @@ it('folds over twelve saved changes under Core’s headings in their served orde
   expect(list.querySelector('input[type="checkbox"]')).toBeNull()
   expect(list.querySelector('[data-testid^="view-change-tick-"], [data-testid^="view-change-group-"]')).toBeNull()
 })
+
+it('names the open saved list by Core\'s version label', () => {
+  show()
+  const list = openList()
+  expect(list).toHaveAccessibleName(version.label)
+  const label = document.getElementById(list.getAttribute('aria-labelledby') ?? '')
+  expect(label).toHaveAttribute('data-view', 'version.label')
+})
+
+it('clears a saved-version request that the shown version can no longer serve, and does not replay it', async () => {
+  const { container } = show(withReview)
+  const newer = reviewed(review, version.id + 1)
+  act(() => {
+    expect(proposalAsk.askVersionReview(version.id)).toBe(true)
+    useViewStore.setState({ view: { ...withReview, version: newer } })
+  })
+  expect(proposalAsk.useVersionAsk.getState().id).toBeNull()
+  expect(screen.queryByTestId('view-changes')).toBeNull()
+
+  act(() => useViewStore.setState({ view: withReview }))
+  await waitFor(() => expect(screen.getByTestId('view-chat-foot-version')).toBeInTheDocument())
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+  expect(proposalAsk.useVersionAsk.getState().id).toBeNull()
+  expect(screen.queryByTestId('view-changes')).toBeNull()
+  expect(container.querySelector('[data-testid="view-version-review"][data-open="true"]')).toBeNull()
+})
