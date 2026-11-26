@@ -4,7 +4,7 @@ import type { ViewCard } from '../../client'
 import type { TippingLine } from '../../tipping'
 import { typography } from '../../../styles/typography'
 import { figureRange } from '../contract'
-import { digitsToShow, fmtAt, pctOf, spanAxisOf } from './axis'
+import { fmtAt, fmtTip, pctOf, spanAxisOf } from './axis'
 
 export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCard | null }) {
   const { at, low, high, side, figure } = tipping
@@ -17,16 +17,14 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
     if (range.likely !== null) values.push(range.likely)
   }
   const axis = spanAxisOf(Math.min(...values), Math.max(...values))
-  // The tip one digit finer than the ends and never fewer than one significant figure, so a small threshold never prints as 0; none if that needs > 6 digits.
-  const tipDigits = axis === null ? null : digitsToShow(at, Math.min(6, axis.digits + 1))
-  if (axis === null || tipDigits === null) return null
+  if (axis === null) return null
   const marker = pctOf(axis, at)
   // The outline covers only what Core tested (low to high), on the side that tips: never the axis margin, which Core did not test.
   const regionStart = side === 'above' ? marker : pctOf(axis, Math.min(low, at))
   const regionEnd = side === 'above' ? pctOf(axis, Math.max(high, at)) : marker
   const olumi = card?.author?.by === 'olumi' || figure?.whose === 'olumi'
-  // The ends at the axis's precision; the tip point at tipDigits.
-  const label = (value: number, digits = axis.digits) => range?.unit ? `${fmtAt(value, digits)} ${range.unit}` : fmtAt(value, digits)
+  // The ends at the axis's precision; the tip at three significant figures or one digit finer than the ends, whichever is more precise.
+  const unit = (text: string) => range?.unit ? `${text} ${range.unit}` : text
 
   return (
     <div aria-hidden="true" data-testid="tip-point" data-by={olumi ? 'olumi' : 'person'}
@@ -43,11 +41,11 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
         <span data-testid="tip-marker" className="ok-scale-tip-marker" style={{ '--scale-x': `${marker}%` } as CSSProperties} />
       </div>
       <div className="ok-scale-tip-value">
-        <span style={{ '--scale-x': `${marker}%` } as CSSProperties}>{label(at, tipDigits)}</span>
+        <span style={{ '--scale-x': `${marker}%` } as CSSProperties}>{unit(fmtTip(at, axis.digits + 1))}</span>
       </div>
       <div className="ok-scale-tip-ends">
-        <span>{label(axis.min)}</span>
-        <span>{label(axis.max)}</span>
+        <span>{unit(fmtAt(axis.min, axis.digits))}</span>
+        <span>{unit(fmtAt(axis.max, axis.digits))}</span>
       </div>
     </div>
   )

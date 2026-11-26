@@ -48,10 +48,11 @@ export const fmtAt = (n: number, digits: number): string => {
   return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s  // never "-0"; rounding stays toLocaleString's decimal rounding (2.55 → 2.6)
 }
 
-/** Fraction digits that print `n` as non-zero (at least one significant figure), at least `floor` digits; null where that needs more than 6. */
-export function digitsToShow(n: number, floor: number): number | null {
-  const need = n === 0 ? floor : Math.max(floor, -Math.floor(Math.log10(Math.abs(n))))
-  return need > 6 ? null : need
+/** A threshold on that axis: three significant figures or `digits` fraction digits, whichever is more precise, so it is never printed as 0 or rounded
+ *  to a neighbouring end however small or large it is (Intl `roundingPriority: 'morePrecision'`); never "-0". */
+export const fmtTip = (n: number, digits: number): string => {
+  const s = n.toLocaleString('en-GB', { maximumFractionDigits: digits, maximumSignificantDigits: 3, roundingPriority: 'morePrecision' } as Intl.NumberFormatOptions)
+  return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s
 }
 
 export const pctOf = (a: Axis, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))

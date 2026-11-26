@@ -115,7 +115,7 @@ describe('TipPoint', () => {
     expect(within(picture).getByText('0.004')).toBeVisible()
   })
 
-  it('draws nothing for a threshold too fine to print as other than 0', () => {
+  it('draws nothing where the axis ends cannot be told apart within 5 digits', () => {
     const { container } = render(<TipPoint tipping={{ ...tested, at: 0.0000004, low: 0.0000001, high: 0.0000009 }} card={null} />)
     expect(container.firstChild).toBeNull()
   })
@@ -130,9 +130,9 @@ describe('TipPoint', () => {
     expect(screen.getByText('0.000001')).toBeVisible()
   })
 
-  it('draws nothing where the threshold would need more than 6 digits to print', () => {
-    const { container } = render(<TipPoint tipping={{ ...tested, at: 0.0000004, low: 0, high: 1 }} card={null} />)
-    expect(container.firstChild).toBeNull()
+  it.each([[0.0000004, '0.0000004'], [0.00149, '0.00149']])('prints a %s threshold on a 0 to 1 span as %s: never 0, never rounded away', (at, text) => {
+    render(<TipPoint tipping={{ ...tested, at, low: 0, high: 1 }} card={null} />)
+    expect(screen.getByText(text)).toBeVisible()
   })
 
   it('rounds labels as decimals (2.55 prints 2.6 at one digit), never -0', async () => {
