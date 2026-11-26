@@ -8,7 +8,7 @@ Fill round(chance × 10) dots from Core’s served numeric chance. Draw no dots
 when the number is missing, the chance is withheld, or the result is “never
 met in this model”. Keep Core’s words verbatim.
 
-Each circle is 8px with a 4px gap. Filled circles use solid `var(--option)`.
+Each circle is 12px with a 4px gap. Filled circles use solid `var(--option)`.
 Empty circles have a 1px `var(--option)` outline and a transparent interior.
 
 The glance tier on option cards and in Analysis uses dots. ChanceDots
