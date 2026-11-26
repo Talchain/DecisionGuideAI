@@ -44,8 +44,14 @@ export function spanAxisOf(lo: number, hi: number, want = 4): (Axis & { digits: 
 
 /** A value at the axis's own precision (en-GB grouping), so a zoomed axis never prints two different ends as the same number. */
 export const fmtAt = (n: number, digits: number): string => {
-  const r = Number(n.toFixed(digits))
-  return (r === 0 ? 0 : r).toLocaleString('en-GB', { maximumFractionDigits: digits })  // never "-0"
+  const s = n.toLocaleString('en-GB', { maximumFractionDigits: digits })
+  return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s  // never "-0"; rounding stays toLocaleString's decimal rounding (2.55 → 2.6)
+}
+
+/** Fraction digits that print `n` with at least two significant figures, at least `floor` digits; null where that needs more than 6. */
+export function digitsToShow(n: number, floor: number): number | null {
+  const need = n === 0 ? floor : Math.max(floor, 1 - Math.floor(Math.log10(Math.abs(n))))
+  return need > 6 ? null : need
 }
 
 export const pctOf = (a: Axis, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))

@@ -120,6 +120,23 @@ describe('TipPoint', () => {
     expect(container.firstChild).toBeNull()
   })
 
+  it('prints a small threshold on a wide span to two significant figures, never as 0', () => {
+    render(<TipPoint tipping={{ ...tested, at: 0.004, low: 0, high: 1 }} card={null} />)
+    expect(screen.getByText('0.004')).toBeVisible()
+  })
+
+  it('draws nothing where the threshold would need more than 6 digits to print', () => {
+    const { container } = render(<TipPoint tipping={{ ...tested, at: 0.0000004, low: 0, high: 1 }} card={null} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('rounds labels as decimals (2.55 prints 2.6 at one digit), never -0', async () => {
+    const { fmtAt } = await import('../axis')
+    expect(fmtAt(2.55, 1)).toBe('2.6')
+    expect(fmtAt(-0.0001, 2)).toBe('0')
+    expect(fmtAt(-0, 0)).toBe('0')
+  })
+
   it('puts the picture below Core’s verbatim per-option line in the studio run', () => {
     render(<TippingPerOption model={model} />)
     const line = screen.getByText(tipping.line)
