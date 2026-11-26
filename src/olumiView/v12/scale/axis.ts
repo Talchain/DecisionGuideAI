@@ -19,7 +19,7 @@ export function axisOf(lo: number, hi: number, want = 4): Axis {
 
 /** An axis zoomed to [lo, hi] with a margin, 1-2-5 steps and nice ends, for a threshold picture where position against a line is the point (TipPoint);
  *  never below 0 when every value is non-negative. Its ends are always labelled, so the zoom is visible. `digits`: the fraction digits that tell its
- *  ends and steps apart. Null where no honest axis exists (non-finite or reversed input, a span too wide for doubles, or too fine to label in 6 digits):
+ *  ends and steps apart. Null where no honest axis exists (non-finite or reversed input, a span too wide for doubles, or too fine to label in 5 digits):
  *  the caller then draws nothing and Core's sentence stands alone. */
 export function spanAxisOf(lo: number, hi: number, want = 4): (Axis & { digits: number }) | null {
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo > hi) return null
@@ -31,18 +31,22 @@ export function spanAxisOf(lo: number, hi: number, want = 4): (Axis & { digits: 
   const mag = 10 ** Math.floor(Math.log10(raw))
   const step = ([1, 2, 5, 10].find((m) => m * mag >= raw) ?? 10) * mag
   const digits = Math.max(0, -Math.floor(Math.log10(step)))
-  if (!Number.isFinite(step) || step <= 0 || digits > 6) return null
+  // At most 5 digits for the ends, so the tip point (one digit finer) still prints within 6 and never reads as 0.
+  if (!Number.isFinite(step) || step <= 0 || digits > 5) return null
   let min = Math.floor((lo - pad) / step + 1e-9) * step
   if (lo >= 0 && min < 0) min = 0
   const max = Math.ceil((hi + pad) / step - 1e-9) * step
   const n = Math.round((max - min) / step)
   if (!Number.isFinite(min) || !Number.isFinite(max) || !(max > min) || min > lo || max < hi || n < 1 || n > 50) return null
   const ticks = Array.from({ length: n + 1 }, (_, i) => Number((min + i * step).toFixed(digits)))
-  return { min, max, ticks, digits }
+  return { min: min + 0, max: max + 0, ticks, digits }
 }
 
 /** A value at the axis's own precision (en-GB grouping), so a zoomed axis never prints two different ends as the same number. */
-export const fmtAt = (n: number, digits: number): string => n.toLocaleString('en-GB', { maximumFractionDigits: digits })
+export const fmtAt = (n: number, digits: number): string => {
+  const r = Number(n.toFixed(digits))
+  return (r === 0 ? 0 : r).toLocaleString('en-GB', { maximumFractionDigits: digits })  // never "-0"
+}
 
 export const pctOf = (a: Axis, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))
 export const fmt = (n: number): string => n.toLocaleString('en-GB', { maximumFractionDigits: 2 })

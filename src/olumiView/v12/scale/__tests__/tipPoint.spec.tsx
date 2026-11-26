@@ -97,6 +97,29 @@ describe('TipPoint', () => {
       expect(container.firstChild).toBeNull()
     })
 
+  it('draws a negative span with signed ends and never prints -0', () => {
+    render(<TipPoint tipping={{ ...tested, at: -5, low: -10, high: -2 }} card={null} />)
+    const picture = screen.getByTestId('tip-point')
+    expect(within(picture).getByText('-15')).toBeVisible()
+    expect(within(picture).getByText('0')).toBeVisible()
+    expect(within(picture).getByText('-5')).toBeVisible()
+    expect(within(picture).queryByText('-0')).toBeNull()
+    expect(parseFloat(positionOf(within(picture).getByTestId('tip-marker')))).toBeCloseTo(((-5 + 15) / 15) * 100, 1)
+  })
+
+  it('labels a sub-cent span with distinct ends and the tip one digit finer', () => {
+    render(<TipPoint tipping={{ ...tested, at: 0.004, low: 0.001, high: 0.009 }} card={null} />)
+    const picture = screen.getByTestId('tip-point')
+    expect(within(picture).getByText('0')).toBeVisible()
+    expect(within(picture).getByText('0.015')).toBeVisible()
+    expect(within(picture).getByText('0.004')).toBeVisible()
+  })
+
+  it('draws nothing for a threshold too fine to print as other than 0', () => {
+    const { container } = render(<TipPoint tipping={{ ...tested, at: 0.0000004, low: 0.0000001, high: 0.0000009 }} card={null} />)
+    expect(container.firstChild).toBeNull()
+  })
+
   it('puts the picture below Core’s verbatim per-option line in the studio run', () => {
     render(<TippingPerOption model={model} />)
     const line = screen.getByText(tipping.line)
