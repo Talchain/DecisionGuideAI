@@ -264,7 +264,7 @@ describe('the chance chart', () => {
 })
 
 describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)', () => {
-  it('the axis stands OVER the FIRST track (once, not at the foot, never between a bar and core\'s words for it); the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, behind the key\'s one control', () => {
+  it('Core’s chance text leads the dots and the expert axis stands over the first track; the whisker is a 2px body-colour line; core\'s ◉ is explained in core\'s own title, behind the key\'s one control', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
     ready(view); render(<PortAnalysisTab />)
     const chart = screen.getByTestId('analysis-chance-chart')
@@ -272,6 +272,13 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const first = chart.querySelector(`[data-chart-option="${rows[0]!.card.id}"]`)!
     const axis = chart.querySelector('[data-testid="analysis-chart-axis"]')!
     expect(first.contains(axis), 'in the first option, over its track').toBe(true)
+    const { card, row, i } = rows[0]!
+    const words = first.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!
+    const dots = first.querySelector('[data-chance-dots]')!
+    expect(words.textContent).toBe(row.value)
+    expect(words.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(dots.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(dots.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(row.chance! * 10))
     expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
     const w = chart.querySelector('[data-chance-whisker]')!

@@ -154,14 +154,10 @@ function ResultRow({ lead, r, at, words, hover, mark, reason, blockers }: { lead
 }
 /** A7(a) (DL 19 Nov; Codex 10:16 "fix its actual adapter seam"): a withheld row's switch sentence (`tips`) and the one input to check (`next_test`),
  *  core's own words read at rest under the row instead of on hover; each only where the row's drawn words do not already say it. By field. */
-export function rowBelowOf(r: RowT, shown: string) {
-  if (r.kind !== 'none') return []
-  // `shown` is the line at rest, including a whole withheld reason when present. Long fallback row words sit behind a press.
-  return ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || shown.includes(x) ? [] : [{ f, x }]))
-}
-
 export function RowBelow({ r, at, shown }: { r: RowT; at: string; shown: string }): JSX.Element | null {
-  const below = rowBelowOf(r, shown)
+  if (r.kind !== 'none') return null
+  // `shown` is the line at rest, including a whole withheld reason when present. Long fallback row words sit behind a press.
+  const below = ([['tips', r.tips], ['next_test', r.next_test]] as const).flatMap(([f, x]) => (x == null || x === '' || shown.includes(x) ? [] : [{ f, x }]))
   return below.length === 0 ? null : <>{below.map(({ f, x }) => <p key={f} className="ok-dt-said-line" data-view={`${at}.${f}`} data-row-below={f}>{x}</p>)}</>
 }
 const rowWords = (r: RowT) => (r.kind === 'none' ? (r.state_text || r.text || '') : r.value ?? '')

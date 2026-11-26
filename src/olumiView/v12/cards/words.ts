@@ -3,7 +3,7 @@
  * formats or rounds a word.
  */
 import type { ViewCard, ViewModel, ViewRow } from '../../client'
-import { linkCards, optionTippingOf } from '../../layout'
+import { linkCards } from '../../layout'
 
 type Headline = NonNullable<ViewCard['headline']>
 
@@ -61,11 +61,6 @@ export function tipsLineOf(card: ViewCard, h: Headline): { face: string; label: 
     }
   }
   return null
-}
-
-export function optionScienceOf(card: ViewCard, model: ViewModel | null) {
-  if (card.family !== 'option') return null
-  return optionTippingOf(model?.run ?? null, card.id, card.headline?.aim_id ?? null)
 }
 
 /**

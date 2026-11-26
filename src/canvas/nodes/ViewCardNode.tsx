@@ -37,6 +37,9 @@ import { Badge } from '../../olumiView/Badge'
 import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../../olumiView/FigureEdit'
 import { failedOf, failedReasonOf } from '../../olumiView/k5'
 import { StatedFigure } from '../../olumiView/StatedFigure'
+import { chanceForDots } from '../../olumiView/resultRange'
+import { headlineChanceRow } from '../../olumiView/v12/cards/words'
+import { ChanceDots } from '../../olumiView/v12/scale/ChanceDots'
 
 export type ViewCardData = { card: Card }
 
@@ -98,7 +101,7 @@ export function Disclosed({ at, className = '', title, children }: { at: string;
   return <div className={className} data-view-row={at}><div title={title}>{children}</div></div>
 }
 
-function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null; aimShown?: boolean }) {
+function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false, showDots = false }: { id: string; row: ViewRow; i: number; ifApproved?: IfApproved; lead?: boolean | null; aimShown?: boolean; showDots?: boolean }) {
   const at = `${id}.rows.${i}`
   const moved = valueMark(row, at, ifApproved)
   // The compact face (C1, 4 Nov: details on hover or selection), every word core's and verbatim, and every line whole (R25, Paul's finish
@@ -121,7 +124,7 @@ function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: {
         {/* With more than one aim, the lead chance names its aim on the face too, as every other aim's line does (DL/PL 7 Nov, Paul: "can't
             tell which aim a chance is for"); its ◎ moves to the aim's line so it never stands twice. With one aim: for readers and on hover. */}
         {aimShown ? <p className="text-text-light"><span aria-hidden="true" style={{ color: 'var(--goal)' }}>◎</span> <span data-view={`${at}.aim`}>{row.aim}</span></p> : null}
-        <div className="flex items-baseline gap-1">
+        <div className={`flex items-baseline gap-1${showDots ? ' flex-wrap' : ''}`}>
           {aimShown ? null : <span className="sr-only" data-view={`${at}.aim`}>{row.aim}</span>}
           {/* R25 (Paul's finding C1, "about 13% / chance" on two lines; DL 7 Nov): one line. Core's qualifier (`approx`, its own field) and
               the ◎ are reading size; core's value is the 18px headline, set tight so "about 49% chance" fits one line beside its marks
@@ -129,6 +132,7 @@ function Row({ id, row, i, ifApproved = null, lead = null, aimShown = false }: {
           {aimShown ? null : <span aria-hidden="true" style={{ color: 'var(--goal)' }} className={typography.viewValue}>◎</span>}
           <span className="min-w-0 text-text-header" data-row-value={at}>{row.approx === '' ? null : <span className={typography.viewValue} data-view={`${at}.approx`}>{row.approx}</span>}<span className={`${typography.viewHeadline} tracking-tight`} data-view={`${at}.value`}>{row.value}</span></span>
           {markSpan}
+          {showDots ? <ChanceDots chance={chanceForDots(row)} /> : null}
         </div>
         <Companion row={row} at={at} />
         </div>
@@ -266,7 +270,7 @@ export function ViewCard({ card, model = null, reducedPx = 0, selected = false, 
               (SC-01 preview): the option card shows its title until a figure exists. A reason that is this option's own stays on its card. */}
           {/* J1 step 3: while no option has a chance yet (layout.ts optionsNotYet), the panel says so once; no option card repeats it. */}
           {row.kind === 'none' && ((row.aim_id !== null && shared.includes(row.aim_id)) || (notYet && card.family === 'option')) ? null
-            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} />}
+            : <Row id={id} row={row} i={i} ifApproved={ifApproved} lead={card.family !== 'option' || row.kind !== 'chance' ? null : i === lead} aimShown={aims > 1} showDots={card.headline == null} />}
           {card.family === 'option' && i === Math.min(1, card.rows.length - 1) ? <Slot name={VIEW_CARD_SLOTS.outcomeBand} className="block empty:hidden" /> : null}
         </span>
       ))}
@@ -389,7 +393,10 @@ export function ViewCard({ card, model = null, reducedPx = 0, selected = false, 
           core's words. The figure stays editable. */}
       {card.unused == null || card.unused === '' ? null : <p className={`${typography.viewPanelMeta} text-text-body`} data-testid="view-card-unused" data-view={`${id}.unused`}>{card.unused}</p>}
       {optionFace !== null
-        ? <p className={`${typography.viewHeadline} tracking-tight text-text-header`} title={optionFace.title} data-option-face={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
+        ? <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className={`${typography.viewHeadline} tracking-tight text-text-header`} title={optionFace.title} data-option-face={id} data-view={`${id}.headline.text`}>{optionFace.text}</p>
+          <ChanceDots chance={chanceForDots(headlineChanceRow(card))} />
+        </div>
         : rowsDrawn}
       {tryOn?.kind !== 'option' ? null : (
         // TM-27: the try's chance for this option under its saved one, in core's row words; core's words for the edit and the row on hover.

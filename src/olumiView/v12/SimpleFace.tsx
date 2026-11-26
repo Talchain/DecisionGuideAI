@@ -1,7 +1,7 @@
 /**
  * V12 Simple level: a card drawn as visuals, with the words behind hover (Paul, 16 Nov: "the graph should be visualisations, icons, graphs,
  * colour systems"; coaching text belongs in the AI panel). Every card and link stays; only the sentences go. Nothing here is worked out:
- *  - an option's chance is a gauge bar with core's own value text (`rows[chance].value`) and its position (`rows[chance].chance`); core's
+ *  - an option's chance is a row of dots with core's own value text (`rows[chance].value`) and its served number (`rows[chance].chance`); core's
  *    words after the number are the qualifier, on their own line, with Olumi's mark where the chance rests on Olumi's figures;
  *  - an option with no chance is ONE quiet line in core's own words for what is missing (its next step `headline.add`, else its headline's text),
  *    its long reason whole on hover: no "?", no "Why not" and no empty track at rest (R6, 16 Nov); unknown is never drawn as zero;
@@ -22,8 +22,8 @@ import { Hover } from '../look/Hover'
 import { colourClass, ICONS, OkIcon } from '../look/icons'
 import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { typography } from '../../styles/typography'
-import { chanceAtOf } from '../resultRange'
-import { ChanceBand } from '../ResultBand'
+import { chanceForDots } from '../resultRange'
+import { ChanceDots } from './scale/ChanceDots'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
 import { barCardOf, olumiKey } from '../layout'
@@ -32,7 +32,7 @@ import { cardKindOf, type CardKind } from './cards/kind'
 import { GoalMeasureLine, waitingMeasureQuestion } from './cards/GoalMeasureLine'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
-import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, optionScienceOf, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
+import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
 import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
@@ -134,7 +134,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   }, [conditionalOpen])
   let conditionalWords: string | null = null
   const id = card.id
-  const at = chanceAtOf(card), words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
+  const words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
   const axisInfo = card.family === 'option' ? null : bandAxisOf(card, model)
   const held = card.family === 'option' ? [] : withheldValues(card)
@@ -143,19 +143,18 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   let visual: ReactNode = null
   let state: StateLine | null = null
   let withheldRows: readonly (ViewRow | undefined)[] = []
-  let tipsDrawn = false
   if (card.family === 'option') {
-    if (h !== null && h.state === 'chance' && at !== null) {
-      // The chance: a gauge with core's own words for the number (Codex 006 #3); its qualifier, core's words after the number, is the state line, with Olumi's
+    if (h !== null && h.state === 'chance') {
+      // The chance: dots with core's own words for the number (Codex 006 #3); its qualifier, core's words after the number, is the state line, with Olumi's
       // mark beside the number where the chance rests on Olumi's figures (`rows[].olumi`). No figure is read from the words; none is dropped or reordered.
       const parts = words === null ? null : chanceParts(words), row = headlineChanceRow(card)
       visual = (
-        <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-2" data-simple-face="gauge" words={h.title !== '' ? h.title : h.text}>
-          <ChanceBand card={card} />
+        <Hover as="div" focusable={false} className="flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1" data-simple-face="chance" words={h.title !== '' ? h.title : h.text}>
           <p className={`${typography.viewValue} min-w-0 break-words text-text-header`} data-simple-chance={id}>
-            {parts === null ? `${Math.round(at * 100)}%` : parts.head}
+            {parts?.head ?? h.text}
             {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} /></span>}
           </p>
+          <ChanceDots chance={chanceForDots(row)} />
         </Hover>
       )
       if (parts !== null && parts.qualifier !== null) state = { text: parts.qualifier, title: [words, h.title].filter((x) => x != null && x !== '').join('\n'), marks: { 'data-simple-qual': id } }
@@ -173,7 +172,6 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       const tip = tipsLineOf(card, h), key = model === null ? null : olumiKey(model)
       if (h.state === 'none') withheldRows = [card.rows[tip?.i ?? headlineWithheldRowIndex(card)]]
       if (tip?.conditional) conditionalWords = tip.whole
-      tipsDrawn = tip !== null
       state = tip === null
         ? { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
         // CP-3: core's break-even, short (`tips_face`), replaces the next-step line; the whole sentence joins the hover. A what-if says so in its own words
@@ -299,7 +297,6 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const gap = unsizedWords(card)
     if (gap !== null) state = { text: onceWords(gap), title: gap, marks: { 'data-simple-face': 'no-figure', 'data-unsized': id, 'data-unsized-words': id } }
   }
-  const science = tipsDrawn ? null : optionScienceOf(card, model)
   // The reason every option shares for having no chance on this aim, once, here (words.ts sharedNoChanceOf); the aim's own state stays in the hover.
   const once = card.family === 'option' ? null : sharedNoChanceOf(model, id)
   if (once !== null) withheldRows = model!.cards
@@ -355,7 +352,6 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {!conditionalOpen || conditionalWords === null ? null : (
         <p ref={conditionalPremise} id={conditionalPanel} className="ok-quiet min-w-0 basis-full whitespace-pre-wrap">{conditionalWords}</p>
       )}
-      {science === null ? null : <p className={`${typography.viewLabel} min-w-0 basis-full break-words text-text-body`} data-card-science={id} data-view={science.at}>{science.line}</p>}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-2" data-simple-foot={id}>

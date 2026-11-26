@@ -6,7 +6,7 @@
  *  - `model.run.rests[]` (`olumi_share`, `person_share`, `unassigned`), core's split of what the result's variation traces to.
  * The words are core's, drawn verbatim as the caption. The numbers only place marks, and no mark is read from the words.
  */
-import type { ViewCard, ViewModel } from './client'
+import type { ViewCard, ViewModel, ViewRow } from './client'
 
 export type RangeBand = { readonly from: number; readonly to: number; readonly openLow: boolean; readonly openHigh: boolean }
 
@@ -32,6 +32,17 @@ export function chanceAtOf(card: ViewCard): number | null {
   if (card.family !== 'option' || h == null || h.state !== 'chance') return null
   const row = card.rows.find((r) => r.kind === 'chance' && r.aim_id === h.aim_id) as { chance?: number | null } | undefined
   return typeof row?.chance === 'number' && row.chance >= 0 && row.chance <= 1 ? row.chance : null
+}
+
+type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
+
+/** Core's fixed-zero result is a deterministic miss. A calculated chance of zero still has a dot row. */
+export const isFixedMiss = (row: ChanceRow): boolean =>
+  row.chance === 0 && 'fixed' in row && row.fixed === true
+
+export function chanceForDots(row: ChanceRow | null | undefined): number | null {
+  if (row == null || row.state === 'withheld' || row.state === 'not_computable' || isFixedMiss(row)) return null
+  return row.chance ?? null
 }
 
 export type RestsShare = { readonly id: string; readonly olumi: number; readonly person: number; readonly unassigned: number; readonly line: string; readonly hover: string }

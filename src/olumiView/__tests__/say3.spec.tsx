@@ -119,12 +119,16 @@ describe('3. a never-met option draws words only', () => {
     ;(first.headline as { state: string }).state = 'fixed'
     return v
   }
-  it('N1 the fixed option with chance 0 has no track and its words stand; the first drawn bar carries the axis. CONTRAST: the other options keep their bars', () => {
+  it.each(['fixed headline', 'fixed row'] as const)('a zero marked by a %s keeps Core’s words and draws no dots or track', (fixed) => {
     const v = view()
     const first = v.model!.cards.find((c) => c.family === 'option' && c.rows.some((r) => r.kind === 'chance'))!
+    if (fixed === 'fixed row') {
+      first.headline = { ...first.headline!, state: 'chance' }
+      Object.assign(first.rows.find((r) => r.kind === 'chance')!, { fixed: true })
+    }
     render(<ChanceChart model={v.model!} />)
     const li = document.querySelector(`[data-chart-option="${first.id}"]`)!
-    expect([li.querySelector('[data-testid="analysis-chance-track"]'), li.textContent?.includes('never met in this model')]).toEqual([null, true])
+    expect([li.querySelector('[data-chance-dots], [data-testid="analysis-chance-track"]'), li.textContent?.includes('never met in this model')]).toEqual([null, true])
     const tracks = document.querySelectorAll('[data-testid="analysis-chance-track"]')
     expect(tracks.length).toBeGreaterThan(0)
     expect(document.querySelectorAll('[data-testid="analysis-chart-axis"]')).toHaveLength(1)

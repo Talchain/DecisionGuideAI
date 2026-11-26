@@ -2,9 +2,8 @@
  * The Analysis tab's first five seconds (design, 18 Nov): each option's chance of meeting the aim in this model, on one 0 to 100 track, with
  * how far it moves when the figure it depends on most comes out low or high. One chart, one line per option, nothing repeated:
  * - the title is core's lead (`run.lead`), its lens words on hover;
- * - each option in core's card order: its heading, core's most-likely mark (`row.likely`) and Olumi mark (`row.olumi`), the bar filled to
- *   `row.chance`, a whisker from `row.driver.low` to `row.driver.high`, and core's own words for the chance under it (`row.value`, its
- *   `title` on hover). The numbers only place marks; every word is core's;
+ * - each option in core's card order: its heading, core's most-likely mark (`row.likely`) and Olumi mark (`row.olumi`), core's own words for the chance (`row.value`, its
+ *   `title` on hover) beside ten dots, then the bar and the whisker from `row.driver.low` to `row.driver.high`. The numbers only place marks; every word is core's;
  * - a press on an option selects and centres its card on the canvas; pointing at it rings the card.
  * At rest: each chance WITH its uncertainty (the whisker), the figure it moves with and core's sentence for what the two ends are (DL ruling #87;
  * Codex 008 item 3), so the chances and Likely outcome fit the panel at 1232 and 1128@1.33 (UI lead, 19 Nov: 279 px over). Core's worst-tenth sentence
@@ -22,6 +21,8 @@ import { FigureEdit } from '../FigureEdit'
 import { chartGroupsOf, findOutOf, rangeOf, trackPct, type ChartRow } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
+import { ChanceDots } from '../v12/scale/ChanceDots'
+import { chanceForDots, isFixedMiss } from '../resultRange'
 
 /** The chart's own chrome: the key's two words and the axis. What low and high mean is core's sentence, on the key's hover. */
 export const CHART_WORDS = { low: 'low', high: 'high', axis: ['0%', '50%', '100%'], more: 'More on these chances' } as const
@@ -84,14 +85,16 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
   )
 }
 
-/** An option core calls fixed (`headline.state`) whose chance row is 0: "never met in this model". Its words say all of it, so no empty track is drawn
- *  (say3, Paul 18 Nov: a chart only when it shows a change). Read by core's typed state and the row's number, never by its words. */
-export const neverMet = (card: ViewCard, row: ChartRow['row']): boolean => card.headline?.state === 'fixed' && row.chance === 0
+/** A fixed zero draws Core's words alone. Older Views may only mark the headline's own aim as fixed. */
+const neverMet = (card: ViewCard, row: ChartRow['row']): boolean =>
+  isFixedMiss(row) || (row.chance === 0 && card.headline?.state === 'fixed' && card.headline.aim_id === row.aim_id)
 
-/** One option's bar: its heading and core's marks, the track, core's words under it; a press focuses its card, pointing rings it. */
+/** One option's bar: its heading and core's marks, the track, core's words and dots above it; a press focuses its card, pointing rings it. */
 function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean }) {
   const range = rangeOf(row)
   const tail = tailOf(row)
+  const fixedMiss = neverMet(card, row)
+  const withheld = card.headline?.state === 'none' && card.headline.aim_id === row.aim_id
   return (
     <li data-chart-option={card.id}>
       <Hover as="button" type="button" words={row.title} onClick={() => pressCard(card.id)} onMouseEnter={() => ringFrom(RING, [card.id])} onFocus={() => ringFrom(RING, [card.id])} onBlur={() => ringFrom(RING, [])}
@@ -103,8 +106,11 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
             {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
           </span>
         </span>
-        {neverMet(card, row) ? null : <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>}
-        <span className={`${TYPE.meta} mt-0.5 block text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={`${TYPE.meta} text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+          <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
+        </span>
+        {fixedMiss ? null : <span className="mt-1 block px-1">{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></span>}
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
             label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
       </Hover>

@@ -193,14 +193,19 @@ export function threadRows(chat: readonly ViewTurn[], floors: readonly FloorTurn
 export const drawnLeadOf = (t: ViewTurn, floor: FloorTurn | null | undefined): ReplyLead | null =>
   t.answer === null ? null : leadOf(t.answer, [earlyOf(t) ?? '', floor?.text ?? '', ...t.answer.answer.map((p) => ('text' in p ? p.text : ''))].join('\n'))
 
-/** The lead drawn by the newest answered turn of the thread, in the thread's own row order (`threadRows`); null where it draws none. */
-export const newestLeadDrawn = (view: { chat: readonly ViewTurn[]; draft?: unknown; turn?: { job?: unknown } | null } | null): ReplyLead | null => {
+/** The lead drawn by the newest answered turn in thread order, or null where that reply draws none.
+ * The question card also considers standalone floor replies. */
+export const newestLeadDrawn = (view: { chat: readonly ViewTurn[]; draft?: unknown; turn?: { job?: unknown } | null } | null, { includeFloor = false } = {}): ReplyLead | null => {
   if (view === null) return null
   const rows = threadRows(view.chat, floorShown(view), entriesOf(view.draft))
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i]!
     const t = row.index === null ? undefined : view.chat[row.index]
     if (t !== undefined && t.answer !== null) return drawnLeadOf(t, row.floor)
+    if (includeFloor) {
+      if (row.floor !== null && row.floor.unanswered === undefined) return t === undefined ? row.floor.lead ?? null : null
+      if (t !== undefined && earlyOf(t) !== null) return null
+    }
   }
   return null
 }

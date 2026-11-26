@@ -56,7 +56,7 @@ for (const { state, conditional, model } of fixtures) describe(`${conditional ? 
   it('AC2 stays quiet, clamped to two lines, without chance styling or UI percentages', () => {
     const card = option(model), row = tipRow(card), el = draw(card, model), line = tips(el)!
     expect(line).not.toBeNull()
-    expect(el.querySelector('[data-simple-chance], [data-testid="chance-band"], .ok-track')).toBeNull()
+    expect(el.querySelector('[data-simple-chance], [data-chance-dots], .ok-track')).toBeNull()
     expect(line.classList.contains('ok-quiet')).toBe(true)
     expect(line.classList.contains('ok-two-lines')).toBe(true)
     for (const cls of typography.viewValue.split(' ')) expect(line.classList.contains(cls)).toBe(false)
@@ -194,7 +194,7 @@ it('AC4 chance keeps its gauge ahead of tips (existing chance fixture)', () => {
   const card = structuredClone(chanceModel.cards.find((c) => c.family === 'option' && c.headline?.state === 'chance')!)
   card.rows.push({ ...tipRow(option(model)), aim_id: card.headline!.aim_id })
   const el = draw(card, chanceModel)
-  expect(el.querySelector('[data-simple-face="gauge"]')).not.toBeNull()
+  expect(el.querySelector('[data-simple-face="chance"]')).not.toBeNull()
   expect(el.querySelector('[data-simple-chance]')).not.toBeNull()
   expect(tips(el)).toBeNull()
 })

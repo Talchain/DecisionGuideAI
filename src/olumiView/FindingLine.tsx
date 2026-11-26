@@ -4,6 +4,8 @@
  * is one press away (the card on the canvas, selected and centred); `needs` is a second, quieter line. Absent or null in the View: nothing drawn.
  */
 import type { ViewModel } from './client'
+import { newestLeadDrawn } from './early'
+import { useViewStore } from './store'
 import { pressCard, ringFrom } from './reasoning/tabRing'
 import { findingOf, hasAnyResult } from './v12/contract'
 import { recordReach, showRecord } from './v12/showInWorkspace/show'
@@ -18,6 +20,9 @@ export const FINDING_FIGURE = 'The figure this moves most with'
 
 export function FindingLine({ model, at, onFocusFigure }: { model: ViewModel | null | undefined; at: 'question' | 'frame' | 'panel'; onFocusFigure?: () => void }): JSX.Element | null {
   const f = findingOf(model)
+  const latestOpening = useViewStore((s) => at === 'question' && f !== null
+    ? newestLeadDrawn(s.view, { includeFloor: true })?.opening
+    : undefined)
   const card = f === null || f.figure === null ? null : model?.cards.find((c) => c.id === f.figure) ?? null
   // The pressable figure's hover is the one Tip (pointer after 150 ms, and keyboard focus); the ring below rides the same focus and blur.
   const figureWords = card === null ? undefined : `${FINDING_FIGURE}: ${card.heading}`
@@ -25,7 +30,8 @@ export function FindingLine({ model, at, onFocusFigure }: { model: ViewModel | n
   if (f === null) return null
   // Said once (Paul 19 Nov: "cannot be worked out" three times): with no calculated result on any option the finding is a status the aim card already says
   // ("needs a target", "No chance yet"), so the question card does not draw its sentence; the figure and the needs line stay. Read by field (`hasAnyResult`), never by words.
-  const sentence = at !== 'question' || hasAnyResult(model)
+  // On the question card, a byte-identical reply opening also replaces the sentence.
+  const sentence = at !== 'question' || (hasAnyResult(model) && f.text !== latestOpening)
   if (!sentence && card === null && f.needs === null) return null
   // A figure folded behind a badge, a group or Simple's inputs is opened and shown (the reply's own show path); a drawn card is pressed.
   return (

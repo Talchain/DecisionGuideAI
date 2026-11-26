@@ -26,6 +26,7 @@ describe('the option card face is core\'s headline line', () => {
         expect(line).toHaveLength(1)
         expect([line[0]!.textContent, line[0]!.getAttribute('title')]).toEqual([card.headline!.text, card.headline!.title])
         expect(line[0]!.className).not.toMatch(/line-clamp|truncate/)
+        if (card.headline!.state !== 'chance') expect(container.querySelector('[data-chance-dots]')).toBeNull()
         // Each row core sends is in the opened card, which is hidden at rest; none is on the face.
         const panel = container.querySelector(`[data-view-more="${card.id}"]`)!
         expect(panel).not.toBeNull()
@@ -41,6 +42,21 @@ describe('the option card face is core\'s headline line', () => {
       }
     })
   }
+
+  it('puts the served chance dots beside the headline, with no dots in its opened rows', () => {
+    const model = face('bakery').model!
+    const card = model.cards.find((c) => c.family === 'option' && c.headline?.state === 'chance')!
+    const chance = card.rows.find((row) => row.kind === 'chance' && row.aim_id === card.headline!.aim_id)
+    if (chance?.kind !== 'chance' || chance.chance == null) throw new Error('Fixture must serve a numeric chance')
+    const { container } = render(<ViewCard card={card} selected />)
+    const headline = container.querySelector('[data-option-face]')!
+    const dots = headline.parentElement!.querySelector('[data-chance-dots]')!
+    expect(headline.textContent).toBe(card.headline!.text)
+    expect(headline.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(dots.querySelectorAll('[data-chance-dot]')).toHaveLength(10)
+    expect(dots.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(chance.chance * 10))
+    expect(container.querySelectorAll('[data-chance-dots]')).toHaveLength(1)
+  })
 
   it('contrast: a View from an older core (no headline) keeps its rows on the face', () => {
     const card = older.model!.cards.find((c) => c.family === 'option' && c.rows.some((r) => r.kind === 'chance'))!

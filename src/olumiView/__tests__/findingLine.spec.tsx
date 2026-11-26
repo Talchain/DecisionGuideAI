@@ -68,6 +68,36 @@ describe('the one finding line', () => {
     const q = question(noResult(withFinding(F)), 'simple')
     expect([findingSurfaceOf(noResult(withFinding(F)), FRONTED), q.querySelectorAll(`[data-finding-figure="${CARD.id}"]`).length, q.querySelectorAll('[data-view="run.finding.needs"]').length]).toEqual(['question', 1, 1])
   })
+  it.each([
+    ['the same opening', F.text, []],
+    ['a different opening', 'Core has a different finding.', [F.text]],
+    ['an opening with one extra space', F.text + ' ', [F.text]],
+  ] as const)('compares the finding with %s of the latest reply', (_, opening, expected) => {
+    const v = withFinding(F)
+    const session = JSON.parse(readFileSync('src/olumiView/fixtures/session/after-find-first.view3.json', 'utf8')) as View
+    const source = session.chat.find((t) => t.answer !== null)!
+    v.chat = [F.text, opening].map((line, i) => ({
+      ...source, id: i + 1, answer: { ...source.answer!, lead: { opening: line, points: [] } },
+    }))
+    const chat = panel(v)
+    expect(chat.querySelector('[data-view="chat.1.answer.lead.opening"]')?.textContent).toBe(opening)
+    cleanup()
+    const q = question(v, 'simple')
+    expect(lines(q).map((line) => line.textContent)).toEqual(expected)
+    expect(q.querySelector('[data-view="run.finding.needs"]')?.textContent).toBe(F.needs)
+    expect(q.querySelector(`[data-finding-figure="${CARD.id}"]`)).not.toBeNull()
+  })
+
+  it('uses the opening of a newer standalone floor reply', () => {
+    const v = withFinding(F)
+    v.floor = [{ job: 100, at: '2026-11-26T12:00:00Z', by: v.you, by_id: v.you_id,
+      said: 'What changed?', text: 'Full reply from Core.', lead: { opening: F.text, points: [] } }]
+    const chat = panel(v)
+    expect(chat.querySelector('[data-view="floor.100.lead.opening"]')?.textContent).toBe(F.text)
+    cleanup()
+    expect(lines(question(v, 'working'))).toEqual([])
+  })
+
   it('FL2 the top of the Olumi panel draws the same sentence once, above the next step, title on hover (the one Tip, by pointer and by keyboard focus)', async () => {
     const c = panel(withFinding(F)), w = lines(c)
     expect([w.length, w[0]?.textContent, w[0]?.hasAttribute('title'), await tipOf(w[0]!), await tipOnFocus(w[0]!)]).toEqual([1, F.text, false, F.title, F.title])

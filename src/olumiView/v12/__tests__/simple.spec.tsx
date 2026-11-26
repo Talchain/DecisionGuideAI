@@ -11,7 +11,7 @@ import { cardLinks, drawnModelOf } from '../../layout'
 import { cardGroupsOf } from '../bands/groups'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { useWhatIf } from '../../whatif'
-import { chanceParts } from '../cards/words'
+import { chanceParts, headlineChanceRow } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
 import { bandAxisOf, bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { LensesMenu } from '../lenses/LensesMenu'
@@ -154,20 +154,20 @@ describe('V12 Simple faces', () => {
     expect(bar).not.toBeNull()
     expect(words!.compareDocumentPosition(bar!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy() // the words lead, the bar under them
   })
-  it('S2 an option with a chance is a gauge: core\'s own value words and a track, no sentence', () => {
+  it('S2 an option with a chance shows dots: core\'s own value words beside ten dots', () => {
     const c = card('broader_entry'), words = chanceWordsOf(c)
     expect(words).not.toBeNull()
     const { container } = face('broader_entry')
-    expect(container.querySelector('[data-simple-face="gauge"]')).not.toBeNull()
-    // D2 (CHANGED BY DESIGN): the number's own words with the gauge; core's qualifier after them is the card's one quiet line.
+    expect(container.querySelector('[data-simple-face="chance"]')).not.toBeNull()
     expect(container.querySelector(`[data-simple-chance="broader_entry"]`)!.textContent).toBe(chanceParts(words!).head)
-    expect(container.querySelector('.ok-track')).not.toBeNull()
+    expect(container.querySelectorAll('[data-chance-dot]')).toHaveLength(10)
+    expect(container.querySelector('.ok-track')).toBeNull()
     expect(container.querySelector('[data-simple-face="no-chance"]')).toBeNull()
   })
 
   // CHANGED BY DESIGN (the lead's D2, 17 Nov: one quiet line, whole on hover; 18 Nov: an option's condition wraps to two lines, never hidden): the qualifier is the quiet line, its whole
   // words the hover; was: the number and the qualifier wrapped whole under the track.
-  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words whole under the track, the qualifier the one quiet line, the whole words its hover', async () => {
+  it('S2b core\'s value words as a qualified sentence (Codex 006 #3): the number\'s words first, the qualifier the one quiet line, the whole words its hover', async () => {
     const long = 'about 31% chance, on Olumi\'s assumption for \'Weeks until the second venue opens if nothing else changes\''
     const base = card('broader_entry'), h = base.headline!
     const c = { ...base, rows: base.rows.map((r) => (r.kind === 'chance' && (r as { aim_id?: string | null }).aim_id === h.aim_id ? { ...r, value: long } : r)) } as typeof base
@@ -181,8 +181,16 @@ describe('V12 Simple faces', () => {
     expect(words.className).toContain('break-words')
     expect(words.className).toContain('min-w-0')
     expect(words.className, 'the words may shrink: never the unshrinkable line that ran across the canvas').not.toContain('flex-none')
-    expect(words.closest('[data-simple-face="gauge"]')!.querySelector('.ok-track'), 'the track keeps its own row').not.toBeNull()
-    expect(words.parentElement!.className, 'the track and the words are stacked, not one row').not.toContain('flex')
+    const dots = words.parentElement!.querySelector('[data-chance-dots]')!
+    expect(words.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it.each([{ chance: null }, { state: 'withheld' as const }])('keeps Core’s chance words with no dots for %j', (fields) => {
+    const base = card('broader_entry'), served = headlineChanceRow(base)!
+    const c = { ...base, rows: base.rows.map((row) => row === served ? { ...served, ...fields } : row) }
+    const { container } = render(<SimpleFace card={c} model={model} noted={false} />)
+    expect(container.querySelector('[data-simple-chance]')?.textContent).toBe(chanceParts(served.value).head)
+    expect(container.querySelector('[data-chance-dots]')).toBeNull()
   })
 
   it('S2c (R6) an option with no chance is ONE quiet line in core\'s own words, its long reason the hover: no "?", no "Why not", no empty track, no zero', async () => {
@@ -252,13 +260,13 @@ describe('V12 Simple faces', () => {
     expect(empty.querySelector('[data-simple-face="figure"]')).toBeNull()
   })
 
-  it('S6 a withheld chance is a dashed empty bar (a built case, since the fixture holds every chance)', async () => {
+  it('S6 a withheld chance shows its reason with no dots or bar', async () => {
     const opt = card('broader_entry')
     const built = { ...opt, headline: { ...opt.headline!, state: 'none' as const, why: 'A figure is missing' }, rows: [] }
     const { container } = render(<SimpleFace card={built as never} model={model} noted={false} />)
     const f = container.querySelector('[data-simple-face="no-chance"]')!
     expect(await tipOf(f as HTMLElement)).toBe('A figure is missing')
-    expect(container.querySelector('.ok-track')).toBeNull()
+    expect(container.querySelector('[data-chance-dots], .ok-track')).toBeNull()
   })
 
   it('S7 an aim shows its bound and a target mark', () => {
