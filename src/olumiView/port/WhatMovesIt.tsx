@@ -13,6 +13,7 @@ import type { ViewModel, ViewRun } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { GlyphMark, Hover } from '../look/Hover'
 import { useViewStore } from '../store'
+import { TipPoint } from '../v12/scale'
 import { cardOf, findOutOf, leadChangeOf, aimSilentsOf } from './pick'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
@@ -65,7 +66,8 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
   const { aims, worth } = findOutOf(run)
   // Core's reason for each aim it tests no lead on, said where a lead's crossing would be; the one already drawn as `lead` is not drawn twice, and an
   // aim whose lead crossing IS drawn has no reason to add.
-  const leadAim = lead?.kind === 'tipping' ? (run?.tipping ?? []).find((_, i) => lead.at === `run.tipping.${i}.line`)?.aim ?? null : null
+  const leadTipping = lead?.kind === 'tipping' ? run?.tipping?.find((_, i) => lead.at === `run.tipping.${i}.line`) : undefined
+  const leadAim = leadTipping?.aim ?? null
   const silents = aimSilentsOf(run).filter((x) => x.at !== lead?.at && x.aim !== leadAim)
   if (lead === null && silents.length + aims.length + worth.length === 0) return null
   const leadCard = lead === null ? null : cardOf(model, lead.figure)
@@ -80,6 +82,7 @@ export function WhatMovesIt({ model }: { model: ViewModel }) {
           {leadCard?.figure?.edit == null ? null : <FigureEdit id={leadCard.id} edit={leadCard.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${leadCard.heading}`} />}
         </p>
       )}
+      {leadTipping === undefined ? null : <TipPoint tipping={leadTipping} card={leadCard} />}
       {silents.map((x) => (
         <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} data-testid="analysis-aim-silent" data-silent-aim={x.aim}><Hover words={x.hover} data-view={x.at}>{x.line}</Hover></p>
       ))}

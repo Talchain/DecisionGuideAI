@@ -667,6 +667,17 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .ok-scale-conditional-dot { background: var(--option); }
 .ok-scale-conditional-span { top: 7px; height: 2px; background: color-mix(in srgb, var(--text-header) 40%, transparent); }
 
+.ok-scale-tip { margin: var(--space-2) 0; }
+.ok-scale-tip-track { background: transparent; border-radius: 0; }
+.ok-scale-tip-track::before { content: ''; position: absolute; inset-inline: 0; top: 50%; border-top: 1px solid var(--border-default); }
+.ok-scale-tip-region { position: absolute; top: 0; bottom: 0; left: var(--scale-x); width: var(--scale-width); box-sizing: border-box; border: 1px solid var(--option); background: transparent; }
+.ok-scale-tip .ok-scale-range-band { min-width: 1px; }
+.ok-scale-tip-marker { position: absolute; top: calc(-1 * var(--space-1)); bottom: 0; left: calc(var(--scale-x) - 1px); border-left: 2px solid var(--text-header); }
+.ok-scale-tip-value { position: relative; height: var(--space-4); color: var(--text-header); }
+.ok-scale-tip-value > span { position: absolute; left: var(--scale-x); transform: translateX(calc(0% - var(--scale-x))); white-space: nowrap; }
+.ok-scale-tip-ends { display: flex; justify-content: space-between; gap: var(--space-2); }
+.ok-scale-tip-ends > :last-child { text-align: right; }
+
 .ok-scale-pending { border: 1px dashed var(--text-light); border-radius: var(--space-1); padding: var(--space-1) var(--space-2); }
 .ok-scale-outcomes { position: relative; margin: 6px 0 2px; padding-left: 22px; }
 .ok-scale-letter { position: absolute; left: -22px; width: 18px; text-align: right; font-weight: 500; }

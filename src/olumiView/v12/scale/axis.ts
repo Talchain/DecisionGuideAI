@@ -17,6 +17,21 @@ export function axisOf(lo: number, hi: number, want = 4): Axis {
   return { min: Math.min(min, first) + 0, max: Math.max(max, top), ticks }
 }
 
+/** An axis zoomed to [lo, hi] with a margin, 1-2-5 steps and nice ends, for a threshold picture where position against a line is the point (TipPoint);
+ *  never below 0 when every value is non-negative. Its ends are always labelled, so the zoom is visible. */
+export function spanAxisOf(lo: number, hi: number, want = 4): Axis {
+  const pad = (hi - lo) * 0.15 || Math.abs(hi) * 0.1 || 1
+  const raw = (hi - lo + 2 * pad) / want
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  const step = ([1, 2, 5, 10].find((m) => m * mag >= raw) ?? 10) * mag
+  let min = Math.floor((lo - pad) / step + 1e-9) * step
+  if (lo >= 0 && min < 0) min = 0
+  const max = Math.ceil((hi + pad) / step - 1e-9) * step
+  const ticks: number[] = []
+  for (let t = min; t <= max + step * 1e-6; t += step) ticks.push(Math.round(t / step) * step + 0)
+  return { min: min + 0, max, ticks }
+}
+
 export const pctOf = (a: Axis, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))
 export const fmt = (n: number): string => n.toLocaleString('en-GB', { maximumFractionDigits: 2 })
 
