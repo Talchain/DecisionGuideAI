@@ -21,6 +21,7 @@ import type { NodeType } from '../canvas/domain/nodes'
 import { isStructuralEdge } from '../canvas/domain/edgeUtils'
 import { REACT_FLOW_DELETE_KEY_CODE } from '../canvas/useKeyboardShortcuts'
 import { registerFocusHelpers } from '../canvas/utils/focusHelpers'
+import { useRouteIn } from './v12/arrival/routeIn'
 import { ViewLinkEdge } from '../canvas/edges/ViewLinkEdge'
 import { OlumiAttentionCard } from '../canvas/components/OlumiAttentionCard'
 import { OutputsDock } from '../canvas/components/OutputsDock'
@@ -413,7 +414,6 @@ function ViewFlow() {
     })
   }, [stored, chipCards, openCard, simple, lit])
   const edges = useCanvasStore((s) => s.edges)
-  const onNodesChange = useCallback((changes: NodeChange[]) => useCanvasStore.getState().onNodesChange(changes), [])
   // The menu is one of the five surfaces the one surface store holds (v12/edit/inspectorStore): opening it closes what else was open.
   const menu = useLaneInspector((s) => (s.current !== null && s.current.kind === 'menu' ? s.current.target : null))
   const closeMenu = useCallback(() => { useLaneInspector.getState().close('menu') }, [])
@@ -484,26 +484,34 @@ function ViewFlow() {
     document.addEventListener('focusout', out)
     return () => { document.removeEventListener('focusin', into); document.removeEventListener('focusout', out); useViewFocusCard.setState({ id: null }); useViewFocusLink.setState({ id: null }) }
   }, [])
-  useEffect(() => registerFocusHelpers((id) => {
+  // `selectOnly`: ring the card where it already is (the first-arrival route in), never re-centre a board that was fitted whole.
+  const focusCard = useCallback((id: string, canFocus?: () => boolean, selectOnly = false) => {
     // A card just added is in the canvas's nodes before React Flow has measured it, and its measured height lays the board out again: wait
     // until it is measured, no layout is running and it has kept its place for a frame (up to ~2 s), then bring it in front.
     let last = ''
     const call = ++focusCall.current, moves = movedAt.current
     const go = (tries: number) => {
       // A newer call, the person moving the board themselves, or the canvas leaving: this one is dropped.
-      if (call !== focusCall.current || moves !== movedAt.current) return
+      if (call !== focusCall.current || moves !== movedAt.current || canFocus?.() === false) return
       const n = getInternalNode(id)
       const here = n === undefined || !n.measured.width ? '' : `${n.internals.positionAbsolute.x},${n.internals.positionAbsolute.y}`
       const settled = here !== '' && !viewLaying() && here === last
       last = here
       if (!settled) { if (tries > 0) requestAnimationFrame(() => go(tries - 1)); return }
       useCanvasStore.getState().selectNodeWithoutHistory(id)
+      if (selectOnly) return
       const at = n!.internals.positionAbsolute, w = n!.measured.width ?? 0, h = n!.measured.height ?? 0
       userMoved.current = true; hand()
       void setCenter(at.x + w / 2, at.y + h / 2, { zoom: getZoom(), duration: 300 })
     }
     go(120)
-  }, () => undefined), [setCenter, getZoom, getInternalNode])
+  }, [setCenter, getZoom, getInternalNode])
+  useEffect(() => registerFocusHelpers(focusCard, () => undefined), [focusCard])
+  const noteCardMove = useRouteIn(view, movedAt, focusCard)
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    if (changes.some((change) => change.type === 'position' && change.position !== undefined)) noteCardMove()
+    useCanvasStore.getState().onNodesChange(changes)
+  }, [noteCardMove])
   const { zoomIn, zoomOut, zoomTo } = useReactFlow()
   const hasModel = useViewStore((s) => (s.view?.model?.cards.length ?? 0) > 0)
   const showGrid = useSettingsStore((s) => s.showGrid), gridSize = useSettingsStore((s) => s.gridSize), snapToGrid = useSettingsStore((s) => s.snapToGrid)
