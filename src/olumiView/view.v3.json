@@ -10232,6 +10232,9 @@
            },
            "not_held": {
             "type": "string"
+           },
+           "status": {
+            "type": "string"
            }
           },
           "required": [
@@ -10239,6 +10242,69 @@
            "points"
           ],
           "additionalProperties": false
+         },
+         "actions": {
+          "minItems": 1,
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+           "type": "object",
+           "properties": {
+            "text": {
+             "type": "string"
+            },
+            "on": {
+             "anyOf": [
+              {
+               "type": "object",
+               "properties": {
+                "finding": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "finding"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "object",
+               "properties": {
+                "record": {
+                 "type": "string"
+                }
+               },
+               "required": [
+                "record"
+               ],
+               "additionalProperties": false
+              },
+              {
+               "type": "object",
+               "properties": {
+                "world": {
+                 "type": "boolean",
+                 "const": true
+                }
+               },
+               "required": [
+                "world"
+               ],
+               "additionalProperties": false
+              }
+             ]
+            },
+            "basis": {
+             "type": "string"
+            }
+           },
+           "required": [
+            "text",
+            "on",
+            "basis"
+           ],
+           "additionalProperties": false
+          }
          }
         },
         "required": [

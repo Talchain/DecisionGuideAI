@@ -1874,7 +1874,19 @@ export type View = {
           basis: string
         }>
         not_held?: string
+        status?: string
       }
+      actions?: Array<{
+        text: string
+        on: {
+          finding: string
+        } | {
+          record: string
+        } | {
+          world: true
+        }
+        basis: string
+      }>
     } | null
     broke: string | null
     problem: string | null
