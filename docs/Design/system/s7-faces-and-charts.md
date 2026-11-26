@@ -24,40 +24,48 @@ Anything Paul has not judged is marked **open**, not decided.
 
 At rest a card shows its **title**, its **value or a mark**, and **at most one short chip**. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").
 
-| ID | Card and state (typed field) | Mark at rest | Chip | Hover |
-|---|---|---|---|---|
-| FACE-chance | option, `headline.state` chance | CH-chance glance | Core's value ("about 17%") | `headline.title` |
-| FACE-fixed | option, `headline.state` fixed | filled or hollow end mark | Core's short words | `headline.title` |
-| FACE-noresult | option, `headline.state` none | hollow CH-chance glance | Core's short reason | `headline.why` / `add` |
-| FACE-shared | aim, every option blocked by one shared reason | hollow mark on the aim | Core's short reason, on the aim only | the shared sentence |
-| FACE-value | quantity, `figure.text` set | value in whose-tone | none | `figure.title` |
-| FACE-range | quantity with a range | CH-range glance | none | `figure.title` |
-| FACE-unsized | quantity, empty figure | empty dashed track | "not sized yet" (Core) | `figure.title` |
-| FACE-waits | quantity, `figure.state` waits | waiting icon | Core's short words | what it waits on |
-| FACE-whatif | a marked what-if figure | Olumi mark on the value | none (the mark says it) | Core's what-if sentence |
-| FACE-bound | aim, `bound.measured` true | outlined bound pill | none | `bound.title` |
-| FACE-notcounted | aim, `bound.measured` false | dashed bound outline | "not checked yet" (Core) | the whole sentence |
-| FACE-tips | the figure named by `run.tipping[].figure` | orange tick (CH-tip glance) | Core's tip words in its units | the tipping sentence |
+The chip's words and the choice between some marks need Core's typed `card.face.chip = { state, text, title } | null`. lead-poc accepted the contract on 26 Nov, and Core builds it after two root-cause fixes.
+- `text`: Core's short words, at most 20 characters.
+- `title`: the whole sentence, for the hover.
+- `state`, by family:
+  - option: `chance`, `always_met`, `never_met`, `no_route`, `needs_input`, `no_measure`;
+  - quantity: `unsized`, `waits`, `whatif`, `tips`;
+  - goal: `not_counted`, `open_question`.
+- `null` where the value or bound is itself the face.
 
-- **Status: open.** The chip words need Core's typed `face.chip {state, text, title}`, asked of lead-poc on 26 Nov.
-- Until that field lands, a face draws the mark from the typed field and puts the sentence on the hover, with no chip words of the UI's own.
-- These come off the face with this table:
-  - `face.line` on option cards;
-  - `noChanceLineOf`, `onceWords`, `chanceParts` and `sharedNoChanceOf` as face text;
-  - the tipping paragraph on option cards.
+Until the field lands, a row marked **interim** draws from the typed field named in that row, puts every sentence on the hover, and draws no chip words.
+
+| ID | Card and state | Selected by (typed) | Mark at rest | Chip | Status |
+|---|---|---|---|---|---|
+| FACE-chance | option with a chance | `headline.state === 'chance'` | CH-chance glance | the chance value (`face.chip.text`; interim: the row's `value` words) | built |
+| FACE-fixed | option always or never meeting its aim | `face.chip.state` `always_met` or `never_met` | filled or hollow end mark | Core's short words | **waits on chip**: `headline.state === 'fixed'` does not say which; the face is unchanged until then |
+| FACE-noresult | option with no result | `headline.state === 'none'` | **open**: interim draws an empty dashed outline of the dots' footprint, for Paul to judge on 4310 (ChanceDots.md draws no dots here) | Core's short reason (chip) | interim |
+| FACE-shared | aim whose options share one blocker | `face.chip` on the aim and null on the options | the same dashed outline, on the aim | Core's short reason | **waits on chip**: interim keeps today's `sharedNoChanceOf`, which compares `headline.text` (a known breach, retired by the chip) |
+| FACE-value | quantity with a single figure | `figure.text !== ''`, no range | the figure, in whose-tone (README principle 5's "a figure is a bar" applies where there is a range or an axis; a single value is a number, as the chart system says) | none | built |
+| FACE-range | quantity with an input range | `card.figure.range` | CH-range glance | none | built |
+| FACE-bands | calculated figure per option | `card.values[].p10/p50/p90` | middle-80% bands, one per option | none | built |
+| FACE-unsized | quantity with no figure | `figure` non-null, `figure.text === ''`, not `waits` | empty dashed track | "not sized yet" (chip; the interim draws no words, and never cuts it out of `figure.title`) | interim |
+| FACE-waits | calculated figure waiting on inputs | `figure.state === 'waits'` | the same dashed track | Core's short words (chip) | interim |
+| FACE-whatif | a figure tried as a what-if | `face.chip.state === 'whatif'` (View v3 has no figure-level what-if state; `useTryOn` is a preview, not authorship) | Olumi mark only where `author.by === 'olumi'` | none | **waits on chip** |
+| FACE-bound | aim with a measured bound | `bound.measured === true` | outlined bound pill | none | built |
+| FACE-notcounted | aim with nothing counted | `bound.measured === false` | **open**: interim draws an empty dashed bound outline (today Simple draws a quiet line with no border) | "not checked yet" (chip) | interim |
+| FACE-tips | the figure that would flip the choice | the card whose id is `run.tipping[].figure.id` | orange tick | Core's unit words (chip, merged with F1); today `tipping[]` has only `line` and `hover` | **waits on chip** |
+
+Off the face once the chip lands: `face.line` on option cards, the description line, and the tipping paragraph. The text helpers `noChanceLineOf`, `onceWords`, `chanceParts`, `fixedParts` and `sharedNoChanceOf`, and the description and quote matching in `SimpleFace.tsx` and `CoreCard.tsx`, are deleted then.
 
 ## Charts (CH)
 
 | ID | Shows | Glance, and where | Look harder, and where | Core fields | Component | Status |
 |---|---|---|---|---|---|---|
-| CH-chance | chance of meeting an aim | option card | Analysis: every option on one axis, a whisker for spread | `rows[kind=chance].chance/value`, `headline` | `v12/scale/ChanceDots.tsx` | **open**: the 23 Nov system says a bar with a %; ten dots are built on 4310 (fa2481af) for Paul to compare |
-| CH-range | a figure's value and whose it is | figure card: value and middle-80% track | details: you vs Olumi on one axis | `figure`, `figureRange`, `author`, `olumi` | `v12/scale/RangeBar.tsx` | built; one form across faces still to converge |
-| CH-rests | how much rests on guesses | option card chip (mostly guesses / mixed / mostly yours) | Reasoning: figures ranked by the uncertainty they drive | `run.rests`, `rests_on` | to build | planned |
-| CH-tip | what would change the choice | orange tick on the flipping figure (FACE-tips) | Analysis: the tip point, the side that changes it, the figure's range | `run.tipping`, `rows[].tips*` | `v12/scale/TipPoint.tsx` | look-harder built on 4310; its number labels wait for Core's display strings (F1); the glance tick is not built |
-| CH-tested | how well it has been tested | six segments on the question card | Reasoning: each method by its registry icon | `reasoning.examined`, `session.methods`, `pre_mortem` | to build | planned |
-| CH-differ | where people differ | "views differ" chip on the card | Team: each person's range on one axis, with the flip point | `collab.shared`, `dissent`, `card.disputed` | to build | planned |
-| CH-worth | what is worth finding out first | chip on the most-worth-checking figure | Analysis: checks ranked by how far they could move the chance | `run.find_out`, `card.worth_checking` | to build | planned |
-| CH-status | reasoning that is a state | up to three chips: whose, evidence, examined | Reasoning: one row shape for every state | assumption, evidence, examined, next | to build | planned |
+| CH-chance | chance of meeting an aim | option card | Analysis: every option on one axis. The whisker is **conditional sensitivity** (the chance at the driver's low and high, `rows[].driver.low/high`), never a confidence interval | `rows[kind=chance].chance/value`, `headline` | `v12/scale/ChanceDots.tsx` | **open**: the 23 Nov system says a bar with a %; ten dots are built on 4310 for Paul to compare |
+| CH-range | an input figure's range and whose it is | figure card track | details: you vs Olumi on one axis | `card.figure.range`, `author`, `olumi` (an input range carries no percentile meaning) | `v12/scale/RangeBar.tsx` | built |
+| CH-bands | a calculated figure per option | figure card stacked bands | Analysis: one row per option | `card.values[].p10/p50/p90`, `values_withheld` | inline in `v12/SimpleFace.tsx`; one component is still to extract | built, to converge |
+| CH-rests | how much rests on guesses | one chip on the option card | Reasoning: figures ranked by the uncertainty they drive | `run.rests[]`, `rests_on` | to build | planned |
+| CH-tip | what would change the choice | **open**: the 23 Nov system puts an orange tick on the flipping figure, while TipPoint.md draws Core's sentence plus the picture at glance | the tip point, the side that changes it, the figure's range | `run.tipping[]`, `rows[].tips*` | `v12/scale/TipPoint.tsx` | the picture is built on 4310; its number labels wait for Core's display strings (F1) |
+| CH-tested | how well it has been tested | six segments on the question card | Reasoning: each method by its registry icon | `reasoning.examined`, `session.methods`, `pre_mortem` (exact paths fixed in its own brief) | to build | planned |
+| CH-differ | where people differ | one chip on the card | Team: each person's range on one axis, with the flip point | `collab.shared`, `dissent`, `card.disputed` | to build | planned |
+| CH-worth | what is worth finding out first | one chip on the figure most worth checking | Analysis: checks ranked by how far they could move the chance | `run.find_out`, `card.worth_checking` | to build | planned |
+| CH-status | reasoning that is a state | one chip, under the one-chip face rule (the 23 Nov system's three chips are **open** against it) | Reasoning: one row shape for every state | fixed in its own brief | to build | planned |
 
 Build order, from the chart system:
 1. The reasoning loop (CH-status).
@@ -67,23 +75,27 @@ Build order, from the chart system:
 
 ## Link lines (LN)
 
-The anatomy is in `components/LinkLine.md`. Each registered style:
+Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. Precedence: `src/canvas/edges/ViewLinkEdge.tsx`.
 
-| ID | Line |
-|---|---|
-| LN-raise | `edge-positive`, arrow end |
-| LN-lower | `edge-negative`, arrow end |
-| LN-unsigned | `edge-neutral` |
-| LN-goal | `goal` tone: measures or targets an aim, no end for measures |
-| LN-driver | `text-header`, a driver link |
-| LN-input | dot end |
-| LN-doubt | dash `5 4` |
-| LN-reason | dotted `0.1 6` round |
-| LN-leader | dash `2 3` at 1px |
+| ID | Line | Code |
+|---|---|---|
+| LN-effect | effect: neutral until signed, arrow end | `LINK_STYLES.effect` |
+| LN-raise / LN-lower | signed effect: `edge-positive` / `edge-negative`, arrow end | `ViewLinkEdge` sign branch |
+| LN-input | input: grey, dot end | `LINK_STYLES.input` |
+| LN-measures | gold, no end | `LINK_STYLES.measures` |
+| LN-target | gold, arrow end | `LINK_STYLES.target` |
+| LN-size | grey, no end, Core's label | `LINK_STYLES.size` |
+| LN-driver | `text-header` ink, only where no styled or modelled branch applies | `ViewLinkEdge` |
+| LN-reason | dotted `0.1 6` round; the alert form has an orange stroke | `ViewLinkEdge` / `olumiLook.css` |
+| LN-doubt | dash `5 4`; wins over LN-reason when both apply | `ViewLinkEdge` |
+| LN-leader | dash `2 3` at 1px | `olumiLook.css` |
+| LN-fallback | the marker an unstyled link draws | `ViewLinkEdge` markers |
 
-The halos (alert orange, Olumi `info`) are states, not styles. Any other stroke, dash or end is unregistered.
+**States, not styles:** the 3px lit path, the alert halo (orange) and the Olumi-proposed halo (`info`). Any other stroke, dash or end is unregistered.
 
-Crossing lines and lines behind cards are a layout fault, not a style. They are planned with the whole-model fit.
+**Open:** the `size` label and hover are assembled in the UI. Core should own those words.
+
+Crossing lines and lines running behind cards are a layout fault, not a style. They are planned with the whole-model fit.
 
 ## Tab tools (TT)
 
@@ -102,9 +114,14 @@ The chart inventory of 23 Nov listed 22 chart-like forms. They are frozen: the g
 
 ## Conformance
 
-- **`ci:guard:forms`** (`tools/ci-guards/check-forms.mjs`) checks against the registry in `docs/Design/system/forms.json`. It scans `src/olumiView`, `src/olumiCore` and `src/canvas`. It fails when:
-  - an element carries a `data-form` ID that is not in the registry;
-  - a registered component lacks its ID;
-  - a new chart-like file or link style appears that is neither registered nor on the frozen legacy list.
-- **A face-text spec** renders fixture Views and counts the words at rest on each card family. Each family has a ratcheted budget that only goes down.
-- Both join the enforcing gate and `ci:all`. Each was shown failing on a planted breach before it was accepted.
+Status: **planned**. Neither check exists yet; this section is the brief for building them.
+
+- **`ci:guard:forms`** (`tools/ci-guards/check-forms.mjs`, with the registry in `docs/Design/system/forms.json`) is static, and so only checks what a scan can see:
+  - every literal `data-form` ID is in the registry;
+  - each registered component root carries its ID;
+  - new chart drawing uses a registered primitive or lives in an allowlisted renderer module, checked by scanning **added and modified** files for definitions and imports of chart primitives (track, band, axis and dot components and their CSS classes) outside those modules;
+  - `LINK_STYLES`, the dash and marker definitions, and the edge precedence change only together with this page's LN table.
+  - Scope: `src/olumiView`, `src/olumiCore` and `src/canvas`.
+- It **cannot** see visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim.
+- **A face-text spec** renders fixture Views covering each FACE row and counts the words at rest on each card family against a budget that is ratcheted down. It covers only the states its fixtures contain, and its fixture list says so.
+- Both join the enforcing gate and `ci:all`, and each is shown failing on a planted breach before it is accepted.
