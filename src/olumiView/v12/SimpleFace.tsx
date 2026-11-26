@@ -32,7 +32,7 @@ import { cardKindOf, type CardKind } from './cards/kind'
 import { GoalMeasureLine, waitingMeasureQuestion } from './cards/GoalMeasureLine'
 import { optionLetters } from './cards/letters'
 import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
-import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
+import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, onceWords, optionScienceOf, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
 import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
@@ -143,6 +143,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   let visual: ReactNode = null
   let state: StateLine | null = null
   let withheldRows: readonly (ViewRow | undefined)[] = []
+  let tipsDrawn = false
   if (card.family === 'option') {
     if (h !== null && h.state === 'chance' && at !== null) {
       // The chance: a gauge with core's own words for the number (Codex 006 #3); its qualifier, core's words after the number, is the state line, with Olumi's
@@ -172,6 +173,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       const tip = tipsLineOf(card, h), key = model === null ? null : olumiKey(model)
       if (h.state === 'none') withheldRows = [card.rows[tip?.i ?? headlineWithheldRowIndex(card)]]
       if (tip?.conditional) conditionalWords = tip.whole
+      tipsDrawn = tip !== null
       state = tip === null
         ? { text: line, title: hover, marks: { 'data-simple-face': 'no-chance', 'data-simple-state': id }, ...(h.add != null && h.add !== '' ? { whole: true as const } : {}) }
         // CP-3: core's break-even, short (`tips_face`), replaces the next-step line; the whole sentence joins the hover. A what-if says so in its own words
@@ -297,6 +299,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const gap = unsizedWords(card)
     if (gap !== null) state = { text: onceWords(gap), title: gap, marks: { 'data-simple-face': 'no-figure', 'data-unsized': id, 'data-unsized-words': id } }
   }
+  const science = tipsDrawn ? null : optionScienceOf(card, model)
   // The reason every option shares for having no chance on this aim, once, here (words.ts sharedNoChanceOf); the aim's own state stays in the hover.
   const once = card.family === 'option' ? null : sharedNoChanceOf(model, id)
   if (once !== null) withheldRows = model!.cards
@@ -352,6 +355,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       {!conditionalOpen || conditionalWords === null ? null : (
         <p ref={conditionalPremise} id={conditionalPanel} className="ok-quiet min-w-0 basis-full whitespace-pre-wrap">{conditionalWords}</p>
       )}
+      {science === null ? null : <p className={`${typography.viewLabel} min-w-0 basis-full break-words text-text-body`} data-card-science={id} data-view={science.at}>{science.line}</p>}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
       <div className="ml-auto flex flex-none items-center gap-2" data-simple-foot={id}>

@@ -30,7 +30,7 @@ import { ChanceBand, RestsShareFill } from '../ResultBand'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
-import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnce, useWithheldRing, WithheldLead } from '../v12/detailed/marks'
+import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, rowBelowOf, SaidOnce, useWithheldRing, WithheldLead } from '../v12/detailed/marks'
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
@@ -57,7 +57,7 @@ import { ConditionalBar, RangeBar } from '../v12/scale'
 import { NotSavedTag } from '../v12/inspect/NotSaved'
 import { AuthorMark, BaselinePill, CardMarks, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, QuestionMark, whoseOf } from '../v12/cards/marks'
 import { OkIcon } from '../look/icons'
-import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
+import { bareReasonOfHeadline, chanceParts, headlineWithheldRowIndex, noChanceLineOf, onceWords, optionScienceOf, unsizedWords, withheldCardIds, withheldField, withheldWords } from '../v12/cards/words'
 import { fixedParts } from '../v12/cards/words'
 
 // Which of core's fields says why a chance is withheld, and its words: v12/cards/words.ts (one source for both faces); named here as before.
@@ -348,6 +348,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const sharedRows = useMemo(() => sharedRowStates(model), [model])
   const measureQuestion = card === null || simple ? null : waitingMeasureQuestion(card, model)
   const showsBound = card?.bound != null && lead === card.bound.text && lead !== card.figure?.text
+  let headTipsDrawn = false
   const faceOf = (): JSX.Element | null => {
     if (card === null || lead === null) return null
     // An option core sends no headline for (its rows only): each aim's card says its rows by letter (AimResults). Only where nothing can be worked
@@ -406,13 +407,15 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       const hi = h.aim_id == null ? -1 : card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === h.aim_id)
       const headRow = hi === -1 ? null : { r: card.rows[hi] as Parameters<typeof RowBelow>[0]['r'], i: hi }
       const reason = lane ? bareReasonOfHeadline(h) ?? undefined : undefined
+      const headShown = once ? '' : reason ?? line
+      headTipsDrawn = headRow !== null && rowBelowOf(headRow.r, headShown).some((b) => b.f === 'tips')
       return (
         <Hover as="div" focusable={false} className="flex flex-col gap-2" data-core-lead={id} data-ok-face="none" data-said-once={once || undefined} words={[why, hover].filter((x) => x != null && x !== '').join('\n')}>
           {once ? null : <DetailedWithheldHeadline id={id} h={h} line={line} why={why} reason={reason}
             blockers={lane ? withheldCardIds(model, [card.rows[headlineWithheldRowIndex(card)]]) : []} />}
           {/* A7(a), Codex 12:08Z: the headline's own aim is drawn here, not in AimRows (otherRows leaves it out), so its typed withheld row's switch
               sentence and input to check are read here, once, at rest under the line. By field (the row whose aim_id is the headline's). */}
-          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} shown={once ? '' : reason ?? line} />}
+          {headRow === null ? null : <RowBelow r={headRow.r} at={`${id}.rows.${headRow.i}`} shown={headShown} />}
           {trail === null ? null : <div className="ok-row">{trail}</div>}
         </Hover>
       )
@@ -471,6 +474,8 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       </Hover>
     )
   }
+  const face = simple ? null : faceOf()
+  const science = simple || card === null || headTipsDrawn ? null : optionScienceOf(card, model)
   return (
     // The wrapper takes no box (`contents`) unless the If it failed lens recedes this card: no card moves, its handles and ring unchanged.
     // V12: an option's letter is drawn before its title by the look (olumiLook.css reads `--ok-letter`; the title is the frame's own element).
@@ -515,7 +520,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               Where that withholds a chance headline from the face, core's own chance words and their title are this line's hover. */}
           {setAside ? <Hover as="p" focusable={false} className="ok-quiet" data-view={`${id}.status`} words={setAsideChance === null ? undefined : [setAsideChance.text, setAsideChance.title].filter((x) => x !== '').join('\n')}>{card.status}</Hover> : null}
           {measureQuestion === null || showsBound ? null : <GoalMeasureLine question={measureQuestion} className="ok-quiet min-w-0 self-start" />}
-          {faceOf()}
+          {face}
           {/* An input not sized yet: core's own words for the gap ("not sized yet · …"), once (words.ts onceWords), whole on hover, as the Simple face
               says them; no empty bar at rest (Paul, 16 Nov), and nothing at all where core sends no words for the gap. */}
           {(() => { const gap = unsizedWords(card); return gap === null ? null : <Hover as="p" focusable={false} className="ok-quiet" data-unsized={id} data-unsized-words={id} words={gap}>{onceWords(gap)}</Hover> })()}
@@ -523,6 +528,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {card.family === 'option' || !hasSpread(card) || (card.values?.length ?? 0) > 0 ? null : <RangeBar card={card} view={{ model }} />}
           <CardSplit card={card} people={people} />
           {card.family === 'option' ? <AimRows card={card} model={model} shared={sharedRows} /> : <AimResults aim={card} model={model} shared={sharedRows} />}
+          {science === null ? null : <p className={`${typography.viewLabel} min-w-0 basis-full break-words text-text-body`} data-card-science={id} data-view={science.at}>{science.line}</p>}
           <SaidOnce lines={said.aims.get(id) ?? []} at={id} />
           {reading === null ? null : <Hover as="p" focusable={false} className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} words={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</Hover>}
           {(card.values?.length ?? 0) > 1 ? <StatedFigure id={id} card={card} /> : null}

@@ -945,6 +945,20 @@ export function tippingOf(run: ViewRun | null): { heading: string; lines: { line
   return lines.length === 0 && silent.length === 0 && optionSilent.length === 0 ? null : { heading: run.tipping_heading, lines, silent, optionSilent }
 }
 
+export function optionTippingOf(run: ViewRun | null, option: string, aim: string | null): { at: string; line: string } | null {
+  if (aim === null) return null
+  const tipping = tippingOf(run)
+  if (tipping === null) return null
+
+  const crossing = tipping.lines.find(({ line }) => line.kind === 'chance' && line.option === option && line.aim === aim)
+  if (crossing !== undefined) return { at: `run.tipping.${crossing.i}.line`, line: crossing.line.line }
+
+  const leader = run?.most_likely
+  const silence = tipping.optionSilent.find((s) => s.aim === aim
+    && (s.option === option || (s.option === null && leader?.option === option && leader.aim_id === aim)))
+  return silence === undefined ? null : { at: silence.at, line: silence.line }
+}
+
 /**
  * D5 (`run.failure`) and D8 (`run.rests`) under core's own headings: each line core's sentence, in core's order, with its hover; nothing without
  * a heading or a line. D5 is empty until a person names or commits to an option; D8's shares are positions only and are never drawn as numbers.
