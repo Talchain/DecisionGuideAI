@@ -124,6 +124,18 @@ describe('a reply with core\'s lead: the lead first, the whole answer folded und
     expect([q(n0, 'view-reply-lead'), n0.querySelector('[data-reply-heading]'), n0.textContent!.includes(HEADING), n0.textContent!.includes(OPENING)]).toEqual([null, null, false, true])
   })
 
+  it('keeps the paired first draft\'s status once in the first answer outside the closed fold', () => {
+    const STATUS = 'The changes to Sunday opening are ready for review.'
+    const answer = [{ text: `${LABEL}\n\n${STATUS}${FIRST.slice(LABEL.length)}` }]
+    const view = withTurn(base, 0, { answer, first_answer: { label: LABEL, heading: HEADING }, lead: { ...LEAD, status: STATUS } }, { early: { text: KEPT_FIRST } })
+    const turn = show(view).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
+    const detail = turn.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
+    expect(detail.open).toBe(false)
+    expect(q(turn, 'view-lead-status')).toBeNull()
+    expect(turn.textContent!.split(STATUS).length - 1).toBe(1)
+    expect(detail).not.toHaveTextContent(STATUS)
+  })
+
   it('the panel\'s one large line, on the NEWEST reply: the CURRENT answer\'s lead is the large line, and an earlier first answer beneath it never is, however short. With NO lead (a reply stored before leads existed) the first answer under core\'s label is still never the large line, and nothing is folded or reordered. CONTRASTS: a no-lead reply with no first answer keeps its large opening; a lead with no first answer is the large line', () => {
     const newest = base.chat.map((t) => t.answer !== null).lastIndexOf(true), turn = `chat.${newest}`
     const OPENING = 'Open on Sundays only if thirty more covers a day pay for the staff.'

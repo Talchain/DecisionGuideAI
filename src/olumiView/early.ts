@@ -40,7 +40,7 @@ export type LeadActionOn = { finding: string } | { record: string } | { world: t
 /** One thing core suggests doing (`lead.actions[]`, harness slice 3): its words, what it is about (a finding, a record, or the world outside the model) and its basis, all core's. */
 export type LeadAction = { text: string; on: LeadActionOn; basis: string }
 /** `actions`: at most three, in core's order; the key is absent when there are none. */
-export type ReplyLead = { opening: string; points: string[]; actions?: LeadAction[]; /** K1 (core c918fe31): what the reply mentions that the model does not hold, one line in core's words; where present, the turn's `not_held` is absent. */ not_held?: string }
+export type ReplyLead = { opening: string; points: string[]; actions?: LeadAction[]; /** K1 (core c918fe31): what the reply mentions that the model does not hold, one line in core's words; where present, the turn's `not_held` is absent. */ not_held?: string; status?: string }
 const MAX_ACTIONS = 3
 const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.trim() !== ''
 const actionOnOf = (on: unknown): LeadActionOn | null => {
@@ -72,10 +72,10 @@ const squash = (s: string) => s.replace(/\r\n?/g, '\n').split('\n').map((l) => l
 export const leadOf = (holder: unknown, full: string): ReplyLead | null => {
   const l = typeof holder === 'object' && holder !== null ? (holder as { lead?: unknown }).lead : undefined
   if (l === null || typeof l !== 'object') return null
-  const { opening, points, actions, not_held: notHeld } = l as { opening?: unknown; points?: unknown; actions?: unknown; not_held?: unknown }
+  const { opening, points, actions, not_held: notHeld, status } = l as { opening?: unknown; points?: unknown; actions?: unknown; not_held?: unknown; status?: unknown }
   if (typeof opening !== 'string' || opening.trim() === '' || !Array.isArray(points) || !points.every((p) => typeof p === 'string' && p.trim() !== '')) return null
   const acts = actionsOf(actions)
-  const lead: ReplyLead = { opening, points: points as string[], ...(acts.length === 0 ? {} : { actions: acts }), ...(typeof notHeld === 'string' && notHeld.trim() !== '' ? { not_held: notHeld } : {}) }
+  const lead: ReplyLead = { opening, points: points as string[], ...(acts.length === 0 ? {} : { actions: acts }), ...(typeof notHeld === 'string' && notHeld.trim() !== '' ? { not_held: notHeld } : {}), ...(nonEmpty(status) ? { status } : {}) }
   return squash(full) === squash([opening, ...lead.points].join('\n')) ? null : lead
 }
 /** Core's `lead.not_held` read on its own (K1, c918fe31), for a reply whose lead is not drawn (it repeats the whole answer): the line must still show, since core then

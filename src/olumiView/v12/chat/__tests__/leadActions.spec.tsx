@@ -20,6 +20,7 @@ import { ViewChat, useViewChat } from '../../../ViewChat'
 import { leadOf } from '../../../early'
 import { pressCard } from '../../../reasoning/tabRing'
 import { tipOf } from '../../../__tests__/tipHelpers'
+import { ReplyLead } from '../ReplyLead'
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 type Answer = NonNullable<ViewTurn['answer']>
@@ -51,6 +52,90 @@ afterEach(() => {
 })
 const turn = (actions: unknown, lead: Record<string, unknown> = LEAD) => show(withTurn(base, 0, { answer: [{ text: FULL }], lead: { ...lead, ...(actions === undefined ? {} : { actions }) } } as Partial<Answer>)).querySelector<HTMLElement>('[data-view-turn="chat.0"]')!
 const act = (text: string, on: unknown, basis = 'Because it was said.') => ({ text, on, basis })
+
+describe('a pending reply lead\'s status', () => {
+  const STATUS = 'Two staffing changes are ready for your review.'
+  const STATUS_LEAD = { opening: 'The proposal changes the specialist’s timing and contribution.', points: [] }
+  const statusLines = (container: ParentNode) => container.querySelectorAll('[data-testid="view-lead-status"]')
+  const pending = (lead: Record<string, unknown> = { ...STATUS_LEAD, status: STATUS }) => {
+    const i = base.chat.findIndex((t) => t.id === base.proposal!.id)
+    const answer = base.chat[i]!.answer!
+    const container = show(withTurn(base, i, { answer: [...answer.answer, { text: '\n\n' }, { text: STATUS }], lead } as Partial<Answer>))
+    const at = `chat.${i}`
+    const turn = container.querySelector<HTMLElement>(`[data-view-turn="${at}"]`)!
+    return { container, turn, at }
+  }
+
+  it('draws Core\'s status once as the first line of the closed lead and keeps Review visible, with no status for invalid or absent values', () => {
+    const { container, turn, at } = pending()
+    const lines = statusLines(container)
+    expect(lines).toHaveLength(1)
+    const line = lines[0]!
+    expect(line.textContent).toBe(STATUS)
+    expect(line).toHaveAttribute('data-view', `${at}.answer.lead.status`)
+    expect(q(turn, 'view-reply-lead')!.firstElementChild).toBe(line)
+    expect(line.nextElementSibling).toHaveAttribute('data-reply-opening')
+    expect(turn.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!.open).toBe(false)
+    expect(q(turn, 'view-chat-reply-review')).toBeVisible()
+    cleanup()
+
+    for (const status of [undefined, null, '', 7]) {
+      const lead = status === undefined ? STATUS_LEAD : { ...STATUS_LEAD, status }
+      expect(statusLines(pending(lead).container)).toHaveLength(0)
+      const parsed = leadOf({ lead }, STATUS)
+      expect(parsed).toMatchObject(STATUS_LEAD)
+      expect(parsed).not.toHaveProperty('status')
+      cleanup()
+    }
+  })
+
+  it('removes the promoted status on open, restores it first on close, and keeps Review visible throughout', () => {
+    const { container, turn } = pending()
+    expect(statusLines(container)).toHaveLength(1)
+    expect(q(turn, 'view-chat-reply-review')).toBeVisible()
+    const detail = turn.querySelector<HTMLDetailsElement>('[data-testid="view-reply-full"]')!
+
+    detail.open = true
+    fireEvent(detail, new Event('toggle'))
+    expect(statusLines(container)).toHaveLength(0)
+    expect(q(detail, 'view-reply-full-body')).toHaveTextContent(STATUS)
+    expect(q(turn, 'view-chat-reply-review')).toBeVisible()
+
+    detail.open = false
+    fireEvent(detail, new Event('toggle'))
+    const lines = statusLines(container)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]!.textContent).toBe(STATUS)
+    expect(q(turn, 'view-reply-lead')!.firstElementChild).toBe(lines[0])
+    expect(q(turn, 'view-chat-reply-review')).toBeVisible()
+  })
+
+  it('promotes only with a distinct lead, fold content, and explicit opt-in', () => {
+    expect(statusLines(pending().container)).toHaveLength(1)
+    cleanup()
+
+    const { container, turn } = pending({
+      opening: 'I have changed when the specialist starts and what they add.',
+      points: [STATUS],
+      status: STATUS,
+    })
+    expect(statusLines(container)).toHaveLength(0)
+    expect(q(turn, 'view-reply-lead')).toBeNull()
+    expect(q(turn, 'view-reply-full')).toBeNull()
+    expect(q(turn, 'view-chat-answer')).toHaveTextContent(STATUS)
+    cleanup()
+
+    const lead = { ...STATUS_LEAD, status: STATUS }
+    const empty = render(<ReplyLead lead={lead} at="chat.0.answer" promote />).container
+    expect(statusLines(empty)).toHaveLength(0)
+    expect(q(empty, 'view-reply-full')).toBeNull()
+    cleanup()
+
+    const folded = render(<ReplyLead lead={lead} at="chat.0.answer"><p>{STATUS}</p></ReplyLead>).container
+    expect(statusLines(folded)).toHaveLength(0)
+    expect(q(folded, 'view-reply-full')).not.toBeNull()
+  })
+})
 
 describe('K1 lead.not_held (core c918fe31)', () => {
   const NH = 'Not in your model: 210 pupils, 120 seats.'

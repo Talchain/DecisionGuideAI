@@ -1,5 +1,5 @@
 import '../../look/olumiLook.css'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import type { LeadAction, ReplyLead as Lead } from '../../early'
 import { richText } from './richText'
@@ -50,11 +50,15 @@ function ActionLine({ a, at }: { a: LeadAction; at: string }) {
  * A reply's short lead, then its full answer folded beneath, closed at rest (Paul 11:02Z: "stop fighting reply length with wording"). The lead is
  * core's (`lead.opening`, then `lead.points`, then `lead.actions` when core sends any; Paul's reply shape: a sentence or two, then the bullets; DL ruling 20 Nov after Codex), drawn verbatim; the full answer is whatever the caller draws today, unchanged. Nothing is cut, counted or
  * written here. `big`: the newest reply's short opening is the panel's one 18 px line (the caller decides, as for any reply's opening).
+ * PL 2340 and 0036: at the ordinary mount, Core's pending status leads while folded. The answer keeps its original line, and the
+ * disclosure's open state decides whether to draw the promoted line.
  */
-export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lead; at: string; big?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; /** Absent or null: there is nothing to fold, so no "Full answer" is drawn. */ children?: ReactNode }) {
+export function ReplyLead({ lead, at, big = false, promote = false, keep, children }: { lead: Lead; at: string; big?: boolean; promote?: boolean; /** One visible Keep chooser beside the lead (the floor reply's core-offered entries), drawn outside the fold. */ keep?: ReactNode; /** Absent or null: there is nothing to fold, so no "Full answer" is drawn. */ children?: ReactNode }) {
+  const [open, setOpen] = useState(false)
   return (
     <>
       <div className="space-y-3" data-testid="view-reply-lead">
+        {promote && lead.status !== undefined && children != null && !open ? <p className={`${typography.viewPanelMeta} m-0 text-text-light`} data-testid="view-lead-status" data-view={`${at}.lead.status`}>{lead.status}</p> : null}
         <p className={big ? `group/item m-0 ${typography.viewPanelHeadline} text-text-header` : 'group/item m-0 text-text-header'} data-view={`${at}.lead.opening`} data-reply-opening="">{richText(lead.opening)}</p>
         {lead.points.length === 0 ? null : (
           <ul data-reply-list="" data-testid="view-reply-lead-points">
@@ -71,7 +75,7 @@ export function ReplyLead({ lead, at, big = false, keep, children }: { lead: Lea
         {keep}
       </div>
       {children == null ? null : (
-        <details className="ok-reply-more" data-testid="view-reply-full">
+        <details className="ok-reply-more" data-testid="view-reply-full" onToggle={(e) => setOpen(e.currentTarget.open)}>
           <summary>{FULL_ANSWER}</summary>
           <div className="space-y-3" data-testid="view-reply-full-body">{children}</div>
         </details>
