@@ -5,25 +5,26 @@
  * A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
  */
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
-import { useStoreApi, type Node } from '@xyflow/react'
+import { useStore, useStoreApi, type Node } from '@xyflow/react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION, QUESTION_LAYOUT_HEIGHT } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION, QUESTION_LAYOUT_HEIGHT } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
 import {
   DOCK_SELECTOR, KEY_PILL_SELECTOR, LENS_BAR_SELECTOR, OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR, computeFitPadding,
 } from '../canvas/utils/computeFitPadding'
+import { reducedFaceSize } from './camera'
 import { frameTop } from './regions'
 import { FOOT_GUTTER } from './footClear'
 import { selectLodBodyHidden } from '../canvas/utils/zoomLegibility'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
-import { FOLD_H, IDEA_H, foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/bands/BandNodes'
+import { foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/bands/BandNodes'
 import { groupLinkTitle } from './v12/bands/GroupLinkEdge'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
@@ -76,26 +77,13 @@ const at = (a: At | undefined, b: At) => a !== undefined && a.x === b.x && a.y =
 type Box = At & { w: number; h: number }
 const sits = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
-/** The last causal layout, keyed by what it rests on (the cards, their links and their drawn heights), and how many are being laid out. */
-let causal: { key: string; places: Map<string, Placed> } | null = null
-let laying = 0
-let externalLayoutVersion = 0
-function queueLayout(): () => void {
-  laying += 1
-  let pending = true
-  return () => {
-    if (!pending) return
-    pending = false
-    laying -= 1
-  }
-}
-/** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
-export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
-/** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
-// Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
-let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }
+type Size = { width: number; height: number }
+type Stage = ReturnType<typeof stageRow> & { simple?: true; budget?: number; roomW?: number }
+type LayoutResult = { places: ReadonlyMap<string, Placed>; sizes: ReadonlyMap<string, Size>; row: Stage }
+
+let causal: { key: string; result: LayoutResult } | null = null
+// Set lazily because layout.ts and this module import each other.
+let row: Stage = { cardW: 0, gapX: 0 }
 export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
@@ -120,44 +108,82 @@ export const railedOf = (view: View | null): ReadonlySet<string> =>
   new Set([...(revealOf(view)?.cardChips.keys() ?? []), ...(view?.collab.link_marks ?? []).flatMap((m) => (!m.line && m.card !== null ? [m.card] : []))])
 const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().view)
 
-/** The previous product's places for the model (layout.ts causalPlaces), at the cards' drawn heights (else core's), worked out once per
- *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
-/** What the canvas hands the causal layout for this model now: each card's size and the layout options (the store's direction and spacing, the
- *  stage row for the level and the room). One place for the inputs, so a check of "where the causal layout places it" uses the canvas's own. */
-export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []) {
-  const nodes = useCanvasStore.getState().nodes, railed = railedCards()
-  // V12: Simple has its own, wider bands (layout.ts simpleStageRow); Detailed keeps the stage row.
-  const stage = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
-  const { direction, nodeSpacing } = useLayoutStore.getState()
-  // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, stage) : stage.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
-  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
+// React Flow retains a node's last measurement even when its face changes off screen.
+const measuredFaces = new WeakMap<NonNullable<Node['measured']>, string>()
+let canvasZoom = () => 1
+
+function layoutFace(reduced: boolean, simple: boolean, far: boolean): string {
+  return simple ? (far ? 'simple-line' : 'simple') : far ? 'detailed-line' : reduced ? 'detailed-body' : 'detailed'
 }
 
-async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, Placed>> {
-  const { nodes, railed, size, opts } = causalInputs(model, extras)
-  row = opts.row
-  const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
-  if (causal?.key === key) return causal.places
+function currentFace() {
+  return layoutFace(reducedFaceSize(canvasZoom()) > 0, levelOf(useViewStore.getState().sid) === 'simple', selectLodBodyHidden(useCanvasStore.getState()))
+}
+
+function measuredOnFace(node: Node, face: string) {
+  const measured = node.measured
+  return measured && (measuredFaces.get(measured) ?? face) === face ? measured : undefined
+}
+
+function heightsKey(nodes: readonly Node[], face: string) {
+  return nodes.map((n) => `${n.id}:${measuredOnFace(n, face)?.height ?? ''}`).join('|')
+}
+
+function sizesOf(entries: readonly (readonly [string, number])[], stage: Stage, face: string, questionWidth = stage.cardW) {
+  const nodes = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, n]))
+  return new Map(entries.map(([id, estimate]) => {
+    const node = nodes.get(id)
+    const measured = node && measuredOnFace(node, face)
+    if (measured && !measuredFaces.has(measured)) measuredFaces.set(measured, face)
+    return [id, { width: id === QUESTION ? questionWidth : stage.cardW, height: measured?.height || estimate }]
+  }))
+}
+
+/** The exact dimensions and options the canvas hands to the causal layout. */
+export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = [], face = currentFace()) {
+  const nodes = useCanvasStore.getState().nodes, railed = railedCards()
+  const stage: Stage = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
+  const { direction, nodeSpacing } = useLayoutStore.getState()
+  const boxes = sizesOf([
+    [QUESTION, QUESTION_LAYOUT_HEIGHT], ...model.cards.map((c) => [c.id, c.h] as const), ...extras.map((e) => [e.id, e.h] as const),
+  ], stage, face, questionBarWidth(model, stage))
+  // The rail adds a layout gap below its card. It is outside the card's own box.
+  const size = new Map(boxes)
+  for (const id of railed) {
+    const box = boxes.get(id)
+    const node = nodes.find((n) => n.id === id)
+    if (box && node && measuredOnFace(node, face)?.height) size.set(id, { ...box, height: box.height + TREE_RAIL_Y })
+  }
+  return { nodes, railed, boxes, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
+}
+
+function withPlacedWidths(sizes: Map<string, Size>, places: ReadonlyMap<string, Placed>): ReadonlyMap<string, Size> {
+  return new Map([...sizes].map(([id, size]) => [id, { ...size, width: places.get(id)?.w ?? size.width }]))
+}
+
+async function causalFor(model: ViewModel, extras: readonly BandExtra[], face: string) {
+  const { boxes, size, opts } = causalInputs(model, extras, face)
+  const key = JSON.stringify([face, model.cards.map((c) => [c.id, c.family, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]),
+    model.links.map((l) => [l.from, l.to, l.kind]), [...boxes], [...size], opts.direction, opts.spacing, opts.row, extras.map((e) => [e.id, e.band])])
+  if (causal?.key === key) return causal
   const places = await causalPlaces(model, size, opts)
-  causal = { key, places }
-  return places
+  return { key, result: { places, sizes: withPlacedWidths(boxes, places), row: opts.row } }
 }
 
 /**
  * Put the View's model on the canvas at `places` (the question's and every card's). True when the canvas changed. A card (or the
  * question) the person moved stays where they put it; the canvas's measurements are kept, so a re-draw never forgets a card's height.
  */
-export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Placed>, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = []): boolean {
+export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Placed>, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = [], sizes?: ReadonlyMap<string, Size>, arrange = false): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
   if (row.cardW === 0) row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const heights = drawnHeights(store.nodes), q = { width: questionBarWidth(model, row) }
   const widthOf = (id: string): number => (id === QUESTION ? places.get(id)?.w ?? q.width : places.get(id)?.w ?? row.cardW)
   const scale = [...places.values()].find((p) => p.s !== undefined)?.s
-  const box = (id: string, p: At) => ({ x: p.x, y: p.y, w: widthOf(id), h: heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const box = (id: string, p: At) => ({ x: p.x, y: p.y, w: widthOf(id), h: sizes?.get(id)?.height ?? heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
   const ids = [QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : extras.find((e) => e.id === id)?.type ?? VIEW_CARD)
-  const movedTo = (id: string) => { const n = held.get(id); return n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
+  const movedTo = (id: string) => { const n = held.get(id); return !arrange && n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
   // What the person moved stays; every other card goes to its causal place, below any moved card it would sit on (review 00063 #1).
   const taken = ids.flatMap((id) => { const p = movedTo(id); return p ? [box(id, p)] : [] })
   const final = new Map<string, At>()
@@ -213,15 +239,9 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 }
 
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
-export async function layViewCanvas(core: ViewModel): Promise<boolean> {
-  externalLayoutVersion += 1
-  const finish = queueLayout()
-  try {
-    const { model, extras, links } = boardOf(core)
-    return drawViewCanvas(model, await causalFor(model, extras), extras, links)
-  } finally {
-    finish()
-  }
+export function layViewCanvas(core: ViewModel): Promise<boolean> {
+  const job = startJob(currentInputs(), () => {})
+  return runCausalJob(job, boardOf(core), false)
 }
 
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
@@ -266,11 +286,18 @@ export function drawIdeasOnly(extras: readonly BandExtra[], places: ReadonlyMap<
   return true
 }
 
+function ideasLayout(extras: readonly BandExtra[], face: string): LayoutResult {
+  const stage = simpleStageRow(roomOf().w)
+  const sizes = sizesOf(extras.map((e) => [e.id, e.h]), stage, face)
+  const places = ideasOnlyPlaces(extras, sizes, stage)
+  return { places, sizes: withPlacedWidths(sizes, places), row: stage }
+}
+
 /** Lay out and draw the ideas-only board for the room the canvas has now. */
 export function layIdeasOnly(extras: readonly BandExtra[]): boolean {
-  row = simpleStageRow(roomOf().w)
-  const heights = drawnHeights(useCanvasStore.getState().nodes)
-  return drawIdeasOnly(extras, ideasOnlyPlaces(extras, new Map(extras.map((e) => [e.id, { width: row.cardW, height: heights.get(e.id) ?? e.h }])), row))
+  const result = ideasLayout(extras, currentFace())
+  row = result.row
+  return drawIdeasOnly(extras, result.places)
 }
 
 /** Core holds no model (its first draft set aside): the View's cards, question and links leave the canvas (gap D4). True when they did. */
@@ -288,9 +315,8 @@ export function withdrawViewCanvas(): boolean {
 
 /** Auto-arrange on the core lane (gap B5): every View card back in its causal place; the person's moves are let go. */
 export function placeViewCards(model: ViewModel): Promise<boolean> {
-  placed.clear()
-  for (const n of useCanvasStore.getState().nodes) if (isViewNode(n)) placed.set(n.id, n.position)
-  return layViewCanvas(model)
+  const job = startJob(currentInputs(), latestJob?.updateBudget ?? (() => {}))
+  return runCausalJob(job, boardOf(model), true)
 }
 
 /**
@@ -335,75 +361,129 @@ function useSimpleBudgetKey(on: boolean, simple: boolean) {
 
 type LayoutInputs = readonly [
   view: View | null, sid: string | null, open: Readonly<Record<string, boolean>>,
-  heights: string, settings: string, columns: string, retry: number, far: boolean,
+  heights: string, settings: string, columns: string, retry: number, face: string,
 ]
 
-export function useViewCanvas(on: boolean, begin?: (inputs: LayoutInputs, updateBudget: (key: string) => void) => () => void): void {
+function currentInputs(): LayoutInputs {
+  const { view, sid } = useViewStore.getState()
+  const { direction, nodeSpacing } = useLayoutStore.getState()
+  const level = levelOf(sid), face = currentFace()
+  return [view, sid, useInputsOpen.getState().open, heightsKey(useCanvasStore.getState().nodes, face),
+    `${direction}:${nodeSpacing}:${level}`, simpleBudgetKey(level === 'simple' || ideasOnlyOf(view, sid).length > 0),
+    useFirstDraw.getState().retry, face]
+}
+
+function inputsMatch(a: LayoutInputs, b: LayoutInputs) {
+  return a.every((input, i) => input === b[i])
+}
+
+type LayoutJob = {
+  inputs: LayoutInputs
+  updateBudget: (key: string) => void
+  state: 'pending' | 'failed' | 'cancelled' | ReadonlyMap<string, Size>
+}
+
+// The job object is the token shared by Auto-arrange, the reactive layout and the snapshot reader.
+let latestJob: LayoutJob | null = null
+function startJob(inputs: LayoutInputs, updateBudget: LayoutJob['updateBudget']): LayoutJob {
+  const job: LayoutJob = { inputs, updateBudget, state: 'pending' }
+  latestJob = job
+  return job
+}
+
+function isCurrent(job: LayoutJob) {
+  if (job !== latestJob || job.state === 'cancelled') return false
+  const inputs = currentInputs()
+  if (job.inputs[5] !== inputs[5]) job.updateBudget(inputs[5])
+  return inputsMatch(job.inputs, inputs)
+}
+
+/** Only the current job can replace the drawing or publish its sizes. */
+async function runCausalJob(job: LayoutJob, board: ReturnType<typeof boardOf>, arrange: boolean, onDraw?: (changed: boolean) => void) {
+  const hadBoard = holdsViewNodes(useCanvasStore.getState().nodes, [VIEW_CARD, VIEW_QUESTION])
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (!isCurrent(job)) return false
+    let result: NonNullable<typeof causal>
+    try {
+      result = await causalFor(board.model, board.extras, job.inputs[7])
+    } catch (error) {
+      if (!isCurrent(job)) return false
+      if (attempt === 0 && hadBoard) continue
+      job.state = 'failed'
+      console.error('[olumiView] causal layout failed', error)
+      if (!hadBoard) firstDraw('failed')
+      return false
+    }
+    if (!isCurrent(job)) return false
+    causal = result
+    row = result.result.row
+    if (arrange) placed.clear()
+    const { places, sizes } = result.result
+    const changed = drawViewCanvas(board.model, places, board.extras, board.links, sizes, arrange)
+    job.state = sizes
+    firstDraw('idle')
+    onDraw?.(changed)
+    return changed
+  }
+  return false
+}
+
+export const viewLaying = (): boolean => latestJob?.state === 'pending' && isCurrent(latestJob)
+
+export function useViewCanvas(on: boolean, reduced = false): void {
   const view = useViewStore((s) => s.view)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
   const open = useInputsOpen((s) => s.open)
   const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open)), [view, open, level])
-  const model = board?.model ?? null
   // Kept ideas outlive the model they were kept beside: with no model they are drawn alone (ideasOnlyOf), never with a fabricated card.
   const sidNow = useViewStore((s) => s.sid)
   const ideasOnly = useMemo(() => ideasOnlyOf(view, sidNow), [view, sidNow])
   // Folds start closed (DL ruling 9 Nov (ii): 77cdc6f6's first-look fold opening is retired for this serve; the route is one click away on
   // the badge's count), so a reopened board draws what the first one did.
   // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
-  const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
+  const face = useCanvasStore((s) => layoutFace(reduced, level === 'simple', selectLodBodyHidden(s)))
+  const heights = useCanvasStore((s) => heightsKey(s.nodes, face))
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
   const [cols, updateBudget] = useSimpleBudgetKey(on, level === 'simple' || ideasOnly.length > 0)
   const retry = useFirstDraw((s) => s.retry)
-  const far = useCanvasStore((s) => level === 'simple' && selectLodBodyHidden(s))
   useLayoutEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    const finish = queueLayout()
-    const commit = begin?.([view, sidNow, open, heights, laidAs, cols, retry, far], updateBudget)
-    if (view === null || model === null) {
-      try {
-        firstDraw('idle')
-        if (ideasOnly.length > 0) layIdeasOnly(ideasOnly)
-        else withdrawViewCanvas()
-        commit?.()
-      } finally {
-        finish()
+    const job = startJob([view, sidNow, open, heights, laidAs, cols, retry, face], updateBudget)
+    const cancel = () => { job.state = 'cancelled' }
+    if (!isCurrent(job)) return cancel
+    if (view === null || board === null) {
+      firstDraw('idle')
+      if (ideasOnly.length > 0) {
+        const result = ideasLayout(ideasOnly, face)
+        row = result.row
+        drawIdeasOnly(ideasOnly, result.places)
+        job.state = result.sizes
+      } else {
+        withdrawViewCanvas()
+        job.state = new Map()
       }
-      return
+      return cancel
     }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
     // An empty canvas waiting for its first layout says so (DraftingBoard.tsx LayingBoard); a board already drawn keeps its cards meanwhile.
     if (had === null) firstDraw('laying')
-    let live = true
-    // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
-    void causalFor(model, board?.extras ?? []).then((places) => {
-      if (!live) return
-      const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
-      drew = { sid, n, model }
-      const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [])
-      commit?.()
-      firstDraw('idle')
+    void runCausalJob(job, board, false, (changed) => {
+      const last = drew, sid = sidNow, n = view.version?.n ?? null
+      drew = { sid, n, model: board.model }
       if (!changed || had === null) return
       const arrived: string[] = []
-      for (const c of model.cards) if (!had.has(c.id)) arrived.push(c.id)
-      // A newer version of the same scenario (an approval, or an edit, here or by another member): the cards it applied pulse too.
+      for (const c of board.model.cards) if (!had.has(c.id)) arrived.push(c.id)
       const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
-      // Core names the records the version changed (`version.changed`); a core before R2a does not, and the cards are compared instead.
       const named = view.version?.changed
-      pulseWhenOnCanvas(advanced ? [...arrived, ...(named === undefined ? appliedSince(last.model, model) : [...cardsOfRecords(model, named), ...addedSince(last.model, model)])] : arrived)
-    }).catch((e: unknown) => {
-      // A layout that threw used to leave an empty canvas with no word (an unhandled rejection). An empty canvas now says it could not be
-      // drawn and offers Try again; a board already drawn keeps its cards as they were.
-      if (!live) return
-      console.error('[olumiView] causal layout failed', e)
-      if (had === null) firstDraw('failed')
-    }).finally(finish)
-    return () => { live = false; finish() }
-  }, [on, begin, view, sidNow, open, model, board, ideasOnly, heights, laidAs, cols, retry, far, updateBudget])
+      pulseWhenOnCanvas(advanced ? [...arrived, ...(named === undefined ? appliedSince(last.model, board.model) : [...cardsOfRecords(board.model, named), ...addedSince(last.model, board.model)])] : arrived)
+    })
+    return cancel
+  }, [on, view, sidNow, open, board, ideasOnly, heights, laidAs, cols, retry, face])
 }
 
 export type LayoutSettled = Readonly<{
@@ -419,47 +499,37 @@ function frameInsetsOf(pane: HTMLElement | null) {
   return { ...raw, top: frameTop(raw.top), bottom: Math.max(raw.bottom, FOOT_GUTTER) }
 }
 
-function unmeasuredSize(node: Node) {
-  const { width, card } = node.data as { width?: number; card?: { h: number } }
-  const height = node.type === VIEW_QUESTION ? QUESTION_LAYOUT_HEIGHT
-    : node.type === VIEW_FOLD ? FOLD_H : node.type === VIEW_IDEA ? IDEA_H : card?.h
-  return width && height ? { width, height } : null
-}
-
-/** The mounted flow owns the snapshot. Mounted, measured nodes must agree with the
- * committed layout. A node outside the pane can use the layout's size until it is measurable. */
+/** The mounted flow certifies geometry from the current job once its drawing has caught up. */
 export function useLayoutSettled(on: boolean) {
   const flow = useStoreApi()
+  const reduced = useStore((s) => reducedFaceSize(s.transform[2]) > 0)
+  const [, refresh] = useState(0)
+  useLayoutEffect(() => {
+    if (!on) return
+    canvasZoom = () => flow.getState().transform[2]
+    const unsubscribe = useCanvasStore.subscribe((next, previous) => {
+      if (next.nodes === previous.nodes) return
+      const face = currentFace()
+      for (const { measured } of next.nodes) {
+        if (measured && !measuredFaces.has(measured)) measuredFaces.set(measured, face)
+      }
+    })
+    return () => {
+      unsubscribe()
+      canvasZoom = () => 1
+      if (latestJob !== null) latestJob.state = 'cancelled'
+    }
+  }, [on, flow])
   const layout = useMemo(() => {
     let version = 0, geometry = '', settled: LayoutSettled | null = null
-    let committed: { inputs: LayoutInputs; updateBudget: (key: string) => void } | null = null
-    const invalidate = () => { version += 1; settled = null }
-    const begin = (inputs: LayoutInputs, updateBudget: (key: string) => void) => {
-      committed = null
-      invalidate()
-      return () => { committed = { inputs, updateBudget } }
-    }
+    let certified: LayoutJob | null = null
     const read = (): LayoutSettled | null => {
       const { domNode, nodeLookup, panZoom, width, height, transform, updateNodeInternals } = flow.getState()
-      if (committed === null || viewLaying() || !domNode || !panZoom || width <= 0 || height <= 0) return null
+      const job = latestJob
+      if (job === null || !isCurrent(job) || typeof job.state === 'string' ||
+          !domNode || !panZoom || width <= 0 || height <= 0) return null
       const state = useCanvasStore.getState()
-      const { view, sid } = useViewStore.getState()
-      const { direction, nodeSpacing } = useLayoutStore.getState()
-      const level = levelOf(sid)
-      const simple = level === 'simple'
       const far = selectLodBodyHidden(state)
-      const columns = simpleBudgetKey(simple || ideasOnlyOf(view, sid).length > 0)
-      // Chrome can move without any observed element resizing. Schedule the layout
-      // at the room we just read so the same request can follow its next commit.
-      if (columns !== committed.inputs[5]) {
-        committed.updateBudget(columns)
-        return null
-      }
-      const current: LayoutInputs = [
-        view, sid, useInputsOpen.getState().open, drawnHeightsKey(state.nodes), `${direction}:${nodeSpacing}:${level}`,
-        columns, useFirstDraw.getState().retry, simple && far,
-      ]
-      if (!committed.inputs.every((input, i) => input === current[i])) return null
       const nodes = state.nodes.filter(isViewNode)
       if (nodes.length === 0 || nodes.some((n) => n.dragging)) return null
       const insets = frameInsetsOf(domNode)
@@ -471,31 +541,39 @@ export function useLayoutSettled(on: boolean) {
         const drawn = nodeLookup.get(node.id), el = elements.get(node.id)
         const position = drawn?.internals.positionAbsolute
         if (!position || !at(position, node.position)) return null
-        let size = drawn?.measured
-        if (!el || !size?.width || !size.height) {
-          const planned = unmeasuredSize(node)
-          if (planned === null || sits({
-            x: x + position.x * zoom, y: y + position.y * zoom,
-            w: planned.width * zoom, h: planned.height * zoom,
-          }, { x: 0, y: 0, w: width, h: height })) return null
-          if (el && el.offsetWidth && el.offsetHeight) {
-            // Its DOM box exists, so have React Flow adopt it and relayout with the actual height.
-            updateNodeInternals(new Map([[node.id, { id: node.id, nodeElement: el, force: true }]]), { triggerFitView: false })
+        const size = job.state.get(node.id)
+        if (size === undefined) return null
+        const measured = drawn?.measured
+        const visible = sits({ x: x + position.x * zoom, y: y + position.y * zoom, w: size.width * zoom, h: size.height * zoom },
+          { x: 0, y: 0, w: width, h: height })
+        const domWidth = el?.offsetWidth, domHeight = el?.offsetHeight
+        if (el && domWidth && domHeight) {
+          if (measured?.width !== domWidth || measured.height !== domHeight) {
+            if (!visible && (!measured?.width || !measured.height)) {
+              updateNodeInternals(new Map([[node.id, { id: node.id, nodeElement: el, force: true }]]), { triggerFitView: false })
+            }
             return null
           }
-          size = planned
-        } else if (size.width !== node.measured?.width || size.height !== node.measured?.height ||
-                   size.width !== el.offsetWidth || size.height !== el.offsetHeight) {
-          if (settled !== null) invalidate()
-          return null
-        }
+          if (node.measured?.width !== domWidth || node.measured.height !== domHeight) return null
+          // Equal dimensions can survive a face change without a new resize event.
+          if (measuredFaces.get(node.measured) !== job.inputs[7]) {
+            const previous = measuredOnFace(node, job.inputs[7])
+            measuredFaces.set(node.measured, job.inputs[7])
+            if (!previous) {
+              refresh((n) => n + 1)
+              return null
+            }
+          }
+          if (size.height !== domHeight) return null
+        } else if (visible) return null
         boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { ...size } })
       }
-      const key = JSON.stringify([externalLayoutVersion, far, width, height, insets,
-        boxes.map((n) => [n.id, n.position, n.measured])])
-      if (key !== geometry) {
+      const key = JSON.stringify([far, width, height, insets, boxes.map((n) => [n.id, n.position, n.measured])])
+      if (job !== certified || key !== geometry) {
+        certified = job
         geometry = key
-        invalidate()
+        version += 1
+        settled = null
       }
       return settled ??= { version, far, nodes: boxes, pane: { width, height }, insets }
     }
@@ -511,16 +589,18 @@ export function useLayoutSettled(on: boolean) {
       }
       const tick = () => {
         const snapshot = read()
-        if (snapshot !== null) finish(snapshot)
+        if (snapshot !== null || (latestJob?.state === 'failed' && isCurrent(latestJob))) finish(snapshot)
         else frame = requestAnimationFrame(tick)
       }
       signal.addEventListener('abort', stop, { once: true })
       frame = requestAnimationFrame(tick)
     })
 
-    return { begin, read, wait }
+    return { read, wait }
   }, [flow])
-  useViewCanvas(on, layout.begin)
+  // Select only face changes. A pan and same-face zoom leave the job in force.
+  useViewCanvas(on, reduced)
+
 
   // A floating dock can resize without changing React Flow's width.
   const hasBoard = useViewStore((s) => s.view !== null)

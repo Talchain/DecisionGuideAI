@@ -273,7 +273,9 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
     const simple = levelOf(useViewStore.getState().sid) === 'simple'
     const ideasOnly = useViewStore.getState().view?.model == null
     const initialRung = useCanvasStore.getState().lodRung
-    const initialZoom = getViewport().zoom
+    const initialViewport = getViewport()
+    const initialZoom = initialViewport.zoom
+    let detailedProbe = false
     let far = false
     // Hold the transform while Simple lays out each face at the current row widths.
     const probe = () => {
@@ -290,7 +292,12 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
     try {
       while (current()) {
         const snapshot = await layout.wait(signal)
-        if (snapshot === null || !current()) return
+        if (!current()) return
+        if (snapshot === null) {
+          if (detailedProbe) void setViewport(initialViewport, { duration: 0 })
+          reveal()
+          return
+        }
         if (showHolds()) { releaseProbe(); far = false; continue }
         if (simple && snapshot.far !== far) {
           if (lod.current.probe === null) probe()
@@ -298,9 +305,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
         }
         const nodes = frameNodesOf(snapshot.nodes, ideasOnly)
         const zoom = getViewport().zoom
+        const face = faceRegimeOf(zoom)
+        if (!simple && face === 'full' && snapshot.far) continue
         const vp = simple
           ? simpleFrameFor(getNodesBounds(nodes), snapshot.pane, snapshot.insets, far)
-          : cameraFrame({ [faceRegimeOf(zoom)]: { zoom, nodes } }, snapshot.pane, snapshot.insets, anchor)
+          : cameraFrame({ [face]: { zoom, nodes } }, snapshot.pane, snapshot.insets, anchor)
         if (layout.read()?.version !== snapshot.version) continue
         if (vp === null) {
           if (!simple || far) return
@@ -317,10 +326,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
           lod.current = { previous: rung, probe: null }
           useCanvasStore.getState().setLodRung(rung)
         }
-        // Detailed already probes at full zoom when opening from a reduced face.
-        const moving = setViewport(vp, { duration: !simple && faceRegimeOf(zoom) !== 'full' && automatic ? 0 : duration })
+        const probing = !simple && face !== 'full'
+        const moving = setViewport(vp, { duration: probing ? 0 : duration })
         reveal()
-        if (simple || !automatic || faceRegimeOf(zoom) === 'full') return
+        if (!probing) return
+        detailedProbe = true
         await moving
       }
     } finally {

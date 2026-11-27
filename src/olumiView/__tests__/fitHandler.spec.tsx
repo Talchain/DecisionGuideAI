@@ -13,12 +13,14 @@ import { useViewStore } from '../store'
 import { useMe } from '../../olumiCore/me'
 import { useCanvasStore } from '../../canvas/store'
 import type { Viewport } from '@xyflow/react'
-import { drawViewCanvas } from '../canvas'
+import { causalInputs, drawViewCanvas } from '../canvas'
 import { QUESTION } from '../layout'
+import { useLayoutStore } from '../../canvas/layoutStore'
 import { setLevel } from '../v12/simpleStore'
 import { useReveal } from '../reveal'
 import { openEvidence } from '../RevealMarks'
 import { FOOT_GUTTER } from '../footClear'
+import { READABLE_WHOLE_ZOOM } from '../camera'
 import { frameTop } from '../regions'
 import { computeFitPadding } from '../../canvas/utils/computeFitPadding'
 import { paddingToInsets } from '../../canvas/utils/cameraComfort'
@@ -26,12 +28,22 @@ import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../../canvas/utils
 
 const harness = vi.hoisted(() => ({
   zoom: 1,
+  viewportZoom: 1,
   moves: [] as Viewport[],
   layout: undefined as typeof import('../layout').causalPlaces | undefined,
+  settled: undefined as ReturnType<typeof import('../canvas').useLayoutSettled>['layout'] | undefined,
 }))
 vi.mock('../layout', async (original) => {
   const real = await original<typeof import('../layout')>()
   return { ...real, causalPlaces: (...args: Parameters<typeof real.causalPlaces>) => (harness.layout ?? real.causalPlaces)(...args) }
+})
+vi.mock('../canvas', async (original) => {
+  const real = await original<typeof import('../canvas')>()
+  return { ...real, useLayoutSettled: (on: boolean) => {
+    const result = real.useLayoutSettled(on)
+    harness.settled = result.layout
+    return result
+  } }
 })
 vi.mock('@xyflow/react', async (original) => {
   const rf = await original<typeof import('@xyflow/react')>()
@@ -47,9 +59,15 @@ vi.mock('@xyflow/react', async (original) => {
       const move = instance.setViewport
       const setViewport = useCallback((vp: Viewport) => {
         harness.moves.push(vp)
+        harness.viewportZoom = vp.zoom
         return move(vp, { duration: 0 })
       }, [move])
-      return { ...instance, setViewport }
+      // jsdom has no viewport geometry for React Flow's zoom-button centering.
+      const zoomBy = (factor: number) => {
+        harness.viewportZoom = instance.getZoom() * factor
+        return move({ ...instance.getViewport(), zoom: harness.viewportZoom }, { duration: 0 })
+      }
+      return { ...instance, setViewport, zoomIn: () => zoomBy(1.2), zoomOut: () => zoomBy(0.8) }
     },
   }
 })
@@ -142,16 +160,22 @@ describe('Fit uses the committed layout and the face it lands on', () => {
   }
   let report: (id: string) => void
   let heightOf: (node: HTMLElement) => number
+  let nodeWidth: number
   let dockLeft: number
+  let spacing: number
   let faceChanges: boolean[]
   let unsubscribe: () => void
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance'] })
     harness.zoom = 1
+    harness.viewportZoom = 1
     harness.moves.length = 0
     harness.layout = undefined
+    harness.settled = undefined
+    spacing = useLayoutStore.getState().nodeSpacing
     heightOf = () => 100
+    nodeWidth = 200
     dockLeft = pane.width
     faceChanges = []
     useCanvasStore.setState({ lodRung: 'full' })
@@ -177,7 +201,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
       observed.get(el)!()
     }
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.matches('.react-flow__node') ? 200 : pane.width
+      return this.matches('.react-flow__node') ? nodeWidth : pane.width
     })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.matches('.react-flow__node') ? heightOf(this) : pane.height
@@ -193,6 +217,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     cleanup()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    useLayoutStore.setState({ nodeSpacing: spacing })
     setLevel('working', view.id)
     useReveal.setState({ card: null, evidence: null, selected: null, opens: 0 })
     harness.layout = undefined
@@ -201,7 +226,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
   function mount(foot: number, oldHeight: number, unmeasured: readonly string[] = []) {
     drawViewCanvas(view.model!, positions(foot))
     useCanvasStore.setState((s) => ({
-      nodes: s.nodes.map((n) => ({ ...n, measured: unmeasured.includes(n.id) ? undefined : { width: 200, height: oldHeight } })),
+      nodes: s.nodes.map((n) => ({ ...n, measured: unmeasured.includes(n.id) ? undefined : { width: nodeWidth, height: oldHeight } })),
     }))
     render(<ViewCanvas />)
   }
@@ -316,6 +341,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
   it('preserves the settled Detailed Fit viewport', async () => {
     setLevel('working')
     harness.layout = async () => positions(190)
+    nodeWidth = causalInputs(view.model!).size.get(option)!.width
     mount(190, 100)
     await tick(10)
     const nodes = useCanvasStore.getState().nodes
@@ -326,4 +352,142 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     await tick(5)
     expect(harness.moves).toEqual([expected])
   })
+
+  it('discards an Auto-arrange result for A that finishes after B has been certified', async () => {
+    dockLeft = 1020
+    render(<aside aria-label="Outputs dock" />)
+    const textA = view.model!.question.text
+    const next: View = {
+      ...view,
+      version: { ...view.version!, n: view.version!.n + 1 },
+      model: { ...view.model!, question: { ...view.model!.question, text: 'Version B' } },
+    }
+    let finishA!: (places: ReturnType<typeof positions>) => void
+    let startedA = false
+    harness.layout = async (model) => {
+      if (model.question.text !== textA) return positions(470)
+      if (dockLeft === 1020) return positions(241)
+      startedA = true
+      return new Promise((resolve) => { finishA = resolve })
+    }
+    mount(241, 100)
+    await tick(10)
+    expect(harness.settled!.read()?.nodes.find((n) => n.id === aim)?.position.y).toBe(241)
+
+    dockLeft = 800
+    fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Auto-arrange' }))
+    expect(startedA).toBe(true)
+    act(() => useViewStore.setState({ view: next }))
+    await tick(16)
+    const settledB = harness.settled!.read()!
+    expect(settledB.nodes.find((n) => n.id === aim)?.position.y).toBe(470)
+
+    await act(async () => finishA(1500))
+    expect(harness.settled!.read()).toBe(settledB)
+    expect(useCanvasStore.getState().nodes.find((n) => n.id === aim)?.position.y).toBe(470)
+    harness.moves.length = 0
+    fireEvent.click(fitButton())
+    await tick(8)
+    expect(harness.moves).toHaveLength(1)
+    const vp = harness.moves[0]!
+    expect(vp.y + (470 + 100) * vp.zoom).toBeLessThanOrEqual(pane.height - FOOT_GUTTER)
+    expect(vp.zoom).toBeGreaterThan(0.9)
+  })
+
+  it('uses the job size for an off-screen card and excludes a cached height from the other face', async () => {
+    const foot = 2400
+    const measuredHeight = 172
+    const layout = vi.fn(async (..._args: Parameters<typeof import('../layout').causalPlaces>) => positions(foot))
+    harness.layout = layout
+    heightOf = (node) => node.dataset.id === aim ? 0 : 100
+    mount(foot, 100)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    act(() => useCanvasStore.setState((s) => ({
+      nodes: s.nodes.map((n) => n.id === aim ? { ...n, measured: { width: 200, height: measuredHeight } } : n),
+    })))
+    await tick(12)
+    expect(layout.mock.lastCall?.[1].get(aim)?.height).toBe(measuredHeight)
+    expect(harness.settled!.read()?.nodes.find((n) => n.id === aim)?.measured).toEqual(layout.mock.lastCall?.[1].get(aim))
+
+    heightOf = (node) => node.dataset.id === aim ? 0 : 65
+    act(() => useCanvasStore.getState().setLodRung('line'))
+    act(() => [QUESTION, option].forEach(report))
+    await tick(16)
+    const size = layout.mock.lastCall?.[1].get(aim)
+    const settled = harness.settled!.read()
+    expect(settled?.far).toBe(true)
+    expect(useCanvasStore.getState().nodes.find((n) => n.id === aim)?.measured?.height).toBe(measuredHeight)
+    expect(size?.height).not.toBe(measuredHeight)
+    expect(settled?.nodes.find((n) => n.id === aim)?.measured).toEqual(size)
+  })
+
+  it.each([true, false])('retries a rejected re-layout once (retry succeeds: %s)', async (succeeds) => {
+    const foot = 916
+    harness.layout = async () => positions(foot)
+    mount(foot, 100)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    await tick(30)
+    const before = useCanvasStore.getState().nodes
+    const cue = screen.getByTestId('view-below-cue').textContent
+    expect(cue).toMatch(/more cards? below/)
+    harness.moves.length = 0
+    const resolved = vi.fn()
+    const originalWait = harness.settled!.wait
+    const wait = vi.spyOn(harness.settled!, 'wait').mockImplementation((signal) => originalWait(signal).then((snapshot) => {
+      resolved(snapshot)
+      return snapshot
+    }))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const failedLayout = vi.fn().mockRejectedValue(new Error('layout failed'))
+    if (succeeds) failedLayout.mockRejectedValueOnce(new Error('layout failed')).mockResolvedValueOnce(positions(280))
+    harness.layout = failedLayout
+    act(() => useLayoutStore.setState({ nodeSpacing: spacing + 1 }))
+    fireEvent.click(fitButton())
+    await tick(12)
+    expect(failedLayout).toHaveBeenCalledTimes(2)
+    expect(wait).toHaveBeenCalledTimes(1)
+    if (succeeds) {
+      expect(resolved).toHaveBeenCalledWith(expect.objectContaining({ nodes: expect.any(Array) }))
+      expect(harness.moves).toHaveLength(1)
+      expect(useCanvasStore.getState().nodes.find((n) => n.id === aim)?.position.y).toBe(280)
+      expect(error).not.toHaveBeenCalled()
+    } else {
+      expect(resolved).toHaveBeenCalledWith(null)
+      expect(harness.moves).toEqual([])
+      expect(useCanvasStore.getState().nodes).toEqual(before)
+      expect(screen.getByTestId('view-below-cue')).toHaveTextContent(cue!)
+      expect(error).toHaveBeenCalledTimes(1)
+    }
+    expect(failedLayout).toHaveBeenCalledTimes(2)
+  })
+
+  it('finishes Detailed Fit on the full-face frame after zooming out', async () => {
+    setLevel('working')
+    const foot = 530
+    heightOf = () => harness.viewportZoom < READABLE_WHOLE_ZOOM ? 130 : 80
+    harness.layout = async () => positions(foot)
+    mount(foot, 80)
+    await tick(12)
+    const snapshot = harness.settled!.read()
+    expect(snapshot, 'full face has settled').not.toBeNull()
+    const fullFrame = harness.moves[harness.moves.length - 1]!
+    expect(fullFrame.zoom).toBeGreaterThanOrEqual(READABLE_WHOLE_ZOOM)
+    expect(fullFrame.zoom).toBeLessThan(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    await tick(35)
+    act(() => ids.forEach(report))
+    await tick(10)
+    harness.moves.length = 0
+    fireEvent.click(fitButton())
+    await tick(8)
+    expect(harness.moves.map((move) => move.zoom)).toEqual([1])
+
+    act(() => ids.forEach(report))
+    await tick(12)
+    expect(harness.moves).toHaveLength(2)
+    expect(harness.moves[harness.moves.length - 1]).toEqual(fullFrame)
+  })
+
 })
