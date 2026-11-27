@@ -1,5 +1,5 @@
 /**
- * THE TEAM TAB IS ONE FLOW (overnight 18 Nov): the current step is read from the View's own fields (`collab.alone`, `gated`, `mine`,
+ * The Team tab opens with members, then the guided flow. The current step is read from the View's own fields (`gated`, `mine`,
  * `can_reveal`, `waiting`, `shared`, `commitments`), only it is open, with one green press; the others are one line; a press opens any
  * step; a write that moves the flow opens the new current step; a step opened from elsewhere (an outcome form) opens. Each row is bound by
  * the step's id and the View field that decides it, with a contrast that differs in that field alone.
@@ -9,12 +9,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
+import { inviteUnjoined, TeamPresence } from '../../olumiView/TeamPresence'
 import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
-import { putDraft, resetDrafts } from '../team/drafts'
+import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
-import { TeamTab } from '../team/TeamTab'
-import { inviteNameKey } from '../team/InvitePanel'
+import { TeamTab, TEAM_HEADER_WORDS } from '../team/TeamTab'
 import { currentStep, openStep, resetTeamFlow, stepDone, stepSummary, STEP_ORDER, STEP_WORDS, type StepId } from '../team/flow'
 import { goToOutcome } from '../team/outcomeNav'
 import { useMe } from '../me'
@@ -64,9 +64,9 @@ const step = (id: StepId) => screen.getByTestId(`team-step-${id}`)
 const isOpen = (id: StepId) => step(id).getAttribute('data-step-open') === '' && !screen.getByTestId(`team-step-${id}-body`).hidden
 
 describe('the current step is the View\'s, field by field', () => {
-  it('alone → invite; the same View with a colleague → not invite', () => {
-    expect(currentStep(alone())).toBe('invite')
-    expect(currentStep(team({ waiting: 'waiting for Bea' }))).not.toBe('invite')
+  it('Your view starts the flow when the viewer has yet to contribute, with or without a colleague', () => {
+    expect(currentStep(alone())).toBe('view')
+    expect(currentStep(team({ mine: [] }))).toBe('view')
   })
   it('held by core (`gated`) → your view; the same View not held → not your view', () => {
     expect(currentStep(team({}, { gated: true }))).toBe('view')
@@ -115,43 +115,47 @@ describe('the current step is the View\'s, field by field', () => {
     expect(stepDone(team({ waiting: null, shared: [bea3], commitments: [{ ...k9, outcomes: [done2] }] }), 'outcome')).toBe(true)
     expect(stepDone(team({ waiting: null, shared: [bea3] }), 'commit')).toBe(false)
   })
-  it('summaries are core\'s words where core has them: the team\'s title, whom the round waits for, the action as written', () => {
+  it('summaries use Core’s words for whom the round waits for and the action as written', () => {
     const v = team({ waiting: 'waiting for Bea', commitments: [k9] })
-    expect(stepSummary(v, 'invite', null)).toBe('Ada (you), Bea')
     expect(stepSummary(v, 'reveal', null)).toBe('waiting for Bea')
     expect(stepSummary(v, 'commit', null)).toBe('Pilot in Germany')
-    expect(stepSummary(alone(), 'invite', null)).toBe(STEP_WORDS.alone)
     expect(stepSummary(team({}, { gated: true }), 'view', null)).toBe(STEP_WORDS.viewToGive)
   })
 })
 
 describe('the tab: only the current step open, one green press, any row opens', () => {
-  it('a person alone can open the invite from the header; every other step is one line', () => {
+  it('a person alone sees Members before Your view, with the invite dialog open from the header', () => {
     show(alone())
     render(<TeamTab />)
-    expect(isOpen('invite')).toBe(true)
-    expect(screen.getByTestId('team-alone').textContent).toBe(STEP_WORDS.aloneLead)
-    expect(screen.queryByTestId('team-invite-name')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Invite a colleague' })).toBe(invite())
-    fireEvent.click(invite())
-    expect(screen.getByTestId('team-invite-go').className).toContain('bg-success')
+    const members = screen.getByTestId('team-members')
+    const steps = screen.getByTestId('team-steps')
+    expect(within(members).getByText('Ada (you)')).toBeTruthy()
+    expect(members.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(isOpen('view')).toBe(true)
+    const dialog = screen.getByRole('dialog', { name: TEAM_HEADER_WORDS.invite })
+    expect(within(dialog).getByText(TEAM_HEADER_WORDS.aloneLead)).toBeTruthy()
+    expect(within(steps).queryByText(TEAM_HEADER_WORDS.aloneLead)).toBeNull()
+    expect(within(dialog).getByRole('button', { name: 'Make their link' })).toBeTruthy()
     expect(document.activeElement).toBe(screen.getByTestId('team-invite-name'))
-    for (const id of ['view', 'reveal', 'differ', 'commit', 'outcome'] as const) {
-      expect(isOpen(id)).toBe(false)
-      expect(screen.getByTestId(`team-step-${id}-summary`).textContent).not.toBe('')
-      expect(screen.getByTestId(`team-step-${id}-summary`).className, `${id} summary is whole, never clipped`).not.toContain('truncate')
-    }
+    fireEvent.click(invite())
+    act(() => show(alone()))
+    expect(screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })).toBeNull()
+    expect(isOpen('view')).toBe(true)
   })
   it('the steps still to come are folded behind "Where this goes" (hidden, still mounted); the press shows them, and it is the only extra control', () => {
     show(alone())
     render(<TeamTab />)
     const row = (id: StepId) => step(id).closest('li')!
-    for (const id of ['view', 'reveal', 'differ', 'commit', 'outcome'] as const) expect(row(id).hidden, `${id} folded`).toBe(true)
-    expect(row('invite').hidden, 'CONTRAST: the current step is shown').toBe(false)
+    for (const id of ['reveal', 'differ', 'commit', 'outcome'] as const) expect(row(id).hidden, `${id} folded`).toBe(true)
+    expect(row('view').hidden).toBe(false)
     const press = screen.getByTestId('team-steps-later')
     expect(press.textContent).toBe(STEP_WORDS.whereThisGoes); expect(press.getAttribute('aria-expanded')).toBe('false')
     fireEvent.click(press)
     for (const id of STEP_ORDER) expect(row(id).hidden, `${id} shown after the press`).toBe(false)
+    const panels = screen.getByTestId('team-steps').querySelectorAll(':scope > li > section')
+    expect(Array.from(panels, (panel) => panel.getAttribute('aria-label'))).toEqual([
+      'Your view', 'Reveal together', 'Where you differ', 'Commit to an action', 'What happened',
+    ])
     expect(press.getAttribute('aria-expanded')).toBe('true')
   })
   it('a member core holds sees their view open first (the private box and its green press), the reveal one line', () => {
@@ -166,14 +170,15 @@ describe('the tab: only the current step open, one green press, any row opens', 
     show(team())
     render(<TeamTab />)
     expect(isOpen('reveal')).toBe(true)
-    fireEvent.click(screen.getByTestId('team-step-invite-row'))
-    expect(isOpen('invite')).toBe(true)
+    const row = screen.getByRole('button', { name: /Your view/ })
+    fireEvent.click(row)
+    expect(isOpen('view')).toBe(true)
     expect(isOpen('reveal')).toBe(false)
-    expect(screen.getByTestId('team-step-invite-row').getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(screen.getByTestId('team-step-invite-row'))
-    expect(isOpen('invite')).toBe(false)
+    expect(row.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(row)
+    expect(isOpen('view')).toBe(false)
   })
-  it('allows Tab through the invite form and Escape returns focus without losing the draft', async () => {
+  it('allows Tab through the invite form, dismisses on Escape or outside click, and keeps the draft', async () => {
     show(team())
     render(<TeamTab />)
     fireEvent.click(invite())
@@ -187,32 +192,41 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(document.activeElement).toBe(invite())
     fireEvent.click(invite())
     expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
+    await keyboard.click(document.body)
+    expect(screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })).toBeNull()
+    expect(document.activeElement).toBe(invite())
   })
   it('when the View moves the flow on, the new current step opens (the person\'s earlier choice was under the old one)', () => {
     show(team({ mine: [] }, { gated: true }))
-    const r = render(<TeamTab />)
+    render(<TeamTab />)
     expect(isOpen('view')).toBe(true)
-    fireEvent.click(screen.getByTestId('team-step-invite-row'))
-    expect(isOpen('invite')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Where this goes' }))
+    fireEvent.click(screen.getByRole('button', { name: /What happened/ }))
+    expect(isOpen('outcome')).toBe(true)
     // Their view is in, and core now says everyone's is: the current step is the reveal, and it opens.
     act(() => { show(team({ can_reveal: true, waiting: null })) })
-    r.rerender(<TeamTab />)
     expect(isOpen('reveal')).toBe(true)
-    expect(isOpen('invite')).toBe(false)
+    expect(isOpen('outcome')).toBe(false)
     expect(screen.getByTestId('team-reveal-go')).toBeTruthy()
   })
-  it('opens the invite menu when the header’s named colleague is put in the draft', () => {
-    show(team())
-    render(<TeamTab />)
-    expect(invite().getAttribute('aria-expanded')).toBe('false')
-    act(() => { putDraft<string>(inviteNameKey(SID), () => 'Cara') })
-    expect(invite().getAttribute('aria-expanded')).toBe('true')
-    expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
+  it('every header notice press opens the invite dialog, including with the same name after dismissal', async () => {
+    const view = team()
+    show({ ...view, team_presence: { ...view.team_presence, unjoined: { names: ['Cara'], text: 'Named in the brief: Cara' } } })
+    render(<><TeamPresence /><TeamTab /></>)
+    const user = userEvent.setup()
+    const notice = screen.getByTestId('team-presence-unjoined')
+    const dialog = () => screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })
+    expect(dialog()).toBeNull()
+    await user.click(notice)
+    expect((within(dialog()!).getByRole('textbox', { name: 'Their name' }) as HTMLInputElement).value).toBe('Cara')
+    await user.keyboard('{Escape}')
+    expect(dialog()).toBeNull()
+    await user.click(notice)
+    expect((within(dialog()!).getByRole('textbox', { name: 'Their name' }) as HTMLInputElement).value).toBe('Cara')
   })
-  it('keeps the one-time link through a View refresh and closing and reopening the invite menu', async () => {
+  it('keeps the one-time link through a View refresh and closing and reopening the invite dialog', async () => {
     show(alone())
     render(<TeamTab />)
-    fireEvent.click(invite())
     fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cara' } })
     fireEvent.click(screen.getByTestId('team-invite-go'))
     const link = () => (screen.getByTestId('team-invite-link') as HTMLInputElement).value
@@ -227,9 +241,9 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(link()).toBe(originalLink)
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1)
   })
-  it('opens the header invite menu with a name provided before Team mounts', () => {
+  it('opens the invite dialog with a name requested before Team mounts', () => {
     show(team())
-    putDraft<string>(inviteNameKey(SID), () => 'Cara')
+    inviteUnjoined(SID, 'Cara')
     render(<TeamTab />)
     expect(invite().getAttribute('aria-expanded')).toBe('true')
     expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
@@ -284,16 +298,16 @@ describe('the tab: only the current step open, one green press, any row opens', 
     show(after)
     const r = render(<TeamTab />)
     const compact = () => [...document.querySelectorAll('[data-step-compact]')].map((s) => s.getAttribute('data-testid'))
-    expect(compact()).toEqual(['team-step-invite', 'team-step-view', 'team-step-reveal'])
+    expect(compact()).toEqual(['team-step-view', 'team-step-reveal'])
     expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-open')).toBe(true)
     expect(screen.getByTestId('team-step-differ').hasAttribute('data-step-compact')).toBe(false)
     // A finished step still opens on a press, and then the steps are rows again.
-    const body = screen.getByTestId('team-step-invite-body')
+    const body = screen.getByTestId('team-step-view-body')
     fireEvent.click(screen.getByTestId('team-step-view-row'))
     expect(compact()).toEqual([])
     expect(screen.getByTestId('team-step-view').hasAttribute('data-step-open')).toBe(true)
     // Shrinking and growing never remounts a step's body (Codex review 2 #4: drafts stay in their step bodies): the same element.
-    expect(screen.getByTestId('team-step-invite-body')).toBe(body)
+    expect(screen.getByTestId('team-step-view-body')).toBe(body)
     r.unmount(); resetTeamFlow()
     // Contrast: the same team before the reveal (the round still waits): every step is a row.
     show(team({ waiting: 'waiting for Bea' }))

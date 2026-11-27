@@ -1,10 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { autoUpdate, flip, offset, shift, useDismiss, useFloating, useInteractions, useMergeRefs } from '@floating-ui/react'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { Hover, HoverButton } from '../../olumiView/look/Hover'
-import { Menu } from '../../olumiView/look/Menu.tsx'
+import { useDialogFocus } from '../../olumiView/look/useDialogFocus'
 import { OkIcon } from '../../olumiView/look/icons'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { Button } from '../../components/ui/Button'
+import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
@@ -12,7 +15,7 @@ import { CommitmentPanel } from './CommitmentPanel'
 import { SavedActions } from './SavedActions'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
-import { InvitePanel, inviteNameKey, type MadeInvite } from './InvitePanel'
+import { InvitePanel, inviteOpenKey, type MadeInvite } from './InvitePanel'
 import { ViewEntry } from './ViewsPanel'
 import { RevealStep } from './steps'
 import { DifferTool } from '../../olumiView/v12/tools/DifferTool'
@@ -31,11 +34,10 @@ import { FirstArrival } from '../../olumiView/v12/arrival'
 import { typography } from '../../styles/typography'
 
 /**
- * THE TEAM TAB (olumi-core lane only), redesigned overnight 18 Nov as ONE guided flow (./flow.ts): Bring a colleague in → Your view → Reveal
- * together → Where you differ → Commit to an action → What happened. The header says who is in and whose view is in; under it the six steps,
- * the current one open with its one green press, the others one line each with a short summary. The current step is read from the View's
- * own `collab` fields; every word about the scenario is core's. Writes go to core's own routes, exactly as before; after each one the View is
- * read again. Closed steps stay mounted (hidden), so drafts survive moving between steps. The header menu holds its one-time invite link.
+ * The Team tab opens with member names and contribution marks. The header popover holds the invite form and its one-time link.
+ * The guided flow starts at Your view, then Reveal together → Where you differ → Commit to an action → What happened.
+ * The current step opens with its action. The View's `collab` fields determine progress and supply the scenario's words.
+ * Writes go to Core, then the View is read again. Closed steps stay mounted so drafts survive moving between steps.
  * Another member's change arrives on its own: while the page is seen the View is read again about every 10 s (`src/olumiView/poll.ts`).
  */
 export function TeamTab(): JSX.Element {
@@ -76,6 +78,7 @@ export function TeamTab(): JSX.Element {
 
 export const TEAM_HEADER_WORDS = {
   invite: 'Invite a colleague',
+  aloneLead: 'Invite a colleague: each of you gives a view privately, then you reveal them together and see where you differ.',
   private: 'Given, private until the reveal',
   given: 'Your view is in',
   revealed: 'Revealed',
@@ -106,40 +109,53 @@ export function Members({ view }: { view: View }): JSX.Element {
   )
 }
 
-function InviteMenu({ sid }: { sid: string }): JSX.Element {
+function InvitePopover({ sid, alone }: { sid: string; alone: boolean }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [made, setMade] = useState<MadeInvite | null>(null)
   const trigger = useRef<HTMLButtonElement>(null)
-  const form = useRef<HTMLDivElement>(null)
   const formId = useId()
-  const [name] = useDraft(inviteNameKey(sid), '')
-  const lastName = useRef('')
+  const [openRequested, , clearOpenRequest] = useDraft(inviteOpenKey(sid), false)
+  useEffect(() => { if (alone) setOpen(true) }, [alone])
   useEffect(() => {
-    if (name !== lastName.current && name !== '') setOpen(true)
-    lastName.current = name
-  }, [name])
-  useEffect(() => {
-    if (open) form.current?.querySelector('input')?.focus({ preventScroll: true })
-  }, [open])
+    if (!openRequested) return
+    setOpen(true)
+    clearOpenRequest()
+  }, [openRequested, clearOpenRequest])
+
+  const { refs, x, y, context } = useFloating({
+    open, onOpenChange: setOpen, placement: 'bottom-end', strategy: 'fixed',
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+  const dismiss = useDismiss(context, { escapeKey: false, outsidePressEvent: 'click' })
+  const { getFloatingProps } = useInteractions([dismiss])
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    open,
+    initialFocus: (): HTMLElement | null => dialogRef.current?.querySelector('#team-invite-name:not(:disabled)') ?? null,
+    opener: () => trigger.current,
+    onEscape: () => setOpen(false),
+  })
+  const reference = useMergeRefs([trigger, refs.setReference])
+  const floating = useMergeRefs([dialogRef, refs.setFloating])
+  useLayoutEffect(() => {
+    dialogRef.current?.style.setProperty('--team-invite-x', `${x}px`)
+    dialogRef.current?.style.setProperty('--team-invite-y', `${y}px`)
+  }, [dialogRef, open, x, y])
 
   return (
     <>
-      <HoverButton ref={trigger} type="button" aria-label={TEAM_HEADER_WORDS.invite} words={TEAM_HEADER_WORDS.invite}
-        aria-expanded={open} aria-controls={open ? formId : undefined} aria-haspopup="menu"
+      <HoverButton ref={reference} type="button" aria-label={TEAM_HEADER_WORDS.invite} words={TEAM_HEADER_WORDS.invite}
+        aria-expanded={open} aria-controls={open ? formId : undefined} aria-haspopup="dialog"
         className={TOOLBAR_ICON} onClick={() => setOpen(!open)} data-testid="team-invite-menu-trigger">
         <OkIcon id="invite" size={14} decorative inherit />
       </HoverButton>
-      {open && trigger.current && (
-        <Menu anchor={trigger.current} label={TEAM_HEADER_WORDS.invite} placement="bottom-end" onClose={() => setOpen(false)}>
-          <div id={formId} ref={form} className="p-3" onKeyDown={(event) => {
-            // Keep ordinary form keys within the form. The menu still handles Escape.
-            if (event.key !== 'Escape') event.stopPropagation()
-          }} onBlur={(event) => {
-            if (event.relatedTarget && event.relatedTarget !== trigger.current && !event.currentTarget.contains(event.relatedTarget)) setOpen(false)
-          }}>
-            <InvitePanel sid={sid} made={made} onMade={setMade} />
-          </div>
-        </Menu>
+      {open && createPortal(
+        <div {...getFloatingProps({ onKeyDown })} id={formId} ref={floating} role="dialog" aria-label={TEAM_HEADER_WORDS.invite} tabIndex={-1}
+          className={`${CANVAS_LAYER_CLASS.contextMenu} fixed left-[var(--team-invite-x)] top-[var(--team-invite-y)] max-h-screen w-64 max-w-full space-y-3 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2`}>
+          {alone && <p className={BODY}>{TEAM_HEADER_WORDS.aloneLead}</p>}
+          <InvitePanel sid={sid} made={made} onMade={setMade} />
+        </div>,
+        document.body,
       )}
     </>
   )
@@ -153,7 +169,7 @@ const DISC: Record<StepState, string> = {
 }
 const STATE_WORDS: Record<StepState, string> = { done: 'Done', now: 'Now', later: 'Later' }
 
-function Step({ id, n, state, open, summary, onToggle, compact = false, children }: { id: StepId; n: number; state: StepState; open: boolean; summary: string; onToggle: () => void; compact?: boolean; children: JSX.Element | (JSX.Element | null | false)[] }): JSX.Element {
+function Step({ id, n, state, open, summary, onToggle, compact = false, children }: { id: StepId; n: number; state: StepState; open: boolean; summary: string; onToggle: () => void; compact?: boolean; children: JSX.Element }): JSX.Element {
   const body = `team-step-${id}-body`
   // The step's summary is its hover: a finished step shrunk to a name says it there, a step at rest says it in a line (the Tip, on the row's one focus stop).
   const tip = useAnchoredTip(compact || !open ? summary : undefined)
@@ -177,7 +193,7 @@ function Step({ id, n, state, open, summary, onToggle, compact = false, children
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>
         <span className={`${typography.viewPanelHeading} flex-none ${open || state === 'now' ? 'text-text-header' : 'text-text-body'}`}>{STEP_WORDS[id]}</span>
-        {!open && <span className={`${META} min-w-0 break-words py-0.5`} data-testid={`team-step-${id}-summary`}>{summary}</span>}
+        {!open && <span className={`${META} min-w-0 break-words`} data-testid={`team-step-${id}-summary`}>{summary}</span>}
       </button>
       {tip.tip}
       <div id={body} hidden={!open} className={open ? 'space-y-3 pt-3' : 'hidden'} data-testid={body}>{children}</div>
@@ -191,7 +207,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   const choice = useTeamFlow()
   const open = openStepOf(choice, sid, current)
   const line = useDifferLine(sid, view)
-  // The steps still to come are folded behind one press ("Where this goes"): the panel shows where the team is, not six stubs. Hidden, never unmounted.
+  // The steps still to come are folded behind one press ("Where this goes"), with their bodies still mounted.
   const [showLater, setShowLater] = useState(false)
   const folded = (id: StepId): boolean => !showLater && stepState(view, id) === 'later' && open !== id
   const foldedCount = STEP_ORDER.filter(folded).length
@@ -201,8 +217,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
   useEffect(() => { if (choice.pending !== null) takePending(sid, current) }, [choice.pending, sid, current])
   // After the reveal, while "Where you differ" is the step open, the finished steps before it are one line.
   const done = current === 'differ' && open === 'differ' ? STEP_ORDER.slice(0, STEP_ORDER.indexOf('differ')).filter((id) => stepState(view, id) === 'done') : []
-  const bodies: Record<StepId, JSX.Element | (JSX.Element | null | false)[]> = {
-    invite: [view.collab.alone && <p key="lead" className={BODY} data-testid="team-alone">{STEP_WORDS.aloneLead}</p>],
+  const bodies: Record<StepId, JSX.Element> = {
     view: (
       <fieldset disabled={past} className="min-w-0 space-y-4">
         {!past && <FirstArrival view={view} />}
@@ -223,11 +238,10 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
 
   return (
     <>
-      <DifferTool sid={sid} view={view} />
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className={H} data-testid="team-views-heading">{view.collab.heading}</h2>
-          <InviteMenu key={JSON.stringify([sid, view.you_id])} sid={sid} />
+          <InvitePopover key={JSON.stringify([sid, view.you_id])} sid={sid} alone={view.collab.alone} />
         </div>
         <Members view={view} />
       </div>
@@ -238,14 +252,15 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
           <Button size="sm" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
         </div>
       )}
+      <DifferTool sid={sid} view={view} />
       {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
       <StrategyOverviewSection view={view} />
       {/* One <li> per step, always under this list in the same order (Codex review 2 #4): a finished step shrinking to a name never remounts its
           body, so its draft survives. Rows take the full width; shrunk names share one line. */}
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-3 p-0" data-testid="team-steps" data-current-step={current} data-steps-done={done.length}>
-        {STEP_ORDER.map((id) => (
+        {STEP_ORDER.map((id, index) => (
           <li key={id} id={`team-step-${id}-item`} hidden={folded(id)} className={done.includes(id) ? '' : 'basis-full'}>
-            <Step id={id} n={STEP_ORDER.indexOf(id) + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
+            <Step id={id} n={index + 1} state={stepState(view, id)} open={open === id} compact={done.includes(id)} summary={stepSummary(view, id, line)} onToggle={() => toggleStep(sid, current, id, open)}>
               {bodies[id]}
             </Step>
           </li>

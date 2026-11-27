@@ -91,12 +91,12 @@ describe('what the team waits on is the flow\'s current step, in core\'s words',
     fireEvent.click(screen.getByTestId('team-reveal-go'))
     await waitFor(() => expect(posts().map((c) => c.path)).toEqual([`/api/scenarios/${SID}/reveal`]))
   })
-  it('a next action with no outcome yet stays one press away: "What happened" is a closed line with its count; opened, its form is there', async () => {
+  it('a next action with no outcome yet stays one press away: "What happened" prompts an update and opens its form', async () => {
     show(twoPeople({ waiting: null, commitments: [open9(), open9({ id: 10, action: 'Ask two customers', owner: 'Ada', owner_id: 'p_1', outcomes: twoPeople().collab.commitments[0]!.outcomes })] }))
     render(<TeamTab />)
     // Codex 008 #3: a recorded action is not an overdue task; the flow stays on "Where you differ".
     expect(step('outcome').hasAttribute('data-step-open')).toBe(false)
-    expect(screen.getByTestId('team-step-outcome-summary').textContent).toBe('1 recorded · add what happened when it does')
+    expect(screen.getByTestId('team-step-outcome-summary').textContent).toBe('Add an outcome when the action happens')
     fireEvent.click(screen.getByTestId('team-step-outcome-row'))
     expect(step('outcome').getAttribute('data-step-open')).toBe('')
     expect(screen.getByTestId('team-commitment-action-9').textContent).toBe('Pilot in Germany')

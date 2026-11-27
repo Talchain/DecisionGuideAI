@@ -60,8 +60,6 @@ const before = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.
 const setView = (v: View) => useViewStore.setState({ view: v })
 
 describe('Team first arrival (v10 review item 9)', () => {
-  // CHANGED BY DESIGN (overnight 18 Nov flow): the tab's heading is the header above every step; what v10 item 9 asked for (the box and its
-  // first button in view on arrival) is now the open "Your view" step, with nothing but the header and one closed line above it.
   it('a held member arrives on the open "Your view" step: first arrival, then the box and its first button; one not held does not (contrast)', () => {
     render(<TeamTab />)
     const stepView = screen.getByTestId('team-step-view')
@@ -69,8 +67,8 @@ describe('Team first arrival (v10 review item 9)', () => {
     expect(stepView.contains(screen.getByTestId('team-view-text'))).toBe(true)
     expect(before(screen.getByTestId('first-arrival'), screen.getByTestId('team-view-text'))).toBe(true)
     expect(before(screen.getByTestId('team-view-text'), screen.getByTestId('team-view-give'))).toBe(true)
-    // Only the invite step's one line stands between the header and this step.
-    expect(screen.getByTestId('team-step-invite').hasAttribute('data-step-open')).toBe(false)
+    expect(before(screen.getByTestId('team-members'), stepView)).toBe(true)
+    expect(screen.queryByRole('dialog', { name: 'Invite a colleague' })).toBeNull()
     cleanup()
     setView(twoPeople({ shared: [] }, { gated: false }))
     render(<TeamTab />)

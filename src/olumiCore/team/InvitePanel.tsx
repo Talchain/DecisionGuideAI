@@ -7,6 +7,7 @@ import { useDraft } from './drafts'
 
 /** The invite form's name, as a draft: the header's "Named in the brief but not matched" notice fills it with the first name core lists. */
 export const inviteNameKey = (sid: string) => `${sid}:invite-name`
+export const inviteOpenKey = (sid: string) => `${sid}:invite-open`
 
 export type MadeInvite = { name: string; link: string }
 
