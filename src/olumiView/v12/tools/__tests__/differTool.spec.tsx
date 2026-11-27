@@ -144,7 +144,10 @@ describe('Where we differ in Team', () => {
     act(() => useViewStore.setState({ view }))
     const revealedTool = await screen.findByTestId('tool-differ')
     const team = screen.getByTestId('team-tab')
-    expect(team.firstElementChild).toBe(revealedTool)
+    // Team opens on the people view (Paul, 27 Nov): the heading and members first, then the differences tool, before the steps.
+    expect(team.firstElementChild).toContainElement(screen.getByTestId('team-views-heading'))
+    expect(revealedTool.compareDocumentPosition(screen.getByTestId('team-views-heading')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(revealedTool.compareDocumentPosition(within(team).getByTestId('differ-after')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(team).getByTestId('differ-after')).toBeVisible()
     const axis = '[data-form="CH-differ"]'
     expect(team.querySelectorAll(axis)).toHaveLength(1)
