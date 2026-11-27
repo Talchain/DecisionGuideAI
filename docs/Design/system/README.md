@@ -2,7 +2,7 @@ The one design system for the Olumi app. Every value here was read from the code
 
 Olumi is a reasoning partner for a team making a decision. People build a model of their scenario on a board of cards and links, read what it says in the right-hand panel, and talk it through with Olumi. The design exists to keep that calm and legible: the board shows the model, and the panel coaches.
 
-Read the pages in this order. **Status** says what is built and what is still to do. **Behaviour** holds the rules for anything that floats. **Editing** describes how people change the model. **Checks** lists what guards each rule. **Decisions** lists what was decided and by whom. **History** lists the documents this one replaces.
+Read the pages in this order. **Status** says what is built and what is still to do. **Behaviour** holds the rules for anything that floats. **Editing** describes how people change the model. **Checks** lists what guards each rule. **Decisions** lists what was decided and by whom. **History** lists the documents this one replaces. [**Spacing**](s8-spacing.md) defines the spacing tokens and card scaling rules.
 
 ## Principles
 
@@ -61,22 +61,7 @@ Inter, from Google Fonts, in three sizes and two weights.
 
 ## Spacing
 
-The lane standard. Every value is a Tailwind step on the 4px scale.
-
-| Where | Value | Class |
-|---|---|---|
-| Inside a panel, sheet, form or tray | 12 | `p-3` |
-| Summary line to the content below it | 12 | `space-y-3` |
-| Between groups | 16 | `space-y-4` |
-| Group label to its list | 8 | `space-y-2` |
-| Between items that wrap to several lines | 12 | `space-y-3` |
-| A single-line row | 10 above and below, 38 high | `py-2.5` |
-| Dense underlined text (quoted words) | 24 line | `leading-6` |
-| Inside a card face | 8 | `gap-2` |
-| Inside a menu shell | 6 | `p-1.5` |
-| Between cards on the board | 24 across, 48 between tiers | layout constants |
-
-Use `gap` on flex and grid parents instead of margins on children.
+Follow the [binding spacing standard](s8-spacing.md) for token roles, permitted values and board geometry.
 
 ## Shape, depth and layers
 

@@ -23,7 +23,7 @@ Anything Paul has not judged is marked **open**, not decided.
 
 ## Card faces (FACE)
 
-At rest a card shows its **title**, its **value or a mark**, and **at most one short chip**. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").
+At rest a Simple card shows its **title**, its **value or a mark**, **at most one short chip**, and **Olumi's author mark** wherever Olumi contributed to the card. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").
 
 The chip's words and the choice between some marks need Core's typed `card.face.chip = { state, text, title } | null`. lead-poc accepted the contract on 26 Nov, and Core builds it after two root-cause fixes.
 - `text`: Core's short words, at most 20 characters.
@@ -42,15 +42,15 @@ Until the field lands, a row marked **interim** draws from the typed field named
 | FACE-fixed | option always or never meeting its aim | `face.chip.state` `always_met` or `never_met` | filled or hollow end mark | Core's short words | **waits on chip**: `headline.state === 'fixed'` does not say which; the face is unchanged until then |
 | FACE-noresult | option with no result | `headline.state === 'none'` | **open**: interim draws an empty dashed outline of the dots' footprint, for Paul to judge on 4310 (ChanceDots.md draws no dots here) | Core's short reason (chip) | interim |
 | FACE-shared | aim whose options share one blocker | `face.chip.state === 'shared_blocker'` on the aim | the same dashed outline, on the aim | Core's short reason | **waits on chip**: interim keeps today's `sharedNoChanceOf`, which compares `headline.text` (a known breach, retired by the chip) |
-| FACE-value | quantity with a single figure | `figure.text !== ''`, no range | the figure as a number, in whose-tone (README principle 5) | none | built |
-| FACE-range | quantity with an input range | `card.figure.range` | CH-range glance | none | built |
+| FACE-value | quantity with a single figure | a stated figure with no `card.figure.range` | the figure as a number, in whose-tone (README principle 5) | none | built |
+| FACE-range | quantity with an input range | `card.figure.range` is present, including when low equals high | CH-range glance, with one marker for a flat range | none | built |
 | FACE-bands | calculated figure per option | `card.values[].p10/p50/p90` | middle-80% bands, one per option | none | built |
 | FACE-unsized | quantity with no figure | `figure` non-null, `figure.text === ''`, not `waits` | empty dashed track | "not sized yet" (chip; the interim draws no words, and never cuts it out of `figure.title`) | interim |
 | FACE-waits | calculated figure waiting on inputs | `figure.state === 'waits'` | the same dashed track | Core's short words (chip) | interim |
 | FACE-whatif | a figure tried as a what-if | `face.chip.state === 'whatif'` (View v3 has no figure-level what-if state; `useTryOn` is a preview, not authorship) | Olumi mark only where `author.by === 'olumi'` | none | **waits on chip** |
 | FACE-bound | aim with a measured bound | `bound.measured === true` | outlined bound pill | none | built |
 | FACE-notcounted | aim with nothing counted | `bound.measured === false` | **open**: interim draws an empty dashed bound outline (today Simple draws a quiet line with no border) | "not checked yet" (chip) | interim |
-| FACE-tips | the figure that would flip the choice | the card whose id is `run.tipping[].figure.id` | orange tick | Core's unit words (chip, merged with F1); today `tipping[]` has only `line` and `hover` | **waits on chip** |
+| FACE-tips | the figure that would flip the choice | the card whose id is `run.tipping[].figure.id` | orange tick | Core's unit words (chip, merged with F1) | **Simple mark pending** |
 
 Off the face once the chip lands: `face.line` on option cards, the description line, and the tipping paragraph. The text helpers `noChanceLineOf`, `onceWords`, `chanceParts`, `fixedParts` and `sharedNoChanceOf`, and the description and quote matching in `SimpleFace.tsx` and `CoreCard.tsx`, are deleted then.
 
@@ -115,7 +115,7 @@ The chart inventory of 23 Nov listed 22 chart-like forms. The guard's legacy lis
 
 ## Conformance
 
-Status: **built: ci:guard:forms**. The face-text spec is **planned**.
+Status: **built** for both `ci:guard:forms` and the face-text budget spec.
 
 - **`ci:guard:forms`** (`tools/ci-guards/check-forms.mjs`, with the registry in `docs/Design/system/forms.json`) is static, and so only checks what a scan can see:
   - every literal `data-form` ID is in the registry;
@@ -124,5 +124,14 @@ Status: **built: ci:guard:forms**. The face-text spec is **planned**.
   - `LINK_STYLES` roles must match the registry, and literal dash values must be registered. Marker definitions and edge precedence remain governed by the LN table.
   - Scope: `src/olumiView`, `src/olumiCore` and `src/canvas`.
 - It **cannot** see visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim.
-- **A face-text spec** renders fixture Views covering each FACE row and counts the words at rest on each card family against a budget that is ratcheted down. It covers only the states its fixtures contain, and its fixture list says so.
-- `ci:guard:forms` runs in `ci:all`. Its spec exercises planted breaches and the real tree. The face-text spec will join the enforcing gate and `ci:all` once it has been shown failing on a planted breach.
+- **`faceTextBudget.spec.tsx`** renders Simple cards at rest at the full level of detail and counts runs of letters or digits in their visible DOM text. It excludes hover-only text, `aria-hidden` subtrees and screen-reader-only text. It counts the title separately from the face. The fixture title allowance and the per-family, per-row face caps live in `src/olumiView/v12/__tests__/faceTextBudget.json`. Each cap must equal the highest measured fixture count. When that count falls, lower the corresponding JSON entry.
+- With stylesheets disabled under Vitest, the DOM walker skips hidden subtrees and mirrors the resting rules in `olumiLook.css` for card actions, the corner slot and the rail. Descendants that set `visibility: visible` are still skipped.
+- The spec measures option, quantity, aim (goal and limit), and question cards in these fixture Views at rest:
+  - `src/olumiView/fixtures/cardface/studio.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-bakery-asked.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-app-launch.view3.json`
+  - Typed variants of cardface Studio exercise a qualified chance, an individual withheld result, a shared blocker, an unsized fee, a flat fee range with empty figure text, a fee waiting on an input and an unmeasured bound.
+- The fixtures cover FACE-chance, FACE-fixed, FACE-noresult, FACE-shared, FACE-value, FACE-range, FACE-bands, FACE-unsized, FACE-waits, FACE-bound, FACE-notcounted, and the board question. Both Studio fixtures carry FACE-tips in View v3 through `run.tipping[].figure.id`, which points to `evening_extra`. The Simple face draws no tips mark yet, so FACE-tips has no budget. Only FACE-whatif is inexpressible in View v3. Coverage is limited to the resting states in these fixtures. The DOM count does not measure clipping.
+- The interim selectors are `headline.state === 'fixed'` for FACE-fixed and `sharedNoChanceOf(model, aimId, 'typed')` for FACE-shared. FACE-shared has separate caps for the aim that displays the shared blocker and the options whose individual chips are suppressed. The option letter drawn by CSS `::before` counts once toward the face budget via the rendered `data-option-letter` value.
+- A planted sentence in the class fee's typed figure text exercises the same budget check and reports the card, family, row, count and cap. The spec is included by the Vitest discovery glob used by the enforcing suite and by `test:full` in `ci:all`. `ci:guard:forms` also runs in `ci:all`. Its own spec exercises planted breaches and the real tree.

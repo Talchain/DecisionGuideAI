@@ -48,6 +48,88 @@ const COPY_PROPS = new Set(['words', 'label', 'aria-label', 'placeholder', 'tip'
 const UI_WORDS = /—|(?<=[\p{L}\p{N}]\s*)&(?=\s*[\p{L}\p{N}])|(?<![\p{L}\p{N}_])(?:color|behavior|center|organize|analyze|favorite|gray|recommend|best|winner|you\s+should|go\s+with)(?![\p{L}\p{N}_])/giu
 const WORD = /[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu
 const PRODUCT_NAMES = new Set(['Olumi', "Olumi's", 'Olumi’s'])
+const SPACING_UTILITY = /(?:^|:)!?-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy])-(\[.*\]|0\.5|px|3\.5|7|9|11|14)!?$/
+const CLASS_RECIPE_NAME = /(?:^|_)CLASS(?:ES)?(?:_|$)|^class(?:Names?|es)?$|Class(?:Names?|es|Recipes)?$/
+const CLASS_HELPERS = new Set(['clsx', 'cn', 'classNames', 'classnames', 'twMerge'])
+const SPACE_VAR = /\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)/
+const STYLE_SPACING = /^(?:(?:padding|margin)(?:[A-Z]\w*)?|gap|rowGap|columnGap)$/
+const CSS_SPACING = /^(?:(?:padding|margin)(?:-[a-z-]+)?|gap|row-gap|column-gap)$/i
+
+function scanSpacingUtilities(text, add) {
+  for (const token of text.split(/\s+/)) {
+    const value = SPACING_UTILITY.exec(token)?.[1]
+    if (value === undefined) continue
+    if (!value.startsWith('[')) add(`off-scale utility: ${token}`)
+    else if (!SPACE_VAR.test(value)) add(`arbitrary utility: ${token}`)
+  }
+}
+
+function scanStyleSpacing(node, add) {
+  if (ts.isPropertyAssignment(node) && STYLE_SPACING.test(node.name.text ?? '')) {
+    let value = node.initializer
+    while (ts.isParenthesizedExpression(value) || ts.isAsExpression(value) || ts.isSatisfiesExpression(value)) {
+      value = value.expression
+    }
+    const number = ts.isPrefixUnaryExpression(value) &&
+      (value.operator === ts.SyntaxKind.MinusToken || value.operator === ts.SyntaxKind.PlusToken) ? value.operand : value
+    if (ts.isNumericLiteral(number) && Number(number.text) !== 0) {
+      add(node, `numeric style: ${node.name.text}: ${value.getText()}`)
+    }
+  }
+  ts.forEachChild(node, (child) => scanStyleSpacing(child, add))
+}
+
+function hasOffScalePixels(value) {
+  // Skip strings and comments, and keep track of nested calls within a spacing var() fallback.
+  const parts = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)|[()]|(?<![\w.#-])[+-]?(?:\d*\.\d+|\d+)px\b/gi
+  let tokenDepth = 0
+  for (const [part] of value.matchAll(parts)) {
+    if (part.toLowerCase().startsWith('var(')) tokenDepth++
+    else if (part === '(' && tokenDepth > 0) tokenDepth++
+    else if (part === ')' && tokenDepth > 0) tokenDepth--
+    else if (tokenDepth === 0 && /^[+-]?\d*\.?\d+px$/i.test(part) && ![0, 1].includes(Math.abs(Number.parseFloat(part)))) return true
+  }
+  return false
+}
+
+function spacingDeclarationToken({ prop, value }) {
+  if (CSS_SPACING.test(prop) && hasOffScalePixels(value)) {
+    return `pixel declaration: ${prop}: ${value.replace(/\s+/g, ' ').trim()}`
+  }
+}
+
+const TEMPLATE_HOLE = '__ds_css_interpolation__'
+
+function scanTemplateSpacing(node, source, add) {
+  const first = ts.isTemplateExpression(node) ? node.head : node
+  let css = first.rawText ?? first.text
+  if (ts.isTemplateExpression(node)) {
+    for (const { expression, literal } of node.templateSpans) {
+      const lines = source.text.slice(expression.pos, literal.getStart(source)).replace(/[^\r\n]/g, '')
+      css += TEMPLATE_HOLE + lines + (literal.rawText ?? literal.text)
+    }
+  }
+  if (!css.includes('{') || !/px\b/i.test(css)) return
+
+  // A complete interpolation can stand between rules or declarations. Keep
+  // the marker in names and values so declarations with holes are skipped.
+  css = css.replace(/(^|[;{}])(\s*)__ds_css_interpolation__(?=\s*(?:[;}]|$)|\s+[\w-]+\s*:)/g, '$1$2/*__ds_css_interpolation__*/')
+  let stylesheet
+  try {
+    stylesheet = postcss.parse(css)
+  } catch (error) {
+    if (error.name !== 'CssSyntaxError') throw error
+    return
+  }
+  const firstLine = source.getLineAndCharacterOfPosition(first.getStart(source)).line
+  stylesheet.walkDecls((declaration) => {
+    if (declaration.parent.type === 'root') return
+    const { start, end } = declaration.source
+    if (css.slice(start.offset, end.offset).includes(TEMPLATE_HOLE)) return
+    const token = spacingDeclarationToken(declaration)
+    if (token) add(token, firstLine + start.line - 1)
+  })
+}
 
 // Only an object literal whose every property explicitly names a CSS variable is exempt.
 // Computed keys, spreads and variables can introduce ordinary properties and still count.
@@ -115,6 +197,44 @@ function isStringSegment(node) {
   return ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
 }
 
+function readClassStrings(node, read, helperArgument = false) {
+  const visit = (value) => readClassStrings(value, read, helperArgument)
+  if (!node) return
+  if (isStringSegment(node)) return read(node)
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node) ||
+      ts.isSpreadElement(node)) return visit(node.expression)
+  if (ts.isTemplateExpression(node)) {
+    read(node.head)
+    for (const span of node.templateSpans) {
+      visit(span.expression)
+      read(span.literal)
+    }
+  } else if (ts.isTaggedTemplateExpression(node) && node.tag.getText() === 'String.raw') {
+    visit(node.template)
+  } else if (ts.isConditionalExpression(node)) {
+    visit(node.whenTrue)
+    visit(node.whenFalse)
+  } else if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind
+    if ([ts.SyntaxKind.PlusToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(op)) visit(node.left)
+    if ([ts.SyntaxKind.PlusToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(op)) visit(node.right)
+  } else if (ts.isArrayLiteralExpression(node)) {
+    node.elements.forEach(visit)
+  } else if (ts.isObjectLiteralExpression(node)) {
+    for (const entry of node.properties.filter(ts.isPropertyAssignment)) {
+      // A helper's object keys are classes. A recipe's keys name its variants.
+      if (helperArgument) {
+        if (ts.isStringLiteralLike(entry.name)) read(entry.name)
+      } else {
+        visit(entry.initializer)
+      }
+    }
+  } else if (ts.isCallExpression(node) && node.expression.getText() === 'Object.freeze') {
+    visit(node.arguments[0])
+  }
+}
+
 function jsxCopy(text) {
   return text.replace(/&(?:amp|#0*38|#x0*26);/gi, '&')
     .replace(/&(?:mdash|#0*8212|#x0*2014);/gi, '—')
@@ -169,9 +289,16 @@ function isViewChild(node) {
 export function scanLaneSource(file, text) {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
   const hits = {}
-  const add = (rule, node, token) => {
+  const addAtLine = (rule, token, line) => {
     const occurrences = hits[rule] ??= []
-    occurrences.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line, token })
+    occurrences.push({ line, token })
+  }
+  const add = (rule, node, token) => addAtLine(rule, token, source.getLineAndCharacterOfPosition(node.getStart(source)).line)
+  const spacingClassStrings = new Set()
+  const readSpacingClass = (node) => {
+    if (spacingClassStrings.has(node)) return
+    spacingClassStrings.add(node)
+    scanSpacingUtilities(node.text, (token) => add('v12-spacing', node, token))
   }
   const scanStrings = (node, regex, rule) => {
     if (isStringSegment(node)) {
@@ -204,6 +331,15 @@ export function scanLaneSource(file, text) {
     return readCopy(child, checkCase, started)
   }
   function visit(node) {
+    if (file.endsWith('.tsx') && (ts.isTemplateExpression(node) || ts.isNoSubstitutionTemplateLiteral(node))) {
+      scanTemplateSpacing(node, source, (token, line) => addAtLine('v12-spacing', token, line))
+    }
+    if ((ts.isVariableDeclaration(node) || ts.isPropertyAssignment(node)) && CLASS_RECIPE_NAME.test(node.name.text ?? '')) {
+      readClassStrings(node.initializer, readSpacingClass)
+    }
+    if (ts.isCallExpression(node) && CLASS_HELPERS.has(node.expression.getText(source))) {
+      for (const argument of node.arguments) readClassStrings(argument, readSpacingClass, true)
+    }
     if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
         ts.isIdentifier(node.expression) && node.expression.text === 'typography') {
       const name = ts.isPropertyAccessExpression(node) ? node.name.text
@@ -232,6 +368,10 @@ export function scanLaneSource(file, text) {
         }
         if (name === 'className' && PANEL.test(tag) && attribute.initializer) {
           scanStrings(attribute.initializer, PANEL_PADDING, 'v12-panel-padding')
+        }
+        if (name === 'className' || name === 'class') readClassStrings(attribute.initializer, readSpacingClass)
+        if (name === 'style' && attribute.initializer && ts.isJsxExpression(attribute.initializer) && attribute.initializer.expression) {
+          scanStyleSpacing(attribute.initializer.expression, (property, token) => add('v12-spacing', property, token))
         }
       }
       if (localCopy && sentenceCase && ts.isJsxOpeningElement(node)) {
@@ -263,9 +403,15 @@ export function scanLaneSource(file, text) {
 // PostCSS recognises multiline declarations, while quoted text and comments are
 // distinct from the declaration's important flag.
 export function scanLaneStylesheet(file, text) {
-  const hits = { 'v12-important-css': [], 'v12-blue-css-var': [] }
-  postcss.parse(text, { from: file }).walkDecls((declaration) => {
+  const hits = { 'v12-important-css': [], 'v12-blue-css-var': [], 'v12-spacing': [] }
+  const stylesheet = postcss.parse(text, { from: file })
+  stylesheet.walkAtRules('apply', (rule) => {
+    scanSpacingUtilities(rule.params, (token) => hits['v12-spacing'].push({ line: rule.source.start.line - 1, token }))
+  })
+  stylesheet.walkDecls((declaration) => {
     const line = declaration.source.start.line - 1
+    const spacing = spacingDeclarationToken(declaration)
+    if (spacing) hits['v12-spacing'].push({ line, token: spacing })
     if (declaration.important) {
       hits['v12-important-css'].push({ line, token: `${declaration.prop} !important` })
     }

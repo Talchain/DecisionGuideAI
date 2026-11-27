@@ -12,6 +12,17 @@ const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selectors
 const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next']
 
 describe("the look's recipes, each written once", () => {
+  it('scales the card inset, the title gap and the face gaps with the same card scale', () => {
+    const bodyOf = (selector: string) => rules.find((rule) => rule.selectors.includes(selector))!.body
+    const frame = bodyOf(".olumi-look .react-flow__node [role='group'][aria-label]")
+    expect(frame).toContain('--ok-gap-tight: calc(var(--space-1) * var(--o-s));')
+    expect(frame).toContain('--ok-gap-stack: calc(var(--space-2) * var(--o-s));')
+    expect(frame).toContain('--ok-gap-inset: calc(var(--space-3) * var(--o-s));')
+    expect(frame).toContain('padding: var(--ok-gap-inset);')
+    expect(bodyOf('.olumi-look .ok-face')).toContain('margin-top: var(--ok-gap-tight);')
+    expect(bodyOf('.olumi-look .ok-card-gap-tight')).toContain('gap: var(--ok-gap-tight);')
+    expect(bodyOf('.olumi-look .ok-card-gap-stack')).toContain('gap: var(--ok-gap-stack);')
+  })
   it("a card's small text takes its size and line height from one rule (the compact card draws at the board's scale like every card, R4, 16 Nov)", () => {
     for (const cls of SMALL) {
       const sizing = rules.filter((r) => /font-size|line-height/.test(r.body) && r.selectors.some((s) => s.endsWith(cls) && !s.includes('[data-simple-compact]')))
@@ -24,9 +35,10 @@ describe("the look's recipes, each written once", () => {
     const greys = rules.filter((r) => r.selectors.some((x) => x.includes(":has([data-simple-set-aside]) [data-testid='node-title']")))
     expect(greys.map((r) => [r.selectors.map((x) => /data-(simple|detailed)-set-aside/.exec(x)?.[1] ?? null), r.body.trim()])).toEqual([[['simple', 'detailed'], 'color: var(--text-light);']])
     expect(bodyOf('[data-simple-foot] .ok-am svg')).toEqual(['width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s));'])
-    // CONTRAST: a live card's name keeps the header ink (the base title rule), and no rule sizes a mark outside the Simple foot this way.
+    expect(bodyOf('.ok-card-chrome .ok-am svg')).toEqual(['width: var(--ok-chrome-mark-size);\n  height: var(--ok-chrome-mark-size);'])
+    // A live card keeps the header ink, and Simple marks have their own size recipe.
     expect(rules.filter((r) => r.selectors.includes(".olumi-look .react-flow__node [data-testid='node-title']") && /color:/.test(r.body)).map((r) => /color: var\(--text-header\)/.test(r.body))).toEqual([true])
-    expect(rules.filter((r) => /\.ok-am svg/.test(r.selectors.join(',')) && !r.selectors.every((x) => x.includes('[data-simple-foot]')))).toEqual([])
+    expect(rules.filter((r) => /\.ok-am svg/.test(r.selectors.join(',')) && !r.selectors.every((x) => x.includes('[data-simple-foot]') || x.includes('.ok-card-chrome')))).toEqual([])
   })
   it('the Detailed card\'s floor is never wider than its layout slot (--ok-slot): at 1232 a 228.8 px floor drew cards over their neighbours', () => {
     const r = rules.filter((x) => x.selectors.some((y) => y.includes(':has([data-ok-detailed])') && y.includes("[role='group'][aria-label]")))
@@ -51,11 +63,13 @@ describe("the look's recipes, each written once", () => {
     expect([...new Set(css.match(/--o-[a-z-]+/g) ?? [])]).toEqual(['--o-s'])
     expect(css.match(/rgba?\(|#[0-9a-fA-F]{3,8}\b/g)).toBeNull()
   })
-  it('the frame uses the DS kind hue for notes and conditions; C7 the pencil is hidden at rest only for the other actions, and a pinned box still hides it', () => {
+  it('uses DS kind hues and preserves the Detailed pencil and pinned action rules alongside Simple chrome', () => {
     expect(rules.find((r) => r.selectors.some((x) => x.includes("[data-ok-kind='factor']")))?.body.trim()).toBe('--ok-kc: var(--factor);')
     expect(rules.some((r) => r.selectors.some((x) => x.includes('[data-ok-condition]')))).toBe(false)
     const hide = rules.find((r) => r.selectors.some((x) => x.includes('[data-card-action]:not(')))!
     expect(hide.selectors.some((x) => x.includes('[data-card-edit-cue]'))).toBe(true)
+    expect(hide.selectors.some((x) => x.includes('.ok-card-chrome *'))).toBe(true)
+    expect(hide.body).toMatch(/visibility: hidden/)
     const pinned = rules.find((r) => r.selectors.some((x) => x.includes("data-state='pinned'") && x.includes('[data-card-action]')))!
     expect(pinned.body).toMatch(/visibility: hidden/)
     expect(pinned.selectors.join(',').includes('[data-card-edit-cue]'), 'the pinned rule names the action hook whole, pencil included').toBe(false)

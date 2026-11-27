@@ -12,8 +12,8 @@ import { typography } from '../styles/typography'
 import { EditIcon } from './ds/icons'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
-import { isForThisPage, useMe } from '../olumiCore/me'
-import { writes } from './client'
+import { isForThisPage, useMe, type Me } from '../olumiCore/me'
+import { writes, type View } from './client'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from './store'
@@ -33,7 +33,7 @@ import { useAnchoredTip } from './look/Tip'
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). Hidden by
  *  visibility, never dimmed: nothing is drawn at a lowered opacity at rest (V12 refinement spec). */
 export const QUIET = 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
-/** With `glyph` the pencil (ds/icons EditIcon) is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
+/** With `glyph` the pencil (ds/icons EditIcon) is the cue. The words show on hover, focus or selection. */
 export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 
 /**
@@ -56,7 +56,13 @@ export const ASIDE_WORDS = {
   notShown: 'Set aside, but Olumi could not show the model just now. Reload the page to edit.',
 } as const
 
-export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure' }: { id: string; label?: string; place?: string }): JSX.Element | null {
+export function heldEditProposal(view: View | null, sid: string | null, at: number | null, me: Me | null): View['proposal'] {
+  const proposal = view?.proposal ?? null
+  if (proposal === null || view === null || sid === null || at !== null || proposal.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  return proposal
+}
+
+export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure', inChrome = false }: { id: string; label?: string; place?: string; inChrome?: boolean }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
@@ -64,9 +70,15 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restoreFocus, setRestoreFocus] = useState(false)
   const tip = useAnchoredTip(ASIDE_WORDS.offer)
-  const p = view?.proposal ?? null
-  if (p === null || view === null || sid === null || at !== null || p.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  const p = heldEditProposal(view, sid, at, me)
+  if (p === null) return null
+  const close = () => {
+    if (inChrome) setRestoreFocus(true)
+    setOpen(false)
+    setError(null)
+  }
   const aside = async () => {
     if (busy) return
     setBusy(true); setError(null)
@@ -84,21 +96,21 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     <>
       {/* Panel controls use 28px and card controls keep 24px to preserve card layout (UI lead, 24 Nov).
           Escape literal underscores because Tailwind reads a bare _ as a space. */}
-      <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
+      <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" autoFocus={restoreFocus} onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
         className={String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
       {tip.tip}
     </>
   )
   return (
-    <div className="nodrag nopan grid gap-2" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) { setOpen(false); setError(null) } }}>
+    <div className={`nodrag nopan grid ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`} role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`} data-chrome-confirm={inChrome ? '' : undefined} data-figure-edit-panel={inChrome ? id : undefined}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) close() }}>
       <p className={typography.viewLabel}>{ASIDE_WORDS.first}</p>
       <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
-      <div className="flex gap-2">
-        <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
+      <div className={`flex ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`}>
+        <button type="button" autoFocus disabled={!inChrome && busy} aria-disabled={inChrome && busy ? true : undefined} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
           className={isOlumiCoreLane() ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
-        <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
+        <button type="button" disabled={!inChrome && busy} aria-disabled={inChrome && busy ? true : undefined} onClick={() => { if (!busy) close() }}
           className={String.raw`${typography.viewLabel} min-h-7 [.react-flow\_\_node_&]:min-h-6 cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </div>
@@ -256,6 +268,12 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
 
 type FigureEditProps = Parameters<typeof FigureEditInPlace>[0]
 
+/** Size edits keep their cue even while a proposal is held. */
+export function canOfferFigureEdit(view: View | null, sid: string | null, me: Me | null, edit: CoreEdit): boolean {
+  return edit != null && sid !== null && view !== null && isForThisPage(view, me) &&
+    (view.model?.edit_base != null || isSizeEdit(edit))
+}
+
 /**
  * SURFACES STEP 5: ON THE LANE A FIGURE IS CHANGED IN ONE PLACE, the details panel's Value row (v12/inspect/ValueRow.tsx), whichever control opened it. This control
  * is then only the way there: the pencil (or the aim's own words) opens the details of the card it names with that row's field focused. The editor that stood
@@ -278,9 +296,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); useLaneInspector.getState().openFigure({ kind: 'card', id }, 'aside', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) } }, [asideFor, id])
   // DL 09:50Z (1): another card's words that open this figure's editor (`opener`) are drawn as plain words where no editor is offered here, never dropped.
-  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
-  // No version to edit (a proposal is held): a plain figure offers nothing; a risk's size or a link's strength keeps its pencil, said not to act, as before.
-  if (live === null && !size) return opener ?? null
+  if (!canOfferFigureEdit(view, sid, me, edit)) return opener ?? null
   // A press the gate refuses says why, in the gate's own words (core's, or the existing sentence for a past version or another person's page), as the hover already did.
   const press = (): void => { tip.dismiss(); if (off) { if (why !== undefined) showToast(why, 'warning'); return } useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
   if (opener !== undefined) {
