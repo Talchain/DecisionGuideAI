@@ -18,7 +18,7 @@ import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW,
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
-import { orderSimpleBands, type SimpleLink } from './simpleOrdering'
+import { orderSimpleBands, simpleCrossingCounts, type SimpleLink, type SimpleOrder } from './simpleOrdering'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { cardDsKindOf, cardKind, declaredCardKind, type FieldCard } from './v12/fields/fields'
 
@@ -252,57 +252,70 @@ const capQuestionWidth = (span: number, cardW: number, gapX: number): number =>
 /** The type scale a Simple board of this width is drawn at: production's own counter-scale for the zoom its width fits across the room at. */
 export const simpleScaleOf = (boardW: number, roomW: number | undefined): number =>
   labelCounterScale(roomW === undefined || roomW <= 0 ? 1 : Math.min(1, roomW / Math.max(1, boardW)))
-/**
- * V12 Simple places: each band starts in core's card order, followed by any extras in their given order. Options keep that order.
- * The parent-ordinal order in other bands is the fallback. Wrapped-row sweeps can replace it when they reduce crossings
- * without sending more links through cards.
- */
-function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: SimpleRow, extras: readonly SimpleExtra[] = [], groupLinks: readonly SimpleLink[] = []): Map<string, SimplePlace> {
-  // Map iteration keeps core's card order (including option letters), followed by extras.
-  const bandOfId = new Map<string, BandId>([...model.cards.map((c) => [c.id, bandOf(c, model)] as const), ...extras.map((e) => [e.id, e.band] as const)])
-  const bands = BAND_ORDER.map((band) => ({ band, ids: [...bandOfId].filter(([, k]) => k === band).map(([id]) => id) }))
-    .filter(({ ids }) => ids.length > 0)
-  const shapes = bands.map(({ ids }) => simpleBand(row, ids.length))
+const SIMPLE_REFERENCE_ROWS = [700, 1232, 2000].map(simpleStageRow)
+const simpleOrders = new Map<string, SimpleOrder>()
+const SIMPLE_ORDER_CACHE_LIMIT = 16
+
+/** The same balanced wrapping and row geometry serve reference scoring and the live board. */
+function wrapSimpleOrder(model: ViewModel, order: SimpleOrder, row: SimpleRow, heightOf: (id: string) => number) {
   const qW = simpleQuestionW(model, row)
-  const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), qW)
+  const shapes = order.map((ids, i) => i === 0 ? { sizes: [1], w: qW } : simpleBand(row, ids.length))
+  const boardW = Math.max(1, ...shapes.map(({ sizes, w }) => rowWidth(Math.max(...sizes), w)))
   const scale = simpleScaleOf(boardW, row.roomW)
-  const heights = new Map([...model.cards, ...extras].map(({ id, h }) => [id, h]))
-  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : heights.get(id) ?? 90)
-  const links = cardLinks(model).map(({ link }) => link)
-  const parents = new Map<string, string[]>()
-  for (const link of links) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
-  const ordinal = new Map<string, number>()
-  const rowStarts = (sizes: readonly number[], w: number) => sizes.map((k) =>
-    Array.from({ length: k }, (_, j) => (boardW - rowWidth(k, w)) / 2 + j * (w + SIMPLE_GAP_X)),
-  )
-  const base = [{ ids: [QUESTION], fixed: true, w: qW, starts: rowStarts([1], qW) }, ...bands.map(({ band, ids }, bi) => {
-    const ordered = band === 'options' ? ids : ids.map((id, index) => {
-      const positions = (parents.get(id) ?? []).flatMap((p) => ordinal.has(p) ? [ordinal.get(p)!] : [])
-      const order = positions.length === 0 ? index : positions.reduce((a, b) => a + b, 0) / positions.length
-      return { id, index, order }
-    }).sort((a, b) => a.order - b.order || a.index - b.index).map(({ id }) => id)
-    ordered.forEach((id, index) => ordinal.set(id, index))
+  const out = new Map<string, SimplePlace & { w: number }>()
+  let y = 0
+  order.forEach((ids, bi) => {
     const { sizes, w } = shapes[bi]!
-    return { ids: ordered, fixed: band === 'options', w, starts: rowStarts(sizes, w) }
-  })]
-  const place = (order: readonly (readonly string[])[]) => {
-    const out = new Map<string, SimplePlace & { w: number }>()
-    let y = 0
-    order.forEach((ids, bi) => {
-      const { w, starts } = base[bi]!
-      let i = 0
-      for (const xs of starts) {
-        const rowIds = ids.slice(i, i + xs.length)
-        rowIds.forEach((id, j) => { out.set(id, { x: xs[j]!, y, w, s: scale }) })
-        i += xs.length
-        y += Math.max(...rowIds.map(heightOf)) + SIMPLE_GAP_Y
-      }
-    })
-    return out
-  }
-  const orderingBands = base.map(({ ids, fixed, w, starts }) => ({ ids, fixed, rows: starts.map((xs) => xs.map((x) => x + w / 2)) }))
+    let i = 0
+    for (const k of sizes) {
+      const rowIds = ids.slice(i, i + k), left = (boardW - rowWidth(k, w)) / 2
+      rowIds.forEach((id, j) => { out.set(id, { x: left + j * (w + SIMPLE_GAP_X), y, w, s: scale }) })
+      i += k
+      y += Math.max(...rowIds.map(heightOf)) + SIMPLE_GAP_Y
+    }
+  })
+  return out
+}
+
+function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: SimpleRow, extras: readonly SimpleExtra[] = [], groupLinks: readonly SimpleLink[] = []): Map<string, SimplePlace> {
+  // Map iteration keeps Core's card order (including option letters), followed by extras.
+  const bandOfId = new Map<string, BandId>([...model.cards.map((c) => [c.id, bandOf(c, model)] as const), ...extras.map((e) => [e.id, e.band] as const)])
+  const heights = new Map([...model.cards, ...extras].map(({ id, h }) => [id, h]))
+  const coreHeightOf = (id: string) => id === QUESTION ? 85 : heights.get(id) ?? 90
+  const links = cardLinks(model).map(({ link }) => link)
   const connectors = groupLinks.map(({ from, to }) => ({ from, to, group: true as const }))
-  return orderSimpleBands(orderingBands, [...links, ...connectors], [QUESTION, ...bandOfId.keys()], place, heightOf)
+  // Folding can recreate the drawn model during a resize. Key by its ordering inputs.
+  const key = JSON.stringify([
+    [...bandOfId].map(([id, band]) => [id, band, coreHeightOf(id)]),
+    allOptionCards(model).length,
+    links.map(({ from, to }) => [from, to]),
+    connectors.map(({ from, to }) => [from, to]),
+  ])
+  let order = simpleOrders.get(key)
+  if (order === undefined) {
+    const bands = BAND_ORDER.map((band) => ({ band, ids: [...bandOfId].filter(([, k]) => k === band).map(([id]) => id) }))
+      .filter(({ ids }) => ids.length > 0)
+    const parents = new Map<string, string[]>()
+    for (const link of links) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
+    const ordinal = new Map<string, number>()
+    const base = [{ ids: [QUESTION], fixed: true }, ...bands.map(({ band, ids }) => {
+      const ordered = band === 'options' ? ids : ids.map((id, index) => {
+        const positions = (parents.get(id) ?? []).flatMap((p) => ordinal.has(p) ? [ordinal.get(p)!] : [])
+        const order = positions.length === 0 ? index : positions.reduce((a, b) => a + b, 0) / positions.length
+        return { id, index, order }
+      }).sort((a, b) => a.order - b.order || a.index - b.index).map(({ id }) => id)
+      ordered.forEach((id, index) => ordinal.set(id, index))
+      return { ids: ordered, fixed: band === 'options' }
+    })]
+    const drawnLinks = [...links, ...connectors]
+    order = orderSimpleBands(base, drawnLinks, [QUESTION, ...bandOfId.keys()], (candidate) => SIMPLE_REFERENCE_ROWS.map((referenceRow) => {
+      const places = wrapSimpleOrder(model, candidate, referenceRow, coreHeightOf)
+      return simpleCrossingCounts([...places].map(([id, p]) => ({ ...p, id, h: coreHeightOf(id) })), drawnLinks)
+    }))
+    if (simpleOrders.size >= SIMPLE_ORDER_CACHE_LIMIT) simpleOrders.delete(simpleOrders.keys().next().value!)
+    simpleOrders.set(key, order)
+  }
+  return wrapSimpleOrder(model, order, row, (id) => size.get(id)?.height ?? coreHeightOf(id))
 }
 /** The question bar's width in Simple uses the card width and gap drawn in the options' first row. */
 export function simpleQuestionW(model: ViewModel, row: SimpleRow): number {

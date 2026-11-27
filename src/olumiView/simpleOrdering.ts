@@ -149,49 +149,50 @@ export function simpleCrossingCounts(cards: readonly CardBox[], links: readonly 
 
 type Band = {
   readonly ids: readonly string[]
-  /** One array of slot centres per row. Its length is the row's capacity. */
-  readonly rows: readonly (readonly number[])[]
   readonly fixed?: boolean
 }
-type Slot = { row: number; x: number }
-type Order = readonly (readonly string[])[]
+export type SimpleOrder = readonly (readonly string[])[]
+type Counts = ReturnType<typeof simpleCrossingCounts>
+const totalCrossings = (counts: readonly Counts[]) => counts.reduce((sum, { crossings }) => sum + crossings, 0)
 
-/** Place and score the original order and up to four sweeps using the caller's actual geometry. */
-export function orderSimpleBands<P extends Place>(
+/** Sweep the band sequences and keep only orders that improve the reference layouts together. */
+export function orderSimpleBands(
   bands: readonly Band[],
   links: readonly SimpleLink[],
   stableIds: readonly string[],
-  place: (order: Order) => Map<string, P>,
-  heightOf: (id: string) => number,
-): Map<string, P> {
+  score: (order: SimpleOrder) => readonly Counts[],
+): SimpleOrder {
   const base = bands.map((band) => band.ids)
-  const original = place(base)
-  if (links.length < 2) return original
-  const countsOf = (places: ReadonlyMap<string, P>) =>
-    simpleCrossingCounts([...places].map(([id, p]) => ({ ...p, id, h: heightOf(id) })), links)
-  const ceiling = countsOf(original)
-  if (ceiling.crossings === 0) return original
+  if (links.length < 2) return base
+  const ceiling = score(base)
+  let bestTotal = totalCrossings(ceiling)
+  if (bestTotal === 0) return base
 
   const rank = new Map(stableIds.map((id, i) => [id, i]))
   const byRank = (a: string, b: string) => rank.get(a)! - rank.get(b)!
   const bandOf = new Map(bands.flatMap(({ ids }, i) => ids.map((id) => [id, i] as const)))
   const neighbours = new Map(stableIds.map((id) => [id, [] as string[]]))
   for (const { from, to } of links) {
-    if (bandOf.get(from) === bandOf.get(to)) continue
-    neighbours.get(from)?.push(to)
-    neighbours.get(to)?.push(from)
+    if (!bandOf.has(from) || !bandOf.has(to) || bandOf.get(from) === bandOf.get(to)) continue
+    neighbours.get(from)!.push(to)
+    neighbours.get(to)!.push(from)
   }
   // Fix the summation order so link order cannot perturb floating-point ties.
   for (const ids of neighbours.values()) ids.sort(byRank)
-  let row = 0
-  const slots = bands.map((band) => band.rows.flatMap((xs) => {
-    const index = row++
-    return xs.map((x): Slot => ({ row: index, x }))
-  }))
-  const at = new Map<string, Slot>()
-  const assign = (ids: readonly string[], i: number) => ids.forEach((id, j) => at.set(id, slots[i]![j]!))
+  const at = new Map<string, number>()
+  const assign = (ids: readonly string[]) => ids.forEach((id, i) => at.set(id, (i + 0.5) / ids.length))
+  const compareOrders = (a: SimpleOrder, b: SimpleOrder): number => {
+    for (const [i, ids] of a.entries()) {
+      for (const [j, id] of ids.entries()) {
+        const comparison = byRank(id, b[i]![j]!)
+        if (comparison !== 0) return comparison
+      }
+    }
+    return 0
+  }
 
-  let best = original, bestCounts = ceiling, bestOrder = base
+  let bestOrder = base
+  const baseTotal = bestTotal
   for (let round = 0; round < 2; round++) {
     const order = [...bestOrder]
     order.forEach(assign)
@@ -201,38 +202,28 @@ export function orderSimpleBands<P extends Place>(
         const band = bands[i]!
         if (band.fixed || band.ids.length < 2) continue
         const targets = order[i]!.map((id) => {
-          const current = at.get(id)!
-          let weight = 0, row = 0, x = 0
+          let weight = 0, ordinal = 0
           for (const other of neighbours.get(id) ?? []) {
-            const neighbour = at.get(other)
-            if (neighbour === undefined) continue
-            const distance = current.row - neighbour.row
+            const distance = i - bandOf.get(other)!
             const w = (distance * direction > 0 ? 2 : 1) / (1 + Math.abs(distance))
             weight += w
-            row += w * neighbour.row
-            x += w * neighbour.x
+            ordinal += w * at.get(other)!
           }
-          return { id, row: weight === 0 ? current.row : row / weight, x: weight === 0 ? current.x : x / weight }
+          return { id, ordinal: weight === 0 ? at.get(id)! : ordinal / weight }
         })
-        targets.sort((a, b) => a.row - b.row || byRank(a.id, b.id))
-        let start = 0
-        const ids = band.rows.flatMap((row) => {
-          const cells = targets.slice(start, start + row.length)
-          start += row.length
-          return cells.sort((a, b) => a.x - b.x || byRank(a.id, b.id)).map(({ id }) => id)
-        })
-        order[i] = ids
-        assign(ids, i)
+        targets.sort((a, b) => a.ordinal - b.ordinal || byRank(a.id, b.id))
+        order[i] = targets.map(({ id }) => id)
+        assign(order[i]!)
       }
-      const candidate = place(order), counts = countsOf(candidate)
-      if (counts.crossings >= ceiling.crossings || counts.cardHits > ceiling.cardHits) continue
-      if (counts.crossings > bestCounts.crossings || (counts.crossings === bestCounts.crossings && counts.cardHits >= bestCounts.cardHits)) continue
-      best = candidate
-      bestCounts = counts
+      const counts = score(order), total = totalCrossings(counts)
+      if (total >= baseTotal || total > bestTotal) continue
+      if (counts.some(({ crossings, cardHits }, i) => crossings > ceiling[i]!.crossings || cardHits > ceiling[i]!.cardHits)) continue
+      if (total === bestTotal && compareOrders(order, bestOrder) >= 0) continue
+      bestTotal = total
       bestOrder = [...order]
       accepted = true
     }
     if (!accepted) break
   }
-  return best
+  return bestOrder
 }
