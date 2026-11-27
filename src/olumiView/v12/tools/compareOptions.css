@@ -1,6 +1,6 @@
 .compare-aim-grid {
-  /* The combined right-panel design's Results value slot is four space-5 tokens. */
-  grid-template-columns: minmax(0, 1fr) max-content minmax(calc(4 * var(--space-5)), max-content);
+  /* The middle column takes the fixed width of the shared chance slot. */
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
   overflow-wrap: anywhere;
 }
 
