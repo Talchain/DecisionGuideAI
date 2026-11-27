@@ -84,7 +84,8 @@
   "renderers": [
     "src/olumiView/v12/scale/ChanceDots.tsx",
     "src/olumiView/v12/scale/RangeBar.tsx",
-    "src/olumiView/v12/scale/TipPoint.tsx"
+    "src/olumiView/v12/scale/TipPoint.tsx",
+    "src/olumiView/v12/tools/StressTest.tsx"
   ],
   "primitives": {
     "import_path": "src/olumiView/v12/scale",
