@@ -16,7 +16,7 @@ import { LetterChip } from '../cards/marks'
 import { cardOfRecord, optionPathOf } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { useCompareSelection, type Pair } from './compareSelection'
-import { useFocusSubject } from './focusAdapter'
+import { useFocusSubject } from '../../focus/subject'
 import './compareOptions.css'
 
 export const COMPARE_OPTIONS_CHROME = {

@@ -93,12 +93,12 @@ function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
           : `${TYPE.body} ${ITEM} ${item.kind === 'find' ? 'grid grid-cols-2 items-baseline' : 'flex items-start'} gap-2 px-1 py-1.5`}>
         {item.kind === 'find' ? <>
           <span className="flex min-w-0 items-start gap-2">
-            <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+            <OkIcon id={item.icon} size={14} className="shrink-0 self-center" decorative />
             <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} data-view={item.at}>{item.short}</span>
           </span>
           {item.value === undefined ? null : <span className={`${TYPE.meta} min-w-0 break-words text-right tabular-nums text-text-body`} data-view={item.value.at}>{item.value.text}</span>}
         </> : tile === undefined ? <>
-          <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+          <OkIcon id={item.icon} size={14} className="shrink-0 self-center" decorative />
           <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} {...(modelWords ? { 'data-view-words': item.at } : { 'data-view': item.at })}>{item.short}</span>
         </> : <>
           <span className="flex items-start gap-1">

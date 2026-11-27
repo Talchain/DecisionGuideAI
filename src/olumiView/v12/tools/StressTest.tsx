@@ -13,7 +13,7 @@ import { LetterChip } from '../cards/marks'
 import { cardOfRecord } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
-import { useFocusSubject } from './focusAdapter'
+import { useFocusSubject } from '../../focus/subject'
 import { stressTrialKey, tryStressValue, useStressTrials, type TrialStep } from './stressTrials'
 
 export const STRESS_STEPS = { low: 'Lower values', saved: 'As saved', high: 'Higher values' } as const
