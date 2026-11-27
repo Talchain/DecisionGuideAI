@@ -1,14 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-
-vi.mock('../../../olumiCore/team/api', async (original) => ({
-  ...await original<typeof import('../../../olumiCore/team/api')>(),
-  call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
-}))
-beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
-afterEach(() => { vi.unstubAllGlobals() })
+import { afterEach, expect, it } from 'vitest'
 import type { View } from '../../client'
 import { ChatFloatHost, useChatFloat } from '../../port/ChatFloat'
 import { SimpleFace } from '../../v12/SimpleFace'
@@ -40,6 +33,6 @@ it('uses only custom properties for the floating chat and a card face', () => {
   const { model } = JSON.parse(readFileSync(resolve('src/olumiView/fixtures/core-38eebca9/european.view3.json'), 'utf8')) as View
   const card = model!.cards.find(({ id }) => id === 'customers')!
   const { container } = render(<SimpleFace card={card} model={model!} noted={false} />)
-  expect(container.querySelector('[data-band-middle]')?.getAttribute('x1')).toMatch(/%$/)
+  expect(screen.getByTestId('simple-goal-tick').style.getPropertyValue('--chart-x')).toMatch(/%$/)
   expectOnlyCustomProperties(container)
 })

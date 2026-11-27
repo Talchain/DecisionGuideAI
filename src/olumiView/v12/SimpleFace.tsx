@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, CSSProperties } from 'react'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
@@ -10,16 +10,15 @@ import { RangeBar } from './scale/RangeBar'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
 import { barCardOf } from '../layout'
-import { figureRange, isBaseline, limitLeadOf } from './contract'
+import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract'
 import { cardKindOf, type CardKind } from './cards/kind'
 import { GoalMeasureLine, waitingMeasureQuestion } from './cards/GoalMeasureLine'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LimitTag, OlumiAsksMark, OlumiMark, cardMarksOf, whoseOf } from './cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, cardMarksOf, whoseOf } from './cards/marks'
 import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
 import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
-import { BandsChart } from './scale/OptionBand'
-import { visualOfCard, type VisualV3 } from '../visual'
+import { aimOf, axisOf, fmt, pctOf, unitOf, type Axis } from './scale/axis'
 
 /**
  * ONE TYPE SCALE ON A SIMPLE CARD (Paul, 17 Nov: no big bold text on a card): the title (BaseNode's) and the card's one headline, an option's
@@ -27,9 +26,49 @@ import { visualOfCard, type VisualV3 } from '../visual'
  * card is 12 / 400 (`typography.viewLabel`, the card's small text), a figure's digits tabular.
  */
 const FIGURE = `${typography.viewLabel} tabular-nums`
-// The quiet status can grow beside other card marks.
+/** Olumi's blue, the person's ink and the goal's colour: the board's own tokens. */
+
+export type BandRow = { readonly option: string; readonly letter: string; readonly heading: string; readonly lo: number; readonly mid: number | null; readonly hi: number; readonly text: string; readonly olumi: boolean }
+
+/** The option letters (A, B, ...) in the model's order (cards/letters.ts): a short name for a row, its heading on hover. */
+/** The quiet status's least width on its line (DL BUILD 3, 1232: "n" / "o" beside "4 figures, 3 calculations"): grows from 7rem, never below. */
 export const QUIET_BASIS = 'flex-[1_1_7rem]'
-export const optionLetterOf = (model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
+export const optionLetterOf =(model: ViewModel | null, id: string): string => optionLetters(model).get(id) ?? '·'
+
+/** The served bands of one card (not the withheld ones) and the axis they share: axisOf / pctOf / unitOf (scale/axis.ts). */
+type Bands = { readonly values: ReadonlyArray<NonNullable<ViewCard['values']>[number]>; readonly axis: Axis; readonly unit: string | null; readonly goal: number | null }
+function bandsOf(card: ViewCard, model: ViewModel | null): Bands | null {
+  const held = new Set(withheldValues(card).map((w) => w.option))
+  const values = (card.values ?? []).filter((v) => !held.has(v.option) && Number.isFinite(v.p10) && Number.isFinite(v.p90))
+  if (values.length === 0) return null
+  const aim = model === null ? null : aimOf(model), unit = unitOf(card, aim)
+  // The aim's own value, a gold tick, only where this card is the aim's quantity and the units match.
+  const goal = aim !== null && aim.quantity === card.id && (unit === null || aim.unit === unit) ? aim.value : null
+  const p50s = values.flatMap((v) => (v.p50 !== null && Number.isFinite(v.p50) ? [v.p50] : []))
+  const axis = axisOf(Math.min(...values.map((v) => v.p10), ...p50s, 0), Math.max(...values.map((v) => v.p90), ...p50s, goal ?? -Infinity, 0))
+  return { values, axis, unit, goal }
+}
+
+/**
+ * The positions (0..100) of each option's modelled band on ONE true axis shared by the card's rows (v10 review item 5: the Detailed strips' own 0-based
+ * axis, not min-to-max, so a small gap is a small gap), from the served p10 / p50 / p90. An option core withheld has no band: it is drawn as its own
+ * row, with core's reason.
+ */
+export function bandRowsOf(card: ViewCard, model: ViewModel | null): readonly BandRow[] {
+  const b = bandsOf(card, model)
+  if (b === null) return []
+  const at = (n: number): number => pctOf(b.axis, n)
+  return b.values.map((v) => ({
+    option: v.option, letter: optionLetterOf(model, v.option), heading: model?.cards.find((c) => c.id === v.option)?.heading ?? '',
+    lo: at(Math.min(v.p10, v.p90)), mid: v.p50 === null ? null : at(v.p50), hi: at(Math.max(v.p10, v.p90)), text: v.text, olumi: v.olumi,
+  }))
+}
+
+/** The axis ends (printed once, under the bars) and the gold goal tick's position, from the same axis as the bars; null where the card has no band. */
+export function bandAxisOf(card: ViewCard, model: ViewModel | null): { readonly min: string; readonly max: string; readonly unit: string | null; readonly goalAt: number | null; readonly goal: number | null } | null {
+  const b = bandsOf(card, model)
+  return b === null ? null : { min: fmt(b.axis.min), max: fmt(b.axis.max), unit: b.unit, goalAt: b.goal === null ? null : pctOf(b.axis, b.goal), goal: b.goal }
+}
 
 /** The chance row's own value words for the headline's aim ("24%"), else null. Core's text, never formatted here. */
 export function chanceWordsOf(card: ViewCard): string | null {
@@ -43,7 +82,6 @@ export const AuthorGlyph = ({ card }: { card: ViewCard }): JSX.Element | null =>
 export type SimpleFaceProps = {
   readonly card: ViewCard
   readonly model: ViewModel | null
-  readonly bands?: VisualV3 | null
   readonly olumiLook?: boolean
   /** Olumi's note sits beside this card (core's `next.at`): Olumi's mark in a ring here, the words in the panel. */
   readonly noted: boolean
@@ -83,7 +121,7 @@ export function sharedResultWords(headline: NonNullable<ViewCard['headline']>): 
 
 type StateLine = { readonly text?: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly shape?: FaceMarkKind; readonly isValue?: true }
 
-export function SimpleFace({ card, model, bands = visualOfCard(model, card, null), noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, trying, below }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const limit = card.family === 'option' ? limitLeadOf(card) : null
@@ -91,6 +129,9 @@ export function SimpleFace({ card, model, bands = visualOfCard(model, card, null
   const chance = h?.state === 'chance' ? chanceParts(words ?? h.text) : null
   const hasQualifier = chance?.qualifier != null
   const shared = card.family === 'option' ? null : sharedNoChanceOf(model, id, 'typed')
+  const bands = card.family === 'option' ? [] : bandRowsOf(card, model)
+  const axisInfo = card.family === 'option' ? null : bandAxisOf(card, model)
+  const held = card.family === 'option' ? [] : withheldValues(card)
   const hasFigure = card.figure != null && card.figure.text !== ''
   const tight = olumiLook ? 'ok-card-gap-tight' : 'gap-1'
   const stack = olumiLook ? 'ok-card-gap-stack' : 'gap-2'
@@ -132,8 +173,42 @@ export function SimpleFace({ card, model, bands = visualOfCard(model, card, null
         },
       }
     }
-  } else if (bands !== null) {
-    visual = <BandsChart payload={bands} tier="glance" />
+  } else if (bands.length > 0 || held.length > 0) {
+    const letters = optionLetters(model), headingOf = (option: string) => model?.cards.find((c) => c.id === option)?.heading ?? ''
+    visual = (
+      // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
+      // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
+      <Hover as="div" focusable={false} className={`grid min-w-0 basis-full ${stack}`} data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+        {bands.length === 0 ? null : (
+          <div className={`relative grid ${olumiLook ? 'ok-card-band-gap' : 'gap-px'}`} data-simple-axis={id}>
+            {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2 ok-simple-goal-tick" style={{ '--chart-x': `${axisInfo.goalAt}%` } as CSSProperties} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
+        {bands.slice(0, 4).map((b) => (
+          <Hover as="div" focusable={false} key={b.option} words={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
+            <span className="relative block h-[4px] flex-1 rounded-full ok-simple-track" role="img" aria-label={`${b.heading} · ${b.text}`}>
+              {b.hi > b.lo ? <i className={`absolute top-0 block h-full rounded-full ok-simple-band${b.olumi ? ' ok-simple-band-olumi' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
+              {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm bg-text-header ok-simple-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
+            </span>
+          </Hover>
+        ))}
+          </div>
+        )}
+        {axisInfo === null || bands.length === 0 ? null : (
+          <div className={`${typography.viewLabel} flex justify-between ${stack} whitespace-nowrap text-text-light`} data-testid="simple-axis-ends">
+            <span data-testid="simple-axis-min">{axisInfo.min}</span>
+            <span data-testid="simple-axis-max">{axisInfo.max}{axisInfo.unit === null ? '' : ` ${axisInfo.unit}`}</span>
+          </div>
+        )}
+        {held.length === 0 ? null : (
+          <Hover as="div" focusable={false} className="ok-withheld-row" data-simple-withheld-group={id} data-simple-withheld-why={held[0]!.option} words={held.map((w) => [headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')).join('\n')}>
+            {held.map((w) => (
+              <Hover focusable={false} key={w.option} words={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-simple-withheld={w.option}>
+                {letters.has(w.option) ? <LetterChip letter={letters.get(w.option)!} words={headingOf(w.option)} /> : null}
+              </Hover>
+            ))}
+          </Hover>
+        )}
+      </Hover>
+    )
   } else if (card.bound != null) {
     const olumi = card.bound.olumi != null
     // The aim's bar (core's `bar_of`, layout.ts barsOf) has no card of its own on this face: the bound is its place, and the author mark beside it is the bar figure's

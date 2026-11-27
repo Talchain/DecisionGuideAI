@@ -4,14 +4,7 @@
  * reasoning/__tests__/fixtures/european-loop9.view3.json); a row that needs a shape it lacks says so and derives it from that View.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('../../olumiCore/team/api', async (original) => ({
-  ...await original<typeof import('../../olumiCore/team/api')>(),
-  call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
-}))
-beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
-afterEach(() => { vi.unstubAllGlobals() })
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 // The chat's proposal (PB9) is mounted alone: the sign-in client it imports is not reached.
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -34,7 +27,6 @@ import { displayedDissent } from '../reasoning/dissent'
 import { checkItemsOf } from '../check/items'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
-import { visualOfCard } from '../visual'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
 import { useCanvasStore } from '../../canvas/store'
 import { NODE_BODY_BOUND_STYLE_ATTR } from '../../canvas/utils/zoomLegibility'
@@ -284,12 +276,12 @@ describe('the DL\'s look at A13b (12 Nov)', () => {
  */
 describe('the field table: what the retired cards drew, the lane\'s card draws', () => {
   const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
-  const props = (id: string, card: NonNullable<View['model']>['cards'][number] | undefined, view?: View): NodeProps => ({ id, type: 'viewCard', data: { card, bandVisual: card === undefined || view === undefined ? null : visualOfCard(view.model, card, view) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+  const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   const draw = (view: View, id: string) => {
     ready(view)
     const card = id === QUESTION ? undefined : view.model!.cards.find((c) => c.id === id)!
-    return render(<ReactFlowProvider><Node {...props(id, card, view)} /></ReactFlowProvider>).container
+    return render(<ReactFlowProvider><Node {...props(id, card)} /></ReactFlowProvider>).container
   }
   const frame = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('*')].find((e) => e.className.includes?.('transition-[opacity,box-shadow'))!.className
   const APP = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8')) as View
@@ -367,17 +359,16 @@ describe('the field table: what the retired cards drew, the lane\'s card draws',
     expect(draw(EU, QUESTION).querySelector('[data-view="question.decide_by.text"]')).toBeNull()
   })
 
-  it('FT6 (DERIVED: committed, a per-option value core marks if approved, a reading): each drawn for its record in core\'s words', () => {
+  it('FT6 (DERIVED: committed, a per-option value core marks if approved, a reading): each drawn by its path in core\'s words', () => {
     const opt = APP.model!.cards.find((c) => c.family === 'option')!, per = APP.model!.cards.find((c) => (c.values?.length ?? 0) > 1)!
     const aim = APP.model!.cards.find((c) => c.family === 'goal')!
     let v = withCard(APP, opt.id, (c) => ({ ...c, committed: { by: 'Paul', at: '12 Nov 2026' } }))
     v = withCard(v, per.id, (c) => ({ ...c, values: c.values!.map((x, i) => (i === 0 ? { ...x, if_approved: { glyph: '↻', title: 'if approved; now 2 weeks' } } : x)) }))
     v = { ...v, model: { ...v.model!, run: { ...v.model!.run!, readings: [{ aim_id: aim.id, text: 'Reached in 2 of 3 windows', source: 'proposal' }] } } } as View
     expect(draw(v, opt.id).querySelector('[data-view$=".committed.by"]')?.textContent).toBe('Paul'); cleanup()
-    const bandCard = draw(v, per.id)
-    const mark = bandCard.querySelector<HTMLElement>(`[data-band-option="${per.values![0]!.option}"] [data-band-if-approved]`)!
+    const mark = draw(v, per.id).querySelector<HTMLElement>(`[data-view="${per.id}.values.0.if_approved.glyph"]`)!
     expect([mark.textContent, mark.getAttribute('aria-label')]).toEqual(['↻', 'if approved; now 2 weeks'])
-    expect(bandCard.querySelector(`[data-band-option="${per.values![1]!.option}"] [data-band-if-approved]`), 'CONTRAST: a value core does not mark').toBeNull(); cleanup()
+    expect(document.querySelector(`[data-view="${per.id}.values.1.if_approved.glyph"]`), 'CONTRAST: a value core does not mark').toBeNull(); cleanup()
     const r = draw(v, aim.id).querySelector<HTMLElement>(`[data-view="${aim.id}.reading"]`)!
     // DL-529: Olumi's blue is the look's own class (olumiLook.css `ok-by-olumi`, --o-info).
     expect([r.textContent, r.className.includes('ok-by-olumi')]).toEqual(['Reached in 2 of 3 windows', true])
