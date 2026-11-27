@@ -1,0 +1,33 @@
+{
+  "schema": "olumi.view/3",
+  "id": "synthetic-pa-like",
+  "title": "Automation rollout",
+  "model": {
+    "question": {"text": "How could we free up team time?"},
+    "cards": [
+      {"id": "A", "heading": "Keep current support", "family": "option", "kind": "option", "h": 100, "rows": []},
+      {"id": "B", "heading": "Roll out to one team", "family": "option", "kind": "option", "h": 100, "rows": []},
+      {"id": "C", "heading": "Roll out across teams", "family": "option", "kind": "option", "h": 100, "rows": []},
+      {"id": "D", "heading": "Use a managed service", "family": "option", "kind": "option", "h": 100, "rows": []},
+      {"id": "spend", "heading": "Implementation spend", "family": "quantity", "kind": "driver", "h": 100, "rows": []},
+      {"id": "hours", "heading": "Hours freed", "family": "quantity", "kind": "driver", "h": 100, "rows": []},
+      {"id": "ai_cost", "heading": "AI cost", "family": "quantity", "kind": "driver", "h": 100, "rows": []},
+      {"id": "adoption", "heading": "Uneven adoption", "family": "risk", "kind": "risk", "h": 100, "rows": []},
+      {"id": "handoffs", "heading": "Extra handoffs", "family": "risk", "kind": "risk", "h": 100, "rows": []},
+      {"id": "quality", "heading": "Quality risk", "family": "risk", "kind": "risk", "h": 100, "rows": []},
+      {"id": "aim", "heading": "Free up team time", "family": "goal", "kind": "aim", "h": 100, "rows": []}
+    ],
+    "links": [
+      {"from": "A", "to": "hours", "kind": "plain", "title": "", "label": ""},
+      {"from": "B", "to": "hours", "kind": "plain", "title": "", "label": ""},
+      {"from": "B", "to": "ai_cost", "kind": "plain", "title": "", "label": ""},
+      {"from": "C", "to": "ai_cost", "kind": "plain", "title": "", "label": ""},
+      {"from": "hours", "to": "aim", "kind": "plain", "title": "", "label": ""},
+      {"from": "ai_cost", "to": "aim", "kind": "plain", "title": "", "label": ""},
+      {"from": "A", "to": "aim", "kind": "plain", "title": "", "label": ""},
+      {"from": "B", "to": "aim", "kind": "plain", "title": "", "label": ""},
+      {"from": "C", "to": "aim", "kind": "plain", "title": "", "label": ""},
+      {"from": "aim", "to": "quality", "kind": "plain", "title": "", "label": ""}
+    ]
+  }
+}
