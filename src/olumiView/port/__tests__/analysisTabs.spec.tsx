@@ -351,18 +351,22 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const chart = screen.getByTestId('analysis-chance-chart')
     expect(chart.querySelectorAll('[data-testid="analysis-chart-axis"]')).toHaveLength(1)
     const first = chart.querySelector(`[data-chart-option="${rows[0]!.card.id}"]`)!
-    const axis = chart.querySelector('[data-testid="analysis-chart-axis"]')!
-    expect(first.contains(axis), 'in the first option, over its track').toBe(true)
+    const trackRow = first.querySelector('[data-option-track]')!
+    const axis = trackRow.querySelector('[data-testid="analysis-chart-axis"]')!
+    const track = trackRow.querySelector('[data-testid="analysis-chance-track"]')!
+    expect(axis).toBeInTheDocument()
+    expect(track).toBeInTheDocument()
     const { card, row, i } = rows[0]!
-    const words = first.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!
-    const dots = first.querySelector('[data-chance-dots]')!
+    const summary = first.querySelector('[data-option-summary]')!
+    const words = summary.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!
+    const dots = summary.querySelector('[data-chance-dots]')!
     expect(words.textContent).toBe(row.value)
     expect(words.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(axis.compareDocumentPosition(words) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(summary.nextElementSibling).toBe(trackRow)
     expect(dots.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(row.chance! * 10))
-    expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(axis.nextElementSibling).toBe(track)
     expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
-    const w = chart.querySelector('[data-chance-whisker]')!
+    const w = chart.querySelector('line[data-chance-whisker]')!
     expect([w.getAttribute('stroke-width'), w.getAttribute('class')]).toEqual(['2', 'stroke-text-body'])
     const likely = rows.find((r) => r.row.likely != null)!.row.likely!
     more()

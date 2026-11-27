@@ -105,8 +105,8 @@ function examineItem(e: Examine): CheckItem {
   switch (e.kind) {
     case 'challenge': {
       const { card } = e
-      return { ...item, short: card.heading, at: `${card.id}.heading`, cards: [card.id],
-        long: [...wordsAt(card.detail, `${card.id}.detail`), ...wordsAt(card.reason, `${card.id}.reason`)] }
+      const long = card.detail ? wordsAt(card.detail, `${card.id}.detail`) : wordsAt(card.reason, `${card.id}.reason`)
+      return { ...item, short: card.heading, at: `${card.id}.heading`, cards: [card.id], long }
     }
     case 'method': {
       const { s, method } = e

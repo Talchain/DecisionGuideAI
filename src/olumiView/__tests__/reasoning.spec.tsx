@@ -221,7 +221,7 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
 })
 
 describe('challenge your thinking', () => {
-  it('capacity: each challenged card once, its heading and core\'s reason; each row\'s press focuses that card by its id', () => {
+  it('capacity: each challenged card once; expanding test_net_contribution focuses the card and shows Core’s detail once', () => {
     const view = real('capacity'), cs = challengedCards(view.model!)
     expect(cs.length).toBeGreaterThan(0)
     ready(view)
@@ -229,10 +229,21 @@ describe('challenge your thinking', () => {
     openAll()
     const rows = [...document.querySelectorAll<HTMLButtonElement>('[data-check-item^="c:"]')]
     expect(rows.map((r) => r.dataset.checkItem)).toEqual(cs.map((c) => `c:${c.id}`))
-    const item = selectItem(`c:${cs[0]!.id}`)
-    expect(item.querySelector(`[data-view="${cs[0]!.id}.reason"]`)?.textContent ?? null).toBe(cs[0]!.reason)
-    expect(expectAllBound(view, screen.getByTestId('view-reasoning'), expect)).toBeGreaterThan(0)
-    expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
+    const card = cs.find((c) => c.id === 'test_net_contribution')!
+    expect(card.detail).toBeTruthy()
+    expect(card.reason).toBeTruthy()
+    const row = checkButton(`c:${card.id}`)
+    fireEvent.click(row)
+    const panel = document.getElementById(row.getAttribute('aria-controls')!)!
+    expect(panel).toBeVisible()
+    const paragraphs = panel.querySelectorAll('p')
+    expect(paragraphs).toHaveLength(1)
+    expect(paragraphs[0]).toHaveAttribute('data-view', `${card.id}.detail`)
+    expect(paragraphs[0]!.textContent).toBe(card.detail)
+    const reasoning = screen.getByTestId('view-reasoning')
+    expect(reasoning.querySelectorAll(`[data-view="${card.id}.detail"], [data-view="${card.id}.reason"]`)).toHaveLength(1)
+    expect(expectAllBound(view, reasoning, expect)).toBeGreaterThan(0)
+    expect(focus.node.mock.calls).toEqual([[card.id]])
   })
   it('the Reasoning tab draws none of the Analysis tab\'s chances, and none of the deleted strips (glance, rack, people, commitment)', () => {
     const view = read('bakery.view.json')

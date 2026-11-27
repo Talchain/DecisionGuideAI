@@ -90,10 +90,17 @@ describe('SC-02: each tab says each thing once', () => {
     expect(document.querySelector('[data-view="model.aim.text"]')?.textContent).toBe(m.aim!.text)
   })
 
-  it('Reasoning: a challenge\'s reason is said once, as the challenge; the door does not repeat it as a premise in the same words', () => {
+  it('Reasoning: a challenge’s reason is said once for its record, while a premise without that id keeps its words', () => {
     const view = real('capacity'), m = view.model!
-    const c = m.cards.find((k) => k.challenged === true && k.reason !== null && m.cards.some((o) => (o.premises ?? []).some((p) => p.text === k.reason)))!
-    expect(c).toBeDefined()
+    const c = m.cards.find((card) => card.id === 'test_net_contribution')!
+    const add = m.cards.find((card) => card.id === 'add_specialist')!
+    const share = m.cards.find((card) => card.id === 'share_specialist')!
+    expect(c.reason).toBeTruthy()
+    expect(add.premises[1]!.text).toBe(c.reason)
+    expect(share.premises[2]!.text).toBe(c.reason)
+    // Exercise the reason fallback and give just one of the embedded premises a record id.
+    c.detail = ''
+    add.premises[1] = { ...add.premises[1]!, id: c.id }
     ready(view)
     render(<ViewReasoningBlock />)
     const selector = `[data-check-item="c:${c.id}"]`
@@ -102,11 +109,13 @@ describe('SC-02: each tab says each thing once', () => {
     }
     const row = document.querySelector(selector)!
     fireEvent.click(row)
-    // The door opens where it has rows.
-    const door = screen.queryByTestId('view-reasoning-premises-toggle')
-    if (door !== null) fireEvent.click(door)
-    const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
-    expect(said.map((e) => e.getAttribute('data-view'))).toEqual([`${c.id}.reason`])
-    expect(document.getElementById(row.getAttribute('aria-controls')!)).toContainElement(said[0] as HTMLElement)
+    fireEvent.click(screen.getByTestId('view-reasoning-premises-toggle'))
+    const panel = document.getElementById(row.getAttribute('aria-controls')!)!
+    expect(drawn(`${c.id}.reason`)).toBe(1)
+    expect(drawn(`${c.id}.detail`)).toBe(0)
+    expect(panel.querySelector(`[data-view="${c.id}.reason"]`)?.textContent).toBe(c.reason)
+    const premises = screen.getByTestId('view-reasoning-premises-region')
+    expect(premises.querySelector(`[data-view="${add.id}.premises.1.text"]`)).toBeNull()
+    expect(premises.querySelector(`[data-view="${share.id}.premises.2.text"]`)?.textContent).toBe(share.premises[2]!.text)
   })
 })

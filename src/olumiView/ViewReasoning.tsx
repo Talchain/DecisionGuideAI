@@ -109,7 +109,7 @@ export function RestsOn({ model, run, headed = true }: { model: ViewModel; run: 
   )
 }
 
-/** Every premise core puts on a card, once, behind one door (closed at rest). */
+/** Core's premises and reasoning card reasons behind one door, excluding the records covered by Check. */
 function Premises({ model, checkChallengeIds }: { model: ViewModel; checkChallengeIds: ReadonlySet<string> }) {
   const { premises, cards: reasoning } = premisesOnce(model, checkChallengeIds)
   const notes = premises.length + reasoning.length

@@ -956,18 +956,11 @@ export function optionInFocusOf(view: { model: ViewModel | null }, selected: Rea
 /** The cards of the given families, in the View's order (the model at a glance: options, factors, risks). */
 export const familyCards = (model: ViewModel, families: readonly string[]): ViewCard[] => model.cards.filter((c) => families.includes(c.family))
 const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'left_out']
-/** The reasons of the cards core marks challenged: each is drawn as its challenge (ViewReasoning's Challenge rows), so a premise in the same
- *  words is that same thing (core sends it at both paths, SC-02) and is not said again as a premise, in the door or the rack. */
-export const challengedReasons = (model: ViewModel): Set<string> =>
-  new Set(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
-/** Every premise core put on any card, each once by its words (the first card it is on), then each reasoning card core draws whose words
- *  are not already among them and that is not a challenge. */
+/** The premises and reasoning card reasons in Core's order, excluding records already covered by Check by id. */
 export function premisesOnce(model: ViewModel, checkChallengeIds: ReadonlySet<string>): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
-  // Older Views repeat challenge words in embedded premises without a record id.
-  const seen = challengedReasons(model)
-  const premises = model.cards.flatMap((c) => (c.premises ?? []).map((p, j) => ({ card: c, p, j }))).filter(({ p }) => (seen.has(p.text) ? false : (seen.add(p.text), true)))
-  const premiseWords = new Set(premises.map(({ p }) => p.text))
-  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && !checkChallengeIds.has(c.id) && c.reason !== null && !premiseWords.has(c.reason))
+  const premises = model.cards.flatMap((card) => (card.premises ?? []).flatMap((p, j) =>
+    p.id != null && checkChallengeIds.has(p.id) ? [] : [{ card, p, j }]))
+  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.reason !== null && !checkChallengeIds.has(c.id))
   return { premises, cards }
 }
 /** The model at a glance, as the previous PoC's strip (side-by-side, 6 Nov): Options, Factors, Risks and Outcomes, each row the cards the

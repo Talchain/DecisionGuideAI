@@ -29,7 +29,7 @@ const pressed = vi.hoisted(() => ({ cards: [] as string[] }))
 vi.mock('../../../../canvas/utils/focusHelpers', async (orig) => ({ ...(await orig<typeof import('../../../../canvas/utils/focusHelpers')>()), focusNodeById: (id: string) => { pressed.cards.push(id) } }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { FOOT_GUTTER, QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, inputIdsOf, inputsFolded, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type LayerId, type Opened, type View } from '../deps'
@@ -39,6 +39,7 @@ import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
 import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore, showRecord, useShown } from '../show'
 import { RETURN_TO_BEFORE, SHOW_IN_WORKSPACE, ShowInWorkspace } from '../ShowInWorkspace'
 import { CheckList } from '../../../check/CheckList'
+import { CHECK_WORDS } from '../../../check/words'
 import { cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type Next } from '../targets'
 
 // ── fixtures ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1438,7 +1439,9 @@ describe('S14 a result need whose record the board does not draw as a card (Chec
     await press(rowButton(d)); await run(100)
     expect(rowButton(d)).toHaveAttribute('aria-expanded', 'true')
     expect(rowButton(d).querySelector('[data-view="run.shared_blockers.0.text"]')?.textContent).toBe('Invented words: this is not known yet.')
-    expect(document.getElementById(rowButton(d).getAttribute('aria-controls')!)).toBeVisible()
+    const panel = document.getElementById(rowButton(d).getAttribute('aria-controls')!)!
+    expect(panel).toBeVisible()
+    expect(within(panel).getByRole('button', { name: CHECK_WORDS.ask })).toBeVisible()
     expect(rf.sets).toStrictEqual([])
     expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
   })
