@@ -560,6 +560,58 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     expect(harness.moves[harness.moves.length - 1]).toEqual(fullFrame)
   })
 
+  it.each(['cold open', 'zoom out then Fit'])('matches direct Detailed Fit from the landing boxes after %s', async (path) => {
+    setLevel('working')
+    const foot = 525
+    const landedZoom = 0.96
+    const placed = positions(foot)
+    const probeHeight = 110, landedHeight = 70
+    widthOf = () => 200
+    heightOf = (node) => {
+      if (harness.viewportZoom < READABLE_WHOLE_ZOOM) return 130
+      return node.dataset.id === aim && harness.viewportZoom < 0.99 ? landedHeight : probeHeight
+    }
+    harness.layout = async () => {
+      const { left, right } = paddingToInsets(computeFitPadding())
+      placed.set(aim, { x: (pane.width - left - right) / landedZoom - 200, y: foot })
+      return placed
+    }
+
+    const opening = path === 'cold open'
+    if (!opening) harness.viewportZoom = harness.zoom = landedZoom
+    mount(foot, opening ? probeHeight : landedHeight)
+    act(() => ids.forEach(report))
+    await tick(14)
+    if (!opening) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+      await tick(10)
+      act(() => ids.forEach(report))
+      await tick(10)
+      harness.moves.length = 0
+      fireEvent.click(fitButton())
+      await tick(8)
+      expect(harness.moves.map((move) => move.zoom)).toEqual([1])
+      act(() => ids.forEach(report))
+      await tick(14)
+    }
+    const preview = harness.moves.at(-1)!
+    expect(preview.zoom).toBeCloseTo(landedZoom)
+    expect(harness.settled!.read(), 'the landing box needs a new measurement').toBeNull()
+
+    act(() => ids.forEach(report))
+    await tick(14)
+    const landed = harness.moves.at(-1)!
+    const snapshot = harness.settled!.read()!
+    expect(snapshot.nodes.find((node) => node.id === aim)?.measured?.height).toBe(landedHeight)
+    expect(landed.y).toBeLessThan(preview.y)
+    expect(landed.y + (foot + landedHeight) * landed.zoom).toBeLessThanOrEqual(pane.height - FOOT_GUTTER + 0.5)
+
+    harness.moves.length = 0
+    fireEvent.click(fitButton())
+    await tick(10)
+    expect(harness.moves).toEqual([landed])
+  })
+
   it('restores the Detailed viewport after two failed full-face attempts without starting another layout', async () => {
     setLevel('working')
     const foot = 530

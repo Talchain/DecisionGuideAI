@@ -102,6 +102,7 @@ const MIN_ZOOM = 0.1, MAX_ZOOM = 2
 export const FRAME_MAX_ZOOM = 1
 /** How long a same-face camera move eases (ms). */
 const DURATION = 400
+const MAX_DETAILED_FITS = 5
 /** How long cards can stay unpainted while the first layout settles. */
 export const REVEAL_MS = 2500
 /**
@@ -277,6 +278,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
     const initialViewport = getViewport()
     const initialZoom = initialViewport.zoom
     let restoreDetailedLayout: (() => void) | undefined
+    let detailedFits = 0
     let far = false
     // Hold the transform while Simple lays out each face at the current row widths.
     const probe = () => {
@@ -309,7 +311,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
           continue
         }
         const nodes = frameNodesOf(snapshot.nodes, ideasOnly)
-        const zoom = getViewport().zoom
+        const { x, y, zoom } = getViewport()
         const face = faceRegimeOf(zoom)
         if (!simple && face === 'full' && snapshot.far) continue
         const vp = simple
@@ -322,6 +324,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
           probe()
           continue
         }
+        if (detailedFits > 0 && vp.zoom === zoom && vp.x === x && vp.y === y) return
         // A face change snaps so the seeded face never traverses a zoom band on the way to its landing.
         const changesFace = far !== (initialRung === 'line')
         const crossesBand = far !== (resolveLodRung(initialZoom, far ? 'line' : 'quiet') === 'line')
@@ -335,7 +338,12 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
         if (probing) restoreDetailedLayout ??= layout.prepareRestore(initialZoom)
         const moving = setViewport(vp, { duration: probing ? 0 : duration })
         reveal()
-        if (!probing) return
+        if (!probing) {
+          if (simple || vp.zoom === zoom || ++detailedFits === MAX_DETAILED_FITS) return
+          // Detailed cards can resize at the landing zoom even within the full face.
+          // Reframe from the settled landing boxes, as a direct Fit there would.
+          restoreDetailedLayout = undefined
+        }
         await moving
       }
     } finally {
