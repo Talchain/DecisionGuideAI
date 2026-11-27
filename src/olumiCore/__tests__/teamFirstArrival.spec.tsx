@@ -68,7 +68,7 @@ describe('Team first arrival (v10 review item 9)', () => {
     expect(before(screen.getByTestId('first-arrival'), screen.getByTestId('team-view-text'))).toBe(true)
     expect(before(screen.getByTestId('team-view-text'), screen.getByTestId('team-view-give'))).toBe(true)
     expect(before(screen.getByTestId('team-members'), stepView)).toBe(true)
-    expect(screen.queryByRole('menu', { name: 'Invite a colleague' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Invite a colleague' })).toBeNull()
     cleanup()
     setView(twoPeople({ shared: [] }, { gated: false }))
     render(<TeamTab />)

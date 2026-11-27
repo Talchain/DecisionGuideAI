@@ -9,12 +9,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event'
 import golden from '../../olumiView/golden/european.view.json'
 import type { View } from '../../olumiView/client'
+import { inviteUnjoined, TeamPresence } from '../../olumiView/TeamPresence'
 import { useViewStore } from '../../olumiView/store'
 import { setTeamFetch } from '../team/api'
-import { putDraft, resetDrafts } from '../team/drafts'
+import { resetDrafts } from '../team/drafts'
 import { resetWrites } from '../team/writes'
 import { TeamTab, TEAM_HEADER_WORDS } from '../team/TeamTab'
-import { inviteNameKey } from '../team/InvitePanel'
 import { currentStep, openStep, resetTeamFlow, stepDone, stepSummary, STEP_ORDER, STEP_WORDS, type StepId } from '../team/flow'
 import { goToOutcome } from '../team/outcomeNav'
 import { useMe } from '../me'
@@ -124,7 +124,7 @@ describe('the current step is the View\'s, field by field', () => {
 })
 
 describe('the tab: only the current step open, one green press, any row opens', () => {
-  it('a person alone sees Members before Your view, with the invitation open in the header menu', () => {
+  it('a person alone sees Members before Your view, with the invite dialog open from the header', () => {
     show(alone())
     render(<TeamTab />)
     const members = screen.getByTestId('team-members')
@@ -132,14 +132,14 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(within(members).getByText('Ada (you)')).toBeTruthy()
     expect(members.compareDocumentPosition(steps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(isOpen('view')).toBe(true)
-    const menu = screen.getByRole('menu', { name: TEAM_HEADER_WORDS.invite })
-    expect(within(menu).getByText(TEAM_HEADER_WORDS.aloneLead)).toBeTruthy()
+    const dialog = screen.getByRole('dialog', { name: TEAM_HEADER_WORDS.invite })
+    expect(within(dialog).getByText(TEAM_HEADER_WORDS.aloneLead)).toBeTruthy()
     expect(within(steps).queryByText(TEAM_HEADER_WORDS.aloneLead)).toBeNull()
-    expect(within(menu).getByRole('button', { name: 'Make their link' })).toBeTruthy()
+    expect(within(dialog).getByRole('button', { name: 'Make their link' })).toBeTruthy()
     expect(document.activeElement).toBe(screen.getByTestId('team-invite-name'))
     fireEvent.click(invite())
     act(() => show(alone()))
-    expect(screen.queryByRole('menu', { name: TEAM_HEADER_WORDS.invite })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })).toBeNull()
     expect(isOpen('view')).toBe(true)
   })
   it('the steps still to come are folded behind "Where this goes" (hidden, still mounted); the press shows them, and it is the only extra control', () => {
@@ -178,7 +178,7 @@ describe('the tab: only the current step open, one green press, any row opens', 
     fireEvent.click(row)
     expect(isOpen('view')).toBe(false)
   })
-  it('allows Tab through the invite form and Escape returns focus without losing the draft', async () => {
+  it('allows Tab through the invite form, dismisses on Escape or outside click, and keeps the draft', async () => {
     show(team())
     render(<TeamTab />)
     fireEvent.click(invite())
@@ -192,6 +192,9 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(document.activeElement).toBe(invite())
     fireEvent.click(invite())
     expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
+    await keyboard.click(document.body)
+    expect(screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })).toBeNull()
+    expect(document.activeElement).toBe(invite())
   })
   it('when the View moves the flow on, the new current step opens (the person\'s earlier choice was under the old one)', () => {
     show(team({ mine: [] }, { gated: true }))
@@ -206,15 +209,22 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(isOpen('outcome')).toBe(false)
     expect(screen.getByTestId('team-reveal-go')).toBeTruthy()
   })
-  it('opens the invite menu when the header’s named colleague is put in the draft', () => {
-    show(team())
-    render(<TeamTab />)
-    expect(invite().getAttribute('aria-expanded')).toBe('false')
-    act(() => { putDraft<string>(inviteNameKey(SID), () => 'Cara') })
-    expect(invite().getAttribute('aria-expanded')).toBe('true')
-    expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')
+  it('every header notice press opens the invite dialog, including with the same name after dismissal', async () => {
+    const view = team()
+    show({ ...view, team_presence: { ...view.team_presence, unjoined: { names: ['Cara'], text: 'Named in the brief: Cara' } } })
+    render(<><TeamPresence /><TeamTab /></>)
+    const user = userEvent.setup()
+    const notice = screen.getByTestId('team-presence-unjoined')
+    const dialog = () => screen.queryByRole('dialog', { name: TEAM_HEADER_WORDS.invite })
+    expect(dialog()).toBeNull()
+    await user.click(notice)
+    expect((within(dialog()!).getByRole('textbox', { name: 'Their name' }) as HTMLInputElement).value).toBe('Cara')
+    await user.keyboard('{Escape}')
+    expect(dialog()).toBeNull()
+    await user.click(notice)
+    expect((within(dialog()!).getByRole('textbox', { name: 'Their name' }) as HTMLInputElement).value).toBe('Cara')
   })
-  it('keeps the one-time link through a View refresh and closing and reopening the invite menu', async () => {
+  it('keeps the one-time link through a View refresh and closing and reopening the invite dialog', async () => {
     show(alone())
     render(<TeamTab />)
     fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cara' } })
@@ -231,9 +241,9 @@ describe('the tab: only the current step open, one green press, any row opens', 
     expect(link()).toBe(originalLink)
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1)
   })
-  it('opens the header invite menu with a name provided before Team mounts', () => {
+  it('opens the invite dialog with a name requested before Team mounts', () => {
     show(team())
-    putDraft<string>(inviteNameKey(SID), () => 'Cara')
+    inviteUnjoined(SID, 'Cara')
     render(<TeamTab />)
     expect(invite().getAttribute('aria-expanded')).toBe('true')
     expect((screen.getByTestId('team-invite-name') as HTMLInputElement).value).toBe('Cara')

@@ -1,10 +1,13 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { autoUpdate, flip, offset, shift, useDismiss, useFloating, useInteractions, useMergeRefs } from '@floating-ui/react'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { Hover, HoverButton } from '../../olumiView/look/Hover'
-import { Menu } from '../../olumiView/look/Menu.tsx'
+import { useDialogFocus } from '../../olumiView/look/useDialogFocus'
 import { OkIcon } from '../../olumiView/look/icons'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { Button } from '../../components/ui/Button'
+import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 import { useViewStore } from '../../olumiView/store'
 import type { View } from '../../olumiView/client'
 import { isForThisPage, NOT_FOR_THIS_PAGE, useMe } from '../me'
@@ -12,7 +15,7 @@ import { CommitmentPanel } from './CommitmentPanel'
 import { SavedActions } from './SavedActions'
 import { ComparePanel } from './ComparePanel'
 import { EvidencePanel } from './EvidencePanel'
-import { InvitePanel, inviteNameKey, type MadeInvite } from './InvitePanel'
+import { InvitePanel, inviteOpenKey, type MadeInvite } from './InvitePanel'
 import { ViewEntry } from './ViewsPanel'
 import { RevealStep } from './steps'
 import { DifferTool } from '../../olumiView/v12/tools/DifferTool'
@@ -31,7 +34,7 @@ import { FirstArrival } from '../../olumiView/v12/arrival'
 import { typography } from '../../styles/typography'
 
 /**
- * The Team tab opens with member names and contribution marks. The header menu holds the invite form and its one-time link.
+ * The Team tab opens with member names and contribution marks. The header popover holds the invite form and its one-time link.
  * The guided flow starts at Your view, then Reveal together → Where you differ → Commit to an action → What happened.
  * The current step opens with its action. The View's `collab` fields determine progress and supply the scenario's words.
  * Writes go to Core, then the View is read again. Closed steps stay mounted so drafts survive moving between steps.
@@ -106,42 +109,53 @@ export function Members({ view }: { view: View }): JSX.Element {
   )
 }
 
-function InviteMenu({ sid, alone }: { sid: string; alone: boolean }): JSX.Element {
+function InvitePopover({ sid, alone }: { sid: string; alone: boolean }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [made, setMade] = useState<MadeInvite | null>(null)
   const trigger = useRef<HTMLButtonElement>(null)
-  const form = useRef<HTMLDivElement>(null)
   const formId = useId()
-  const [name] = useDraft(inviteNameKey(sid), '')
-  const lastName = useRef('')
+  const [openRequested, , clearOpenRequest] = useDraft(inviteOpenKey(sid), false)
   useEffect(() => { if (alone) setOpen(true) }, [alone])
   useEffect(() => {
-    if (name !== lastName.current && name !== '') setOpen(true)
-    lastName.current = name
-  }, [name])
-  useEffect(() => {
-    if (open) form.current?.querySelector('input')?.focus({ preventScroll: true })
-  }, [open])
+    if (!openRequested) return
+    setOpen(true)
+    clearOpenRequest()
+  }, [openRequested, clearOpenRequest])
+
+  const { refs, x, y, context } = useFloating({
+    open, onOpenChange: setOpen, placement: 'bottom-end', strategy: 'fixed',
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  })
+  const dismiss = useDismiss(context, { escapeKey: false, outsidePressEvent: 'click' })
+  const { getFloatingProps } = useInteractions([dismiss])
+  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    open,
+    initialFocus: (): HTMLElement | null => dialogRef.current?.querySelector('#team-invite-name:not(:disabled)') ?? null,
+    opener: () => trigger.current,
+    onEscape: () => setOpen(false),
+  })
+  const reference = useMergeRefs([trigger, refs.setReference])
+  const floating = useMergeRefs([dialogRef, refs.setFloating])
+  useLayoutEffect(() => {
+    dialogRef.current?.style.setProperty('--team-invite-x', `${x}px`)
+    dialogRef.current?.style.setProperty('--team-invite-y', `${y}px`)
+  }, [dialogRef, open, x, y])
 
   return (
     <>
-      <HoverButton ref={trigger} type="button" aria-label={TEAM_HEADER_WORDS.invite} words={TEAM_HEADER_WORDS.invite}
-        aria-expanded={open} aria-controls={open ? formId : undefined} aria-haspopup="menu"
+      <HoverButton ref={reference} type="button" aria-label={TEAM_HEADER_WORDS.invite} words={TEAM_HEADER_WORDS.invite}
+        aria-expanded={open} aria-controls={open ? formId : undefined} aria-haspopup="dialog"
         className={TOOLBAR_ICON} onClick={() => setOpen(!open)} data-testid="team-invite-menu-trigger">
         <OkIcon id="invite" size={14} decorative inherit />
       </HoverButton>
-      {open && trigger.current && (
-        <Menu anchor={trigger.current} label={TEAM_HEADER_WORDS.invite} placement="bottom-end" onClose={() => setOpen(false)}>
-          <div id={formId} ref={form} className="space-y-3 p-3" onKeyDown={(event) => {
-            // Keep ordinary form keys within the form. The menu still handles Escape.
-            if (event.key !== 'Escape') event.stopPropagation()
-          }} onBlur={(event) => {
-            if (event.relatedTarget && event.relatedTarget !== trigger.current && !event.currentTarget.contains(event.relatedTarget)) setOpen(false)
-          }}>
-            {alone && <p className={BODY}>{TEAM_HEADER_WORDS.aloneLead}</p>}
-            <InvitePanel sid={sid} made={made} onMade={setMade} />
-          </div>
-        </Menu>
+      {open && createPortal(
+        <div {...getFloatingProps({ onKeyDown })} id={formId} ref={floating} role="dialog" aria-label={TEAM_HEADER_WORDS.invite} tabIndex={-1}
+          className={`${CANVAS_LAYER_CLASS.contextMenu} fixed left-[var(--team-invite-x)] top-[var(--team-invite-y)] max-h-screen w-64 max-w-full space-y-3 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2`}>
+          {alone && <p className={BODY}>{TEAM_HEADER_WORDS.aloneLead}</p>}
+          <InvitePanel sid={sid} made={made} onMade={setMade} />
+        </div>,
+        document.body,
       )}
     </>
   )
@@ -227,7 +241,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className={H} data-testid="team-views-heading">{view.collab.heading}</h2>
-          <InviteMenu key={JSON.stringify([sid, view.you_id])} sid={sid} alone={view.collab.alone} />
+          <InvitePopover key={JSON.stringify([sid, view.you_id])} sid={sid} alone={view.collab.alone} />
         </div>
         <Members view={view} />
       </div>
