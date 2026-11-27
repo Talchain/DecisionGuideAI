@@ -1,12 +1,21 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useCanvasStore } from '../../../../canvas/store'
+import { call } from '../../../../olumiCore/team/api'
 import type { View, ViewRow } from '../../../client'
 import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
+import capturedTrial from '../../../fixtures/v11/consulting-whatif-priya.json'
 import { pressCard, ringFrom } from '../../../reasoning/tabRing'
 import { useViewStore } from '../../../store'
+import { clearWhatIf } from '../../../whatif'
+import { useLaneInspector } from '../../edit/inspectorStore'
 import { StressTest, StressTestTab, STRESS_STEPS, STRESS_WORDS } from '../StressTest'
+import { useStressTrials } from '../stressTrials'
 
 vi.mock('../../../reasoning/tabRing', () => ({ pressCard: vi.fn(), ringFrom: vi.fn() }))
+vi.mock('../../../../olumiCore/team/api', async (original) => ({
+  ...await original<typeof import('../../../../olumiCore/team/api')>(), call: vi.fn(),
+}))
 
 type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
 const base = pricing as unknown as View
@@ -46,16 +55,30 @@ const aimGroups = (name: string) => screen.getAllByRole('group', { name }).filte
 function expectChart(row: HTMLElement, chance: number) {
   expect(row).toHaveAttribute('data-stress-computed', 'true')
   expect(row).toHaveAttribute('data-stress-chance', String(chance))
-  expect(row.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(chance * 10))
-  expect(row.querySelectorAll('[data-chance-dot]')).toHaveLength(10)
+  const current = row.querySelector('[data-stress-reading="step"]')!
+  expect(current.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(chance * 10))
+  expect(current.querySelectorAll('[data-chance-dot]')).toHaveLength(10)
+}
+
+function expectSavedPair(row: HTMLElement, saved: number) {
+  const [before, after] = row.querySelectorAll('[data-stress-reading]')
+  expect(before).toHaveAttribute('data-stress-reading', 'saved')
+  expect(after).toHaveAttribute('data-stress-reading', 'step')
+  expect(before.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(saved * 10))
+  expect(within(row).getByText(STRESS_WORDS.savedLabel)).toBeVisible()
 }
 
 beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request'))))
 afterEach(() => {
   cleanup()
-  useViewStore.setState({ view: null, status: 'none', stale: false, error: null })
+  useViewStore.setState({ view: null, sid: null, status: 'none', stale: false, error: null })
+  useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
+  useLaneInspector.setState({ current: null })
+  useStressTrials.setState({ histories: new Map() })
+  clearWhatIf()
   expect(fetch).not.toHaveBeenCalled()
   vi.unstubAllGlobals()
+  vi.mocked(call).mockReset()
   vi.clearAllMocks()
 })
 
@@ -84,6 +107,10 @@ describe('Stress-test', () => {
       fireEvent.click(radio(step))
       expectChart(raiseProfit, step === 'saved' ? raiseRow.chance! : raiseRow.driver![step])
       expectChart(raiseAnnual, step === 'saved' ? raiseSecond.chance! : raiseSecond.driver![step])
+      if (step !== 'saved') {
+        expectSavedPair(raiseProfit, raiseRow.chance!)
+        expectSavedPair(raiseAnnual, raiseSecond.chance!)
+      } else expect(raiseProfit.querySelectorAll('[data-chance-dots]')).toHaveLength(1)
       expect(screen.getByTestId('range-band')).toHaveAttribute('style', originalBand)
       expect(screen.queryByTestId('range-tried')).toBeNull()
       for (const [row, value, kind] of [[keepProfit, keepFirst.value, 'other'], [keepAnnual, keepSecond.value, 'none']] as const) {
@@ -276,13 +303,143 @@ describe('Stress-test', () => {
     expectChart(optionRows(option.heading)[0], row.chance!)
   })
 
-  it('shows one line when no chance row has a driver, even when the option card does', () => {
-    const model = { ...base.model!, cards: base.model!.cards.map((card) => card.id === raise.id
-      ? { ...card, rows: [{ ...raiseRow, driver: null }] } : card) }
-    draw({ ...base, model })
-    expect(screen.getByTestId('tool-stress').textContent).toEqual(STRESS_WORDS.empty)
+  it('offers Core’s unsized editable figures in card order when no chance row has a driver', () => {
+    const model = { ...base.model!, cards: base.model!.cards.map((card) => {
+      if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: null }] }
+      if (card.id === cups.id || card.id === target.id) return { ...card, figure: { ...card.figure!, text: '' } }
+      if (card.id === 'margin') return { ...card, figure: { ...card.figure!, text: '', edit: null } }
+      return card
+    }) }
+    const unsized = { ...base, model }
+    useViewStore.setState({ view: unsized, sid: base.id, status: 'ready' })
+    draw(unsized)
+    const tool = screen.getByTestId('tool-stress')
+    const tracks = [...tool.querySelectorAll('.ok-face-mark.ok-face-mark-track')]
+    expect(tracks.map((track) => track.previousElementSibling?.textContent)).toEqual([cups.heading, target.heading])
+    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
+    const [fill] = within(tool).getAllByRole('button', { name: STRESS_WORDS.fill })
+    fireEvent.click(fill)
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: cups.id } })
     expect(screen.queryByRole('group', { name: STRESS_WORDS.figure })).toBeNull()
     expect(screen.queryByRole('radio')).toBeNull()
+  })
+
+  it('retargets to the selected canvas figure and returns keyboard focus to the computed points', () => {
+    draw()
+    fireEvent.click(radio('high'))
+    act(() => useCanvasStore.setState({ selection: { nodeIds: new Set([target.id]), edgeIds: new Set(), anchorPosition: null } }))
+    expect(figureChoice(target.heading)).toHaveAttribute('aria-pressed', 'true')
+    expect(radio('saved')).toBeChecked()
+    expect(radio('saved')).toHaveFocus()
+    expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', [target.id, keep.id])
+    fireEvent.click(figureChoice(cups.heading))
+    expect(figureChoice(cups.heading)).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('steps through answered trials and uses only Core’s point and matching option-and-goal chances', async () => {
+    const capture = capturedTrial.variants[0]
+    const input = capture.facts.find((fact) => fact.about?.kind === 'input')!
+    const fact = capture.facts.find((fact) => fact.about?.kind === 'chance')!
+    const pointWords = 'Set cups change to about five hundred fewer cups.'
+    const rangeWords = 'Set cups change to a range.'
+    const variant = {
+      ...capture, edits: [{ quantity: cups.id, label: cups.heading, words: pointWords }],
+      facts: [
+        { ...input, about: { kind: 'input', quantity: target.id, olumi: false, likely: 326 } },
+        { ...input, about: { kind: 'input', quantity: cups.id, olumi: false, likely: -500 } },
+        { ...fact, about: { kind: 'chance', option: keep.id, goal: raiseRow.aim_id, chance: 0.99 } },
+        { ...fact, about: { kind: 'chance', option: raise.id, goal: raiseSecond.aim_id, chance: 0.22 } },
+        { ...fact, about: { kind: 'chance', option: raise.id, goal: raiseRow.aim_id, chance: 0.77 } },
+      ],
+    }
+    vi.mocked(call).mockResolvedValueOnce({ ...capturedTrial, variants: [variant] }).mockResolvedValueOnce({
+      ...capturedTrial,
+      variants: [{ ...variant, edits: [{ ...variant.edits[0], words: rangeWords }],
+        facts: [
+          { ...input, about: { kind: 'input', quantity: cups.id, olumi: false, low: -800, high: -200 } },
+          { ...fact, about: { kind: 'chance', option: raise.id, goal: raiseRow.aim_id, chance: 0.31 } },
+        ],
+      }],
+    })
+    const { rerender } = draw()
+    const [profit, annual] = optionRows(raise.heading)
+    const [other] = optionRows(keep.heading)
+    const field = screen.getByRole('textbox', { name: STRESS_WORDS.tryValue })
+    const submit = () => fireEvent.click(screen.getByRole('button', { name: STRESS_WORDS.try }))
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    const typed = '  500 fewer cups  '
+    fireEvent.change(field, { target: { value: typed } })
+    submit()
+    const point = await screen.findByRole('radio', { name: pointWords })
+    expect(call).toHaveBeenNthCalledWith(1, 'POST', `/api/scenarios/${view.id}/whatif`, {
+      base: view.model!.edit_base, variants: [{ edits: [{ quantity: cups.id, typed }] }],
+    })
+    expect(point).toBeChecked()
+    expect(screen.getByTestId('range-tried')).toHaveAttribute('data-at', '-500')
+    expectChart(profit, 0.77)
+    expectChart(annual, 0.22)
+    expectSavedPair(profit, raiseRow.chance!)
+    expect(other.querySelector('[data-chance-dots]')).toBeNull()
+    expect(within(profit).queryByText(raiseRow.value)).toBeNull()
+
+    fireEvent.change(field, { target: { value: '-800 to -200' } })
+    submit()
+    const range = await screen.findByRole('radio', { name: rangeWords })
+    expect(range).toBeChecked()
+    expect(screen.getAllByRole('radio').slice(-2)).toEqual([point, range])
+    expect(screen.queryByTestId('range-tried')).toBeNull()
+    expectChart(profit, 0.31)
+    expectSavedPair(annual, raiseSecond.chance!)
+    expect(annual.querySelector('[data-stress-reading="step"] [data-chance-dots]')).toBeNull()
+    fireEvent.keyDown(range, { key: 'ArrowLeft' })
+    expect(point).toBeChecked()
+    expect(point).toHaveFocus()
+    expect(screen.getByTestId('range-tried')).toHaveAttribute('data-at', '-500')
+
+    fireEvent.click(figureChoice(target.heading))
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    fireEvent.click(figureChoice(cups.heading))
+    expect(screen.getAllByRole('radio')).toHaveLength(5)
+    const revised = { ...view.model!, edit_base: view.model!.edit_base! + 1 }
+    rerender(<StressTest model={revised} view={{ ...view, model: revised }} />)
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    expect(screen.queryByTestId('range-tried')).toBeNull()
+    rerender(<StressTest model={view.model!} view={{ ...view, id: 's_000000000002' }} />)
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    const past = { ...view.model!, edit_base: null }
+    rerender(<StressTest model={past} view={{ ...view, model: past }} />)
+    expect(screen.getAllByRole('radio')).toHaveLength(5)
+    expect(screen.queryByRole('textbox', { name: STRESS_WORDS.tryValue })).toBeNull()
+  })
+
+  it('keeps overlapping answers with the figures they were tried on', async () => {
+    const capture = capturedTrial.variants[0]
+    const wordsA = 'First figure edit'
+    const wordsB = 'Second figure edit'
+    const answer = (quantity: string, label: string, words: string) => ({
+      ...capturedTrial, variants: [{ ...capture, edits: [{ quantity, label, words }] }],
+    })
+    let finishA!: (value: unknown) => void
+    let finishB!: (value: unknown) => void
+    vi.mocked(call).mockImplementationOnce(() => new Promise((resolve) => { finishA = resolve }))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishB = resolve }))
+    draw()
+    const tryWords = (value: string) => {
+      fireEvent.change(screen.getByRole('textbox', { name: STRESS_WORDS.tryValue }), { target: { value } })
+      fireEvent.click(screen.getByRole('button', { name: STRESS_WORDS.try }))
+    }
+    tryWords('-500')
+    fireEvent.click(figureChoice(target.heading))
+    tryWords('7200')
+    await act(async () => {
+      finishA(answer(cups.id, cups.heading, wordsA))
+      finishB(answer(target.id, target.heading, wordsB))
+    })
+    expect(screen.getByRole('radio', { name: wordsB })).toBeChecked()
+    expect(screen.queryByRole('radio', { name: wordsA })).toBeNull()
+    fireEvent.click(figureChoice(cups.heading))
+    expect(screen.getByRole('radio', { name: wordsA })).toBeVisible()
+    expect(screen.queryByRole('radio', { name: wordsB })).toBeNull()
   })
 
   it('distinguishes held proposals, stale or failed reads, and current approved results', () => {

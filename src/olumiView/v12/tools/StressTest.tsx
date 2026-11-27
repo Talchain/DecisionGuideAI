@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { typography } from '../../../styles/typography'
+import { TeamApiError } from '../../../olumiCore/team/api'
 import type { View, ViewCard, ViewModel, ViewRow } from '../../client'
+import { FigureEdit } from '../../FigureEdit'
 import { FoldChevron, FOLD_SUMMARY } from '../../look/FoldChevron'
 import { Hover } from '../../look/Hover'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
@@ -11,6 +13,8 @@ import { LetterChip } from '../cards/marks'
 import { cardOfRecord } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
+import { useToolSubject } from './focusAdapter'
+import { stressTrialKey, tryStressValue, useStressTrials, type TrialStep } from './stressTrials'
 
 export const STRESS_STEPS = { low: 'Lower values', saved: 'As saved', high: 'Higher values' } as const
 
@@ -24,17 +28,63 @@ export const STRESS_WORDS = {
   other: 'Olumi tested this against another figure',
   none: 'Olumi names no figure for this option here',
   savedLabel: 'As saved',
+  tryValue: 'Try a value',
+  try: 'Try',
+  trying: 'Trying…',
+  trialUnavailable: 'This trial could not be read.',
+  fill: 'Fill figure',
 } as const
 
-type Step = keyof typeof STRESS_STEPS
+type BaseStep = keyof typeof STRESS_STEPS
+type Step = BaseStep | TrialStep
 type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
 type OptionReading = { option: ViewCard; row: ChanceRow }
 type DriverFigure = { record: string; label: string; card: ViewCard; ordinal?: number }
 
-const STEPS: readonly Step[] = ['low', 'saved', 'high']
+const STEPS: readonly BaseStep[] = ['low', 'saved', 'high']
 const RING_SOURCE = 'tool-stress'
 const META = `${typography.viewPanelMeta} text-text-light`
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
+const MOTION = 'motion-safe:transition-colors motion-safe:duration-fast'
+const DOT_MOTION = 'motion-safe:[&_[data-chance-dot]]:transition-colors motion-safe:[&_[data-chance-dot]]:duration-fast'
+const TICK_MOTION = 'motion-safe:[&_.ok-scale-tried]:transition-[left] motion-safe:[&_.ok-scale-tried]:duration-fast'
+
+function TrialForm({ scope, pending, onTrial }: {
+  scope: Parameters<typeof tryStressValue>[0]; pending: boolean; onTrial: (step: TrialStep) => void
+}) {
+  const [typed, setTyped] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
+  const id = useId()
+
+  async function submit() {
+    if (pending || typed.trim() === '') return
+    setNotice(null)
+    try {
+      const result = await tryStressValue(scope, typed)
+      if (result !== null && 'step' in result) {
+        setTyped('')
+        onTrial(result.step)
+      } else setNotice(result?.notice ?? STRESS_WORDS.trialUnavailable)
+    } catch (error) {
+      setNotice(error instanceof TeamApiError ? error.message : STRESS_WORDS.trialUnavailable)
+    }
+  }
+
+  return (
+    <form onSubmit={(event) => { event.preventDefault(); void submit() }} className="grid gap-1">
+      <label htmlFor={id} className={META}>{STRESS_WORDS.tryValue}</label>
+      <div className="flex gap-1">
+        <input id={id} value={typed} readOnly={pending} onChange={(event) => setTyped(event.target.value)}
+          className={`${typography.viewPanelBody} ${FOCUS} min-h-7 min-w-0 grow rounded-sm border border-panel-border bg-panel px-2 text-text-body`} />
+        <button type="submit" disabled={pending || typed.trim() === ''}
+          className={`${typography.viewPanelHeading} ${FOCUS} ${MOTION} rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover disabled:text-text-light`}>
+          {pending ? STRESS_WORDS.trying : STRESS_WORDS.try}
+        </button>
+      </div>
+      {notice !== null && <span role="status" className={META}>{notice}</span>}
+    </form>
+  )
+}
 
 function stressReadings(model: ViewModel) {
   const aims = new Map<string, OptionReading[]>()
@@ -85,12 +135,29 @@ function stressReadings(model: ViewModel) {
 export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   const { aims, figures, unlabelled } = useMemo(() => stressReadings(model), [model])
   const letters = useMemo(() => optionLetters(model), [model])
+  const subjectId = useToolSubject()?.id
+  const subjectRecord = (figures.find((figure) => figure.record === subjectId) ??
+    figures.find((figure) => figure.card.id === subjectId))?.record
   const [record, setRecord] = useState<string>()
-  const [step, setStep] = useState<Step>('saved')
+  const [choice, setChoice] = useState<{ step: Step; scope?: string }>({ step: 'saved' })
   const aimHeading = useId()
-  const stepButtons = useRef<Partial<Record<Step, HTMLButtonElement | null>>>({})
+  const stepButtons = useRef(new Map<Step, HTMLButtonElement>())
+  const subjectObserved = useRef(false)
   const selected = figures.find((figure) => figure.record === record) ?? figures[0]
   const selectedRecord = selected?.record
+  const base = model.edit_base ?? view.version?.id
+  const scope = base == null || selectedRecord === undefined ? null
+    : { sid: view.id, base, record: selectedRecord }
+  const scopeKey = scope === null ? null : stressTrialKey(scope)
+  const activeScope = useRef<string | null>(null)
+  const history = useStressTrials((state) => scopeKey === null ? undefined : state.histories.get(scopeKey))
+  const trials = history?.trials ?? []
+  const selectedTrial = choice.scope === scopeKey ? trials.find((trial) => trial.step === choice.step) : undefined
+  const step = selectedTrial?.step ?? (choice.scope === undefined ? choice.step : 'saved')
+  const points = [
+    ...STEPS.map((value) => ({ step: value, words: STRESS_STEPS[value] })),
+    ...trials,
+  ]
   const moving = useMemo(() => selectedRecord === undefined ? [] : [...aims].flatMap(([id, readings]) => {
     const rows = readings.filter(({ row }) => row.driver?.figure === selectedRecord)
     return rows.length === 0 ? [] : [{ id, aim: readings[0].row.aim, rows }]
@@ -100,6 +167,18 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
     if (record !== selectedRecord) setRecord(selectedRecord)
   }, [record, selectedRecord])
   useEffect(() => {
+    if (subjectRecord !== undefined) {
+      setRecord(subjectRecord)
+      setChoice({ step: 'saved' })
+      if (subjectObserved.current) stepButtons.current.get('saved')?.focus()
+    }
+    subjectObserved.current = true
+  }, [subjectId, subjectRecord])
+  useEffect(() => {
+    activeScope.current = scopeKey
+    return () => { activeScope.current = null }
+  }, [scopeKey])
+  useEffect(() => {
     const ids = new Set<string>()
     if (selected !== undefined) ids.add(selected.card.id)
     for (const group of moving) for (const { option } of group.rows) ids.add(option.id)
@@ -107,19 +186,37 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   }, [selected, moving])
   useEffect(() => () => ringFrom(RING_SOURCE, []), [])
 
-  function moveStep(event: KeyboardEvent<HTMLButtonElement>, from: Step) {
+  function chooseStep(value: Step) {
+    setChoice({ step: value, scope: value.startsWith('trial-') ? scopeKey ?? undefined : undefined })
+  }
+
+  function moveStep(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const { key } = event
     const direction = key === 'ArrowRight' || key === 'ArrowDown' ? 1
       : key === 'ArrowLeft' || key === 'ArrowUp' ? -1 : 0
     if (direction === 0) return
     event.preventDefault()
-    const next = STEPS[(STEPS.indexOf(from) + direction + STEPS.length) % STEPS.length]
-    setStep(next)
-    stepButtons.current[next]?.focus()
+    const next = points[(index + direction + points.length) % points.length].step
+    chooseStep(next)
+    stepButtons.current.get(next)?.focus()
   }
 
   if (selected === undefined) {
-    return <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className={META}>{STRESS_WORDS.empty}</div>
+    return (
+      <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className="grid gap-2">
+        {model.cards.map((card) => {
+          const figure = card.figure
+          if (card.family !== 'quantity' || figure?.text !== '' || figure.edit == null) return null
+          return (
+            <div key={card.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
+              <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
+              <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
+              <FigureEdit id={card.id} edit={figure.edit} label={STRESS_WORDS.fill} place="tool-stress" />
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   const figureCard = selected.record === selected.card.id ? selected.card : undefined
@@ -128,7 +225,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       <div role="group" aria-label={STRESS_WORDS.figure} className="flex flex-wrap gap-1">
         {figures.map(({ record, label, ordinal }) => (
           <button key={record} type="button" aria-pressed={selected.record === record} onClick={() => setRecord(record)}
-            className={`${typography.viewPanelBody} ${FOCUS} inline-flex min-h-7 min-w-0 items-center gap-1 rounded-md border border-panel-border px-2 text-left text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover aria-pressed:border-text-header`}>
+            className={`${typography.viewPanelBody} ${FOCUS} ${MOTION} inline-flex min-h-7 min-w-0 items-center gap-1 rounded-md border border-panel-border px-2 text-left text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover aria-pressed:border-text-header`}>
             <span className="min-w-0 break-words">{label}</span>
             {ordinal !== undefined && <span data-stress-ordinal="" className={`${META} shrink-0 rounded-full border border-panel-border px-1`}>{ordinal}</span>}
           </button>
@@ -136,19 +233,23 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       </div>
 
       <div role="radiogroup" aria-label={STRESS_WORDS.values} className="grid grid-cols-3 gap-1 rounded-md border border-panel-border p-1">
-        {STEPS.map((value) => (
+        {points.map(({ step: value, words }, index) => (
           <button key={value} type="button" role="radio" aria-checked={step === value} tabIndex={step === value ? 0 : -1}
-            ref={(button) => { stepButtons.current[value] = button }}
-            onClick={() => setStep(value)} onKeyDown={(event) => moveStep(event, value)}
-            className={`${typography.viewPanelHeading} ${FOCUS} min-h-7 cursor-pointer rounded-sm border border-transparent px-1 text-text-body hover:bg-panel-hover aria-checked:border-panel-border aria-checked:bg-panel-hover aria-checked:text-text-header`}>
-            {STRESS_STEPS[value]}
+            ref={(button) => { if (button === null) stepButtons.current.delete(value); else stepButtons.current.set(value, button) }}
+            onClick={() => chooseStep(value)} onKeyDown={(event) => moveStep(event, index)}
+            className={`${typography.viewPanelHeading} ${FOCUS} ${MOTION} min-h-7 cursor-pointer break-words rounded-sm border border-transparent px-1 text-text-body hover:bg-panel-hover aria-checked:border-panel-border aria-checked:bg-panel-hover aria-checked:text-text-header`}>
+            {words}
           </button>
         ))}
       </div>
+      {scope !== null && model.edit_base != null && (
+        <TrialForm key={scopeKey} scope={scope} pending={history?.pending === true}
+          onTrial={(value) => { if (activeScope.current === scopeKey) chooseStep(value) }} />
+      )}
 
       {figureCard?.figure != null && (
-        <div className="grid auto-cols-fr grid-flow-col items-center gap-2">
-          <RangeBar card={figureCard} view={view} />
+        <div className={`grid auto-cols-fr grid-flow-col items-center gap-2 ${TICK_MOTION}`}>
+          <RangeBar card={figureCard} view={view} tried={selectedTrial?.tried} />
           <Hover words={figureCard.figure.title} className={`${META} min-w-0 break-words`}>{figureCard.figure.text}</Hover>
         </div>
       )}
@@ -160,22 +261,34 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
             {readings.map(({ option, row }) => {
               const driver = row.driver
               const computed = driver == null ? 'none' : driver.figure === selected.record ? 'true' : 'other'
-              const chance = computed === 'true' && driver != null
-                ? step === 'saved' ? chanceForDots(row) : driver[step]
-                : null
+              const saved = chanceForDots(row)
+              const fact = selectedTrial?.variant.facts?.find(({ about }) =>
+                about?.kind === 'chance' && about.option === option.id && about.goal === aimId)
+              const chance = computed !== 'true' || driver == null ? null
+                : step === 'saved' ? saved
+                : step === 'low' || step === 'high' ? driver[step]
+                : fact?.about?.chance ?? null
               return (
                 <Hover key={option.id} as="button" type="button"
                   words={computed === 'true' ? undefined : STRESS_WORDS[computed]}
                   onClick={() => pressCard(option.id)}
                   data-stress-computed={computed} data-stress-chance={chance ?? undefined}
-                  className={`${typography.viewPanelBody} ${FOCUS} col-span-3 grid min-h-7 cursor-pointer grid-cols-subgrid items-center rounded-sm py-1 text-left hover:bg-panel-hover`}>
+                  className={`${typography.viewPanelBody} ${FOCUS} ${MOTION} col-span-3 grid min-h-7 cursor-pointer grid-cols-subgrid items-center rounded-sm py-1 text-left hover:bg-panel-hover`}>
                   <span className="flex min-w-0 items-center gap-1 text-text-header">
                     <span className="olumi-look contents" aria-hidden="true"><LetterChip letter={letters.get(option.id)!} /></span>
                     <span className="min-w-0 break-words">{option.heading}</span>
                   </span>
-                  {computed === 'true' && <span className="col-start-2"><ChanceDots chance={chance} /></span>}
-                  {(computed !== 'true' || step === 'saved') && (
-                    <span className={`${computed === 'true' ? 'text-text-body' : 'text-text-light'} col-start-3 break-words`}>{row.value}</span>
+                  {computed === 'true' ? (
+                    <span className={`col-span-2 col-start-2 grid grid-cols-subgrid items-center gap-y-1 ${DOT_MOTION}`}>
+                      {step !== 'saved' && <>
+                        <span data-stress-reading="saved"><ChanceDots chance={saved} /></span>
+                        <span className={META}>{STRESS_WORDS.savedLabel}</span>
+                      </>}
+                      <span data-stress-reading="step" className="col-start-1"><ChanceDots chance={chance} /></span>
+                      {step === 'saved' && <span className="break-words text-text-body">{row.value}</span>}
+                    </span>
+                  ) : (
+                    <span className="col-start-3 break-words text-text-light">{row.value}</span>
                   )}
                 </Hover>
               )
