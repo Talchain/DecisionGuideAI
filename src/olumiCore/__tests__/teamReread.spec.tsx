@@ -79,6 +79,7 @@ describe('a re-read on its own, on the Team tab', () => {
     fireEvent.click(screen.getByTestId('team-evidence-open')); type('team-evidence-body', 'Evidence, half written')
     fireEvent.click(screen.getByTestId('team-commitment-open')); type('team-c-action', 'An action, half written')
     fireEvent.click(screen.getByTestId('team-outcome-open-9')); type('team-o-9-happened', 'What happened, half written')
+    fireEvent.click(screen.getByTestId('team-invite-menu-trigger'))
     type('team-invite-name', 'Cy')
     served = { ...served, evidence: [...served.evidence, { ...served.evidence[0]!, id: 6, text: 'Absence doubled last quarter.' }], collab: { ...served.collab, shared: [...served.collab.shared, { id: 7, by: 'Bea', by_id: 'p_2', text: 'A second view.', skip: false, figures: [], effects: [] }] } }
     await tick(POLL_MS + 10)

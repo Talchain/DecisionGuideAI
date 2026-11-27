@@ -539,6 +539,21 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
     hiddenReason: '',
     laneOnly: true,
   },
+  /**
+   * LANE C (S4, 27 Nov): STRESS-TEST (TT-stress, docs/Design/system/s7-faces-and-charts.md). One manipulation: step a figure Core names as a
+   * driver between its lower values, as saved and its higher values; only Core's computed readings are drawn (src/olumiView/v12/tools/StressTest.tsx).
+   * `laneOnly`: the olumi-core lane's tool; padding `self` like Compare (the body takes the Compare tab's measure).
+   */
+  stress: {
+    id: 'stress',
+    label: 'Stress-test',
+    footerBar: 'none',
+    scroll: 'shell',
+    padding: 'self',
+    presentedAsTab: true,
+    hiddenReason: '',
+    laneOnly: true,
+  },
   journey: {
     id: 'journey',
     label: 'Journey',
@@ -582,6 +597,7 @@ export const WORKSPACE_SURFACE_ORDER: readonly OutputTab[] = [
   // 'Alt view' comparison tab used).
   'analysisNew',
   'compare',
+  'stress', // lane C (S4, 27 Nov): Stress-test, beside Compare
   'diagnostics',
   'team',
   'journey',
@@ -693,7 +709,8 @@ export const MAX_PRESENTED_SURFACES = 5
  * (DL 4 Nov, R2: Paul's staging has the Model tab). Recorded, not derived, like the strip's maximum; the dock is a vertical rail, and
  * `scripts/olumi-core/two-people.mjs` witnesses every lane tab inside it at 1280 and 1440. Re-record it here in the same change.
  */
-export const MAX_LANE_PRESENTED_SURFACES = 6
+// 7 since lane C (S4, 27 Nov) added Stress-test; re-recorded here, and witnessed in the lane's 1232/1.33 captures.
+export const MAX_LANE_PRESENTED_SURFACES = 7
 
 /**
  * The surfaces offered as tabs, in strip order.

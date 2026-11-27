@@ -144,6 +144,7 @@ describe('R1 review 1: the Team tab writes nothing to the live scenario while a 
     // Held by its fieldset, as a browser holds it (`:disabled`), the view box and every Team form button with it; invitations stay open.
     expect(screen.getByTestId('team-view-text').matches(':disabled')).toBe(true)
     expect(screen.getByTestId('team-commitment-open').matches(':disabled')).toBe(true)
+    fireEvent.click(screen.getByTestId('team-invite-menu-trigger'))
     expect(screen.getByTestId('team-invite-name').matches(':disabled')).toBe(false)
     expect(screen.getByTestId('team-past').textContent).toBe(`${TEAM_PAST_HELD}Back to the latest`) // no version sentence the page composes (DL 7 Nov)
     fireEvent.click(screen.getByTestId('team-past-back'))

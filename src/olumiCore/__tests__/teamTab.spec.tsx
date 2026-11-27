@@ -273,6 +273,7 @@ describe('the record and how the model moved (PL review 4 Nov: both on core)', (
 describe('bringing a colleague in (core API v1.8, any member, no admin key)', () => {
   it('makes their link through core\'s invites route, shows it once (it lands on this scenario in DGAI), and lists who was invited', async () => {
     render(<TeamTab />)
+    fireEvent.click(screen.getByTestId('team-invite-menu-trigger'))
     fireEvent.change(screen.getByTestId('team-invite-name'), { target: { value: 'Cai' } })
     invites = [{ id: 'p_9', name: 'Cai', by: 'Ada', made: '2026-11-03', expires: '2026-12-03', status: 'live', revocable: true }]
     fireEvent.click(screen.getByTestId('team-invite-go'))

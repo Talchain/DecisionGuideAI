@@ -230,13 +230,15 @@ describe('one picker for every kind of comparison, and the empty states', () => 
     await waitFor(() => expect(paths).toContain(`/api/compare?a=${view.id}&b=w_7`))
     expect(screen.queryByTestId('core-compare-out')).toBeNull()
   })
-  it('CT8: one approved version with nothing else to compare is one line and nothing else; CONTRAST: with a saved what-if it is still compared (Codex P1)', async () => {
+  it('CT8: one approved version has an empty state until a saved what-if can be compared (Codex P1)', async () => {
     const v = fixture('ui9-a6-since-v3')
     const one = { ...v, collab: { ...v.collab, shared: [] }, version: { ...v.version!, n: 1 }, model: { ...v.model!, cards: v.model!.cards.map((c) => ({ ...c, figure: c.figure ? { ...c.figure, edit: null } : c.figure })), run: { ...v.model!.run!, since: undefined } } } as View
-    const { container } = show(one)
+    show(one)
     await waitFor(() => expect(paths).toContain(`/api/scenarios/${v.id}/whatifs`))
     expect(screen.getByTestId('core-compare-one').textContent).toBe(COMPARE_ONE)
-    expect(container.querySelector('[data-testid="core-compare-tab"]')!.children.length).toBe(1)
+    expect(screen.getByRole('heading', { name: 'Versions and what-ifs' })).toBeInTheDocument()
+    expect(screen.queryByTestId('core-compare-whatif-open')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('core-compare-people')).not.toBeInTheDocument()
     expect([screen.queryByTestId('core-compare-picker'), compared()]).toEqual([null, []])
     cleanup(); paths = []
     whatifs = { whatifs: [{ id: 'w_7', name: 'Busier week', by: 'Ada', at: 't', version: 1, edits: [], about: 'A what-if on version 1' }] }

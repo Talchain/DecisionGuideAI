@@ -83,6 +83,7 @@ export const LANE_TAB_ICON: Readonly<Record<OutputTab, IconId>> = {
   compare: 'tab-compare',
   journey: 'tab-journey',
   team: 'team',
+  stress: 'tab-stress', // lane C (S4, 27 Nov)
   diagnostics: 'tab-model',
   olumi: 'olumi-mark',
 }

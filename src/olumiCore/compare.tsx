@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
-import { useViewStore } from '../olumiView/store'
+import { shownModel, useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META, QUIET } from './team/ui'
 import { typography } from '../styles/typography'
@@ -15,6 +15,7 @@ import { drawnModelOf } from '../olumiView/layout'
 import { OkIcon } from '../olumiView/look/icons'
 import { Hover, HoverButton } from '../olumiView/look/Hover'
 import { FOLD_SUMMARY, FoldChevron } from '../olumiView/look/FoldChevron'
+import { COMPARE_OPTIONS_CHROME, CompareOptions } from '../olumiView/v12/tools/CompareOptions'
 import { isForThisPage, useMe } from './me'
 import { marksOf, useCompareMarks } from './compareMarks'
 import { revealedForYou } from '../olumiView/v12/views/differGroups'
@@ -262,18 +263,22 @@ const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3'
 
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
+  const model = useViewStore(shownModel)
   const held = useViewStore((s) => s.view?.proposal != null)
   const latest = useLatestApproved()
-  if (sid && latest === undefined) return <div data-testid="core-compare-tab" className={TAB}><p className={META} data-testid="core-compare-loading">Reading the versions…</p></div>
   return (
     // The Compare row pads itself (`padding: 'self'` in the shell contract): the shell's own measure, as the Team tab gets it.
     <div data-testid="core-compare-tab" className={TAB}>
-      {!sid || latest === null || latest === undefined
-        // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
-        ? <><p className={META} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p><PeopleViewsPress /></>
-        // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
-        // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
-        : <ComparePicked key={sid} sid={sid} latest={latest} />}
+      {model === null ? null : <CompareOptions key={`options:${sid}`} model={model} />}
+      <h3 className={H}>{COMPARE_OPTIONS_CHROME.versions}</h3>
+      {sid && latest === undefined
+        ? <p className={META} data-testid="core-compare-loading">Reading the versions…</p>
+        : !sid || latest == null
+          // A first model still held as Olumi's proposal is on the canvas, so "start a model" was wrong there (Paul's A11 board, 12 Nov).
+          ? <><p className={META} data-testid="core-compare-none">{sid && held ? COMPARE_HELD : COMPARE_NONE}</p><PeopleViewsPress /></>
+          // Keyed by the scenario: another scenario starts afresh, with none of this one's pick or answer. Two approved versions are needed
+          // only for version against version: with one, a saved what-if or another scenario can still be compared (Codex live read P1).
+          : <ComparePicked key={sid} sid={sid} latest={latest} />}
     </div>
   )
 }

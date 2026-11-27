@@ -64,7 +64,7 @@ Off the face once the chip lands: `face.line` on option cards, the description l
 | CH-rests | how much rests on guesses | one chip on the option card | Reasoning: figures ranked by the uncertainty they drive | `run.rests[]`, `rests_on` | to build | planned |
 | CH-tip | what would change the choice | **open**: the 23 Nov system puts an orange tick on the flipping figure, while TipPoint.md draws Core's sentence plus the picture at glance | the tip point, the side that changes it, the figure's range | `run.tipping[]`, `rows[].tips*` | `v12/scale/TipPoint.tsx` | the picture is built on 4310; its number labels wait for Core's display strings (F1) |
 | CH-tested | how well it has been tested | six segments on the question card | Reasoning: each method by its registry icon | `reasoning.examined`, `session.methods`, `pre_mortem` (exact paths fixed in its own brief) | to build | planned |
-| CH-differ | where people differ | one chip on the card | Team: each person's range on one axis, with the flip point | `collab.shared`, `dissent`, `card.disputed` | to build | planned |
+| CH-differ | where people differ | one chip on the card | Team: each person's range on one axis, with the flip point | `collab.shared`, `dissent`, `card.disputed` | `v12/scale/DifferAxis.tsx` | built; the flip point waits on Core |
 | CH-worth | what is worth finding out first | one chip on the figure most worth checking | Analysis: checks ranked by how far they could move the chance | `run.find_out`, `card.worth_checking` | to build | planned |
 | CH-status | reasoning that is a state | one chip, under the one-chip face rule (the 23 Nov system's three chips are **open** against it) | Reasoning: one row shape for every state | fixed in its own brief | to build | planned |
 
@@ -105,9 +105,9 @@ The chat is the only place for running text. The other right-hand tabs become to
 | ID | Tool | Status |
 |---|---|---|
 | TT-check | What to check (CH-worth and CH-status in one list; a press asks Olumi how) | planned, first |
-| TT-compare | Compare | planned |
-| TT-stress | Stress-test | planned |
-| TT-differ | Where we differ, inside Team (CH-differ) | planned |
+| TT-compare | Compare: an option chip picker, then each aim with both options' chance dots and Core's words; gaps are dashed rows; no connecting line, because View v3 proves no pairing (`src/olumiView/v12/tools/CompareOptions.tsx`, above the versions and what-ifs) | built (lane C, 27 Nov); waits on Core for pairing proof |
+| TT-stress | Stress-test: step a driver figure through computed points only (Core's lower and higher thirds, as saved, and each what-if trial Core answered); saved-vs-step ChanceDots pairs; unsized figures with their fill action before any driver exists (`src/olumiView/v12/tools/StressTest.tsx`, its own lane-only tab) | built (lane C, 27 Nov); the dashed untested stretch waits on a RangeBar change; display text for `driver.low/high` and a label per driver record are Core asks |
+| TT-differ | Where we differ, inside Team (CH-differ): choose a revealed difference, then each person's figure on one axis, with the cards ringed (`src/olumiView/v12/tools/DifferTool.tsx`, `v12/scale/DifferAxis.tsx`); one status mark per person before the reveal; invite in a header menu | built (lane C, 27 Nov); the flip point and a typed figure reference per side are Core asks (the side match is an interim text compare until then) |
 
 ## Legacy forms
 

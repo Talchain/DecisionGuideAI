@@ -1,0 +1,13 @@
+.compare-option-row {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .compare-option-row {
+      transform: translateY(var(--space-1));
+      opacity: 0;
+    }
+  }
+}
