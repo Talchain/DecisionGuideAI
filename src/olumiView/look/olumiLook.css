@@ -55,6 +55,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 
 /* ── The faces' parts ────────────────────────────────────────────────────────────────────────────── */
 .olumi-look .ok-card-gap-tight { gap: var(--ok-gap-tight); }
+.olumi-look .ok-card-frame :is([data-card-bottom-band], [data-testid^='evidence-marks-'], [data-testid^='reveal-initials-']) {
+  gap: var(--ok-gap-tight);
+}
 .olumi-look .ok-card-gap-stack { gap: var(--ok-gap-stack); }
 .olumi-look .ok-card-gap-chance { column-gap: var(--ok-gap-stack); row-gap: var(--ok-gap-tight); }
 .olumi-look .ok-card-band-gap { gap: calc(var(--ok-gap-tight) / 4); }

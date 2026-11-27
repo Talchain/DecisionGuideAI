@@ -86,6 +86,9 @@ describe('DS v5 compliance ratchet guard', () => {
       'arbitrary utility: hover:md:-ms-[3px]',
       'arbitrary utility: [&>span]:gap-x-[2px]',
       'arbitrary utility: space-y-[0.5rem]',
+      'arbitrary utility: px-[6px]',
+      'arbitrary utility: gap-y-[3px]',
+      'arbitrary utility: space-x-[7px]',
     ]],
     ['off-scale', [
       'off-scale utility: p-0.5',
@@ -95,6 +98,7 @@ describe('DS v5 compliance ratchet guard', () => {
       'off-scale utility: [&:hover]:gap-y-9',
       'off-scale utility: space-x-11',
       'off-scale utility: me-14',
+      'off-scale utility: p-7',
     ]],
     ['numeric', [
       'numeric style: paddingInline: 12',
@@ -118,7 +122,7 @@ describe('DS v5 compliance ratchet guard', () => {
       .toEqual(tokens.map((token) => [token, 1]).sort())
   })
 
-  it('V12 spacing allows tokens, permitted scale steps and hairlines, and ignores comments and tests', () => {
+  it('V12 spacing allows tokens, scale steps and hairlines, and ignores data IDs, comments and tests', () => {
     const { status, stdout } = run(['--root', `${FX}/spacing/clean`, '--baseline', empty, '--enforce', '--json'])
     expect(status).toBe(0)
     expect(JSON.parse(stdout).netNew).toEqual({})

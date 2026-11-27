@@ -49,6 +49,8 @@ const UI_WORDS = /—|(?<=[\p{L}\p{N}]\s*)&(?=\s*[\p{L}\p{N}])|(?<![\p{L}\p{N}_]
 const WORD = /[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu
 const PRODUCT_NAMES = new Set(['Olumi', "Olumi's", 'Olumi’s'])
 const SPACING_UTILITY = /(?:^|:)!?-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy])-(\[.*\]|0\.5|px|3\.5|7|9|11|14)!?$/
+const CLASS_RECIPE_NAME = /(?:^|_)CLASS(?:ES)?(?:_|$)|^class(?:Names?|es)?$|Class(?:Names?|es|Recipes)?$/
+const CLASS_HELPERS = new Set(['clsx', 'cn', 'classNames', 'classnames', 'twMerge'])
 const SPACE_VAR = /\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)/
 const STYLE_SPACING = /^(?:(?:padding|margin)(?:[A-Z]\w*)?|gap|rowGap|columnGap)$/
 const CSS_SPACING = /^(?:(?:padding|margin)(?:-[a-z-]+)?|gap|row-gap|column-gap)$/i
@@ -156,6 +158,44 @@ function isStringSegment(node) {
   return ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
 }
 
+function readClassStrings(node, read, helperArgument = false) {
+  const visit = (value) => readClassStrings(value, read, helperArgument)
+  if (!node) return
+  if (isStringSegment(node)) return read(node)
+  if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node) ||
+      ts.isSpreadElement(node)) return visit(node.expression)
+  if (ts.isTemplateExpression(node)) {
+    read(node.head)
+    for (const span of node.templateSpans) {
+      visit(span.expression)
+      read(span.literal)
+    }
+  } else if (ts.isTaggedTemplateExpression(node) && node.tag.getText() === 'String.raw') {
+    visit(node.template)
+  } else if (ts.isConditionalExpression(node)) {
+    visit(node.whenTrue)
+    visit(node.whenFalse)
+  } else if (ts.isBinaryExpression(node)) {
+    const op = node.operatorToken.kind
+    if ([ts.SyntaxKind.PlusToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken].includes(op)) visit(node.left)
+    if ([ts.SyntaxKind.PlusToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(op)) visit(node.right)
+  } else if (ts.isArrayLiteralExpression(node)) {
+    node.elements.forEach(visit)
+  } else if (ts.isObjectLiteralExpression(node)) {
+    for (const entry of node.properties.filter(ts.isPropertyAssignment)) {
+      // A helper's object keys are classes. A recipe's keys name its variants.
+      if (helperArgument) {
+        if (ts.isStringLiteralLike(entry.name)) read(entry.name)
+      } else {
+        visit(entry.initializer)
+      }
+    }
+  } else if (ts.isCallExpression(node) && node.expression.getText() === 'Object.freeze') {
+    visit(node.arguments[0])
+  }
+}
+
 function jsxCopy(text) {
   return text.replace(/&(?:amp|#0*38|#x0*26);/gi, '&')
     .replace(/&(?:mdash|#0*8212|#x0*2014);/gi, '—')
@@ -214,6 +254,12 @@ export function scanLaneSource(file, text) {
     const occurrences = hits[rule] ??= []
     occurrences.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line, token })
   }
+  const spacingClassStrings = new Set()
+  const readSpacingClass = (node) => {
+    if (spacingClassStrings.has(node)) return
+    spacingClassStrings.add(node)
+    scanSpacingUtilities(node.text, (token) => add('v12-spacing', node, token))
+  }
   const scanStrings = (node, regex, rule) => {
     if (isStringSegment(node)) {
       for (const match of node.text.matchAll(regex)) add(rule, node, match[1])
@@ -245,6 +291,12 @@ export function scanLaneSource(file, text) {
     return readCopy(child, checkCase, started)
   }
   function visit(node) {
+    if ((ts.isVariableDeclaration(node) || ts.isPropertyAssignment(node)) && CLASS_RECIPE_NAME.test(node.name.text ?? '')) {
+      readClassStrings(node.initializer, readSpacingClass)
+    }
+    if (ts.isCallExpression(node) && CLASS_HELPERS.has(node.expression.getText(source))) {
+      for (const argument of node.arguments) readClassStrings(argument, readSpacingClass, true)
+    }
     if ((ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
         ts.isIdentifier(node.expression) && node.expression.text === 'typography') {
       const name = ts.isPropertyAccessExpression(node) ? node.name.text
@@ -274,6 +326,7 @@ export function scanLaneSource(file, text) {
         if (name === 'className' && PANEL.test(tag) && attribute.initializer) {
           scanStrings(attribute.initializer, PANEL_PADDING, 'v12-panel-padding')
         }
+        if (name === 'className' || name === 'class') readClassStrings(attribute.initializer, readSpacingClass)
         if (name === 'style' && attribute.initializer && ts.isJsxExpression(attribute.initializer) && attribute.initializer.expression) {
           scanStyleSpacing(attribute.initializer.expression, (property, token) => add('v12-spacing', property, token))
         }
@@ -289,7 +342,6 @@ export function scanLaneSource(file, text) {
       }
     }
     if (isStringSegment(node)) {
-      scanSpacingUtilities(node.text, (token) => add('v12-spacing', node, token))
       if (file.endsWith('.tsx')) {
         for (const match of node.text.matchAll(IMPORTANT)) add('v12-important-utility', node, match[1])
         for (const match of node.text.matchAll(IMPORTANT_DECLARATION)) add('v12-important-css', node, `${match[1]} !important`)
