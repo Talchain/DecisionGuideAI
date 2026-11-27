@@ -283,10 +283,14 @@ describe('What to check', () => {
   })
 
   it('selects one card, holds its shared ring apart from hover, and hides the actions when deselected', () => {
-    const { view, first } = fixture()
+    const { view, first, second } = fixture()
     canvas.reach.mockReturnValue('card')
     const { unmount } = show(view)
+    const mark = within(row(`f:0:${second.id}`)).getByRole('img', { name: second.mark!.title })
+    expect(mark).toHaveAttribute('data-view', 'run.find_out.0.figures.0.mark.glyph')
+    expect(mark.textContent).toBe(second.mark!.glyph)
     const button = row(`f:0:${first.id}`)
+    expect(button.querySelector('[data-view$=".mark.glyph"]')).toBeNull()
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(button).toHaveClass('grid', 'grid-cols-2')
     const value = button.querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')!
@@ -299,6 +303,8 @@ describe('What to check', () => {
     expect(canvas.focus.mock.calls).toEqual([[first.id]])
     expect(button).toHaveAttribute('data-selected', 'true')
     expect(within(details(button)).getByTestId(`check-edit-${first.id}`)).toBeInTheDocument()
+    const give = within(details(button)).getByTestId(`check-give-${first.id}`)
+    expect(give.querySelector('[data-view="run.find_out.0.figures.1.give.text"]')?.textContent).toBe(first.give!.text)
     expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.line"]')?.textContent).toBe(first.line)
     expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')).toBeNull()
     fireEvent.pointerLeave(button)

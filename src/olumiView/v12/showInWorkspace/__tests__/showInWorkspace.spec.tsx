@@ -1425,6 +1425,7 @@ describe('S14 a result need whose record the board does not draw as a card (Chec
 
   it('contrast: a need that is a plain card still presses that card by id and shows nothing; a need nothing can place still opens its Check details', async () => {
     const v = needing(growth, 'cross_team_adoption'); install(v); lay()
+    expect(rf.at.has('cross_team_adoption')).toBe(true)
     const c = mountNeeds(v)
     expect(rowButton(c).getAttribute('aria-disabled')).toBeNull()
     await press(rowButton(c)); await run(100)
@@ -1436,7 +1437,8 @@ describe('S14 a result need whose record the board does not draw as a card (Chec
     expect(rowButton(d)).toBeEnabled()
     await press(rowButton(d)); await run(100)
     expect(rowButton(d)).toHaveAttribute('aria-expanded', 'true')
-    expect(document.getElementById(rowButton(d).getAttribute('aria-controls')!)?.textContent).toContain('Invented words: this is not known yet.')
+    expect(rowButton(d).querySelector('[data-view="run.shared_blockers.0.text"]')?.textContent).toBe('Invented words: this is not known yet.')
+    expect(document.getElementById(rowButton(d).getAttribute('aria-controls')!)).toBeVisible()
     expect(rf.sets).toStrictEqual([])
     expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
   })

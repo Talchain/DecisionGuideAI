@@ -505,7 +505,7 @@ describe('OutputsDock DOM', () => {
     // the "omit the default" half of the rule has a guard of its own, rather
     // than being inferred from the half above.
     // 26 Sep 2026: the default is Olumi, so Reasoning is NAMED now…
-    fireEvent.click(screen.getByRole('tab', { name: 'Reasoning' }))
+    fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
     params = new URLSearchParams(window.location.search)
     expect(params.get('tab')).toBe('analysisNew')
     // …and Olumi, the default, clears it.

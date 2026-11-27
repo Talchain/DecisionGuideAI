@@ -11,7 +11,7 @@ export { CHECK_WORDS } from './words'
 type Words = { text: string; at: string }
 type Edit = { prompt: string; ask: string }
 type Action =
-  | { kind: 'edit'; id: string; edit: Edit; label: string }
+  | { kind: 'edit'; id: string; edit: Edit; label: string; lead?: Words }
   | { kind: 'method'; id: string; words: Words }
   | { kind: 'answer'; question: Question }
   | { kind: 'fill'; text: string }
@@ -27,6 +27,7 @@ export type CheckItem = {
   at: string
   long: Words[]
   value?: Words
+  mark?: { glyph: string; title: string; at: string }
   cards: string[]
   action: Action
 }
@@ -126,6 +127,11 @@ function examineItem(e: Examine): CheckItem {
   }
 }
 
+export function checkExamineOf(model: ViewModel, view: View | null): Examine[] {
+  const dissent = new Set((view?.collab.dissent ?? []).map((d) => d.id))
+  return examineOf(model, view?.session?.methods ?? null, view?.model_words ?? null, dissent)
+}
+
 export function checkItemsOf(model: ViewModel, view: View | null): CheckGroup[] {
   const run = model.run ?? null
   const find: CheckBlock[] = findOutOf(run).aims.map(({ aim, a }) => {
@@ -142,15 +148,18 @@ export function checkItemsOf(model: ViewModel, view: View | null): CheckGroup[] 
           short: figure.label, at: `${path}.label`, cards: [figure.id],
           long: wordsAt(figure.line, `${path}.line`),
           value: wordsAt(figure.estimate_text, `${path}.estimate_text`)[0],
-          action: figure.give == null ? NONE : { kind: 'edit', id: figure.id, edit: figure.give.edit, label: figure.label },
+          mark: figure.mark == null ? undefined : { ...figure.mark, at: `${path}.mark.glyph` },
+          action: figure.give == null ? NONE : {
+            kind: 'edit', id: figure.id, edit: figure.give.edit, label: figure.label,
+            lead: { text: figure.give.text, at: `${path}.give.text` },
+          },
         }
       }),
     }
   })
   const figures = new Set(find.flatMap((block) => block.items.flatMap((item) => item.cards)))
   const needs = checkNeedsOf(model).filter((item) => item.kind !== 'size' || !figures.has(item.cards[0]!))
-  const dissent = new Set((view?.collab.dissent ?? []).map((d) => d.id))
-  const examine = examineOf(model, view?.session?.methods ?? null, view?.model_words ?? null, dissent).map(examineItem)
+  const examine = checkExamineOf(model, view).map(examineItem)
   return [
     { kind: 'needs', heading: CHECK_WORDS.needs, blocks: [{ key: 'needs', items: needs }] },
     { kind: 'find', heading: run?.find_out_heading || CHECK_WORDS.find, at: run?.find_out_heading ? 'run.find_out_heading' : undefined, blocks: find },

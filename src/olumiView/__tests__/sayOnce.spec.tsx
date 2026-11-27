@@ -96,10 +96,17 @@ describe('SC-02: each tab says each thing once', () => {
     expect(c).toBeDefined()
     ready(view)
     render(<ViewReasoningBlock />)
+    const selector = `[data-check-item="c:${c.id}"]`
+    if (document.querySelector(selector) === null) {
+      fireEvent.click(document.querySelector('[data-check-more="examine"]')!)
+    }
+    const row = document.querySelector(selector)!
+    fireEvent.click(row)
     // The door opens where it has rows.
     const door = screen.queryByTestId('view-reasoning-premises-toggle')
     if (door !== null) fireEvent.click(door)
     const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
     expect(said.map((e) => e.getAttribute('data-view'))).toEqual([`${c.id}.reason`])
+    expect(document.getElementById(row.getAttribute('aria-controls')!)).toContainElement(said[0] as HTMLElement)
   })
 })

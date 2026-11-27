@@ -773,7 +773,9 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 
 /* Scale charts keep their original track, marks and labels. Only their measured values come from React. */
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }
+.ok-check-figure-mark { color: var(--info); }
 .ok-scale-range { margin: var(--space-1) 0; }
+.ok-scale-share-olumi { fill: var(--info); }
 .olumi-look .ok-card-frame .ok-scale-range { margin-block: var(--ok-gap-tight); }
 .ok-scale-track { position: relative; height: 16px; background: var(--border-default); border-radius: calc(var(--radius-control) / 2); }
 .ok-scale-range-band, .ok-scale-conditional-span, .ok-scale-outcome-band, .ok-scale-untested {

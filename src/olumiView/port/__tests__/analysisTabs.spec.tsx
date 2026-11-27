@@ -96,7 +96,7 @@ describe('every option’s line is reachable from Results or Check', () => {
   for (const n of ['real/hiring', 'golden/s_ce285b3617bb', 'core/an01-european-otheraims', 'core/an01-studio-otheraims', 'core/an01-studio', 'golden/bakery', 'golden/european', 'golden/app-launch'] as const) {
     it(`${n}: charts numeric chances by aim, shows limits and retains missing results in Check`, () => {
       const view = viewOf(n), model = view.model!, groups = chartGroupsOf(model)
-      const needs = new Set(checkNeedsOf(model).map((x) => x.key))
+      const needs = new Set(checkNeedsOf(model).map((x) => x.at))
       ready(view); render(<PortAnalysisTab />)
       const switches = screen.queryAllByRole('group', { name: 'Aim' }).flatMap((group) => within(group).getAllByRole('button'))
       for (const [i, group] of groups.entries()) {
@@ -110,10 +110,10 @@ describe('every option’s line is reachable from Results or Check', () => {
       for (const c of optionCards(model)) c.rows.forEach((r, i) => {
         const where = `${c.id}.rows.${i}`
         if (r.kind === 'limit') expect(document.querySelector(`[data-limit-aim="${r.aim_id}"] [data-limit-option="${c.id}"]`), where).not.toBeNull()
-        else if (r.kind === 'chance' && !Number.isFinite(r.chance) && r.value !== '') expect(needs.has(`held:${where}`), where).toBe(true)
+        else if (r.kind === 'chance' && !Number.isFinite(r.chance) && r.value !== '') expect(needs.has(`${where}.value`), where).toBe(true)
         else if (r.kind === 'none' && r.aim_role !== 'reference' && r.text !== '') {
           const covered = (model.run?.shared_blockers ?? []).some((b) => b.aim_id === r.aim_id && (b.options ?? []).includes(c.id))
-          expect(needs.has(`none:${where}`) || covered, where).toBe(true)
+          expect(needs.has(`${where}.text`) || covered, where).toBe(true)
         }
       })
     })
@@ -169,6 +169,12 @@ describe('every option’s line is reachable from Results or Check', () => {
       const current = tab().querySelector(`[data-${selector}-option="${first!.card.id}"] button`)
       expect(current).toHaveAttribute('aria-current', 'true')
       expect(current).toHaveClass('aria-[current=true]:bg-panel-hover')
+      const summary = current!.querySelector('[data-option-summary]')
+      const track = current!.querySelector('[data-option-track]')
+      expect(summary).toHaveClass('grid-cols-2')
+      expect(summary!.querySelector('[data-option-value]')).toHaveClass('text-right')
+      expect(track).toHaveClass('w-full')
+      expect(summary!.nextElementSibling).toBe(track)
     }
     const button = tab().querySelector(`[data-outcome-option="${second!.card.id}"] button`)!
     expect(button).not.toHaveAttribute('aria-current')

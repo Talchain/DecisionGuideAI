@@ -5,6 +5,7 @@ import { premisesOnce } from './layout'
 import { shownModel, useViewStore } from './store'
 import { WhatIfShown } from './ViewChances'
 import { CheckList, CHECK_FILL, CHECK_SHOW } from './check/CheckList'
+import { checkExamineOf } from './check/items'
 import { CHECK_WORDS } from './check/words'
 import { Door, SignalRow } from './reasoning/parts'
 import { TowardsCommitment } from './reasoning/TowardsCommitment'
@@ -109,8 +110,8 @@ export function RestsOn({ model, run, headed = true }: { model: ViewModel; run: 
 }
 
 /** Every premise core puts on a card, once, behind one door (closed at rest). */
-function Premises({ model }: { model: ViewModel }) {
-  const { premises, cards: reasoning } = premisesOnce(model)
+function Premises({ model, checkChallengeIds }: { model: ViewModel; checkChallengeIds: ReadonlySet<string> }) {
+  const { premises, cards: reasoning } = premisesOnce(model, checkChallengeIds)
   const notes = premises.length + reasoning.length
   if (notes === 0) return null
   return (
@@ -138,6 +139,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
   const run = model.run ?? null
   const view = useViewStore((s) => s.view)
   const sid = useViewStore((s) => s.sid)
+  const checkChallengeIds = new Set(checkExamineOf(model, view).flatMap((item) => item.kind === 'challenge' ? [item.card.id] : []))
   const rests = (run?.rests ?? []).filter((r) => r.line !== '').length
   const panel = useRef<HTMLDivElement>(null)
   const request = useReasoningFocus((s) => s.request)
@@ -159,7 +161,7 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
       </Door>}
       <AnsweredList key={`${sid}:answered`} view={view} model={model} />
       {view === null ? null : <TowardsCommitment view={view} />}
-      <Premises model={model} />
+      <Premises model={model} checkChallengeIds={checkChallengeIds} />
     </div>
   )
 }

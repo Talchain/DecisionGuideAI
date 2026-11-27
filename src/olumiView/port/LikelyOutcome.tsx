@@ -5,7 +5,7 @@
  * happen" is part of what option analysis is for).
  * - the heading is core's lens label (`run.lenses` id `outcome`), its title on hover; a View with outcomes but no lens gets the tab's chrome;
  * - per aim with an outcome, every option in core's card order: its heading, a bar from its low to its high on that aim's one axis with a
- *   tick at the middle (`outcomePlace`), and Core’s own line beside it (`outcome.text`, its `title` on hover). The numbers only place marks;
+ *   tick at the middle (`outcomePlace`), and Core’s own value above it (`outcome.text`, its `title` on hover). The numbers only place marks;
  * - a press on an option selects and centres its card, as the chance chart does.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
@@ -14,7 +14,7 @@ import { outcomePlace } from '../layout'
 import { ringFrom } from '../reasoning/tabRing'
 import type { ChartGroup, ChartRow } from './pick'
 import { OptionBand } from '../v12/scale/OptionBand'
-import { OptionRow, RESULT_ROW_GRID } from './OptionRow'
+import { OptionRow } from './OptionRow'
 import { TYPE } from './type'
 import { Hover } from '../look/Hover'
 import { typography } from '../../styles/typography'
@@ -44,11 +44,11 @@ export function LikelyOutcome({ model, group }: { model: ViewModel; group: Chart
             return (
               <li key={r.card.id} data-outcome-option={r.card.id}>
                 <OptionRow id={r.card.id} ring={RING} words={o.title} wordsAt={`${r.card.id}.rows.${r.i}.outcome.title`}
-                  className={`${RESULT_ROW_GRID} items-center`}>
-                  <span className={`${TYPE.body} block min-w-0 break-words text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>
-                  <span className="min-w-0"><OptionBand {...place} /></span>
-                  <span className={`${TYPE.meta} mt-0.5 block min-w-0 break-words tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>
-                </OptionRow>
+                  picture={{
+                    label: <span className={`${TYPE.body} text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>,
+                    value: <span className={`${TYPE.meta} tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>,
+                    track: <OptionBand {...place} />,
+                  }} />
               </li>
             )
           })}

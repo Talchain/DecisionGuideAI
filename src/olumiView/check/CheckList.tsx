@@ -9,7 +9,7 @@ import { useStoredFocusSubject } from '../focus/state'
 import { setFocusSubject, useFocusSubject } from '../focus/subject'
 import { drawKindOf } from '../layout'
 import { FoldChevron } from '../look/FoldChevron'
-import { Hover } from '../look/Hover'
+import { GlyphMark, Hover } from '../look/Hover'
 import { OkIcon } from '../look/icons'
 import { TYPE } from '../port/type'
 import { AnswerBox } from '../reasoning/AnswerBox'
@@ -41,7 +41,8 @@ function ItemAction({ action }: { action: CheckItem['action'] }) {
   switch (action.kind) {
     case 'none': return null
     case 'edit':
-      return <FigureEdit id={action.id} edit={action.edit} place="check" glyph words={false} label={`Give a figure for ${action.label}`} />
+      return <FigureEdit id={action.id} edit={action.edit} place="check" glyph words={false}
+        lead={action.lead?.text} leadAt={action.lead?.at} label={`Give a figure for ${action.label}`} />
     case 'method':
       return <button type="button" className={QUIET} onClick={() => runMethod(action.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={action.words.at}>{action.words.text}</span></button>
     case 'answer':
@@ -94,12 +95,13 @@ function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
           : `${TYPE.body} ${ITEM} ${item.kind === 'find' ? 'grid grid-cols-2 items-baseline' : 'flex items-start'} gap-2 px-1 py-1.5`}>
         {item.kind === 'find' ? <>
           <span className="flex min-w-0 items-start gap-2">
-            <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+            <OkIcon id={item.icon} size={14} className="mt-1 shrink-0" decorative />
             <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} data-view={item.at}>{item.short}</span>
+            {item.mark === undefined ? null : <GlyphMark mark={item.mark} tip={false} className="ok-check-figure-mark shrink-0" view={item.mark.at} />}
           </span>
           {item.value === undefined ? null : <span className={`${TYPE.meta} min-w-0 break-words text-right tabular-nums text-text-body`} data-view={item.value.at}>{item.value.text}</span>}
         </> : tile === undefined ? <>
-          <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+          <OkIcon id={item.icon} size={14} className="mt-1 shrink-0" decorative />
           <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} {...(modelWords ? { 'data-view-words': item.at } : { 'data-view': item.at })}>{item.short}</span>
         </> : <>
           <span className="flex items-start gap-1">

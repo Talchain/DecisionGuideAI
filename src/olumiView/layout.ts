@@ -962,13 +962,12 @@ export const challengedReasons = (model: ViewModel): Set<string> =>
   new Set(model.cards.flatMap((c) => (c.challenged === true && c.reason !== null ? [c.reason] : [])))
 /** Every premise core put on any card, each once by its words (the first card it is on), then each reasoning card core draws whose words
  *  are not already among them and that is not a challenge. */
-export function premisesOnce(model: ViewModel, optionsSaidElsewhere = false): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
-  // `optionsSaidElsewhere`: each live option's own premises are drawn in its row of the rack (the options it draws, `optionCards`), so
-  // neither they nor the same words on another card are said again here; a ruled-out option's are still said here, the rack not drawing it.
+export function premisesOnce(model: ViewModel, checkChallengeIds: ReadonlySet<string>): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
+  // Older Views repeat challenge words in embedded premises without a record id.
   const seen = challengedReasons(model)
-  if (optionsSaidElsewhere) for (const c of optionCards(model)) for (const p of c.premises ?? []) seen.add(p.text)
   const premises = model.cards.flatMap((c) => (c.premises ?? []).map((p, j) => ({ card: c, p, j }))).filter(({ p }) => (seen.has(p.text) ? false : (seen.add(p.text), true)))
-  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.challenged !== true && c.reason !== null && !seen.has(c.reason))
+  const premiseWords = new Set(premises.map(({ p }) => p.text))
+  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && !checkChallengeIds.has(c.id) && c.reason !== null && !premiseWords.has(c.reason))
   return { premises, cards }
 }
 /** The model at a glance, as the previous PoC's strip (side-by-side, 6 Nov): Options, Factors, Risks and Outcomes, each row the cards the

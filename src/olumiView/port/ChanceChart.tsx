@@ -12,7 +12,7 @@ import { typography } from '../../styles/typography'
 import { TYPE } from './type'
 import { ChanceKeyMark, ChanceTrack } from '../v12/scale/ChanceTrack'
 import { ChanceDots } from '../v12/scale/ChanceDots'
-import { OptionRow, RESULT_ROW_GRID } from './OptionRow'
+import { OptionRow } from './OptionRow'
 import { chanceForDots, isFixedMiss } from '../resultRange'
 
 /** The chart's own chrome: the key's two words and the axis. What low and high mean is core's sentence, on the key's hover. */
@@ -60,7 +60,7 @@ function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<strin
 const neverMet = (card: ViewCard, row: ChartRow['row']): boolean =>
   isFixedMiss(row) || (row.chance === 0 && card.headline?.state === 'fixed' && card.headline.aim_id === row.aim_id)
 
-/** One option's bar: its heading and core's marks, the track, core's words and dots above it; a press focuses its card, pointing rings it. */
+/** One option's bar: heading and value above the track; a press focuses its card, pointing rings it. */
 function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure: ViewCard | null; given: ReadonlySet<string>; axis?: boolean }) {
   const range = rangeOf(row)
   const tail = tailOf(row)
@@ -69,28 +69,25 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   return (
     <li data-chart-option={card.id}>
       <OptionRow id={card.id} ring={RING} words={row.title} wordsAt={`${card.id}.rows.${i}.title`}
-        className={`${RESULT_ROW_GRID} items-end`}>
-        <span className="flex min-w-0 flex-wrap items-baseline gap-1">
-          <span className={`${TYPE.body} min-w-0 break-words text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
-          <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
-            {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
-            {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
-          </span>
-        </span>
-        <span className="min-w-0">
-          {fixedMiss ? null : <>{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></>}
-        </span>
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 [&_[data-chance-dots]]:max-w-full [&_[data-chance-dots]]:flex-wrap">
-          <span className={`${TYPE.meta} min-w-0 break-words text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
-          <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
-        </span>
-        {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
-            label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
-      </OptionRow>
+        picture={{
+          label: <span className="flex min-w-0 flex-wrap items-baseline gap-1">
+            <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+            <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
+              {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
+              {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
+            </span>
+          </span>,
+          value: <span className="flex min-w-0 flex-wrap items-center justify-end gap-1 [&_[data-chance-dots]]:max-w-full [&_[data-chance-dots]]:flex-wrap">
+            <span className={`${TYPE.meta} min-w-0 text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+            <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
+          </span>,
+          track: fixedMiss ? null : <>{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></>,
+        }} />
+      {/* Name each whisker's figure beside its row, or once below the chart when they all share it. */}
       {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
       {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional): supporting detail
           under its own bar, verbatim, never composed from its numbers and never a comparison across options. */}
-      {tail === null ? null : <p className={`${TYPE.meta} m-0 mt-0.5 px-1 text-text-light`} data-view={`${card.id}.rows.${i}.tail.text`}>{tail}</p>}
+      {tail === null ? null : <p className={`${TYPE.meta} m-0 mt-1 px-1 text-text-light`} data-view={`${card.id}.rows.${i}.tail.text`}>{tail}</p>}
     </li>
   )
 }
