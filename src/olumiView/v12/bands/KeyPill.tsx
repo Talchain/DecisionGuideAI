@@ -141,9 +141,11 @@ export function KeyLines() {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
   // Swatches stand only for links the board draws as themselves: on Simple a folded input's or a closed group's links run into a neutral group connector.
-  const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
+  const sid = useViewStore((s) => s.sid)
+  const level = useSimpleLevel((s) => levelOf(sid, s))
   const open = useInputsOpen((s) => s.open)
-  const board = useMemo(() => (model === null ? null : boardOf(model, open).model), [model, open, level])
+  // boardOf reads the store's sid (its level and fold state), so a new sid with the same View re-projects too.
+  const board = useMemo(() => (model === null ? null : boardOf(model, open).model), [model, open, level, sid])
   if (view === null || model === null || board === null) return null
   const lines = keyLinesOf(model)
   const { underlays, marks } = keyExtrasOf(view)

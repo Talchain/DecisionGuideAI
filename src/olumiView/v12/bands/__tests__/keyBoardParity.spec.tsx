@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { View, ViewLink } from '../../../client'
 import { cardLinks, drawnModelOf } from '../../../layout'
@@ -201,6 +201,25 @@ describe('Simple folded inputs (PL 1526): a swatch stands only for a link the bo
     const row = key.querySelector('[data-key-item="halo-alert"]')!
     expect(row.textContent).toBe('Core’s alert explanation')
     expect(row.querySelector('[data-key-sample]')).toBeNull()
+  })
+  it('one mounted key follows the fold: folded has no swatch and a neutral connector, opening it adds the matching swatch, folding again removes it', () => {
+    const { key } = drawSimple(false)
+    const link = folded.view.model!.links[folded.at]!
+    expect(boardOf(folded.view.model!).links.some((g) => g.to === link.to && g.from !== link.from)).toBe(true)
+    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]')
+    expect(swatch()).toBeNull()
+    act(() => useInputsOpen.setState({ open: { [folded.view.id]: true } }))
+    expect(swatch()).not.toBeNull()
+    expect(boardOf(folded.view.model!).links.some((g) => g.to === link.to && g.from !== link.from)).toBe(false)
+    act(() => useInputsOpen.setState({ open: {} }))
+    expect(swatch()).toBeNull()
+  })
+  it('a new sid with the same View re-projects: an opened sid shows the swatch, a sid not opened does not', () => {
+    const { key } = drawSimple(true)
+    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]')
+    expect(swatch()).not.toBeNull()
+    act(() => useViewStore.setState({ sid: 'sid-other' }))
+    expect(swatch()).toBeNull()
   })
   it('contrast, opened: the board draws the edge and the key’s halo swatch matches it', () => {
     const { key, edges } = drawSimple(true)
