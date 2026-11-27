@@ -189,6 +189,36 @@ describe('What to check', () => {
     expect(canvas.ring).not.toHaveBeenCalled()
   })
 
+  it('keeps a canvas row dismissed through a View refresh until a new canvas subject is set', () => {
+    const { view, other } = fixture()
+    const { rerender } = show(view)
+    const subject = { kind: 'card', id: other.id, cards: [other.id], source: 'canvas' } as const
+    act(() => setFocusSubject(subject))
+    expect(row('blocks:0')).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(row('blocks:0'))
+    expect(row('blocks:0')).toHaveAttribute('aria-expanded', 'false')
+
+    const refreshed = structuredClone(view)
+    rerender(<CheckList model={refreshed.model!} view={refreshed} sid={refreshed.id} />)
+    expect(row('blocks:0')).toHaveAttribute('aria-expanded', 'false')
+    act(() => setFocusSubject(subject))
+    expect(row('blocks:0')).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('drops the selected gap when a same-scenario refresh reuses its key for another card', () => {
+    const { view, other, ranked } = fixture()
+    const { rerender } = show(view)
+    fireEvent.click(row('blocks:0'))
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [other.id])
+
+    const refreshed = structuredClone(view)
+    refreshed.model!.run!.shared_blockers!.shift()
+    rerender(<CheckList model={refreshed.model!} view={refreshed} sid={refreshed.id} />)
+    expect(row('blocks:0')).toHaveAttribute('data-check-tile', ranked.id)
+    expect(row('blocks:0')).toHaveAttribute('aria-expanded', 'false')
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [])
+  })
+
   it('places Ask Olumi after the row action, prefills the exact words once and fronts Olumi', () => {
     const { view, first } = fixture()
     vi.stubEnv('VITE_FEATURE_AI_PANEL_V2', 'true')
@@ -257,6 +287,10 @@ describe('What to check', () => {
     const { unmount } = show(view)
     const button = row(`f:0:${first.id}`)
     expect(button).toHaveAttribute('aria-expanded', 'false')
+    expect(button).toHaveClass('grid', 'grid-cols-2')
+    const value = button.querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')!
+    expect(value.textContent).toBe(first.estimate_text)
+    expect(value).toHaveClass('tabular-nums')
     fireEvent.pointerEnter(button)
     expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-hover', [first.id])
     fireEvent.click(button)
@@ -265,7 +299,7 @@ describe('What to check', () => {
     expect(button).toHaveAttribute('data-selected', 'true')
     expect(within(details(button)).getByTestId(`check-edit-${first.id}`)).toBeInTheDocument()
     expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.line"]')?.textContent).toBe(first.line)
-    expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')?.textContent).toBe(first.estimate_text)
+    expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')).toBeNull()
     fireEvent.pointerLeave(button)
     expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-hover', [])
     fireEvent.click(button)
@@ -327,6 +361,37 @@ describe('What to check', () => {
     expect(canvas.focus).not.toHaveBeenCalled()
   })
 
+  it('does not reselect the first panel row when its unfold resolves after another panel press', async () => {
+    const { view, first, second } = fixture()
+    let finish!: () => void
+    canvas.reach.mockReturnValueOnce('show').mockReturnValue('card')
+    canvas.show.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve }))
+    show(view)
+    const a = row(`f:0:${first.id}`)
+    const b = row(`f:0:${second.id}`)
+    fireEvent.click(a)
+    fireEvent.click(b)
+    await act(async () => finish())
+    expect(canvas.focus.mock.calls).toEqual([[second.id]])
+    expect(a).toHaveAttribute('aria-expanded', 'false')
+    expect(b).toHaveAttribute('aria-expanded', 'true')
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [second.id])
+  })
+
+  it('cancels pending panel focus when the canvas selects a card with no matching row', async () => {
+    const { view, first } = fixture()
+    let finish!: () => void
+    canvas.reach.mockReturnValueOnce('show').mockReturnValue('card')
+    canvas.show.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve }))
+    show(view)
+    const button = row(`f:0:${first.id}`)
+    fireEvent.click(button)
+    act(() => setFocusSubject({ kind: 'option', id: 'carry_on', cards: ['carry_on'], source: 'canvas' }))
+    await act(async () => finish())
+    expect(button).toHaveAttribute('aria-expanded', 'true')
+    expect(canvas.focus).not.toHaveBeenCalled()
+  })
+
   it('keeps a typed question draft when its details are hidden and reopened', async () => {
     const user = userEvent.setup()
     const { view, model } = fixture()
@@ -346,6 +411,17 @@ describe('What to check', () => {
     expect(screen.getByTestId('reasoning-answer-input')).toBe(draft)
     expect(draft).toBeVisible()
     expect(draft).toHaveValue('My unsent answer')
+  })
+
+  it('offers one Fill action and no Ask for a typed question on a historical View', () => {
+    const { view, model } = fixture()
+    model.questions = [{ id: 'question', text: 'What would change your estimate?', about: null, role: null, unit: null }]
+    show(view)
+    act(() => useViewStore.setState({ at: 1 }))
+    fireEvent.click(toggle('examine'))
+    const question = row('q:question')
+    fireEvent.click(question)
+    expect(within(details(question)).getAllByRole('button').map((button) => button.textContent)).toEqual([CHECK_FILL])
   })
 
   it('selects and focuses a requested folded item, and focuses the toggle when it folds again', () => {

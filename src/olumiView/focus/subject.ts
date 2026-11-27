@@ -15,5 +15,8 @@ export function setFocusSubject(s: Omit<NonNullable<FocusSubject>, 'sid'> | null
   if (sid === null) return
   ringFrom('focus-subject', [])
   if (s?.source === 'panel') ringFrom('focus-subject', s.cards)
-  useStoredFocusSubject.setState({ subject: s === null ? null : { ...s, sid } })
+  useStoredFocusSubject.setState(({ canvasRevision }) => ({
+    subject: s === null ? null : { ...s, sid },
+    canvasRevision: s?.source === 'canvas' ? canvasRevision + 1 : canvasRevision,
+  }))
 }

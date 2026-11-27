@@ -37,7 +37,6 @@ function FillBox({ text }: { text: string }) {
 }
 
 function ItemAction({ action }: { action: CheckItem['action'] }) {
-  const canAnswer = useViewStore((s) => s.sid !== null && s.at === null)
   switch (action.kind) {
     case 'none': return null
     case 'edit':
@@ -45,7 +44,7 @@ function ItemAction({ action }: { action: CheckItem['action'] }) {
     case 'method':
       return <button type="button" className={QUIET} onClick={() => runMethod(action.id)} data-testid="reasoning-method"><OkIcon id="method-mark" size={14} decorative /><span data-view-words={action.words.at}>{action.words.text}</span></button>
     case 'answer':
-      return canAnswer ? <AnswerBox key={action.question.id} q={action.question} /> : <FillBox text={action.question.text} />
+      return <AnswerBox key={action.question.id} q={action.question} />
     case 'fill':
       return <FillBox text={action.text} />
     case 'show':
@@ -64,6 +63,10 @@ function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
   const details = useId()
   const hovered = useRef(false)
   const [openedAnswer, setOpenedAnswer] = useState(false)
+  const canAnswer = useViewStore((s) => s.sid !== null && s.at === null)
+  const action: CheckItem['action'] = item.action.kind === 'answer' && !canAnswer
+    ? { kind: 'fill', text: item.action.question.text }
+    : item.action
   const isAnswer = item.action.kind === 'answer'
   const hover = tile === undefined ? item.long[0] : { text: item.short, at: item.at }
   useLayoutEffect(() => {
@@ -85,10 +88,16 @@ function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
           ringFrom(HOVER_RING, item.cards)
         }}
         onPointerLeave={() => { hovered.current = false; ringFrom(HOVER_RING, []) }}
-        className={tile === undefined
-          ? `${TYPE.body} ${ITEM} flex items-start gap-2 px-1 py-1.5`
-          : `${TYPE.meta} ${ITEM} flex flex-col justify-between gap-1 border border-panel-border p-2`}>
-        {tile === undefined ? <>
+        className={tile !== undefined
+          ? `${TYPE.meta} ${ITEM} flex flex-col justify-between gap-1 border border-panel-border p-2`
+          : `${TYPE.body} ${ITEM} ${item.kind === 'find' ? 'grid grid-cols-2 items-baseline' : 'flex items-start'} gap-2 px-1 py-1.5`}>
+        {item.kind === 'find' ? <>
+          <span className="flex min-w-0 items-start gap-2">
+            <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+            <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} data-view={item.at}>{item.short}</span>
+          </span>
+          {item.value === undefined ? null : <span className={`${TYPE.meta} min-w-0 break-words text-right tabular-nums text-text-body`} data-view={item.value.at}>{item.value.text}</span>}
+        </> : tile === undefined ? <>
           <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
           <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} {...(modelWords ? { 'data-view-words': item.at } : { 'data-view': item.at })}>{item.short}</span>
         </> : <>
@@ -104,8 +113,8 @@ function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
         {selected || (isAnswer && openedAnswer) ? <div className={tile === undefined ? 'space-y-1 pb-2 pl-6 pr-1' : 'space-y-1 px-2 pb-2'}>
           {tile === undefined ? null : <p className={`${TYPE.body} m-0 text-text-header`} data-view={item.at}>{item.short}</p>}
           {item.long.map(({ text, at }) => <p key={at} className={`${TYPE.meta} m-0 text-text-body`} data-view={at}>{text}</p>)}
-          <ItemAction action={item.action} />
-          {item.action.kind === 'fill' ? null : <div><button type="button" className={QUIET} onClick={() => prefillComposer(item.short)}>{CHECK_WORDS.ask}</button></div>}
+          <ItemAction action={action} />
+          {action.kind === 'fill' ? null : <div><button type="button" className={QUIET} onClick={() => prefillComposer(item.short)}>{CHECK_WORDS.ask}</button></div>}
         </div> : null}
       </div>
     </li>
@@ -176,10 +185,10 @@ function CheckSection({ group, all, shown, tiles, restCount, toggle, renderRow }
 
 type CheckListProps = { model: ViewModel; view: View | null; sid: string | null }
 
-function ownsSelection(key: string, sid: string | null): boolean {
+function panelSelection(key: string, sid: string | null) {
   const { subject } = useStoredFocusSubject.getState()
   return subject !== null && subject.sid === sid && sid === useViewStore.getState().sid
-    && subject.kind === 'gap' && subject.source === 'panel' && subject.id === key
+    && subject.kind === 'gap' && subject.source === 'panel' && subject.id === key ? subject : null
 }
 
 export function CheckList(props: CheckListProps) {
@@ -191,10 +200,23 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   const [focused, setFocused] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Partial<Record<CheckGroup['kind'], boolean>>>({})
   const root = useRef<HTMLElement>(null)
-  const selectionVersion = useRef(0)
-  useLayoutEffect(() => () => { selectionVersion.current += 1 }, [])
+  const navigation = useRef<{ key: string; card: string } | null>(null)
+  useLayoutEffect(() => {
+    const unsubscribe = useStoredFocusSubject.subscribe(({ subject }) => {
+      const pending = navigation.current
+      if (pending !== null && subject?.source === 'canvas' && subject.id !== pending.card) navigation.current = null
+    })
+    return () => {
+      navigation.current = null
+      unsubscribe()
+    }
+  }, [])
   const request = useReasoningFocus((s) => s.request)
   const subject = useFocusSubject()
+  const canvasRevision = useStoredFocusSubject((s) => s.canvasRevision)
+  const canvasSubject = subject?.source === 'canvas' && subject.sid === sid ? subject : null
+  const canvasKind = canvasSubject?.kind
+  const canvasId = canvasSubject?.id
   const cards = useMemo(() => new Map(model.cards.map((card) => [card.id, card])), [model])
   const letters = useMemo(() => optionLetters(model), [model])
   const sections = useMemo(() => checkItemsOf(model, view).map((group) => {
@@ -203,6 +225,9 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
     const atRest = (group.kind === 'needs' ? tiles : items).slice(0, AT_REST[group.kind])
     return { group, items, tiles, atRest }
   }), [cards, model, view])
+  // A new canvas subject uses the latest rows. A refresh alone does not reopen a dismissed row.
+  const currentSections = useRef(sections)
+  useLayoutEffect(() => { currentSections.current = sections }, [sections])
   const groups = sections.map((section) => {
     const { group, items, tiles, atRest } = section
     if (!expanded[group.kind]) return { ...section, shown: atRest, tiles: group.kind === 'needs' ? atRest : [] }
@@ -218,44 +243,58 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   }
 
   function clearSelection() {
-    selectionVersion.current += 1
-    if (selected !== null && ownsSelection(selected, sid)) setFocusSubject(null)
+    navigation.current = null
+    if (selected !== null && panelSelection(selected, sid) !== null) setFocusSubject(null)
     setSelected(null)
   }
 
   async function select(item: CheckItem) {
-    const version = ++selectionVersion.current
+    const card = item.cards.length === 1 ? item.cards[0] : undefined
+    const token = card === undefined ? null : { key: item.key, card }
+    navigation.current = token
     setSelected(item.key)
     setFocusSubject({ kind: 'gap', id: item.key, cards: item.cards, source: 'panel' })
-    if (item.cards.length !== 1) return
-    const id = item.cards[0]!
-    const reach = recordReach(id)
-    if (reach === 'show') {
-      await showRecord(id)
-      if (version === selectionVersion.current && ownsSelection(item.key, sid) && recordReach(id) === 'card') focusNodeById(id)
+    if (token === null) return
+
+    const isCurrent = () => {
+      const { subject } = useStoredFocusSubject.getState()
+      return navigation.current === token && subject !== null && subject.sid === sid && sid === useViewStore.getState().sid
+        && (subject.source === 'canvas' ? subject.id === token.card : subject.kind === 'gap' && subject.id === token.key)
     }
-    if (reach === 'card') focusNodeById(id)
+    if (!isCurrent()) return
+    let reach = recordReach(token.card)
+    if (reach === 'show') {
+      if (!isCurrent()) return
+      // showRecord's unfold cannot be cancelled once it starts. The token guards the subsequent focus.
+      await showRecord(token.card)
+      if (!isCurrent()) return
+      reach = recordReach(token.card)
+    }
+    if (reach === 'card' && isCurrent()) focusNodeById(token.card)
   }
 
   useLayoutEffect(() => () => {
-    if (selected !== null && ownsSelection(selected, sid)) setFocusSubject(null)
+    if (selected !== null && panelSelection(selected, sid) !== null) setFocusSubject(null)
   }, [selected, sid])
 
   useLayoutEffect(() => {
-    if (selected !== null && active === undefined) clearSelection()
+    if (selected === null) return
+    const panel = panelSelection(selected, sid)
+    if (active === undefined || (panel !== null && (active.cards.length !== panel.cards.length
+      || active.cards.some((card, index) => card !== panel.cards[index])))) clearSelection()
   })
 
   useLayoutEffect(() => {
-    if (subject?.source !== 'canvas' || subject.sid !== sid) return
-    selectionVersion.current += 1
-    for (const { group, items } of sections) {
-      const item = items.find((candidate) => candidate.cards.includes(subject.id))
+    if (canvasKind === undefined || canvasId === undefined) return
+    for (const { group, items } of currentSections.current) {
+      const item = items.find((candidate) => candidate.cards.includes(canvasId))
       if (item === undefined) continue
+      if (navigation.current?.key !== item.key) navigation.current = null
       setSelected(item.key)
       setExpanded((current) => current[group.kind] ? current : { ...current, [group.kind]: true })
       return
     }
-  }, [sections, sid, subject])
+  }, [canvasKind, canvasId, canvasRevision])
 
   useLayoutEffect(() => {
     if (request === null || request.sid !== sid || request.key === 'commitment' || useReasoningFocus.getState().request !== request) return

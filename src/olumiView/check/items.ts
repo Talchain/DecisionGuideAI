@@ -33,6 +33,7 @@ export type CheckItem = {
   short: string
   at: string
   long: Words[]
+  value?: Words
   cards: string[]
   action: Action
 }
@@ -146,7 +147,8 @@ export function checkItemsOf(model: ViewModel, view: View | null): CheckGroup[] 
         return {
           key: `f:${a}:${figure.id}`, kind: 'find', icon: 'worth-checking',
           short: figure.label, at: `${path}.label`, cards: [figure.id],
-          long: [...wordsAt(figure.line, `${path}.line`), ...wordsAt(figure.estimate_text, `${path}.estimate_text`)],
+          long: wordsAt(figure.line, `${path}.line`),
+          value: wordsAt(figure.estimate_text, `${path}.estimate_text`)[0],
           action: figure.give == null ? NONE : { kind: 'edit', id: figure.id, edit: figure.give.edit, label: figure.label },
         }
       }),

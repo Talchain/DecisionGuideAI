@@ -242,6 +242,34 @@ describe('challenge your thinking', () => {
     expect(body.querySelectorAll('[data-view="run.lead"], [data-view="run.most_likely.text"], [data-testid="analysis-chance-chart"]')).toHaveLength(0)
     for (const t of ['view-reasoning-glance', 'view-reasoning-rack', 'view-reasoning-people', 'view-reasoning-commitment', 'view-reasoning-outcomes']) expect(screen.queryByTestId(t), t).toBeNull()
   })
+
+  it('Check omits finite chance values while allowing a held value at its Core path', () => {
+    const view = read('bakery.view.json')
+    const chances = view.model!.cards.flatMap((card) => card.rows.flatMap((value, index) =>
+      value.kind === 'chance' && Number.isFinite(value.chance) ? [{ card, value, index, at: `${card.id}.rows.${index}.value` }] : []))
+    const held = chances.find(({ card, value }) => card.family === 'option' && card.status === null && value.value !== '')!
+    const finitePaths = new Set(chances.filter((chance) => chance !== held).map(({ at }) => at))
+    expect(finitePaths.size).toBeGreaterThan(0)
+    held.value.chance = null
+    held.value.value = 'Core held value'
+    ready(view)
+    render(<ViewReasoningBlock />)
+    const check = screen.getByTestId('check-list')
+    const assertNoFiniteValues = () => {
+      const bound = [...check.querySelectorAll<HTMLElement>('[data-view]')].map((element) => element.dataset.view!)
+      expect(bound.filter((at) => finitePaths.has(at))).toEqual([])
+    }
+    assertNoFiniteValues()
+    for (const toggle of check.querySelectorAll('[data-check-more]')) fireEvent.click(toggle)
+    for (const row of check.querySelectorAll('[data-check-item]')) {
+      fireEvent.click(row)
+      assertNoFiniteValues()
+      if (row.getAttribute('data-check-item') === `held:${held.card.id}.${held.index}`) {
+        expect(check.querySelector(`[data-view="${held.at}"]`)?.textContent).toBe(held.value.value)
+      }
+    }
+    expect(check.querySelector(`[data-check-item="held:${held.card.id}.${held.index}"]`)).toBeInTheDocument()
+  })
 })
 
 describe('towards commitment: where views differ, what is still disputed, what is recorded in full, and one press into the ONE form', () => {
