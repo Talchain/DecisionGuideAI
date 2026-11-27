@@ -3,7 +3,7 @@
  * (its Olumi corner and driver badge) and carries v10's rulings attribute while it is up. The dock and the attention card are left out
  * (they are not v10's and need the whole app), so this binds the canvas's own wiring, not what lives beside it.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, fireEvent, render } from '@testing-library/react'
@@ -23,13 +23,22 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('../../canvas/nodes/shared/savedGraph', () => ({ useSavedGraphRead: () => ({ status: 'none' }), useSavedGraph: () => null }))
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
-afterEach(() => { useCanvasStore.setState({ nodes: [], edges: [] }) })
+beforeEach(() => { vi.stubGlobal('DOMMatrixReadOnly', class { m22 = 1 }) })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  useCanvasStore.setState({ nodes: [], edges: [] })
+  useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' })
+})
 
 describe('the mounted core-lane canvas', () => {
   it('draws every View card on the previous card frame with core\'s body, the driver badge where core gives one, and carries v10\'s rulings while it is up', async () => {
-    const model = currentModel({ view: golden('bakery'), error: null, stale: false })!
+    const view = golden('bakery')
+    const model = currentModel({ view, error: null, stale: false })!
     const places = await causalPlaces(model, new Map())
-    act(() => { drawViewCanvas(model, places) })
+    act(() => {
+      useViewStore.setState({ uuid: 'u', sid: view.id, view, status: 'ready' })
+      drawViewCanvas(model, places)
+    })
     const { container, unmount } = render(<div style={{ width: 1440, height: 900 }}><ViewCanvas /></div>)
     await act(async () => { await new Promise((r) => setTimeout(r, 50)) })
     expect(document.documentElement.dataset['presentation']).toBe('v10')

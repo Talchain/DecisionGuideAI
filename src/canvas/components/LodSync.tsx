@@ -16,7 +16,7 @@
  * (`quiet` and `full` behave identically), and `BaseNode.lodQuietIsNoOp.spec.tsx`
  * measures it rather than asserting it.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type MutableRefObject } from 'react'
 import { useStore } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { LABEL_LEGIBLE_ZOOM, labelsRenderedAtZoom, resolveLodRung } from '../utils/zoomLegibility'
@@ -68,14 +68,21 @@ export function isLodZoom(zoom: number): boolean {
  * camera resting on the boundary produces a genuine alternating sequence, and
  * a skip-if-same cannot suppress an alternation — only a repeat.
  */
-export function LodSync() {
-  const previousRef = useRef<LodRung | undefined>(undefined)
-  const rung = useStore((s) => resolveLodRung(s.transform[2], previousRef.current))
+export type LodFrame = {
+  previous: LodRung | undefined
+  probe: LodRung | null
+}
+
+export function LodSync({ frame }: { frame?: MutableRefObject<LodFrame> } = {}) {
+  const own = useRef<LodFrame>({ previous: undefined, probe: null })
+  const lod = frame ?? own
+  const rung = useStore((s) => lod.current.probe ?? resolveLodRung(s.transform[2], lod.current.previous))
   useEffect(() => {
-    previousRef.current = rung
+    const actual = lod.current.probe ?? rung
+    lod.current.previous = actual
     const { setLodRung } = useCanvasStore.getState()
-    if (typeof setLodRung === 'function') setLodRung(rung)
-  }, [rung])
+    if (typeof setLodRung === 'function') setLodRung(actual)
+  }, [lod, rung])
   const anchorRailFitsBeside = useStore((s) => anchorRailFitsBesideAtZoom(s.transform[2]))
   useEffect(() => { setAnchorRailFitsBeside(anchorRailFitsBeside) }, [anchorRailFitsBeside])
   return null

@@ -4,20 +4,26 @@
  * columns). Drawn whenever a View lands (`useViewCanvas`), including the first approved model and every approval after it (00052 #1).
  * A card already on the canvas keeps where the person put it. Nothing else writes the core lane's canvas.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useStoreApi, type Node } from '@xyflow/react'
 import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION, QUESTION_LAYOUT_HEIGHT } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
-import { computeFitPadding } from '../canvas/utils/computeFitPadding'
+import {
+  DOCK_SELECTOR, KEY_PILL_SELECTOR, LENS_BAR_SELECTOR, OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR, computeFitPadding,
+} from '../canvas/utils/computeFitPadding'
+import { frameTop } from './regions'
+import { FOOT_GUTTER } from './footClear'
+import { selectLodBodyHidden } from '../canvas/utils/zoomLegibility'
 import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { revealOf } from './reveal'
 import { pulseWhenOnCanvas } from '../olumiCore/pulseArrivals'
-import { foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/bands/BandNodes'
+import { FOLD_H, IDEA_H, foldHeadingOf, VIEW_FOLD, VIEW_IDEA, type FoldCardData } from './v12/bands/BandNodes'
 import { groupLinkTitle } from './v12/bands/GroupLinkEdge'
 import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
@@ -73,6 +79,16 @@ const sits = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y
 /** The last causal layout, keyed by what it rests on (the cards, their links and their drawn heights), and how many are being laid out. */
 let causal: { key: string; places: Map<string, Placed> } | null = null
 let laying = 0
+let externalLayoutVersion = 0
+function queueLayout(): () => void {
+  laying += 1
+  let pending = true
+  return () => {
+    if (!pending) return
+    pending = false
+    laying -= 1
+  }
+}
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
 const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
@@ -123,14 +139,9 @@ async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): P
   row = opts.row
   const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
   if (causal?.key === key) return causal.places
-  laying += 1
-  try {
-    const places = await causalPlaces(model, size, opts)
-    causal = { key, places }
-    return places
-  } finally {
-    laying -= 1
-  }
+  const places = await causalPlaces(model, size, opts)
+  causal = { key, places }
+  return places
 }
 
 /**
@@ -203,8 +214,14 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
 export async function layViewCanvas(core: ViewModel): Promise<boolean> {
-  const { model, extras, links } = boardOf(core)
-  return drawViewCanvas(model, await causalFor(model, extras), extras, links)
+  externalLayoutVersion += 1
+  const finish = queueLayout()
+  try {
+    const { model, extras, links } = boardOf(core)
+    return drawViewCanvas(model, await causalFor(model, extras), extras, links)
+  } finally {
+    finish()
+  }
 }
 
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
@@ -291,26 +308,37 @@ let drew: { sid: string | null; n: number | null; model: ViewModel } | null = nu
  * (Codex 006: after a resize from about 2000 to 1280 wide, Fit left "2 more cards to the right", since the bands were still the wide room's
  * and Simple never zooms below its readable floor). Only a change in the row budget (layout.ts simpleStageRow, in steps of 48) lays the board out again; a few pixels move nothing.
  */
-export function useSimpleBudgetKey(on: boolean, simple: boolean): string {
-  // The type scale is fixed per board from the zoom its width fits across the room at (layout.ts simpleScaleOf), so once the budget has stopped growing (it is
-  // production's own, 1656, from a room of about 930 px) the room still matters: it is kept in steps of 96 px, so a board laid out for a smaller room is laid out again.
-  const cols = () => { if (!simple) return ''; const r = simpleStageRow(roomOf().w); return r.budget >= ROW_BUDGET_W ? `${r.budget}:${Math.floor(r.roomW / 96)}` : String(r.budget) }
-  const [n, setN] = useState(cols)
+function simpleBudgetKey(simple: boolean): string {
+  if (!simple) return ''
+  const stage = simpleStageRow(roomOf().w)
+  // At the width cap, the room still sets the type scale in steps of 96 px.
+  return stage.budget >= ROW_BUDGET_W ? `${stage.budget}:${Math.floor(stage.roomW / 96)}` : String(stage.budget)
+}
+
+function useSimpleBudgetKey(on: boolean, simple: boolean) {
+  const [n, setN] = useState(() => simpleBudgetKey(simple))
   useEffect(() => {
     if (!on) return undefined
-    const again = () => setN(cols())
+    const again = () => setN(simpleBudgetKey(simple))
     again()
     const pane = typeof document === 'undefined' ? null : document.querySelector('.react-flow')
     const watch = pane !== null && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(again) : null
     if (watch !== null && pane !== null) watch.observe(pane)
+    const dock = document.querySelector(DOCK_SELECTOR)
+    if (dock !== null) watch?.observe(dock)
     window.addEventListener('resize', again)
     return () => { watch?.disconnect(); window.removeEventListener('resize', again) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [on, simple])
-  return n
+  return [n, setN] as const
 }
 
-export function useViewCanvas(on: boolean): void {
+type LayoutInputs = readonly [
+  view: View | null, sid: string | null, open: Readonly<Record<string, boolean>>,
+  heights: string, settings: string, columns: string, retry: number, far: boolean,
+]
+
+export function useViewCanvas(on: boolean, begin?: (inputs: LayoutInputs, updateBudget: (key: string) => void) => () => void): void {
   const view = useViewStore((s) => s.view)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
@@ -327,12 +355,25 @@ export function useViewCanvas(on: boolean): void {
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
-  const cols = useSimpleBudgetKey(on, level === 'simple' || ideasOnly.length > 0)
+  const [cols, updateBudget] = useSimpleBudgetKey(on, level === 'simple' || ideasOnly.length > 0)
   const retry = useFirstDraw((s) => s.retry)
-  useEffect(() => {
+  const far = useCanvasStore((s) => level === 'simple' && selectLodBodyHidden(s))
+  useLayoutEffect(() => {
     if (!on) return
     // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    if (view === null || model === null) { firstDraw('idle'); if (ideasOnly.length > 0) layIdeasOnly(ideasOnly); else withdrawViewCanvas(); return }
+    const finish = queueLayout()
+    const commit = begin?.([view, sidNow, open, heights, laidAs, cols, retry, far], updateBudget)
+    if (view === null || model === null) {
+      try {
+        firstDraw('idle')
+        if (ideasOnly.length > 0) layIdeasOnly(ideasOnly)
+        else withdrawViewCanvas()
+        commit?.()
+      } finally {
+        finish()
+      }
+      return
+    }
     const before = useCanvasStore.getState().nodes
     const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
     // An empty canvas waiting for its first layout says so (DraftingBoard.tsx LayingBoard); a board already drawn keeps its cards meanwhile.
@@ -344,6 +385,7 @@ export function useViewCanvas(on: boolean): void {
       const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
       drew = { sid, n, model }
       const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [])
+      commit?.()
       firstDraw('idle')
       if (!changed || had === null) return
       const arrived: string[] = []
@@ -359,7 +401,139 @@ export function useViewCanvas(on: boolean): void {
       if (!live) return
       console.error('[olumiView] causal layout failed', e)
       if (had === null) firstDraw('failed')
+    }).finally(finish)
+    return () => { live = false; finish() }
+  }, [on, begin, view, sidNow, open, model, board, ideasOnly, heights, laidAs, cols, retry, far, updateBudget])
+}
+
+export type LayoutSettled = Readonly<{
+  version: number
+  far: boolean
+  nodes: readonly Node[]
+  pane: Readonly<{ width: number; height: number }>
+  insets: Readonly<ReturnType<typeof paddingToInsets>>
+}>
+
+function frameInsetsOf(pane: HTMLElement | null) {
+  const raw = paddingToInsets(computeFitPadding(pane))
+  return { ...raw, top: frameTop(raw.top), bottom: Math.max(raw.bottom, FOOT_GUTTER) }
+}
+
+function unmeasuredSize(node: Node) {
+  const { width, card } = node.data as { width?: number; card?: { h: number } }
+  const height = node.type === VIEW_QUESTION ? QUESTION_LAYOUT_HEIGHT
+    : node.type === VIEW_FOLD ? FOLD_H : node.type === VIEW_IDEA ? IDEA_H : card?.h
+  return width && height ? { width, height } : null
+}
+
+/** The mounted flow owns the snapshot. Mounted, measured nodes must agree with the
+ * committed layout. A node outside the pane can use the layout's size until it is measurable. */
+export function useLayoutSettled(on: boolean) {
+  const flow = useStoreApi()
+  const layout = useMemo(() => {
+    let version = 0, geometry = '', settled: LayoutSettled | null = null
+    let committed: { inputs: LayoutInputs; updateBudget: (key: string) => void } | null = null
+    const invalidate = () => { version += 1; settled = null }
+    const begin = (inputs: LayoutInputs, updateBudget: (key: string) => void) => {
+      committed = null
+      invalidate()
+      return () => { committed = { inputs, updateBudget } }
+    }
+    const read = (): LayoutSettled | null => {
+      const { domNode, nodeLookup, panZoom, width, height, transform, updateNodeInternals } = flow.getState()
+      if (committed === null || viewLaying() || !domNode || !panZoom || width <= 0 || height <= 0) return null
+      const state = useCanvasStore.getState()
+      const { view, sid } = useViewStore.getState()
+      const { direction, nodeSpacing } = useLayoutStore.getState()
+      const level = levelOf(sid)
+      const simple = level === 'simple'
+      const far = selectLodBodyHidden(state)
+      const columns = simpleBudgetKey(simple || ideasOnlyOf(view, sid).length > 0)
+      // Chrome can move without any observed element resizing. Schedule the layout
+      // at the room we just read so the same request can follow its next commit.
+      if (columns !== committed.inputs[5]) {
+        committed.updateBudget(columns)
+        return null
+      }
+      const current: LayoutInputs = [
+        view, sid, useInputsOpen.getState().open, drawnHeightsKey(state.nodes), `${direction}:${nodeSpacing}:${level}`,
+        columns, useFirstDraw.getState().retry, simple && far,
+      ]
+      if (!committed.inputs.every((input, i) => input === current[i])) return null
+      const nodes = state.nodes.filter(isViewNode)
+      if (nodes.length === 0 || nodes.some((n) => n.dragging)) return null
+      const insets = frameInsetsOf(domNode)
+      const elements = new Map(Array.from(domNode.querySelectorAll<HTMLElement>('.react-flow__node[data-id]'), (el) => [el.dataset.id, el]))
+      if (elements.size > nodes.length) return null
+      const boxes: Node[] = []
+      const [x, y, zoom] = transform
+      for (const node of nodes) {
+        const drawn = nodeLookup.get(node.id), el = elements.get(node.id)
+        const position = drawn?.internals.positionAbsolute
+        if (!position || !at(position, node.position)) return null
+        let size = drawn?.measured
+        if (!el || !size?.width || !size.height) {
+          const planned = unmeasuredSize(node)
+          if (planned === null || sits({
+            x: x + position.x * zoom, y: y + position.y * zoom,
+            w: planned.width * zoom, h: planned.height * zoom,
+          }, { x: 0, y: 0, w: width, h: height })) return null
+          if (el && el.offsetWidth && el.offsetHeight) {
+            // Its DOM box exists, so have React Flow adopt it and relayout with the actual height.
+            updateNodeInternals(new Map([[node.id, { id: node.id, nodeElement: el, force: true }]]), { triggerFitView: false })
+            return null
+          }
+          size = planned
+        } else if (size.width !== node.measured?.width || size.height !== node.measured?.height ||
+                   size.width !== el.offsetWidth || size.height !== el.offsetHeight) {
+          if (settled !== null) invalidate()
+          return null
+        }
+        boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { ...size } })
+      }
+      const key = JSON.stringify([externalLayoutVersion, far, width, height, insets,
+        boxes.map((n) => [n.id, n.position, n.measured])])
+      if (key !== geometry) {
+        geometry = key
+        invalidate()
+      }
+      return settled ??= { version, far, nodes: boxes, pane: { width, height }, insets }
+    }
+
+    const wait = (signal: AbortSignal): Promise<LayoutSettled | null> => new Promise((resolve) => {
+      if (signal.aborted) { resolve(null); return }
+      let frame = 0
+      const stop = () => finish(null)
+      const finish = (snapshot: LayoutSettled | null) => {
+        cancelAnimationFrame(frame)
+        signal.removeEventListener('abort', stop)
+        resolve(snapshot)
+      }
+      const tick = () => {
+        const snapshot = read()
+        if (snapshot !== null) finish(snapshot)
+        else frame = requestAnimationFrame(tick)
+      }
+      signal.addEventListener('abort', stop, { once: true })
+      frame = requestAnimationFrame(tick)
     })
-    return () => { live = false }
-  }, [on, view, model, board, ideasOnly, heights, laidAs, cols, retry])
+
+    return { begin, read, wait }
+  }, [flow])
+  useViewCanvas(on, layout.begin)
+
+  // A floating dock can resize without changing React Flow's width.
+  const hasBoard = useViewStore((s) => s.view !== null)
+  const [insetKey, setInsetKey] = useState('')
+  useEffect(() => {
+    if (!on) return
+    const changed = () => setInsetKey(JSON.stringify(frameInsetsOf(flow.getState().domNode)))
+    changed()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(changed)
+    const selectors = [DOCK_SELECTOR, KEY_PILL_SELECTOR, LENS_BAR_SELECTOR, OVERLAY_BAND_SELECTOR, SIDEBAR_SELECTOR, TOP_BAR_SELECTOR]
+    for (const el of document.querySelectorAll(selectors.join(','))) observer.observe(el)
+    return () => observer.disconnect()
+  }, [flow, hasBoard, on])
+  return { layout, insetKey }
 }
