@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { useCanvasStore } from '../../../../canvas/store'
 import { CoreCompareTab } from '../../../../olumiCore/compare'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
@@ -14,6 +14,8 @@ import { optionLetters } from '../../cards/letters'
 import { optionPathOf } from '../../lenses/layers'
 import { COMPARE_OPTIONS_CHROME as CHROME, CompareOptions } from '../CompareOptions'
 import { useCompareSelection } from '../compareSelection'
+import { installCanvasFocus } from '../../../focus/canvas'
+import { useStoredFocusSubject } from '../../../focus/state'
 
 vi.mock('../../../reasoning/tabRing', () => ({ ringFrom: vi.fn(), pressCard: vi.fn() }))
 
@@ -73,6 +75,10 @@ describe('Compare options', () => {
   })
 
   it('retargets the second row from an outside canvas option and leaves focus in the tool', () => {
+    // The canvas mounts the shared focus subject in the app (ViewCanvas); this spec mounts it the same way.
+    useStoredFocusSubject.setState({ subject: null })
+    const uninstallFocus = installCanvasFocus()
+    onTestFinished(uninstallFocus)
     const previous = useCanvasStore.getState().selection
     // The focus subject (lane B's signature) belongs to the open scenario and its shown model.
     useViewStore.setState({ sid: studio.id, view: studio, at: null, stale: false, error: null })

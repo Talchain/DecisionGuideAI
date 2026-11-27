@@ -5,11 +5,8 @@
  * The tab's state is read from the options' ROWS (design, 18 Nov), never from run fields: a qualitative Run still carries `all_withheld:
  * false`, a `sensitivity` sentence and a `waits_on.head` about the chance, so a run field cannot say whether any option has a chance.
  */
-import type { View, ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
+import type { ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
 import { optionCards, worthLinesOf } from '../model/selectors'
-import { cardKindOf } from '../v12/cards/kind'
-import { linkRole } from '../v12/contract'
-import { cardOfRecord } from '../v12/lenses/layers'
 
 export { trackPct } from '../resultRange'
 
@@ -148,38 +145,6 @@ export function limitGroupsOf(model: ViewModel): { aimId: string; aim: { text: s
   return out
 }
 
-/** Figures Core names in result bases or needs, or links into a calculation or aim. */
-export function resultFigureCardsOf(model: ViewModel, view: View): ViewCard[] {
-  // A figure no one has sized yet, which Core lets the person give (typed: an edit with empty words), is named too.
-  const named = new Set(model.cards.filter((c) => c.figure != null && c.figure.edit != null && c.figure.text === '').map((c) => c.id))
-  const addRecord = (id: string) => {
-    const card = cardOfRecord(model, id)
-    if (card !== undefined) named.add(card.id)
-  }
-  for (const card of model.cards) {
-    for (const row of card.rows) {
-      if (row.kind !== 'chance' || row.rests_on == null) continue
-      const { estimates, approx, what_ifs } = row.rests_on
-      for (const id of [...estimates, ...approx, ...what_ifs]) addRecord(id)
-    }
-  }
-  for (const rest of model.run?.rests ?? []) {
-    for (const figure of rest.figures ?? []) addRecord(figure.id)
-  }
-  const inputs = new Set<string>()
-  for (const link of model.links) {
-    const role = linkRole(link)
-    if (role === 'input' || role === 'size' || role === 'measures' || role === 'target') {
-      inputs.add(link.from)
-    } else if (role === 'effect') {
-      const target = cardOf(model, link.to)
-      if (target !== null && cardKindOf(target, model, view).shape === 'calculated') inputs.add(link.from)
-    }
-  }
-  return model.cards.filter((card) =>
-    (named.has(card.id) || (card.family === 'quantity' && inputs.has(card.id))) &&
-    cardKindOf(card, model, view).shape !== 'calculated')
-}
 
 /**
  * Core's ranking of what to find out first, per aim, with any line or figure; its worth lines the ranking does not already name (one home);

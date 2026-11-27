@@ -15,6 +15,13 @@ import bakery from '../../__tests__/fixtures/issue7-e499eff6-bakery-asked.view3.
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { StressTest, StressTestTab, STRESS_STEPS, STRESS_WORDS } from '../StressTest'
 import { useStressTrials } from '../stressTrials'
+import { installCanvasFocus } from '../../../focus/canvas'
+import { useStoredFocusSubject } from '../../../focus/state'
+
+// The canvas mounts the shared focus subject in the app (ViewCanvas); these specs mount it the same way.
+let uninstallFocus: () => void = () => {}
+beforeEach(() => { useStoredFocusSubject.setState({ subject: null }); uninstallFocus = installCanvasFocus() })
+afterEach(() => { uninstallFocus() })
 
 vi.mock('../../../reasoning/tabRing', () => ({ pressCard: vi.fn(), ringFrom: vi.fn() }))
 vi.mock('../../../../olumiCore/team/api', async (original) => ({

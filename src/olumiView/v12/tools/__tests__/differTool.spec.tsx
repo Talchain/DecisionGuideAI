@@ -19,6 +19,13 @@ import revealedView from '../../../fixtures/debate/tm04-cara.view3.json'
 import { useViewStore } from '../../../store'
 import { DIFFER_TOOL_WORDS, DifferTool } from '../DifferTool'
 import { useDifferSelection } from '../differSelection'
+import { installCanvasFocus } from '../../../focus/canvas'
+import { useStoredFocusSubject } from '../../../focus/state'
+
+// The canvas mounts the shared focus subject in the app (ViewCanvas); these specs mount it the same way.
+let uninstallFocus: () => void = () => {}
+beforeEach(() => { useStoredFocusSubject.setState({ subject: null }); uninstallFocus = installCanvasFocus() })
+afterEach(() => { uninstallFocus() })
 
 const view = revealedView as unknown as View
 const core = coreResponse as Differences
