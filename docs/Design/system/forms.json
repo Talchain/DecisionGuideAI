@@ -47,8 +47,8 @@
     },
     {
       "id": "CH-differ",
-      "component": null,
-      "status": "planned"
+      "component": "src/olumiView/v12/scale/DifferAxis.tsx",
+      "status": "built; flip point waits on Core"
     },
     {
       "id": "CH-worth",
@@ -85,7 +85,9 @@
     "src/olumiView/v12/scale/ChanceDots.tsx",
     "src/olumiView/v12/scale/RangeBar.tsx",
     "src/olumiView/v12/scale/TipPoint.tsx",
+    "src/olumiView/v12/scale/DifferAxis.tsx",
     "src/olumiView/v12/tools/CompareOptions.tsx",
+    "src/olumiView/v12/tools/DifferTool.tsx",
     "src/olumiView/v12/tools/StressTest.tsx"
   ],
   "primitives": {
