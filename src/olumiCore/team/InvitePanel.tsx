@@ -4,20 +4,20 @@ import { teamApi, TeamApiError, type Invite } from './api'
 import { MAY_HAVE_SAVED, runWrite, useWriteLocked, useWriteSending } from './writes'
 import { BODY, ERR, FIELD, GO, LABEL, META } from './ui'
 import { useDraft } from './drafts'
-import { holdStep } from './flow'
 
 /** The invite form's name, as a draft: the header's "Named in the brief but not matched" notice fills it with the first name core lists. */
 export const inviteNameKey = (sid: string) => `${sid}:invite-name`
 
+export type MadeInvite = { name: string; link: string }
+
 /**
  * BRING A COLLEAGUE IN (core API v1.8, "joining by link"): any member makes a colleague their own private link, which signs them in as a
  * member of this scenario and opens it here (API v1.9: the link lands on this scenario's DGAI address while DGAI is served). Core gives
- * the link once, in its answer, and never again: it is shown here until the tab is left. The people this member invited are listed as core lists them, and the inviter may revoke a link.
+ * the link once. The parent holds it across menu closes until the tab is left. Core lists the people this member invited, and the inviter may revoke a link.
  */
-export function InvitePanel({ sid }: { sid: string }): JSX.Element {
+export function InvitePanel({ sid, made, onMade }: { sid: string; made: MadeInvite | null; onMade: (invite: MadeInvite) => void }): JSX.Element {
   // A draft, so a name put here from elsewhere (the header's "not matched" notice, DL 9 Nov) is the form's when it opens.
   const [name, setName] = useDraft(inviteNameKey(sid), '')
-  const [made, setMade] = useState<{ name: string; link: string } | null>(null)
   const [invites, setInvites] = useState<readonly Invite[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -30,9 +30,7 @@ export function InvitePanel({ sid }: { sid: string }): JSX.Element {
     setBusy(true); setError(null)
     try {
       const r = await runWrite(`${sid}:invite`, { op: false, anyVersion: true }, null, () => teamApi.invite(sid, name))
-      setMade({ name, link: new URL(r.link, window.location.origin).href })
-      // The link is shown only now: the step stays open over it when the View, read again, no longer counts the person alone.
-      holdStep(sid, 'invite')
+      onMade({ name, link: new URL(r.link, window.location.origin).href })
       setName('')
       await list()
     } catch (e) { setError(e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was saved.') } finally { setBusy(false) }

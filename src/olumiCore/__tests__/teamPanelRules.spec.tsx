@@ -83,7 +83,7 @@ describe('Team tab: hover is the one Tip, icons are the registry\'s', () => {
     const { container } = render(<TeamTab />)
     expect([...container.querySelectorAll('[title]')].map((e) => `${e.tagName.toLowerCase()}[${e.getAttribute('data-testid') ?? ''}]`)).toEqual([])
     const hover = screen.getByTestId('team-member-p_2').querySelector<HTMLElement>('[tabindex]')!
-    expect(await tipOnFocus(hover)).toBe('Their view is revealed')
+    expect(await tipOnFocus(hover)).toBe('Revealed')
   })
   it('a held "Add my view" is aria-disabled, stays a keyboard stop, and says why on real keyboard focus', async () => {
     render(<TeamTab />)
