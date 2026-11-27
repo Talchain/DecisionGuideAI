@@ -13,7 +13,7 @@ import { figureRange, isBaseline, limitLeadOf, withheldValues } from './contract
 import { cardKindOf, type CardKind } from './cards/kind'
 import { GoalMeasureLine, waitingMeasureQuestion } from './cards/GoalMeasureLine'
 import { optionLetters } from './cards/letters'
-import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, whoseOf } from './cards/marks'
+import { AuthorMark, BaselinePill, CardMarks, ChangeGlyph, ConditionTag, KindTag, LetterChip, LimitTag, OlumiAsksMark, OlumiMark, cardMarksOf, whoseOf } from './cards/marks'
 import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineOf, sharedNoChanceOf, tipsLineOf, unsizedWords, withheldCardIds } from './cards/words'
 import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
@@ -88,7 +88,7 @@ export type SimpleFaceProps = {
   readonly notedWords?: string | null
   /** The card's kind, where the caller has worked it out with the whole View (cards/kind.ts); else read from the model here. */
   readonly kind?: CardKind
-  /** The card's own controls that stay (the figure's edit, core's fold badge). */
+  /** The card's count and disagreement marks, plus the edit control in the older look. */
   readonly extra?: ReactNode
   /** The figure's range bar (v12/scale RangeBar), on a full-width row of its own above the foot: squeezed into the foot it was only as wide as
    *  its labels, which then ran together ("0 months5 months", Paul's 15:00Z test). */
@@ -302,6 +302,16 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
     onFocus: (e: Parameters<typeof ring.focus.onFocus>[0]) => { if (e.target === e.currentTarget) moreTip.handlers.onFocus(e); ring.focus.onFocus(e) },
     onBlur: (e: Parameters<typeof ring.focus.onBlur>[0]) => { moreTip.handlers.onBlur(); ring.focus.onBlur(e) },
   }
+  const baseline = card.family === 'option' && isBaseline(card)
+  const assumption = kind.shape === 'assumption'
+  const condition = card.family === 'condition'
+  const limitMark = kind.shape === 'aim' && cardKind(card, model).aim === 'limit'
+  const changed = card.change != null && card.change.kind !== 'added'
+  const whose = whoseOf(card)
+  const footAuthor = whose !== null && (!olumiLook || whose !== 'person')
+  const hasFoot = !olumiLook || baseline || assumption || condition || limitMark || changed || noted ||
+    footAuthor || extra != null || cardMarksOf(card).length > 0
+
   // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
   return (
     <>
@@ -317,21 +327,20 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
           {state.shape === undefined ? state.text : <FaceMark kind={state.shape} />}
         </Hover>
       )}
-      {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
-          question), then the count badges and the rest of `extra`, then whose it is LAST. */}
-      <div className={`ml-auto flex flex-none items-center ${stack}`} data-simple-foot={id}>
-        {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
-        {kind.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
-        {card.family === 'condition' ? <ConditionTag id={id} /> : null}
-        {kind.shape === 'aim' && cardKind(card, model).aim === 'limit' ? <LimitTag id={id} model={model} /> : null}
+      {/* State and count marks first, then authorship. The Olumi look moves person-only authorship to the corner. */}
+      {hasFoot ? <div className={`ml-auto flex flex-none items-center ${stack}`} data-simple-foot={id}>
+        {baseline ? <BaselinePill id={id} /> : null}
+        {assumption ? <KindTag id={id} model={model} /> : null}
+        {condition ? <ConditionTag id={id} /> : null}
+        {limitMark ? <LimitTag id={id} model={model} /> : null}
         {/* The card's state marks, capped (cards/marks.tsx): an option's corner driver badge takes one of the three places. */}
         <CardMarks card={card} taken={card.driver != null ? 1 : 0} />
         {/* An added card's "+" repeats its proposed frame: shown only for a change the frame does not say (16 Nov, Paul: less noise). */}
-        {card.change == null || card.change.kind === 'added' ? null : <ChangeGlyph card={card} />}
+        {changed ? <ChangeGlyph card={card} /> : null}
         {noted ? <OlumiAsksMark id={id} words={notedWords} /> : null}
         {extra}
-        <AuthorGlyph card={card} />
-      </div>
+        {footAuthor ? <AuthorGlyph card={card} /> : null}
+      </div> : null}
       {below == null ? null : <div className="min-w-0 basis-full" data-simple-below={id}>{below}</div>}
     </div>
     {moreTip.tip}

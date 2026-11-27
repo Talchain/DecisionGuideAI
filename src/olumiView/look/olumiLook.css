@@ -37,13 +37,57 @@
 .olumi-look .react-flow__node.selected [role='group'][aria-label] {
   box-shadow: 0 0 0 2px var(--focus-color, var(--text-light));
 }
-/* C1: a card's ACTION controls (add, edit, add-figure, fold) show on hover, keyboard focus and selection only. Information marks never carry
-   the attribute and stay visible. visibility, not opacity: nothing is dimmed at rest.
-   C7 (20 Nov): the figure's pencil (`data-card-edit-cue`, CoreCard editCue, only where the View carries an edit) is the exception: it is drawn at rest, so a
-   card that can be changed says so; the pinned-box rule below still hides it while the card's box is open. */
-.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *) { visibility: hidden; }
+/* C1: other card actions use visibility. The Detailed pencil keeps its C7 exception;
+   Simple's corner controls use opacity so Tab can reach them at rest. */
+.olumi-look .react-flow__node:not(:hover):not(:focus-within):not(.selected) [data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *, .ok-card-chrome *) { visibility: hidden; }
 /* One surface at a time (Paul, 19 Nov): while a card's pop-over is pinned (LaneInspector, `data-state='pinned'`), the selected card's own action rows (the figure's pen and the hover rail of ask / more / Olumi) are not drawn beside it. */
 body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) .olumi-look .react-flow__node.selected :is([data-card-action], [data-testid^='node-card-rail-']) { visibility: hidden; }
+
+.olumi-look .ok-card-frame:has(> .ok-card-chrome) {
+  --ok-chrome-control-size: calc(24px * var(--o-s));
+  --ok-chrome-mark-size: calc(12px * var(--o-s));
+  --ok-chrome-width: calc(var(--ok-chrome-control-size) + var(--ok-gap-tight) + var(--ok-chrome-mark-size));
+}
+.olumi-look .ok-card-frame:has(> .ok-card-chrome) > .ok-card-header-row > :first-child {
+  padding-inline-end: calc(var(--ok-chrome-width) + var(--ok-gap-tight));
+}
+.olumi-look .ok-card-chrome {
+  position: absolute;
+  inset-block-start: var(--ok-gap-inset);
+  inset-inline-end: var(--ok-gap-inset);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ok-gap-tight);
+  inline-size: var(--ok-chrome-width);
+  min-block-size: var(--ok-chrome-control-size);
+  opacity: 0;
+  pointer-events: none;
+}
+.olumi-look .react-flow__node:is(:hover, :focus-within, .selected) .ok-card-frame > .ok-card-chrome {
+  opacity: 1;
+  pointer-events: auto;
+}
+.olumi-look .ok-card-chrome button[data-card-action] {
+  min-inline-size: var(--ok-chrome-control-size);
+  min-block-size: var(--ok-chrome-control-size);
+  justify-content: center;
+}
+.olumi-look .ok-card-chrome .ok-am svg {
+  width: var(--ok-chrome-mark-size);
+  height: var(--ok-chrome-mark-size);
+}
+.olumi-look .ok-card-chrome [data-chrome-confirm] {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  width: max-content;
+  max-width: calc(var(--ok-frame-width) - 2 * var(--ok-gap-inset));
+  border: 1px solid var(--border-emphasis);
+  background: var(--bg-panel);
+  padding: var(--ok-gap-inset);
+}
 
 /* The title: 14 / 500, header ink. The kind marker is BaseNode's own (the real shape on the top edge, about 19 px); the option's letter is drawn further down. */
 .olumi-look .react-flow__node [data-testid='node-title'] {
@@ -420,7 +464,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-am-olumi { color: var(--info); }
 .olumi-look .ok-am-person { color: var(--text-light); }
 .olumi-look .ok-author { display: inline-flex; flex: none; align-items: center; gap: calc(var(--ok-gap-tight) / 2); margin-right: var(--ok-gap-tight); vertical-align: -0.15em; }
-.olumi-look [data-simple-foot] .ok-author { margin-right: 0; }
+.olumi-look [data-simple-foot] .ok-author, .olumi-look .ok-card-chrome .ok-author { margin-right: 0; }
 .olumi-look .ok-qual > .ok-am, .olumi-look .ok-simple-qual > .ok-am { margin-right: calc(var(--space-1) * 0.75 * var(--o-s)); }
 /* The qualifier under a Simple chance: core's words after the number, on their own line. */
 .olumi-look .ok-simple-qual { font-weight: 400; color: var(--text-light); }

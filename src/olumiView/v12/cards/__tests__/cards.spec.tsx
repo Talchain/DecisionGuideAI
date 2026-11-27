@@ -225,7 +225,8 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
         else expect(faceOf(root, 'members')).toHaveAttribute('data-ok-kind', 'outcome')
         if (level === 'simple') {
           expect(root.querySelector('[data-simple-card]')).toHaveClass('ok-card-gap-stack')
-          expect(root.querySelector('[data-simple-foot]')).toHaveClass('ml-auto', 'ok-card-gap-stack')
+          expect(root.querySelector('[data-simple-foot]')).toBeNull()
+          expect(root.querySelector('.ok-card-chrome [data-person-mark]')).not.toBeNull()
         }
         cleanup()
       }
@@ -904,13 +905,24 @@ describe('C5 a condition is neutral and has its own icon; orange only from core\
   })
 })
 
-describe('C7 the figure\'s pencil is drawn at rest where the View carries an edit', () => {
-  it('E1 a card whose figure carries an edit has the pencil hook; a card whose figure has none draws no pencil hook (an offer to hold one stays a hover action)', () => {
+describe('C7 the figure pencil follows the View edit contract', () => {
+  it.each([false, true])('E1 places the editable figure pencil in its Simple slot (Olumi look: %s)', (olumiLook) => {
+    const lane = vi.spyOn(coreLane, 'isOlumiCoreLane').mockReturnValue(olumiLook)
+    const slot = olumiLook ? '.ok-card-chrome' : '[data-simple-foot]'
     const editable = EU.model!.cards.find((c) => c.figure?.edit != null)
     expect(editable, 'precondition: the served View carries an edit on a figure').toBeDefined()
-    expect(draw(EU, editable!.id, 'simple').querySelector('[data-card-edit-cue]')).not.toBeNull(); cleanup()
-    const none = { ...editable!, figure: { ...editable!.figure!, edit: null } } as unknown as ViewCard
-    expect(draw(withCard(EU, none), none.id, 'simple').querySelector('[data-card-edit-cue]')).toBeNull()
+    try {
+      expect(draw(EU, editable!.id, 'simple').querySelector(`${slot} [data-card-edit-cue]`)).not.toBeNull()
+      cleanup()
+      const none = { ...editable!, figure: { ...editable!.figure!, edit: null } } as unknown as ViewCard
+      const root = draw(withCard(EU, none), none.id, 'simple')
+      expect(root.querySelector('[data-card-edit-cue]')).toBeNull()
+      expect(root.querySelector('.ok-card-chrome [data-figure-edit-wrap]') !== null).toBe(
+        olumiLook && root.querySelector('[data-figure-edit-wrap]') !== null,
+      )
+    } finally {
+      lane.mockRestore()
+    }
   })
 })
 

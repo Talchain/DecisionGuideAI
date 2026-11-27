@@ -141,11 +141,12 @@ function drawCard({ view, id, card }: CardCase) {
   return render(<ReactFlowProvider><CoreCard {...props} /></ReactFlowProvider>)
 }
 
-// Vitest disables stylesheets. The two data selectors mirror olumiLook.css's
-// resting visibility rules for card actions and the quick-action rail.
+// Vitest disables stylesheets. Mirror olumiLook.css's resting visibility rules
+// for card actions, Simple chrome and the quick-action rail.
 const excludedAtRest = [
   '[hidden]', '[aria-hidden="true"]', '.sr-only', '.hidden', '.invisible', '.opacity-0',
-  '[data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *)', '[data-testid^="node-card-rail-"]',
+  '[data-card-action]:not([data-card-edit-cue], [data-card-edit-cue] *, .ok-card-chrome *)',
+  '.ok-card-chrome', '[data-testid^="node-card-rail-"]',
 ].join(', ')
 
 // With stylesheets disabled, the computed display covers native elements and

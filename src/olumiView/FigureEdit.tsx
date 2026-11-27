@@ -33,7 +33,7 @@ import { useAnchoredTip } from './look/Tip'
 /** On a card the control keeps its place but shows only on hover, focus or selection, so a card is not a column of links (lane C). Hidden by
  *  visibility, never dimmed: nothing is drawn at a lowered opacity at rest (V12 refinement spec). */
 export const QUIET = 'invisible group-hover:visible group-focus-within:visible focus-visible:visible'
-/** With `glyph` the pencil (ds/icons EditIcon) is the cue and always shows; the words show only on hover, focus or selection (Paul: no static repeating text). */
+/** With `glyph` the pencil (ds/icons EditIcon) is the cue. The words show on hover, focus or selection. */
 export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 
 /**
@@ -56,7 +56,7 @@ export const ASIDE_WORDS = {
   notShown: 'Set aside, but Olumi could not show the model just now. Reload the page to edit.',
 } as const
 
-export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure' }: { id: string; label?: string; place?: string }): JSX.Element | null {
+export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure', inChrome = false }: { id: string; label?: string; place?: string; inChrome?: boolean }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const at = useViewStore((s) => s.at)
@@ -64,9 +64,15 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restoreFocus, setRestoreFocus] = useState(false)
   const tip = useAnchoredTip(ASIDE_WORDS.offer)
   const p = view?.proposal ?? null
   if (p === null || view === null || sid === null || at !== null || p.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  const close = () => {
+    if (inChrome) setRestoreFocus(true)
+    setOpen(false)
+    setError(null)
+  }
   const aside = async () => {
     if (busy) return
     setBusy(true); setError(null)
@@ -84,21 +90,21 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     <>
       {/* Panel controls use 28px and card controls keep 24px to preserve card layout (UI lead, 24 Nov).
           Escape literal underscores because Tailwind reads a bare _ as a space. */}
-      <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
+      <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" autoFocus={restoreFocus} onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
         className={String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}><EditIcon /></button>
       {tip.tip}
     </>
   )
   return (
-    <div className="nodrag nopan grid gap-2" role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`}
-      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) { setOpen(false); setError(null) } }}>
+    <div className={`nodrag nopan grid ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`} role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`} data-chrome-confirm={inChrome ? '' : undefined}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) close() }}>
       <p className={typography.viewLabel}>{ASIDE_WORDS.first}</p>
       <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
-      <div className="flex gap-2">
+      <div className={`flex ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`}>
         <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
           className={isOlumiCoreLane() ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
-        <button type="button" disabled={busy} onClick={() => { setOpen(false); setError(null) }}
+        <button type="button" disabled={busy} onClick={close}
           className={String.raw`${typography.viewLabel} min-h-7 [.react-flow\_\_node_&]:min-h-6 cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </div>

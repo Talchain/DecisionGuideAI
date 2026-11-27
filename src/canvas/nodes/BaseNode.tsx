@@ -169,6 +169,8 @@ interface BaseNodeProps extends NodeProps {
   maxWidth?: number
   olumiLook?: boolean
   headerSlot?: ReactNode
+  /** An Olumi Simple face's corner controls, anchored to the frame. */
+  simpleChrome?: ReactNode
   /**
    * ⭐ GAP 11: this now renders FIRST IN THE CARD'S STATE ROW (under the title),
    * with the state pill — not in the corner stack, which holds only the
@@ -418,7 +420,7 @@ const LOD_BLANKED_BODY_STYLE: CSSProperties = {
   overflow: 'hidden',
 }
 
-const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, olumiLook = false, headerSlot, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMetricIsValue = false, lodWords, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
+const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, olumiLook = false, headerSlot, simpleChrome, cornerSlot, borderClassOverride, incompleteStatedOnCard = false, lodKeepLabel = false, lodMetric, lodMetricIsValue = false, lodWords, lodMark = null, optionChanceCell, railIcons, coaching = null, resultCaption = null, resultsFromLastRun = false, titleOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   // #2649 r3: read before any early return (rules of hooks); the anchor padding below consumes it.
   const anchorBandHasMarks = useBottomBandHasMarks()
@@ -2962,6 +2964,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           </CardTooltip></BottomCardMark>
         )}
       </div>
+
+      {olumiLook && !bodyReduced ? simpleChrome : null}
 
       {/* ⭐⭐ THE CARD'S STATE ROW (gap 11) — the worded state that used to sit in
           the corner stack ABOVE the card: "Needs input", "Not in this analysis",

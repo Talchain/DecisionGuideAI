@@ -23,7 +23,7 @@ Anything Paul has not judged is marked **open**, not decided.
 
 ## Card faces (FACE)
 
-At rest a card shows its **title**, its **value or a mark**, and **at most one short chip**. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").
+At rest a Simple card shows its **title**, its **value or a mark**, **at most one short chip**, and **Olumi's author mark** wherever Olumi contributed to the card. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").
 
 The chip's words and the choice between some marks need Core's typed `card.face.chip = { state, text, title } | null`. lead-poc accepted the contract on 26 Nov, and Core builds it after two root-cause fixes.
 - `text`: Core's short words, at most 20 characters.
@@ -125,7 +125,7 @@ Status: **built** for both `ci:guard:forms` and the face-text budget spec.
   - Scope: `src/olumiView`, `src/olumiCore` and `src/canvas`.
 - It **cannot** see visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim.
 - **`faceTextBudget.spec.tsx`** renders Simple cards at rest at the full level of detail and counts runs of letters or digits in their visible DOM text. It excludes hover-only text, `aria-hidden` subtrees and screen-reader-only text. It counts the title separately from the face. The fixture title allowance and the per-family, per-row face caps live in `src/olumiView/v12/__tests__/faceTextBudget.json`. Each cap must equal the highest measured fixture count. When that count falls, lower the corresponding JSON entry.
-- With stylesheets disabled under Vitest, the DOM walker skips subtrees hidden by `visibility: hidden`, `.invisible`, or the card-action and rail selectors that mirror `olumiLook.css`. Descendants that set `visibility: visible` are still skipped.
+- With stylesheets disabled under Vitest, the DOM walker skips hidden subtrees and mirrors the resting rules in `olumiLook.css` for card actions, the corner slot and the rail. Descendants that set `visibility: visible` are still skipped.
 - The spec measures option, quantity, aim (goal and limit), and question cards in these fixture Views at rest:
   - `src/olumiView/fixtures/cardface/studio.view3.json`
   - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json`

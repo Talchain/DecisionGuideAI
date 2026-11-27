@@ -41,9 +41,9 @@ import { StatedFigure } from '../StatedFigure'
 import { nodeColors } from '../../canvas/nodes/colors'
 import { isWorkedOut, WorkedSteps } from '../look/WorkedSteps'
 import { targetCardOf } from '../model/targets'
-import { FaceMark, SimpleFace, noResultWords, sharedResultWords, waitingFigureWords } from '../v12/SimpleFace'
+import { AuthorGlyph, FaceMark, SimpleFace, noResultWords, sharedResultWords, waitingFigureWords } from '../v12/SimpleFace'
 import { GoalMeasureLine, waitingMeasureQuestion } from '../v12/cards/GoalMeasureLine'
-import { CardDisputeMark, CardSplit, usePeopleOnCard } from '../../olumiCore/team/CardDispute'
+import { CardDisputeMark, CardSplit, useFigureDiffers, usePeopleOnCard } from '../../olumiCore/team/CardDispute'
 import { CommittedMark } from '../v12/team/CommittedMark'
 import { RestsOn } from '../v12/cards/RestsOn'
 import { notesOpenOn } from '../v12/qualitativeNotes'
@@ -242,6 +242,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const findingSurface = useFindingSurface()
   // After a reveal, each person's revealed figure for this card where the team's figures differ on it (the split, drawn under the face).
   const people = usePeopleOnCard(id)
+  const hasDispute = useFigureDiffers(id).length > 0
   // V12: Simple draws the card as visuals (v12/SimpleFace.tsx); Detailed draws today's full face. The note's card wears Olumi's badge.
   const simple = useLevel() === 'simple'
   const me = useMe((s) => s.me)
@@ -353,15 +354,20 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
     : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
-  // The figure's ✎ (R25): on the figure's own line, as the retired card drew it. A figure with no value yet (Olumi's question, not yet
-  // sized) has no line of its own, so the ✎ sits at the end of Olumi's author line; only where neither exists does it take a row (DL-183:
-  // "a stray pencil glyph on a row of its own").
+  const usesSimpleChrome = simple && olumiLook
+  // Detailed places the pencil with the figure or Olumi's author line when available.
   const editCue = card === null || card.figure === null ? null : edit !== null
     ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action="" data-card-edit-cue=""><FigureEdit id={id} edit={edit} glyph label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
     : card.change?.kind !== 'added' && kind !== 'outcome'
-      ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} /></span> : null
+      ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action=""><HeldEditOffer id={id} label={estimate ? 'Give yours' : 'Change figure'} inChrome={usesSimpleChrome} /></span> : null
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
+  const personMark = usesSimpleChrome && card !== null && whoseOf(card) === 'person' ? <AuthorGlyph card={card} /> : null
+  const simpleChrome = usesSimpleChrome && (editCue !== null || personMark !== null)
+    ? <div className="ok-card-chrome">{editCue}{personMark}</div> : null
+  const simpleFootExtra = usesSimpleChrome
+    ? (hasDispute || badgeLine !== null ? <>{hasDispute ? <CardDisputeMark card={id} /> : null}{badgeLine}</> : null)
+    : <><CardDisputeMark card={id} />{badgeLine}{editCue}</>
   // TWO MARKS, TOLD APART (C4, 20 Nov; Codex BLOCK): the RING is Olumi's alone and means "Olumi asks about this card": the step core puts beside it (`answer.next.at`),
   // named by core's label (`notedLabel`). The NUMBER is the question core ties to this card (`trial_questions[].id`), by its place in the panel's list. Different marks on
   // purpose, so a card where both apply wears both. Focus, selection and commitment keep their own marks.
@@ -530,7 +536,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
       } as CSSProperties}>
     <BaseNode {...props} data={data} olumiLook={olumiLook} maxWidth={hosted ? (id === QUESTION ? width : width ?? CARD_WIDTH) : undefined} nodeType={kind} icon={NODE_REGISTRY[kind].icon} incompleteStatedOnCard lodMetric={card === null ? null : farFace === null ? farChanceOf(card) ?? lead ?? (card.figure?.text || null) : farLineOf(card)} lodWords={farFace?.words} lodMetricIsValue={farFace?.isLimit} cornerSlot={(() => { const first = card !== null && card.driver != null ? <ViewDriverBadge card={card} /> : triedMark; return first === null && cornerMarks === null ? undefined : <>{first}{cornerMarks}</> })()}
       lodMark={farFace?.mark == null && farMark === null ? restsFar : <>{restsFar}{farFace?.mark}<Glyph at={`${id}.far.olumi`} mark={farMark} className={`${typography.viewLabel} ok-card-far-mark text-info shrink-0`} /></>}
-      titleOverride={titleOverride} borderClassOverride={frame}>
+      titleOverride={titleOverride} borderClassOverride={frame} simpleChrome={simpleChrome}>
       {card === null ? (simple
         // V12 Simple: the question as a slim pill with what core folded behind it (its notes, one line, pressed to open them on the canvas); its
         // date and the chance sentence are the panel's, the date also its hover.
@@ -548,7 +554,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {restsOn === null ? null : <Hover focusable={false} words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel ${olumiLook ? 'ok-card-badge-inset' : 'px-1'} tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Hover>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
-          {simple ? <SimpleFace card={card} model={model} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={<><CardDisputeMark card={id} />{badgeLine}{editCue}</>} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
+          {simple ? <SimpleFace card={card} model={model} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} scale={card.family === 'option' ? null : <RangeBar card={card} view={{ model }} />} extra={simpleFootExtra} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className={`nodrag grid min-w-0 flex-1 ${stack}`} data-card-try={id} data-simple-try={id}>
