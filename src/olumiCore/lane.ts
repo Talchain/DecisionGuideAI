@@ -61,7 +61,7 @@ export const CORE_LANE_USE_THE_CHAT = 'Tell Olumi in the chat what to change; it
 // legacy tab, which projects node shapes a View card does not carry (review 00002 #4).
 const CEE_ONLY_SURFACES: ReadonlySet<string> = new Set(['lenses'])
 /** The surfaces only this lane has: the team's panels (`team`), drawn from core's View. */
-const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team'])
+const LANE_ONLY_SURFACES: ReadonlySet<string> = new Set(['team', 'stress']) // stress: lane C (S4, 27 Nov)
 export function coreLaneShowsSurface(surfaceId: string): boolean {
   return isOlumiCoreLane() ? !CEE_ONLY_SURFACES.has(surfaceId) : !LANE_ONLY_SURFACES.has(surfaceId)
 }

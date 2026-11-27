@@ -218,6 +218,7 @@ import { TeamTab } from '../../olumiCore/team/TeamTab'
 import { BriefPanel, leaveBriefPanel, useBriefPanelShown } from '../../olumiView/BriefPanel'
 import { awaitsBriefOf } from '../../olumiView/ViewWelcome'
 import { CoreCompareTab } from '../../olumiCore/compare'
+import { StressTestTab } from '../../olumiView/v12/tools/StressTest' // lane C (S4, 27 Nov)
 import { shownModel, useViewStore } from '../../olumiView/store'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
@@ -4449,6 +4450,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
             )}
+            {/* Lane C (S4, 27 Nov): the Stress-test tool (TT-stress), olumi-core lane only (`laneOnly`). */}
+            {effectiveActiveTab === 'stress' && isOlumiCoreLane() && <StressTestTab />}
             {effectiveActiveTab === 'team' && (
               // The olumi-core lane only (`laneOnly` in the shell contract): the team's panels, read from and written to core.
               <TeamTab />

@@ -27,7 +27,7 @@ import { create } from 'zustand'
  * default. Retires when the comparison is decided — see
  * `components/results/analysisNew/AnalysisNewTabBody.tsx`.
  */
-export type OutputTab = 'results' | 'analysisNew' | 'compare' | 'diagnostics' | 'journey' | 'olumi' | 'team'
+export type OutputTab = 'results' | 'analysisNew' | 'compare' | 'diagnostics' | 'journey' | 'olumi' | 'team' | 'stress'
 
 /**
  * Right-panel modes. Only one right-side panel can be open at a time.

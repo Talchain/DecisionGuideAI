@@ -52,7 +52,7 @@ import {
   MessageCircleMore, PenLine, ScanEye, ShieldQuestion, Signpost, UsersRound,
   type LucideIcon,
 } from 'lucide-react'
-import { CheckCircle2, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
+import { CheckCircle2, Gauge, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
 import { HIT_44 } from '../../styles/hitArea'
 import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
@@ -251,6 +251,7 @@ export const ICONS = {
   zoom: e(ZoomIn, 'Zoom in for detail', '--text-body', 'icon-only', 'navigate', { alt: ZoomOut }),
   'tab-analysis': e(BarChart3, 'Analysis', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'tab-reasoning': e(Brain, 'Reasoning', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
+  'tab-stress': e(Gauge, 'Stress-test', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'tab-compare': e(GitCompareArrows, 'Compare', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'tab-model': e(Network, 'Model', '--text-light', 'icon-only', 'navigate', { hoverColour: '--text-header' }),
   'revealed-difference': e(GitFork, 'Where you differ', '--text-light', 'icon-only', 'state', { keepWords: "core's status_text for the difference is the hover and name where the mark is drawn (CardDispute.tsx)" }),
