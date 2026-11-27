@@ -619,7 +619,7 @@ export function ViewCanvas(): JSX.Element {
           <OptionChanceCellProvider>
             <CanvasOverlayBandProvider>
               <MaybeConversationProvider>
-                <div className="relative h-full w-full" data-testid="view-canvas-root">
+                <div className="ok-lane-palette relative h-full w-full" data-testid="view-canvas-root">
                   <ViewFlow />
                   {/* Strategy lane (7 Nov, by agreement with the V11 build): the Overview stands over the stage while the header's opener holds it open. */}
                   <StrategyOverviewStage>{(view, close) => <StrategyOverviewPage view={view} onClose={close} />}</StrategyOverviewStage>

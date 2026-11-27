@@ -9,10 +9,10 @@ its low, high, optional likely value and unit.
 
 One linear axis, zoomed to the values with a margin and labelled ends
 (`spanAxisOf`; never below 0 for non-negative figures), covers Core’s tested span and threshold plus the figure’s
-range when supplied. A solid 2px `text-header` marker extends just above the
-track, with the formatted value and unit below. A transparent region with
-a solid 1px `option` border runs from the marker to the end in Core’s tipping
-direction. The figure range uses the shared band and likely dot. The band
+range when supplied. In the Olumi look, a solid 2px `olumi-mark-orange` tick extends just above the
+track, with the formatted value and unit in `text-header` below. The tested
+region has a transparent interior and a 1px `olumi-mark-orange` outline on
+Core’s tipping side. The figure range uses the shared band and likely dot. The band
 is dotted when the card author or Core’s figure attribution is Olumi, and
 solid for a person. The axis ends use formatted values, 12px meta text
 and `text-light`. Omit units when absent.

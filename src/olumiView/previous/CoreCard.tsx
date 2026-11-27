@@ -585,7 +585,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {(card.values?.length ?? 0) > 1 ? <StatedFigure id={id} card={card} /> : null}
           {/* Each option's worked-out value, by its letter on one shared axis (v12/detailed/charts.tsx); an option core could not calculate is its
               letter, an outlined lane and core's real reason. Not while the figure waits: its face says so once. */}
-          {card.family === 'option' || card.figure?.state === 'waits' ? null : <Strips card={card} model={model} />}
+          {card.family === 'option' || card.figure?.state === 'waits' ? null : <Strips card={card} model={model} olumiLook={olumiLook} />}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.

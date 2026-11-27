@@ -827,3 +827,85 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .ok-v10-chart-aim, .ok-v10-chart-median { left: var(--chart-x); width: 2px; margin-left: -1px; }
 .ok-v10-chart-aim { top: -3px; bottom: -3px; background: var(--goal); }
 .ok-v10-chart-median { top: -1px; bottom: -1px; background: var(--text-header); border-radius: calc(var(--space-1) / 4); }
+
+/* Olumi board and dock palette. The shared chart recipes above also serve the older look. */
+.ok-lane-palette .olumi-look {
+  --xy-background-pattern-dots-color-default: var(--canvas-grid-dot);
+}
+
+.ok-lane-palette .ok-simple-band,
+.ok-lane-palette .ok-dt-strip-band,
+.ok-lane-palette .ok-dt-rail-dot,
+.ok-lane-palette .olumi-look .ok-track > span,
+.ok-lane-palette .olumi-look .ok-track > .ok-mark-chance,
+.ok-lane-palette .ok-simple-track:not(:has(.ok-simple-band)) .ok-simple-mid,
+.ok-lane-palette .ok-dt-strip-lane:not(:has(.ok-dt-strip-band)) .ok-dt-strip-mid {
+  background: var(--option);
+}
+.ok-lane-palette [data-simple-axis]:has(.ok-simple-band-author),
+.ok-lane-palette [data-simple-axis]:has(.ok-simple-band-author) + [data-testid='simple-axis-ends'] {
+  margin-inline-end: calc((var(--space-4) + var(--space-1)) * var(--o-s));
+}
+.ok-lane-palette [data-simple-band]:has(.ok-simple-band-author) { position: relative; }
+.ok-lane-palette .ok-simple-band-author {
+  position: absolute;
+  inset-inline-start: calc(100% + var(--ok-gap-tight));
+  inset-block-start: 50%;
+  display: inline-flex;
+  translate: 0 -50%;
+}
+.ok-lane-palette .ok-simple-band-author svg {
+  width: calc(var(--space-3) * var(--o-s));
+  height: calc(var(--space-3) * var(--o-s));
+}
+
+.ok-lane-palette .ok-dt-rail-whisker,
+.ok-lane-palette .olumi-look .ok-track > .ok-band,
+.ok-lane-palette .ok-an-span,
+.ok-lane-palette .ok-scale-conditional-span,
+.ok-lane-palette .ok-scale-range-band {
+  background: var(--text-header);
+}
+.ok-lane-palette [data-chance-whisker],
+.ok-lane-palette [data-chance-low],
+.ok-lane-palette [data-chance-key='low'] circle {
+  stroke: var(--text-header);
+}
+.ok-lane-palette [data-chance-high],
+.ok-lane-palette [data-chance-key='high'] circle {
+  fill: var(--text-header);
+}
+.ok-lane-palette .ok-an-dot-low {
+  background: var(--bg-panel);
+  border-color: var(--text-header);
+}
+.ok-lane-palette .ok-an-dot-high,
+.ok-lane-palette .ok-scale-conditional-dot { background: var(--text-header); }
+.ok-lane-palette .ok-scale-conditional-dot[data-conditional-bound='low'] {
+  background: var(--bg-panel);
+  border: 1px solid var(--text-header);
+}
+.ok-lane-palette .ok-an-track { background: var(--border-default); }
+.ok-lane-palette [data-outcome-point] {
+  fill: var(--option);
+}
+
+.ok-lane-palette .ok-scale[data-by='olumi'] .ok-scale-range-band {
+  border-color: var(--info);
+  background: transparent;
+}
+.ok-lane-palette .ok-scale[data-by='olumi'] .ok-scale-likely { background: var(--info); }
+.ok-lane-palette .ok-link-halo-proposed { stroke: var(--info); }
+.ok-lane-palette .olumi-look .ok-tone-info { color: var(--info); }
+.ok-lane-palette .olumi-look .ok-am-person { color: var(--text-header); }
+.ok-lane-palette .olumi-look .ok-mark { color: var(--text-light); }
+.ok-lane-palette .olumi-look .ok-share-unassigned { background: var(--border-emphasis); }
+
+.ok-lane-palette .olumi-look .ok-pill.ok-bound { border-color: var(--ok-kc, var(--text-light)); color: var(--text-header); }
+.ok-lane-palette .ok-scale-tip-marker,
+.ok-lane-palette .ok-scale-tip-region { border-color: var(--olumi-mark-orange); }
+
+.ok-lane-palette .ok-link-mark[data-link-direction='raises'] { color: var(--edge-positive); }
+.ok-lane-palette .ok-link-mark[data-link-direction='lowers'] { color: var(--edge-negative); }
+
+.ok-dock-footer-shadow { box-shadow: 0 -10px 14px -10px color-mix(in srgb, var(--text-header) 16%, transparent); }

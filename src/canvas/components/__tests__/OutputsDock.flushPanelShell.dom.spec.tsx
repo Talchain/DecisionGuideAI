@@ -33,6 +33,7 @@ import { SHELL_TAB_HEIGHT_PX, SHELL_TABSTRIP_HEIGHT_PX } from '../workspaceShell
 import { useCanvasStore } from '../../store'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { ToastProvider } from '../../ToastContext'
+import { resolveTokenHex } from '../../../styles/channelTriple.mjs'
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
@@ -191,9 +192,10 @@ describe('the right panel shell is flush (contract `.ai-panel`)', () => {
 
 describe('the contract tab tint is declared once, as a token; the retired rule tokens are gone', () => {
   const css = readFileSync(path.resolve(__dirname, '../../../index.css'), 'utf8')
-  it('--panel-tab-active-bg is #F3F8FA', () => {
-    const decl = [...css.matchAll(/--panel-tab-active-bg\s*:\s*([^;]+);/g)].map(m => m[1].trim())
-    expect(decl).toEqual(['#F3F8FA'])
+  const brand = readFileSync(path.resolve(__dirname, '../../../styles/brand.css'), 'utf8')
+  it('--panel-tab-active-bg resolves to #F3F8FA', () => {
+    expect(`${css}\n${brand}`.match(/--panel-tab-active-bg\s*:/g)).toHaveLength(1)
+    expect(resolveTokenHex(brand, '--panel-tab-active-bg')).toBe('#F3F8FA')
   })
   it.each(['--panel-edge-rule', '--panel-tab-rule'])('%s (a one-sided rule colour) is no longer declared', (name) => {
     expect(css).not.toMatch(new RegExp(`${name}\\s*:`))

@@ -13,7 +13,7 @@ export type LineEnd = 'arrow' | 'dot' | 'none'
 export interface LinkStyle { stroke: string; dash: string | null; end: LineEnd; label: string | null; width: number }
 export type StyledRole = Exclude<LinkRole, 'reason'>
 
-export const INK = 'var(--text-body, #3F3F3E)'
+export const INK = 'var(--text-header)'
 /** The DS "no verdict" edge colour: a direction not settled or not stated, and the dotted role lines (input to, size). */
 export const EDGE_NEUTRAL = 'var(--edge-neutral)'
 export const INPUT_GREY = EDGE_NEUTRAL
@@ -36,7 +36,7 @@ export const PLAIN_WIDTH = EDGE_STROKE_WIDTH_BANDS.slight
  * all read that one property, so no component writes a colour. `TONE_TOKEN` is what each tone's class must declare (links.spec reads the stylesheet against it).
  */
 export type Tone = 'positive' | 'negative' | 'neutral' | 'ink' | 'goal'
-export const TONE_TOKEN: Readonly<Record<Tone, string>> = { positive: EFFECT_STROKES.increases, negative: EFFECT_STROKES.decreases, neutral: EDGE_NEUTRAL, ink: 'var(--text-header)', goal: GOLD }
+export const TONE_TOKEN: Readonly<Record<Tone, string>> = { positive: EFFECT_STROKES.increases, negative: EFFECT_STROKES.decreases, neutral: EDGE_NEUTRAL, ink: INK, goal: GOLD }
 export const toneOf = (stroke: string): Tone => (Object.keys(TONE_TOKEN) as Tone[]).find((t) => TONE_TOKEN[t] === stroke) ?? 'neutral'
 /** Fixed notation words (UI chrome, not core's): a link whose direction core has not settled. */
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'

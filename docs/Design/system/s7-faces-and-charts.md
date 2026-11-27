@@ -21,6 +21,50 @@ Anything Paul has not judged is marked **open**, not decided.
 5. **Design-system values only.** Type is 12, 14 and 18 from `typography.*`. Spacing is `--space-1` to `--space-5`. Colour means meaning only, with solid fills or solid borders over transparent interiors and no pastel tints. Multi-row charts share one label | track | value grid that lines up at 1232 and at 1.33 scale.
 6. **Panels echo the canvas.** A row or chip that names a card carries the kind's shape. Options keep their letters, and link direction keeps green and pink (Paul, 23 Nov).
 
+## Colour by meaning
+
+Tokens below omit the CSS prefix `--`. The table describes the Olumi look. Letters identify individual options, shapes identify kinds, and a separate author mark identifies Olumi on a calculated option band.
+
+| Meaning | Where it is drawn | Before | After |
+|---|---|---|---|
+| Option | Card frame and square, ChanceDots, ChanceTrack fill, ChanceBand fill and marker, Detailed chance rail dot, Simple and Detailed calculated bands, OptionBand | `option` for the frame, square, dots and chance fill. ChanceBand, the rail dot and the flat Analysis point used ink. Face bands used tinted `text-header` or blue | Solid `option`, including flat points. Empty chance dots keep a transparent interior. Letters use `text-light` |
+| Goal or aim | Frame and diamond, measured Simple goal bound, range deadline, Simple and Detailed goal ticks, measures and target links | `goal` except for the measured bound, which had a neutral border, an `edge-positive` wrapper and `text-header` digits | `goal` frame, marker, outline, ticks and links. Bound digits use `text-header` |
+| Factor | Frame and circle | `factor` | `factor` |
+| Risk | Frame and downward triangle | `danger` | `danger` |
+| Outcome | Frame and upward triangle | `success` | `success` |
+| Limit | Frame, outlined square and measured Simple bound | `text-light` frame and square, with `bg-panel` inside. The bound used the same neutral border as a goal bound | `text-light` frame, square and bound outline. `bg-panel` inside the square and `text-header` for the digits |
+| Question | Frame, hexagon, numbered mark | `text-light`, with `bg-panel` behind the number | Same |
+| Assumption | Kind marker, face tag and uncertain frame | The kind’s token for the marker and frame, with a dash for the state. Separate tag in `text-light` | Same |
+| Person’s figure | Simple and Detailed figure text, person mark, RangeBar, FigureTrack, TipPoint, DifferAxis and ShareBar | `text-header` for digits, likely dot and shares. Person mark used `text-light` and bands used translucent `text-body` | `text-header` for figure, mark and solid range. Dot keeps its `bg-panel` rim |
+| Olumi’s figure or proposal | Figure text, dotted input range, likely dot, author or contribution mark, proposal frame and link halo, ShareBar | `semantic-info` or `info`; blue band fill also carried authorship | `info` for figure, dotted range, dot, frames, halo and share. The Olumi mark carries authorship beside an option band |
+| Mixed authorship | Card author marks and ShareBar | Both author marks on a card. Mixed share uses `text-light` | Both marks in their respective colours. Mixed share keeps `text-light` |
+| Unassigned share | RestsShareFill | Translucent `text-light` | Solid `border-emphasis` |
+| Raises | Link line, end, leader and direction glyph | `edge-positive` line, end and leader. Grey glyph | `edge-positive` for all four |
+| Lowers | Link line, end, leader and direction glyph | `edge-negative` line, end and leader. Grey glyph | `edge-negative` for all four |
+| Unsettled or unsigned link | Neutral root, effect, reason, input and size lines and applicable markers | `edge-neutral`. Dots for reasons and dashes for doubt. Driver fallback uses `text-header` | Same. Direction colour remains independent of doubt |
+| Challenged | Card frame and face mark, alerted reason stroke, challenged link halo | `olumi-mark-orange` | Same |
+| Unknown, withheld or untested | FaceMark chance, track and bound, withheld tracks and FigureTrack’s untested span | `text-light` dash over a transparent interior | Same. Empty circles within a known chance remain `option` |
+| Tipping point and tested tipping side | TipPoint and FigureTrack | `text-header` tick and `option` outline in TipPoint, `olumi-mark-orange` tick in FigureTrack | `olumi-mark-orange` tick and tested outline. Tip value stays in `text-header` |
+| Conditional chance span | ChanceTrack whisker, endpoints and key, ConditionalBar span and endpoints, ChanceBand overlay, Detailed rail whisker and the what-if DriverRange | `text-body`, translucent `text-header`, `edge-neutral`, or `option` | Solid `text-header` span and whisker. The hollow endpoint keeps a `bg-panel` interior |
+| Centre of a calculated band or tried figure | Simple and Detailed mid tick, OptionBand mid tick, RangeBar and FigureTrack what-if tick | `text-header` | Same. A flat band’s single mark uses `option` |
+| Neutral chart scaffolding | Chart tracks, baseline lines and grids, axis labels | `border-default` track and grid lines, `text-light` axis labels and standalone axis rules. DriverRange used `factor-light` | DriverRange also uses `border-default`. Axis labels and rules keep `text-light` |
+| Neutral face marks and text | Card titles and headings, reading text, meta and the quiet condition, limit, not-used and set-aside marks | `text-header` titles, `text-body` reading text and baseline flag, `text-light` meta and quiet marks | Same |
+| Likely-result glyph | Detailed chance face | `info` | `text-light`. Blue remains on the separate Olumi mark |
+| Face signals | Worth checking, unsaved or stale, failed | `info` for Olumi’s proposed check, `warning` for unsaved or stale, `danger` for the failure icon | Same |
+| Board and content surfaces | Board, grid, card, selected and hovered card | `bg-canvas` board with React Flow’s default dots. `bg-panel` card, `bg-panel-hover` hover, `focus-color` selection ring | Grid uses `canvas-grid-dot`. Other tokens stay the same |
+| Olumi’s own mark | Author, note and link marks | The logo uses `olumi-mark-orange`, `olumi-mark-blue` and `olumi-mark-green` as its own colours. The Olumi voice uses `info` | Same |
+
+### Colour literals outside the board
+
+The lane board mounts through `ViewCanvas`. Its dock footer shadow uses the `text-header` token, and its grid uses `canvas-grid-dot`. The shared card impact indicator uses the existing status tokens.
+
+| Surface | Literal sites retained |
+|---|---|
+| Older graph and its debug layouts | `ReactFlowGraph.tsx`, `AlignmentGuides.tsx`, `MiniCanvas.tsx`, `theme/edges.ts`, `onboarding/CoachMarks.tsx` |
+| Older chat, model and editing surfaces | `DraftChat.tsx`, `conversation/`, `useStagePill.ts`, `ModelHealthSection.tsx`, `ValidationChip.module.css`, `pre-analysis/AllImprovements.tsx`, `Tooltip.tsx`, `ui/inspector-v2/inspectorStyle.ts` |
+| Dialogs and starter surfaces outside the graph | `ImportExportDialog.tsx` (shared top-bar dialog), `LayoutGuidedModal.tsx`, `KeyboardMap.module.css`, `StarterProvenanceBanner.module.css` |
+| Standalone rendering | `export/decisionBrief.ts` (exported HTML), `utils/templatePreview.ts` (preview SVG) |
+
 ## Card faces (FACE)
 
 At rest a Simple card shows its **title**, its **value or a mark**, **at most one short chip**, and **Olumi's author mark** wherever Olumi contributed to the card. Every sentence goes to the hover, the details box or the Olumi panel (Paul, 26 Nov, link 27: "What's with all the text on the graph nodes? It's too overwhelming").

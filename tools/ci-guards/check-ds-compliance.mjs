@@ -62,11 +62,13 @@ const ICON_KEY = /\b(?:icon|symbol|glyph|emoji)\s*[:=]/
 
 const LEGACY = /\b(?:bg|text|border|ring|fill|stroke|from|to|via|divide|outline|decoration|placeholder|caret|accent)-(?:sand|ink|paper|sun|mint|sky|carrot|lilac)\b/g
 const HEX = /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b/g
+const PALETTE_HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})\b/g
 const UPPERCASE = /\buppercase\b/g
 const PANEL_TYPO = /\b(?:text-(?:xs|sm|base|lg|xl|2xl|3xl|5xl)|font-(?:medium|semibold|bold))\b/g
 
 const isTest = (p) => /(\.spec\.|\.test\.|__tests__\/|__fixtures__\/)/.test(p)
 const under = (p, dir) => p === dir || p.startsWith(dir + '/')
+const zeroHex = (p) => under(p, 'canvas/nodes') || under(p, 'olumiView')
 
 /*
  * V12 (Paul 16 Nov: "consistent, strict coded rules so that everything looks premium"): the olumi-core lane's surfaces keep to the design
@@ -123,8 +125,8 @@ const inV12 = (p) => !isTest(p) && (under(p, 'olumiView') || under(p, 'olumiCore
  *    legitimately uses raw hex, and fallbacks are token-first). They are intentionally
  *    NOT excluded from legacy-token / uppercase / panel-typography / emoji: those drift
  *    types must not be (re)introduced anywhere, including dev tooling.
- *  - .css / .module.css: only `legacy-tailwind-token` scans .css at all; the other
- *    classes scan .ts/.tsx only, so CSS modules are excluded by extension.
+ *  - The zero-hex scopes include .css / .module.css and var() fallbacks. Outside
+ *    those scopes, production-hex keeps its existing .ts/.tsx ratchet.
  *  - Comments (line, block and JSX `{/* … *\/}`): excluded ONLY from `production-hex`,
  *    via `stripComments: true`. A hex in a comment is documentation, not usage. The
  *    other classes deliberately still scan comments: a `bg-sand` or `text-xs` written
@@ -148,23 +150,26 @@ const CLASSES = [
   {
     id: 'production-hex',
     mode: 'ratchet',
-    description: 'Raw hex colour literals in production .ts/.tsx (excl. debug/poc/theme/tests + var() fallbacks)',
+    description: 'Raw hex colour literals in production .ts/.tsx, with a zero limit including CSS and fallbacks in canvas/nodes and olumiView',
     inScope: (p) =>
-      /\.(ts|tsx)$/.test(p) && !isTest(p) &&
+      (/\.(ts|tsx)$/.test(p) || (zeroHex(p) && p.endsWith('.css'))) && !isTest(p) &&
       !under(p, 'components/debug') && !under(p, 'poc') && !under(p, 'canvas/theme'),
     // Comments are NOT colour usage, and comment membership is multi-line STATE,
     // so this class is fed comment-blanked lines by stripComments() rather than
     // testing each line's prefix. See lib/ds-token-context.mjs for why a prefix
     // test cannot work and why "reject digit-only tokens" is measurably wrong.
     stripComments: true,
-    lineTokens: (code) => {
+    lineTokens: (code, file) => {
       const out = []
+      const strict = zeroHex(file)
+      const hex = strict ? PALETTE_HEX : HEX
       let m
-      HEX.lastIndex = 0
-      while ((m = HEX.exec(code)) !== null) {
+      hex.lastIndex = 0
+      while ((m = hex.exec(code)) !== null) {
         // Scoping decision #1: var(--token, #hex) fallbacks are excluded.
         // (stripComments preserves column offsets so this slice still aligns.)
-        if (/var\(--[\w-]+,\s*$/.test(code.slice(0, m.index))) continue
+        if (!strict && /var\(--[\w-]+,\s*$/.test(code.slice(0, m.index))) continue
+        if (strict && /^#[0-9]{4}$/.test(m[0]) && !isColourValuePosition(code, m.index)) continue
         // A bare `#NNN` is either a colour or a PR/issue reference in a STRING
         // literal, which no comment stripper can reach. Settle it by POSITION:
         // a colour sits at the start of a value slot, a reference sits mid-prose.
@@ -333,7 +338,7 @@ async function scan(rootDir) {
         scanLines = stripped
       }
       for (let i = 0; i < scanLines.length; i++) {
-        for (const token of c.lineTokens(scanLines[i])) {
+        for (const token of c.lineTokens(scanLines[i], scopeRel)) {
           record(c.id, token, i)
         }
       }
@@ -343,14 +348,15 @@ async function scan(rootDir) {
 }
 
 /** Net-new = signatures (or counts) present now but above the baseline. */
-function diff(current, baseline) {
+function diff(current, baseline, rootDir) {
   const netNew = {}
   for (const c of CLASSES) {
     const cur = current[c.id]?.signatures || {}
     const base = (baseline.classes?.[c.id]?.signatures) || {}
     const items = []
     for (const [sig, info] of Object.entries(cur)) {
-      const baseCount = base[sig]?.count || 0
+      const zeroLimit = c.id === 'production-hex' && zeroHex(path.relative(rootDir, path.resolve(ROOT, info.file)).split(path.sep).join('/'))
+      const baseCount = zeroLimit ? 0 : base[sig]?.count || 0
       if (info.count > baseCount) {
         items.push({ file: info.file, token: info.token, sample: info.sample, delta: info.count - baseCount })
       }
@@ -403,8 +409,8 @@ function fmtBaseline(current) {
  * lowers the baseline legitimately and is indistinguishable, mechanically, from
  * genuine debt repair — it stays a REVIEW obligation on the guard's own diff.
  */
-function assertRatchetOnlyDescends(current, baseline, { force }) {
-  const netNew = diff(current, baseline)
+function assertRatchetOnlyDescends(current, baseline, { force, rootDir }) {
+  const netNew = diff(current, baseline, rootDir)
   const gaining = Object.entries(netNew).filter(([, v]) => v.mode === 'ratchet')
   if (!gaining.length) {
     console.log('DS-compliance --update: ratchet assertion PASSED — no gating signature count rises.')
@@ -444,7 +450,8 @@ async function main() {
     : path.join(ROOT, 'tools/ci-guards/ds-compliance-baseline.json')
 
   // path.resolve (not join) so an absolute --root is honoured, not misresolved.
-  const current = await scan(path.resolve(ROOT, scanRoot))
+  const rootDir = path.resolve(ROOT, scanRoot)
+  const current = await scan(rootDir)
 
   if (update) {
     // Read the OUTGOING baseline first: the assertion is a comparison, so an
@@ -454,7 +461,7 @@ async function main() {
     if (prev === null) {
       console.log('DS-compliance --update: no readable existing baseline — bootstrapping, nothing to ratchet against.')
     } else {
-      assertRatchetOnlyDescends(current, prev, { force })
+      assertRatchetOnlyDescends(current, prev, { force, rootDir })
     }
     await fs.writeFile(baselinePath, JSON.stringify(fmtBaseline(current), null, 2) + '\n')
     console.log('DS-compliance baseline written:', path.relative(ROOT, baselinePath))
@@ -475,7 +482,7 @@ async function main() {
     process.exit(1)
   }
 
-  const netNew = diff(current, baseline)
+  const netNew = diff(current, baseline, rootDir)
   const gating = Object.entries(netNew).filter(([, v]) => v.mode === 'ratchet')
   const reportOnly = Object.entries(netNew).filter(([, v]) => v.mode === 'report')
 

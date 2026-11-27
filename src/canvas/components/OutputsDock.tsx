@@ -3194,7 +3194,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
     backdropFilter: 'blur(8px)',
     borderRadius: insetDock ? 16 : 0,
     border: insetDock ? '1px solid var(--border-emphasis)' : undefined,
-    boxShadow: insetDock ? '0 8px 24px rgba(38,38,38,0.14)' : 'none',
+    boxShadow: insetDock ? 'var(--shadow-3)' : 'none',
     zIndex: 900,
     overflow: 'hidden',
     // ⭐ THE MECHANISM THAT MAKES THE ORIGINAL DEFECT IMPOSSIBLE, NOT MERELY
@@ -4616,7 +4616,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
             flag is on and the dock is expanded. flex-shrink-0 prevents the
             body's overflow from clipping these. */}
         {aiPanelV2On && effectiveIsOpen ? (
-          <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-panel-hover' : ''}${isOlumiCoreLane() ? ' relative shadow-[0_-10px_14px_-10px_rgba(38,38,38,0.16)]' : ''}`} data-testid="ai-panel-footer-stack">
+          <div className={`flex-shrink-0${briefPanel || (revealOpen && effectiveActiveTab === 'team') ? ' bg-panel-hover' : ''}${isOlumiCoreLane() ? ' relative ok-dock-footer-shadow' : ''}`} data-testid="ai-panel-footer-stack">
             {/* The olumi-core lane draws the selection as a chip inside its composer (ViewChat ViewComposerBody, 17 Nov). */}
             {(revealOpen && effectiveActiveTab === 'team') || isOlumiCoreLane() ? null : <SelectionPill />}
             {/* Wave F-B: StaleAnalysisBadge retired — third stale surface in

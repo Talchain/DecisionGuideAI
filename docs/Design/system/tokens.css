@@ -44,7 +44,8 @@
   --olumi-mark-orange: #ea7b4b;
   --olumi-mark-blue: #5c9bb8;
   --olumi-mark-green: #62b28f;
-  --focus-color: #6e6b6b99;
+  --text-light-rgb: 110 107 107;
+  --focus-color: rgb(var(--text-light-rgb) / 0.6);
   --chart-1: var(--info);
   --chart-2: var(--success);
   --chart-3: var(--goal);
@@ -58,9 +59,7 @@
 }
 :root {
   --space-1: 4px;
-  --space-1-5: 6px;
   --space-2: 8px;
-  --space-2-5: 10px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
@@ -74,17 +73,12 @@
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-pill: 999px;
-  --z-sheet: 60;
-  --z-dock: 900;
-  --z-overlay-band: 1050;
-  --z-chrome-menu: 1200;
-  --z-edge-edit: 3000;
-  --z-inspector: 5000;
-  --z-context-menu: 5011;
-  --z-submenu: 5012;
-  --z-menu-tip: 5013;
-  --z-modal: 6000;
-  --z-hover-preview: 9999;
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-toast: 500;
   --duration-instant: 100ms;
   --duration-fast: 200ms;
   --duration-base: 300ms;

@@ -188,6 +188,7 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
               {b.hi > b.lo ? <i className={`absolute top-0 block h-full rounded-full ok-simple-band${b.olumi ? ' ok-simple-band-olumi' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
               {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm bg-text-header ok-simple-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
             </span>
+            {olumiLook && b.olumi ? <span className="ok-simple-band-author"><OlumiMark /></span> : null}
           </Hover>
         ))}
           </div>
