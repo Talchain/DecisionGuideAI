@@ -17,6 +17,7 @@ import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
 import { useFocusSubject } from '../../focus/subject'
 import { stressTrialKey, tryStressValue, useStressTrials, type TrialStep } from './stressTrials'
+import { WhatIfSlider, useWhatIfBase, whatIfInputOf } from './WhatIfSlider'
 
 export const STRESS_STEPS = { low: 'Lower values', saved: 'As saved', high: 'Higher values' } as const
 
@@ -89,7 +90,7 @@ function TrialForm({ scope, pending, isCurrent, onTrial }: {
   )
 }
 
-function stressReadings(model: ViewModel) {
+function stressReadings(model: ViewModel, focusedInput: string | undefined) {
   const aims = new Map<string, OptionReading[]>()
   const records = new Set<string>()
   for (const option of model.cards) {
@@ -102,6 +103,8 @@ function stressReadings(model: ViewModel) {
       if (row.driver != null) records.add(row.driver.figure)
     }
   }
+
+  if (records.size > 0 && focusedInput !== undefined) records.add(focusedInput)
 
   // Badge records are IDs only. A folded record can take its own label from Core's results.
   const run = model.run
@@ -136,13 +139,17 @@ function stressReadings(model: ViewModel) {
 }
 
 export function StressTest({ model, view }: { model: ViewModel; view: View }) {
-  const { aims, figures, unlabelled } = useMemo(() => stressReadings(model), [model])
   const letters = useMemo(() => optionLetters(model), [model])
   const subject = useFocusSubject()
-  const subjectId = subject?.source === 'canvas' ? subject.id : undefined
+  const subjectId = subject?.source === 'canvas' || subject?.kind === 'card' ? subject.id : undefined
+  const focusedInput = model.cards.find((card) => card.id === subjectId && card.family === 'quantity')?.id
+  const { aims, figures, unlabelled } = useMemo(() => stressReadings(model, focusedInput), [model, focusedInput])
+  const whatIfBase = useWhatIfBase(view)
+  const hasControl = (quantity: string) => whatIfBase !== null && !('reason' in whatIfInputOf(view, quantity))
   const subjectRecord = (figures.find((figure) => figure.record === subjectId) ??
     figures.find((figure) => figure.card.id === subjectId))?.record
   const [record, setRecord] = useState<string>()
+  const [fallbackRecord, setFallbackRecord] = useState<string>()
   const [choice, setChoice] = useState<{ step: Step; scope?: string }>({ step: 'saved' })
   const aimHeading = useId()
   const stepButtons = useRef(new Map<Step, HTMLButtonElement>())
@@ -177,6 +184,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       setChoice({ step: 'saved' })
       if (subjectObserved.current) stepButtons.current.get('saved')?.focus()
     }
+    setFallbackRecord(subjectId)
     subjectObserved.current = true
   }, [subjectId, subjectRecord])
   useLayoutEffect(() => {
@@ -210,6 +218,10 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   if (selected === undefined) {
     if (held && figures.length > 0) return <div className={META}>{STRESS_WORDS.held}</div>
     const resultFigures = resultFigureCardsOf(model, view)
+    const focusedCard = model.cards.find((card) => card.id === focusedInput)
+    if (focusedCard !== undefined && whatIfBase !== null && !resultFigures.includes(focusedCard)) resultFigures.push(focusedCard)
+    const canTry = whatIfBase !== null
+    const chosenFigure = canTry ? resultFigures.find((card) => card.id === fallbackRecord) : undefined
     return (
       <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled}>
         {resultFigures.length === 0 ? <span className={META}>{STRESS_WORDS.empty}</span>
@@ -222,8 +234,12 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
                 <li key={card.id} className="col-span-3 grid grid-cols-subgrid items-center"
                   onMouseEnter={() => ringFrom(RING_SOURCE, [card.id])} onMouseLeave={() => ringFrom(RING_SOURCE, [])}
                   onFocus={() => ringFrom(RING_SOURCE, [card.id])} onBlur={() => ringFrom(RING_SOURCE, [])}>
-                  <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
-                  {unknown ? (
+                  {canTry && card.family === 'quantity'
+                    ? <button type="button" aria-pressed={chosenFigure?.id === card.id}
+                        className={`${typography.viewPanelHeading} ${FOCUS} break-words text-left text-text-header hover:bg-panel-hover`}
+                        onClick={() => { setFallbackRecord(card.id); pressCard(card.id) }}>{card.heading}</button>
+                    : <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>}
+                  {chosenFigure?.id === card.id && hasControl(card.id) ? null : unknown ? (
                     <>
                       <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
                       {figure?.edit != null && <FigureEdit id={card.id} edit={figure.edit} label={STRESS_WORDS.fill} place="tool-stress" />}
@@ -234,6 +250,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
               )
             })}
           </ul>}
+        {chosenFigure !== undefined && <WhatIfSlider view={view} quantity={chosenFigure.id} />}
       </div>
     )
   }
@@ -261,18 +278,19 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
           </button>
         ))}
       </div>
-      {scope !== null && model.edit_base != null && (
+      {scope !== null && model.edit_base != null && moving.length > 0 && (
         <TrialForm key={scopeKey} scope={scope} pending={history?.pending === true}
           isCurrent={() => activeScope.current === scopeKey}
           onTrial={(value) => setChoice((current) => current === choice ? { step: value, scope: scopeKey ?? undefined } : current)} />
       )}
 
-      {figureCard?.figure != null && (
+      {figureCard?.figure != null && !hasControl(selected.record) && (
         <div className={`grid auto-cols-fr grid-flow-col items-center gap-2 ${TICK_MOTION}`}>
           <RangeBar card={figureCard} view={view} tried={selectedTrial?.tried} />
           <Hover words={figureCard.figure.title} className={`${META} min-w-0 break-words`}>{figureCard.figure.text}</Hover>
         </div>
       )}
+      <WhatIfSlider view={view} quantity={selected.record} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
         {[...aims].map(([aimId, readings], index) => (
