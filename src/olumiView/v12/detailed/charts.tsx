@@ -93,8 +93,9 @@ export function Strips({ card, model, olumiLook = false }: { card: ViewCard; mod
             {b.hi > b.lo ? <i className={`ok-dt-strip-band ${b.olumi ? 'ok-dt-olumi-band' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
             {b.mid === null ? null : <i className="ok-dt-strip-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
             {axis?.goalAt == null ? null : <i className="ok-dt-goal-tick" style={{ '--chart-x': `${axis.goalAt}%` } as CSSProperties} data-at={axis.goal ?? undefined} />}
+            {olumiLook && b.olumi ? <span className="ok-band-author"><OlumiMark /></span> : null}
           </span>
-          <span className="ok-dt-strip-val">{b.text}{olumiLook && b.olumi ? <span className="ok-dt-ia"><OlumiMark /></span> : null}{(() => {
+          <span className="ok-dt-strip-val">{b.text}{(() => {
             // Core's mark on a value a held proposal would change (its glyph, its words the name), by the value's own place in `values`.
             const i = (card.values ?? []).findIndex((v) => v.option === b.option), ia = i < 0 ? null : card.values![i]!.if_approved
             return ia == null ? null : <Hover className="ok-dt-olumi ok-dt-ia" role="img" aria-label={ia.title} words={ia.title} data-view={`${card.id}.values.${i}.if_approved.glyph`}>{ia.glyph}</Hover>

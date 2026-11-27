@@ -2285,8 +2285,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {impactDirection && (
         <div
           className={`absolute -top-3 -left-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm ${
-            impactDirection === 'increase' ? 'bg-success'
-              : impactDirection === 'decrease' ? 'bg-danger'
+            impactDirection === 'increase' ? (olumiLook ? 'bg-[color:var(--edge-positive)]' : 'bg-success')
+              : impactDirection === 'decrease' ? (olumiLook ? 'bg-[color:var(--edge-negative)]' : 'bg-danger')
               : 'bg-text-light'
           }`}
         >

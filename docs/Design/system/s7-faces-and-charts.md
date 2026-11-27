@@ -44,7 +44,7 @@ Tokens below omit the CSS prefix `--`. The table describes the Olumi look. Lette
 | Unsettled or unsigned link | Neutral root, effect, reason, input and size lines and applicable markers | `edge-neutral`. Dots for reasons and dashes for doubt. Driver fallback uses `text-header` | Same. Direction colour remains independent of doubt |
 | Challenged | Card frame and face mark, alerted reason stroke, challenged link halo | `olumi-mark-orange` | Same |
 | Unknown, withheld or untested | FaceMark chance, track and bound, withheld tracks and FigureTrack’s untested span | `text-light` dash over a transparent interior | Same. Empty circles within a known chance remain `option` |
-| Tipping point and tested tipping side | TipPoint and FigureTrack | `text-header` tick and `option` outline in TipPoint, `olumi-mark-orange` tick in FigureTrack | `olumi-mark-orange` tick and tested outline. Tip value stays in `text-header` |
+| Tipping point and tested tipping side | TipPoint and FigureTrack | `text-header` tick and `option` outline in TipPoint, `olumi-mark-orange` tick in FigureTrack | Existing colours retained. **open: one token for the tip, distinct from challenged orange and the risk frame** |
 | Conditional chance span | ChanceTrack whisker, endpoints and key, ConditionalBar span and endpoints, ChanceBand overlay, Detailed rail whisker and the what-if DriverRange | `text-body`, translucent `text-header`, `edge-neutral`, or `option` | Solid `text-header` span and whisker. The hollow endpoint keeps a `bg-panel` interior |
 | Centre of a calculated band or tried figure | Simple and Detailed mid tick, OptionBand mid tick, RangeBar and FigureTrack what-if tick | `text-header` | Same. A flat band’s single mark uses `option` |
 | Neutral chart scaffolding | Chart tracks, baseline lines and grids, axis labels | `border-default` track and grid lines, `text-light` axis labels and standalone axis rules. DriverRange used `factor-light` | DriverRange also uses `border-default`. Axis labels and rules keep `text-light` |
@@ -60,7 +60,7 @@ The lane board mounts through `ViewCanvas`. Its dock footer shadow uses the `tex
 
 | Surface | Literal sites retained |
 |---|---|
-| Older graph and its debug layouts | `ReactFlowGraph.tsx`, `AlignmentGuides.tsx`, `MiniCanvas.tsx`, `theme/edges.ts`, `onboarding/CoachMarks.tsx` |
+| Older graph and its debug layouts | `ReactFlowGraph.tsx`, `AlignmentGuides.tsx`, `FocusModeChip.tsx:80` (shadow), `MiniCanvas.tsx`, `theme/edges.ts`, `onboarding/CoachMarks.tsx` |
 | Older chat, model and editing surfaces | `DraftChat.tsx`, `conversation/`, `useStagePill.ts`, `ModelHealthSection.tsx`, `ValidationChip.module.css`, `pre-analysis/AllImprovements.tsx`, `Tooltip.tsx`, `ui/inspector-v2/inspectorStyle.ts` |
 | Dialogs and starter surfaces outside the graph | `ImportExportDialog.tsx` (shared top-bar dialog), `LayoutGuidedModal.tsx`, `KeyboardMap.module.css`, `StarterProvenanceBanner.module.css` |
 | Standalone rendering | `export/decisionBrief.ts` (exported HTML), `utils/templatePreview.ts` (preview SVG) |

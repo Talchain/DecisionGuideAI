@@ -35,7 +35,7 @@ There is one theme, light. The app serves its palette and CSS tokens from `src/s
 - **Kinds.** Kind colours fill the kind marker and colour the card frame: `goal`, `option`, `factor`, `danger` for risk, `success` for outcome, and `text-light` for a limit and for the question.
 - **Signals.** `warning` and `danger` are for fills, borders and icons. As text, use `warning-ink`; `danger` is 2.8:1 and is never body text.
 - **Borders.** Use `border-default` (Tailwind `border-panel-border`) for every hairline. Only `border-field` may mark an editable field or a dashed underline (3.7:1). Never use a coloured border for decoration.
-- **Charts.** Use `option` for option dots and bands, `text-header` for a person’s figure, and `info` for Olumi’s figure or author mark. Use the dashed `text-light` outline for a missing value and the orange tick for a tipping point. See [Colour by meaning](s7-faces-and-charts.md#colour-by-meaning) for the component mapping.
+- **Charts.** Use `option` for option dots and bands, `text-header` for a person’s figure, and `info` for Olumi’s figure or author mark. Use the dashed `text-light` outline for a missing value. The shared tipping-point colour is open. See [Colour by meaning](s7-faces-and-charts.md#colour-by-meaning) for the component mapping.
 - **Links on the board.** `edge-positive` raises, `edge-negative` lowers, and `edge-neutral` has no sign yet.
 - **The mark** keeps its own three colours, `olumi-mark-orange`, `olumi-mark-blue` and `olumi-mark-green`. The orange also frames a challenged card.
 - Never write a hex or `rgb()` literal in a component. Every colour in `brand.css` is a channel triple (`--info-rgb: 39 122 157`) so that Tailwind opacity modifiers such as `border-info/30` emit a rule.

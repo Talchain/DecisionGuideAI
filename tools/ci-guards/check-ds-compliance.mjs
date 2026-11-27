@@ -51,6 +51,7 @@
  */
 import { promises as fs } from 'fs'
 import path from 'path'
+import postcss from 'postcss'
 import { scanLaneSource, scanLaneStylesheet } from './lib/ds-lane-rules.mjs'
 import { stripComments, isColourValuePosition, isAmbiguousNumericHex } from './lib/ds-token-context.mjs'
 
@@ -162,6 +163,7 @@ const CLASSES = [
     lineTokens: (code, file) => {
       const out = []
       const strict = zeroHex(file)
+      const cssValue = file.endsWith('.css')
       const hex = strict ? PALETTE_HEX : HEX
       let m
       hex.lastIndex = 0
@@ -169,11 +171,12 @@ const CLASSES = [
         // Scoping decision #1: var(--token, #hex) fallbacks are excluded.
         // (stripComments preserves column offsets so this slice still aligns.)
         if (!strict && /var\(--[\w-]+,\s*$/.test(code.slice(0, m.index))) continue
-        if (strict && /^#[0-9]{4}$/.test(m[0]) && !isColourValuePosition(code, m.index)) continue
         // A bare `#NNN` is either a colour or a PR/issue reference in a STRING
         // literal, which no comment stripper can reach. Settle it by POSITION:
         // a colour sits at the start of a value slot, a reference sits mid-prose.
-        if (isAmbiguousNumericHex(m[0]) && !isColourValuePosition(code, m.index)) continue
+        // A CSS declaration value also allows hex after other shorthand terms.
+        const ambiguous = isAmbiguousNumericHex(m[0]) || (strict && /^#[0-9]{4}$/.test(m[0]))
+        if (!cssValue && ambiguous && !isColourValuePosition(code, m.index)) continue
         out.push(m[0].toUpperCase())
       }
       return out
@@ -322,6 +325,12 @@ async function scan(rootDir) {
     for (const c of CLASSES) {
       // Decide scope relative to the scan root so the same rules apply to fixtures.
       if (!c.inScope(scopeRel)) continue
+      if (c.id === 'production-hex' && scopeRel.endsWith('.css')) {
+        postcss.parse(text, { from: abs }).walkDecls((decl) => {
+          for (const token of c.lineTokens(decl.value, scopeRel)) record(c.id, token, decl.source.start.line - 1)
+        })
+        continue
+      }
       if (c.laneSource) {
         laneHits ??= scopeRel.endsWith('.css') ? scanLaneStylesheet(scopeRel, text) : scanLaneSource(scopeRel, text)
         for (const { token, line } of laneHits[c.id] ?? []) record(c.id, token, line)

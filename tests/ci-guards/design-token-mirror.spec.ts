@@ -18,11 +18,33 @@ function tokensOf(css: string): Map<string, string> {
   return tokens
 }
 
-function resolve(tokens: Map<string, string>, name: string, seen = new Set<string>()): string {
+function resolve(tokens: Map<string, string>, name: string, seen = new Set<string>()): string | undefined {
   const value = tokens.get(name)
-  if (value === undefined || seen.has(name)) throw new Error(`Cannot resolve ${name}`)
-  const chain = new Set([...seen, name])
-  return value.replace(/var\(\s*(--[\w-]+)\s*\)/g, (_, alias) => resolve(tokens, alias, chain))
+  if (value === undefined || seen.has(name)) return undefined
+  return resolveValue(value, tokens, new Set([...seen, name]))
+}
+
+function resolveValue(value: string, tokens: Map<string, string>, seen: Set<string>): string | undefined {
+  const ref = /var\(\s*(--[\w-]+)\s*(,)?/.exec(value)
+  if (!ref) return value
+
+  // The fallback can itself contain functions, including further var() calls.
+  const start = ref.index + ref[0].length
+  let end = start
+  let depth = 1
+  while (end < value.length && depth > 0) {
+    if (value[end] === '(') depth++
+    if (value[end] === ')') depth--
+    end++
+  }
+  if (depth !== 0) return undefined
+
+  const fallback = ref[2] === ',' ? value.slice(start, end - 1).trim() : undefined
+  const replacement = resolve(tokens, ref[1], seen) ??
+    (fallback === undefined ? undefined : resolveValue(fallback, tokens, seen))
+  const remainder = resolveValue(value.slice(end), tokens, seen)
+  if (replacement === undefined || remainder === undefined) return undefined
+  return value.slice(0, ref.index) + replacement + remainder
 }
 
 function comparable(value: string): string {
@@ -38,6 +60,14 @@ function comparable(value: string): string {
   return channels ? `${channels}/${Number(rgb[2] ?? 1)}` : value
 }
 
+it('resolves a fallback against the declarations in each sheet', () => {
+  const declaration = '--colour: var(--preferred, var(--secondary, rgb(17 34 51)));'
+  const docs = tokensOf(`:root { ${declaration} }`)
+  const served = tokensOf(`:root { ${declaration} --preferred: #445566; }`)
+  expect(resolve(docs, '--colour')).toBe('rgb(17 34 51)')
+  expect(resolve(served, '--colour')).toBe('#445566')
+})
+
 it('mirrors served colours, radii, spacing, z-index and default durations in the design token sheet', () => {
   const served = tokensOf(read('src/styles/brand.css'))
   const docs = tokensOf(read('docs/Design/system/tokens.css'))
@@ -49,8 +79,14 @@ it('mirrors served colours, radii, spacing, z-index and default durations in the
     // The generated sheet also illustrates typography and easing. This guard
     // covers the colour and size palette, layer tokens and default durations.
     if (/^--(?:font|ease)-/.test(name)) continue
-    const documented = comparable(resolve(docs, name))
-    const runtime = served.has(name) ? comparable(resolve(served, name)) : '(missing)'
+    const documentedValue = resolve(docs, name)
+    const runtimeValue = resolve(served, name)
+    if (documentedValue === undefined || runtimeValue === undefined) {
+      drift.push(`${name}: unresolved in ${documentedValue === undefined ? 'tokens.css' : 'brand.css'}`)
+      continue
+    }
+    const documented = comparable(documentedValue)
+    const runtime = comparable(runtimeValue)
     if (documented !== runtime) drift.push(`${name}: docs ${documented}, brand.css ${runtime}`)
   }
   expect(drift).toEqual([])

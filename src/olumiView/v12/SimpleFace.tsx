@@ -188,7 +188,7 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
               {b.hi > b.lo ? <i className={`absolute top-0 block h-full rounded-full ok-simple-band${b.olumi ? ' ok-simple-band-olumi' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
               {b.mid === null ? null : <i className="absolute -top-[1px] block h-[6px] w-[2px] rounded-sm bg-text-header ok-simple-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
             </span>
-            {olumiLook && b.olumi ? <span className="ok-simple-band-author"><OlumiMark /></span> : null}
+            {olumiLook && b.olumi ? <span className="ok-band-author"><OlumiMark /></span> : null}
           </Hover>
         ))}
           </div>
@@ -253,11 +253,12 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
   } else if (figureRange(card) !== null) {
     // A figure with a range: core's own words for the figure first, at rest (UI reviewer #27, 17 Nov: testers read the axis end "50,000 GBP" as a £30,000
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
-    const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
+    const byOlumi = card.author?.by === 'olumi' || card.olumi !== null
+    const words = card.figure?.text ?? ''
     visual = (
       <Hover focusable={false} words={card.figure?.title || words || undefined} className={`flex min-w-0 basis-full flex-col ${tight}`} data-simple-scale={id}>
-        {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
-        <RangeBar card={card} view={{ model }} showFlat={olumiLook} />
+        {words === '' ? null : <p className={`${FIGURE} ${byOlumi ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
+        <RangeBar card={card} view={{ model }} showFlat={olumiLook} byOlumi={olumiLook ? byOlumi : undefined} />
       </Hover>
     )
   } else if (hasFigure) {

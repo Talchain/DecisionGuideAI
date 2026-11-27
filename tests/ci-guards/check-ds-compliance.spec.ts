@@ -51,6 +51,7 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(netNew['production-hex'].items).toEqual([
       expect.objectContaining({ file: `${root}/canvas/nodes/frame.tsx`, token: '#AB12CD' }),
       expect.objectContaining({ file: `${root}/olumiView/chart.css`, token: '#ABC9' }),
+      expect.objectContaining({ file: `${root}/olumiView/chart.css`, token: '#0004' }),
     ])
   })
 
