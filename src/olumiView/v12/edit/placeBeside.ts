@@ -17,6 +17,12 @@ export const DETAILS_H = '--lane-details-h'
 const quoted = (id: string) => id.replace(/["\\]/g, '\\$&')
 const cardNode = (id: string) => document.querySelector(`.react-flow__node[data-id="${quoted(id)}"]`)
 
+export function detailsOpenerOf(target: DetailsTarget): HTMLElement | SVGElement | null {
+  const element = target.kind === 'card' ? anchorOf(target).own
+    : document.querySelector(`.react-flow__edge[data-id="${quoted(target.id)}"]`)
+  return element instanceof HTMLElement || element instanceof SVGElement ? element : null
+}
+
 /** The drawn card (the aim for a folded bar), or the link's middle. Null when there is no canvas anchor. */
 export function anchorOf(t: DetailsTarget): { anchor: Rect | null; own: Element | null } {
   if (t.kind === 'card') {

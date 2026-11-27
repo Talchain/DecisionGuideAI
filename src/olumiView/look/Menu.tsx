@@ -10,6 +10,7 @@ import { MenuTooltip } from '../../canvas/contextMenu/MenuTooltip'
 import { OkIcon } from './icons'
 import { menuLook } from './menu.ts'
 import { escapeMenu, isMenuOpen, registerMenu, type MenuDismissal } from './menuArbiter'
+import { higherThanMenuOpen } from './popupLayers'
 import { focusRing, rowTipOf, Tip, useTipDelay, useTipDismissOnMove } from './Tip'
 import './menu.css'
 
@@ -77,7 +78,7 @@ export function Menu({ anchor, label, onClose, opener, request = anchor, boundar
   const chain: Chain = {
     look, boundary, surfaces, gap, repairHeldFocus,
     dismiss: (reason) => {
-      if (reason === 'escape' || reason === 'tab' || reason === 'opener') restore()
+      if (reason === 'escape' || reason === 'tab' || reason === 'opener' || (look === 'lane' && reason === 'outside')) restore()
       setDismissed(request)
       onClose(reason)
     },
@@ -108,6 +109,7 @@ export function Menu({ anchor, label, onClose, opener, request = anchor, boundar
         else latestChain.current.dismiss('escape')
       },
     })
+    if (look === 'lane' && higherThanMenuOpen()) return unregister
     const root = [...surfaces][0]?.element
     if (root) (rowsOf(root, latestChain.current.repairHeldFocus)[0] ?? root).focus({ preventScroll: true })
     return unregister
@@ -172,13 +174,25 @@ function MenuSurface({ anchor, label, placement, iconColumn, request, id, testId
         ...overflow(),
         apply({ availableHeight, elements }) {
           const bounds = chain.boundary?.rect()
-          if (bounds) elements.floating.style.maxWidth = `${Math.max(0, bounds.width - 16)}px`
-          elements.floating.style.maxHeight = `${Math.max(0, Math.min(window.innerHeight * 0.6, availableHeight))}px`
+          const height = `${Math.max(0, Math.min(window.innerHeight * 0.6, availableHeight))}px`
+          if (chain.look === 'older') {
+            if (bounds) elements.floating.style.maxWidth = `${Math.max(0, bounds.width - 16)}px`
+            elements.floating.style.maxHeight = height
+            return
+          }
+          if (bounds) elements.floating.style.setProperty('--menu-max-width', `${Math.max(0, bounds.width - 16)}px`)
+          elements.floating.style.setProperty('--menu-max-height', height)
         },
       })),
     ],
   })
   useLayoutEffect(() => { refs.setPositionReference(reference) }, [refs, reference])
+  useLayoutEffect(() => {
+    const menu = refs.floating.current
+    if (!menu) return
+    menu.style.setProperty('--menu-x', `${x}px`)
+    menu.style.setProperty('--menu-y', `${y}px`)
+  }, [refs.floating, x, y])
   const latestBack = useRef(back)
   latestBack.current = back
 
@@ -241,9 +255,9 @@ function MenuSurface({ anchor, label, placement, iconColumn, request, id, testId
     const rows = rowsOf(event.currentTarget, chain.repairHeldFocus)
     const index = rows.indexOf(document.activeElement as HTMLElement)
     let next: HTMLElement | undefined
-    // Use the same chain for focused Escape and the shared Escape stack's fallback.
+    // The lane's Escape is handled by the shared stack at window.
     if (event.key === 'Escape') {
-      if (escapeMenu(event.target as Node)) { event.preventDefault(); event.stopPropagation() }
+      if (chain.look === 'older' && escapeMenu(event.target as Node)) { event.preventDefault(); event.stopPropagation() }
       return
     }
     event.stopPropagation()
@@ -306,7 +320,6 @@ function MenuSurface({ anchor, label, placement, iconColumn, request, id, testId
       <div
         ref={refs.setFloating} id={id} role="menu" aria-label={label} tabIndex={-1} data-olumi-menu="" data-testid={testId}
         className={`olumi-menu ${chain.look === 'older' ? 'olumi-menu-older w-max' : ''} ${nested ? 'olumi-menu-child' : ''} fixed overflow-y-auto overscroll-contain outline-none ${layer} ${look.shell} transition-opacity duration-fast motion-reduce:transition-none ${isPositioned ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
-        style={{ left: x, top: y }}
         onKeyDown={onKeyDown} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
         onClick={(event) => event.stopPropagation()}
         onContextMenu={(event) => { event.preventDefault(); event.stopPropagation() }}

@@ -1,32 +1,14 @@
 # Behaviour
 
-These rules cover anything that floats over the board or the panel: menus, tips, the details sheet, forms, trays and dialogs.
+[Popups](components/Popups.md) is the binding standard for popup kinds, precedence, dismissal, focus, and the shared surface recipe.
 
-## One thing open at a time
+## Keyboard navigation
 
-- Open at most one menu at a time. Opening a menu closes the one before it, and pressing the same opener again closes its own menu. This is built into `Menu` through `menuArbiter.ts`.
-- Hold at most one editing surface at a time. The sheet store, `inspectorStore.ts`, holds a single slot: details, menu, form, editor or add. A new surface replaces the open one, except while that one is saving.
-- Show one tip at a time. A new tip closes the last one.
-- Never show a hover preview while a menu or editing surface is open.
-- Still to do: chrome menus use a second mechanism, `MENU_EXCLUSIVE_EVENT`, and the Add and Ask Olumi menus join neither mechanism. Moving them onto `Menu` makes the rule hold everywhere.
-
-## Focus and Escape
-
-- **Focus in.** Opening a menu moves focus to its first row. Opening a form focuses and selects its first field.
-- **Roving focus.** Inside a menu:
-  - ↑ and ↓ move between rows and wrap, and Home and End jump to the first and last row;
-  - Enter or Space chooses the focused row;
-  - typing a letter jumps to the matching row;
-  - → opens a submenu and ← returns to the parent row.
-- **Escape.**
-  - Escape closes the newest surface only, once, through the shared stack in `escapeLayers.ts`.
-  - A component that handles Escape itself marks the press as handled.
-  - In a submenu, Escape goes back one level first.
-- **Focus out.**
-  - After Escape, Tab or a second press on the opener, focus returns to the opener.
-  - After choosing a row, focus is restored only if nothing else took it.
-- **Modals.** Follow `ViewSummary.tsx`: focus in, trap Tab, close with the shared Escape, return focus to the trigger.
-- **Disabled controls** stay focusable with `aria-disabled`, and the light Tip says why.
+- A menu takes focus on its first row. A form focuses its first field, selecting the value when appropriate.
+- Within a menu, ↑ and ↓ move between rows, Home and End jump to the first and last row, Enter or Space selects the row, and letters jump to a matching row. → opens a submenu and ← returns to the parent row.
+- Follow `ViewSummary.tsx` for dialogs. Put initial focus inside, keep Tab in the dialog and return focus to the trigger when it closes.
+- Plain row labels truncate when needed. A caller-supplied description appears inline. Hover or keyboard focus shows the full truncated label, tip text or disabled reason in the row’s light Tip. Disabled rows stay focusable with `aria-disabled`.
+- A row tip belongs to its menu. The one-tip rule applies across surfaces, including menu row tips and card peeks. An open menu blocks standalone tips.
 
 ## Placement
 
@@ -44,7 +26,7 @@ These rules cover anything that floats over the board or the panel: menus, tips,
 
 - **A card's hover is a peek.** Resting on a card for 400ms opens the same box that a click pins. The peek is read-only.
 - **A click pins it.** Pinned, the box holds its editable rows. Closing a pinned box does not fall back to the peek.
-- **Tips open after 150ms** of pointer rest, or straight away on keyboard focus. Pressing the control closes its tip.
+- **Tips open after 150ms** of pointer rest or keyboard focus. Pressing the control closes its tip.
 - **Use only the light Tip** (`Hover`, `HoverButton`, `OkIconButton`). Never use a native `title`, and never the dark `Tooltip` on lane surfaces.
 
 ## Reduced motion

@@ -23,7 +23,11 @@ import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../../olumiView/look/Menu.tsx'
 import { dismissMenuFromOpener } from '../../olumiView/look/menuArbiter'
 import { canvasChromeMenuBoundary } from '../../olumiView/look/menu'
-import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
+import { FLOAT_CLASS } from '../../olumiView/look/float'
+import { usePopupLayer } from '../../olumiView/look/popupLayers'
+import { placeNear } from '../../olumiView/look/placeNear'
+import { autoUpdate } from '@floating-ui/react'
+import { createPortal } from 'react-dom'
 import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 import { OkIcon } from '../../olumiView/look/icons'
 import Tooltip from '../Tooltip'
@@ -83,22 +87,28 @@ export function KebabMenu({
   const settingsForm = useRef<HTMLFormElement>(null)
   const firstSetting = useRef<HTMLInputElement>(null)
   const closeSettings = () => { setSettingsOpen(false); opener?.focus() }
-  useEscapeLayer(settingsOpen, closeSettings)
+  usePopupLayer('sheet', lane && settingsOpen, settingsForm, () => opener, closeSettings)
   useEffect(() => {
-    if (isOpen) setSettingsOpen(false)
-  }, [isOpen])
-  useEffect(() => {
-    if (!settingsOpen) return
-    const outside = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (!settingsForm.current?.contains(target) && !opener?.contains(target)) setSettingsOpen(false)
-    }
-    document.addEventListener('pointerdown', outside)
-    return () => document.removeEventListener('pointerdown', outside)
-  }, [opener, settingsOpen])
+    if (lane && settingsOpen && isOpen) onClose()
+  }, [isOpen, lane, onClose, settingsOpen])
   useLayoutEffect(() => {
-    if (settingsOpen) firstSetting.current?.focus()
-  }, [settingsOpen])
+    const form = settingsForm.current
+    if (!settingsOpen || !form || !opener) return
+    firstSetting.current?.focus()
+    return autoUpdate(opener, form, () => {
+      const { x, y, width, height } = canvasChromeMenuBoundary.rect()
+      const gap = 8
+      const region = { left: x + gap, top: y + gap, right: x + width - gap, bottom: y + height - gap }
+      form.style.setProperty('--settings-max-width', `${Math.max(0, width - 2 * gap)}px`)
+      const size = { width: form.getBoundingClientRect().width, height: Math.min(window.innerHeight * 0.6, form.scrollHeight + 2) }
+      const { left, top, maxHeight } = placeNear(opener.getBoundingClientRect(), size, {
+        region, open: [], cards: [], gap, limit: 48, shrink: true,
+      })
+      form.style.setProperty('--settings-x', `${left}px`)
+      form.style.setProperty('--settings-y', `${top}px`)
+      form.style.setProperty('--settings-max-height', maxHeight === null ? '60vh' : `${maxHeight}px`)
+    }, { animationFrame: true })
+  }, [opener, settingsOpen])
 
   const {
     showGrid,
@@ -244,7 +254,8 @@ export function KebabMenu({
         {lane ? (
           <HoverButton ref={setOpener} type="button" words="More options" className={TOOLBAR_ICON}
             onClick={(event) => {
-              if (!dismissMenuFromOpener(event.currentTarget)) { setSettingsOpen(false); onToggle() }
+              if (settingsOpen) closeSettings()
+              else if (!dismissMenuFromOpener(event.currentTarget)) onToggle()
             }}
             aria-label="More options" aria-expanded={isOpen} aria-haspopup="menu">
             <OkIcon id="more" size={14} decorative inherit />
@@ -289,9 +300,9 @@ export function KebabMenu({
           </Menu>
         )}
 
-        {lane && settingsOpen && (
+        {lane && settingsOpen && createPortal(
           <form ref={settingsForm} aria-label="Canvas settings" onSubmit={(event) => { event.preventDefault(); closeSettings() }}
-            className={`absolute right-0 top-full mt-2 max-h-[60vh] w-56 max-w-[calc(100vw-1rem)] overflow-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${CANVAS_LAYER_CLASS.chromeMenu} ${typography.viewPanelBody}`}>
+            className={`fixed left-[var(--settings-x)] top-[var(--settings-y)] max-h-[var(--settings-max-height,60vh)] w-56 max-w-[var(--settings-max-width,100vw)] overflow-auto ${CANVAS_LAYER_CLASS.chromeMenu} ${FLOAT_CLASS}`}>
             <div className="flex items-center justify-between gap-2">
               <h2 className={`${typography.viewPanelHeadline} text-text-header`}>Canvas settings</h2>
               <HoverButton type="button" words="Close canvas settings" aria-label="Close canvas settings" onClick={closeSettings}
@@ -300,7 +311,7 @@ export function KebabMenu({
               </HoverButton>
             </div>
             {settingsFields}
-          </form>
+          </form>, document.body,
         )}
 
         {!lane && isOpen && (
@@ -435,7 +446,7 @@ export function KebabMenu({
         )}
       </div>
 
-      {lane && showTitle && <ScenarioTitleDialog onClose={() => setShowTitle(false)} />}
+      {lane && showTitle && <ScenarioTitleDialog opener={opener} onClose={() => setShowTitle(false)} />}
 
       {/* Start-new-model confirmation dialog.
 

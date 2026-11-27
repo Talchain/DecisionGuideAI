@@ -1,22 +1,20 @@
 # Menu
 
-The one menu for the lane: right-click on the board, a card or a link, the card ⋯ menu, and their submenus.
-
-**Status: built** for those menus. The other menus still use their own markup; the Status page lists them.
+The right-click, card, chrome and composer menus use the same [popup standard](Popups.md).
 
 ## Anatomy
 
-- **Shell**: `MENU_SHELL`, which is 232px wide, `p-1.5` (6px), `rounded-md` (12px), a `border-default` hairline, `bg-panel` and `shadow-2`, with `viewPanelBody` text. Its height is capped at 60% of the window, and it scrolls inside.
-- **Label row** (`MenuLabel`): the card's kind marker at 10px and its heading, in `viewPanelHeading` and `text-light`, with `px-3 pb-2`.
-- **Row** (`MenuItem`): `MENU_ROW`, which is `px-3 py-2.5` and `rounded-sm`, making 38px with an 18px line. It has a 14px grey icon column, then the label, which truncates to one line, then an optional trailing slot.
-- **Submenu row** (`SubMenu`): a trailing `fold-chevron` at 14px. Its submenu opens to the right and overlaps the parent by 4px.
-- **Separator** (`MenuSeparator`): `my-1`, a `border-default` hairline.
+- **Shell** uses the shared popup recipe. It is 232px wide with a measured viewport cap and scrolls inside its height limit.
+- **Label row** (`MenuLabel`) identifies a group in 12px type.
+- **Row** (`MenuItem`) truncates plain labels when needed. It can also carry a 14px icon, caller-supplied inline description and trailing value. Its light Tip shows a truncated label and any tip text or disabled reason on hover and keyboard focus.
+- **Submenu row** (`SubMenu`) shows a 14px chevron. Its submenu overlaps the parent by 4px.
+- **Separator** (`MenuSeparator`) is a hairline between groups.
 
 ## States
 
 - **Hover**: `bg-panel-hover`.
 - **Focus**: a 2px inset ring in `text-header`.
-- **Disabled**: `text-light` at 50%. It stays focusable and says why in its tip.
+- **Disabled**: `text-light` at 50%. It stays focusable and gives the reason in its row Tip.
 - **Danger**: `danger` text.
 - Never use blue.
 
@@ -42,5 +40,3 @@ The one menu for the lane: right-click on the board, a card or a link, the card 
 - `src/olumiView/look/menu.ts`
 - `src/olumiView/look/menu.css`
 - `src/olumiView/look/menuArbiter.ts`
-
-This preview is a static rendition, hand-written from those files at UI `9aa1b195`.

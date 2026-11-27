@@ -12,6 +12,8 @@ import { TeamApiError } from '../olumiCore/team/api'
 import { accountsApi } from '../olumiCore/accounts/api'
 import { useViewStore } from './store'
 import { CANVAS_LAYER_CLASS } from '../canvas/layers'
+import { usePopupWriting, writeFromPopup } from './look/popupWrites'
+import { FLOAT_CLASS } from './look/float'
 import { useDialogFocus } from './look/useDialogFocus'
 import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS } from '../v5/blocks/chipClass'
 
@@ -20,19 +22,21 @@ export const TITLE_WORDS = {
   save: 'Save title', cancel: 'Cancel', failed: 'That did not go through. Nothing was saved.',
 } as const
 
-export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.Element | null {
+export function ScenarioTitleDialog({ onClose, opener }: { onClose: () => void; opener?: HTMLButtonElement | null }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const current = useViewStore((s) => s.view?.title ?? '')
-  const [typed, setTyped] = useState(current)
-  const [sending, setSending] = useState(false)
+  const [typed, setTyped] = useState<string | null>(null)
+  const writeKey = `scenario-title:${sid ?? ''}`
+  const sending = usePopupWriting(writeKey)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+  const { dialogRef: formRef, onKeyDown } = useDialogFocus<HTMLFormElement>({
     open: sid !== null,
+    popup: true,
     initialFocus: () => inputRef.current,
     // The Rename menu item is gone when this dialog mounts. Return to its menu's trigger.
-    opener: () => document.querySelector<HTMLButtonElement>('button[aria-label="More options"]'),
-    onEscape: () => { if (!sending) onClose() },
+    opener: () => opener ?? document.querySelector<HTMLButtonElement>('button[aria-label="More options"]'),
+    onEscape: onClose,
     selectInput: true,
   })
   if (sid === null) return null
@@ -40,35 +44,41 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
   const save = async (e: FormEvent) => {
     e.preventDefault()
     if (sending) return
-    setSending(true); setError(null)
+    setError(null)
     try {
-      await accountsApi.retitle(sid, typed.trim())
-      // The View is what the bar shows: read it again so the name is core's, not the typed text. A read that fails says so.
-      if (await useViewStore.getState().refresh()) onClose()
-      else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
+      await writeFromPopup(writeKey, async () => {
+        await accountsApi.retitle(sid, (typed ?? current).trim())
+        // The view carries the saved title. A scenario that is no longer open need not be refreshed.
+        const view = useViewStore.getState()
+        if (view.sid !== sid) return
+        const refreshed = await view.refresh()
+        if (!formRef.current?.isConnected || useViewStore.getState().sid !== sid) return
+        if (refreshed) onClose()
+        else setError('Saved, but Olumi could not show it just now. Reload the page to see it.')
+      })
     } catch (err) {
-      setError(err instanceof TeamApiError ? err.message : TITLE_WORDS.failed)
-    } finally { setSending(false) }
+      if (formRef.current?.isConnected) setError(err instanceof TeamApiError ? err.message : TITLE_WORDS.failed)
+    }
   }
 
   return createPortal(
-    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={TITLE_WORDS.heading} data-testid="scenario-title-dialog"
-      className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-start justify-center overflow-y-auto bg-[var(--backdrop)] px-3 pt-24`}
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !sending) onClose() }}
-      onKeyDown={onKeyDown}>
-      <form onSubmit={(e) => void save(e)} className="grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-3">
+    <div
+      className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-start justify-center overflow-y-auto bg-[var(--backdrop)] px-3 pr-[calc(var(--dock-right-offset,0rem)+var(--space-3))] pt-[var(--space-12)]`}
+    >
+      <form ref={formRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={TITLE_WORDS.heading} data-testid="scenario-title-dialog"
+        onKeyDown={onKeyDown} onSubmit={(e) => void save(e)} className={`${FLOAT_CLASS} w-full max-w-[420px] outline-none`}>
         <h2 className={`${typography.panelHeader} m-0 text-text-header`}>{TITLE_WORDS.heading}</h2>
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
-        <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}
+        <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed ?? current} disabled={sending}
           onChange={(e) => { setTyped(e.target.value); if (error) setError(null) }}
           className={`${typography.viewLabel} min-h-7 w-full rounded-sm border border-field bg-panel px-2 text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} />
         <p className={`${typography.viewLabel} m-0 text-text-light`}>{TITLE_WORDS.note}</p>
         {error && <p role="alert" data-testid="scenario-title-error" className={`${typography.viewLabel} m-0 text-warning-ink`}>{error}</p>}
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button type="submit" data-testid="scenario-title-save" disabled={sending}
             className={VIEW_CHIP_PRIMARY_CLASS}>{TITLE_WORDS.save}</button>
-          <button type="button" disabled={sending} onClick={onClose}
-            className={VIEW_CHIP_CLASS}>{TITLE_WORDS.cancel}</button>
+          <button type="button" onClick={onClose}
+            className={VIEW_CHIP_CLASS}>{sending ? 'Close' : TITLE_WORDS.cancel}</button>
         </div>
       </form>
     </div>,

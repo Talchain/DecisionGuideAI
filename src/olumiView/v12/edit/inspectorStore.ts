@@ -16,7 +16,8 @@ import type { ContextTarget } from '../../../canvas/contextMenu/types'
 import { useWrites } from '../../../olumiCore/team/writes'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { useViewStore } from '../../store'
-import { dismissMenuForSurface } from '../../look/menuArbiter'
+import { dialogOpen, dismissChromeSheet, dismissTip, higherThanMenuOpen, tipBlocked } from '../../look/popupLayers'
+import { dismissMenuForSurface, menuOpenerFor } from '../../look/menuArbiter'
 import type { EditSpec } from './EditForm'
 import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
 import type { OutputTab } from '../../../stores/uiStore'
@@ -33,7 +34,9 @@ export type Surface =
   | { readonly kind: 'editor'; readonly key: string; readonly busyKey: string }
   | { readonly kind: 'add'; readonly busyKey: string }
 /** The open one; `n` is new for every showing, so a form opened again starts from its own words and not the last one's. */
-export type Showing = Surface & { readonly n: number }
+export type Showing = Surface & { readonly n: number; readonly focusOpener?: HTMLElement }
+export const isSheetSurface = (s: Surface | null): boolean => s !== null && s.kind !== 'menu' && s.kind !== 'add-menu'
+
 export type Drafts = Readonly<Record<string, Readonly<Record<string, string>>>>
 
 type State = {
@@ -53,7 +56,7 @@ type State = {
   readonly show: (s: Surface) => boolean
   /** Close the open surface if it is of this kind (and, for an editor, this key): a surface lets go of itself, whatever else is open stays. */
   readonly close: (kind?: Surface['kind'], key?: string) => void
-  /** Escape or a press on empty canvas: close what is open unless it is saving. `explicit` (Escape) also drops a form's draft. True: there was something open. */
+  /** Escape or a press on empty canvas: close what is open unless it is saving. `explicit` (Escape) also drops a form's draft. True when the surface closed. */
   readonly dismiss: (explicit: boolean) => boolean
   readonly setDraft: (key: string, values: Readonly<Record<string, string>>) => void
   readonly forgetDraft: (key: string) => void
@@ -88,20 +91,33 @@ const peekAfter = (closing: Showing, peek: DetailsTarget | null): DetailsTarget 
 
 export const useLaneInspector = create<State>()((set, get) => ({
   current: null, peek: null, drafts: {},
-  setPeek: (peek) => set((st) => (st.peek !== null && st.peek.kind === peek.kind && st.peek.id === peek.id ? st : { peek })),
+  setPeek: (peek) => {
+    if (isOlumiCoreLane() && tipBlocked()) return
+    set((st) => (st.peek !== null && st.peek.kind === peek.kind && st.peek.id === peek.id ? st : { peek }))
+  },
   clearPeek: (id) => set((st) => (st.peek !== null && st.peek.id === id ? { peek: null } : st)),
   open: (target) => { get().show({ kind: 'details', target }) },
   openFigure: (target, how = 'value', opts = {}) => get().show({ kind: 'details', target, edit: how, ...(opts.primary !== undefined ? { primary: opts.primary } : {}), ...(opts.tab !== undefined ? { tab: opts.tab } : {}) }),
   show: (s) => {
     const cur = get().current
     if (surfaceBusy(cur)) return false
-    // The same item's details asked for again (a second press on its card): the section a mark opened stays open, never shut under the reader.
+    const lane = isOlumiCoreLane()
+    const sheet = isSheetSurface(s)
+    if (lane && (dialogOpen() || (!sheet && higherThanMenuOpen()))) return false
+    const focused = typeof document === 'undefined' ? null : document.activeElement
+    const previousOpener = focused?.closest('[data-state="pinned"][data-testid="lane-inspector"]') ? cur?.focusOpener : undefined
+    const focusOpener = lane && s.kind === 'details'
+      ? previousOpener ?? (focused !== null && focused instanceof HTMLElement && focused !== document.body ? menuOpenerFor(focused) ?? focused : undefined)
+      : undefined
+    // The same item's details asked for again keep the section a mark opened.
     const section = s.kind === 'details' && s.section === undefined && cur !== null && cur.kind === 'details' && cur.target.kind === s.target.kind && cur.target.id === s.target.id ? cur.section : undefined
-    set({ current: { ...s, ...(section !== undefined ? { section } : {}), n: ++seq } })
-    if (isOlumiCoreLane() && s.kind !== 'menu' && s.kind !== 'add-menu') {
-      // The store change already unmounts the Add menu when its own form takes the slot.
-      const handoffOpener = cur?.kind === 'add-menu' && s.kind === 'form' && s.opener === cur.opener ? cur.opener : undefined
-      dismissMenuForSurface(handoffOpener)
+    set({ current: { ...s, ...(section !== undefined ? { section } : {}), ...(focusOpener ? { focusOpener } : {}), n: ++seq }, ...(lane ? { peek: null } : {}) })
+    if (lane) {
+      dismissTip()
+      if (sheet) {
+        dismissChromeSheet()
+        dismissMenuForSurface()
+      }
     }
     return true
   },
@@ -113,7 +129,7 @@ export const useLaneInspector = create<State>()((set, get) => ({
   dismiss: (explicit) => {
     const c = get().current
     if (c === null) return false
-    if (surfaceBusy(c)) return true
+    if (surfaceBusy(c)) return !isOlumiCoreLane()
     if (explicit && c.kind === 'form') get().forgetDraft(draftKeyOf(c.spec))
     set({ current: null, peek: peekAfter(c, get().peek) })
     return true

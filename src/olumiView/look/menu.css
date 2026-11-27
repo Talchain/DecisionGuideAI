@@ -1,10 +1,14 @@
 /* Exact menu widths and the viewport gutter have no matching spacing utilities. */
 .olumi-menu {
+  left: var(--menu-x, 0px);
+  top: var(--menu-y, 0px);
   max-width: min(320px, calc(100vw - 1rem));
 }
 
 .olumi-menu:not(.olumi-menu-older) {
   width: 232px;
+  max-width: min(320px, calc(100vw - var(--space-4)), var(--menu-max-width, 320px));
+  max-height: var(--menu-max-height, 60vh);
 }
 
 .olumi-menu-older {
@@ -18,4 +22,9 @@
 /* The system symbol fallback stack is specific to menu glyphs. */
 .olumi-menu-symbol {
   font-family: 'Apple Symbols', 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
+}
+
+/* Keep the full row height when a menu scrolls. */
+.olumi-menu.ok-float > * {
+  flex-shrink: 0;
 }

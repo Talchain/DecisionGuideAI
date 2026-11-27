@@ -1,4 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent } from 'react'
+import { usePopupLayer } from './popupLayers'
 import { useEscapeLayer } from '../v12/edit/escapeLayers'
 
 const TAB_STOP = 'a[href], button, input:not([type="hidden"]), select, textarea, summary, [contenteditable="true"], [tabindex]'
@@ -11,6 +12,7 @@ interface DialogFocusOptions {
   selectInput?: boolean
   containFocus?: boolean
   restoreFocus?: boolean
+  popup?: boolean
 }
 
 export function useDialogFocus<T extends HTMLElement>(options: DialogFocusOptions) {
@@ -20,24 +22,32 @@ export function useDialogFocus<T extends HTMLElement>(options: DialogFocusOption
   const dialogRef = useRef<T>(null)
   const latest = useRef(options)
   latest.current = options
-  useEscapeLayer(open && onEscape !== undefined, () => latest.current.onEscape?.())
+  useEscapeLayer(open && !options.popup && onEscape !== undefined, () => latest.current.onEscape?.())
+  usePopupLayer('dialog', open && options.popup === true, dialogRef,
+    () => latest.current.opener?.() ?? null, () => latest.current.onEscape?.())
 
   useEffect(() => {
     const dialog = dialogRef.current
     if (!open || dialog === null) return
-    const { initialFocus, opener, selectInput } = latest.current
+    const { initialFocus, opener, popup, selectInput } = latest.current
     const active = document.activeElement
     const trigger = opener?.() ?? (active instanceof HTMLElement ? active : null)
     const initial = initialFocus?.() ?? dialog
     initial.focus()
+    if (popup && !dialog.contains(document.activeElement)) dialog.focus()
     if (selectInput && initial instanceof HTMLInputElement) initial.select()
+    const keepFocus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) dialog.focus({ preventScroll: true })
+    }
+    if (popup && containFocus) document.addEventListener('focusin', keepFocus)
     return () => {
+      if (popup && containFocus) document.removeEventListener('focusin', keepFocus)
       const focused = document.activeElement
       if (restoreFocus && trigger?.isConnected && (focused === document.body || dialog.contains(focused))) {
         trigger.focus({ preventScroll: true })
       }
     }
-  }, [open, restoreFocus])
+  }, [containFocus, open, restoreFocus])
 
   const onKeyDown = (event: KeyboardEvent<T>) => {
     if (!containFocus || event.defaultPrevented || event.key !== 'Tab') return

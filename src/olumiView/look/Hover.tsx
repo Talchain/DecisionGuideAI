@@ -1,6 +1,6 @@
 /**
  * THE ONE HOVER WRAPPER for what is not a registry icon: a mark, a cite, a line of core's text, a labelled control. Every one goes through look/Tip's
- * `useAnchoredTip` (150 ms on the pointer's rest, immediately on keyboard focus, closed by Escape, never a native `title`). This module only spreads its
+ * `useAnchoredTip` (150 ms after pointer rest or keyboard focus, closed by Escape, never a native `title`). This module only spreads its
  * handlers and draws its tip; it holds no timer, no portal, no position and no words of its own. A hook cannot sit in a map, so a row that maps over
  * items uses this element as the thing that owns the hook.
  * - `as`: any tag or component (default `span`).

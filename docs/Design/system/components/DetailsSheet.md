@@ -6,17 +6,17 @@ The one box for a card's details. Resting on a card shows it as a read-only peek
 
 ## Anatomy
 
-- **Frame**: 280px wide, `radius-lg` (14px), a `border-default` hairline, `bg-panel`, `shadow-2`, `p-3` and `gap-3`, with `viewPanelBody` text. Its height is capped at 60% of the window, and it sits on layer 60.
+- **Frame** uses the [shared popup shell](Popups.md). It is 280px wide and capped at the available height or 60% of the window.
 - **Heading**: the card name in `panelHeader`, with a kind line under it in `viewPanelMeta` and a 10px marker, 8px below.
 - **Close**: a 28px square.
-- **Body**: `space-y-3` when pinned, `space-y-4` as a peek. Row labels are `viewPanelMeta`, 64px wide. "Where this comes from" folds with `py-2.5`.
+- **Body**: Stack gaps between rows. Row labels are `viewPanelMeta`, 64px wide. "Where this comes from" folds with `py-2.5`.
 - **Value row**: `grid gap-2`. The figure is the primary green "Change figure" (or "Save"), and the secondary is "Try without saving".
 - **Actions**: `VIEW_CHIP_CLASS` chips plus a More icon button.
 
 ## Behaviour
 
 - Placed by `placeBeside`: beside the card, or below or above it, never covering it, and 8px from every edge.
-- Escape closes it and clears the selection.
+- Escape closes it and clears the selection. Outside press and the close control also dismiss it. A save in progress keeps it open.
 - Closing a pinned sheet does not fall back to the peek.
 
 ## Code
@@ -25,5 +25,3 @@ The one box for a card's details. Resting on a card shows it as a read-only peek
 - `src/olumiView/v12/inspect/ValueRow.tsx`
 - `src/olumiView/v12/edit/placeBeside.ts`
 - `src/olumiView/v12/edit/inspectorStore.ts`
-
-This preview is a static rendition at UI `9aa1b195`, with example content.

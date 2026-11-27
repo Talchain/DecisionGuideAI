@@ -1,10 +1,5 @@
-/**
- * SURFACES STEP B (18 Nov): the lane's one Tip. On the lane it stands in for the right-click menu's own tooltip (a second look, which the older look keeps). Bound here: what a menu row's tip says
- * (a label the row cut is said whole, then the row's own note), the one look, and that where it stands is two custom properties, never an inline
- * left/top. The menu's use of it (hover a row, 300 ms) is in canvas/contextMenu/__tests__/CanvasContextMenu.spec.tsx.
- */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { ReactNode } from 'react'
@@ -13,11 +8,13 @@ import { ToastProvider } from '../../../canvas/ToastContext'
 import { LaneInspector } from '../../v12/edit/LaneInspector'
 import { useLaneInspector } from '../../v12/edit/inspectorStore'
 import { install, uninstall } from '../../v12/edit/__tests__/harness'
+import { Menu, MenuItem } from '../Menu'
 import { Tip, TIP_GAP, TIP_DELAY, rowTipOf, useAnchoredTip } from '../Tip'
 import { installPlaceHost } from '../placeHost'
 import { lanePlaceHost } from '../placeReaders'
 
-afterEach(() => { cleanup() })
+beforeEach(() => vi.stubEnv('VITE_OLUMI_CORE', '1'))
+afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
 /** A menu row as the menu draws it: its label in `[data-menu-label]`, drawn `shown` px wide while its words need `needs` px. */
 const row = (label: string, shown: number, needs: number): HTMLElement => {
@@ -57,13 +54,18 @@ describe('what a menu row\'s tip says', () => {
 })
 
 describe('the one Tip', () => {
-  it('one look (the panel\'s ground and border, the small radius, 240 px at most, read only) and its place in two custom properties, with no inline left or top', () => {
+  it('the shared popup recipe, read only and its place in two custom properties, with no inline left or top', () => {
     render(<Tip id="tooltip-x" text={'A row\'s whole words\nand its note'} anchorRect={rect(100, 200, 220, 32)} />)
     const tip = screen.getByRole('tooltip')
     expect(tip).toHaveAttribute('id', 'tooltip-x')
-    expect(tip.textContent).toBe('A row\'s whole words\nand its note')
-    for (const c of ['rounded-sm', 'border', 'border-panel-border', 'bg-panel', 'ok-tip', 'pointer-events-none', 'whitespace-pre-line', 'shadow-1']) expect(tip.classList.contains(c), c).toBe(true)
-    expect([...tip.classList].filter((c) => /^rounded(-|$)/.test(c)), 'one radius').toEqual(['rounded-sm'])
+    expect(tip).toHaveClass('ok-float', 'ok-tip', 'pointer-events-none', 'whitespace-pre-line')
+    const css = readFileSync(path.resolve('src/olumiView/look/float.css'), 'utf8')
+    expect(css).toMatch(/background: var\(--bg-panel\)/)
+    expect(css).toMatch(/border: 1px solid var\(--border-default\)/)
+    expect(css).toMatch(/border-radius: var\(--radius-md\)/)
+    expect(css).toMatch(/box-shadow: var\(--shadow-2\)/)
+    expect(css).toMatch(/padding: var\(--space-3\)/)
+    expect(css).toMatch(/gap: var\(--space-2\)/)
     expect([tip.style.left, tip.style.top], 'no inline position').toEqual(['', ''])
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')], 'right of its row, level with it').toEqual([`${100 + 220 + TIP_GAP}px`, '200px'])
   })
@@ -107,7 +109,7 @@ describe('the one Tip', () => {
       spy.mockRestore()
     }
   })
-  it('a canvas tip stays left of the dock and takes another side when pinned details occupy its first clear side', () => {
+  it('a canvas tip stays left of the dock and avoids another measured box', () => {
     vi.useFakeTimers()
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       if (this.matches('aside[aria-label="Outputs dock"]')) return rect(650, 0, 350, 800)
@@ -228,7 +230,7 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
     } finally { vi.useRealTimers() }
   })
 
-  it('a card part tip hides the hover preview, closing it restores the preview, and pinned details stay visible', () => {
+  it('a card part tip replaces the hover preview and a pinned sheet blocks tips', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     vi.useFakeTimers()
     install()
@@ -255,11 +257,11 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
       expect(screen.queryByTestId('lane-peek')).toBeNull()
       fireEvent.pointerLeave(part, { relatedTarget: part.parentElement })
       expect(screen.queryByTestId('lane-tip')).toBeNull()
-      expect(screen.queryByTestId('lane-peek')).not.toBeNull()
+      expect(screen.queryByTestId('lane-peek')).toBeNull()
 
       act(() => { useLaneInspector.getState().open(target) })
       openTip()
-      expect(screen.queryByTestId('lane-tip')).not.toBeNull()
+      expect(screen.queryByTestId('lane-tip')).toBeNull()
       expect(screen.queryByTestId('lane-inspector')).not.toBeNull()
     } finally {
       cleanup()
@@ -271,7 +273,7 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
     }
   })
 
-  it('a tip with a stand-in anchor opens inside the window margin and leaves the hover preview visible', () => {
+  it('a tip with a stand-in anchor opens inside the window margin and replaces the hover preview', () => {
     const anchor = { getBoundingClientRect: () => rect(100, 0, 20, 20), matches: () => true }
     function StandInTrigger() {
       const t = useAnchoredTip('Icon words')
@@ -301,7 +303,7 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
       fireEvent.focus(screen.getByTestId('stand-in-trigger'))
       act(() => { vi.advanceTimersByTime(TIP_DELAY) })
       expect(tipPosition()).toEqual([`${120 + TIP_GAP}px`, `${TIP_GAP}px`])
-      expect(screen.getByTestId('lane-peek')).toBeVisible()
+      expect(screen.queryByTestId('lane-peek')).toBeNull()
     } finally {
       cleanup()
       spy.mockRestore()
@@ -312,4 +314,56 @@ describe('one tip on the screen at a time (Codex round 4: a card\'s tip and an i
       vi.unstubAllEnvs()
     }
   })
+})
+
+it('shares one light row tip across hover and keyboard focus and lets the menu handle Escape', () => {
+  vi.useFakeTimers()
+  try {
+    const label = 'A long row label that does not fit'
+    const close = vi.fn()
+    render(
+      <Menu anchor={{ x: 100, y: 100 }} label="Row tips" onClose={close}>
+        <MenuItem id="described" label={label} tip="Extra detail" />
+        <MenuItem id="inline-description" label="Build a model" description={<span data-testid="row-description">Draft from the conversation</span>} />
+        <MenuItem id="disabled" label="Held" disabled disabledReason="Wait for the save" tip="A less specific note" />
+        <MenuItem id="noted" label="Read more" tip="An ordinary note" />
+      </Menu>,
+    )
+    const menu = screen.getByRole('menu', { name: 'Row tips' })
+    const described = screen.getByRole('menuitem', { name: label })
+    const held = screen.getByRole('menuitem', { name: 'Held' })
+    const noted = screen.getByRole('menuitem', { name: 'Read more' })
+    const drawn = described.querySelector('[data-menu-label]')!
+    Object.defineProperties(drawn, { clientWidth: { value: 80 }, scrollWidth: { value: 240 } })
+    expect(drawn).toHaveClass('truncate')
+    expect(held).toHaveAttribute('aria-disabled', 'true')
+    expect(menu).toContainElement(screen.getByTestId('row-description'))
+    expect(menu).not.toHaveTextContent(/Extra detail|Wait for the save|An ordinary note/)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+
+    fireEvent.pointerEnter(described)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    const hoverTip = screen.getByRole('tooltip')
+    expect(hoverTip).toHaveClass('ok-float')
+    expect(hoverTip.querySelector('[data-tip-title]')).toHaveTextContent(label)
+    expect(hoverTip.querySelector('[data-tip-body]')).toHaveTextContent('Extra detail')
+    expect(described).toHaveAttribute('aria-describedby', hoverTip.id)
+
+    const matches = held.matches.bind(held)
+    vi.spyOn(held, 'matches').mockImplementation((selector) => selector === ':focus-visible' || matches(selector))
+    act(() => { held.focus(); vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Wait for the save')
+    expect(hoverTip).not.toBeInTheDocument()
+
+    fireEvent.pointerEnter(noted)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip')).toHaveTextContent('An ordinary note')
+
+    fireEvent.keyDown(held, { key: 'Escape' })
+    expect(close).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('menu', { name: 'Row tips' })).toBeNull()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
 })

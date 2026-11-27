@@ -11,10 +11,12 @@
  * "Take out of comparison" is NOT offered: core has no route for an option's status or an exclusion (MANUAL-EDITING-MAP, headline 4).
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useWrites } from '../../../olumiCore/team/writes'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
-import { useCanvasCardTip } from '../../look/Tip'
+import { FLOAT_CLASS } from '../../look/float'
+import { onOutsidePress, registerPopup, tipBlocked } from '../../look/popupLayers'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
 import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
@@ -48,9 +50,9 @@ import { RenameHeading } from './RenameHeading'
 import { canRenameCard } from './renameCard'
 import { CardWords } from '../../SelectedRename'
 import { changesNoFigure, movedBy, SelectedExplain } from '../../look/SelectedExplain'
-import { detailsOf, useLaneInspector } from './inspectorStore'
+import { detailsOf, surfaceBusy, useLaneInspector } from './inspectorStore'
 import { optionValuesOf } from './optionValues'
-import { DETAILS_H, DETAILS_X, DETAILS_Y, PEEK_RESERVE, stayBeside } from './placeBeside'
+import { DETAILS_H, DETAILS_X, DETAILS_Y, PEEK_RESERVE, detailsOpenerOf, stayBeside } from './placeBeside'
 
 const NOOP = () => undefined
 /** The box's own fixed words (chrome): its row labels and its one fold. */
@@ -126,8 +128,9 @@ function Connections({ card, peek }: { card: ViewCard; peek: boolean }): JSX.Ele
 /** The lane: ONE box for the card pressed (pinned) or, while nothing at all is open, the card previewed. */
 function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const pinnedOn = useLaneInspector(detailsOf)
-  const cardTipOpen = useCanvasCardTip((s) => s.tipId !== null)
-  const peeked = useLaneInspector((s) => (s.current === null && !cardTipOpen ? s.peek : null))
+  const request = useLaneInspector((s) => s.current?.kind === 'details' ? s.current : null)
+  const busy = useWrites(() => surfaceBusy(request))
+  const peeked = useLaneInspector((s) => (s.current === null ? s.peek : null))
   const section = useLaneInspector((s) => (s.current !== null && s.current.kind === 'details' ? s.current.section ?? null : null))
   const close = useLaneInspector((s) => s.close)
   const target = pinnedOn ?? peeked, pinned = pinnedOn !== null
@@ -156,9 +159,33 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
       () => box.current?.dataset.state === 'peek' ? PEEK_RESERVE : 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
+  useLayoutEffect(() => {
+    if (!target || !shown || !box.current) return
+    const surface = box.current
+    const anchor = detailsOpenerOf(target)
+    if (!pinned) {
+      const closePeek = () => useLaneInspector.getState().clearPeek(target.id)
+      if (tipBlocked()) { closePeek(); return }
+      return registerPopup('tip', closePeek, surface, null)
+    }
+
+    const opener = request?.focusOpener
+    const removeOutside = onOutsidePress(surface, null, () => {
+      const inspector = useLaneInspector.getState()
+      if (inspector.current === request && !surfaceBusy(request)) inspector.dismiss(false)
+    })
+    return () => {
+      removeOutside()
+      const focused = document.activeElement
+      const trigger = opener?.isConnected ? opener : anchor
+      if (trigger?.isConnected && (focused === document.body || surface.contains(focused))) {
+        trigger.focus({ preventScroll: true })
+      }
+    }
+  }, [pinned, request, shown, target])
   if (target === null || (card === null && link === null)) return null
-  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-3 overflow-hidden`
-  const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
+  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] ${FLOAT_CLASS} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] max-h-[min(60vh,var(--lane-details-h,60vh))] overflow-hidden`
+  const closeX = <button type="button" aria-label="Close details" aria-disabled={busy || undefined} onClick={() => { if (!surfaceBusy(request)) close() }} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => {
     const Icon = r.icon
     return <HoverButton key={r.id} type="button" disabled={!r.enabled} words={r.enabled ? r.tooltip : (r.disabledReason ?? r.tooltip)} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (!r.enabled) return; setMore(false); r.action() }}
@@ -171,7 +198,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
         <h2 className={`${typography.panelHeader} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{link.title}</h2>
         {closeX}
       </div>
-      <div className="min-h-0 space-y-3 overflow-y-auto">
+      <div className="min-h-0 space-y-2 overflow-y-auto">
         {link.size === undefined ? null : <Hover as="p" className="m-0 text-text-body" words={link.size.title} data-testid="lane-inspector-strength">{link.size.text}</Hover>}
         <ValueRow key={target.id} item={{ kind: 'link', id: target.id, edit: link.size?.edit ?? null, subject: link.size?.text ?? '' }} />
         {link.causal?.author == null ? null : <Hover as="p" className={`${typography.viewPanelMeta} m-0 text-text-light`} words={link.causal.author.title} data-testid="lane-inspector-source">{link.causal.author.text}</Hover>}
@@ -211,6 +238,10 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
     .filter((x, i, a): x is string => x != null && x !== '' && x !== value?.text && x !== c.headline?.title && !c.detail.includes(x) && a.indexOf(x) === i)
   const olumiSaid = c.olumi === null || said.has(c.olumi.title) || inDetail(c.olumi.title) ? null : c.olumi.title
   const hasFrom = olumiSaid !== null || c.detail !== '' || figureSaid !== null || explain || also.length > 0
+  const authorWords = pinned
+    ? <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />
+    : c.author == null ? null : <span className={`${typography.viewPanelMeta} ${c.author.by === 'olumi' ? 'text-info' : 'text-text-light'}`}
+        data-testid="lane-inspector-author">{c.author.text}</span>
   return (
     <aside ref={box} role={pinned ? 'complementary' : 'tooltip'} aria-label="Details" data-testid={pinned ? 'lane-inspector' : 'lane-peek'} data-state={pinned ? 'pinned' : 'peek'} data-kind="card" data-box-card={c.id}
       className={`${frame}${pinned ? '' : ' pointer-events-none'}`}>
@@ -223,13 +254,13 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
             <NodeShapeIndicator nodeKind={kind} dashedOutline={isDashedCardKind(c)} size={10} />{kindWord}
             {c.olumi === null ? null : <span role="img" aria-label={c.olumi.title} className="inline-flex" data-testid="lane-inspector-olumi"><OkIcon id="olumi-mark" size={14} decorative /></span>}
             {/* Whose the card is. Where the value's own source is this same line (a quantity's figure), it is said once, beside the value. */}
-            {authorAtValue ? null : <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />}
+            {authorAtValue ? null : authorWords}
             {c.status === null ? null : <span data-testid="lane-inspector-status">{c.status}</span>}
           </p>
         </div>
         {pinned ? closeX : null}
       </div>
-      <div className={`min-h-0 overflow-y-auto ${pinned ? 'space-y-3' : 'space-y-4'}`}>
+      <div className="min-h-0 overflow-y-auto space-y-2">
         {/* A held proposal's change to this card (core's `change`, the card's own ↻ or + mark, ViewCardNode.tsx:317/:429): said here too, so a value waiting for approval never reads as settled. */}
         {c.change == null ? null : <p className={`m-0 whitespace-pre-line break-words ${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-change" data-change-kind={c.change.kind}><span aria-hidden="true">{c.change.glyph} </span>{c.change.title}</p>}
         {/* 2. Value and whose it is; pinned, what it rests on, its chart and the one editor. */}
@@ -249,7 +280,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
                   ))}
                 </ul>
               )}{' '}
-              {authorAtValue ? <CardWords id={c.id} ids={{ author: 'lane-inspector-author', basis: 'lane-inspector-basis' }} only="author" />
+              {authorAtValue ? authorWords
                 : !sourceBesideValue ? null : <span className={`${typography.viewPanelMeta} text-info`} data-testid="lane-inspector-value-source">{value.source}</span>}
             </div>
           </div>

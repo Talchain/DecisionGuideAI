@@ -1,8 +1,8 @@
-The one design system for the Olumi app. Every value here was read from the code. Where an older document disagrees, this page wins, and the code wins over this page.
+The one design system for the Olumi app. Use the binding standards here and in the linked component pages. The inventories record where the implementation still differs.
 
 Olumi is a reasoning partner for a team making a decision. People build a model of their scenario on a board of cards and links, read what it says in the right-hand panel, and talk it through with Olumi. The design exists to keep that calm and legible: the board shows the model, and the panel coaches.
 
-Read the pages in this order. **Status** says what is built and what is still to do. **Behaviour** holds the rules for anything that floats. **Editing** describes how people change the model. **Checks** lists what guards each rule. **Decisions** lists what was decided and by whom. **History** lists the documents this one replaces. [**Spacing**](s8-spacing.md) defines the spacing tokens and card scaling rules.
+Read the pages in this order. **Status** says what is built and what is still to do. **Behaviour** covers navigation and placement. [**Popups**](components/Popups.md) is binding for every floating surface’s kind, precedence, dismissal, focus and recipe. **Editing** describes how people change the model. **Checks** lists what guards each rule. **Decisions** lists what was decided and by whom. **History** lists the documents this one replaces. [**Spacing**](s8-spacing.md) defines the spacing tokens and card scaling rules.
 
 ## Principles
 
@@ -67,14 +67,12 @@ Follow the [binding spacing standard](s8-spacing.md) for token roles, permitted 
 
 - **Radius.**
   - `radius-control` (6) for the lane's 28px chips and buttons.
-  - `radius-sm` (8) for rows, tips and fields.
-  - `radius-md` (12) for menus, cards, the composer and the review line.
-  - `radius-lg` (14 in practice) for sheets, forms and dialogs.
+  - `radius-sm` (8) for rows and fields.
+  - `radius-md` (12) for cards, the composer and the review line.
   - `radius-pill` for the top-seam toolbars, pills and badges.
 - **Shadow.**
-  - `shadow-2` for everything that floats.
-  - `shadow-1` for tips and resting pills.
-  - `shadow-3` for modals only.
+  - Follow [Popups](components/Popups.md) for the common popup radius and shadow.
+  - `shadow-1` for resting pills.
   - Cards on the lane draw no shadow.
 - **Layers.**
   - Take z-index from `CANVAS_LAYER_CLASS` in `src/canvas/layers.ts`, never from a `z-[n]` literal.

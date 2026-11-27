@@ -1,4 +1,5 @@
 import { registerEscapeLayer } from '../v12/edit/escapeLayers'
+import { dismissTip, higherThanMenuOpen } from './popupLayers'
 import { useLaneInspector } from '../v12/edit/inspectorStore'
 
 export type MenuDismissal = 'outside' | 'replaced' | 'escape' | 'tab' | 'action' | 'opener'
@@ -14,6 +15,12 @@ interface MenuChain {
 let active: MenuChain | undefined
 const listeners = new Set<() => void>()
 
+export const menuOpenerFor = (target: Node): HTMLElement | null =>
+  active?.contains(target) ? active.opener : null
+
+export const menuLaneForTarget = (target: Node): boolean | undefined =>
+  active?.contains(target) ? active.lane : undefined
+
 export const isMenuOpen = (): boolean => active !== undefined
 
 export function subscribeMenuOpen(listener: () => void): () => void {
@@ -21,9 +28,9 @@ export function subscribeMenuOpen(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
-/** A canvas surface replaces the open menu unless that menu is handing off to its own form. */
-export function dismissMenuForSurface(handoffOpener?: HTMLElement): void {
-  if (active && active.opener !== handoffOpener) active.dismiss('replaced')
+/** A sheet or dialog replaces the open menu. */
+export function dismissMenuForSurface(): void {
+  active?.dismiss('replaced')
 }
 
 /** Returns true when this click closes the chain anchored to the button. */
@@ -47,6 +54,10 @@ function outsidePress(event: PointerEvent): void {
 
 /** One root chain owns dismissal. Submenus are surfaces within that chain. */
 export function registerMenu(chain: MenuChain): () => void {
+  if (chain.lane && higherThanMenuOpen()) {
+    chain.dismiss('replaced')
+    return () => undefined
+  }
   const previous = active
   active = chain
   if (previous === undefined) {
@@ -55,6 +66,7 @@ export function registerMenu(chain: MenuChain): () => void {
   }
   previous?.dismiss('replaced')
   if (chain.lane) {
+    dismissTip()
     const inspector = useLaneInspector.getState()
     if (inspector.peek) inspector.clearPeek(inspector.peek.id)
   }

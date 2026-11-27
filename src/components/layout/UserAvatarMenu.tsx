@@ -150,7 +150,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
           </div>
         </Menu>
       )}
-      {deleting && <DeleteMyDataDialog onCancel={closeDelete} onDeleted={onDeleted} />}
+      {deleting && <DeleteMyDataDialog opener={mark.current} onCancel={closeDelete} onDeleted={onDeleted} />}
     </div>
   )
 }

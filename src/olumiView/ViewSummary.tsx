@@ -8,6 +8,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { OkIcon } from './look/icons'
 import { GlyphMark, HoverButton } from './look/Hover'
+import { CANVAS_LAYER_CLASS } from '../canvas/layers'
+import { FLOAT_CLASS } from './look/float'
 import { useDialogFocus } from './look/useDialogFocus'
 import { typography } from '../styles/typography'
 import { DECISION_BRIEF_TRIGGER_LABEL } from '../canvas/decisionBrief/DecisionBriefTrigger'
@@ -21,7 +23,7 @@ export const SUMMARY_LOADING = 'Reading the Summary…'
 export const SUMMARY_FAILED = 'The Summary could not be read. Close it and try again.'
 
 const TAG_CLASS: Record<SummaryBlock['tag'], string> = {
-  h1: 'text-lg font-medium font-sans leading-snug text-text-header',
+  h1: `${typography.viewPanelHeadline} text-text-header`,
   h2: `${typography.panelHeader} mt-6 border-b border-panel-border pb-2 text-text-header`,
   h3: `${typography.viewPanelMeta} font-medium mt-4 text-text-header`,
   p: `${typography.viewPanelBody} text-text-body`,
@@ -60,6 +62,7 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
   const [state, setState] = useState<{ summary: Summary } | { error: string } | null>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
+    popup: true,
     initialFocus: () => closeRef.current,
     opener: () => trigger?.current,
     onEscape: onClose,
@@ -78,12 +81,12 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
   const readN = state !== null && 'summary' in state && state.summary.version !== null ? state.summary.version.n : at
   const exportLink = `inline-flex items-center gap-1.5 rounded-full border border-panel-border px-4 py-2 ${typography.viewPanelMeta} font-medium text-text-header hover:bg-panel-hover`
   return (
-    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={onKeyDown}
-      className="fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="flex w-full max-w-[820px] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
-        <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
+    <div className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex justify-center bg-[var(--backdrop)] p-3 pr-[calc(var(--dock-right-offset,0rem)+var(--space-3))] pt-[var(--space-12)]`}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL}
+        data-testid="summary-page" onKeyDown={onKeyDown} className={`${FLOAT_CLASS} w-full max-w-[820px] outline-none`}>
+        <div className="flex items-center gap-2 border-b border-panel-border pb-2">
           <OkIcon id="brief" size={14} decorative inherit />
-          <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
+          <h2 className={`${typography.panelHeader} m-0 text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</h2>
           <span className="flex-1" />
           {/* The exports only beside a Summary this page has read for its own person. */}
           {state !== null && 'summary' in state ? (
@@ -96,7 +99,7 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
             <OkIcon id="cancel-close" size={14} decorative inherit />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {state === null ? <p className={typography.viewPanelBody} role="status">{SUMMARY_LOADING}</p>
             : 'error' in state ? <p className={typography.viewPanelBody} role="alert" data-testid="summary-error">{state.error}</p>
             : <SummaryDocument summary={state.summary} />}
