@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { tryWhatIf, useWhatIf, type WhatIfVariant } from '../../whatif'
+import { runWhatIf, type WhatIfVariant } from '../../whatif'
 
 export type TrialStep = `trial-${number}`
 type Trial = { step: TrialStep; words: string; tried: number | null; variant: WhatIfVariant }
@@ -13,25 +13,16 @@ function putHistory(key: string, history: History) {
   useStressTrials.setState(({ histories }) => ({ histories: new Map(histories).set(key, history) }))
 }
 
-export async function tryStressValue(scope: Scope, typed: string): Promise<{ step: TrialStep } | { notice: string } | null> {
+export async function tryStressValue(scope: Scope, typed: string, isCurrent: () => boolean): Promise<{ step: TrialStep } | { notice: string } | null> {
   const { sid, base, record } = scope
   const key = stressTrialKey(scope)
   const previous = useStressTrials.getState().histories.get(key)
   if (previous?.pending) return null
   let trials = previous?.trials ?? []
-  const answer: { variant?: WhatIfVariant } = {}
-  // The existing helper publishes to the what-if lens. Capture our answer at publication,
-  // before a trial for another figure can replace it in that shared store.
-  const stop = useWhatIf.subscribe(({ shown }) => {
-    if (shown?.sid === sid && shown.base === base && shown.quantity === record && shown.typed === typed) {
-      answer.variant = shown.variant
-    }
-  })
   putHistory(key, { trials, pending: true })
   try {
-    await tryWhatIf(sid, base, record, typed)
-    const variant = answer.variant
-    if (variant === undefined) return null
+    const variant = await runWhatIf(sid, base, record, typed)
+    if (!isCurrent() || variant === null) return null
     const notice = variant.stopped ?? variant.blocked
     if (notice !== null) return { notice }
     const edit = variant.edits.find(({ quantity }) => quantity === record)
@@ -46,7 +37,6 @@ export async function tryStressValue(scope: Scope, typed: string): Promise<{ ste
     trials = [...trials, { step, words: edit.words, tried, variant }]
     return { step }
   } finally {
-    stop()
     putHistory(key, { trials, pending: false })
   }
 }

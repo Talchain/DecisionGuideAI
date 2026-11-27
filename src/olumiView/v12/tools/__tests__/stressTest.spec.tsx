@@ -7,7 +7,7 @@ import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
 import capturedTrial from '../../../fixtures/v11/consulting-whatif-priya.json'
 import { pressCard, ringFrom } from '../../../reasoning/tabRing'
 import { useViewStore } from '../../../store'
-import { clearWhatIf } from '../../../whatif'
+import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../../../whatif'
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { StressTest, StressTestTab, STRESS_STEPS, STRESS_WORDS } from '../StressTest'
 import { useStressTrials } from '../stressTrials'
@@ -324,6 +324,16 @@ describe('Stress-test', () => {
     expect(screen.queryByRole('radio')).toBeNull()
   })
 
+  it('shows the empty line when neither a driver nor an editable unsized figure can be offered', () => {
+    const cards = base.model!.cards.map((card) => {
+      if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: { ...raiseRow.driver!, figure: 'unresolved' } }] }
+      if (card.id === cups.id) return { ...card, figure: { ...card.figure!, text: '', edit: null } }
+      return card
+    })
+    draw({ ...base, model: { ...base.model!, cards } })
+    expect(screen.getByTestId('tool-stress').textContent).toBe(STRESS_WORDS.empty)
+  })
+
   it('retargets to the selected canvas figure and returns keyboard focus to the computed points', () => {
     draw()
     fireEvent.click(radio('high'))
@@ -412,8 +422,13 @@ describe('Stress-test', () => {
     expect(screen.queryByRole('textbox', { name: STRESS_WORDS.tryValue })).toBeNull()
   })
 
-  it('keeps overlapping answers with the figures they were tried on', async () => {
+  it('ignores an out-of-order answer for a former figure and leaves the shared lens untouched', async () => {
     const capture = capturedTrial.variants[0]
+    const shown = { sid: view.id, base: view.model!.edit_base!, quantity: cups.id, typed: '-600',
+      variant: capture as unknown as WhatIfVariant }
+    useWhatIf.setState({ shown })
+    const lensChanged = vi.fn()
+    const unsubscribe = useWhatIf.subscribe(lensChanged)
     const wordsA = 'First figure edit'
     const wordsB = 'Second figure edit'
     const answer = (quantity: string, label: string, words: string) => ({
@@ -431,15 +446,36 @@ describe('Stress-test', () => {
     tryWords('-500')
     fireEvent.click(figureChoice(target.heading))
     tryWords('7200')
-    await act(async () => {
-      finishA(answer(cups.id, cups.heading, wordsA))
-      finishB(answer(target.id, target.heading, wordsB))
-    })
+    await act(async () => finishB(answer(target.id, target.heading, wordsB)))
+    await act(async () => finishA(answer(cups.id, cups.heading, wordsA)))
+    unsubscribe()
+    expect(lensChanged).not.toHaveBeenCalled()
+    expect(useWhatIf.getState().shown).toBe(shown)
     expect(screen.getByRole('radio', { name: wordsB })).toBeChecked()
     expect(screen.queryByRole('radio', { name: wordsA })).toBeNull()
     fireEvent.click(figureChoice(cups.heading))
-    expect(screen.getByRole('radio', { name: wordsA })).toBeVisible()
+    expect(screen.getAllByRole('radio')).toHaveLength(3)
+    expect(screen.queryByRole('radio', { name: wordsA })).toBeNull()
     expect(screen.queryByRole('radio', { name: wordsB })).toBeNull()
+  })
+
+  it('adds an answered trial without replacing a step chosen while the request was pending', async () => {
+    const words = 'Set cups change to five hundred fewer cups.'
+    let finish!: (value: unknown) => void
+    vi.mocked(call).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
+    draw()
+    fireEvent.change(screen.getByRole('textbox', { name: STRESS_WORDS.tryValue }), { target: { value: '-500' } })
+    fireEvent.click(screen.getByRole('button', { name: STRESS_WORDS.try }))
+    fireEvent.click(radio('high'))
+    await act(async () => finish({ ...capturedTrial, variants: [{
+      ...capturedTrial.variants[0], edits: [{ quantity: cups.id, label: cups.heading, words }],
+    }] }))
+    const trial = screen.getByRole('radio', { name: words })
+    expect(trial).not.toBeChecked()
+    expect(radio('high')).toBeChecked()
+    expectChart(optionRows(raise.heading)[0], raiseRow.driver!.high)
+    fireEvent.click(trial)
+    expect(trial).toBeChecked()
   })
 
   it('distinguishes held proposals, stale or failed reads, and current approved results', () => {

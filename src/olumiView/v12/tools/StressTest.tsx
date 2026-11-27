@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { typography } from '../../../styles/typography'
 import { TeamApiError } from '../../../olumiCore/team/api'
 import type { View, ViewCard, ViewModel, ViewRow } from '../../client'
@@ -49,8 +49,8 @@ const MOTION = 'motion-safe:transition-colors motion-safe:duration-fast'
 const DOT_MOTION = 'motion-safe:[&_[data-chance-dot]]:transition-colors motion-safe:[&_[data-chance-dot]]:duration-fast'
 const TICK_MOTION = 'motion-safe:[&_.ok-scale-tried]:transition-[left] motion-safe:[&_.ok-scale-tried]:duration-fast'
 
-function TrialForm({ scope, pending, onTrial }: {
-  scope: Parameters<typeof tryStressValue>[0]; pending: boolean; onTrial: (step: TrialStep) => void
+function TrialForm({ scope, pending, isCurrent, onTrial }: {
+  scope: Parameters<typeof tryStressValue>[0]; pending: boolean; isCurrent: () => boolean; onTrial: (step: TrialStep) => void
 }) {
   const [typed, setTyped] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
@@ -60,13 +60,14 @@ function TrialForm({ scope, pending, onTrial }: {
     if (pending || typed.trim() === '') return
     setNotice(null)
     try {
-      const result = await tryStressValue(scope, typed)
+      const result = await tryStressValue(scope, typed, isCurrent)
+      if (!isCurrent()) return
       if (result !== null && 'step' in result) {
         setTyped('')
         onTrial(result.step)
       } else setNotice(result?.notice ?? STRESS_WORDS.trialUnavailable)
     } catch (error) {
-      setNotice(error instanceof TeamApiError ? error.message : STRESS_WORDS.trialUnavailable)
+      if (isCurrent()) setNotice(error instanceof TeamApiError ? error.message : STRESS_WORDS.trialUnavailable)
     }
   }
 
@@ -174,7 +175,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
     }
     subjectObserved.current = true
   }, [subjectId, subjectRecord])
-  useEffect(() => {
+  useLayoutEffect(() => {
     activeScope.current = scopeKey
     return () => { activeScope.current = null }
   }, [scopeKey])
@@ -187,7 +188,8 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   useEffect(() => () => ringFrom(RING_SOURCE, []), [])
 
   function chooseStep(value: Step) {
-    setChoice({ step: value, scope: value.startsWith('trial-') ? scopeKey ?? undefined : undefined })
+    const scope = value.startsWith('trial-') ? scopeKey ?? undefined : undefined
+    setChoice((current) => current.step === value && current.scope === scope ? current : { step: value, scope })
   }
 
   function moveStep(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -202,19 +204,20 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   }
 
   if (selected === undefined) {
+    const unsized = model.cards.flatMap((card) => {
+      const figure = card.figure
+      return card.family === 'quantity' && figure?.text === '' && figure.edit != null ? [{ card, edit: figure.edit }] : []
+    })
     return (
       <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className="grid gap-2">
-        {model.cards.map((card) => {
-          const figure = card.figure
-          if (card.family !== 'quantity' || figure?.text !== '' || figure.edit == null) return null
-          return (
+        {unsized.length === 0 ? <span className={META}>{STRESS_WORDS.empty}</span>
+          : unsized.map(({ card, edit }) => (
             <div key={card.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
               <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
               <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
-              <FigureEdit id={card.id} edit={figure.edit} label={STRESS_WORDS.fill} place="tool-stress" />
+              <FigureEdit id={card.id} edit={edit} label={STRESS_WORDS.fill} place="tool-stress" />
             </div>
-          )
-        })}
+          ))}
       </div>
     )
   }
@@ -244,7 +247,8 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       </div>
       {scope !== null && model.edit_base != null && (
         <TrialForm key={scopeKey} scope={scope} pending={history?.pending === true}
-          onTrial={(value) => { if (activeScope.current === scopeKey) chooseStep(value) }} />
+          isCurrent={() => activeScope.current === scopeKey}
+          onTrial={(value) => setChoice((current) => current === choice ? { step: value, scope: scopeKey ?? undefined } : current)} />
       )}
 
       {figureCard?.figure != null && (
