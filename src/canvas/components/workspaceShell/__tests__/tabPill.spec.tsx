@@ -1,4 +1,8 @@
-/** The selected lane tab uses the shared chip geometry and selected-state tokens. */
+/**
+ * P1 (the approved V11 comp's `.ptab.on`, DL 10 Nov): on the olumi-core lane the selected dock tab is a 32 px rounded pill around its label,
+ * carrying the one selected token (styles/selected.ts), inside the 44 px button; the button itself is never a filled or ringed full-height
+ * box. Other lanes keep their own selected tab.
+ */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -25,17 +29,19 @@ const pillOf = (tab: HTMLElement) => tab.querySelector<HTMLElement>('[data-tab-p
 const cls = (e: HTMLElement) => e.className.split(/\s+/)
 
 describe('the selected dock tab is the comp\'s pill', () => {
-  it('TP1: the selected tab uses the 28px chip and selected tokens', () => {
+  it('TP1 catch: the selected tab\'s label is a 32 px rounded pill with the selected token; its 44 px button carries no ring or fill', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-results')
-    expect(tab.style.height).toBe('')
-    expect(tab).toHaveClass('min-h-7', 'rounded-control', ...SELECTED.split(' '))
+    expect(tab.style.height).toBe('44px')
+    expect(cls(pillOf(tab))).toEqual(expect.arrayContaining(['h-8', 'rounded-full', ...SELECTED.split(' ')]))
+    for (const t of SELECTED.split(' ')) if (t.startsWith('ring') || t.startsWith('bg-')) expect(cls(tab)).not.toContain(t)
+    expect(cls(tab)).not.toContain('rounded-md')
   })
-  it('TP2: an unselected tab uses hover feedback', () => {
+  it('TP2 contrast: an unselected tab\'s pill has no selected token, only a hover fill', () => {
     draw()
-    const tab = screen.getByTestId('outputs-dock-tab-compare')
-    expect(tab).toHaveClass('min-h-7', 'rounded-control', 'hover:bg-panel-hover')
-    for (const token of SELECTED.split(' ')) expect(cls(tab)).not.toContain(token)
+    const pill = pillOf(screen.getByTestId('outputs-dock-tab-compare'))
+    expect(cls(pill)).toContain('hover:bg-panel-hover')
+    for (const t of SELECTED.split(' ')) expect(cls(pill)).not.toContain(t)
   })
   it('TP3 must not change: another lane draws no pill', () => {
     lane.core = false
@@ -50,13 +56,13 @@ describe('DL 06:57Z (2): on the narrow lane dock (1128: 317 px) the tabs keep on
     const list = screen.getByTestId('outputs-dock-tablist')
     expect([cls(list).includes('flex-nowrap'), cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, false, 'one'])
     for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).toContain('shrink-0')
-    expect(screen.getByTestId('outputs-dock-tab-results')).toHaveClass('[&]:px-0.5')
+    expect(cls(pillOf(screen.getByTestId('outputs-dock-tab-results')))).toContain('px-0.5')
   })
   it('TR1 CONTRAST: at the 1232 dock (347 px) the row is as before (it fits one row there; no forced scroll)', () => {
     draw(347)
     const list = screen.getByTestId('outputs-dock-tablist')
     expect([cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, null])
-    expect(screen.getByTestId('outputs-dock-tab-results')).not.toHaveClass('[&]:px-0.5')
+    expect(cls(pillOf(screen.getByTestId('outputs-dock-tab-results')))).not.toContain('px-0.5')
   })
 })
 

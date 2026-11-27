@@ -22,8 +22,9 @@ A button with an icon and visible count uses the text-chip geometry so it can gr
 
 ## Exceptions
 
-Two controls retain specific geometry.
+These controls retain specific geometry.
 
+- [dock tabs: comp-approved sizes, Paul to judge any change](../../../../src/canvas/components/workspaceShell/WorkspaceShellTabStrip.tsx). Each tab has a 44px touch target. The selected label uses a 32px rounded pill with the selected token.
 - [Bring evidence](../../../../src/olumiView/RevealDock.tsx#L239) keeps its 44px target in the Reveal dock.
 - [Folded attention icon](../../../../src/canvas/components/OlumiAttentionCard.tsx#L398) keeps its 24px circle so its bounds match the placement calculation at the card corner.
 

@@ -29,7 +29,6 @@
  * ellipsise AND the two protected testids must be painted with a non-zero box.
  */
 
-import { controls } from '../../../styles/controls'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Hover, HoverButton } from '../../../olumiView/look/Hover'
 import { OkIcon, type IconId } from '../../../olumiView/look/icons'
@@ -55,8 +54,8 @@ import {
  */
 
 const rowIconControl = (lane: boolean) =>
-  `inline-flex items-center justify-center ${lane ? controls.chipIcon : 'w-6 h-6 rounded'} border border-field ` +
-  `${lane ? '' : `${typography.panelMeta} ${HIT_44}`} text-text-header hover:bg-panel shrink-0`
+  `inline-flex items-center justify-center ${lane ? 'w-7 h-7' : 'w-6 h-6'} rounded border border-field ` +
+  `${lane ? typography.viewPanelMeta : typography.panelMeta} text-text-header hover:bg-panel shrink-0 ${HIT_44}`
 
 /**
  * The DOM id of a dock tab, and of the panel they all control. Both halves of
@@ -568,19 +567,24 @@ export function WorkspaceShellTabStrip({
               // the slack — not `flex-1`, see above) spreads the tabs across the
               // row with even gaps; the `before:` rule is the small divider
               // (1px × 14px, border token) at each tab's left edge, none on the first.
-              className={`relative ${laneWrapped ? 'flex-none before:hidden' : coreLane ? `before:hidden ${narrowLane ? 'flex-auto shrink-0' : 'flex-auto'}` : narrowLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? `${controls.chipText} ${narrowLane ? '[&]:px-0.5' : ''}` : `rounded-none ${isCompact ? 'px-1' : 'px-2'}`} border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? 'focus-visible:ring-text-header' : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
+              className={`relative ${laneWrapped ? 'flex-none before:hidden' : coreLane ? `before:hidden ${narrowLane ? 'flex-auto shrink-0' : 'flex-auto'}` : narrowLane ? 'flex-auto shrink-0' : 'flex-auto'} ${surface.id === 'olumi' ? 'min-w-[24px]' : 'min-w-0'} ${coreLane ? 'px-0' : isCompact ? 'px-1' : 'px-2'} rounded-none border-0 before:absolute before:content-[''] before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3.5 before:w-px before:bg-panel-border first:before:hidden ${coreLane ? `${typography.viewPanelMeta} focus-visible:ring-text-header` : `${typography.panelMeta} focus-visible:ring-info`} focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${
                 // DL ruling 8 Nov (Paul's look rule, "blue only for Olumi", outranks this locked shell contract): the selected tab is
                 // ink, medium weight, on the contract tint; hover darkens to ink. Never the info blue, which means Olumi.
                 isActive
-                  ? (coreLane ? `text-text-header ${SELECTED}` : 'text-text-header font-medium bg-[var(--panel-tab-active-bg)]')
-                  : `text-text-body hover:text-text-header ${coreLane ? 'hover:bg-panel-hover' : ''}`
+                  // V11 pixel pass (9 Nov): on the olumi-core lane the comp's selected tab (`.ptab.on`): the canvas fill and 600, seen at a glance.
+                  // P1 (the comp's .ptab.on, DL 10 Nov): on the olumi-core lane the 44 px button stays clear and the selection is drawn on the
+                  // label's 32 px rounded pill below, never a full-height box. The pill carries the strip's own padding (4 px a side compact, 8 px
+                  // otherwise) and the button none, so every label keeps the width it had (a 282 px compact strip truncated at +6 px).
+                  ? (coreLane ? 'text-text-header' : 'text-text-header font-medium bg-[var(--panel-tab-active-bg)]')
+                  : 'text-text-body hover:text-text-header'
               }`}
-              style={coreLane ? undefined : { height: SHELL_TAB_HEIGHT_PX }}
+              // The olumi-core lane's tab is a 44 px target (Paul's look rule).
+              style={{ height: coreLane ? 44 : SHELL_TAB_HEIGHT_PX }}
             >
               <span
                 className={`flex items-center justify-center gap-1 min-w-0${
                   surface.id === 'results' && resultsStale ? ' text-warning' : ''
-                }`}
+                }${coreLane ? ` h-8 rounded-full ${narrowLane ? 'px-0.5' : isCompact ? 'px-1' : 'px-1.5'} transition-colors duration-fast ${isActive ? SELECTED : 'hover:bg-panel-hover'}` : ''}`}
                 data-tab-pill={coreLane ? (isActive ? 'on' : '') : undefined}
               >
                 {/* Only the LABEL truncates. The affordances after it are
