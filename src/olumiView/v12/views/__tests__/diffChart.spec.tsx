@@ -24,10 +24,6 @@ describe('who said what, on one axis', () => {
     // Views 19 (Priya) and 20 (Tom) gave ranges for `diagnostic_time_to_contract`; the difference's own sides say the same figures.
     expect(tm.sides.map((s) => s.figure)).toEqual(['6 to 12 months', '1 to 3 months'])
     expect(sideSpans(fx, tm)).toEqual([{ lo: 6, hi: 12, text: '6 to 12 months', unit: 'month' }, { lo: 1, hi: 3, text: '1 to 3 months', unit: 'month' }])
-    // Contrast (Codex ROOT): a View whose figure is not the one the difference compares (r5's view 8 says 5, the read's side says 5 to 19)
-    // draws no axis: the difference's own words stand instead.
-    expect(d.sides[0]!.figure).not.toBe(r5.collab.shared.find((v) => v.id === d.sides[0]!.view)!.figures.find((f) => f.quantity === d.record)!.text)
-    expect(sideSpans(r5, d)).toBeNull()
     // Contrast: the same difference about a card neither view gave a figure for draws no axis (the words list stands instead).
     expect(sideSpans(fx, { ...tm, record: 'hold' })).toBeNull()
     // Contrast: a side whose view is not revealed to this viewer draws no axis at all, never a half chart.
@@ -35,6 +31,10 @@ describe('who said what, on one axis', () => {
     // Contrast: the same two figures in different units are never drawn on one axis.
     const other = { ...fx, collab: { ...fx.collab, shared: fx.collab.shared.map((v) => v.id !== 20 ? v : { ...v, figures: v.figures.map((f) => f.quantity === tm.record ? { ...f, unit: 'week' } : f) }) } } as View
     expect(sideSpans(other, tm)).toBeNull()
+  })
+  it('draws no marks when the reveal and the difference refer to different figures for the same person and record', () => {
+    const { container } = render(<FigureSides view={r5} d={d} at="x" />)
+    expect(container.querySelector('[data-range-mark]')).toBeNull()
   })
   it('the axis holds every span with a margin; one point alone still gets a width', () => {
     const a = axisOf([{ lo: 5, hi: 5 }, { lo: 20, hi: 40 }])

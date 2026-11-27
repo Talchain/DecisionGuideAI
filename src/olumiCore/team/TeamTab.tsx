@@ -12,6 +12,7 @@ import { EvidencePanel } from './EvidencePanel'
 import { InvitePanel, inviteNameKey } from './InvitePanel'
 import { ViewEntry } from './ViewsPanel'
 import { RevealStep } from './steps'
+import { DifferTool } from '../../olumiView/v12/tools/DifferTool'
 import { WhereWeDiffer } from '../../olumiView/v12/views/WhereWeDiffer'
 import { AVATAR, BODY, CARD, ERR, H, META } from './ui'
 import { TEAM_PAST_HELD } from './writes'
@@ -181,6 +182,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
 
   return (
     <>
+      <DifferTool sid={sid} view={view} />
       <div className="space-y-2">
         <h2 className={H} data-testid="team-views-heading">{view.collab.heading}</h2>
         <Members view={view} />
