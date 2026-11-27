@@ -68,7 +68,7 @@ function expectSavedPair(row: HTMLElement, saved: number) {
   expect(within(row).getByText(STRESS_WORDS.savedLabel)).toBeVisible()
 }
 
-beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request'))))
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request'))) })
 afterEach(() => {
   cleanup()
   useViewStore.setState({ view: null, sid: null, status: 'none', stale: false, error: null })
