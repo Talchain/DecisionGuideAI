@@ -142,11 +142,40 @@ describe('V-4 · What-if slider from the approved View', () => {
     expect(route).toHaveBeenCalledOnce()
   })
 
-  it('(b) refuses the pinned Olumi spend point even though it has a visible basis', () => {
-    // The 16.67-month stub is the documented target, which cannot be requested
-    // from a flat Olumi input without inventing a trial range.
-    route.mockReturnValue(Response.json(answer(spend)))
+  it('(b) tries £120k from the labelled Olumi point, reads the stubbed 16.67 months and drops the preview on a stale reply', async () => {
+    route.mockReturnValueOnce(Response.json(answer(spend))).mockReturnValueOnce(Response.json({ error: stale }, { status: 409 }))
+    useViewStore.setState({ view, sid, status: 'ready' })
     render(renderStress())
+    fireEvent.click(screen.getByRole('button', { name: spend.label }))
+    expect(numberField()).toHaveAccessibleDescription(spend.unit)
+    expect(screen.getByText(`Proposed by Olumi: ${basis}`)).toBeVisible()
+    move(120_000)
+    expect(network).not.toHaveBeenCalled()
+    enter()
+    expect(await screen.findByText(bLine)).toBeVisible()
+    expect(route).toHaveBeenNthCalledWith(1, body(spend.id, 120_000))
+    expect(useViewStore.getState().view).toBe(view)
+
+    move(125_000)
+    fireEvent.blur(numberField())
+    expect(await screen.findByText(stale)).toBeVisible()
+    expect(screen.queryByText(bLine)).toBeNull()
+    expect(numberField()).toHaveValue(spend.value)
+    expect(useViewStore.getState().view).toBe(view)
+  })
+
+  it('(b) offers a number field for the same Olumi point without inventing slider bounds', () => {
+    render(renderStress())
+    fireEvent.click(screen.getByRole('button', { name: spend.label }))
+    expect(numberField()).toHaveValue(spend.value)
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(network).not.toHaveBeenCalled()
+  })
+
+  it('refuses the same Olumi point if the current card has no visible basis', () => {
+    const cards = view.model!.cards.map((card) => card.id === spend.id
+      ? { ...card, author: { ...card.author!, title: 'Proposed by Olumi' } } : card)
+    render(renderStress({ ...view, model: { ...view.model!, cards } }))
     fireEvent.click(screen.getByRole('button', { name: spend.label }))
     expect(screen.getByText(WORDS.ineligible)).toBeVisible()
     expect(screen.queryByRole('slider')).toBeNull()
@@ -194,8 +223,7 @@ describe('V-4 · What-if slider from the approved View', () => {
     expect(screen.getByRole('button', { name: focused.heading })).toHaveAttribute('aria-pressed', 'true')
     expect(numberField()).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: spend.label }))
-    expect(screen.getByText(WORDS.ineligible)).toBeVisible()
-    expect(screen.queryByRole('spinbutton')).toBeNull()
+    expect(numberField()).toHaveValue(spend.value)
   })
 
   it('(c) refuses an unsupported input using Core’s reason, even with a worked result row', () => {

@@ -15,7 +15,7 @@ export const WHAT_IF_SLIDER_WORDS = {
   release: 'Release to try this value',
   preview: 'What-if, not saved',
   clear: 'Clear',
-  ineligible: 'To try a value, this figure needs an editable number. Olumi assumptions also need a supported range and a visible basis.',
+  ineligible: 'To try a value, this figure needs an editable number with a unit. Olumi assumptions also need a visible basis.',
   unavailable: 'Olumi could not read this what-if.',
 } as const
 
@@ -36,16 +36,14 @@ export function whatIfInputOf(view: View, quantity: string) {
     || !range || range.low > range.high || unitAsk !== null || !unitIsDisplayable(range.unit)) return refused
 
   const author = card.author
-  const common = { range, label: card.heading, words: figure.text, title: figure.title }
-  if (author?.by === 'person' || author?.by === 'brief' || author?.by === 'mixed') {
-    if (range.low < range.high) return { ...common, kind: 'range' as const, assumption: null }
-    if (range.likely === range.low) return { ...common, kind: 'point' as const, assumption: null }
-  }
   // Core's author title uses a colon only when its current Olumi origin supplies
   // a basis. A bare attribution and a rename alone don't qualify.
-  if (author?.by === 'olumi' && range.low < range.high && /^Proposed by Olumi:\s+\S/.test(author.title)) {
-    return { ...common, kind: 'range' as const, assumption: author.title }
-  }
+  const assumption = author?.by === 'olumi' && /^Proposed by Olumi:\s+\S/.test(author.title) ? author.title : null
+  if (assumption === null && author?.by !== 'person' && author?.by !== 'brief' && author?.by !== 'mixed') return refused
+
+  const common = { range, label: card.heading, words: figure.text, title: figure.title, assumption }
+  if (range.low < range.high) return { ...common, kind: 'range' as const }
+  if (range.likely === range.low) return { ...common, kind: 'point' as const }
   return refused
 }
 
