@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useCanvasStore } from '../../../../canvas/store'
 import { useMe } from '../../../../olumiCore/me'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { differencesKey, readDifferences, resetDifferences, useDifferences, type Difference, type Differences } from '../../../../olumiCore/team/differences'
@@ -45,6 +46,7 @@ afterEach(async () => {
   resetDifferences()
   resetTeamFlow()
   useDifferSelection.setState({ bySid: {} })
+  useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null } })
   useCompare.getState().hide()
   setTeamFetch(null)
   useViewStore.setState({ sid: null, view: null, status: 'none', at: null })
@@ -96,6 +98,36 @@ function expectBarEndpoints(figures: Array<[number, number]>) {
 }
 
 describe('Where we differ in Team', () => {
+  it('follows a uniquely related canvas card and keeps the choice for zero or two matches', () => {
+    const recordOnly = { ...figure, cards: [] }
+    const linkOnly = { ...link, cards: ['buyer_transfer_test', ...link.cards!] }
+    load(view, [recordOnly, linkOnly, sameLinkOtherAim])
+    render(<><button type="button">Canvas</button><DifferTool sid={sid} view={view} /></>)
+    const select = (id: string) => act(() => useCanvasStore.setState({
+      selection: { nodeIds: new Set([id]), edgeIds: new Set(), anchorPosition: null },
+    }))
+
+    screen.getByRole('button', { name: 'Canvas' }).focus()
+    select('buyer_transfer_test')
+    expect(picker()).toHaveFocus()
+    fireEvent.click(picker())
+    expect(choice(linkOnly)).toHaveAttribute('aria-pressed', 'true')
+    const stored = useDifferSelection.getState().bySid[sid]
+
+    select('payment_slippage')
+    expect(choice(linkOnly)).toHaveAttribute('aria-pressed', 'true')
+    select('time_to_contract')
+    expect(choice(linkOnly)).toHaveAttribute('aria-pressed', 'true')
+    expect(useDifferSelection.getState().bySid[sid]).toBe(stored)
+
+    act(() => choice(linkOnly).focus())
+    select(figure.record)
+    expect(choice(recordOnly)).toHaveAttribute('aria-pressed', 'true')
+    expect(choice(linkOnly)).toHaveFocus()
+    expect(useDifferSelection.getState().bySid[sid]).not.toBe(stored)
+    expect(pressCard).not.toHaveBeenCalled()
+  })
+
   it('shows one difference above the axis until the count control opens all seven choices', async () => {
     load(view)
     const user = userEvent.setup()

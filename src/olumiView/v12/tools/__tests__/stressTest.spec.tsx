@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../../../canvas/store'
 import { call } from '../../../../olumiCore/team/api'
 import type { View, ViewLink, ViewRow } from '../../../client'
+import studio from '../../../fixtures/cardface/studio.view3.json'
 import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
 import revealed from '../../../fixtures/disagree/x2-revealed.view3.json'
 import capturedTrial from '../../../fixtures/v11/consulting-whatif-priya.json'
@@ -402,13 +403,60 @@ describe('Stress-test', () => {
     expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
   })
 
-  it('shows the empty line when Results names no card and no figure feeds a calculation or aim', () => {
-    const cards = base.model!.cards.map((card) => {
-      if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: { ...raiseRow.driver!, figure: 'unresolved' } }] }
-      if (card.id === cups.id) return { ...card, worth_checking: [] }
-      return card
+  it('draws x2’s figures once Core types the inputs, even with a chance and no driver', () => {
+    const model = revealedView.model!
+    const roles: Record<string, ViewLink['role']> = {
+      existing_capacity: 'input', per_specialist: 'input', one_specialist: 'input', capacity_target: 'target',
+    }
+    draw({ ...revealedView, model: { ...model, links: model.links.map((link) => ({ ...link, role: roles[link.from] })) } })
+    const tool = screen.getByTestId('tool-stress')
+    expect(figureHeadings(tool)).toEqual(['existing capacity', 'per specialist', 'one specialist', 'capacity target'])
+    expect(within(tool).getByText('10 to 30 tickets/week/specialist')).toBeVisible()
+    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
+    expect(within(tool).queryByRole('radiogroup')).toBeNull()
+  })
+
+  it('draws the figures Results names in Studio when there is no driver', () => {
+    draw(studio as unknown as View)
+    const tool = screen.getByTestId('tool-stress')
+    expect(figureHeadings(tool)).toContain('How members feel')
+    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
+    expect(within(tool).queryByRole('radiogroup')).toBeNull()
+  })
+
+  it('draws each figure named by a row basis or run rest, including records folded into cards', () => {
+    const model = base.model!
+    const rest = model.run!.rests[0]!
+    const margin = model.cards.find((card) => card.id === 'margin')!
+    const raised = model.cards.find((card) => card.id === 'margin_raised')!
+    const folded = 'folded-margin'
+    draw({
+      ...base,
+      model: {
+        ...model,
+        links: [],
+        run: { ...model.run!, rests: [rest] },
+        cards: model.cards.map((card) => {
+          if (card.id === cups.id) return { ...card, worth_checking: [] }
+          if (card.id === raised.id) return {
+            ...card,
+            badge: { records: [folded], text: '', title: '', label: '', open: false, proposed: false, change: '', words: '', face: '', icon: '' },
+          }
+          if (card.id === raise.id) return { ...card, rows: [{
+            ...raiseRow, driver: null,
+            rests_on: { reading: false, target: false, estimates: [folded], approx: [margin.id], what_ifs: [target.id] },
+          }] }
+          return card
+        }),
+      },
     })
-    draw({ ...base, model: { ...base.model!, cards, links: [] } })
+    const tool = screen.getByTestId('tool-stress')
+    expect(figureHeadings(tool)).toEqual([margin.heading, raised.heading, cups.heading, target.heading])
+    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
+  })
+
+  it('shows the empty line when the capture has only untyped links and no other typed figure source', () => {
+    draw(revealedView)
     expect(screen.getByTestId('tool-stress').textContent).toBe(STRESS_WORDS.empty)
   })
 
