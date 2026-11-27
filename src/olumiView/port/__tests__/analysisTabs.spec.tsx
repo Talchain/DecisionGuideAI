@@ -95,19 +95,32 @@ describe('the tab\'s state comes from the options\' rows', () => {
 describe('every option’s line is reachable from Results or Check', () => {
   for (const n of ['real/hiring', 'golden/s_ce285b3617bb', 'core/an01-european-otheraims', 'core/an01-studio-otheraims', 'core/an01-studio', 'golden/bakery', 'golden/european', 'golden/app-launch'] as const) {
     it(`${n}: charts numeric chances by aim, shows limits and retains missing results in Check`, () => {
-      const view = viewOf(n), model = view.model!, groups = chartGroupsOf(model)
+      const view = viewOf(n), model = view.model!
+      const options = optionCards(model)
+      const chances = options.flatMap((card) => card.rows.flatMap((row, i) =>
+        row.kind === 'chance' && row.aim_id != null && Number.isFinite(row.chance)
+          ? [{ id: card.id, aimId: row.aim_id, path: `${card.id}.rows.${i}`, value: row.value }] : []))
+      const aims = new Set(chances.map(({ aimId }) => aimId))
       const needs = new Set(checkNeedsOf(model).map((x) => x.at))
       ready(view); render(<PortAnalysisTab />)
-      const switches = screen.queryAllByRole('group', { name: 'Aim' }).flatMap((group) => within(group).getAllByRole('button'))
-      for (const [i, group] of groups.entries()) {
-        if (switches[i] !== undefined) fireEvent.click(switches[i]!)
-        const chart = document.querySelector(`[data-chart-aim="${group.aimId}"]`)!
+      for (const aimId of aims) {
+        const forAim = chances.filter((chance) => chance.aimId === aimId)
+        if (aims.size > 1) {
+          const control = screen.getByRole('group', { name: 'Aim' })
+          const aimPaths = new Set(forAim.map(({ path }) => `${path}.aim`))
+          const button = within(control).getAllByRole('button').find((el) => aimPaths.has(el.getAttribute('data-view') ?? ''))
+          expect(button, aimId).toBeInTheDocument()
+          fireEvent.click(button!)
+        }
+        const chart = document.querySelector(`[data-chart-aim="${aimId}"]`)!
         expect(chart).not.toBeNull()
         expect(document.querySelectorAll('[data-chart-aim]')).toHaveLength(1)
-        const numeric = optionCards(model).filter((c) => c.rows.some((row) => row.aim_id === group.aimId && row.kind === 'chance' && Number.isFinite(row.chance)))
-        expect([...chart.querySelectorAll('[data-chart-option]')].map((el) => el.getAttribute('data-chart-option'))).toEqual(numeric.map((c) => c.id))
+        expect([...chart.querySelectorAll('[data-chart-option]')].map((el) => el.getAttribute('data-chart-option'))).toEqual(forAim.map(({ id }) => id))
+        for (const { id, path, value } of forAim) {
+          expect(chart.querySelector(`[data-chart-option="${id}"] [data-view="${path}.value"]`)?.textContent).toBe(value)
+        }
       }
-      for (const c of optionCards(model)) c.rows.forEach((r, i) => {
+      for (const c of options) c.rows.forEach((r, i) => {
         const where = `${c.id}.rows.${i}`
         if (r.kind === 'limit') expect(document.querySelector(`[data-limit-aim="${r.aim_id}"] [data-limit-option="${c.id}"]`), where).not.toBeNull()
         else if (r.kind === 'chance' && !Number.isFinite(r.chance) && r.value !== '') expect(needs.has(`${where}.value`), where).toBe(true)

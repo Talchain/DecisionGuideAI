@@ -76,6 +76,9 @@ export function checkNeedsOf(model: ViewModel): CheckItem[] {
     const at = `${card.id}.rows.${i}`
     push(`none:${card.id}.${i}`, 'blocks', row.text, `${at}.text`, id, cardOf(model, id)?.figure?.edit ?? null, wordsAt(row.title, `${at}.title`))
   })
+  // Shared blockers and per-option missing results already point to these cards.
+  for (const item of items) for (const id of item.cards) seen.add(id)
+
   for (const card of options) card.rows.forEach((row, i) => {
     if (row.kind !== 'chance' || Number.isFinite(row.chance)) return
     const at = `${card.id}.rows.${i}`
