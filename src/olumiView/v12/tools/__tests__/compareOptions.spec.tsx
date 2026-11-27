@@ -14,6 +14,7 @@ import { useViewStore } from '../../../store'
 import { optionLetters } from '../../cards/letters'
 import { optionPathOf } from '../../lenses/layers'
 import { COMPARE_OPTIONS_CHROME as CHROME, CompareOptions } from '../CompareOptions'
+import { useCompareSelection } from '../compareSelection'
 
 vi.mock('../../../reasoning/tabRing', async (original) => {
   const actual = await original<typeof import('../../../reasoning/tabRing')>()
@@ -31,7 +32,8 @@ const first = () => screen.getByRole('combobox', { name: CHROME.first })
 const second = () => screen.getByRole('combobox', { name: CHROME.second })
 const tool = () => screen.getByRole('region', { name: CHROME.title })
 const aimBlock = (id: string) => tool().querySelector<HTMLElement>(`[data-compare-aim="${id}"]`)!
-const rowsOf = (id: string) => within(aimBlock(id)).getAllByRole('button')
+const rowsOf = (id: string) => [...aimBlock(id).querySelectorAll<HTMLElement>('[data-compare-row]')]
+const rowButton = (row: HTMLElement) => within(row).getByRole('button')
 const dots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot]')
 const filledDots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot="filled"]').length
 const change = (select: HTMLElement, id: string) => fireEvent.change(select, { target: { value: id } })
@@ -45,6 +47,7 @@ afterEach(() => {
   vi.clearAllMocks()
   vi.unstubAllGlobals()
   setTeamFetch(null)
+  useCompareSelection.setState({ byScenario: new Map() })
   useCanvasStore.getState().clearSelection()
   useViewStore.setState({ sid: null, view: null, at: null, stale: false, error: null })
 })
@@ -89,18 +92,24 @@ describe('Compare options', () => {
     const [shown, fixedMiss] = rowsOf(takings.aim_id)
     expect(within(shown!).getByText(takings.value).textContent).toBe(takings.value)
     expect(dots(shown!)).toHaveLength(10)
-    expect(within(shown!).getByRole('img', { name: takings.likely!.title })).toHaveClass('text-text-header')
+    const likely = within(shown!).getByRole('img', { name: takings.likely!.title })
+    expect(likely).toHaveClass('text-text-header')
+    expect(laneTipOf(likely, 'focus')).toBe(takings.likely!.title)
     expect(within(fixedMiss!).getByText(miss.value).textContent).toBe(miss.value)
     expect(dots(fixedMiss!)).toHaveLength(0)
-    expect(within(fixedMiss!).getByRole('img', { name: miss.olumi!.title })).toHaveClass('text-info')
-    expect(laneTipOf(shown!)).toBe(takings.title)
+    const olumi = within(fixedMiss!).getByRole('img', { name: miss.olumi!.title })
+    expect(olumi).toHaveClass('text-info')
+    expect(laneTipOf(olumi)).toBe(miss.olumi!.title)
+    expect(laneTipOf(rowButton(shown!))).toBe(takings.title)
     expect(within(aimBlock(membersAim.id)).getByRole('heading')).toHaveTextContent(membersAim.heading)
     for (const row of rowsOf(membersAim.id)) {
       expect(row).not.toHaveTextContent(members.text)
       expect(row).not.toHaveTextContent(members.title)
       expect(dots(row)).toHaveLength(0)
-      expect(row.querySelector('.ok-face-mark.ok-face-mark-track')).toBeInTheDocument()
-      expect(laneTipOf(row)).toBe(members.text)
+      const track = row.querySelector<HTMLElement>('.ok-face-mark.ok-face-mark-track')!
+      expect(track).toBeInTheDocument()
+      expect(laneTipOf(track)).toBe(members.text)
+      expect(laneTipOf(rowButton(row))).toBe(members.text)
     }
     const summary = within(aimBlock(membersAim.id)).getByText(CHROME.more)
     const explanation = within(summary.closest('details')!).getAllByText(members.title)[0]!
@@ -121,7 +130,7 @@ describe('Compare options', () => {
     expect(rowsOf(takings.aim_id).map(filledDots)).toEqual([...expected].reverse())
   })
 
-  it('orders by the chart aims, joins the selected raw rows only, and marks an absent row without words', () => {
+  it('orders by the chart aims, joins the selected raw rows only, and leaves an absent row without a track', () => {
     const unselectedOnly = { ...takings, aim_id: 'unselected' }
     const limit: ViewRow = { kind: 'limit', aim_id: 'limit', aim: 'Keep costs in range', value: 'Within the limit', title: 'Limit details', olumi: null, estimate: null }
     const unresolved = { ...members, aim_id: 'unresolved' }
@@ -133,13 +142,15 @@ describe('Compare options', () => {
     render(<CompareOptions model={tested} />)
     expect([...tool().querySelectorAll('[data-compare-aim]')].map((block) => block.getAttribute('data-compare-aim')))
       .toEqual([takings.aim_id, membersAim.id, limit.aim_id, unresolved.aim_id])
-    const [limitRow, absent] = rowsOf(limit.aim_id)
+    const [limitRow] = rowsOf(limit.aim_id)
+    const absent = aimBlock(limit.aim_id).querySelector<HTMLElement>('[data-compare-row="absent"]')!
+    expect(absent).toBeInTheDocument()
     expect(within(limitRow!).getByText(limit.value).textContent).toBe(limit.value)
     expect(dots(limitRow!)).toHaveLength(0)
-    expect(laneTipOf(limitRow!)).toBe(limit.title)
-    expect(absent?.textContent).toBe(`B${weekend!.heading}`)
-    expect(absent?.querySelector('.ok-face-mark.ok-face-mark-track')?.closest('[aria-hidden="true"]')).not.toBeNull()
-    expect(laneTipOf(absent!)).toBeNull()
+    expect(laneTipOf(rowButton(limitRow!))).toBe(limit.title)
+    expect(absent.textContent).toBe(`B${weekend!.heading}`)
+    expect(absent.querySelector('.ok-face-mark-track, .ok-face-mark-chance, [data-chance-dots]')).toBeNull()
+    expect(laneTipOf(rowButton(absent))).toBeNull()
     expect(within(aimBlock(limit.aim_id)).queryByText(CHROME.more)).toBeNull()
     expect(within(aimBlock(unresolved.aim_id)).queryByRole('heading')).toBeNull()
     change(second(), carryOn!.id)
@@ -226,7 +237,7 @@ describe('Compare options', () => {
       const stop = registerFocusHelpers(canvas.selectNodeWithoutHistory, () => {})
       try {
         render(<CompareOptions model={model} />)
-        fireEvent.click(rowsOf(takings.aim_id)[0]!)
+        fireEvent.click(rowButton(rowsOf(takings.aim_id)[0]!))
         expect(pressCard).toHaveBeenCalledWith(evening!.id)
         expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
         if (selection === 'same card reselected') canvas.selectNodeWithoutHistory(evening!.id)
@@ -236,7 +247,7 @@ describe('Compare options', () => {
           useCanvasStore.setState((s) => ({ selection: { ...s.selection, edgeIds: new Set(['link']) } }))
         }
         const before = useCanvasStore.getState().selection
-        change(second(), carryOn!.id)
+        change(first(), carryOn!.id)
         const after = useCanvasStore.getState().selection
         if (selection === 'tool only') {
           expect(after.nodeIds.size).toBe(0)
@@ -249,6 +260,25 @@ describe('Compare options', () => {
       }
     },
   )
+
+  it('keeps its own selection while the card stays in the pair, then clears it when the card leaves', () => {
+    const canvas = useCanvasStore.getState()
+    const stop = registerFocusHelpers(canvas.selectNodeWithoutHistory, () => {})
+    try {
+      render(<CompareOptions model={model} />)
+      fireEvent.click(rowButton(rowsOf(takings.aim_id)[0]!))
+      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
+
+      change(second(), carryOn!.id)
+      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
+      change(second(), evening!.id)
+      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
+      change(second(), weekend!.id)
+      expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
+    } finally {
+      stop()
+    }
+  })
 
   it('renders nothing with one option', () => {
     const { container } = render(<CompareOptions model={{ ...model, cards: model.cards.filter((card) => card.family !== 'option' || card.id === evening!.id) }} />)
@@ -288,6 +318,24 @@ describe('Compare tab integration', () => {
     const legacy = screen.getByTestId('core-compare-none')
     expect(tool().compareDocumentPosition(legacy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(first()).toHaveValue(optionCards(held.model!)[0]!.id)
+  })
+
+  it('restores both choices when the same scenario refreshes and the options are still present', () => {
+    stubReads()
+    const view = { ...studio, version: null }
+    useViewStore.setState({ sid: studio.id, view, at: null })
+    render(<CoreCompareTab />)
+    change(first(), carryOn!.id)
+    change(second(), evening!.id)
+
+    act(() => useViewStore.setState({ stale: true }))
+    expect(screen.queryByTestId('tool-compare-options')).not.toBeInTheDocument()
+    act(() => useViewStore.setState({ stale: false, view: { ...view, model: { ...model } } }))
+
+    expect(first()).toHaveValue(carryOn!.id)
+    expect(second()).toHaveValue(evening!.id)
+    expect(rowsOf(takings.aim_id)[0]).toHaveTextContent(carryOn!.heading)
+    expect(rowsOf(takings.aim_id)[1]).toHaveTextContent(evening!.heading)
   })
 
   it.each([

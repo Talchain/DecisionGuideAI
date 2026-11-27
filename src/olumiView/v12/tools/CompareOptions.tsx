@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import type { ViewCard, ViewModel, ViewRow } from '../../client'
 import { optionCards } from '../../layout'
@@ -10,10 +10,12 @@ import { cardOf, chartGroupsOf } from '../../port/pick'
 import { TYPE } from '../../port/type'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
 import { chanceForDots } from '../../resultRange'
+import { useViewStore } from '../../store'
 import { optionLetters } from '../cards/letters'
 import { LetterChip } from '../cards/marks'
 import { cardOfRecord, optionPathOf } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
+import { useCompareSelection, type Pair } from './compareSelection'
 
 export const COMPARE_OPTIONS_CHROME = {
   title: 'Compare options',
@@ -25,7 +27,6 @@ export const COMPARE_OPTIONS_CHROME = {
 
 const RING = 'tool-compare-options'
 const PICK = `${TYPE.body} min-w-0 rounded-md border border-panel-border bg-panel px-2 py-1 text-text-body`
-type Pair<T> = readonly [T, T]
 type OptionEntry = { card: ViewCard; letter: string; row: ViewRow | undefined }
 
 function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
@@ -38,31 +39,34 @@ function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
 }
 
 function OptionRow({ card, letter, row, onPress }: OptionEntry & { onPress: (id: string) => void }) {
-  const gap = row === undefined || row.kind === 'none'
-  const olumi = gap ? null : row.olumi
+  const olumi = row?.kind === 'none' ? null : row?.olumi
   const likely = row?.kind === 'chance' ? row.likely : null
 
   return (
-    <Hover as="button" type="button" words={row?.kind === 'none' ? row.text : row?.title} onClick={() => onPress(card.id)}
-      className="grid w-full min-w-0 gap-1 rounded-sm py-1 text-left hover:bg-panel-hover">
-      <span className={`${TYPE.meta} flex min-w-0 items-baseline text-text-header`}>
+    <div data-compare-row={row?.kind ?? 'absent'} className="grid min-w-0 gap-1 rounded-sm py-1 hover:bg-panel-hover">
+      <Hover as="button" type="button" words={row?.kind === 'none' ? row.text : row?.title} onClick={() => onPress(card.id)}
+        className={`${TYPE.meta} flex min-w-0 items-baseline text-left text-text-header`}>
         <span className="olumi-look contents"><LetterChip letter={letter} /></span>
         <span className="min-w-0 break-words">{card.heading}</span>
-      </span>
-      <span className="flex min-w-0 items-center gap-2">
-        {/* Reuse the canvas chance mark's ten-dot footprint for every row. */}
-        <span className="ok-face-mark-chance flex min-h-4 items-center" aria-hidden="true">
-          {gap ? <span className="ok-face-mark ok-face-mark-track" /> : <ChanceDots chance={dotsOf(card, row)} />}
-        </span>
-        {gap ? null : (
-          <span className={`${TYPE.meta} min-w-0 break-words text-text-body`}>
-            {likely == null ? null : <><GlyphMark mark={likely} tip={false} className="text-text-header" />{' '}</>}
-            {olumi == null ? null : <><GlyphMark mark={olumi} tip={false} className={colourClass('--info')} />{' '}</>}
-            <span>{row.value}</span>
+      </Hover>
+      {row === undefined ? null : (
+        <span className="flex min-w-0 items-center gap-2">
+          {/* Reuse the canvas chance mark's ten-dot footprint wherever there's a result line. */}
+          <span className="ok-face-mark-chance flex min-h-4 items-center" aria-hidden="true">
+            {row.kind === 'none'
+              ? <Hover words={row.text} focusable={false} className="ok-face-mark ok-face-mark-track">{null}</Hover>
+              : <ChanceDots chance={dotsOf(card, row)} />}
           </span>
-        )}
-      </span>
-    </Hover>
+          {row.kind === 'none' ? null : (
+            <span className={`${TYPE.meta} min-w-0 break-words text-text-body`}>
+              {likely == null ? null : <><GlyphMark mark={likely} className="text-text-header" />{' '}</>}
+              {olumi == null ? null : <><GlyphMark mark={olumi} className={colourClass('--info')} />{' '}</>}
+              <span>{row.value}</span>
+            </span>
+          )}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -125,31 +129,35 @@ function AimGroup({ model, aimId, aim, entries, onPress }: {
   )
 }
 
-function OptionComparison({ model, options, defaults }: { model: ViewModel; options: ViewCard[]; defaults: Pair<ViewCard> }) {
-  const [picked, setPicked] = useState<Pair<string> | null>(null)
-  const pickedA = options.find((card) => card.id === picked?.[0])
-  const pickedB = options.find((card) => card.id === picked?.[1])
-  const [a, b] = pickedA && pickedB ? [pickedA, pickedB] : defaults
-  if (picked !== null && (!pickedA || !pickedB)) setPicked(null)
-
+function OptionComparison({ model, options, pair: [a, b], setPair }: {
+  model: ViewModel
+  options: ViewCard[]
+  pair: Pair<ViewCard>
+  setPair: (pair: Pair<string>) => void
+}) {
   const aId = a.id
   const bId = b.id
-  const toolSelection = useRef<ReturnType<typeof useCanvasStore.getState>['selection'] | null>(null)
+  const toolSelection = useRef<{ id: string; selection: ReturnType<typeof useCanvasStore.getState>['selection'] } | null>(null)
 
   function focusOption(id: string) {
     const before = useCanvasStore.getState().selection
     pressCard(id)
     const after = useCanvasStore.getState().selection
     toolSelection.current = before !== after && !before.nodeIds.has(id) && after.nodeIds.size === 1
-      && after.nodeIds.has(id) && after.edgeIds.size === 0 ? after : null
+      && after.nodeIds.has(id) && after.edgeIds.size === 0 ? { id, selection: after } : null
   }
 
-  useEffect(() => {
+  function choose(pair: Pair<string>) {
+    const owned = toolSelection.current
     const canvas = useCanvasStore.getState()
     // A new canvas selection can contain the same id. Only clear the snapshot this press created.
-    if (canvas.selection === toolSelection.current) canvas.clearSelection()
-    toolSelection.current = null
-  }, [aId, bId])
+    if (owned !== null && canvas.selection !== owned.selection) toolSelection.current = null
+    else if (owned !== null && !pair.includes(owned.id)) {
+      toolSelection.current = null
+      canvas.clearSelection()
+    }
+    setPair(pair)
+  }
 
   useEffect(() => {
     // Canvas emphasis is card-only in this slice. Links stay unlit.
@@ -167,13 +175,13 @@ function OptionComparison({ model, options, defaults }: { model: ViewModel; opti
       <div className="grid grid-cols-2 gap-2">
         <select aria-label={COMPARE_OPTIONS_CHROME.first} className={PICK} value={aId} onChange={(e) => {
           const id = e.currentTarget.value
-          setPicked([id, id === bId ? aId : bId])
+          choose([id, id === bId ? aId : bId])
         }}>
           {options.map((card) => <option key={card.id} value={card.id}>{letters.get(card.id)} {card.heading}</option>)}
         </select>
         <select aria-label={COMPARE_OPTIONS_CHROME.second} className={PICK} value={bId} onChange={(e) => {
           const id = e.currentTarget.value
-          setPicked([id === aId ? bId : aId, id])
+          choose([id === aId ? bId : aId, id])
         }}>
           {options.map((card) => <option key={card.id} value={card.id}>{letters.get(card.id)} {card.heading}</option>)}
         </select>
@@ -201,8 +209,19 @@ function OptionComparison({ model, options, defaults }: { model: ViewModel; opti
 }
 
 export function CompareOptions({ model }: { model: ViewModel }) {
+  const sid = useViewStore((s) => s.sid)
+  const picked = useCompareSelection((s) => s.byScenario.get(sid))
+  const setPair = useCompareSelection((s) => s.setPair)
   const options = optionCards(model)
+  const pickedA = options.find((card) => card.id === picked?.[0])
+  const pickedB = options.find((card) => card.id === picked?.[1])
+  const missing = picked !== undefined && (!pickedA || !pickedB)
+  useEffect(() => {
+    if (missing) setPair(sid, null)
+  }, [missing, setPair, sid])
+
   const [first, second] = options
   if (!first || !second) return null
-  return <OptionComparison model={model} options={options} defaults={[first, second]} />
+  return <OptionComparison model={model} options={options} pair={pickedA && pickedB ? [pickedA, pickedB] : [first, second]}
+    setPair={(pair) => setPair(sid, pair)} />
 }
