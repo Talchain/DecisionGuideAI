@@ -76,8 +76,8 @@ function answer(input: typeof raise) {
   } satisfies WhatIfAnswer & { coach: null; variants: (WhatIfAnswer['variants'][number] & { values: unknown[] })[] }
 }
 
-const route = vi.fn<(body: unknown) => Response | Promise<Response>>()
-const network = vi.fn<typeof fetch>()
+const route = vi.fn<[body: unknown], Response | Promise<Response>>()
+const network = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
 const renderStress = (v = view) => <StressTest view={v} model={v.model!} />
 const slider = () => screen.getByRole('slider', { name: WORDS.label })
 const numberField = () => screen.getByRole('spinbutton', { name: WORDS.label })
