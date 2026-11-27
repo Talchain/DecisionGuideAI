@@ -4,14 +4,7 @@
  * present/absent contrast, and the tab's state is read from the options' rows, never from run fields.
  */
 import '@testing-library/jest-dom/vitest'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('../../../olumiCore/team/api', async (original) => ({
-  ...await original<typeof import('../../../olumiCore/team/api')>(),
-  call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
-}))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -145,7 +138,7 @@ describe('every option’s line is reachable from Results or Check', () => {
       expect([...tab().querySelectorAll('[data-chart-aim]')].map((el) => el.getAttribute('data-chart-aim'))).toEqual([group.aimId])
       const expected = group.rows.filter(({ row }) => row.outcome != null)
       expect([...tab().querySelectorAll('[data-outcome-aim]')].map((el) => el.getAttribute('data-outcome-aim'))).toEqual(expected.length ? [group.aimId] : [])
-      expect([...tab().querySelectorAll('[data-band-option]')].map((el) => el.getAttribute('data-band-option'))).toEqual(expected.map(({ card }) => card.id))
+      expect([...tab().querySelectorAll('[data-outcome-option]')].map((el) => el.getAttribute('data-outcome-option'))).toEqual(expected.map(({ card }) => card.id))
       expect(lead.textContent).toBe(view.model!.run!.lead)
     }
   })
@@ -172,22 +165,18 @@ describe('every option’s line is reachable from Results or Check', () => {
     ready(view); render(<PortAnalysisTab />)
     stopCanvasFocus = installCanvasFocus()
     act(() => useCanvasStore.getState().selectNodes([first!.card.id]))
-    for (const selector of ['chart', 'band']) {
+    for (const selector of ['chart', 'outcome']) {
       const current = tab().querySelector(`[data-${selector}-option="${first!.card.id}"] button`)
       expect(current).toHaveAttribute('aria-current', 'true')
       expect(current).toHaveClass('aria-[current=true]:bg-panel-hover')
-      if (selector === 'chart') {
-        const summary = current!.querySelector('[data-option-summary]')
-        const track = current!.querySelector('[data-option-track]')
-        expect(summary).toHaveClass('grid-cols-2')
-        expect(summary!.querySelector('[data-option-value]')).toHaveClass('text-right')
-        expect(track).toHaveClass('w-full')
-        expect(summary!.nextElementSibling).toBe(track)
-      } else {
-        expect(current!.querySelector('[data-band-track]')).toHaveClass('w-full')
-      }
+      const summary = current!.querySelector('[data-option-summary]')
+      const track = current!.querySelector('[data-option-track]')
+      expect(summary).toHaveClass('grid-cols-2')
+      expect(summary!.querySelector('[data-option-value]')).toHaveClass('text-right')
+      expect(track).toHaveClass('w-full')
+      expect(summary!.nextElementSibling).toBe(track)
     }
-    const button = tab().querySelector(`[data-band-option="${second!.card.id}"] button`)!
+    const button = tab().querySelector(`[data-outcome-option="${second!.card.id}"] button`)!
     expect(button).not.toHaveAttribute('aria-current')
     fireEvent.click(button)
     expect(useStoredFocusSubject.getState().subject).toEqual({ sid: view.id, kind: 'option', id: second!.card.id, cards: [second!.card.id], source: 'panel' })
@@ -196,7 +185,7 @@ describe('every option’s line is reachable from Results or Check', () => {
 })
 
 describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () => {
-  it('bakery: under the chart, one likely range per option with an outcome, in core\'s order; each band on the shared axis with Core’s words beside it; heading is core\'s lens label; the option\'s longer words are the one Tip, never a native title', async () => {
+  it('bakery: under the chart, one likely range per option with an outcome, in core\'s order; each band at outcomePlace and core\'s line under it; heading is core\'s lens label; the option\'s longer words are the one Tip, never a native title', async () => {
     const view = viewOf('golden/bakery'), m = view.model!, lead = leadAimOf(m)
     const rows = chartRowsOf(m).filter((r) => r.row.outcome != null)
     expect(rows.map((r) => r.card.id)).toEqual(['second_oven', 'longer_hours', 'carry_on'])
@@ -204,24 +193,21 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     const sec = screen.getByTestId('analysis-likely-outcome')
     const li = m.run!.lenses!.findIndex((l) => l.id === 'outcome')
     expect(sec.querySelector(`[data-view="run.lenses.${li}.label"]`)!.textContent).toBe(m.run!.lenses![li]!.label)
-    expect([...sec.querySelectorAll<HTMLElement>('[data-band-option]')].map((e) => e.dataset['bandOption'])).toEqual(rows.map((r) => r.card.id))
-    for (const { card, row } of rows) {
-      const el = sec.querySelector(`[data-band-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
-      expect(el.querySelector('[data-band-words]')!.textContent).toBe(row.outcome!.text)
+    expect([...sec.querySelectorAll<HTMLElement>('[data-outcome-option]')].map((e) => e.dataset['outcomeOption'])).toEqual(rows.map((r) => r.card.id))
+    for (const { card, row, i } of rows) {
+      const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
+      expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
       expect([el.querySelector('button')!.getAttribute('title'), await tipOf(el.querySelector('button')!)], card.id).toEqual([null, row.outcome!.title])
-      if (row.outcome!.low === row.outcome!.high) expect(el.querySelector('[data-band-point]'), card.id).not.toBeNull()
-      else {
-        const range = el.querySelector('[data-band-range]')!
-        expect(parseFloat(range.getAttribute('x')!), card.id).toBeCloseTo(p.left)
-        expect(parseFloat(range.getAttribute('width')!), card.id).toBeCloseTo(p.width)
-      }
+      if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
+      else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
     }
     // carry_on's one value is a point; the two ranged options are bands with a middle tick.
-    expect(sec.querySelector('[data-band-option="carry_on"] [data-band-point]')).not.toBeNull()
-    expect(sec.querySelector('[data-band-option="second_oven"] [data-band-middle]')).not.toBeNull()
+    expect(sec.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')).not.toBeNull()
+    expect(sec.querySelector('[data-outcome-option="second_oven"] [data-outcome-mid]')).not.toBeNull()
     // It sits after the chance chart.
     const chart = screen.getByTestId('analysis-chance-chart')
     expect(chart.compareDocumentPosition(sec) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(expectAllBound(view, sec, expect)).toBeGreaterThan(rows.length)
   })
 
   it('the likely-outcome axis starts at zero where no outcome is below it: 80 is not at 0% (audit analysis-likely-outcome-axis-unlabelled)', () => {
@@ -236,7 +222,7 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect([at('second_oven').left + at('second_oven').width]).toEqual([100]) // the axis ends at the greatest high
     expect(at('second_oven').mid).toBeCloseTo((100 / 105) * 100, 6) // the middle tick is kept
     ready(view); render(<PortAnalysisTab />)
-    expect(parseFloat(document.querySelector('[data-band-option="carry_on"] [data-band-point]')!.getAttribute('cx')!)).toBeCloseTo((80 / 105) * 100, 6)
+    expect(Number(document.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')!.getAttribute('data-outcome-point'))).toBeCloseTo((80 / 105) * 100, 6)
     // CONTRAST: an outcome that goes below zero keeps the axis from the least low (the old rule).
     set('carry_on', -10, 0, 10)
     expect(at('carry_on').left).toBe(0)
@@ -263,7 +249,7 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
 
   it('a press on a likely range focuses that option\'s card on the canvas, by its id', () => {
     ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
-    fireEvent.click(screen.getByTestId('analysis-likely-outcome').querySelector('[data-band-option="longer_hours"] button')!)
+    fireEvent.click(screen.getByTestId('analysis-likely-outcome').querySelector('[data-outcome-option="longer_hours"] button')!)
     expect(focus.node.mock.calls).toEqual([['longer_hours']])
   })
 })
@@ -432,7 +418,7 @@ describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232;
       expect(tab().querySelector('[data-view="run.lead"]')?.textContent).toBe(m.run!.lead)
       const likely = screen.queryByTestId('analysis-likely-outcome')
       expect(likely !== null).toBe(outcomes.length > 0)
-      expect(outcomes.filter((k) => { const [a, c] = k.split(':'); return likely?.querySelector(`[data-outcome-aim="${a}"] [data-band-option="${c}"]`) == null })).toEqual([])
+      expect(outcomes.filter((k) => { const [a, c] = k.split(':'); return likely?.querySelector(`[data-outcome-aim="${a}"] [data-outcome-option="${c}"]`) == null })).toEqual([])
       const rest = drawnNow()
       expect(rest, 'at rest').toEqual({ whiskers: rest.whiskers, figures: rest.figures, ends: ranged ? 1 : 0, endsKey: 0, marks: 0, tails: 1 })
       expect([rest.whiskers > 0, rest.figures > 0], 'a whisker at rest has its figure').toEqual([ranged, ranged])

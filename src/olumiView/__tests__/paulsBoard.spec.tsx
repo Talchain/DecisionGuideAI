@@ -10,8 +10,8 @@ vi.mock('../../olumiCore/team/api', async (original) => ({
   ...await original<typeof import('../../olumiCore/team/api')>(),
   call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
 }))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import { readFileSync, readdirSync } from 'node:fs'
 // The chat's proposal (PB9) is mounted alone: the sign-in client it imports is not reached.
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
@@ -34,6 +34,7 @@ import { displayedDissent } from '../reasoning/dissent'
 import { checkItemsOf } from '../check/items'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
+import { visualOfCard } from '../visual'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
 import { useCanvasStore } from '../../canvas/store'
 import { NODE_BODY_BOUND_STYLE_ATTR } from '../../canvas/utils/zoomLegibility'
@@ -281,12 +282,12 @@ describe('the DL\'s look at A13b (12 Nov)', () => {
  */
 describe('the field table: what the retired cards drew, the lane\'s card draws', () => {
   const Node = CoreCard as unknown as (p: NodeProps) => JSX.Element
-  const props = (id: string, card: unknown): NodeProps => ({ id, type: 'viewCard', data: { card }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+  const props = (id: string, card: NonNullable<View['model']>['cards'][number] | undefined, view?: View): NodeProps => ({ id, type: 'viewCard', data: { card, bandVisual: card === undefined || view === undefined ? null : visualOfCard(view.model, card, view) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)
   const draw = (view: View, id: string) => {
     ready(view)
     const card = id === QUESTION ? undefined : view.model!.cards.find((c) => c.id === id)!
-    return render(<ReactFlowProvider><Node {...props(id, card)} /></ReactFlowProvider>).container
+    return render(<ReactFlowProvider><Node {...props(id, card, view)} /></ReactFlowProvider>).container
   }
   const frame = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('*')].find((e) => e.className.includes?.('transition-[opacity,box-shadow'))!.className
   const APP = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8')) as View

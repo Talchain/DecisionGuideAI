@@ -8,8 +8,8 @@ vi.mock('../../../olumiCore/team/api', async (original) => ({
   ...await original<typeof import('../../../olumiCore/team/api')>(),
   call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
 }))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import { useCanvasStore } from '../../../canvas/store'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { barsOf, QUESTION } from '../../layout'
@@ -141,7 +141,7 @@ function variantCases(): CardCase[] {
 function drawCard({ view, id, card }: CardCase) {
   useViewStore.setState({ view })
   const props = {
-    id, type: card === undefined ? 'viewQuestion' : 'viewCard', data: card === undefined ? {} : { card },
+    id, type: card === undefined ? 'viewQuestion' : 'viewCard', data: card === undefined ? {} : { card, bandVisual: visualOfCard(view.model, card, view) },
     selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false,
   } as NodeProps

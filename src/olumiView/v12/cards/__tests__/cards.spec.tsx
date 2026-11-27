@@ -11,8 +11,8 @@ vi.mock('../../../../olumiCore/team/api', async (original) => ({
   ...await original<typeof import('../../../../olumiCore/team/api')>(),
   call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
 }))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 import { readFileSync } from 'node:fs'
@@ -30,6 +30,7 @@ import { useUIStore } from '../../../../stores/uiStore'
 import { CoreCard } from '../../../previous/CoreCard'
 import { useReasoningFocus } from '../../../reasoning/focusRequest'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
+import { visualOfCard } from '../../../visual'
 import { optionLetterOf, SimpleFace } from '../../SimpleFace'
 import { cardKindOf, dsKindOf } from '../kind'
 import { letterAt, optionLetters } from '../letters'
@@ -52,7 +53,8 @@ const draw = (view: View, id: string, level: Level = 'working'): HTMLElement => 
   setDefaultLevel(level)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
-  return render(<ReactFlowProvider><Node {...({ id, type: 'viewCard', data: { card: cardOf(view, id) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
+  const card = cardOf(view, id)
+  return render(<ReactFlowProvider><Node {...({ id, type: 'viewCard', data: { card, bandVisual: card === undefined ? null : visualOfCard(view.model, card, view) }, selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} /></ReactFlowProvider>).container
 }
 /** What the one Tip says for a mark: the pointer comes to rest on it and the delay passes. A mark's hover is this, never a native `title` (system rule 3, 20 Nov). */
@@ -540,12 +542,12 @@ describe('figure values at rest', () => {
     expect(card.queryByTestId('range-max')).toBeNull()
   })
 
-  it.each(['working', 'simple'] as const)('%s draws Core’s value words for every option on CH-bands', (level) => {
+  it.each(['working', 'simple'] as const)('%s draws each option’s CH-bands lane with its words at the appropriate tier', (level) => {
     const sales = cardOf(ASKED, 'sales')
     const el = draw(ASKED, sales.id, level)
     const chart = el.querySelector('[data-form="CH-bands"][data-quantity="sales"]')!
     const rows = [...chart.querySelectorAll('[data-band-option]')]
-    expect(rows.map((row) => [row.getAttribute('data-band-option'), row.querySelector('[data-band-words]')?.textContent]))
+    expect(rows.map((row) => [row.getAttribute('data-band-option'), level === 'simple' ? hover(row.querySelector('button')!) : row.querySelector('[data-band-words]')?.textContent]))
       .toEqual(sales.values!.map((value) => [value.option, value.text]))
     expect(chart.querySelector('[data-band-version]')?.textContent).toBe(ASKED.version!.label)
   })
@@ -559,17 +561,22 @@ describe('a calculated figure Core could not calculate for an option', () => {
     values_withheld: [{ option: 'longer_hours', text: reason, cause: 'not_covered' }],
   })
 
-  it.each(['working', 'simple'] as const)('%s draws its letter and Core’s reason at rest', (level) => {
+  it.each(['working', 'simple'] as const)('%s keeps its letter and makes Core’s withheld reason accessible', (level) => {
     const el = draw(held, sales.id, level)
     const row = el.querySelector('[data-band-option="longer_hours"]')!
     expect(faceOf(el, sales.id)).toHaveAttribute('data-ok-state', 'withheld')
     expect(row).toHaveAttribute('data-band-state', 'withheld')
     expect(row.querySelector('[data-band-letter]')?.textContent).toBe('B')
-    expect(row.querySelector('[data-band-words]')?.textContent).toBe(reason)
+    if (level === 'simple') {
+      expect(row.querySelector('[data-band-words]')).toBeNull()
+      expect(hover(row.querySelector('button')!)).toBe(reason)
+    } else {
+      expect(row.querySelector('[data-band-words]')?.textContent).toBe(reason)
+    }
     expect(row.querySelector('[data-band-track]')).toBeNull()
     const calculated = el.querySelector('[data-band-option="second_oven"]')!
     expect(calculated.querySelector('[data-band-range]')).not.toBeNull()
-    expect(calculated.querySelector('[data-band-words]')?.textContent).toBe(sales.values!.find((v) => v.option === 'second_oven')!.text)
+    expect(level === 'simple' ? hover(calculated.querySelector('button')!) : calculated.querySelector('[data-band-words]')?.textContent).toBe(sales.values!.find((v) => v.option === 'second_oven')!.text)
     cleanup()
     expect(draw(ASKED, sales.id, level).querySelector('[data-band-state="withheld"]')).toBeNull()
   })

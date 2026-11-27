@@ -140,6 +140,8 @@
     {"file": "src/canvas/ui/inspector-v2/shared/ProbabilityArc.tsx", "replaced_by": null},
     {"file": "src/olumiCore/team/CardDispute.tsx", "replaced_by": "CH-differ"},
     {"file": "src/olumiView/look/olumiLook.css", "replaced_by": null},
+    {"file": "src/olumiView/port/LikelyOutcome.tsx", "replaced_by": "CH-bands"},
+    {"file": "src/olumiView/v12/scale/OutcomeBand.tsx", "replaced_by": "CH-bands"},
     {"file": "src/olumiView/previous/CoreCard.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/bands/BandLayer.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/bands/KeyPill.tsx", "replaced_by": null},

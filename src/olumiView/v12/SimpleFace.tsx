@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useAnchoredTip } from '../look/Tip'
 import { Hover } from '../look/Hover'
-import type { View, ViewCard, ViewModel, ViewRow } from '../client'
+import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceForDots } from '../resultRange'
 import { ChanceDots } from './scale/ChanceDots'
@@ -19,7 +19,7 @@ import { chanceParts, headlineChanceRow, headlineWithheldRowIndex, noChanceLineO
 import { useWithheldRing } from './detailed/marks'
 import { cardKind, cardTitle, needsOf } from './fields/fields'
 import { BandsChart } from './scale/OptionBand'
-import { visualOfCard } from '../visual'
+import { visualOfCard, type VisualV3 } from '../visual'
 
 /**
  * ONE TYPE SCALE ON A SIMPLE CARD (Paul, 17 Nov: no big bold text on a card): the title (BaseNode's) and the card's one headline, an option's
@@ -43,7 +43,7 @@ export const AuthorGlyph = ({ card }: { card: ViewCard }): JSX.Element | null =>
 export type SimpleFaceProps = {
   readonly card: ViewCard
   readonly model: ViewModel | null
-  readonly view?: Pick<View, 'version' | 'proposal'> | null
+  readonly bands?: VisualV3 | null
   readonly olumiLook?: boolean
   /** Olumi's note sits beside this card (core's `next.at`): Olumi's mark in a ring here, the words in the panel. */
   readonly noted: boolean
@@ -83,7 +83,7 @@ export function sharedResultWords(headline: NonNullable<ViewCard['headline']>): 
 
 type StateLine = { readonly text?: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly shape?: FaceMarkKind; readonly isValue?: true }
 
-export function SimpleFace({ card, model, view = null, noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, trying, below }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, bands = visualOfCard(model, card, null), noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const limit = card.family === 'option' ? limitLeadOf(card) : null
@@ -91,7 +91,6 @@ export function SimpleFace({ card, model, view = null, noted, notedWords, olumiL
   const chance = h?.state === 'chance' ? chanceParts(words ?? h.text) : null
   const hasQualifier = chance?.qualifier != null
   const shared = card.family === 'option' ? null : sharedNoChanceOf(model, id, 'typed')
-  const bands = visualOfCard(model, card, view)
   const hasFigure = card.figure != null && card.figure.text !== ''
   const tight = olumiLook ? 'ok-card-gap-tight' : 'gap-1'
   const stack = olumiLook ? 'ok-card-gap-stack' : 'gap-2'
@@ -134,7 +133,7 @@ export function SimpleFace({ card, model, view = null, noted, notedWords, olumiL
       }
     }
   } else if (bands !== null) {
-    visual = <BandsChart payload={bands} />
+    visual = <BandsChart payload={bands} tier="glance" />
   } else if (card.bound != null) {
     const olumi = card.bound.olumi != null
     // The aim's bar (core's `bar_of`, layout.ts barsOf) has no card of its own on this face: the bound is its place, and the author mark beside it is the bar figure's

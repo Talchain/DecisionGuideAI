@@ -5,8 +5,8 @@ vi.mock('../../../olumiCore/team/api', async (original) => ({
   ...await original<typeof import('../../../olumiCore/team/api')>(),
   call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
 }))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'

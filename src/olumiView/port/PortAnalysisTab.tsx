@@ -177,7 +177,6 @@ function ToReasoning({ model }: { model: ViewModel }) {
 }
 
 function ChanceResults({ model }: { model: ViewModel }) {
-  const view = useViewStore((s) => s.view)
   const [aim, setAim] = useState<string | null>(null)
   const groups = chartGroupsOf(model)
   const group = groups.find((g) => g.aimId === aim) ?? groups[0]
@@ -201,7 +200,7 @@ function ChanceResults({ model }: { model: ViewModel }) {
         </div>
       )}
       <ChanceChart model={model} group={group} />
-      <LikelyOutcome model={model} group={group} view={view} />
+      <LikelyOutcome model={model} group={group} />
       <WhatMovesIt model={model} />
       <TippingPerOption model={model} />
       {lead == null || lead === '' ? null : (

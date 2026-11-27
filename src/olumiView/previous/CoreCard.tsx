@@ -33,7 +33,7 @@ import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } fr
 import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnce, useWithheldRing, WithheldLead } from '../v12/detailed/marks'
 import { Rail } from '../v12/detailed/charts'
 import { BandsChart } from '../v12/scale/OptionBand'
-import { visualOfCard } from '../visual'
+import { visualOfCard, type VisualV3 } from '../visual'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, canOfferFigureEdit, heldEditProposal, useOpenFigureEdits } from '../FigureEdit'
@@ -255,12 +255,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     return next !== null && next.at === id ? next.note.title ?? '' : null
   })
   // The card is the one the node carries (canvas.ts drawViewCanvas: core's own card, never a copy), else the View's: one snapshot with the node.
-  const carried = (props.data as { card?: ViewCard }).card
+  const { card: carried, bandVisual } = props.data as { card?: ViewCard; bandVisual?: VisualV3 }
   const card = id === QUESTION ? null : carried ?? model?.cards.find((c) => c.id === id) ?? null
   // Hosted nodes carry Core's record, so the layout can supply the same kind to every face.
   const hosted = (props.data as { kind?: string }).kind === undefined
   const viewNow = useViewStore((s) => s.view)
-  const bands = simple || card === null ? null : visualOfCard(model, card, viewNow)
+  const bands = carried === undefined && card !== null ? visualOfCard(model, card, viewNow) : bandVisual ?? null
   // The face uses the card's kind and calculation state to decide which details to show.
   const shape = useMemo(() => (card === null ? null : cardKindOf(card, model, viewNow)), [card, model, viewNow])
   // The lane uses its layout kind for BaseNode's behaviour, the connector glyph at every zoom and the frame hue.
@@ -561,7 +561,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {restsOn === null ? null : <Hover focusable={false} words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel ${olumiLook ? 'ok-card-badge-inset' : 'px-1'} tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Hover>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
-          {simple ? <SimpleFace card={card} model={model} view={viewNow} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} extra={simpleFootExtra} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
+          {simple ? <SimpleFace card={card} model={model} bands={bands} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} extra={simpleFootExtra} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className={`nodrag grid min-w-0 flex-1 ${stack}`} data-card-try={id} data-simple-try={id}>
@@ -586,7 +586,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <SaidOnce lines={said.aims.get(id) ?? []} at={id} />
           {reading === null ? null : <Hover as="p" focusable={false} className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} words={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</Hover>}
           {(card.values?.length ?? 0) > 1 ? <StatedFigure id={id} card={card} /> : null}
-          {bands === null ? null : <BandsChart payload={bands} />}
+          {bands === null ? null : <BandsChart payload={bands} tier="full" />}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.

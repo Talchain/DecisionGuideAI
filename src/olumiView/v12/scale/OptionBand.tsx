@@ -6,10 +6,13 @@ import { OptionRow } from '../../port/OptionRow'
 import { ringFrom } from '../../reasoning/tabRing'
 import type { VisualV3 } from '../../visual'
 
+export { OptionBand } from './OutcomeBand'
+
 export const BANDS_DRAFT = 'draft'
 
-/** The same axis and lane order on the canvas, in a reply and in Analysis. Core's numbers only place marks. */
-export default function BandsChart({ payload }: { payload: VisualV3 }) {
+/** The same axis and lane order on the canvas, in a reply. Core's numbers only place marks. */
+export default function BandsChart({ payload, tier }: { payload: VisualV3; tier: 'glance' | 'full' }) {
+  const full = tier === 'full'
   const ring = useId()
   useEffect(() => () => ringFrom(ring, []), [ring])
   const marks = payload.lanes.flatMap((lane) => lane.state === 'value' ? [lane.p10, lane.p90, ...(lane.p50 === null ? [] : [lane.p50])] : [])
@@ -18,7 +21,7 @@ export default function BandsChart({ payload }: { payload: VisualV3 }) {
   const at = (value: number) => high === low ? 0 : 100 * ((value / scale - low / scale) / (high / scale - low / scale))
 
   return (
-    <div className="grid w-full min-w-0 gap-1" data-form="CH-bands" data-quantity={payload.quantity}>
+    <div className="grid w-full min-w-0 gap-1" data-form="CH-bands" data-quantity={payload.quantity} data-band-tier={tier}>
       <p className={`${typography.viewPanelMeta} m-0 break-words text-text-light`} data-band-version>
         {payload.binding.kind === 'version' ? payload.binding.label : BANDS_DRAFT}
       </p>
@@ -33,8 +36,8 @@ export default function BandsChart({ payload }: { payload: VisualV3 }) {
           const point = known && lane.p10 === lane.p90
           return (
             <li key={lane.option} className="min-w-0" data-band-option={lane.option} data-band-state={lane.state} onClick={(event) => event.stopPropagation()}>
-              <OptionRow id={lane.option} ring={ring} words={known ? lane.title ?? basis ?? lane.label : lane.label}
-                className="nodrag nopan grid w-full min-w-0 grid-cols-[var(--space-10)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 px-1 py-1">
+              <OptionRow id={lane.option} ring={ring} words={full ? (known ? lane.title ?? basis ?? lane.label : lane.label) : known ? lane.text : lane.reason}
+                className={`nodrag nopan grid w-full min-w-0 items-center gap-2 px-1 py-1 ${full ? 'grid-cols-[var(--space-10)_minmax(0,1fr)_minmax(0,1fr)]' : 'grid-cols-[var(--space-10)_minmax(0,1fr)]'}`}>
                 <span className={`${typography.viewLabel} flex min-w-0 items-center gap-1 text-text-header`}>
                   <NodeShapeIndicator nodeKind="option" size={12} />
                   <span data-band-letter>{lane.letter}</span>
@@ -49,10 +52,10 @@ export default function BandsChart({ payload }: { payload: VisualV3 }) {
                     {point || mid === null ? null : <line x1={`${mid}%`} x2={`${mid}%`} y1="0" y2="10" strokeWidth="1.5" className="stroke-text-header" data-band-middle />}
                   </svg>
                 ) : null}
-                <span className={`${typography.viewLabel} min-w-0 break-words tabular-nums ${known ? 'text-text-body' : 'col-span-2 text-text-light'}`}>
+                {full ? <span className={`${typography.viewLabel} min-w-0 break-words tabular-nums ${known ? 'text-text-body' : 'col-span-2 text-text-light'}`}>
                   <span data-band-words>{known ? lane.text : lane.reason}</span>
                   {known && lane.if_approved !== null ? <Hover focusable={false} words={lane.if_approved.title} className="ml-1 text-text-light" role="img" aria-label={lane.if_approved.title} data-band-if-approved>{lane.if_approved.glyph}</Hover> : null}
-                </span>
+                </span> : null}
               </OptionRow>
             </li>
           )

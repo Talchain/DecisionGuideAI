@@ -417,7 +417,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         // Codex UI reviewer P1 (shared note 15:35:01Z, DL): a reply with no lead is drawn whole, never folded; only a valid lead's "Full answer" folds.
         ? <div className="space-y-3" data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} /></div>
         : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} />}
-      {visual === null ? null : <BandsChart payload={visual} />}
+      {visual === null ? null : <BandsChart payload={visual} tier="full" />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* P2 (system spec): the reply's own next step is drawn ONCE, here, at the end of the reply; there is no second copy at the top of the panel. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}

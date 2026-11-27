@@ -10,7 +10,7 @@
     "quantity": {
       "value": 5,
       "range": 7,
-      "bands": 30,
+      "bands": 9,
       "unsized": 4,
       "waits": 4
     },

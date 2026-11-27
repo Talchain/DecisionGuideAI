@@ -7,8 +7,8 @@ vi.mock('../../../olumiCore/team/api', async (original) => ({
   ...await original<typeof import('../../../olumiCore/team/api')>(),
   call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
 }))
-beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import type { View } from '../../client'
 import { ChatFloatHost, useChatFloat } from '../../port/ChatFloat'
 import { SimpleFace } from '../../v12/SimpleFace'
