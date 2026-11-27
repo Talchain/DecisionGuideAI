@@ -1,3 +1,4 @@
+import { controls } from '../../../styles/controls'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { typography } from '../../../styles/typography'
 import { TeamApiError } from '../../../olumiCore/team/api'
@@ -81,7 +82,7 @@ function TrialForm({ scope, pending, isCurrent, onTrial }: {
         <input id={id} value={typed} readOnly={pending} onChange={(event) => setTyped(event.target.value)}
           className={`${typography.viewPanelBody} ${FOCUS} min-h-7 min-w-0 grow rounded-sm border border-panel-border bg-panel px-2 text-text-body`} />
         <button type="submit" disabled={pending || typed.trim() === ''}
-          className={`${typography.viewPanelHeading} ${FOCUS} ${MOTION} rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover disabled:text-text-light`}>
+          className={`${controls.chipText} ${FOCUS} ${MOTION} border border-panel-border text-text-header hover:bg-panel-hover disabled:text-text-light`}>
           {pending ? STRESS_WORDS.trying : STRESS_WORDS.try}
         </button>
       </div>
@@ -261,7 +262,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       <div role="group" aria-label={STRESS_WORDS.figure} className="flex flex-wrap gap-1">
         {figures.map(({ record, label, ordinal }) => (
           <button key={record} type="button" aria-pressed={selected.record === record} onClick={() => setRecord(record)}
-            className={`${typography.viewPanelBody} ${FOCUS} ${MOTION} inline-flex min-h-7 min-w-0 items-center gap-1 rounded-md border border-panel-border px-2 text-left text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover aria-pressed:border-text-header`}>
+            className={`${controls.chipText} ${FOCUS} ${MOTION} inline-flex min-w-0 items-center gap-1 border border-panel-border text-left text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover aria-pressed:border-text-header`}>
             <span className="min-w-0 break-words">{label}</span>
             {ordinal !== undefined && <span data-stress-ordinal="" className={`${META} shrink-0 rounded-full border border-panel-border px-1`}>{ordinal}</span>}
           </button>
@@ -273,7 +274,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
           <button key={value} type="button" role="radio" aria-checked={step === value} tabIndex={step === value ? 0 : -1}
             ref={(button) => { if (button === null) stepButtons.current.delete(value); else stepButtons.current.set(value, button) }}
             onClick={() => chooseStep(value)} onKeyDown={(event) => moveStep(event, index)}
-            className={`${typography.viewPanelHeading} ${FOCUS} ${MOTION} min-h-7 cursor-pointer break-words rounded-sm border border-transparent px-1 text-text-body hover:bg-panel-hover aria-checked:border-panel-border aria-checked:bg-panel-hover aria-checked:text-text-header`}>
+            className={`${controls.chipText} ${FOCUS} ${MOTION} font-medium cursor-pointer break-words border border-transparent text-text-body hover:bg-panel-hover aria-checked:border-panel-border aria-checked:bg-panel-hover aria-checked:text-text-header`}>
             {words}
           </button>
         ))}
@@ -311,7 +312,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
                   words={computed === 'true' ? undefined : STRESS_WORDS[computed]}
                   onClick={() => pressCard(option.id)}
                   data-stress-computed={computed} data-stress-chance={chance ?? undefined}
-                  className={`${typography.viewPanelBody} ${FOCUS} ${MOTION} col-span-3 grid min-h-7 cursor-pointer grid-cols-subgrid items-center rounded-sm py-1 text-left hover:bg-panel-hover`}>
+                  className={`${controls.chipText} ${FOCUS} ${MOTION} col-span-3 grid cursor-pointer grid-cols-subgrid items-center text-left hover:bg-panel-hover`}>
                   <span className="flex min-w-0 items-center gap-1 text-text-header">
                     <span className="olumi-look contents" aria-hidden="true"><LetterChip letter={letters.get(option.id)!} /></span>
                     <span className="min-w-0 break-words">{option.heading}</span>

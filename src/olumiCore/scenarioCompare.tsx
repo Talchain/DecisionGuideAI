@@ -91,7 +91,7 @@ function Cells({ side }: { side: OptionSide | null }): JSX.Element {
       {arr(side?.cells).map((c, i) => (
         <p key={i} className={`${BODY} grid gap-0.5`} data-compare-cell="">
           {/* Core's headline reads as the cell's headline; an older core's whole value keeps today's look (UI audit item 4). The cell's own sentence is the value's hover (a sibling of the mark, never around it: the mark has its own words). */}
-          <span><MarkSpan m={c.olumi} /><Hover words={c.title} className={words(c.headline) ? 'font-semibold text-text-header' : undefined} data-compare-value="">{words(c.headline) ? c.headline : c.value}</Hover></span>
+          <span><MarkSpan m={c.olumi} /><Hover words={c.title} className={words(c.headline) ? 'font-medium text-text-header' : undefined} data-compare-value="">{words(c.headline) ? c.headline : c.value}</Hover></span>
           {words(c.headline) && c.companion && words(c.companion.text) ? <Hover words={c.companion.title} className={META} data-compare-companion="">{c.companion.text}</Hover> : null}
           {c.olumi !== null && words(c.lead) ? <span className={META} data-compare-lead="">{c.lead}</span> : null}
           {words(c.condition) ? <span className={META} data-compare-condition="">{c.condition}</span> : null}
@@ -326,7 +326,7 @@ export function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string
       <div className={CARD} data-testid="whatif-save" aria-label="Save a what-if">
         <h4 className={H}>Save a what-if</h4>
         <p role="alert" className={ERR} data-testid="whatif-save-stale">{stale}</p>
-        <div><Button size="sm" variant="secondary" data-testid="whatif-save-again" onClick={again}>Start again</Button></div>
+        <div><Button size="chip" variant="secondary" data-testid="whatif-save-again" onClick={again}>Start again</Button></div>
       </div>
     )
   }
@@ -380,18 +380,18 @@ export function WhatIfSave({ sid, onSaved }: { sid: string; onSaved: (id: string
               <Hover words={card.figure!.edit!.ask} className={META}>{card.figure!.edit!.prompt}</Hover>
               <input data-testid="whatif-save-typed" className={FIELD} value={r.typed} disabled={busy} placeholder={card.figure!.text} onChange={(e) => set(i, { typed: e.target.value })} />
             </label>
-            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="sm" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed(rs).filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
+            {rows.length > 1 ? <div className="sm:col-span-2"><Button size="chip" variant="ghost" data-testid="whatif-save-remove" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed(rs).filter((_, j) => j !== i)); setError(null) }}>Remove this figure</Button></div> : null}
           </div>
         )
       })}
       {twice ? <p className={ERR} data-testid="whatif-save-twice">Each figure once in a what-if.</p> : null}
       {rows.length < Math.min(WHATIF_FIGURES, figures.length)
-        ? <div><Button size="sm" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed([...rs, { quantity: null, label: null, typed: '' }])); setError(null) }}>Add another figure</Button></div> : null}
+        ? <div><Button size="chip" variant="ghost" data-testid="whatif-save-more" disabled={busy} onClick={() => { begin(); setRows((rs) => fixed([...rs, { quantity: null, label: null, typed: '' }])); setError(null) }}>Add another figure</Button></div> : null}
       <label className="grid gap-1">
         <span className={META}>Name this what-if</span>
         <input data-testid="whatif-save-name" className={FIELD} value={name} disabled={busy} maxLength={80} onChange={(e) => { begin(); setRows(fixed); setName(e.target.value); setError(null) }} />
       </label>
-      <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="primary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button>
+      <div className="flex flex-wrap items-center gap-3"><Button size="chip" variant="primary" type="submit" data-testid="whatif-save-go" disabled={!ready}>Save what-if</Button>
         {/* Why it waits (DL ruling 9 Nov: a disabled button says why). */}
         {ready || busy ? null : <span className={META} data-testid="whatif-save-why">{twice ? 'Each figure once' : rows.some((r) => r.typed.trim() === '') ? 'Type a figure to try' : 'Name this what-if'}</span>}</div>
       {error && <p role="alert" className={ERR} data-testid="whatif-save-error">{error}</p>}

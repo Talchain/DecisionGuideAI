@@ -1,3 +1,4 @@
+import { controls } from '../../../styles/controls'
 import { useState } from 'react'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
@@ -96,7 +97,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
   }
   if (!open) {
     return <button type="button" data-testid="frame-open" onClick={() => setOpen(true)}
-      className={`${META} inline-flex min-h-[24px] cursor-pointer items-center gap-1.5 self-start font-medium hover:text-text-body`}><OkIcon id="add" size={14} decorative inherit />{words.heading ?? 'Say my whole view in my own words'}</button>
+      className={`${controls.chipText} inline-flex cursor-pointer items-center gap-1.5 self-start font-medium hover:text-text-body`}><OkIcon id="add" size={14} decorative inherit />{words.heading ?? 'Say my whole view in my own words'}</button>
   }
   return (
     <div className="grid gap-4" data-testid="frame-entry">
@@ -116,7 +117,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
             {authored[i] !== true && o.trim() !== '' && <span className={META} data-testid={`frame-option-${i}-from-model`}>{MYVIEW_WORDS.fromModel}</span>}
           </div>
         ))}
-        {rows.length < LIM.options && <div><Button size="sm" variant="secondary" data-testid="frame-option-add" disabled={held} onClick={() => set({ options: [...rows, ''] })}>Add an option</Button></div>}
+        {rows.length < LIM.options && <div><Button size="chip" variant="secondary" data-testid="frame-option-add" disabled={held} onClick={() => set({ options: [...rows, ''] })}>Add an option</Button></div>}
       </div>
       <div className="grid gap-2" data-testid="frame-links">
         <span className={LABEL}>{head('links')}</span>
@@ -130,7 +131,7 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
             </div>
           )
         })}
-        {d.links.length < LIM.links && <div><Button size="sm" variant="secondary" data-testid="frame-link-add" disabled={held} onClick={() => set({ links: [...d.links, { from_label: '', to_label: '', words: '' }] })}>Add a link</Button></div>}
+        {d.links.length < LIM.links && <div><Button size="chip" variant="secondary" data-testid="frame-link-add" disabled={held} onClick={() => set({ links: [...d.links, { from_label: '', to_label: '', words: '' }] })}>Add a link</Button></div>}
       </div>
       {asking && (
         <div className={CARD} data-testid="frame-olumi-asks">
@@ -145,12 +146,12 @@ export function FrameEntry({ sid, view, onWrote, defaultOpen = false }: { sid: s
         <div className="grid gap-2" data-testid="frame-stale-base" role="status">
           <p className={META}>{base === null ? unknownBaseWords(version) : staleBaseWords(base, version)}</p>
           <div><button type="button" data-testid="frame-use-current" disabled={held} onClick={() => setBase(version)}
-            className={`${META} inline-flex min-h-[24px] cursor-pointer items-center font-medium underline underline-offset-2 hover:text-text-body`}>Use version {version}</button></div>
+            className={`${controls.chipText} inline-flex cursor-pointer items-center font-medium underline underline-offset-2 hover:text-text-body`}>Use version {version}</button></div>
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" data-testid="frame-give" disabled={held || words_ === '' || frame === null || stale} onClick={() => void give()}>{view.team_words.views.give}</Button>
-        <button type="button" data-testid="frame-close" disabled={held} onClick={() => setOpen(false)} className={`${META} inline-flex min-h-[24px] cursor-pointer items-center underline underline-offset-2 hover:text-text-body`}>Close</button>
+        <Button size="chip" data-testid="frame-give" disabled={held || words_ === '' || frame === null || stale} onClick={() => void give()}>{view.team_words.views.give}</Button>
+        <button type="button" data-testid="frame-close" disabled={held} onClick={() => setOpen(false)} className={`${controls.chipText} inline-flex cursor-pointer items-center underline underline-offset-2 hover:text-text-body`}>Close</button>
         {!held && (words_ === '' ? <span className={META} data-testid="frame-give-why">Write your view first</span> : frame === null ? <span className={META} data-testid="frame-give-why">Say at least one part in your own words</span> : null)}
       </div>
       {locked ? <p role="alert" data-testid="frame-error" className={ERR}>{MAY_HAVE_SAVED}</p> : error && <p role="alert" data-testid="frame-error" className={ERR}>{error}</p>}

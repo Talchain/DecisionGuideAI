@@ -7,6 +7,7 @@
  * front, that piece of evidence, that commitment, outcome form or disagreement in Team, the views, the chat's Next step. A row that cannot
  * open now is drawn plain with its reason, never as a button that does nothing. Olumi's marks are blue; the page's own chrome is neutral.
  */
+import { controls } from '../../../styles/controls'
 import { useMemo, useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import { useUIStore } from '../../../stores/uiStore'
@@ -161,7 +162,7 @@ function ChangedChips({ n, cards, onDone }: { n: number; cards: readonly Changed
       <p className={META}>{W.changed} · version {n}</p>
       <ul className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
         {shown.map((c) => <Chip key={c.id} c={c} onDone={onDone} />)}
-        {cards.length > 4 && <li><button type="button" className={`${META} underline underline-offset-2 hover:text-text-header ${FOCUS}`} onClick={() => setAll((x) => !x)} data-testid="journey-changed-more">{all ? W.fewer : W.more(cards.length - 4)}</button></li>}
+        {cards.length > 4 && <li><button type="button" className={`${controls.chipText} underline underline-offset-2 hover:text-text-header ${FOCUS}`} onClick={() => setAll((x) => !x)} data-testid="journey-changed-more">{all ? W.fewer : W.more(cards.length - 4)}</button></li>}
       </ul>
     </div>
   )
@@ -244,7 +245,7 @@ export function JourneyRecord({ view, at, onDone }: { view: View; at: number | n
       )}
       {hasHistory && (
         <div className="flex min-w-0 flex-col gap-3">
-          <button type="button" className={`${META} self-start underline underline-offset-2 hover:text-text-header ${FOCUS}`} aria-expanded={history} onClick={() => setHistory((x) => !x)} data-testid="journey-history-toggle">
+          <button type="button" className={`${controls.chipText} self-start underline underline-offset-2 hover:text-text-header ${FOCUS}`} aria-expanded={history} onClick={() => setHistory((x) => !x)} data-testid="journey-history-toggle">
             {history ? W.hideHistory : W.history}
           </button>
           {history && (

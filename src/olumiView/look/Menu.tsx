@@ -378,7 +378,9 @@ function MenuRow({ id, icon, label, trailing, content, description, checked, hre
     : focused ? 'text-text-body' : 'text-text-light group-hover:text-text-body'
   const labelGroup = <>
     {icon || iconColumn ? <span aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center ${iconInk} ${lane ? 'size-3.5' : 'size-4'}`}>{icon}</span> : null}
-    {content || description ? (
+    {lane ? (
+      <span className="min-w-0 flex-1 truncate" data-menu-label={id}>{content ?? label}{description && <span className={`${typography.viewPanelMeta} text-text-light`}> · {description}</span>}</span>
+    ) : content || description ? (
       <span className="min-w-0 flex-1 break-words">
         <span data-menu-label={id}>{content ?? label}</span>
         {description && <span className={`block ${typography.viewPanelMeta} text-text-light`}>{description}</span>}
@@ -426,7 +428,7 @@ function MenuRow({ id, icon, label, trailing, content, description, checked, hre
         }}
       >
         {lane || nested ? labelGroup : <span className="flex min-w-0 items-center gap-1.5">{labelGroup}</span>}
-        {trailing || checked ? <span className={`shrink-0 ${typography.viewPanelMeta} text-text-light`}>{trailing ?? <OkIcon id="trigger-taken" size={14} decorative />}</span> : null}
+        {trailing || checked ? <span className={`shrink-0 ${lane ? 'whitespace-nowrap' : ''} ${typography.viewPanelMeta} text-text-light`}>{trailing ?? <OkIcon id="trigger-taken" size={14} decorative />}</span> : null}
       </Row>
       {activeTooltip && createPortal(lane
         ? <Tip id={tooltipId} text={activeTooltip.text} anchorRect={activeTooltip.rect} />

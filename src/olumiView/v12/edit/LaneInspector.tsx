@@ -10,6 +10,7 @@
  * The older look (off the lane) keeps its details panel at its fixed corner and its own pop-up, unchanged (`OlderInspector`).
  * "Take out of comparison" is NOT offered: core has no route for an option's status or an exclusion (MANUAL-EDITING-MAP, headline 4).
  */
+import { controls } from '../../../styles/controls'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { OkIcon, OkIconButton } from '../../look/icons'
@@ -158,7 +159,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   }, [at])
   if (target === null || (card === null && link === null)) return null
   const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} ok-float w-[280px] ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col overflow-hidden`
-  const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
+  const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className={`${controls.chipIcon} grid flex-none cursor-pointer place-items-center text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}><OkIcon id="cancel-close" size={14} decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => {
     const Icon = r.icon
     return <HoverButton key={r.id} type="button" disabled={!r.enabled} words={r.enabled ? r.tooltip : (r.disabledReason ?? r.tooltip)} data-testid={`lane-inspector-${r.id}`} onClick={() => { if (!r.enabled) return; setMore(false); r.action() }}
@@ -321,7 +322,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
       className={`nodrag nopan fixed left-[76px] top-[112px] ${CANVAS_LAYER_CLASS.sheet} max-h-[60vh] w-[280px] space-y-2 overflow-y-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`}>
       <div className="flex items-start justify-between gap-2">
         <h2 className={`${typography.viewPanelBody} min-w-0 break-words text-text-header`} data-testid="lane-inspector-title">{title}</h2>
-        <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover"><OkIcon id="cancel-close" decorative inherit /></button>
+        <button type="button" aria-label="Close details" onClick={() => close()} className={`${controls.chipIcon} grid flex-none cursor-pointer place-items-center text-text-light hover:bg-panel-hover`}><OkIcon id="cancel-close" decorative inherit /></button>
       </div>
       {card === null ? null : (
         <>
@@ -342,7 +343,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
         <div className="flex flex-wrap gap-1 pt-1" role="group" aria-label="Edit">
           {rows.map((r) => (
             <HoverButton key={r.id} type="button" disabled={!r.enabled} words={r.enabled ? r.tooltip : (r.disabledReason ?? r.tooltip)} data-testid={`lane-inspector-${r.id}`} onClick={r.enabled ? r.action : undefined}
-              className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`}>{r.label}</HoverButton>
+              className={`${controls.chipText} cursor-pointer border border-panel-border text-text-body hover:bg-panel-hover`}>{r.label}</HoverButton>
           ))}
         </div>
       )}

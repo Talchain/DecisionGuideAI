@@ -3,6 +3,7 @@
  * figure and the two actions. Every word about the scenario is the View's; the chrome is the board's named labels. Olumi's estimate stays marked
  * as Olumi's, and the person's figure goes through the one set-figure path (`setFigure`), never a write of its own.
  */
+import { controls } from '../../../styles/controls'
 import type { CSSProperties } from 'react'
 import { useState, type ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
@@ -91,7 +92,7 @@ export function YourFigure({ card }: { card: ViewCard }): JSX.Element | null {
       {/* Drawn once the field has text: a Set beside an empty field read as a greyed second input (audit canvas-details-change-figure-twice-and-looks-disabled). Enter still saves. */}
       {typed.trim() === '' ? null : (
         <button type="submit" data-testid="inspector-figure-set" disabled={busy || base === null}
-          className={`${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
+          className={`${lane ? controls.chipText : `${typography.viewPanelMeta} min-h-[32px] rounded-sm px-2`} cursor-pointer border border-panel-border text-left text-text-body hover:bg-panel-hover disabled:cursor-not-allowed disabled:opacity-50`}>
           {isOlumis(card) ? INSPECTOR_WORDS.changeOlumi : INSPECTOR_WORDS.change}</button>
       )}
     </form>
@@ -107,7 +108,7 @@ export function FigureInspector({ card, range, onAsk, onClose }: { card: ViewCar
   if (model === null || card.figure === null) return null
   const r = figureRange(card)
   const canTry = triableCards(model).some((c) => c.id === card.id)
-  const btn = `${typography.viewPanelMeta} min-h-[32px] cursor-pointer rounded-sm border border-panel-border px-2 text-text-body hover:bg-panel-hover`
+  const btn = `${isOlumiCoreLane() ? controls.chipText : `${typography.viewPanelMeta} min-h-[32px] rounded-sm px-2`} cursor-pointer border border-panel-border text-text-body hover:bg-panel-hover`
   return (
     <div className="space-y-3" data-testid="inspector-figure">
       {range === undefined || r === null ? null : <div data-testid="inspector-range">{range(card, r)}</div>}

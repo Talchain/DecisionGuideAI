@@ -96,7 +96,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
         </div>
       )}
       {mine.length > 0 && !changing ? (
-        <div><Button size="sm" variant="secondary" data-testid={`${at}-change`} onClick={() => setChanging(true)}>{CHANGE_MY_VIEW}</Button></div>
+        <div><Button size="chip" variant="secondary" data-testid={`${at}-change`} onClick={() => setChanging(true)}>{CHANGE_MY_VIEW}</Button></div>
       ) : <>
       <label className={`${META} grid gap-1`}>
         <span className="font-medium text-text-header">{words.link}</span>
@@ -119,7 +119,7 @@ export function LinkStance({ sid, view, onWrote }: { sid: string; view: View; on
         <textarea data-testid={`${at}-words`} className={`${FIELD} min-h-[56px]`} maxLength={words.limit} value={said} disabled={busy} onChange={(e) => { setSaid(e.target.value); setError(null) }} />
       </label>
       {/* A person's own stance, not Olumi's: ink, never blue (blue is only for what is Olumi's). */}
-      <div><Button size="sm" variant="primary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
+      <div><Button size="chip" variant="primary" data-testid={`${at}-send`} disabled={!ready} onClick={() => void send()}>{words.send}</Button></div>
       </>}
       {error ? <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p> : null}
     </section>

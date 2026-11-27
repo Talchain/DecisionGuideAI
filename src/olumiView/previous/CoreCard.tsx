@@ -10,6 +10,7 @@
  * shows its bound; only Olumi's cards say who they are from, in Olumi's blue; dashes mean core doubts it or it is proposed.
  * Nothing here formats, rounds, orders or works out a value.
  */
+import { controls } from '../../styles/controls'
 import { earlierResultsOf } from '../v12/contract'
 import { FindingLine } from '../FindingLine'
 import { useFindingSurface } from '../findingSurface'
@@ -593,7 +594,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
               <Hover as="p" focusable={false} className={`${typography.viewValue} text-text-header`} words={tryOn.words}>{WHAT_IF_COPY.trying(tryOn.typed)}<NotSavedTag id={id} /></Hover>
               {tryOn.said === null ? null : <p className={`${typography.viewLabel} text-text-body`} data-card-try-said={id}>{tryOn.said}</p>}
               <button type="button" onClick={clearWhatIf} data-testid={`card-try-back-${id}`}
-                className={`${typography.viewLabel} inline-flex min-h-[24px] w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
+                className={`${controls.chipText} inline-flex w-fit cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>{WHAT_IF_COPY.back(versionN)}</button>
             </div>
           )}
           {tryOn?.kind !== 'option' ? null : (

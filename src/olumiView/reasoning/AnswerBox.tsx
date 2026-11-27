@@ -13,7 +13,6 @@ import { OkIcon } from '../look/icons'
 import { pressCard } from './tabRing'
 import { answerQuestion, examinedOf, type Examination, type Question } from './answer'
 import { TYPE } from '../port/type'
-import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
 import { Door } from './parts'
 
@@ -30,7 +29,7 @@ export const ANSWER_WORDS = {
   limits: 'Limits',
 } as const
 
-const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act} disabled:cursor-not-allowed disabled:opacity-60`
+const GREEN = `${controls.chipText} font-medium inline-flex items-center gap-1.5 ${controls.act} disabled:cursor-not-allowed disabled:opacity-60`
 
 /** Mount it keyed by `q.id` (callers do): the draft, the op and a pending answer belong to one question; another question gets its own box. */
 export function AnswerBox({ q }: { q: Question }) {
@@ -83,7 +82,7 @@ function Examined({ x, model, view }: { x: Examination; model: ViewModel; view: 
   const bound = turn === undefined ? null : card(x.bound)
   const applied = turn !== undefined && !turn.earlier && (turn.status ?? null) === null && view?.proposal?.id !== turn.id
   const mentioned = x.mentioned.flatMap((id) => { const c = card(id); return c === null ? [] : [c] })
-  const press = `${TYPE.meta} rounded-sm text-left text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+  const press = `${controls.chipText} text-left text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
   return (
     <li className="space-y-1 px-1 py-1.5" data-examined={x.id} data-examined-question={x.question_id}>
       <p className={`${TYPE.body} m-0 flex items-start gap-2 text-text-header`}><OkIcon id="olumi-mark" size={14} className="mt-0.5" decorative /><span className="min-w-0 flex-1 break-words" data-testid="reasoning-examined-question">{x.question}</span></p>

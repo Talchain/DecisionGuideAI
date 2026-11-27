@@ -5,6 +5,7 @@
  * Every icon is drawn through the registry (look/icons.tsx): one icon per meaning.
  * Look: look/olumiLook.css, the `.ok-dt-*` block.
  */
+import { controls } from '../../../styles/controls'
 import { useCallback, useEffect, useId, useRef, useState, Fragment, type FocusEvent, type MouseEvent, type CSSProperties } from 'react'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { typography } from '../../../styles/typography'
@@ -65,7 +66,7 @@ export function BadgeCount({ cardId, badge, at }: { cardId: string; badge: NonNu
   const said = [change, b.words || b.face || b.text].filter((x) => x != null && x !== '').join(' ')
   const words = [said, b.title].filter((x) => x != null && x !== '').join('\n')
   return (
-    <Hover as="button" words={words} tipSpacing="list" type="button" className={`ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
+    <Hover as="button" words={words} tipSpacing="list" type="button" className={`${controls.chipText} ok-dt-badge nodrag nopan ${b.proposed ? 'ok-dt-badge-proposed' : ''}`} aria-label={change === null ? b.label : `${b.label} ${change}`} aria-expanded={b.open}
       data-core-badge={cardId} data-view={`${at}.badge`} onClick={(e) => { e.stopPropagation(); void toggleBadge(cardId, b) }}>
       <OkIcon id="folded-records" size={MARK_SIZE} decorative /><span className="tabular-nums" data-view={`${at}.badge.${face !== null ? 'face' : 'text'}`}>{face ?? b.text}</span>
       {change === null ? null : <span className="ok-dt-olumi" data-view={`${at}.badge.change`}>{change}</span>}
@@ -117,7 +118,7 @@ export function RowWords({ words, at, reason, ring }: { words: string; at: strin
   if (words.length <= ROW_WORDS_MAX) return <span data-row-words={at}>{words}</span>
   return (
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
-      <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open} {...ring?.focus}
+      <Hover as="button" words={words} type="button" className={`${controls.chipIcon} ok-dt-icon ok-dt-press nodrag nopan`} aria-label={words} aria-expanded={open} {...ring?.focus}
         onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); ring?.pointer.onClick(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={MARK_SIZE} words={words} decorative /></Hover>
       {open ? <p className="ok-float ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>

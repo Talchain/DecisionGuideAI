@@ -114,7 +114,7 @@ export function CommitmentPanel({ sid, view, onWrote, part = 'all' }: { sid: str
           <CommitForm sid={sid} view={view} onWrote={onWrote} />
         </>
       ) : !open ? (
-        <div><button type="button" className={c.commitments.length > 0 ? QUIET : GO} data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</button></div>
+        <div><button type="button" className={`${c.commitments.length > 0 ? QUIET : GO}`} data-testid="team-commitment-open" onClick={() => put({ open: true })}>Record the next action</button></div>
       ) : (
         <div className={CARD} data-testid="team-commitment-form">
           <label htmlFor="team-c-action" className={LABEL}>The next action</label>

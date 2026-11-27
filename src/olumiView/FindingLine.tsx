@@ -3,6 +3,7 @@
  * and at the top of the Olumi panel. It says what the CURRENT MODEL implies and what it turns on, never what to choose. The figure it moves most with
  * is one press away on the canvas; `needs` is a second, quieter line. Absent or null in the View: nothing drawn.
  */
+import { controls } from '../styles/controls'
 import { flushSync } from 'react-dom'
 import type { ViewModel } from './client'
 import { newestLeadDrawn } from './early'
@@ -40,7 +41,7 @@ export function FindingLine({ model, at }: { model: ViewModel | null | undefined
       {sentence ? <Hover as="p" words={f.title} className={`${at === 'question' ? typography.viewLabel : typography.viewPanelBody} m-0 break-words text-text-body`} data-view="run.finding">{f.text}</Hover> : null}
       {card === null ? null
         : <>
-          <button type="button" className={`${typography.viewLabel} nodrag m-0 flex w-fit max-w-full items-center gap-1 rounded-sm p-0 text-left text-text-light underline-offset-2 hover:underline`} aria-label={figureWords} aria-describedby={figure.describedBy}
+          <button type="button" className={`${controls.chipText} nodrag m-0 flex w-fit max-w-full items-center gap-1 text-left text-text-light underline-offset-2 hover:underline`} aria-label={figureWords} aria-describedby={figure.describedBy}
             onClick={() => {
               const reach = recordReach(card.id)
               if (at !== 'question' && reach === null) return

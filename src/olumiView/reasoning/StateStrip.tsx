@@ -15,12 +15,13 @@
  * unlabelled only when the strip says the what-if. Nothing at rest, and nothing while the View is stale or a read failed (no tab then).
  * Dashed is a state, never a value (DS v5): the info border for Olumi's proposal, the light border for the person's own look or try.
  */
+import { controls } from '../../styles/controls'
 import { useViewStore } from '../store'
 import { clearWhatIf } from '../whatif'
 import { ProposalWords, useWhatIfOn } from '../ViewChances'
 import type { ViewModel } from '../client'
 import { TYPE } from '../port/type'
-import { action } from '../../components/results/analysisNew/panelSurfaces'
+import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 
 /** The strip's own words, each already said on this lane: the composer's way back (ViewChat.tsx), the what-if box's label and act. */
 export const STATE_WORDS = { whatIf: 'What-if, not saved', clear: 'Clear' } as const
@@ -51,7 +52,7 @@ export function StateStrip({ state, proposalHere = true }: { state: TabState; /*
     return (
       <div className={`${STRIP} border-text-light`} role="status" data-testid="view-reasoning-state" data-state="whatif">
         <p className="m-0 min-w-0 flex-1" data-testid="view-reasoning-whatif">{STATE_WORDS.whatIf}</p>
-        <button type="button" className={`${action('quiet')} shrink-0`} data-testid="view-reasoning-whatif-clear" onClick={clearWhatIf}>{STATE_WORDS.clear}</button>
+        <button type="button" className={`${controls.chipText} ${ACTION_FOCUS} inline-flex shrink-0 items-center text-text-light underline`} data-testid="view-reasoning-whatif-clear" onClick={clearWhatIf}>{STATE_WORDS.clear}</button>
       </div>
     )
   }

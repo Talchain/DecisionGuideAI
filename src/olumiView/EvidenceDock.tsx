@@ -6,6 +6,7 @@
  * established", estimate "unchanged", ...). Until core sends it, what core has: the words and source as given; each card it concerns with
  * that card's figure and the person's stance; and Olumi's reply when asked to consider it (`considered.why`), or the proposal it led to.
  */
+import { controls } from '../styles/controls'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { OkIcon, OkIconButton } from './look/icons'
 import { Hover } from './look/Hover'
@@ -140,7 +141,7 @@ function AlsoHere({ view, e, card, chip, ids }: { view: View; e: Evidence; card:
     <div className="flex flex-wrap items-center gap-3" data-testid="evidence-dock-also">
       {rest.map((x) => (
         <button key={x.id} type="button" data-evidence-also={x.id} onClick={() => select(x.id, card, chip)}
-          className={`${META} inline-flex min-h-6 cursor-pointer items-center gap-1.5 text-text-body underline underline-offset-2 hover:text-text-header`}>
+          className={`${controls.chipText} inline-flex cursor-pointer items-center gap-1.5 text-text-body underline underline-offset-2 hover:text-text-header`}>
           <span aria-hidden="true" className={AVATAR}>{initial(x.by)}</span>{x.switch_text}
         </button>
       ))}

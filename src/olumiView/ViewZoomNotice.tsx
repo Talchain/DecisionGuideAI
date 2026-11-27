@@ -39,7 +39,7 @@ export function ViewZoomNotice({ onZoom, compact = false }: { onZoom?: () => voi
       <span aria-hidden="true" className={`${TOOLBAR_BAR_SEPARATOR} group-data-[compact=true]/foot:hidden`} />
       <HoverButton type="button" data-testid={`${CANVAS_LOD_NOTICE_TESTID}-action`} onClick={zoomIn}
         aria-label={CANVAS_LOD_NOTICE_ACTION} words={compact ? `${ZOOM_STATUS}\n${CANVAS_LOD_NOTICE_ACTION}` : undefined}
-        className={`${TOOLBAR_LABEL} group-data-[compact=true]/foot:px-0`}>
+        className={TOOLBAR_LABEL}>
         <OkIcon id="zoom" size={14} decorative inherit className="hidden text-text-light group-data-[compact=true]/foot:block" />
         <span className="group-data-[compact=true]/foot:hidden">{CANVAS_LOD_NOTICE_ACTION}</span>
       </HoverButton>

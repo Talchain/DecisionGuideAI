@@ -4,6 +4,7 @@
  * exports core serves from the same blocks: "Download Markdown" and "Print or save as PDF" (core's print-ready page, in a new tab).
  * The version is the one on screen: the earlier version being looked at, else the latest saved one, never a proposal still held.
  */
+import { controls } from '../styles/controls'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { OkIcon } from './look/icons'
@@ -21,7 +22,7 @@ export const SUMMARY_LOADING = 'Reading the Summary…'
 export const SUMMARY_FAILED = 'The Summary could not be read. Close it and try again.'
 
 const TAG_CLASS: Record<SummaryBlock['tag'], string> = {
-  h1: 'text-lg font-medium font-sans leading-snug text-text-header',
+  h1: `${typography.h5} text-text-header`,
   h2: `${typography.panelHeader} mt-6 border-b border-panel-border pb-2 text-text-header`,
   h3: `${typography.viewPanelMeta} font-medium mt-4 text-text-header`,
   p: `${typography.viewPanelBody} text-text-body`,
@@ -92,7 +93,7 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
               <a href={summaryPath(sid, readN, 'html')} target="_blank" rel="noopener noreferrer" className={exportLink} data-testid="summary-print"><OkIcon id="print" size={14} decorative inherit />{SUMMARY_PRINT_LABEL}</a>
             </>
           ) : null}
-          <button ref={closeRef} type="button" onClick={onClose} className="rounded-md p-1.5 text-text-light hover:bg-panel-hover hover:text-text-header" aria-label="Close summary" data-testid="summary-close">
+          <button ref={closeRef} type="button" onClick={onClose} className={`${controls.chipIcon} text-text-light hover:bg-panel-hover hover:text-text-header`} aria-label="Close summary" data-testid="summary-close">
             <OkIcon id="cancel-close" size={14} decorative inherit />
           </button>
         </div>

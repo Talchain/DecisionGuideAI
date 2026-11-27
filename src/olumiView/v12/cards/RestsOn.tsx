@@ -5,6 +5,7 @@
  * figures keeps them in the Rests on lens and the selected card's explanation (no extra line on every card). Olumi's premises carry Olumi's
  * mark. Nothing is reworded, reordered or dropped.
  */
+import { controls } from '../../../styles/controls'
 import { useState } from 'react'
 import { FoldChevron } from '../../look/FoldChevron'
 import { Hover } from '../../look/Hover'
@@ -21,7 +22,7 @@ export function RestsOn({ card, open: initial }: { card: ViewCard; open: boolean
   return (
     <div className="nodrag grid min-w-0 gap-1" data-rests-on-card={card.id}>
       <button type="button" aria-expanded={open} data-testid={`rests-on-${card.id}`} onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-        className={`${typography.viewLabel} inline-flex min-h-[24px] items-center gap-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        className={`${controls.chipText} inline-flex items-center gap-1 text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         {RESTS_ON(premises.length)}<FoldChevron open={open} />
       </button>
       {open ? (

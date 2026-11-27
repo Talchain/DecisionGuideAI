@@ -48,14 +48,14 @@ import {
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   GitBranch, MoveLeft, MoveRight, Spline, Type,
-  ClipboardList, CloudLightning, Dices, Goal, Route, KeyRound, LibraryBig, ListOrdered, MessageCircle,
+  ChevronDownCircle, ChevronRightCircle, ClipboardList, CloudLightning, CloudRain, Dices, Goal, Route, KeyRound, LibraryBig, ListFilter, ListOrdered, MessageCircle,
   MessageCircleMore, PenLine, ScanEye, ShieldQuestion, Signpost, UsersRound,
   type LucideIcon,
 } from 'lucide-react'
 import { CheckCircle2, Gauge, LayoutList, LockKeyhole, Unlink2 } from 'lucide-react'
 import { useAnchoredTip } from './Tip'
 import { HIT_44 } from '../../styles/hitArea'
-import { VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_PRIMARY_CLASS, VIEW_ICON_BUTTON_CLASS, VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 import { OlumiAiIcon } from '../../components/results/analysisNew/OlumiAiIcon'
 import { typography } from '../../styles/typography'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -131,7 +131,7 @@ const sessionMethodIcons = {
   'method-differ': e(UsersRound, 'Different perspectives', '--text-light', 'icon-only', 'olumi-ask'),
   'method-find_first': e(ListOrdered, 'What to find out first', '--text-light', 'icon-only', 'olumi-ask'),
   'method-have_true': e(KeyRound, 'What needs to be true', '--text-light', 'icon-only', 'olumi-ask'),
-  'method-go_wrong': e(CloudLightning, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-go_wrong': e(CloudRain, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
   'method-pre_mortem': e(ShieldQuestion, 'Imagine it failed', '--text-light', 'icon-only', 'olumi-ask'),
   'method-else_do': e(Route, 'Explore alternatives', '--text-light', 'icon-only', 'olumi-ask'),
   'method-right_question': e(MessageCircleMore, 'Revisit the question', '--text-light', 'icon-only', 'olumi-ask'),
@@ -261,7 +261,7 @@ export const ICONS = {
   'lens-tradeoffs': e(Scale, 'Trade-offs', '--text-light', 'icon-only', 'navigate'),
   'lens-premortem': e(CloudLightning, 'If it failed', '--text-light', 'icon-only', 'navigate'),
   'lens-what-changes': e(Activity, 'What would change', '--text-light', 'icon-only', 'navigate'),
-  'more-cards': e(ChevronDown, 'More cards', '--text-light', 'icon-plus-word', 'navigate', { alt: ChevronRight }),
+  'more-cards': e(ChevronDownCircle, 'More cards', '--text-light', 'icon-plus-word', 'navigate', { alt: ChevronRightCircle }),
 
   // chrome
   'info-more': e(Info, 'More detail', '--text-light', 'icon-only', 'chrome', { keepWords: "core's status line (data-view `${at}.status`) stays visible while waiting" }),
@@ -319,7 +319,7 @@ export const ICONS = {
   'check-estimate-under-aims': e(Anchor, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-result-rests-on-range': e(Ruler, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-one-figure': e(CircleDot, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-only-supporting': e(Scale, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-only-supporting': e(ListFilter, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-shared-evidence': e(Combine, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-narrow-range': e(FoldHorizontal, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
@@ -469,7 +469,7 @@ interface OkIconButtonProps {
   testid?: string
   size?: number
   className?: string
-  /** The lane's compact icon button (18 Nov): a 28px square, ghost grey or solid green, in place of the 44px hit area. Omitted: the 44px one. */
+  /** Ghost or primary treatment. Omitted tone keeps the older look's larger hit target off the lane. */
   tone?: 'ghost' | 'primary'
   /** A hover (the Tip) that differs from the accessible name: the name is `words`, the hover this. Omitted: both are the same words. */
   hover?: string
@@ -477,12 +477,17 @@ interface OkIconButtonProps {
   count?: number
 }
 
-/** An icon-only press (held = aria-disabled, still focusable, so its reason shows; the press is a no-op): a 44 px hit area, the hover words are the aria-label and, through the one Tip, the hover (no native title); focus is left to the global outline. */
+/** An icon action. A held press stays focusable so the Tip can explain why it is held. */
 export function OkIconButton({ id, onClick, words, hover, variant, active, pressed, expanded, controls, disabled, testid, size = defaultSize(), className, tone, count }: OkIconButtonProps) {
   const entry: IconEntry = ICONS[id]
   const label = words ?? entry.hover
   const shown = hover ?? label
   const { handlers, tip, describedBy, dismiss } = useAnchoredTip(shown)
+  const lane = isOlumiCoreLane()
+  const compact = lane || tone !== undefined
+  const chip = count !== undefined && lane
+    ? tone === 'primary' ? VIEW_CHIP_PRIMARY_CLASS : VIEW_CHIP_CLASS
+    : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS
   const token = active && entry.activeColour ? entry.activeColour : entry.colour
   return (
     <>
@@ -497,7 +502,7 @@ export function OkIconButton({ id, onClick, words, hover, variant, active, press
       aria-expanded={expanded}
       aria-controls={expanded === undefined ? undefined : controls}
       data-testid={testid}
-      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${tone === undefined ? `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light` : tone === 'primary' ? VIEW_ICON_BUTTON_PRIMARY_CLASS : VIEW_ICON_BUTTON_CLASS}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
+      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${HIT_44} ${compact ? chip : 'inline-flex shrink-0 items-center justify-center disabled:text-text-light'}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined || lane ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >
       <Glyph id={id} size={size} variant={variant} />
       {count === undefined ? null : <span className={`${typography.caption} tabular-nums`} data-testid={testid === undefined ? undefined : `${testid}-count`} aria-hidden="true">{count}</span>}

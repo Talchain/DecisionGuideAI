@@ -4,6 +4,7 @@
  * view. Everything is read from the View (resultRange.ts); Olumi's estimates take Olumi's blue, the person's own figures the ink, and what
  * core does not attribute (`unassigned`) its own grey segment, never counted as the person's. The words are core's own line for the entry, whatever the split (restWordsOf), held to two lines on the card with the whole line in the button's Tip and in the Rests on view, or a neutral link where it serves none; the shares set the bar widths only. Entries of kind 'limit' are deliberately not drawn on the card, and the first goal entry for the option and aim is the one used (restsShareOf). The track keeps its 3 px height and margins: the band and the mark are drawn out of flow.
  */
+import { controls } from '../styles/controls'
 import type { CSSProperties } from 'react'
 import { useState } from 'react'
 import { Hover, HoverButton } from './look/Hover'
@@ -46,7 +47,7 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
   const whole = said.basis === 'line' ? said.words : share.hover
   return (
     <span className="ok-share-wrap" data-rests-wrap={card.id}>
-      <HoverButton type="button" data-node-tooltip={whole ? true : undefined} className="ok-share nodrag nopan" data-rests-share={card.id} data-rests-basis={said.basis} words={whole} aria-expanded={open}
+      <HoverButton type="button" data-node-tooltip={whole ? true : undefined} className={`${controls.chipText} ok-share nodrag nopan`} data-rests-share={card.id} data-rests-basis={said.basis} words={whole} aria-expanded={open}
         onClick={() => { setOpen((o) => !o); useViewLens.setState({ lens: 'rests_on' }) }}>
         <span className="ok-share-bar" aria-hidden="true">
           <i className="ok-share-olumi" data-share-olumi={card.id} style={{ '--chart-width': `${w.olumi}%` } as CSSProperties} />

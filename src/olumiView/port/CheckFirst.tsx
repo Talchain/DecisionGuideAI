@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import { useState } from 'react'
 import type { View, ViewModel } from '../client'
 import { optionCards } from '../layout'
@@ -82,7 +83,7 @@ export function CheckFirst({ view, place }: { view: View; place: Place }) {
         const clear = () => ringFrom('check-first', [])
         return (
           <Hover key={at} as="button" type="button" words={undefined}
-            className={`${TYPE.meta} block rounded-sm text-left text-text-body underline-offset-2 hover:underline`}
+            className={`${controls.chipText} block text-left text-text-body underline-offset-2 hover:underline`}
             data-check-first-target={id} data-view={`${at}.next_test`}
             onClick={() => {
               const now = recordReach(id)

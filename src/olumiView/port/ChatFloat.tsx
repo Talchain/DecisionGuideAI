@@ -1,3 +1,5 @@
+import { controls } from '../../styles/controls'
+import { HIT_44 } from '../../styles/hitArea'
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
@@ -13,7 +15,7 @@ export const CHAT_POPOUT_LABEL = 'Open Olumi in floating panel'
 export const CHAT_POPOUT_TITLE = 'Open in floating window'
 // Previous FloatingOlumiPanel's dock control (A2 stop/float, DL 10 Nov).
 const DOCK_LABEL = 'Dock to panel'
-const TARGET = 'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
+const TARGET = `${controls.chipIcon} ${HIT_44} inline-flex items-center justify-center text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 
 type Position = { x: number; y: number }
 type Viewport = { width: number; height: number }

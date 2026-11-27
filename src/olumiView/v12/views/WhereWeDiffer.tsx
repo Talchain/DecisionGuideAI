@@ -1,3 +1,4 @@
+import { controls } from '../../../styles/controls'
 import { useId, useState } from 'react'
 import { useAnchoredTip } from '../../look/Tip'
 import { Hover } from '../../look/Hover'
@@ -138,7 +139,7 @@ export function DiffCard({ sid, view, data, d, onWrote, axis = true, onFocusCard
           ? <><button type="button" data-testid={`${at}-focus`} onClick={() => { toCanvas.dismiss(); ringCards([]); onFocusCard?.(); focusNodeById(cards[0]!) }}
               {...toCanvas.handlers} aria-describedby={toCanvas.describedBy}
               onMouseEnter={() => ringCards(cards)} onMouseLeave={() => ringCards([])} onFocus={(e) => { ringCards(cards); toCanvas.handlers.onFocus(e) }} onBlur={() => { ringCards([]); toCanvas.handlers.onBlur() }}
-              className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+              className={`${controls.chipText} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
               <span className="min-w-0 break-words">{d.label}{d.goal_label ? <span className="font-normal text-text-light"> · {d.goal_label}</span> : null}</span>
               <span className="mt-0.5 flex-none text-text-light"><OkIcon id="on-canvas" size={14} decorative /></span>
             </button>{toCanvas.tip}</>
@@ -168,8 +169,8 @@ export function DiffCard({ sid, view, data, d, onWrote, axis = true, onFocusCard
           step records what the team will do about the difference and changes no model. Ask Olumi sends one question shaped by this difference. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1" data-testid={`${at}-actions`}>
         <AskButton label={ASK_WORDS.difference} question={differenceQuestion(view, d)} target={d.record} chip={TEAM_DIFFERENCE_CHIP} at={`${at}-ask`} />
-        <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_LABELS.dissent}</button>
-        <button type="button" className={`${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
+        <button type="button" className={`${controls.chipText} ${QUIET} mt-1`} data-testid={`${at}-dissent`} disabled={busy || mine.has('dissent')} aria-pressed={mine.has('dissent')} onClick={() => void step('dissent')}>{STEP_LABELS.dissent}</button>
+        <button type="button" className={`${controls.chipText} ${QUIET} mt-1`} data-testid={`${at}-research`} disabled={busy || mine.has('research')} aria-pressed={mine.has('research')} onClick={() => void step('research')}>{STEP_LABELS.research}</button>
       </div>
       {d.steps.length > 0 && <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-steps`}>{d.steps.map((s) => <li key={s.id} className={`${META} break-words text-text-body`} data-step={s.step}>{s.text}</li>)}</ul>}
       {/* The drawing supports the sentence: who said what (each option's chance is drawn under the sentence, above). */}

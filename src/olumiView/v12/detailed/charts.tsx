@@ -10,6 +10,7 @@
  *    reason, with no lane; the aim's own value a gold tick where this card is what the aim measures.
  * Read only from the View (railRows.ts, SimpleFace.tsx, contract.ts); nothing is worked out, rounded or reworded here. Look: `.ok-dt-*`.
  */
+import { controls } from '../../../styles/controls'
 import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
 import type { ViewCard, ViewModel } from '../../client'
@@ -33,7 +34,7 @@ const letterOf = (letters: ReadonlyMap<string, string>, id: string) => letters.g
 /** Core's challenge mark on an option's lane (its key's own glyph, the badge's words its name and hover); pressing it opens what the badge folds. */
 function ChallengeMark({ id, c }: { id: string; c: RailChallenge }): JSX.Element {
   return (
-    <HoverButton type="button" className="ok-rail-challenge nodrag nopan" words={c.title} aria-label={`${c.word}: ${c.title}`} aria-expanded={c.badge.open} data-rail-challenge={id}
+    <HoverButton type="button" className={`${controls.chipIcon} ok-rail-challenge nodrag nopan`} words={c.title} aria-label={`${c.word}: ${c.title}`} aria-expanded={c.badge.open} data-rail-challenge={id}
       onClick={(e) => { e.stopPropagation(); void toggleBadge(id, c.badge) }}>{c.glyph}</HoverButton>
   )
 }

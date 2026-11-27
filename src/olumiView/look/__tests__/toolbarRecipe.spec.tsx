@@ -31,7 +31,7 @@ function expectNeutralFaces(surface: HTMLElement) {
   expect(faces.length).toBeGreaterThan(0)
   expect(surface.querySelector('[title]')).toBeNull()
   for (const face of faces) {
-    expect(face).toHaveClass('h-[30px]', 'min-w-[30px]', 'rounded-sm', 'focus-visible:ring-offset-2')
+    expect(face).toHaveClass('h-[30px]', 'min-w-[30px]', 'rounded-control', 'focus-visible:ring-offset-2')
     expect(face).toHaveAccessibleName()
   }
   for (const node of [surface, ...surface.querySelectorAll('[class]')]) {

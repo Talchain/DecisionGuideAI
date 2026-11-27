@@ -15,6 +15,7 @@
  * cue) and opens its editor where it stands; the row's press opens its detail (rename, an aim's target, links, whose it is) and puts its
  * card in front on the canvas. One editor and one detail at a time (`./state.ts`). Plain shows the model; Expert adds the science.
  */
+import { controls } from '../../styles/controls'
 import { canRenameCard } from '../v12/edit/renameCard'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { useId, useMemo, useState } from 'react'
@@ -120,7 +121,7 @@ function Premises({ card, keyEntries, expert }: { card: ViewCard; keyEntries: Vi
   return (
     <div className="pb-1 pl-8 pr-2" data-model-premises={card.id}>
       <button type="button" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((o) => !o)} data-model-premises-toggle={card.id}
-        className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center gap-1 rounded-sm text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
+        className={`${controls.chipText} inline-flex items-center gap-1 text-text-light transition-colors hover:text-text-body ${ACTION_FOCUS}`}>
         <FoldChevron open={open} />
         <span>{MODEL_ROW_LABELS.restsOn}</span>
         <span className="tabular-nums" data-model-premises-count={card.id}>{card.premises.length}</span>
@@ -200,7 +201,7 @@ export function ModelCardRow({ card, number, kind, model }: {
             </span>
           ) : (
             <HoverButton words={card.bound.title} type="button" onClick={(e) => { e.stopPropagation(); editFigure(target.id) }} data-model-value-edit={card.id}
-              className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
+              className={`${controls.chipText} mt-0.5 block cursor-pointer text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
               <span className="sr-only">{card.family === 'limit' ? W.changeLimit : W.changeTarget}: </span><span data-view={`${card.id}.bound.text`}>{card.bound.text}</span><CoreMark at={`${card.id}.bound.olumi`} mark={card.bound.olumi} focusable={false} /><EditCue open={open} />
             </HoverButton>
           )}
@@ -210,7 +211,7 @@ export function ModelCardRow({ card, number, kind, model }: {
             </span>
           ) : (
             <HoverButton words={card.figure.title} type="button" onClick={(e) => { e.stopPropagation(); editFigure(card.id) }} data-model-value-edit={card.id}
-              className={`${typography.viewPanelTabular} mt-0.5 block min-h-[24px] cursor-pointer break-words rounded-sm text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
+              className={`${controls.chipText} mt-0.5 block cursor-pointer break-words text-left text-text-body hover:text-text-header ${ACTION_FOCUS}`}>
               <span className="sr-only">{W.changeFigure}: </span><span data-view={`${card.id}.figure.text`}>{card.figure.text}</span><CoreMark at={`${card.id}.olumi`} mark={card.olumi} focusable={false} /><AuthorMark card={card} focusable={false} /><EditCue open={open} />
             </HoverButton>
           )}

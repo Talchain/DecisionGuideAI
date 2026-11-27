@@ -36,6 +36,7 @@
  * the note as current.
  */
 
+import { controls } from '../../styles/controls'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -376,9 +377,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // The cards as drawn (their real rects, in this note's frame); the store's sizes only where the DOM has none (tests).
   anchorRef.current = anchorId
   const drawn = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.cards : []
-  const controls = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.controls : []
+  const occupiedControlBoxes = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.controls : []
   const others = cardHeight > 0
-    ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...controls]
+    ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...occupiedControlBoxes]
     : []
   // The frame the note lives in bounds it on every side: never clipped at an edge, never under the controls.
   const frameRect = cardRef.current?.offsetParent?.getBoundingClientRect()
@@ -404,7 +405,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
       </button>
     )
   }
-  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
+  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, occupiedControlBoxes)
   // ⛔ NEVER OVER A CARD ON THE CORE LANE (DL 4 Nov, the real capacity model's witness): where even the whole canvas has no free spot,
   // the note goes into the Olumi tab, under Next step (`VIEW_NOTE_SLOT`), which is opened for it; never over a card.
   const inPanel = lane && drawn.length > 0 && spotCovers({ left, top }, { w: CARD_WIDTH, h: cardHeight }, drawn)
@@ -479,7 +480,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss"
-            className="shrink-0 rounded p-0.5 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            className={`${lane ? controls.chipIcon : 'rounded p-0.5'} shrink-0 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
           >
             <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
@@ -526,7 +527,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
               disabled={answer.trim() === ''}
               aria-label={ATTENTION_CARD_COPY.send}
               title={ATTENTION_CARD_COPY.send}
-              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light"
+              className={`inline-flex flex-none items-center justify-center ${lane ? controls.chipIcon : 'h-6 w-6 rounded-full'} bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light`}
             >
               <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
@@ -592,7 +593,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
                     source: 'canvas_attention',
                   })
                 }}
-                className={`${typography.panelBody} rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${lane ? controls.chipText : `${typography.panelBody} rounded-md px-2 py-1`} bg-info/10 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {a.label}
               </button>

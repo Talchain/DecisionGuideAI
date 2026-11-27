@@ -5,9 +5,9 @@
  * already marks the card or the View has no `strategy`. Selecting it opens the first person's view in the dock, as the reveal's chip does.
  * When it is the card's only rail, the links the team's explanations differ on (TM-04, CardDiffers.tsx) sit in it too: never a second rail.
  */
+import { controls } from '../../styles/controls'
 import type { CSSProperties } from 'react'
 import { HoverButton } from '../look/Hover'
-import { typography } from '../../styles/typography'
 import { CARD_WIDTH } from '../layout'
 import { openView } from '../RevealMarks'
 import { marksOn, revealOf, useReveal } from '../reveal'
@@ -36,7 +36,7 @@ export function StrategyChips({ card }: { card: string }): JSX.Element | null {
       style={{ '--card-rail-width': `${width}px`, '--card-rail-offset': offset === undefined ? undefined : `${offset}px` } as CSSProperties} data-testid={`strategy-chips-${card}`}>
       <HoverButton type="button" aria-pressed={on} aria-label={mark.text} words={mark.text} data-strategy-chip={mark.views[0]} data-strategy-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openView(mark.views[0]!, card) }}
-        className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel pl-0.5 pr-2.5 ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
+        className={`${controls.chipText} pointer-events-auto inline-flex max-w-full cursor-pointer items-center gap-1.5 border border-panel-border bg-panel text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map((p, i) => <span key={`${p.view}:${p.by}`} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${i > 0 ? '-ml-1.5' : ''}`}>{initial(p.by)}</span>)}
         </span>
