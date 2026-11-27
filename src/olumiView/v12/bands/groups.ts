@@ -15,7 +15,7 @@ import type { View, ViewCard, ViewModel } from '../../client'
 import { cardKind, type CardKindName } from '../fields/fields'
 import { bandOf, type BandId } from './bands'
 
-export type GroupKind = 'proposed' | 'notes' | 'olumi'
+export type GroupKind = 'proposed' | 'notes'
 export type GroupBand = Exclude<BandId, 'ideas'>
 export type CardGroup = { readonly id: string; readonly kind: GroupKind; readonly band: GroupBand; readonly cards: readonly string[]; readonly kinds: readonly CardKindName[] }
 
@@ -24,7 +24,7 @@ export const GROUP_ID_PREFIX = 'group:'
 export const groupIdOf = (kind: GroupKind, band: GroupBand): string => `${GROUP_ID_PREFIX}${kind}:${band}`
 /** The band a group card stands in, from its id; null for any other id. */
 export function groupBandOf(id: string): GroupBand | null {
-  const m = /^group:(?:proposed|notes|olumi):(options|inputs|outcomes|aims|points)$/.exec(id)
+  const m = /^group:(?:proposed|notes):(options|inputs|outcomes|aims|points)$/.exec(id)
   return m === null ? null : (m[1] as GroupBand)
 }
 
