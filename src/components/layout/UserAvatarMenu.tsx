@@ -124,14 +124,14 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
               <MenuSeparator />
             </>
           )}
-          <div className="divide-y divide-panel-border">
+          <div className="grid gap-2 divide-y divide-panel-border">
             {LANE_PAGES.map(({ label, to, icon }) => (
               <MenuItem key={to} id={to} label={label} icon={<OkIcon id={icon} size={14} decorative inherit />}
                 meta={{ 'data-testid': `olumi-core-go-${to === '/' ? 'home' : to.slice(1)}` }} onSelect={() => navigate(to)} />
             ))}
           </div>
           <MenuSeparator />
-          <div className="divide-y divide-panel-border">
+          <div className="grid gap-2 divide-y divide-panel-border">
             {NOTICES.map(({ label, href }) => (
               <MenuItem key={href} id={href} label={label} href={href} tip="Opens in a new tab"
                 icon={<OkIcon id={href === '/privacy' ? 'privacy' : 'brief'} size={14} decorative inherit />}
@@ -139,7 +139,7 @@ function PrivateLinkMenu({ size }: { size: 'default' | 'compact' }) {
             ))}
           </div>
           <MenuSeparator />
-          <div className="divide-y divide-panel-border">
+          <div className="grid gap-2 divide-y divide-panel-border">
             <MenuItem id="sign-out" label="Sign out" danger disabled={busy} disabledReason="Signing out"
               icon={<OkIcon id="sign-out" size={14} decorative inherit />} meta={{ 'data-testid': 'olumi-core-sign-out' }}
               onSelect={() => void handleSignOut()} closeOnSelect={false} />

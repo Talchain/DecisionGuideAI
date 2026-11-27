@@ -63,7 +63,9 @@ export function usePopupLayer<T extends HTMLElement>(
   useLayoutEffect(() => {
     if (!open || ref.current === null) return
     const inspector = useLaneInspector.getState()
-    if (active[kind]?.canDismiss() === false || (kind === 'sheet' && (dialogOpen() || surfaceBusy(inspector.current)))) {
+    const sheetBusy = surfaceBusy(inspector.current) || active.sheet?.canDismiss() === false
+    const blockedByDialog = kind === 'sheet' ? dialogOpen() : active.dialog?.canDismiss() === false
+    if (sheetBusy || blockedByDialog) {
       latest.current.close()
       return
     }

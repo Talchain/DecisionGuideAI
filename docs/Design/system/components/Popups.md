@@ -10,7 +10,7 @@ This is the binding popup standard for the Olumi look (`VITE_OLUMI_CORE=1`). It 
 | Dialog | A rare modal task with an accessible name and contained keyboard focus. |
 | Float | A tray docked to the workspace. It has its own slot and participates in the shared Escape stack. |
 
-- One of each kind at most. The newest request wins within a kind. The order across kinds is **Dialog > Sheet > Menu > Tip**. Higher kinds dismiss lower ones. A menu, sheet or dialog blocks standalone tips and hover peeks, including delayed opens. A menu’s own row tip belongs to its menu. Across surfaces, at most one tip or peek is visible, including a menu’s row tip.
+- One of each kind at most. The newest request wins within a kind. The order across kinds is **Dialog > Sheet > Menu > Tip**. Higher kinds dismiss lower ones, subject to the write-in-flight rule. A menu, sheet or dialog blocks standalone tips and hover peeks, including delayed opens. A menu’s own row tip belongs to its menu. Across surfaces, at most one tip or peek is visible, including a menu’s row tip.
 - Escape closes the most recent surface only, through the shared stack. In a menu it dismisses the row tip with the menu or goes back one submenu level. An outside pointer press dismisses the surface. A sheet or dialog with a write in flight stays open until the write settles, including on Escape, outside press or a replacement request. Sheets and dialogs show a close control. Closing restores focus to the opener if it is still present. Preserve focus when the action has already taken it into its destination.
 - A menu row is one line. Truncate long labels. On hover or keyboard focus, the light row tip shows the full truncated label and the row’s tip text or disabled reason.
 - Use the shared `ok-float` shell from `src/olumiView/look/float.css` and the typography tokens in `float.ts`. The shell uses `bg-panel`, a 1px `border-default` border, `radius-md`, `shadow-2`, Inset padding and Stack gaps. Use 12px body and 14px title tokens. Measure placement and choose a width and height cap suited to the contents. Write measured values to CSS custom properties.
@@ -24,10 +24,10 @@ The counts are by reachable surface and shared implementation, with distinct men
 |---|---:|---:|---:|
 | Tip | 2 | 2 | 4 |
 | Menu | 9 | 0 | 9 |
-| Sheet | 2 | 4 | 6 |
+| Sheet | 2 | 7 | 9 |
 | Dialog | 3 | 2 | 5 |
 | Float | 0 | 7 | 7 |
-| Total | 16 | 15 | 31 |
+| Total | 16 | 18 | 34 |
 
 The recipe column gives background, border, radius, shadow, padding and gap, width cap, and type, in that order. “Shared” refers to the exact shell above. The default shared menu is 232px wide, capped at the measured boundary and 320px, with 12px body type.
 
@@ -52,7 +52,10 @@ The recipe column gives background, border, radius, shadow, padding and gap, wid
 | [Layer reading panel](../../../../src/olumiView/v12/lenses/LensesMenu.tsx#L227) | Sheet | Select a layer in Layers | Close, Escape, change layer or reopen Layers | Local state and shared Escape | Panel, default, lg, shadow-2, 12px/12px, 300/420px, 12px |
 | [How to read this](../../../../src/olumiView/ViewLegend.tsx#L46) | Sheet | More view options → How to read this | Document mousedown or local Escape; no visible close | Local state and document key listener | Panel, default, lg, shadow-3, 12px/child margins, 18rem, 12px |
 | [Kept idea](../../../../src/olumiView/v12/bands/IdeaPanel.tsx#L40) | Sheet | Select a kept idea card | Close or deselection, including canvas selection clear | Canvas selection only | Panel, default, md, none, 12px/8px, 320px capped at available width minus 8rem, 12px |
-| [Summary](../../../../src/olumiView/ViewSummary.tsx#L86) | Dialog | Summary in top bar | Close, outside press, Escape, replacement or scenario change | Shared dialog slot and Escape | Shared, max 820px, 12px/14px |
+| [Detailed long answer](../../../../src/olumiView/v12/detailed/marks.tsx#L122) | Sheet | Press a long result row’s full-answer mark | Press the mark again or leave the card’s view | Row-local toggle, no Escape or outside press | Panel, emphasis border, 12px radius, shadow-2, scaled Inset padding, uncapped 280px × card scale, scaled 12px |
+| [Rests on popover](../../../../src/olumiView/ResultBand.tsx#L60) | Sheet | Press the Rests on label, which also selects its lens | Press the label again or leave the card’s view | Card-local toggle, no Escape or outside press | Panel, emphasis border, 12px radius, shadow-2, scaled Inset padding, uncapped 280px × card scale, scaled 12px |
+| [Floating worked steps](../../../../src/olumiView/look/WorkedSteps.tsx#L93) | Sheet | Open the card’s worked-steps disclosure | Close the disclosure or leave the card’s view | Native disclosure state, no Escape or outside press | Panel, emphasis border, 12px radius, shadow-2, scaled Inset padding and gaps, uncapped 280px × card scale, scaled 12px |
+| [Summary](../../../../src/olumiView/ViewSummary.tsx#L84) | Dialog | Summary in top bar | Close, outside press, Escape, replacement or scenario change | Shared dialog slot and Escape | Shared, max 820px, 12px/14px |
 | [Rename scenario](../../../../src/olumiView/ScenarioTitleDialog.tsx#L61) | Dialog | More options → Rename | Cancel, outside press, Escape, replacement or save. Stays open while saving. | Shared dialog slot and Escape | Shared, max 420px, 12px/14px |
 | [Delete your data](../../../../src/olumiCore/DeleteMyDataDialog.tsx#L76) | Dialog | Account menu or Account page | Cancel, outside press, Escape, replacement or successful deletion. Stays open after confirmation until the deletion settles. | Shared dialog slot and Escape | Shared, max 28rem, 12px/14px |
 | [Keyboard shortcuts](../../../../src/canvas/help/KeyboardLegend.tsx#L192) | Dialog | More options or `?` | Close, Done, backdrop click, shared Escape or toggle | Local state and shared Escape | Panel, no border, lg, shadow-3, 12px/12px, max 48rem, mixed typography tokens |
@@ -79,6 +82,7 @@ The old `MENU_EXCLUSIVE_EVENT` has no executable declaration or readers in this 
 | [How to read this](../../../../src/olumiView/ViewLegend.tsx#L46) | Join the shared sheet slot so a dialog replaces the legend. Replace its document Escape listener with the shared stack and return focus to the viewport opener. |
 | [Plain details opens](../../../../src/olumiView/ViewCanvas.tsx#L525) | Move focus into the details sheet when a card or link opens it. Plain opens currently leave focus on the canvas. |
 | [Kept idea](../../../../src/olumiView/v12/bands/IdeaPanel.tsx#L40) | Put idea details in the shared sheet slot. |
+| [Detailed long answer](../../../../src/olumiView/v12/detailed/marks.tsx#L122), [Rests on popover](../../../../src/olumiView/ResultBand.tsx#L60), [floating worked steps](../../../../src/olumiView/look/WorkedSteps.tsx#L93) | Route the opened card details through the shared sheet slot and recipe. |
 | [Keyboard shortcuts](../../../../src/canvas/help/KeyboardLegend.tsx#L192) | Join the shared dialog slot so a dialog replaces the legend and opening the legend replaces any prior dialog. Summary can currently keep trapping focus behind the keyboard legend. |
 | [Version history](../../../../src/canvas/versions/WhatChangedPanel.tsx#L150) | Mount through the shared Dialog shell, precedence and focus lifecycle. |
 | [How influence works](../../../../src/olumiView/v12/LaneHelp.tsx#L53) and [Dismiss native tip](../../../../src/components/assistants/InfluenceExplainer.tsx#L93) | Mount the explainer in the shared Float slot with measured placement and give its close icon an accessible label through the shared control. |
@@ -91,4 +95,4 @@ The old `MENU_EXCLUSIVE_EVENT` has no executable declaration or readers in this 
 |---|---|
 | [Composer menu](../../../../src/olumiView/v12/actionsMenu.tsx#L71) | Move descriptions from multiline rows to their row tips. |
 | [Pinned chat tray](../../../../src/olumiView/v12/chat/ChatFootRow.tsx#L70) | Join the shared Float slot while retaining its source selection and drafts. |
-| [Olumi chat pop-out](../../../../src/olumiView/port/ChatFloat.tsx#L184) | Join the shared Float slot and Escape stack, dock on outside press and restore focus to the pop-out opener. |
+| [Olumi chat pop-out](../../../../src/olumiView/port/ChatFloat.tsx#L156) | The window-capture Escape listener runs before the shared stack. Register the float on the shared stack so the newest surface closes first. Dock on outside press and restore focus to the pop-out opener. |

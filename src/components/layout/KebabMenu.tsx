@@ -279,7 +279,7 @@ export function KebabMenu({
           <Menu anchor={opener} label="More options" placement="bottom-end" gap={8}
             boundary={canvasChromeMenuBoundary} onClose={onClose}>
             <MenuLabel>Model</MenuLabel>
-            <div className="divide-y divide-panel-border">
+            <div className="grid gap-2 divide-y divide-panel-border">
               {coreSid !== null && <MenuItem id="rename" label="Rename" icon={<OkIcon id="edit" size={14} decorative inherit />}
                 onSelect={handleLaneRename} meta={{ 'data-testid': 'kebab-rename-core' }} />}
               <MenuItem id="start-new" label="Start new scenario" icon={<OkIcon id="new-scenario" size={14} decorative inherit />}
@@ -290,7 +290,7 @@ export function KebabMenu({
             <MenuItem id="fullscreen" label="Fullscreen" icon={<OkIcon id="zoom-fit" size={14} decorative inherit />} onSelect={handleFullscreen} />
             <MenuSeparator />
             <MenuLabel>Help</MenuLabel>
-            <div className="divide-y divide-panel-border">
+            <div className="grid gap-2 divide-y divide-panel-border">
               <MenuItem id="shortcuts" label="Keyboard shortcuts" icon={<OkIcon id="shortcuts" size={14} decorative inherit />} onSelect={onShowKeyboardLegend} />
               <MenuItem id="influence" label="How influence works" icon={<OkIcon id="explain-olumi" size={14} decorative inherit />} onSelect={onShowInfluenceExplainer} />
             </div>

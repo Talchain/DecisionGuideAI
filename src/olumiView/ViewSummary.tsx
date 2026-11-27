@@ -81,9 +81,9 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
   const readN = state !== null && 'summary' in state && state.summary.version !== null ? state.summary.version.n : at
   const exportLink = `inline-flex items-center gap-1.5 rounded-full border border-panel-border px-4 py-2 ${typography.viewPanelMeta} font-medium text-text-header hover:bg-panel-hover`
   return (
-    <div className={`fixed inset-0 ${CANVAS_LAYER_CLASS.modalBackdrop} flex justify-center bg-[var(--backdrop)] p-3 pr-[calc(var(--dock-right-offset,0rem)+var(--space-3))] pt-[var(--space-12)]`}>
+    <div data-testid="summary-page" className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex justify-center bg-[var(--backdrop)] p-3 pt-[var(--space-12)]`}>
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL}
-        data-testid="summary-page" onKeyDown={onKeyDown} className={`${FLOAT_CLASS} w-full max-w-[820px] outline-none`}>
+        onKeyDown={onKeyDown} className={`${FLOAT_CLASS} w-full max-w-[820px] outline-none`}>
         <div className="flex items-center gap-2 border-b border-panel-border pb-2">
           <OkIcon id="brief" size={14} decorative inherit />
           <h2 className={`${typography.panelHeader} m-0 text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</h2>

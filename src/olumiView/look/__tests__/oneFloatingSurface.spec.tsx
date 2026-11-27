@@ -178,7 +178,7 @@ it('a single Escape dismisses only the newest registered layer', () => {
   }
 })
 
-it('keeps a saving sheet open on Escape, outside press and What if', () => {
+it('keeps a saving sheet open on Escape, outside press, What if and a dialog request', () => {
   render(<Surfaces />)
   const inspect = screen.getByRole('button', { name: 'Inspect customers' })
   fireEvent.click(inspect)
@@ -196,6 +196,8 @@ it('keeps a saving sheet open on Escape, outside press and What if', () => {
     fireEvent.click(whatIf)
     expect(useViewLens.getState().lens).toBe(lens)
     expect(whatIf).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Open rename' }))
+    expect(screen.queryByRole('dialog', { name: 'Rename scenario' })).toBeNull()
     expect(sheet).toBeVisible()
     expect(close).toHaveAttribute('aria-disabled', 'true')
   } finally {
