@@ -8,10 +8,10 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
 import type { View, ViewLink } from '../../../client'
 import { useViewStore } from '../../../store'
-import { useViewFocusLink, useViewHover } from '../../../canvas'
+import { drawViewCanvas, useViewFocusLink, useViewHover } from '../../../canvas'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { GroupLinkEdge } from '../../bands/GroupLinkEdge'
-import { KeyLines, KeyLinkSample } from '../../bands/KeyPill'
+import { KeyLines } from '../../bands/KeyPill'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, TONE_TOKEN, linkStyle, toneOf } from '../styles'
 import { effectMidpoint } from '../geometry'
@@ -24,11 +24,12 @@ import { lanePlaceHost } from '../../../look/placeReaders'
 import { GOAL_CHANCE_DRIVER_TAG_Z } from '../../../../canvas/utils/goalChanceDriverLinks'
 import { applied, declared, isHidden, standsAt } from './applied'
 import { cardLinks, drawnModelOf } from '../../../layout'
+import { useCanvasStore } from '../../../../canvas/store'
 
 const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/bakery-r5.view3.json'), 'utf8'))
 const first = view.model!.links[0]!
 const base = { ...first, causal: { sign: 'increases', of: 'more_of_from', target: first.to, disputed: false, author: null, text: '', strength: { state: 'sized', figure: null, low: null, likely: null } } } as unknown as ViewLink
-afterEach(() => { cleanup(); useViewStore.setState({ view: null }); useFocusPath.setState({ path: null }); useSimpleLevel.setState({ levels: {} }); setDefaultLevel('simple'); useViewHover.setState({ id: null }); useViewFocusLink.setState({ id: null }); vi.useRealTimers() })
+afterEach(() => { cleanup(); useCanvasStore.setState({ nodes: [], edges: [] }); useViewStore.setState({ view: null }); useFocusPath.setState({ path: null }); useSimpleLevel.setState({ levels: {} }); setDefaultLevel('simple'); useViewHover.setState({ id: null }); useViewFocusLink.setState({ id: null }); vi.useRealTimers() })
 
 const Edge = ViewLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
 let flow: ReturnType<typeof useStoreApi> | null = null
@@ -68,6 +69,14 @@ function renderedLook(root: Element) {
   }
 }
 
+function drawKey(view: View, link: ViewLink) {
+  setDefaultLevel('simple')
+  const model = { ...view.model!, links: [link] }
+  useViewStore.setState({ view: { ...view, model } })
+  drawViewCanvas(model, new Map())
+  return render(<KeyLines />).container.querySelector('[data-key-sample]')!
+}
+
 describe('the board and key use the same link notation', () => {
   const plain: ViewLink = { ...first, kind: 'plain', causal: null, role: undefined, direction: undefined, label: '' }
   const examples: [string, ViewLink][] = [
@@ -93,9 +102,8 @@ describe('the board and key use the same link notation', () => {
     for (const { onPath, ...flags } of states) {
       const link = { ...example, ...flags }
       useFocusPath.setState({ path: onPath ? new Set([link.from, link.to]) : null })
+      const key = drawKey(view, link)
       const board = g(draw(link))
-      const { container } = render(<KeyLinkSample id="parity" state={{ link, onPath }} />)
-      const key = container.querySelector('[data-key-sample="parity"]')!
       expect(renderedLook(key), JSON.stringify({ ...flags, onPath })).toEqual(renderedLook(board))
       cleanup()
     }
@@ -104,10 +112,8 @@ describe('the board and key use the same link notation', () => {
   it('renders the capacity fixture’s challenged and doubted reason in the actual key', () => {
     const capacity: View = JSON.parse(readFileSync('src/olumiView/fixtures/real/capacity.view3.json', 'utf8'))
     const { link } = cardLinks(drawnModelOf(capacity.model!)).find(({ link }) => link.kind === 'reason' && link.alert && link.doubt)!
-    useViewStore.setState({ view: capacity })
+    const key = drawKey(capacity, link)
     const board = g(draw(link))
-    const { container } = render(<KeyLines />)
-    const key = container.querySelector('[data-key-sample="reason-alert"]')!
     const notation = renderedLook(key)
     expect(notation).toEqual(renderedLook(board))
     expect(notation.stroke).toMatchObject({ stroke: 'var(--olumi-mark-orange)', strokeDasharray: DOUBT_DASH, strokeLinecap: 'butt' })
@@ -116,21 +122,15 @@ describe('the board and key use the same link notation', () => {
   it.each([false, true])('matches the actual key on a lit, challenged, doubted proposal (first draft: %s)', (firstDraft) => {
     const { link: original } = cardLinks(drawnModelOf(view.model!))[0]!
     const link: ViewLink = { ...original, kind: 'plain', direction: 'raises', alert: true, doubt: true, proposed: true }
-    const model = { ...view.model!, links: [link], first_draft: firstDraft }
-    useViewStore.setState({ view: { ...view, model } })
     useFocusPath.setState({ path: new Set([link.from, link.to]) })
+    const sample = drawKey({ ...view, model: { ...view.model!, first_draft: firstDraft } }, link)
     const board = g(draw(link))
-    const { container } = render(<KeyLines />)
-    const alert = container.querySelector('[data-key-sample="halo-alert"]')!
-    const proposed = container.querySelector('[data-key-sample="halo-proposed"]')
     const notation = renderedLook(board)
-    expect(renderedLook(alert)).toEqual(notation)
+    expect(renderedLook(sample)).toEqual(notation)
     expect(notation.stroke).toMatchObject({ strokeWidth: '3px', strokeDasharray: DOUBT_DASH })
     if (firstDraft) {
-      expect(proposed).toBeNull()
       expect(notation.halos.map(({ kind }) => kind)).toEqual(['alert'])
     } else {
-      expect(renderedLook(proposed!)).toEqual(notation)
       expect(notation.halos[1]).toMatchObject({
         kind: 'proposed',
         className: 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner ok-link-on-path ok-link-doubt',
@@ -688,7 +688,7 @@ describe('presentation is token CSS (panel-visual system, no styles in component
     const wrapper = c.querySelector<HTMLElement>('.react-flow__edge')!
     wrapper.classList.add('selectable')
     expect(applied(edge, flowCss)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeWidth: '2px' })
-    act(() => wrapper.focus())
+    act(() => { wrapper.focus(); useViewFocusLink.setState({ id: 'e' }) })
     expect(wrapper.matches(':focus-visible')).toBe(true)
     expect(applied(edge, flowCss)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeWidth: '3px' })
     expect(applied(c.querySelector('.ok-link-end')!, flowCss).fill).toBe(EFFECT_STROKES[sign])
@@ -729,10 +729,10 @@ describe('presentation is token CSS (panel-visual system, no styles in component
     expect(widths).toEqual([
       [`.ok-key-sample .ok-link-line,\n.olumi-look .react-flow__edge:focus .react-flow__edge-path.ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
       ['.olumi-look .ok-link-leader', px(PLAIN_WIDTH)],
-      [`.ok-key-sample .ok-link-line.ok-link-on-path,\n.olumi-look .react-flow__edge:focus-visible .react-flow__edge-path.ok-link-line,\n${path}.ok-link-on-path`, '3px'],
+      [`.ok-key-sample .ok-link-line.ok-link-on-path,\n.ok-key-sample .ok-link-line.ok-link-focused,\n${path}.ok-link-on-path,\n${path}.ok-link-focused`, '3px'],
       ['.ok-link-halo-alert', '10px'],
       ['.ok-link-halo-proposed', '3px'],
-      ['.olumi-look .react-flow__edge:focus-visible .ok-link-halo-proposed,\n.ok-link-halo-proposed.ok-link-on-path', '5px'],
+      ['.ok-link-halo-proposed.ok-link-focused,\n.ok-link-halo-proposed.ok-link-on-path', '5px'],
     ])
   })
   it('the tone classes declare the tokens the lane\'s ink table names, and every drawn line takes its stroke from its tone class (no inline stroke)', () => {

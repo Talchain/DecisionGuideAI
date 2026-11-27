@@ -4,13 +4,10 @@
  * the real links (ViewLinkEdge) with their own controls.
  */
 import { memo, useId } from 'react'
-import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react'
-import { EndMarker } from '../links/LinkEnds'
-import { LINK_STYLES, toneOf } from '../links/styles'
+import { getBezierPath, type EdgeProps } from '@xyflow/react'
+import { edgeLook } from '../links/edgeLook'
+import { LinkTrace } from '../links/LinkTrace'
 import type { GroupLink } from './groups'
-
-const unsignedEffect = LINK_STYLES.effect
-const tone = toneOf(unsignedEffect.stroke)
 
 /** The connector's hover: how many links, never whose. */
 export const groupLinkTitle = (count: number): string => (count === 1 ? '1 link' : `${count} links`)
@@ -18,13 +15,12 @@ export const groupLinkTitle = (count: number): string => (count === 1 ? '1 link'
 function GroupLinkEdgeImpl({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps): JSX.Element {
   const { count, mixedDirection } = data as unknown as GroupLink
   const arrow = useId()
-  const end = mixedDirection ? 'none' : unsignedEffect.end
+  const look = edgeLook({ connector: 'group', mixedDirection })
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   return (
-    <g className={`ok-link-tone-${tone}`} data-group-link={id} data-group-link-count={count} data-mixed-direction={mixedDirection ? '' : undefined}>
+    <g className={look.toneClass} data-group-link={id} data-group-link-count={count} data-mixed-direction={mixedDirection ? '' : undefined}>
       <title>{groupLinkTitle(count)}</title>
-      {end !== 'none' ? <defs><EndMarker id={arrow} end={end} /></defs> : null}
-      <BaseEdge id={id} path={path} className="ok-link-line" markerEnd={end !== 'none' ? `url(#${arrow})` : undefined} />
+      <LinkTrace look={look} path={path} marker={arrow} id={id} />
     </g>
   )
 }

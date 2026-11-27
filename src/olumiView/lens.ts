@@ -66,13 +66,14 @@ export function useTriedOn(id: string): string | null {
   return on && shown !== null && shown.sid === sid && shown.base === base && shown.quantity === id ? shown.typed : null
 }
 
-/** While What would change is on: whether the link at `i` leaves (or is sized by) a figure an option's chance moves most with. */
-export function useDriverLink(i: number): boolean {
+const NO_DRIVER_LINKS: ReadonlySet<number> = new Set()
+
+/** While What would change is on, the links leaving or sized by a figure an option's chance moves most with. */
+export function useDriverLinks(): ReadonlySet<number> {
   const on = useViewLens((s) => s.lens === 'what_changes')
   const model = useViewStore((s) => s.view?.model ?? null)
   const drivers = useDrivers()
-  const links = useMemo(() => (model === null ? new Set<number>() : driverLinksOf(model, drivers)), [model, drivers])
-  return on && links.has(i)
+  return useMemo(() => on && model !== null ? driverLinksOf(model, drivers) : NO_DRIVER_LINKS, [on, model, drivers])
 }
 
 

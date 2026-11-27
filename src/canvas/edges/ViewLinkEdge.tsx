@@ -9,39 +9,28 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react'
 import { reducedFaceSize } from '../../olumiView/camera'
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
+import { EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
-import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { LaneLinkRemoveButton } from '../../olumiView/v12/edit/LaneLinkRemoveButton'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
-import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
-import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
-import { useDriverLink } from '../../olumiView/lens'
+import { linkWordsIdOf, useViewHover } from '../../olumiView/canvas'
 import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { sizedLink } from '../../olumiView/v12/contract'
-import { firstDraft as firstDraftOf, linkKey } from '../../olumiView/v12/fields/fields'
+import { linkKey } from '../../olumiView/v12/fields/fields'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
-import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
 import { edgeLook } from '../../olumiView/v12/links/edgeLook'
 import { placeAt } from '../../olumiView/v12/links/place'
-import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
-import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
+import { OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
+import { linkLookState, useLinkLookInputs, type ViewLinkData } from '../../olumiView/v12/links/linkLookState'
+import { LinkDirectionIcon, LinkTrace, linkDirectionHover } from '../../olumiView/v12/links/LinkTrace'
 
-export type ViewLinkData = { link: ViewLink; i: number }
-/**
- * The midpoint mark of a modelled effect (panel-visual system L2): the registry's icon for its typed direction, so the direction is said by shape as
- * well as by colour. Six states, six registry ids (look/icons.tsx `link-*`); `none` (core's "no effect") keeps its own.
- */
-type LinkMark = 'raises' | 'lowers' | 'depends' | 'disputed' | 'unknown' | 'none'
-const ICONS_HOVER = (m: LinkMark): string => ICONS[MARK_ID[m]].hover
-const MARK_ID: Readonly<Record<LinkMark, IconId>> = { raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' }
 export type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 /**
  * The cards as React Flow holds them now (flow units). React Flow refills one `nodeLookup` Map in place (xyflow adoptUserNodes), so a
@@ -64,19 +53,14 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const causal = link.causal ?? null
   // The mark's word is the key item core names for it (`label_key`); an older core's View, without the field, is read by its glyph (fields.ts linkKey).
   const labelWord = useViewStore((s) => causal === null && s.view?.model != null ? linkKey(link, s.view.model.key).item?.text : undefined)
-  const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
+  const state = linkLookState({ id, source, target }, { link, i }, useLinkLookInputs())
+  const { byOlumi, onPath, driver, focused } = state
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const hovered = useViewHover((h) => h.id)
-  // A path is lit while a card is hovered or selected (focusPath.ts): emphasise its links without dimming any others.
-  const onPath = useFocusPath((f) => f.path !== null && f.path.has(source) && f.path.has(target))
-  // R3: on a first draft (a proposal and no approved version) everything is proposed, so a proposal is no mark on a link.
-  const firstDraft = useViewStore((s) => s.view !== null && firstDraftOf(s.view).firstDraft === true)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
-  // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
-  const driver = useDriverLink(i)
-  const { direction, confidence, mark, role, styled, modelled, tone, toneClass, dash, dotted, reasonAlert, halos, lineClass, end, allowMarkerOverride, width } =
-    edgeLook({ link, byOlumi, firstDraft, onPath, driver })
+  const look = edgeLook(state)
+  const { direction, confidence, mark, directionMark, role, styled, modelled, tone, toneClass, dash, dotted, reasonAlert, halos, end, width } = look
   // Only a legacy link without a typed causal belief or direction keeps its sign glyph.
   const signed = causal === null && direction === null && link.label !== ''
   const verdictless = direction === 'depends' || direction === 'disputed' || direction === 'unknown' ? direction : null
@@ -118,8 +102,6 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     placeAt(el, wordsAt.current.x, wordsAt.current.y)
     if (el) setSize((s) => (s.w === el.offsetWidth && s.h === el.offsetHeight ? s : { w: el.offsetWidth, h: el.offsetHeight }))
   }, [])
-  // A link with keyboard focus (links are focusable) is drawn and says its words, as a selected one does (DL 7 Nov: focus alone).
-  const focused = useViewFocusLink((f) => f.id === id)
   // A removal on its way keeps the link and its ask drawn, whatever focus does (Codex delta 4960db98).
   const removing = useRemovingLink(link.remove)
   // A size wire runs from its figure to the midpoint of the effect link it sizes (never to a card, never as a cause).
@@ -158,7 +140,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // A no-verdict icon (D4) is the line's meaning, not words: Simple draws it at rest at every zoom (its type is counter-scaled to the board, so it is not "zoomed out").
   // The mark is the line's meaning, not words: every modelled effect always says its direction, at every zoom and level and in a crowd (its type is
   // counter-scaled to the board). Only the longer words (the sign glyph, `effect.text`) disclose progressively, by zoom and nearness.
-  const markShown = mark !== null && role !== 'size'
+  const markShown = mark !== null
   const textShown = (signed || effect !== null) && role !== 'size' && (!zoomedOut || near)
   const words = markShown || textShown
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
@@ -202,7 +184,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // text and its author's title, the effect's `text` and `title`, and the key word core names for the sign, each once, in that order. A modelled mark core gave
   // no words for says its registry entry's words (look/icons.tsx `link-*`); nothing is written here.
   const said = [...new Set([...title.split('\n'), link.effect?.text, link.effect?.title, labelWord].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n')
-  const tipWords = said !== '' ? said : mark === null ? '' : ICONS_HOVER(mark)
+  const tipWords = said !== '' ? said : directionMark === null ? '' : linkDirectionHover(directionMark)
   const gRef = useRef<SVGGElement | null>(null)
   const markEl = useRef<HTMLSpanElement | null>(null)
   const linkTip = useAnchoredTip(tipWords, 'peek')
@@ -262,7 +244,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     tipNow.current.dismiss()
     if (focused) tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
   }, [viewport]) // eslint-disable-line react-hooks/exhaustive-deps -- a new viewport is the only trigger
-  const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
+  const name = title !== '' ? title : directionMark === null ? '' : linkDirectionHover(directionMark)
   const arrow = `view-link-arrow-${i}`
   return (
     <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled !== null || modelled ? end : undefined} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-reason-alert={reasonAlert ? '' : undefined} data-link-halo={halos.length ? halos.map(({ kind }) => kind).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ${toneClass}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
@@ -271,9 +253,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         linkTip.dismiss()
         useLaneInspector.getState().open({ kind: 'link', id })
       } : undefined}>
-      <defs><EndMarker id={arrow} end={end} /></defs>
-      {halos.map(({ kind, className }) => <path key={kind} data-link-halo-path={kind} d={path} className={className} />)}
-      <BaseEdge id={id} path={path} className={lineClass} markerEnd={end === 'none' ? undefined : (allowMarkerOverride ? markerEnd : undefined) ?? `url(#${arrow})`} />
+      <LinkTrace look={look} path={path} marker={arrow} id={id} markerEnd={markerEnd} />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (
@@ -288,7 +268,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
             {!markShown || mark === null ? null : (
               <span ref={markEl} data-view-link-mark={`links.${i}`} data-link-direction={mark} data-view-link-unsettled={verdictless === null ? undefined : `links.${i}`} className="ok-link-mark inline-flex">
                 {/* The registry draws the glyph; the hover is the link's one Tip (the `<g>`'s handlers), so this icon carries none of its own. */}
-                <OkIcon id={MARK_ID[mark]} size={12} decorative inherit />
+                <LinkDirectionIcon mark={mark} />
               </span>
             )}
             {/* Far at rest the sign WAITS hidden, never removed: the box keeps one measured size whatever the placement says, so size and placement settle
