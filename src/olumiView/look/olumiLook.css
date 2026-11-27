@@ -745,6 +745,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .react-flow__node.v12-on-path[data-path-tone='olumi'] [role='group'][aria-label] { outline: 2px solid var(--info); }
 .olumi-look .react-flow__node.v12-on-path[data-path-tone='person'] [role='group'][aria-label] { outline: 2px solid var(--text-light); }
 /* The keyboard focus rule outranks React Flow's own focus colour even when its CSS loads later. */
+.ok-key-sample .ok-link-line.ok-link-on-path,
 .olumi-look .react-flow__edge:focus-visible .react-flow__edge-path.ok-link-line,
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line.ok-link-on-path { stroke: var(--link-tone); stroke-width: 3px; }
 @media (prefers-reduced-motion: no-preference) {
@@ -774,7 +775,7 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 /* key */
 /* The key's samples draw the canvas's own line recipes (KeyPill): the dotted reason line, and the halo underlays (.ok-link-halo-*, above) which may stand past the sample's box. */
 .ok-key-unsettled { color: var(--edge-neutral); }
-.ok-key-underlay { overflow: visible; }
+.ok-key-sample { overflow: visible; }
 
 /* Scale charts keep their original track, marks and labels. Only their measured values come from React. */
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }

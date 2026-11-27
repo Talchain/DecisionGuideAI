@@ -229,12 +229,13 @@ describe('bands: the key pill', () => {
     for (const [sign, tone] of [['increases', 'positive'], ['decreases', 'negative']] as const) {
       const sample = container.querySelector(`[data-key-polarity="${sign}"] svg`)!
       expect(sample).toHaveClass(`ok-link-tone-${tone}`)
-      for (const trace of sample.querySelectorAll('path')) {
+      for (const trace of sample.querySelectorAll('.ok-link-line')) {
         expect(trace).toHaveClass('ok-link-line')
         expect(applied(trace)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeWidth: '2px' })
         expect(trace).not.toHaveAttribute('stroke')
         expect(trace).not.toHaveAttribute('stroke-width')
       }
+      expect(applied(sample.querySelector('marker .ok-link-end')!)).toMatchObject({ fill: EFFECT_STROKES[sign] })
     }
     expect(container.querySelector('[data-key-polarity="decreases"]')).toHaveTextContent('decreases')
     expect(screen.getByTestId('view-key-lines').className).not.toMatch(/text-\[(9|10|11)px\]/)
@@ -248,11 +249,15 @@ describe('bands: the key pill', () => {
     const { container } = render(<KeyLines />)
     const item = container.querySelector('[data-key-item="doubted"]')!
     expect(item).toHaveTextContent('core says doubted')
-    const paths = (id: string) => [...item.querySelectorAll(`[data-key-polarity="${id}"] path`)] as SVGPathElement[]
-    expect(paths('increases').map((x) => applied(x).stroke)).toEqual([EFFECT_STROKES.increases, EFFECT_STROKES.increases])
-    expect(applied(paths('decreases')[0]!).stroke).toBe(EFFECT_STROKES.decreases)
-    expect(paths('increases')[0]).toHaveClass('ok-link-line', 'ok-link-doubt')
-    expect(applied(paths('increases')[0]!).strokeDasharray).toBe('5 4')
+    for (const sign of ['increases', 'decreases'] as const) {
+      const sample = item.querySelector(`[data-key-polarity="${sign}"] svg`)!
+      const trace = sample.querySelector('.ok-link-line')!
+      const marker = sample.querySelector('marker')!
+      expect(trace).toHaveAttribute('marker-end', `url(#${marker.id})`)
+      expect(trace).toHaveClass('ok-link-line', 'ok-link-doubt')
+      expect(applied(trace)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeDasharray: '5 4' })
+      expect(applied(marker.querySelector('.ok-link-end')!)).toMatchObject({ fill: EFFECT_STROKES[sign] })
+    }
   })
   it('K7 the six midpoint marks, the dotted reason line and the two halos stand only where the board draws them, in registry words', () => {
     const l0 = model.links[0]!, l1 = model.links[1]!
@@ -276,7 +281,7 @@ describe('bands: the key pill', () => {
   it('K8 a reason line is a dotted sample, an alert is the orange halo, a proposal the blue halo (not on a first draft)', () => {
     const reason = { ...model.links[0]!, kind: 'reason', role: 'reason', causal: null, direction: null }
     const alert = { ...model.links[1]!, causal: { sign: 'increases' }, alert: true }
-    const proposed = { ...model.links[2]!, causal: { sign: 'increases' }, proposed: true }
+    const proposed = { ...model.links[2]!, causal: { sign: 'increases' }, proposed: true, doubt: false }
     const settled = { ...view, version: { ...(view as { version?: object }).version, n: 2 }, model: { ...withKey(['reason', 'alert', 'olumi'], [reason, alert, proposed]), first_draft: false } } as View
     const x = keyExtrasOf(settled).underlays
     expect([...x].sort()).toEqual(['dotted', 'halo-alert', 'halo-proposed'])
@@ -284,15 +289,15 @@ describe('bands: the key pill', () => {
     expect(keyExtrasOf({ ...settled, model: { ...settled.model!, links: [{ ...settled.model!.links[0]! }] } } as View).underlays.has('halo-alert')).toBe(false)
     useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never)
     const { container } = render(<KeyLines />)
-    const reasonLine = container.querySelector('[data-key-sample="dotted"] path')!
-    const alertHalo = container.querySelector('[data-key-sample="halo-alert"] path')!
+    const reasonLine = container.querySelector('[data-key-sample="dotted"] .ok-link-line')!
+    const alertHalo = container.querySelector('[data-key-sample="halo-alert"] [data-link-halo-path="alert"]')!
     expect(reasonLine.closest('svg')).toHaveClass('ok-link-tone-neutral')
     expect(reasonLine).toHaveClass('ok-link-line', 'ok-link-dotted')
     expect(reasonLine).not.toHaveAttribute('stroke')
     expect(reasonLine).not.toHaveAttribute('stroke-width')
     expect(applied(reasonLine)).toMatchObject({ stroke: 'var(--edge-neutral)', strokeWidth: '2px', strokeDasharray: '0.1 6', strokeLinecap: 'round' })
     expect(applied(alertHalo)).toMatchObject({ stroke: 'var(--olumi-mark-orange)', strokeWidth: '10px', opacity: '0.35' })
-    const proposalHalo = container.querySelector('[data-key-sample="halo-proposed"] path')!
+    const proposalHalo = container.querySelector('[data-key-sample="halo-proposed"] [data-link-halo-path="proposed"]')!
     const proposalLine = proposalHalo.nextElementSibling!
     expect(proposalHalo.closest('.olumi-look')).toBeNull()
     expect(applied(proposalHalo)).toMatchObject({ stroke: 'var(--semantic-info)', strokeWidth: '3px', opacity: '0.35', vectorEffect: 'non-scaling-stroke' })
@@ -306,8 +311,8 @@ describe('bands: the key pill', () => {
     const v = { ...view, model: withKey(['reason', 'alert'], [link]) }
     useViewStore.setState({ sid: view.id, view: v, status: 'ready' } as never)
     const { container } = render(<KeyLines />)
-    const reason = container.querySelector('[data-key-sample="reason-alert"] path')
-    const halo = container.querySelector('[data-key-sample="halo-alert"] path')
+    const reason = container.querySelector('[data-key-sample="reason-alert"] .ok-link-line')
+    const halo = container.querySelector('[data-key-sample="halo-alert"] [data-link-halo-path="alert"]')
     if (kind === 'reason') {
       expect(reason).toHaveClass('ok-link-line', 'ok-link-dotted', 'ok-link-reason-alert')
       expect(applied(reason!)).toMatchObject({ stroke: 'var(--olumi-mark-orange)', strokeWidth: '2px' })
