@@ -299,8 +299,7 @@ describe('core\'s offer to build a model is the menu\'s first row (pair v4 rende
     expect(presses[0]?.dataset['testid']).toBe('view-build-model')
     expect(presses[0]).toHaveFocus()
     expect(presses[0]?.querySelector('[data-testid="view-build-model-label"]')?.textContent).toBe(BUILD.label)
-    // The row shape of every press under it: core's label, then core's own line for it drawn as the row's description (DL 08:5xZ), and its hover.
-    expect(presses[0]?.querySelector('[data-testid="view-build-model-title"]')?.textContent).toBe(BUILD.title)
+    expect(presses[0]?.textContent).toBe(BUILD.label)
     // The hover is the one Tip, never a native title.
     expect([presses[0]?.hasAttribute('title'), await tipOf(presses[0]!)]).toEqual([false, BUILD.title])
     const order = (sel: string) => [...m.querySelectorAll('*')].indexOf(m.querySelector(sel)!)
@@ -386,9 +385,12 @@ describe('the gated questions\' shared sentence is said once (DL 08:5xZ: under s
       expect([e.getAttribute('aria-label'), e.hasAttribute('title'), await tipOf(e)]).toEqual([SAID, false, SAID])
     }
   })
-  it('contrast: one gated question keeps its own line, and no shared line is drawn', async () => {
+  it('a single gated question keeps its prerequisite in the row tip and keeps its icon', async () => {
     const menu = await draw([m('a', 0, SAID), m('b', 1, null)])
+    const row = menu.querySelector<HTMLElement>('[data-method="a"]')!
     expect(menu.querySelector('[data-testid="view-method-prerequisite-once"]')).toBeNull()
-    expect(menu.querySelector('[data-method="a"] [data-testid="view-method-prerequisite"]')?.textContent).toBe(SAID)
+    expect(row.querySelector('[data-testid="view-method-prerequisite"]')).not.toBeNull()
+    expect(row.textContent).toBe('An invented question 0')
+    expect(await tipOf(row)).toBe(SAID)
   })
 })

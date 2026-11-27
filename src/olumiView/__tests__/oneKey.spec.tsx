@@ -5,9 +5,11 @@
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ViewLegend } from '../ViewLegend'
+import { useEscapeLayer } from '../v12/edit/escapeLayers'
 import { useViewStore } from '../store'
 import type { View } from '../client'
 
@@ -17,6 +19,28 @@ const src = (f: string) => readFileSync(path.resolve(f), 'utf8')
 afterEach(() => { cleanup(); useViewStore.setState({ sid: null, view: null, status: 'none' } as never) })
 
 describe('one key, in the left foot menu', () => {
+  it('closes only the newest surface, then closes the key on the next Escape', () => {
+    useViewStore.setState({ sid: view.id, view, status: 'ready' } as never)
+    function Surfaces() {
+      const [legend, setLegend] = useState(true)
+      const [newer, setNewer] = useState(false)
+      useEscapeLayer(newer, () => setNewer(false))
+      return <>
+        <ViewLegend open={legend} onOpenChange={setLegend} />
+        <button onClick={() => setNewer(true)}>Open another surface</button>
+        {newer && <div data-testid="newer-surface" />}
+      </>
+    }
+    render(<Surfaces />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open another surface' }))
+    expect(screen.getByTestId('newer-surface')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('newer-surface')).toBeNull()
+    expect(screen.getByTestId('view-legend')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('view-legend')).toBeNull()
+  })
+
   it('OK1 the canvas mounts no always-on key pill (its rule is gone from ViewCanvas); CONTRAST: the one key draws the lines and marks it showed', () => {
     expect(src('src/olumiView/ViewCanvas.tsx')).not.toMatch(/<KeyPill\b/)
     useViewStore.setState({ sid: view.id, view, status: 'ready' } as never)

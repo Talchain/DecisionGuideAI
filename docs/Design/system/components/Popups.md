@@ -13,7 +13,7 @@ This is the popup styling standard for the Olumi look (`VITE_OLUMI_CORE=1`). It 
 ## Behaviour today
 
 - The menu arbiter keeps a single root menu chain across its callers. The canvas inspector store holds the current details, form or canvas menu request. Opening canvas details or an editor can dismiss an active menu, with an exception for the Add menu handing off to its own form. Other surfaces use their own state and can coexist.
-- The shared Escape stack closes the newest registered surface when Escape reaches it unhandled. Menus can return one level from a submenu. The canvas key, delete dialog, chat pop-out and card hover hook also have local key handling. Each surface defines its own outside-press and focus behaviour. A canvas save guards store dismissal, while the rename and delete dialogs guard their own dismissals during the write.
+- The shared Escape stack closes the newest registered surface when Escape reaches it unhandled. Menus can return one level from a submenu. The canvas key, lane link tip and held Olumi attention use the stack. The delete dialog, chat pop-out and card hover hook have local key handling. Each surface defines its own outside-press and focus behaviour. A canvas save guards store dismissal, while the rename and delete dialogs guard their own dismissals during the write.
 - The delayed Tip coordinator replaces the previous Tip it opened. An open canvas-card Tip or an occupied inspector slot hides the card peek. An open menu suppresses the peek, and opening a lane menu clears the current peek. Native browser tips have their own lifecycle.
 - Standard menu rows truncate long labels on one line. On hover or keyboard focus, the row tip supplies the truncated words and any row tip or disabled reason. Composer rows with explicit descriptions keep their existing layout.
 
@@ -57,7 +57,7 @@ The before counts reflect joined base `8693c5a8`. The three browser-native `titl
 | [Canvas settings](../../../../src/components/layout/KebabMenu.tsx#L293) | Sheet | More options → Canvas settings | Close, reopen More options, outside pointer press or Escape. | Kebab menu local state and shared Escape. | 14rem, viewport-capped | On recipe |
 | [Canvas edit form](../../../../src/olumiView/v12/edit/EditForm.tsx#L213) | Sheet | Add, rename, size, add a record or remove link | Cancel, Escape, pane press, scenario change, save or replacement. Escape preserves the draft. Store dismissal is guarded during a save. | Canvas inspector store and shared Escape. | 280px with a height cap | On recipe |
 | [Layer reading panel](../../../../src/olumiView/v12/lenses/LensesMenu.tsx#L227) | Sheet | Select a layer in Layers | Close, Escape, change to the full model or reopen Layers. | Layers local state and shared Escape. | 300px or 420px, 70vh max | On recipe |
-| [How to read this](../../../../src/olumiView/ViewLegend.tsx#L46) | Sheet | More view options → How to read this | Outside mousedown or document Escape. | Viewport controls local state and document listeners. | 18rem, viewport height cap | On recipe |
+| [How to read this](../../../../src/olumiView/ViewLegend.tsx) | Sheet | More view options → How to read this | Outside mousedown or Escape. | Viewport controls local state and shared Escape. | 18rem, viewport height cap | On recipe |
 | [Kept idea](../../../../src/olumiView/v12/bands/IdeaPanel.tsx#L40) | Sheet | Select a kept idea card | Close or deselection, including when canvas selection clears. | Canvas selection. | 320px, capped to available width minus 8rem | On recipe |
 | [Detailed long answer](../../../../src/olumiView/v12/detailed/marks.tsx#L122) | Sheet | Press a long result row’s full-answer mark | Press the mark again or leave the card’s view. | Row-local toggle. | 280px at card scale 1 | On recipe |
 | [Rests on popover](../../../../src/olumiView/ResultBand.tsx#L60) | Sheet | Press the Rests on label, which also selects its lens | Press the label again or leave the card’s view. | Card-local toggle. | 280px at card scale 1 | On recipe |
@@ -73,7 +73,7 @@ The before counts reflect joined base `8693c5a8`. The three browser-native `titl
 | [If it failed tray](../../../../src/olumiView/ViewPreMortemKey.tsx#L58) | Float | Select If it failed | Close or change lens. | Active lens state. | 26rem, capped to foot width | On recipe |
 | [Pinned chat tray](../../../../src/olumiView/v12/chat/ChatFootRow.tsx#L70) | Float | Press a chat foot chip or open a requested source | Chip, outside press, Escape or content removed. | One local source at a time and shared Escape. | Dock width, 62% height cap | On recipe |
 | [Olumi chat pop-out](../../../../src/olumiView/port/ChatFloat.tsx#L184) | Float | Composer pop-out | Dock control, dock tab or capture-phase Escape from the floated chat or the page body while no menu is open. | Chat float store and local key listener. | Measured canvas width and height | On recipe |
-| [Detailed Olumi note](../../../../src/canvas/components/OlumiAttentionCard.tsx#L616) | Float | Press the note marker in Detailed view (also opens automatically for some notes) | Dismiss, release the held attention where applicable, or note removed. | Board note lifecycle or pinned tray when portalled into chat. | 268px on the board, dock width in the tray | On recipe |
+| [Detailed Olumi note](../../../../src/canvas/components/OlumiAttentionCard.tsx) | Float | Press the note marker in Detailed view (also opens automatically for some notes) | Dismiss, release held attention with Escape, or note removed. | Board note lifecycle and shared Escape for assistant-held attention. If portalled into chat, the pinned tray owns dismissal. | 268px on the board, dock width in the tray | On recipe |
 
 ## Still to do
 
@@ -82,9 +82,9 @@ The before counts reflect joined base `8693c5a8`. The three browser-native `titl
 | Card peek | Consolidate Escape handling with the lane’s canvas surface lifecycle. | Not done |
 | Canvas edit form | Extend outside-press handling beyond the pane and make opener focus restoration consistent across entry points. | Not done |
 | Canvas details | Move focus into the details sheet for plain card and link opens. | Not done |
-| Canvas settings, layer reading panel, canvas key and kept idea | Decide how these surfaces should coexist with other sheets and dialogs. Bring the canvas key onto the shared Escape stack and restore focus to its opener. | Not done |
+| Canvas settings, layer reading panel, canvas key and kept idea | Decide how these surfaces should coexist with other sheets and dialogs. Restore focus to the canvas key's opener. | Not done |
 | Detailed long answer, Rests on and floating worked steps | Define shared dismissal and focus behaviour for card popovers. | Not done |
 | Summary, rename, delete, keyboard shortcuts and version history | Define dialog coexistence and align dismissal and focus handling across entry points. | Not done |
 | Influence explainer and Detailed Olumi note | Define float dismissal behaviour and move the native title tips to the shared Tip lifecycle. | Not done |
 | What if, Trade-offs and If it failed | Define active lens tray Escape and outside-press behaviour. | Not done |
-| Pinned chat tray and Olumi chat pop-out | Align coexistence across floats, bring the pop-out into the shared Escape stack and define its outside-press and opener-focus behaviour. | Not done |
+| Pinned chat tray and Olumi chat pop-out | Align coexistence across floats and define the pop-out's outside-press and opener-focus behaviour. The pop-out keeps its window-capture listener because it docks from inside the float or from the page body even when another handler swallows the key. Its target, open-menu and composition guards also need to carry over before a stack migration. | Not done |

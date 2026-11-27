@@ -39,6 +39,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
+import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import { VIEW_NOTE_SLOT, VIEW_NOTE_TURN } from '../../olumiView/note'
 import { useStore } from '@xyflow/react'
 import { ArrowUp, HelpCircle, History, Info, Lightbulb, MessageCircleQuestion, RefreshCw, Scale, X, type LucideIcon } from 'lucide-react'
@@ -338,14 +339,16 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
    */
   // A `held` note owns its own dismissal; Escape releases the assistant's slot only.
   const isHeld = held === undefined && attention != null
+  const lane = isOlumiCoreLane()
+  useEscapeLayer(lane && isHeld, clearOlumiAttention)
   useEffect(() => {
-    if (!isHeld) return
+    if (lane || !isHeld) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { e.preventDefault(); clearOlumiAttention() }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isHeld])
+  }, [lane, isHeld])
 
   if (!attention || (!attention.note && !attention.caveat)) return null
   const anchorId = attention.nodeIds[0] ?? linkId
@@ -383,7 +386,6 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const anchorBox: Box = anchor
     ? { ...screenBox(anchor as never), w: w * zoom }
     : { x: point!.x * zoom + tx, y: point!.y * zoom + ty, w: 0, h: 0 }
-  const lane = isOlumiCoreLane()
   const metaType = lane ? typography.viewPanelMeta : typography.panelMeta
   const folded = lane && attention.turnId?.startsWith(VIEW_NOTE_TURN) === true && openedKey !== attention.turnId
   if (folded) {

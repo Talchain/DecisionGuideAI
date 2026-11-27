@@ -17,8 +17,9 @@ import { EdgeLabelLayer } from './edgeLabelLayer'
 import { applied } from '../v12/links/__tests__/applied'
 import { TIP_DELAY } from '../look/Tip'
 import { DOUBT_DASH } from '../v12/links/styles'
+import { useEscapeLayer } from '../v12/edit/escapeLayers'
 
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })
 
 const golden = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', `${n}.view.json`), 'utf8'))
 
@@ -71,6 +72,26 @@ const edge = (link: ViewLink, i = 0) => (useViewHover.setState({ id: link.from }
 
 describe('#3 a link keeps its meaning', () => {
   const links = golden('european').model!.links
+  it('closes the newest link tip without closing an older surface', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    vi.useFakeTimers()
+    const closeOlder = vi.fn()
+    function OlderSurface() {
+      useEscapeLayer(true, closeOlder)
+      return null
+    }
+    render(<OlderSurface />)
+    const g = edge(links[0]!).querySelector('g[data-view-link]')!
+    fireEvent.pointerEnter(g)
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    expect(screen.getByRole('tooltip')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(closeOlder).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(closeOlder).toHaveBeenCalledTimes(1)
+  })
+
   it('its hover is core\'s title, its kind is on the path, and a doubted link is dashed while a firm one is not', () => {
     const doubted = links.find((l) => l.doubt)!, firm = links.find((l) => !l.doubt)!
     for (const l of [doubted, firm]) {

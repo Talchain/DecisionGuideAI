@@ -22,6 +22,6 @@ Use gaps on flex and grid parents for spacing between siblings. Inside a canvas 
 
 Cards sit 24 units apart across a row (`--space-6`) and 48 units apart between tiers (`--space-12`). A band label sits one stack (`--space-2`) above its row.
 
-The served studio fixture at `b58c3c81`, measured at 1232 × 704 with card scale 1.57, had gaps of 22–24 flow units across and 40–53 between tiers. Lane A owns both layout breaches. In that same capture, quantity cards wrapped the pencil and author mark onto a separate row and card heights ranged from 127 to 177 flow units. Foot placement is covered by lane D slice 2.
+Both measured spacing breaches are **fixed** in the Olumi layout. The studio fixture served at `b58c3c81` measured 22–24 flow units across and 40–53 between tiers at 1232 × 704 and card scale 1.57. The layout now applies `--space-6` across and `--space-12` from each row's tallest card to the next row. In the original capture, quantity cards wrapped the pencil and author mark onto a separate row and card heights ranged from 127 to 177 flow units. Foot placement is covered by lane D slice 2.
 
 The [compliance guard](s4-checks.md) ratchets new syntax violations. Rendered measurements at different card scales verify the rhythm and board geometry.

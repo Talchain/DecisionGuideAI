@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, drawnHeightsKey, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -69,17 +69,19 @@ const placed = new Map<string, At>()
 const at = (a: At | undefined, b: At) => a !== undefined && a.x === b.x && a.y === b.y
 type Box = At & { w: number; h: number }
 const sits = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+const drawnSizesKey = (nodes: readonly { id: string; measured?: { width?: number; height?: number } }[]) =>
+  nodes.map(({ id, measured }) => `${id}:${measured?.width ?? ''}:${measured?.height ?? ''}`).join('|')
 
 /** The last causal layout, keyed by what it rests on (the cards, their links and their drawn heights), and how many are being laid out. */
 let causal: { key: string; places: Map<string, Placed> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
+const causalKey = (model: ViewModel, sizes: string, railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), sizes, [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
-let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }
+let row: ReturnType<typeof stageRow> & { simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }
 export const drawnCardWidth = (): number => row.cardW || CARD_WIDTH
 /** J1 gate: the free canvas's height at full size (the pane less the header, the Model row and the foot), which the board's rows share. */
 export const roomOf = (): { h: number; w: number } => {
@@ -111,17 +113,24 @@ const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().
 export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []) {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
   // V12: Simple has its own, wider bands (layout.ts simpleStageRow); Detailed keeps the stage row.
-  const stage = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
+  const simple = levelOf(useViewStore.getState().sid) === 'simple'
+  const stage = simple ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const { direction, nodeSpacing } = useLayoutStore.getState()
-  // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
-  const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, stage) : stage.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
+  // The top-down spacing already clears the chip rail underneath a card.
+  const size = new Map(nodes.flatMap(({ id, measured }) => {
+    if (measured?.height === undefined) return []
+    const slot = id === QUESTION ? questionBarWidth(model, stage) : stage.cardW
+    const width = !simple && measured.width ? measured.width : slot
+    const rail = !simple && direction !== 'DOWN' && railed.has(id) ? TREE_RAIL_Y : 0
+    return [[id, { width, height: measured.height + rail }] as const]
+  }))
   return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
 }
 
 async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, Placed>> {
   const { nodes, railed, size, opts } = causalInputs(model, extras)
   row = opts.row
-  const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
+  const key = causalKey(model, drawnSizesKey(nodes), railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
   if (causal?.key === key) return causal.places
   laying += 1
   try {
@@ -144,7 +153,7 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
   const heights = drawnHeights(store.nodes), q = { width: questionBarWidth(model, row) }
   const widthOf = (id: string): number => (id === QUESTION ? places.get(id)?.w ?? q.width : places.get(id)?.w ?? row.cardW)
   const scale = [...places.values()].find((p) => p.s !== undefined)?.s
-  const box = (id: string, p: At) => ({ x: p.x, y: p.y, w: widthOf(id), h: heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const box = (id: string, p: At) => ({ x: p.x, y: p.y, w: (!row.simple && held.get(id)?.measured?.width) || widthOf(id), h: heights.get(id) ?? extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 0 })
   const ids = [QUESTION, ...model.cards.map((c) => c.id), ...extras.map((e) => e.id)], type = (id: string) => (id === QUESTION ? VIEW_QUESTION : extras.find((e) => e.id === id)?.type ?? VIEW_CARD)
   const movedTo = (id: string) => { const n = held.get(id); return n?.type === type(id) && !at(placed.get(id), n.position) ? n.position : null }
   // What the person moved stays; every other card goes to its causal place, below any moved card it would sit on (review 00063 #1).
@@ -322,8 +331,8 @@ export function useViewCanvas(on: boolean): void {
   const ideasOnly = useMemo(() => ideasOnlyOf(view, sidNow), [view, sidNow])
   // Folds start closed (DL ruling 9 Nov (ii): 77cdc6f6's first-look fold opening is retired for this serve; the route is one click away on
   // the badge's count), so a reopened board draws what the first one did.
-  // A card the canvas measures taller (or shorter) lays the graph out again at the drawn heights (review 00063 #4).
-  const heights = useCanvasStore((s) => drawnHeightsKey(s.nodes))
+  // Repack when the canvas measures a different card width or height.
+  const sizes = useCanvasStore((s) => drawnSizesKey(s.nodes))
   // The layout's direction and spacing are the layout store's, as in the previous product: a change lays the board out again.
   // V12: the level is part of the layout too (Simple's bands are wider), so a switch lays the board out again.
   const laidAs = useLayoutStore((s) => `${s.direction}:${s.nodeSpacing}:${level}`)
@@ -361,5 +370,5 @@ export function useViewCanvas(on: boolean): void {
       if (had === null) firstDraw('failed')
     })
     return () => { live = false }
-  }, [on, view, model, board, ideasOnly, heights, laidAs, cols, retry])
+  }, [on, view, model, board, ideasOnly, sizes, laidAs, cols, retry])
 }
