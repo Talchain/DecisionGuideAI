@@ -42,6 +42,7 @@ function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
 function OptionRow({ card, letter, row }: OptionEntry) {
   const olumi = row?.kind === 'none' ? null : row?.olumi
   const likely = row?.kind === 'chance' ? row.likely : null
+  const ifApproved = row?.kind === 'chance' ? row.if_approved : null
 
   return (
     <div data-compare-row={row?.kind ?? 'absent'} className="compare-option-row grid min-w-0 gap-1 rounded-sm py-1 transition-[transform,opacity] duration-fast ease-out hover:bg-panel-hover motion-reduce:transition-none">
@@ -61,6 +62,7 @@ function OptionRow({ card, letter, row }: OptionEntry) {
           <span className={`${TYPE.meta} min-w-0 break-words text-text-body`}>
             {likely == null ? null : <><GlyphMark mark={likely} className="text-text-header" />{' '}</>}
             {olumi == null ? null : <><GlyphMark mark={olumi} className={colourClass('--info')} />{' '}</>}
+            {ifApproved == null ? null : <><GlyphMark mark={ifApproved} className={colourClass('--info')} />{' '}</>}
             <span>{row.value}</span>
           </span>
         )}
