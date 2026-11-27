@@ -38,8 +38,10 @@ const view: View = {
 
 const draw = (fixture = view) => render(<StressTest model={fixture.model!} view={fixture} />)
 const radio = (step: keyof typeof STRESS_STEPS) => screen.getByRole('radio', { name: STRESS_STEPS[step] })
-const picker = () => screen.getByRole('combobox', { name: STRESS_WORDS.figure })
+const picker = () => screen.getByRole('group', { name: STRESS_WORDS.figure })
+const figureChoice = (name: string) => within(picker()).getByRole('button', { name })
 const optionRows = (heading: string) => screen.getAllByRole('button', { name: (name) => name.startsWith(heading) })
+const aimGroups = (name: string) => screen.getAllByRole('group', { name }).filter((group) => group.closest('details') === null)
 
 function expectChart(row: HTMLElement, chance: number) {
   expect(row).toHaveAttribute('data-stress-computed', 'true')
@@ -51,7 +53,7 @@ function expectChart(row: HTMLElement, chance: number) {
 beforeEach(() => vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request'))))
 afterEach(() => {
   cleanup()
-  useViewStore.setState({ view: null, stale: false, error: null })
+  useViewStore.setState({ view: null, status: 'none', stale: false, error: null })
   expect(fetch).not.toHaveBeenCalled()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
@@ -62,10 +64,10 @@ describe('Stress-test', () => {
     draw()
     expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-form', 'TT-stress')
     expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '0')
-    expect(picker()).toHaveValue(cups.id)
-    expect(within(picker()).getAllByRole('option').map((option) => option.textContent)).toEqual([cups.heading, target.heading])
+    expect(figureChoice(cups.heading)).toHaveAttribute('aria-pressed', 'true')
+    expect(within(picker()).getAllByRole('button').map((option) => option.textContent)).toEqual([cups.heading, target.heading])
     for (const name of [raiseRow.aim, secondAim.aim]) {
-      const group = within(screen.getByTestId('tool-stress')).getByRole('group', { name })
+      const [group] = aimGroups(name)
       expect(group).toHaveAttribute('aria-labelledby', within(group).getByRole('heading', { name }).id)
       expect(within(group).getAllByRole('button')).toHaveLength(2)
     }
@@ -92,12 +94,13 @@ describe('Stress-test', () => {
       }
     }
 
-    fireEvent.change(picker(), { target: { value: target.id } })
+    fireEvent.click(figureChoice(target.heading))
     expect(screen.getByText(target.figure!.text)).toBeVisible()
     expect(screen.queryByTestId('range-bar')).toBeNull()
     for (const step of ['low', 'saved', 'high'] as const) {
       fireEvent.click(radio(step))
       expectChart(keepProfit, step === 'saved' ? keepFirst.chance! : keepFirst.driver![step])
+      if (step !== 'saved') expect(within(keepProfit).queryByText(keepFirst.value)).toBeNull()
     }
     expect(raiseProfit).toHaveAttribute('data-stress-computed', 'other')
     expect(raiseAnnual).toHaveAttribute('data-stress-computed', 'other')
@@ -106,7 +109,7 @@ describe('Stress-test', () => {
 
   it('uses Core’s words at rest, and puts the saved words in the fold for the conditional steps', async () => {
     draw()
-    const [row] = optionRows(raise.heading)
+    const [row, annualRow] = optionRows(raise.heading)
     expect(within(row).getByText(raiseRow.value)).toBeVisible()
     const details = screen.getByText(STRESS_WORDS.details).closest('details')!
     expect(details).not.toHaveAttribute('open')
@@ -121,6 +124,11 @@ describe('Stress-test', () => {
     expect(within(details).getAllByText(cups.heading)).toHaveLength(2)
     expect(within(details).getByText(raiseRow.title)).toBeVisible()
     expect(within(details).getByText(raiseSecond.title)).toBeVisible()
+    for (const reading of [raiseRow, raiseSecond]) {
+      const group = within(details).getByRole('group', { name: reading.aim })
+      expect(within(group).getByRole('heading', { name: reading.aim })).toBeVisible()
+      expect(within(group).getByRole('listitem')).toHaveTextContent(reading.title)
+    }
 
     const words = new Set([
       ...Object.values(STRESS_STEPS), ...Object.values(STRESS_WORDS),
@@ -135,6 +143,12 @@ describe('Stress-test', () => {
     for (const step of ['low', 'saved', 'high'] as const) {
       fireEvent.click(radio(step))
       expect(details).toHaveAttribute('open')
+      if (step !== 'saved') {
+        expect(within(row).queryByText(raiseRow.value)).toBeNull()
+        expect(within(annualRow).queryByText(raiseSecond.value)).toBeNull()
+        expect(within(details).getByText(raiseRow.value)).toBeVisible()
+        expect(within(details).getByText(raiseSecond.value)).toBeVisible()
+      }
       expectOnlyViewAndChrome()
       fireEvent.click(screen.getByText(STRESS_WORDS.details))
       expect(details).not.toHaveAttribute('open')
@@ -166,7 +180,7 @@ describe('Stress-test', () => {
     expect(radio('high')).toBeChecked()
     expectChart(optionRows(raise.heading)[0], raiseRow.driver!.high)
 
-    fireEvent.change(picker(), { target: { value: target.id } })
+    fireEvent.click(figureChoice(target.heading))
     expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', [target.id, keep.id])
     fireEvent.click(optionRows(keep.heading)[0])
     expect(pressCard).toHaveBeenCalledWith(keep.id)
@@ -174,21 +188,20 @@ describe('Stress-test', () => {
     expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', [])
   })
 
-  it('offers a folded record only with its own served label and counts omitted driver records', () => {
+  it('offers every resolved folded driver and distinguishes records sharing a heading by ordinal', () => {
     const firstRecord = 'folded_cups'
     const secondRecord = 'folded_target'
     const rest = view.model!.run!.rests[0]
     const firstFigure = { ...rest.figures![0], id: firstRecord, label: 'Cups lost after the price change' }
-    const secondFigure = { ...rest.figures![0], id: secondRecord, label: 'Annual target adjustment' }
     const folded: View = {
       ...view,
       model: {
         ...view.model!,
-        run: { ...view.model!.run!, rests: [{ ...rest, figures: [firstFigure] }] },
+        run: { ...view.model!.run!, rests: [] },
         cards: view.model!.cards.map((card) => {
           if (card.id === cups.id) return {
             ...card,
-            badge: { records: [firstRecord, secondRecord], text: '', title: '', label: '', open: false, proposed: false, change: '', words: '', face: '', icon: '' },
+            badge: { records: [secondRecord, firstRecord], text: '', title: '', label: '', open: false, proposed: false, change: '', words: '', face: '', icon: '' },
           }
           if (card.id === raise.id) return {
             ...card,
@@ -203,32 +216,42 @@ describe('Stress-test', () => {
       },
     }
     const { rerender } = draw(folded)
-    expect(within(picker()).getAllByRole('option').map((option) => option.textContent)).toEqual([firstFigure.label])
-    expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '1')
-    const groups = within(screen.getByTestId('tool-stress')).getAllByRole('group', { name: raiseRow.aim })
+    const firstChoice = figureChoice(`${cups.heading} 1`)
+    const secondChoice = figureChoice(`${cups.heading} 2`)
+    expect(within(picker()).getAllByRole('button')).toEqual([firstChoice, secondChoice])
+    for (const [choice, ordinal] of [[firstChoice, '1'], [secondChoice, '2']] as const) {
+      expect(within(choice).getByText(cups.heading).textContent).toBe(cups.heading)
+      expect(choice.querySelector('[data-stress-ordinal]')?.textContent).toBe(ordinal)
+    }
+    expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '2')
+    const groups = aimGroups(raiseRow.aim)
     expect(new Set(groups.map((group) => group.getAttribute('aria-labelledby'))).size).toBe(2)
     expect(screen.queryByText(cups.figure!.text)).toBeNull()
     expect(screen.queryByTestId('range-bar')).toBeNull()
     const [first, second] = optionRows(raise.heading)
-    expectChart(first, raiseRow.chance!)
-    expect(second).toHaveAttribute('data-stress-computed', 'other')
-    const bothLabelled = { ...folded.model!, run: { ...folded.model!.run!, rests: [{ ...rest, figures: [firstFigure, secondFigure] }] } }
-    rerender(<StressTest model={bothLabelled} view={{ ...folded, model: bothLabelled }} />)
-    expect(within(picker()).getAllByRole('option').map((option) => option.textContent)).toEqual([firstFigure.label, secondFigure.label])
-    expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '0')
-    fireEvent.change(picker(), { target: { value: secondRecord } })
+    const [keepProfit] = optionRows(keep.heading)
+    expect(firstChoice).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(radio('low'))
     expect(first).toHaveAttribute('data-stress-computed', 'other')
-    expectChart(second, raiseSecond.chance!)
+    expectChart(second, raiseSecond.driver!.low)
+    expectChart(keepProfit, keepFirst.driver!.low)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', [cups.id, keep.id, raise.id])
+
+    fireEvent.click(secondChoice)
+    expectChart(first, raiseRow.driver!.low)
+    expect(second).toHaveAttribute('data-stress-computed', 'other')
+    expect(keepProfit).toHaveAttribute('data-stress-computed', 'other')
+    expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', [cups.id, raise.id])
+
+    const labelled = { ...folded.model!, run: { ...folded.model!.run!, rests: [{ ...rest, figures: [firstFigure] }] } }
+    rerender(<StressTest model={labelled} view={{ ...folded, model: labelled }} />)
+    expect(figureChoice(`${cups.heading} 1`)).toBeVisible()
+    expect(figureChoice(`${firstFigure.label} 2`)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '1')
     fireEvent.click(screen.getByText(STRESS_WORDS.details))
     const details = screen.getByText(STRESS_WORDS.details).closest('details')!
-    expect(within(details).getAllByText(secondFigure.label)).toHaveLength(2)
+    expect(within(details).getByText(firstFigure.label)).toBeVisible()
     expect(within(details).queryByText(cups.heading)).toBeNull()
-
-    const unlabelled = { ...folded.model!, run: { ...folded.model!.run!, rests: [] } }
-    rerender(<StressTest model={unlabelled} view={{ ...folded, model: unlabelled }} />)
-    expect(screen.queryByRole('combobox')).toBeNull()
-    expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '2')
   })
 
   it.each([
@@ -236,7 +259,7 @@ describe('Stress-test', () => {
     { removed: target, fallback: cups, option: raise, row: raiseRow },
   ])('keeps the fallback selection when $removed.heading returns on a later refresh', ({ removed, fallback, option, row }) => {
     const { rerender } = draw()
-    fireEvent.change(picker(), { target: { value: removed.id } })
+    fireEvent.click(figureChoice(removed.heading))
     const refreshed = {
       ...view.model!,
       cards: view.model!.cards.map((card) => ({
@@ -246,10 +269,10 @@ describe('Stress-test', () => {
       })),
     }
     rerender(<StressTest model={refreshed} view={{ ...view, model: refreshed }} />)
-    expect(picker()).toHaveValue(fallback.id)
+    expect(figureChoice(fallback.heading)).toHaveAttribute('aria-pressed', 'true')
     rerender(<StressTest model={view.model!} view={view} />)
-    expect(within(picker()).getByRole('option', { name: removed.heading })).toBeInTheDocument()
-    expect(picker()).toHaveValue(fallback.id)
+    expect(figureChoice(removed.heading)).toHaveAttribute('aria-pressed', 'false')
+    expect(figureChoice(fallback.heading)).toHaveAttribute('aria-pressed', 'true')
     expectChart(optionRows(option.heading)[0], row.chance!)
   })
 
@@ -258,7 +281,7 @@ describe('Stress-test', () => {
       ? { ...card, rows: [{ ...raiseRow, driver: null }] } : card) }
     draw({ ...base, model })
     expect(screen.getByTestId('tool-stress').textContent).toEqual(STRESS_WORDS.empty)
-    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByRole('group', { name: STRESS_WORDS.figure })).toBeNull()
     expect(screen.queryByRole('radio')).toBeNull()
   })
 
@@ -270,6 +293,11 @@ describe('Stress-test', () => {
     render(<StressTestTab />)
     const tab = screen.getByTestId('core-stress-tab')
     expect(tab).toHaveTextContent(STRESS_WORDS.empty)
+    act(() => useViewStore.setState({ status: 'error' }))
+    expect(tab.textContent).toBe(STRESS_WORDS.unavailable)
+    act(() => useViewStore.setState({ status: 'ready', error: 'Fixture read failed' }))
+    expect(tab.textContent).toBe(STRESS_WORDS.unavailable)
+    act(() => useViewStore.setState({ error: null }))
     act(() => useViewStore.setState({ view: { ...view, proposal } }))
     expect(tab).toHaveTextContent(STRESS_WORDS.held)
     expect(within(tab).queryByRole('radio')).toBeNull()
@@ -284,7 +312,12 @@ describe('Stress-test', () => {
     expect(within(tab).queryByRole('radiogroup')).toBeNull()
     act(() => useViewStore.setState({ error: null }))
     expect(within(tab).getByRole('radiogroup')).toBeVisible()
+    act(() => useViewStore.setState({ status: 'error' }))
+    expect(tab.textContent).toBe(STRESS_WORDS.unavailable)
+    act(() => useViewStore.setState({ status: 'ready' }))
     act(() => useViewStore.setState({ view: { ...view, proposal }, stale: true }))
+    expect(tab.textContent).toBe(STRESS_WORDS.held)
+    act(() => useViewStore.setState({ error: 'Fixture read failed' }))
     expect(tab.textContent).toBe(STRESS_WORDS.unavailable)
   })
 })

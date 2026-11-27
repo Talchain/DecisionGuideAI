@@ -5,7 +5,7 @@ import { FoldChevron, FOLD_SUMMARY } from '../../look/FoldChevron'
 import { Hover } from '../../look/Hover'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
 import { chanceForDots } from '../../resultRange'
-import { shownModel, useViewStore } from '../../store'
+import { currentModel, shownModel, useViewStore } from '../../store'
 import { optionLetters } from '../cards/letters'
 import { LetterChip } from '../cards/marks'
 import { cardOfRecord } from '../lenses/layers'
@@ -29,7 +29,7 @@ export const STRESS_WORDS = {
 type Step = keyof typeof STRESS_STEPS
 type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
 type OptionReading = { option: ViewCard; row: ChanceRow }
-type DriverFigure = { record: string; label: string; card: ViewCard | undefined }
+type DriverFigure = { record: string; label: string; card: ViewCard; ordinal?: number }
 
 const STEPS: readonly Step[] = ['low', 'saved', 'high']
 const RING_SOURCE = 'tool-stress'
@@ -59,15 +59,27 @@ function stressReadings(model: ViewModel) {
     ...(run?.find_out ?? []).flatMap((aim) => aim.figures),
   ]
   const figures: DriverFigure[] = []
+  const counts = new Map<string, number>()
+  let unlabelled = 0
   for (const record of records) {
     const card = cardOfRecord(model, record)
-    const label = card?.id === record ? card.heading : namedFigures.find((figure) => figure.id === record)?.label
-    if (label) figures.push({ record, label, card })
+    if (card === undefined) continue
+    const label = card.id === record ? card.heading : namedFigures.find((figure) => figure.id === record && figure.label)?.label
+    if (!label) unlabelled += 1
+    figures.push({ record, label: label || card.heading, card })
+    counts.set(card.id, (counts.get(card.id) ?? 0) + 1)
   }
   const order = new Map(model.cards.map((card, index) => [card.id, index] as const))
-  const rank = ({ card }: DriverFigure) => card === undefined ? model.cards.length : order.get(card.id)!
-  figures.sort((a, b) => rank(a) - rank(b))
-  return { aims, figures, unlabelled: records.size - figures.length }
+  const recordOrder = ({ card, record }: DriverFigure) => card.id === record ? -1 : card.badge!.records.indexOf(record)
+  figures.sort((a, b) => order.get(a.card.id)! - order.get(b.card.id)! || recordOrder(a) - recordOrder(b))
+  const ordinals = new Map<string, number>()
+  for (const figure of figures) {
+    const { id } = figure.card
+    if (counts.get(id)! < 2) continue
+    figure.ordinal = (ordinals.get(id) ?? 0) + 1
+    ordinals.set(id, figure.ordinal)
+  }
+  return { aims, figures, unlabelled }
 }
 
 export function StressTest({ model, view }: { model: ViewModel; view: View }) {
@@ -79,16 +91,18 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   const stepButtons = useRef<Partial<Record<Step, HTMLButtonElement | null>>>({})
   const selected = figures.find((figure) => figure.record === record) ?? figures[0]
   const selectedRecord = selected?.record
-  const moving = useMemo(() => selected === undefined ? [] : [...aims.values()].flat()
-    .filter(({ row }) => row.driver?.figure === selected.record), [aims, selected])
+  const moving = useMemo(() => selectedRecord === undefined ? [] : [...aims].flatMap(([id, readings]) => {
+    const rows = readings.filter(({ row }) => row.driver?.figure === selectedRecord)
+    return rows.length === 0 ? [] : [{ id, aim: readings[0].row.aim, rows }]
+  }), [aims, selectedRecord])
 
   useEffect(() => {
     if (record !== selectedRecord) setRecord(selectedRecord)
   }, [record, selectedRecord])
   useEffect(() => {
     const ids = new Set<string>()
-    if (selected?.card !== undefined) ids.add(selected.card.id)
-    for (const { option } of moving) ids.add(option.id)
+    if (selected !== undefined) ids.add(selected.card.id)
+    for (const group of moving) for (const { option } of group.rows) ids.add(option.id)
     ringFrom(RING_SOURCE, [...ids])
   }, [selected, moving])
   useEffect(() => () => ringFrom(RING_SOURCE, []), [])
@@ -108,13 +122,18 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
     return <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className={META}>{STRESS_WORDS.empty}</div>
   }
 
-  const figureCard = selected.record === selected.card?.id ? selected.card : undefined
+  const figureCard = selected.record === selected.card.id ? selected.card : undefined
   return (
     <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className="grid min-w-0 gap-3">
-      <select aria-label={STRESS_WORDS.figure} value={selected.record} onChange={(event) => setRecord(event.target.value)}
-        className={`${typography.viewPanelBody} ${FOCUS} min-h-7 w-fit min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 text-text-header`}>
-        {figures.map(({ record, label }) => <option key={record} value={record}>{label}</option>)}
-      </select>
+      <div role="group" aria-label={STRESS_WORDS.figure} className="flex flex-wrap gap-1">
+        {figures.map(({ record, label, ordinal }) => (
+          <button key={record} type="button" aria-pressed={selected.record === record} onClick={() => setRecord(record)}
+            className={`${typography.viewPanelBody} ${FOCUS} inline-flex min-h-7 min-w-0 items-center gap-1 rounded-md border border-panel-border px-2 text-left text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover aria-pressed:border-text-header`}>
+            <span className="min-w-0 break-words">{label}</span>
+            {ordinal !== undefined && <span data-stress-ordinal="" className={`${META} shrink-0 rounded-full border border-panel-border px-1`}>{ordinal}</span>}
+          </button>
+        ))}
+      </div>
 
       <div role="radiogroup" aria-label={STRESS_WORDS.values} className="grid grid-cols-3 gap-1 rounded-md border border-panel-border p-1">
         {STEPS.map((value) => (
@@ -169,16 +188,23 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
         <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} ${FOCUS} cursor-pointer py-2.5 text-text-body`}>
           <FoldChevron />{STRESS_WORDS.details}
         </summary>
-        <ul className={`${typography.viewPanelBody} m-0 grid list-none gap-2 p-0 text-text-body`}>
-          {moving.map(({ option, row }) => (
-            <li key={`${option.id}:${row.aim_id}`} className="grid gap-1">
-              <span className={`${typography.viewPanelHeading} text-text-header`}>{option.heading}</span>
-              <span>{selected.label}</span>
-              <span>{row.title}</span>
-              {step !== 'saved' && <div><div className={META}>{STRESS_WORDS.savedLabel}</div><div>{row.value}</div></div>}
-            </li>
+        <div className="grid gap-2">
+          {moving.map(({ id, aim, rows }, index) => (
+            <div key={id} role="group" aria-labelledby={`${aimHeading}-details-${index}`} className="grid gap-1">
+              <h3 id={`${aimHeading}-details-${index}`} className={`${typography.viewPanelHeading} m-0 text-text-header`}>{aim}</h3>
+              <ul className={`${typography.viewPanelBody} m-0 grid list-none gap-2 p-0 text-text-body`}>
+                {rows.map(({ option, row }) => (
+                  <li key={option.id} className="grid gap-1">
+                    <span className={`${typography.viewPanelHeading} text-text-header`}>{option.heading}</span>
+                    <span>{selected.label}</span>
+                    <span>{row.title}</span>
+                    {step !== 'saved' && <div><div className={META}>{STRESS_WORDS.savedLabel}</div><div>{row.value}</div></div>}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       </details>
     </div>
   )
@@ -187,14 +213,14 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
 export function StressTestTab() {
   const view = useViewStore((state) => state.view)
   const model = useViewStore(shownModel)
-  const readUnavailable = useViewStore((state) => state.stale || state.error !== null)
-  const held = view?.proposal != null
-  const fallback = view === null ? STRESS_WORDS.empty
-    : held && !readUnavailable ? STRESS_WORDS.held
-    : STRESS_WORDS.unavailable
+  const failed = useViewStore((state) => state.status === 'error' || state.error !== null)
+  const held = useViewStore((state) => state.view?.proposal != null && currentModel(state) === null)
+  const fallback = failed ? STRESS_WORDS.unavailable
+    : held ? STRESS_WORDS.held
+    : view === null ? STRESS_WORDS.empty : STRESS_WORDS.unavailable
   return (
     <div data-testid="core-stress-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3">
-      {model !== null && view !== null && !held
+      {model !== null && view !== null && !held && !failed
         ? <StressTest model={model} view={view} />
         : <div className={META}>{fallback}</div>}
     </div>
