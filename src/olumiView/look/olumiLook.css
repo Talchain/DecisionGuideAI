@@ -727,17 +727,13 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .ok-link-tone-ink { --link-tone: var(--text-header); }
 .ok-link-tone-goal { --link-tone: var(--goal); }
 /* The line: the one 2 px width (L3: no width implies a strength), in screen px so zooming out does not thin it. Four classes deep so React Flow's own selected-edge stroke never wins. */
-.ok-key-sample .ok-link-line,
 .olumi-look .react-flow__edge:focus .react-flow__edge-path.ok-link-line,
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line { stroke: var(--link-tone); stroke-width: 2px; vector-effect: non-scaling-stroke; }
-.ok-key-sample .ok-link-dotted,
 .ok-link-halo-proposed.ok-link-dotted,
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
 /* Doubt is the dash, and it wins over the dots when a reason link is doubted. */
-.ok-key-sample .ok-link-doubt,
 .ok-link-halo-proposed.ok-link-doubt,
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-doubt { stroke-dasharray: 5 4; stroke-linecap: butt; }
-.ok-key-sample .ok-link-end,
 .olumi-look .ok-link-end { fill: var(--link-tone); }
 .olumi-look .ok-link-leader { fill: none; stroke: var(--link-tone); stroke-width: 2px; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
 .olumi-look .ok-link-size-label { fill: var(--text-light); paint-order: stroke; stroke: var(--bg-canvas); stroke-width: 3px; }
@@ -774,7 +770,8 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 /* key */
 /* The key's samples draw the canvas's own line recipes (KeyPill): the dotted reason line, and the halo underlays (.ok-link-halo-*, above) which may stand past the sample's box. */
 .ok-key-unsettled { color: var(--edge-neutral); }
-.ok-key-underlay { overflow: visible; }
+.olumi-look .ok-key-dotted { stroke-dasharray: 0.1 6; stroke-linecap: round; }
+.olumi-look .ok-key-underlay { overflow: visible; }
 
 /* Scale charts keep their original track, marks and labels. Only their measured values come from React. */
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }

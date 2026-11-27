@@ -631,7 +631,7 @@ describe('presentation is token CSS (panel-visual system, no styles in component
       .filter(([selector]) => selector !== '.olumi-look .ok-link-size-label') // SVG text outline
     const path = '.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line'
     expect(widths).toEqual([
-      [`.ok-key-sample .ok-link-line,\n.olumi-look .react-flow__edge:focus .react-flow__edge-path.ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
+      [`.olumi-look .react-flow__edge:focus .react-flow__edge-path.ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
       ['.olumi-look .ok-link-leader', px(PLAIN_WIDTH)],
       [`.olumi-look .react-flow__edge:focus-visible .react-flow__edge-path.ok-link-line,\n${path}.ok-link-on-path`, '3px'],
       ['.ok-link-halo-alert', '10px'],

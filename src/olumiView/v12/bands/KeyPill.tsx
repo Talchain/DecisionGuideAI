@@ -12,17 +12,25 @@ import { cardLinks, drawnModelOf, linkByOlumi } from '../../layout'
 import { useViewStore } from '../../store'
 import { linkRole } from '../contract'
 import { firstDraft as firstDraftOf, linkLook } from '../fields/fields'
-import { EFFECT_STROKES, LINK_STYLES, linkAlertStyle, linkStyle, toneOf, type LinkStyle } from '../links/styles'
+import { DOUBT_DASH, EFFECT_STROKES, EDGE_NEUTRAL, LINK_STYLES, linkAlertStyle, linkStyle } from '../links/styles'
 import { typography } from '../../../styles/typography'
 import { OlumiMark } from '../cards/marks'
 
-// The key's line samples are the canvas's own line styles (links/styles.ts), so the key can never say what the lines do not.
-type Sample = Pick<LinkStyle, 'stroke' | 'end'>
+// The key's line samples use the canvas's role styles.
+type Sample = { stroke: string; dash: string | null; end: 'arrow' | 'dot' | 'none'; w: number }
+const fromStyle = (s: (typeof LINK_STYLES)[keyof typeof LINK_STYLES]): Sample => ({ stroke: s.stroke, dash: s.dash, end: s.end, w: s.width })
 /** An effect's polarity samples: the canvas's effect line in the direction colours it is drawn in (links/styles.ts EFFECT_STROKES). */
 export const EFFECT_POLARITY = [
-  { id: 'increases', word: 'increases', sample: { ...LINK_STYLES.effect, stroke: EFFECT_STROKES.increases } },
-  { id: 'decreases', word: 'decreases', sample: { ...LINK_STYLES.effect, stroke: EFFECT_STROKES.decreases } },
+  { id: 'increases', word: 'increases', sample: { ...fromStyle(LINK_STYLES.effect), stroke: EFFECT_STROKES.increases } },
+  { id: 'decreases', word: 'decreases', sample: { ...fromStyle(LINK_STYLES.effect), stroke: EFFECT_STROKES.decreases } },
 ] as const
+const SAMPLES: Readonly<Record<string, Sample>> = {
+  effect: fromStyle(LINK_STYLES.effect),
+  input: fromStyle(LINK_STYLES.input),
+  size: fromStyle(LINK_STYLES.size),
+  measures: fromStyle(LINK_STYLES.measures),
+  target: fromStyle(LINK_STYLES.target),
+}
 /** The key ids this pill draws as line samples; `doubted` is the effect line's own colours and arrow, dashed; `unsettled` draws the canvas's own not-settled mark. */
 export const KEY_LINE_IDS = ['effect', 'input', 'size', 'doubted', 'unsettled', 'measures', 'target'] as const
 type KeyLineId = (typeof KEY_LINE_IDS)[number]
@@ -60,7 +68,7 @@ export function keyPresent(model: ViewModel): ReadonlySet<KeyLineId> {
   return out
 }
 
-export type KeyUnderlay = 'dotted' | 'reason-alert' | 'halo-alert' | 'halo-proposed'
+export type KeyUnderlay = 'dotted' | 'halo-alert' | 'halo-proposed'
 /**
  * What else the canvas draws now (L1, L2, L4), present-only: a dotted reason line, the alert halo (core's orange), the proposal halo (Olumi's blue, never on a
  * first draft, R3), and which of the six midpoint direction marks stand on a line.
@@ -72,11 +80,9 @@ export function keyExtrasOf(view: View): { underlays: ReadonlySet<KeyUnderlay>; 
   const first = firstDraftOf(view).firstDraft === true
   for (const { link } of cardLinks(drawnModelOf(model))) {
     const d = drawnAs(link)
-    const alert = linkAlertStyle(link)
     if (d.mark !== null) marks.add(d.mark)
-    if (alert === 'reason') underlays.add('reason-alert')
-    else if (d.dotted) underlays.add('dotted')
-    if (alert === 'halo') underlays.add('halo-alert')
+    if (d.dotted) underlays.add('dotted')
+    if (link.alert) underlays.add('halo-alert')
     if ((link.proposed || linkByOlumi(model, link.from, link.to)) && !first) underlays.add('halo-proposed')
   }
   return { underlays, marks }
@@ -88,31 +94,28 @@ export const keyLinesOf = (model: ViewModel): { id: KeyLineId; text: string }[] 
   return (model.key ?? []).flatMap((k) => ((KEY_LINE_IDS as readonly string[]).includes(k.id) && present.has(k.id as KeyLineId) ? [{ id: k.id as KeyLineId, text: k.text }] : []))
 }
 
-function LineSample({ id, sample, doubt = false }: { id: Exclude<KeyLineId, 'doubted'>; sample?: Sample; doubt?: boolean }) {
+function LineSample({ id, sample, doubt = false }: { id: KeyLineId | string; sample?: Sample; doubt?: boolean }) {
   // The canvas's own small mark for a direction not settled (canvas/edges/ViewLinkEdge MARK_ID, registry `link-unknown`), never a "?" text glyph.
   if (id === 'unsettled') return <span aria-hidden="true" data-key-sample="unsettled" className={`${typography.viewPanelMeta} grid h-4 w-4 place-items-center leading-none ok-key-unsettled`}><OkIcon id={KEY_MARK_IDS.unknown} size={14} decorative inherit /></span>
-  const s = sample ?? LINK_STYLES[id]
+  const s = sample ?? SAMPLES[id]!
   return (
-    <svg width="12" height="16" aria-hidden="true" data-key-sample={id} className={`ok-key-sample ok-link-tone-${toneOf(s.stroke)}`}>
-      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} className={doubt ? 'ok-link-line ok-link-doubt' : 'ok-link-line'} fill="none" />
-      {s.end === 'arrow' ? <path d="M2 9 6 14 10 9" className="ok-link-line" fill="none" /> : null}
-      {s.end === 'dot' ? <circle cx="6" cy="13" r="2.5" className="ok-link-end" /> : null}
+    <svg width="12" height="16" aria-hidden="true" data-key-sample={id}>
+      <path d={s.end === 'arrow' ? 'M6 1V12' : s.end === 'dot' ? 'M6 1V11' : 'M6 1V15'} stroke={s.stroke} strokeWidth={s.w} strokeDasharray={doubt ? DOUBT_DASH : s.dash ?? undefined} fill="none" />
+      {s.end === 'arrow' ? <path d="M2 9 6 14 10 9" stroke={s.stroke} strokeWidth={s.w} fill="none" /> : null}
+      {s.end === 'dot' ? <circle cx="6" cy="13" r="2.5" fill={s.stroke} /> : null}
     </svg>
   )
 }
 
 /** A line under a halo or a dotted line, as the canvas draws them: the halo is the underlay, the line keeps its own direction colour and arrow. */
 function UnderlaySample({ kind }: { kind: KeyUnderlay }) {
-  if (kind === 'dotted' || kind === 'reason-alert') return (
-    <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-sample ok-link-tone-neutral">
-      <path d="M6 1V15" className={`ok-link-line ok-link-dotted${kind === 'reason-alert' ? ' ok-link-reason-alert' : ''}`} fill="none" />
-    </svg>
-  )
+  if (kind === 'dotted') return <svg width="12" height="16" aria-hidden="true" data-key-sample="dotted"><path d="M6 1V15" stroke={EDGE_NEUTRAL} strokeWidth={LINK_STYLES.effect.width} className="ok-key-dotted" fill="none" /></svg>
+  const s = fromStyle(LINK_STYLES.effect), stroke = EFFECT_STROKES.increases
   return (
-    <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-sample ok-key-underlay ok-link-tone-positive">
+    <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-underlay">
       <path d="M6 1V13" className={kind === 'halo-alert' ? 'ok-link-halo ok-link-halo-alert' : 'ok-link-halo ok-link-halo-proposed'} />
-      <path d="M6 1V12" className="ok-link-line" fill="none" />
-      <path d="M2 9 6 14 10 9" className="ok-link-line" fill="none" />
+      <path d="M6 1V12" stroke={stroke} strokeWidth={s.w} fill="none" />
+      <path d="M2 9 6 14 10 9" stroke={stroke} strokeWidth={s.w} fill="none" />
     </svg>
   )
 }
@@ -137,11 +140,22 @@ export function KeyLines() {
   if (view === null || model === null) return null
   const lines = keyLinesOf(model)
   const { underlays, marks } = keyExtrasOf(view)
+  const first = firstDraftOf(view).firstDraft === true
+  const drawn = cardLinks(drawnModelOf(model)).map(({ link }) => ({
+    ...drawnAs(link),
+    doubt: !!link.doubt,
+    alert: linkAlertStyle(link),
+    proposed: !first && (link.proposed || linkByOlumi(model, link.from, link.to)),
+  }))
+  // Keep the existing artwork only where the board has a link with the same look.
+  const hasPolarity = (sign: (typeof EFFECT_POLARITY)[number]['id'], doubt: boolean, alert = false, proposed = false) =>
+    drawn.some((d) => d.direction === (sign === 'increases' ? 'raises' : 'lowers') && d.doubt === doubt
+      && d.alert === (alert ? 'halo' : null) && d.proposed === proposed)
+  const showUnsettled = marks.has('unknown') && lines.some((l) => l.id === 'unsettled')
   // Words are core's key items where core sends one (reason, alert, olumi), else the registry's own (the marks); a sample core has no word for stands without one.
   const coreWord = (id: string) => (model.key ?? []).find((k) => k.id === id)?.text
   const UNDERLAYS: readonly { kind: KeyUnderlay; word: string | undefined }[] = [
-    { kind: 'dotted', word: coreWord('reason') }, { kind: 'reason-alert', word: coreWord('alert') },
-    { kind: 'halo-alert', word: coreWord('alert') }, { kind: 'halo-proposed', word: coreWord('olumi') },
+    { kind: 'dotted', word: coreWord('reason') }, { kind: 'halo-alert', word: coreWord('alert') }, { kind: 'halo-proposed', word: coreWord('olumi') },
   ]
   // The registry's words, said once where marks share them (depends, disputed and unknown all say "Direction not settled").
   const markWords = [...new Set((Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m)).map((m) => ICONS[KEY_MARK_IDS[m]].hover))]
@@ -152,19 +166,26 @@ export function KeyLines() {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-key-row="lines">
           {lines.map((l) => l.id === 'effect'
             // The effect shows its direction colours: core's own words, then the two fixed notation words (UI chrome) beside their samples.
-            ? <span key={l.id} className={item} data-key-item="effect">{l.text}{EFFECT_POLARITY.map((p) => <span key={p.id} className={item} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} />{p.word}</span>)}</span>
+            ? <span key={l.id} className={item} data-key-item="effect">{l.text}{EFFECT_POLARITY.map((p) => <span key={p.id} className={item} data-key-polarity={p.id}>{hasPolarity(p.id, false) && <LineSample id="effect" sample={p.sample} />}{p.word}</span>)}</span>
             : l.id === 'doubted'
               // A doubted link keeps its direction colour and arrow and only takes the dash, as the canvas draws it (L4).
-              ? <span key={l.id} className={item} data-key-item="doubted">{EFFECT_POLARITY.map((p) => <span key={p.id} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} doubt /></span>)}{l.text}</span>
-              : <span key={l.id} className={item} data-key-item={l.id}><LineSample id={l.id} />{l.text}</span>)}
+              ? <span key={l.id} className={item} data-key-item="doubted">{EFFECT_POLARITY.filter((p) => hasPolarity(p.id, true)).map((p) => <span key={p.id} data-key-polarity={p.id}><LineSample id="effect" sample={p.sample} doubt /></span>)}{l.text}</span>
+              : <span key={l.id} className={item} data-key-item={l.id}>
+                {(l.id === 'unsettled' ? showUnsettled : drawn.some((d) => d.styled?.role === l.id && !d.doubt && d.alert === null && !d.proposed))
+                  && <LineSample id={l.id} />}{l.text}
+              </span>)}
         </div>
       )}
       {underlays.size === 0 && marks.size === 0 ? null : (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1" data-key-row="drawn">
-          {UNDERLAYS.filter((u) => underlays.has(u.kind)).map((u) => <span key={u.kind} className={item} data-key-item={u.kind}><UnderlaySample kind={u.kind} />{u.word}</span>)}
+          {UNDERLAYS.filter((u) => underlays.has(u.kind)).map((u) => <span key={u.kind} className={item} data-key-item={u.kind}>
+            {/* The reason sample has no end. On the board the reason has an arrow, and doubt overrides its dots. */}
+            {u.kind !== 'dotted' && hasPolarity('increases', false, u.kind === 'halo-alert', u.kind === 'halo-proposed')
+              && <UnderlaySample kind={u.kind} />}{u.word}
+          </span>)}
           {markWords.map((w) => (
             <span key={w} className={item} data-key-item="direction">
-              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={14} decorative /></span>)}{w}
+              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w && !(m === 'unknown' && showUnsettled)).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={14} decorative /></span>)}{w}
             </span>
           ))}
         </div>
