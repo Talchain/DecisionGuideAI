@@ -299,6 +299,22 @@ describe('Compare tab integration', () => {
       .toEqual(optionCards(held.model!).slice(0, 2).map((card) => card.id))
   })
 
+  it('shows Core’s if-approved glyph and tip beside its held chance value', () => {
+    stubReads()
+    const held = JSON.parse(readFileSync('src/olumiView/fixtures/break-even/break-even-pending.view3.json', 'utf8')) as View
+    const card = optionCards(held.model!).find((option) => option.id === 'opt_now')!
+    const chance = card.rows.find((row) => row.kind === 'chance')!
+    const mark = chance.if_approved!
+    useViewStore.setState({ sid: held.id, view: held, at: null })
+    render(<CoreCompareTab />)
+    fireEvent.click(within(picker()).getByRole('button', { name: `${optionLetters(held.model).get(card.id)} ${card.heading}` }))
+
+    const result = within(aimBlock(chance.aim_id)).getByText(chance.value).closest('[data-compare-result]')!
+    const glyph = within(result as HTMLElement).getByRole('img', { name: mark.title })
+    expect(glyph.textContent).toBe(mark.glyph)
+    expect(laneTipOf(glyph, 'focus')).toBe(mark.title)
+  })
+
   it('restores both choices when the same scenario refreshes and the options are still present', () => {
     stubReads()
     const view = { ...studio, version: null }
