@@ -380,7 +380,11 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-simple-qual { font-weight: 400; color: var(--text-light); }
 .olumi-look .ok-letter { display: inline-flex; flex: none; align-items: center; line-height: 1; }
 /* The aim's bound in Simple (a quiet outlined pill that may shrink). Assumption, baseline, limit and condition are registry icons (.ok-kind-mark), no longer words. */
-.olumi-look .ok-pill.ok-bound { gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit; }
+.olumi-look .ok-pill.ok-bound {
+  gap: calc(4px * var(--o-s)); max-width: 100%; min-width: 0; flex-shrink: 1; align-self: center; white-space: normal; font-size: inherit; color: inherit;
+  border-radius: calc((1em * var(--ok-pill-line-height) + 2 * var(--ok-pill-padding-block) + 2 * var(--ok-pill-border-width)) / 2);
+  text-wrap: balance;
+}
 .olumi-look .ok-withheld { display: flex; flex-direction: column; gap: calc(4px * var(--o-s)); min-width: 0; }
 /* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
 .olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: calc(8px * var(--o-s)); min-width: 0; }

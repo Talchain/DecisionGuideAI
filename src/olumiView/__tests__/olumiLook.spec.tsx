@@ -31,6 +31,12 @@ const draw = (view: View, card: ViewCard, width?: number): HTMLElement => {
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const cardOf = (v: View, pick: (c: ViewCard) => boolean) => v.model!.cards.find(pick)!
 
+it('keeps the aim bound pill radius at half its single-line height when it wraps', () => {
+  const css = readFileSync('src/olumiView/look/olumiLook.css', 'utf8')
+  const rule = css.match(/\.olumi-look \.ok-pill\.ok-bound\s*\{([^}]*)\}/)?.[1]
+  expect(rule).toContain('border-radius: calc((1em * var(--ok-pill-line-height) + 2 * var(--ok-pill-padding-block) + 2 * var(--ok-pill-border-width)) / 2);')
+})
+
 describe('slice (1): the option card shows its headline as the View serves it', () => {
   // CHANGED BY DESIGN (Detailed redesign, Paul 17 Nov: "not overwhelming but truly valuable"; each fact said once, whose it is a mark): every option with a chance here carries the
   // same clause, so the question's rail says it once (v12/detailed/said.ts sharedQualifier) and the option draws none; a clause of its own is its line.
