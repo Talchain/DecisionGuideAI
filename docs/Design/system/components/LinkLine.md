@@ -17,10 +17,10 @@ A link between two cards on the board. Its colour says which way the link pushes
 - **Dashes**:
   - in doubt: `5 4`;
   - a reason link: dotted, `0.1 6` round;
-  - a leader: `2 3` at 1px.
+  - a leader: `2 3` at 2px, non-scaling.
 - **Halos** (35% opacity):
   - alert: orange, 10px;
-  - proposed by Olumi: `info`, 8px.
+  - proposed by Olumi: a 3px `info` tint under the line that follows its dash, widened to 5px on a lit path so it shows around the 3px stroke, including inside an alert halo.
 - **Words**: `viewLabel` (12) in `text-light`, on a `bg-canvas` fill. They show on selection, on focus or when an end card is hovered, together with the strength and the remove control.
 
 ## Rules

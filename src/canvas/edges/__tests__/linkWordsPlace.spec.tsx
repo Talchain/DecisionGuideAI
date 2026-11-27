@@ -165,7 +165,7 @@ describe('words off their path stay with their link (PL 7 Nov: never detached; D
     const restore = measureWordsAs(size)
     try {
       const everywhere = { id: 'cover', x: -1000, y: -1000, w: 3000, h: 3000 }
-      const link = { from: 'a', to: 'b', kind: 'reason', label: '!', title: 't', doubt: false, alert: true, proposed: false, effect: null } as unknown as ViewLink
+      const link = { from: 'a', to: 'b', kind: 'reason', label: '!', title: 't', doubt: false, alert: false, proposed: false, effect: null } as unknown as ViewLink
       const draw = (selected: boolean) => render(<ReactFlowProvider initialNodes={[node(everywhere)]}><EdgeLabelLayer><svg>
         <Edge id="e" source="a" target="b" sourceX={0} sourceY={0} targetX={0} targetY={400} sourcePosition={Position.Bottom} targetPosition={Position.Top} data={{ link, i: 0 }} selected={selected} />
       </svg></EdgeLabelLayer></ReactFlowProvider>).container

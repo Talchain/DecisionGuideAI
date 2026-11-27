@@ -110,12 +110,11 @@ function LineSample({ id, sample, doubt = false }: { id: KeyLineId | string; sam
 /** A line under a halo or a dotted line, as the canvas draws them: the halo is the underlay, the line keeps its own direction colour and arrow. */
 function UnderlaySample({ kind }: { kind: KeyUnderlay }) {
   if (kind === 'dotted') return <svg width="12" height="16" aria-hidden="true" data-key-sample="dotted"><path d="M6 1V15" stroke={EDGE_NEUTRAL} strokeWidth={LINK_STYLES.effect.width} className="ok-key-dotted" fill="none" /></svg>
-  const s = fromStyle(LINK_STYLES.effect), stroke = EFFECT_STROKES.increases
   return (
-    <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-underlay">
+    <svg width="12" height="16" aria-hidden="true" data-key-sample={kind} className="ok-key-underlay ok-link-tone-positive">
       <path d="M6 1V13" className={kind === 'halo-alert' ? 'ok-link-halo ok-link-halo-alert' : 'ok-link-halo ok-link-halo-proposed'} />
-      <path d="M6 1V12" stroke={stroke} strokeWidth={s.w} fill="none" />
-      <path d="M2 9 6 14 10 9" stroke={stroke} strokeWidth={s.w} fill="none" />
+      <path d="M6 1V12" className="ok-link-line" fill="none" />
+      <path d="M2 9 6 14 10 9" className="ok-link-line" fill="none" />
     </svg>
   )
 }

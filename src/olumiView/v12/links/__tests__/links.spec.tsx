@@ -9,6 +9,7 @@ import type { View, ViewLink } from '../../../client'
 import { useViewStore } from '../../../store'
 import { useViewFocusLink, useViewHover } from '../../../canvas'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
+import { GroupLinkEdge } from '../../bands/GroupLinkEdge'
 import { EdgeLabelLayer } from '../../../__tests__/edgeLabelLayer'
 import { DIRECTION_NOT_SETTLED, DOUBT_DASH, EDGE_NEUTRAL, EFFECT_STROKES, GOLD, INK, INPUT_GREY, LINK_STYLES, PLAIN_WIDTH, TONE_TOKEN, linkStyle, toneOf } from '../styles'
 import { effectMidpoint } from '../geometry'
@@ -351,6 +352,10 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
   const WORDS = 'More A raises B\na lot\nAbout a lot more per week'
   const withText = () => { const l = dir(); l.causal!.text = 'More A raises B'; return l }
   const tips = () => screen.queryAllByRole('tooltip')
+  const focusEdge = (c: HTMLElement) => act(() => {
+    c.querySelector<HTMLElement>('.react-flow__edge')!.focus()
+    useViewFocusLink.setState({ id: 'e' })
+  })
   it('the pointer on the line opens the Tip after exactly 150 ms with core\'s words, and leaving closes it at once; no native title is written anywhere on the link', () => {
     vi.useFakeTimers()
     const c = draw(withText())
@@ -421,8 +426,8 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(tips()).toHaveLength(0)
     cleanup()
-    draw(withText())
-    act(() => { useViewFocusLink.setState({ id: 'e' }) }); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+    focusEdge(draw(withText()))
+    act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(tips()).toHaveLength(1)
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(tips(), 'a focused link\'s Tip too').toHaveLength(0)
@@ -430,7 +435,7 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
   it('the pointer and focus on one link are ONE Tip, not two; it stays while either holds and closes when both are gone', () => {
     vi.useFakeTimers()
     const c = draw(withText())
-    act(() => { useViewFocusLink.setState({ id: 'e' }) })
+    focusEdge(c)
     fireEvent.pointerEnter(g(c)); act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(tips()).toHaveLength(1)
     fireEvent.pointerLeave(g(c))
@@ -445,8 +450,7 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
       const r = this.hasAttribute('data-view-link-mark') ? at : { left: 0, top: 0, width: 0, height: 0 }
       return { ...r, right: r.left + r.width, bottom: r.top + r.height, x: r.left, y: r.top, toJSON: () => ({}) } as DOMRect
     })
-    draw(dir())
-    act(() => { useViewFocusLink.setState({ id: 'e' }) })
+    focusEdge(draw(dir()))
     expect(tips(), 'focus alone is not instant').toHaveLength(0)
     act(() => { vi.advanceTimersByTime(TIP_DELAY) })
     expect(screen.getByRole('tooltip').style.getPropertyValue('--tip-x')).toBe(`${100 + 12 + 8}px`)
@@ -471,7 +475,7 @@ describe('the hover is the shared Tip (panel-visual rule 4): one lifecycle for t
         </g>
       </svg></EdgeLabelLayer></ReactFlowProvider>,
     ).container
-    const wrapper = c.querySelector('.react-flow__edge') as SVGGElement
+    const wrapper = c.querySelector('g.react-flow__edge') as SVGGElement
     // Real keyboard focus on the wrapper: the Tip opens only on a focus ring (`:focus-visible`), which a store write alone does not give it.
     act(() => { wrapper.focus() })
     act(() => { useViewFocusLink.setState({ id: 'e' }) })
@@ -518,17 +522,35 @@ describe('modifier channels (panel-visual system L4)', () => {
   })
   it('L4b proposal is a blue halo under a directional line in an approved model, the direction colour kept; on a first draft it marks nothing (R3)', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
+    useFocusPath.setState({ path: new Set([first.from, first.to]) })
     const c = draw(both({ proposed: true }))
-    expect([applied(line(c)).stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
-    expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
+    const lit = applied(line(c))
+    const proposalHalo = c.querySelector('[data-link-halo-path="proposed"]')!
+    expect([lit.stroke, lit.strokeWidth, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, px(PLAIN_WIDTH + 1), 'proposed'])
+    expect(applied(proposalHalo)).toMatchObject({ stroke: 'var(--semantic-info)', strokeWidth: '5px', opacity: '0.35' })
+    expect(applied(proposalHalo).strokeDasharray).toBe(lit.strokeDasharray)
+    expect(proposalHalo.getAttribute('d')).toBe(line(c).getAttribute('d'))
+    expect(proposalHalo.nextElementSibling).toBe(line(c))
+    expect(line(c)).toHaveAttribute('marker-end', 'url(#view-link-arrow-0)')
     cleanup()
     useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
     expect(g(draw(both({ proposed: true }))).hasAttribute('data-link-halo')).toBe(false)
   })
   it('L4c the four channels coexist on one line: direction colour, doubt dash, alert halo and proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
+    useFocusPath.setState({ path: new Set([first.from, first.to]) })
     const c = draw(both({ doubt: true, alert: true, proposed: true }))
-    expect([applied(line(c)).stroke, applied(line(c)).strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
+    const lit = applied(line(c))
+    expect(lit).toMatchObject({ stroke: EFFECT_STROKES.decreases, strokeWidth: '3px', strokeDasharray: DOUBT_DASH, strokeLinecap: 'butt' })
+    expect(g(c)).toHaveAttribute('data-link-halo', 'alert proposed')
+    const proposalHalo = c.querySelector('[data-link-halo-path="proposed"]')!
+    const alertHalo = c.querySelector('[data-link-halo-path="alert"]')!
+    expect(proposalHalo).toHaveClass('ok-link-halo-inner')
+    expect(applied(proposalHalo)).toMatchObject({ stroke: 'var(--semantic-info)', strokeWidth: '5px', opacity: '0.35', strokeDasharray: DOUBT_DASH, strokeLinecap: 'butt' })
+    expect(applied(alertHalo)).toMatchObject({ stroke: 'var(--olumi-mark-orange)', strokeWidth: '10px' })
+    expect(applied(alertHalo).strokeDasharray).toBeUndefined()
+    expect(alertHalo.nextElementSibling).toBe(proposalHalo)
+    expect(proposalHalo.nextElementSibling).toBe(line(c))
   })
   it('L4d a neutral relation keeps both halos, and an alert reason line keeps its proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
@@ -536,14 +558,21 @@ describe('modifier channels (panel-visual system L4)', () => {
     const relation = draw(plain({ alert: true, proposed: true }))
     expect([applied(line(relation)).stroke, g(relation).getAttribute('data-link-halo')]).toEqual([EDGE_NEUTRAL, 'alert proposed'])
     expect(relation.querySelector('[data-link-halo-path="alert"]')).toHaveClass('ok-link-halo-alert')
-    expect(relation.querySelector('[data-link-halo-path="proposed"]')).toHaveClass('ok-link-halo-inner')
+    const innerHalo = relation.querySelector('[data-link-halo-path="proposed"]')!
+    expect(innerHalo).toHaveClass('ok-link-halo-inner')
+    expect(applied(innerHalo).strokeWidth).toBe('3px')
     cleanup()
     const reason = draw(plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' }))
     expect(g(reason)).toHaveAttribute('data-link-halo', 'proposed')
     expect(reason.querySelector('[data-link-halo-path="alert"]')).toBeNull()
-    const proposalHalo = reason.querySelector('[data-link-halo-path="proposed"]')
+    const proposalHalo = reason.querySelector('[data-link-halo-path="proposed"]')!
     expect(proposalHalo).toHaveClass('ok-link-halo-proposed')
     expect(proposalHalo).not.toHaveClass('ok-link-halo-inner')
+    expect(applied(proposalHalo)).toMatchObject({ strokeWidth: '3px', strokeDasharray: DOTS, strokeLinecap: 'round' })
+    expect(applied(proposalHalo).strokeDasharray).toBe(applied(line(reason)).strokeDasharray)
+    cleanup()
+    const doubtedReason = draw(plain({ proposed: true, doubt: true, kind: 'reason', role: 'reason' }))
+    expect(applied(doubtedReason.querySelector('[data-link-halo-path="proposed"]')!)).toMatchObject({ strokeDasharray: DOUBT_DASH, strokeLinecap: 'butt' })
     cleanup()
     // One channel alone is still one halo; a first draft still marks no proposal (R3).
     const a = draw(plain({ alert: true })); expect(g(a).getAttribute('data-link-halo')).toBe('alert'); cleanup()
@@ -554,6 +583,45 @@ describe('modifier channels (panel-visual system L4)', () => {
 
 describe('presentation is token CSS (panel-visual system, no styles in components)', () => {
   const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  it.each([
+    { from: 'group:inputs', to: 'aim', mixedDirection: false },
+    { from: 'factor', to: 'aim', mixedDirection: false },
+    { from: 'group:inputs', to: 'aim', mixedDirection: true },
+  ])('draws a folded connector from $from to $to (mixed direction: $mixedDirection)', ({ from, to, mixedDirection }) => {
+    const c = render(<ReactFlowProvider><EdgeLabelLayer><svg><GroupLinkEdge id="group-edge" source={from} target={to}
+      sourceX={0} sourceY={0} targetX={100} targetY={100} sourcePosition={Position.Bottom} targetPosition={Position.Top}
+      data={{ from, to, count: 2, ...(mixedDirection ? { mixedDirection: true } : {}) }}
+      selected={false} animated={false} type="groupLink" />
+    </svg></EdgeLabelLayer></ReactFlowProvider>).container
+    const edge = line(c)
+    expect(edge).toHaveClass('ok-link-line')
+    expect(edge.closest('.ok-link-tone-neutral')).toBeInTheDocument()
+    expect(applied(edge)).toMatchObject({ stroke: EDGE_NEUTRAL, strokeWidth: px(PLAIN_WIDTH), vectorEffect: 'non-scaling-stroke' })
+    for (const attr of ['style', 'stroke', 'stroke-width', 'marker-start']) expect(edge).not.toHaveAttribute(attr)
+    if (mixedDirection) {
+      expect(edge).not.toHaveAttribute('marker-end')
+      expect(c.querySelector('marker')).toBeNull()
+    } else {
+      const marker = c.querySelector('marker')!
+      expect(edge).toHaveAttribute('marker-end', `url(#${marker.id})`)
+      expect(applied(marker.querySelector('path.ok-link-end')!).fill).toBe(EDGE_NEUTRAL)
+    }
+  })
+  it('limits edge stroke widths to the shared line width and the registered states', () => {
+    const sheet = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    const widths = [...sheet.matchAll(/([^{}]+)\{[^{}]*?\bstroke-width:\s*([^;}]+)[^{}]*\}/g)]
+      .map(([, selector, width]) => [selector!.trim(), width!.trim()])
+      .filter(([selector]) => selector !== '.olumi-look .ok-link-size-label') // SVG text outline
+    const path = '.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line'
+    expect(widths).toEqual([
+      [`.ok-key-underlay .ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
+      ['.olumi-look .ok-link-leader', px(PLAIN_WIDTH)],
+      [`${path}.ok-link-on-path`, '3px'],
+      ['.ok-link-halo-alert', '10px'],
+      ['.ok-link-halo-proposed', '3px'],
+      ['.ok-link-halo-proposed.ok-link-on-path', '5px'],
+    ])
+  })
   it('the tone classes declare the tokens the lane\'s ink table names, and every drawn line takes its stroke from its tone class (no inline stroke)', () => {
     for (const [tone, token] of Object.entries(TONE_TOKEN)) expect(declared(`ok-link-tone-${tone}`)['--link-tone'], tone).toBe(token)
     expect(toneOf(EFFECT_STROKES.increases)).toBe('positive')
@@ -576,7 +644,8 @@ describe('presentation is token CSS (panel-visual system, no styles in component
   it('the halos, path emphasis and words\' box use stylesheet classes; card outline transitions respect reduced motion', () => {
     for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-on-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit', '.ok-link-hidden', '.ok-link-leader', '.ok-link-end', '.ok-link-chip', '.ok-link-ctl']) expect(css, sel).toContain(sel)
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^}]*transition: background-color 120ms ease, outline-color 120ms ease/)
-    expect([declared('ok-link-halo-alert')['stroke-width'], declared('ok-link-halo-proposed')['stroke-width']]).toEqual([px(PLAIN_WIDTH + 8), px(PLAIN_WIDTH + 6)])
+    expect(declared('ok-link-halo-alert')['stroke-width']).toBe(px(PLAIN_WIDTH + 8))
+    expect(declared('ok-link-halo-proposed').stroke).toBe('var(--semantic-info)')
     const c = draw(withCausal('increases', { alert: true }))
     const words = document.body.querySelector('[data-view-link-words]') as HTMLElement
     expect(words.className).toContain('ok-link-words')

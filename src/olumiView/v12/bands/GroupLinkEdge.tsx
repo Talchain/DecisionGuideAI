@@ -6,21 +6,25 @@
 import { memo, useId } from 'react'
 import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react'
 import { EndMarker } from '../links/LinkEnds'
-import { GROUP_ID_PREFIX, type GroupLink } from './groups'
+import { LINK_STYLES, toneOf } from '../links/styles'
+import type { GroupLink } from './groups'
+
+const unsignedEffect = LINK_STYLES.effect
+const tone = toneOf(unsignedEffect.stroke)
 
 /** The connector's hover: how many links, never whose. */
 export const groupLinkTitle = (count: number): string => (count === 1 ? '1 link' : `${count} links`)
 
 function GroupLinkEdgeImpl({ id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps): JSX.Element {
-  const { from, to, count, mixedDirection } = data as unknown as GroupLink
+  const { count, mixedDirection } = data as unknown as GroupLink
   const arrow = useId()
-  const directed = !mixedDirection && (from.startsWith(GROUP_ID_PREFIX) || to.startsWith(GROUP_ID_PREFIX))
+  const end = mixedDirection ? 'none' : unsignedEffect.end
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   return (
-    <g className="ok-link-tone-neutral" data-group-link={id} data-group-link-count={count} data-mixed-direction={mixedDirection ? '' : undefined}>
+    <g className={`ok-link-tone-${tone}`} data-group-link={id} data-group-link-count={count} data-mixed-direction={mixedDirection ? '' : undefined}>
       <title>{groupLinkTitle(count)}</title>
-      {directed ? <defs><EndMarker id={arrow} end="arrow" /></defs> : null}
-      <BaseEdge id={id} path={path} className="ok-link-line" markerEnd={directed ? `url(#${arrow})` : undefined} />
+      {end !== 'none' ? <defs><EndMarker id={arrow} end={end} /></defs> : null}
+      <BaseEdge id={id} path={path} className="ok-link-line" markerEnd={end !== 'none' ? `url(#${arrow})` : undefined} />
     </g>
   )
 }

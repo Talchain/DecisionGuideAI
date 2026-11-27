@@ -40,6 +40,8 @@ import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
 import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
+import { applied } from '../v12/links/__tests__/applied'
+import { EDGE_NEUTRAL, PLAIN_WIDTH } from '../v12/links/styles'
 
 const EU = JSON.parse(readFileSync(path.resolve('src/olumiView/reasoning/__tests__/fixtures/european-loop9.view3.json'), 'utf8')) as View
 const ready = (view: View | null, sid: string | null = view?.id ?? null) => {
@@ -52,11 +54,12 @@ const css = () => readdirSync(path.resolve('src/styles')).filter((f) => f.endsWi
 describe('the graph', () => {
   it('PB1 (G1): the question-to-option line is stroked with a colour the stylesheets define; the old token is defined nowhere', () => {
     const Edge = RootLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
-    const c = render(<ReactFlowProvider><svg><Edge id="root:o" source="q" target="o" sourceX={0} sourceY={0} targetX={0} targetY={80} sourcePosition={Position.Bottom} targetPosition={Position.Top} /></svg></ReactFlowProvider>).container
-    expect(c.querySelector('path.react-flow__edge-path')).toHaveClass('ok-root-link')
-    const look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    const token = /\.ok-root-link \{ stroke: var\((--edge-neutral)\); stroke-width: 1px;/.exec(look)?.[1]
-    expect(token).toBe('--edge-neutral')
+    const c = render(<ReactFlowProvider><EdgeLabelLayer><svg><Edge id="root:o" source="q" target="o" sourceX={0} sourceY={0} targetX={0} targetY={80} sourcePosition={Position.Bottom} targetPosition={Position.Top} /></svg></EdgeLabelLayer></ReactFlowProvider>).container
+    const line = c.querySelector('path.react-flow__edge-path')!
+    expect(line).toHaveClass('ok-link-line', 'ok-link-tone-neutral')
+    expect(applied(line)).toMatchObject({ stroke: EDGE_NEUTRAL, strokeWidth: `${PLAIN_WIDTH}px`, vectorEffect: 'non-scaling-stroke' })
+    for (const attr of ['style', 'stroke', 'stroke-width', 'marker-start', 'marker-end']) expect(line).not.toHaveAttribute(attr)
+    const token = '--edge-neutral'
     expect(new RegExp(`${token}:\\s*#[0-9a-fA-F]{6}\\b`).test(css()), `${token} is a hex colour in the stylesheets`).toBe(true)
     expect(/--border-strong\s*:/.test(css()), 'CONTRAST: the old token is defined nowhere').toBe(false)
   })

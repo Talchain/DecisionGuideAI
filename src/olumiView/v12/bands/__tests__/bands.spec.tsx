@@ -21,6 +21,7 @@ import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { KeyLines, KEY_MARK_IDS, keyExtrasOf, keyLinesOf, keyPresent } from '../KeyPill'
 import { ICONS } from '../../../look/icons'
+import { applied } from '../../links/__tests__/applied'
 import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, GROUP_LINK, ROOT_LINK, VIEW_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -276,9 +277,17 @@ describe('bands: the key pill', () => {
     expect(keyExtrasOf({ ...settled, model: { ...settled.model!, links: [{ ...settled.model!.links[0]! }] } } as View).underlays.has('halo-alert')).toBe(false)
     useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never)
     const { container } = render(<KeyLines />)
-    expect(container.querySelector('[data-key-sample="dotted"] path')!.getAttribute('class')).toBe('ok-key-dotted')
-    expect(container.querySelector('[data-key-sample="halo-alert"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-alert')
-    expect(container.querySelector('[data-key-sample="halo-proposed"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-proposed')
+    const reasonLine = container.querySelector('[data-key-sample="dotted"] path')!
+    const alertHalo = container.querySelector('[data-key-sample="halo-alert"] path')!
+    expect(applied(reasonLine)).toMatchObject({ strokeDasharray: '0.1 6', strokeLinecap: 'round' })
+    expect(applied(alertHalo)).toMatchObject({ stroke: 'var(--olumi-mark-orange)', strokeWidth: '10px', opacity: '0.35' })
+    const proposalHalo = container.querySelector('[data-key-sample="halo-proposed"] path')!
+    const proposalLine = proposalHalo.nextElementSibling!
+    expect(proposalHalo.closest('.olumi-look')).toBeNull()
+    expect(applied(proposalHalo)).toMatchObject({ stroke: 'var(--semantic-info)', strokeWidth: '3px', opacity: '0.35', vectorEffect: 'non-scaling-stroke' })
+    expect(applied(proposalHalo).strokeDasharray).toBeUndefined()
+    expect(applied(proposalLine)).toMatchObject({ stroke: EFFECT_STROKES.increases, strokeWidth: '2px' })
+    expect(applied(proposalLine.cloneNode() as Element).strokeWidth).toBeUndefined()
     expect(container.querySelector('[data-key-item="halo-alert"]')).toHaveTextContent('core says alert')
   })
   it('K4 with no role in the View, the key still draws its marks and no line sample', () => {
@@ -392,7 +401,7 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
   })
   it('D3 one-way folded links keep their arrows, a mixed pair draws one plain line, and opening the group draws the real links', async () => {
     const members = ['budget', 'oven_price', 'fitting']
-    const group = groupIdOf('proposed', 'inputs')
+    const group = groupIdOf('proposed', 'points')
     const forward = model.links.filter((l) => members.includes(l.from))
     const reverse = { ...forward[0]!, from: 'spend', to: 'fitting', kind: 'plain' as const }
     const core = {
@@ -400,7 +409,7 @@ describe('bands: what the canvas draws (real drawViewCanvas)', () => {
       cards: model.cards
         .filter((c) => [...members, 'spend', 'within_budget'].includes(c.id))
         .map((c) => members.includes(c.id)
-          ? { ...c, kind: 'driver' as const, author: { by: 'olumi' as const, text: '', title: '' }, change: { kind: 'added' as const, glyph: '+', title: '' } }
+          ? { ...c, kind: 'note' as const, figure: null, author: { by: 'olumi' as const, text: '', title: '' }, change: { kind: 'added' as const, glyph: '+', title: '' } }
           : { ...c, author: { by: 'person' as const, text: '', title: '' } }),
       links: [...forward, reverse],
     }

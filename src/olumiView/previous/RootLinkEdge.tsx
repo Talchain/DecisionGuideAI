@@ -8,6 +8,6 @@ import '../look/olumiLook.css'
 
 function RootLinkEdgeImpl({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps): JSX.Element {
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  return <BaseEdge path={path} className="ok-root-link" />
+  return <BaseEdge path={path} className="ok-link-line ok-link-tone-neutral" />
 }
 export const RootLinkEdge = memo(RootLinkEdgeImpl)

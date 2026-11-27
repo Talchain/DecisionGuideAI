@@ -1,8 +1,8 @@
 /**
  * Test seam for the links lane: what a link's element is drawn WITH. The lane writes classes (and two custom properties for where a part stands), never an
  * inline style, so a spec that asks "what stroke, width, dash?" reads the applied recipe: the classes on the element against the declarations in
- * olumiLook.css (jsdom loads no stylesheet). It follows the cascade only as far as the recipes need: a rule applies when every class of its last compound
- * selector is on the element; the more classes the whole selector names, the stronger; later wins a tie; `var(--x)` resolves through the element's ancestors.
+ * olumiLook.css (jsdom loads no stylesheet). For class selectors, match the full selector including ancestors. More classes win; later wins a tie.
+ * `var(--x)` resolves through the element's ancestors where this sheet defines it. Theme references stay as tokens.
  */
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -17,8 +17,8 @@ const sheet = (): Rule[] => {
     const decls: Record<string, string> = {}
     for (const d of m[2]!.split(';')) { const k = d.indexOf(':'); if (k > 0) decls[d.slice(0, k).trim()] = d.slice(k + 1).trim() }
     for (const selector of m[1]!.split(',').map((x) => x.trim())) {
+      if (!/^\.[\w-]+(?:\.[\w-]+|\s+\.[\w-]+)*$/.test(selector)) continue
       const last = selector.split(/\s+/).pop()!
-      if (/^[a-z]/i.test(last) || /[:[>+~]/.test(last)) continue // an element, pseudo or attribute selector: not a class recipe
       rules.push({ selector, classes: [...last.matchAll(/\.([\w-]+)/g)].map((c) => c[1]!), weight: [...selector.matchAll(/\.[\w-]+/g)].length, order: order++, decls })
     }
   }
@@ -28,10 +28,9 @@ let cached: Rule[] | null = null
 export const rules = (): Rule[] => (cached ??= sheet())
 
 const own = (el: Element): Record<string, string> => {
-  const have = new Set((el.getAttribute('class') ?? '').split(/\s+/))
   const out: Record<string, { v: string; w: number; o: number }> = {}
   for (const r of rules()) {
-    if (r.classes.length === 0 || !r.classes.every((c) => have.has(c))) continue
+    if (!el.matches(r.selector)) continue
     for (const [k, v] of Object.entries(r.decls)) { const was = out[k]; if (was === undefined || r.weight > was.w || (r.weight === was.w && r.order > was.o)) out[k] = { v, w: r.weight, o: r.order } }
   }
   return Object.fromEntries(Object.entries(out).map(([k, x]) => [k, x.v]))
@@ -47,7 +46,7 @@ export const applied = (el: Element): Record<string, string> => {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(own(el))) {
     if (k.startsWith('--')) continue
-    const resolved = v.replace(/var\((--[\w-]+)(?:,\s*([^)]*))?\)/g, (_m, name: string, fb: string | undefined) => custom(el, name) ?? fb ?? '')
+    const resolved = v.replace(/var\((--[\w-]+)(?:,\s*([^)]*))?\)/g, (reference, name: string, fallback: string | undefined) => custom(el, name) ?? fallback ?? reference)
     out[k.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase())] = resolved
   }
   return out
