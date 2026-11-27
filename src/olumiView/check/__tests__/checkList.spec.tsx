@@ -504,7 +504,7 @@ describe('readiness in Check', () => {
     }
   })
 
-  it('suppresses wait and size rows for every explicit blocker of a missing result', () => {
+  it('suppresses wait and size rows only for the blocker a displayed missing result stands for (PL 1514)', () => {
     const { model, other } = fixture()
     const run = model.run!
     run.shared_blockers = []
@@ -514,7 +514,8 @@ describe('readiness in Check', () => {
     expect(keysForTarget()).toEqual([`size:${other.id}`])
     option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: other.id }, { role: 'figure', ref: 'fitting' }] }
     expect(keysForTarget()).toEqual(['none:second_oven.0'])
-    expect(checkNeedsOf(model).some(({ key }) => key === 'waits:fitting')).toBe(false)
+    // The row stands for its first blocker only; a further ref (here the 'fitting' wait) stays listed.
+    expect(checkNeedsOf(model).some(({ key }) => key === 'waits:fitting')).toBe(true)
     run.waits_on!.items.push({ ...run.waits_on!.items[0]!, id: other.id })
     expect(keysForTarget()).toEqual(['none:second_oven.0'])
     option.rows[0] = none

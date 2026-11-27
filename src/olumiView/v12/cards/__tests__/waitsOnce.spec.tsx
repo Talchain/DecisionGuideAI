@@ -34,7 +34,7 @@ afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ 
 const opts = CAFE.model!.cards.filter((c) => c.kind === 'option').map((c) => c.id)
 const unresolvedOn = (v: View, level: Level) => opts.map((id) => { const n = (draw(v, id, level).textContent ?? '').split('Still unresolved').length - 1; cleanup(); return n })
 describe('core 78c3afc4 café (every option waits on one Olumi figure): the UI says it once', () => {
-  it('W1 no option card says "Still unresolved" at either level; Check carries Core’s shared blocker once', () => {
+  it('W1 no option card says "Still unresolved" at either level; Check carries Core’s shared blocker once and keeps the editable wait once', () => {
     expect(opts).toHaveLength(4)
     for (const level of ['simple', 'working'] as const) expect([level, unresolvedOn(CAFE, level)]).toEqual([level, [0, 0, 0, 0]])
     const model = CAFE.model!
@@ -43,7 +43,8 @@ describe('core 78c3afc4 café (every option waits on one Olumi figure): the UI s
     expect(needs.filter(({ kind }) => kind === 'blocks')).toMatchObject([
       { cards: ['aim_tips'], at: 'run.shared_blockers.0.text', short: model.run!.shared_blockers![0]!.text },
     ])
-    expect(needs.some(({ key }) => key === 'waits:tip_gain')).toBe(false)
+    // PL 1514: the shared blocker stands for its aim (aim_tips), not for the figure it waits on, so Core's editable tip_gain wait stays listed once.
+    expect(needs.filter(({ key }) => key === 'waits:tip_gain')).toHaveLength(1)
   })
   const withAdd = (add: (id: string) => string): View => ({ ...CAFE, model: { ...CAFE.model!, cards: CAFE.model!.cards.map((c) => (c.kind === 'option' ? { ...c, headline: { ...(c as { headline: object }).headline, add: add(c.id) } } : c)) } } as View)
   it('W2 CONTRAST: an option whose own step differs keeps its own line (the probe reads the field)', () => {

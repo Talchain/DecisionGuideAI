@@ -75,12 +75,14 @@ export function checkNeedsOf(model: ViewModel): CheckItem[] {
   for (const card of options) card.rows.forEach((row, i) => {
     // Core's comparison baseline (aim_role 'reference') is not a need, so its refs hide nothing.
     if (row.kind !== 'none' || row.aim_role === 'reference') return
-    // An aim can host a missing result while still having its own independent wait.
-    for (const { ref } of row.blocked_by ?? []) seen.add(ref)
     if (blockers.some((b) => b.aim_id === row.aim_id && (b.options ?? []).includes(card.id))) return
     const id = row.blocked_by?.[0]?.ref ?? row.aim_id ?? null
     const at = `${card.id}.rows.${i}`
     push(`none:${card.id}.${i}`, 'blocks', row.text, `${at}.text`, id, cardOf(model, id)?.figure?.edit ?? null, wordsAt(row.title, `${at}.title`))
+    // Only the explicit blocker a displayed row stands for is covered (not its aim fallback, which can keep its own wait); a hidden row's refs
+    // and a displayed row's further refs (an editable wait) stay listed.
+    const shown = row.blocked_by?.[0]?.ref
+    if (shown != null && row.text !== '') seen.add(shown)
   })
   for (const card of options) card.rows.forEach((row, i) => {
     if (row.kind !== 'chance' || Number.isFinite(row.chance)) return
