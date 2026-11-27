@@ -7,7 +7,7 @@
 - A menu takes focus on its first row. A form focuses its first field, selecting the value when appropriate.
 - Within a menu, ↑ and ↓ move between rows, Home and End jump to the first and last row, Enter or Space selects the row, and letters jump to a matching row. → opens a submenu and ← returns to the parent row.
 - Follow `ViewSummary.tsx` for dialogs. Put initial focus inside, keep Tab in the dialog and return focus to the trigger when it closes.
-- Plain row labels truncate when needed. A caller-supplied description appears inline. Hover or keyboard focus shows the full truncated label, tip text or disabled reason in the row’s light Tip. Disabled rows stay focusable with `aria-disabled`.
+- Keep menu rows to one line and truncate long labels. Hover or keyboard focus shows the full truncated label, tip text or disabled reason in the row’s light Tip. Disabled rows stay focusable with `aria-disabled`.
 - A row tip belongs to its menu. The one-tip rule applies across surfaces, including menu row tips and card peeks. An open menu blocks standalone tips.
 
 ## Placement

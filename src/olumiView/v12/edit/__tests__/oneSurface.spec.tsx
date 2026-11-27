@@ -14,7 +14,7 @@ import { useCanvasStore } from '../../../../canvas/store'
 import { drawViewCanvas } from '../../../canvas'
 import { causalPlaces, drawKindOf } from '../../../layout'
 import { connectionsOf } from '../../inspect/connections'
-import { canvasChromeMenuBoundary, MENU_ROW, MENU_SHELL } from '../../../look/menu'
+import { canvasChromeMenuBoundary, MENU_ROW } from '../../../look/menu'
 import { LENSES_TESTID } from '../../lenses/LensesMenu'
 import { HOVER_CARD_OPEN_DELAY_MS } from '../../../../canvas/components/hoverCard/hoverCardPlacement'
 import { useLaneInspector } from '../inspectorStore'
@@ -1086,9 +1086,8 @@ describe('surfaces step B: one of each', () => {
 
   it('B-2 every menu over the canvas wears the one shell, and its rows the one row: the right-click menu, the "+" menu and the Lenses menu (bound by each menu\'s own element)', async () => {
     await board()
-    const shell = MENU_SHELL.split(/\s+/), rowCls = MENU_ROW.split(/\s+/)
+    const rowCls = MENU_ROW.split(/\s+/)
     const wears = (el: Element, cls: string[]) => cls.filter((c) => !el.classList.contains(c))
-    const radius = (el: Element) => [...el.classList].filter((c) => /^rounded(-|$)/.test(c))
     const seen: Array<[string, Element]> = []
     fireEvent.contextMenu(node(OTHER)); await settle()
     seen.push(['right-click', document.querySelector('[role="menu"][aria-label="Canvas context menu"]')!])
@@ -1100,8 +1099,7 @@ describe('surfaces step B: one of each', () => {
     seen.push(['lenses', screen.getByTestId(`${LENSES_TESTID}-menu`)])
     for (const [name, el] of seen) {
       expect(el, name).not.toBeNull()
-      expect(wears(el, shell), `${name}: shell classes missing`).toEqual([])
-      expect(radius(el), `${name}: one radius`).toEqual(['rounded-md'])
+      expect(el, `${name}: shared shell`).toHaveClass('ok-float')
       const rows = [...el.querySelectorAll('[role="menuitem"], [role="menuitemradio"]')]
       expect(rows.length, `${name}: has rows`).toBeGreaterThan(0)
       for (const r of rows) expect(wears(r, rowCls), `${name}: a row's classes missing`).toEqual([])

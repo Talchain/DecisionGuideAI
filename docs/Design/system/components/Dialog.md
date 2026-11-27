@@ -16,7 +16,7 @@ Summary, Rename scenario and Delete your data use the shared shell and focus lif
 
 - Focus moves into the dialog: to its first field, or to Close.
 - Tab is trapped inside the dialog.
-- Escape closes it through the shared stack. An outside press also closes it. A write already started can finish after the dialog closes. The same request is held while it is pending.
+- Escape closes it through the shared stack. An outside press also closes it. A dialog with a write in flight stays open until the write settles.
 - Focus returns to the trigger.
 - `role="dialog"`, `aria-modal="true"` and an accessible name.
 

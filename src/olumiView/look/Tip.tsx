@@ -65,12 +65,11 @@ let openTip: (() => void) | null = null
 /** The tip's delay (default TIP_DELAY, 150 ms): shown that long after the pointer comes to rest on a row, gone at once when it leaves. */
 export function useTipDelay(delay = TIP_DELAY) {
   const [active, setActive] = useState<{ text: string; rect: DOMRect; element: HTMLElement } | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelPending = useRef<(() => void) | null>(null)
   const unregister = useRef<(() => void) | null>(null)
   const close = useRef<() => void>(() => {})
   close.current = () => {
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = null
+    cancelPending.current?.()
     unregister.current?.()
     unregister.current = null
     setActive(null)
@@ -82,10 +81,18 @@ export function useTipDelay(delay = TIP_DELAY) {
     const menuRow = menuLane === true
     const blocked = () => menuRow ? menuLaneForTarget(element) !== true : tipBlocked()
     if (lane && blocked()) return
-    if (timer.current) clearTimeout(timer.current)
+    cancelPending.current?.()
     const generation = currentTipGeneration()
-    timer.current = setTimeout(() => {
-      timer.current = null
+    const escapePending = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') cancel()
+    }
+    const cancel = () => {
+      clearTimeout(timer)
+      if (lane) window.removeEventListener('keydown', escapePending, true)
+      cancelPending.current = null
+    }
+    const timer = setTimeout(() => {
+      cancel()
       if (lane) {
         if (generation !== currentTipGeneration() || blocked()) return
         unregister.current = registerPopup('tip', mine.current, null, null, { parentOwnsEscape: menuRow })
@@ -95,6 +102,8 @@ export function useTipDelay(delay = TIP_DELAY) {
       }
       setActive({ text, rect: element.getBoundingClientRect(), element })
     }, delay)
+    cancelPending.current = cancel
+    if (lane) window.addEventListener('keydown', escapePending, true)
   }
   const hideTooltip = useCallback(() => {
     close.current()
@@ -103,7 +112,7 @@ export function useTipDelay(delay = TIP_DELAY) {
   useEffect(() => {
     const legacyTip = mine.current
     return () => {
-      if (timer.current) clearTimeout(timer.current)
+      cancelPending.current?.()
       unregister.current?.()
       if (openTip === legacyTip) openTip = null
     }

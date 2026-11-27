@@ -6,6 +6,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { accountsApi } from '../../../olumiCore/accounts/api'
 import { useWrites } from '../../../olumiCore/team/writes'
 import { useViewStore } from '../../store'
+import { useViewLens } from '../../lens'
 import { ToastProvider } from '../../../canvas/ToastContext'
 import { CanvasViewportControls } from '../../../components/layout/CanvasViewportControls'
 import { useState } from 'react'
@@ -177,12 +178,14 @@ it('a single Escape dismisses only the newest registered layer', () => {
   }
 })
 
-it('keeps a saving sheet open on Escape and outside press', () => {
+it('keeps a saving sheet open on Escape, outside press and What if', () => {
   render(<Surfaces />)
   const inspect = screen.getByRole('button', { name: 'Inspect customers' })
   fireEvent.click(inspect)
   const sheet = screen.getByRole('complementary', { name: 'Details' })
   const close = within(sheet).getByRole('button', { name: 'Close details' })
+  const whatIf = within(sheet).getByTestId('inspector-what-if')
+  const { lens } = useViewLens.getState()
   const { sending } = useWrites.getState()
   const key = `${useViewStore.getState().sid}:edit:${card.id}`
   try {
@@ -190,6 +193,9 @@ it('keeps a saving sheet open on Escape and outside press', () => {
     escape(close)
     fireEvent.pointerDown(document.body)
     fireEvent.click(close)
+    fireEvent.click(whatIf)
+    expect(useViewLens.getState().lens).toBe(lens)
+    expect(whatIf).toHaveAttribute('aria-disabled', 'true')
     expect(sheet).toBeVisible()
     expect(close).toHaveAttribute('aria-disabled', 'true')
   } finally {
@@ -197,7 +203,7 @@ it('keeps a saving sheet open on Escape and outside press', () => {
   }
 })
 
-it('dismisses a saving dialog and blocks a repeat write when reopened', async () => {
+it('keeps a saving dialog open until the write settles', async () => {
   const sid = useViewStore.getState().sid!
   let finish!: (value: { id: string; title: string }) => void
   const pending = new Promise<{ id: string; title: string }>((resolve) => { finish = resolve })
@@ -213,17 +219,17 @@ it('dismisses a saving dialog and blocks a repeat write when reopened', async ()
     fireEvent.submit(dialog)
     expect(retitle).toHaveBeenCalledTimes(1)
 
-    escape(within(dialog).getByRole('button', { name: 'Close' }))
+    const cancel = within(dialog).getByRole('button', { name: 'Cancel' })
+    expect(cancel).toBeDisabled()
+    escape(dialog)
+    fireEvent.pointerDown(document.body)
+    expect(dialog).toBeInTheDocument()
+    fireEvent.submit(dialog)
+    expect(retitle).toHaveBeenCalledTimes(1)
+
+    await act(async () => { finish({ id: sid, title: 'A saved title' }); await pending })
     expect(dialog).not.toBeInTheDocument()
     expect(opener).toHaveFocus()
-    fireEvent.click(opener)
-    const reopened = screen.getByRole('dialog', { name: 'Rename scenario' })
-    expect(within(reopened).getByRole('button', { name: 'Save title' })).toBeDisabled()
-    fireEvent.submit(reopened)
-    expect(retitle).toHaveBeenCalledTimes(1)
-    await act(async () => { finish({ id: sid, title: 'A saved title' }); await pending })
-    expect(reopened).toBeInTheDocument()
-    expect(within(reopened).getByRole('button', { name: 'Save title' })).toBeEnabled()
   } finally {
     await act(async () => { finish({ id: sid, title: 'A saved title' }); await pending })
     retitle.mockRestore()

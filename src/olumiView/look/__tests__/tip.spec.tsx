@@ -99,6 +99,25 @@ describe('the one Tip', () => {
       vi.useRealTimers()
     }
   })
+  it('Escape cancels the pending tip and leaves a visible tip to the shared stack', () => {
+    vi.useFakeTimers()
+    try {
+      render(<Anchored words="Toolbar note" testid="tip-anchor" />)
+      const anchor = screen.getByTestId('tip-anchor')
+      fireEvent.pointerEnter(anchor)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY - 1) })
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      act(() => { vi.advanceTimersByTime(1) })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+
+      fireEvent.pointerLeave(anchor)
+      fireEvent.pointerEnter(anchor)
+      act(() => { vi.advanceTimersByTime(TIP_DELAY) })
+      expect(screen.getByRole('tooltip')).toHaveTextContent('Toolbar note')
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    } finally { vi.useRealTimers() }
+  })
   it('an oversized tip starts at its region margin and keeps its full height', () => {
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect(0, 0, window.innerWidth + 100, window.innerHeight + 100))
     try {

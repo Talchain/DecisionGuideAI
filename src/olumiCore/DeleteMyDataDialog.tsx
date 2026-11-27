@@ -13,56 +13,51 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2 } from 'lucide-react'
 import { FLOAT_CLASS } from '../olumiView/look/float'
-import { usePopupWriting, writeFromPopup } from '../olumiView/look/popupWrites'
 import { useDialogFocus } from '../olumiView/look/useDialogFocus'
 import { typography } from '../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../canvas/layers'
 import { Button } from '../components/ui/Button'
 import { deleteMyData, previewMyDataDeletion } from './erase'
 import { TeamApiError } from './team/api'
-import { useMe } from './me'
 
 const messageOf = (e: unknown): string => (e instanceof TeamApiError ? e.message : 'That did not go through. Nothing was deleted.')
 
 export function DeleteMyDataDialog({ onCancel, onDeleted, opener }: { onCancel: () => void; onDeleted: () => void; opener?: HTMLElement | null }) {
   const [words, setWords] = useState<readonly string[] | null>(null)
-  const person = useMe((s) => s.me?.id)
-  const writeKey = useRef(`delete-data:${person ?? ''}`).current
-  const deleting = usePopupWriting(writeKey)
-  const [reading, setReading] = useState(true)
+  const [busy, setBusy] = useState<'reading' | 'deleting' | null>('reading')
   const [error, setError] = useState<string | null>(null)
   const cancelButton = useRef<HTMLButtonElement>(null)
+  const live = useRef(true)
 
-  // Opening asks core for the preview only. A reopened dialog waits for any confirmed deletion.
+  // Opening asks core for the preview only. A preview that answers after Cancel changes nothing.
   useEffect(() => {
-    if (!reading || deleting) return
-    let live = true
+    live.current = true
     previewMyDataDeletion().then(
-      (w) => { if (live) { setWords(w); setReading(false) } },
-      (e) => { if (live) { setError(messageOf(e)); setReading(false) } },
+      (w) => { if (live.current) { setWords(w); setBusy(null) } },
+      (e) => { if (live.current) { setError(messageOf(e)); setBusy(null) } },
     )
-    return () => { live = false }
-  }, [deleting, reading])
+    return () => { live.current = false }
+  }, [])
 
   const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>({
     popup: true,
     initialFocus: () => cancelButton.current,
     opener: () => opener,
     onEscape: onCancel,
+    canDismiss: () => busy !== 'deleting',
   })
 
   const confirm = useCallback(async () => {
-    if (words === null || reading) return
-    setError(null)
+    if (busy !== null || words === null) return
+    setBusy('deleting'); setError(null)
     try {
-      await writeFromPopup(writeKey, async () => {
-        await deleteMyData()
-        onDeleted()
-      })
+      await deleteMyData()
     } catch (e) {
-      if (dialogRef.current?.isConnected) setError(messageOf(e))
+      if (live.current) { setError(messageOf(e)); setBusy(null) }
+      return
     }
-  }, [dialogRef, onDeleted, reading, words, writeKey])
+    onDeleted()
+  }, [busy, onDeleted, words])
 
   return createPortal(
     <div
@@ -75,7 +70,7 @@ export function DeleteMyDataDialog({ onCancel, onDeleted, opener }: { onCancel: 
         aria-modal="true"
         aria-labelledby="olumi-core-delete-title"
         aria-describedby="olumi-core-delete-about"
-        aria-busy={reading || deleting}
+        aria-busy={busy !== null}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         data-testid="olumi-core-delete-dialog"
@@ -86,7 +81,7 @@ export function DeleteMyDataDialog({ onCancel, onDeleted, opener }: { onCancel: 
           {words === null ? 'Olumi shows you what deleting would do before anything is deleted.' : 'This is what deleting your data does. It cannot be undone.'}
         </p>
 
-        {reading && !deleting && (
+        {busy === 'reading' && (
           <p role="status" className="m-0 text-text-light" data-testid="olumi-core-delete-reading">Finding what would be deleted…</p>
         )}
 
@@ -97,7 +92,7 @@ export function DeleteMyDataDialog({ onCancel, onDeleted, opener }: { onCancel: 
           </ul>
         )}
 
-        {deleting && (
+        {busy === 'deleting' && (
           <p role="status" className="m-0 text-text-light" data-testid="olumi-core-delete-deleting">Deleting your data…</p>
         )}
         {error !== null && (
@@ -105,15 +100,15 @@ export function DeleteMyDataDialog({ onCancel, onDeleted, opener }: { onCancel: 
         )}
 
         <div className="flex flex-wrap justify-end gap-2">
-          <Button ref={cancelButton} variant="secondary" size="sm" onClick={onCancel} data-testid="olumi-core-delete-cancel">
-            {deleting ? 'Close' : 'Cancel'}
+          <Button ref={cancelButton} variant="secondary" size="sm" onClick={onCancel} disabled={busy === 'deleting'} data-testid="olumi-core-delete-cancel">
+            Cancel
           </Button>
           {/* Offered only with core's sentences on screen: nothing is deleted unread. */}
           {words !== null && (
             <button
               type="button"
               onClick={() => void confirm()}
-              disabled={reading || deleting}
+              disabled={busy !== null}
               data-testid="olumi-core-delete-confirm"
               className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 ${typography.buttonSmall} bg-danger text-text-on-color border border-transparent hover:bg-danger/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 disabled:cursor-not-allowed disabled:opacity-40`}
             >

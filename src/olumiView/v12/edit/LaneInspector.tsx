@@ -320,7 +320,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
           <div className="flex flex-wrap items-center gap-1" role="group" aria-label={BOX_WORDS.actions}>
             {option && c.status === null ? <CommitToThisButton option={c.id} /> : null}
             {ask === null ? null : <button type="button" data-testid="inspector-ask" onClick={ask} className={VIEW_CHIP_CLASS}><OkIcon id="ask-about-this" size={14} decorative inherit />{INSPECTOR_WORDS.ask}</button>}
-            {!canTry ? null : <button type="button" data-testid="inspector-what-if" onClick={() => { openWhatIf(c.id); close() }} className={VIEW_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
+            {!canTry ? null : <button type="button" data-testid="inspector-what-if" aria-disabled={busy || undefined} onClick={() => { if (surfaceBusy(request)) return; openWhatIf(c.id); close() }} className={VIEW_CHIP_CLASS}><OkIcon id="what-if" size={14} decorative inherit />{INSPECTOR_WORDS.whatIf}</button>}
             {rows.length === 0 ? null : <OkIconButton id="more" size={14} tone="ghost" className="focus-visible:ring-text-header" pressed={more} onClick={() => setMore((m) => !m)} testid="lane-inspector-more" />}
           </div>
           {more && rows.length > 0 ? <div className="flex flex-wrap gap-1" role="group" aria-label={BOX_WORDS.edit}>{rows.map(chip)}</div> : null}

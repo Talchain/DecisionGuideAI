@@ -5,7 +5,7 @@ import { isSheetSurface, surfaceBusy, useLaneInspector } from '../v12/edit/inspe
 
 type Kind = 'tip' | 'sheet' | 'dialog' | 'float'
 type Close = () => void
-const active: Partial<Record<Kind, Close>> = {}
+const active: Partial<Record<Kind, { dismiss: Close; canDismiss: () => boolean }>> = {}
 
 export const dialogOpen = (): boolean => active.dialog !== undefined
 export const higherThanMenuOpen = (): boolean =>
@@ -18,9 +18,9 @@ let tipGeneration = 0
 export const currentTipGeneration = (): number => tipGeneration
 export const dismissTip = (): void => {
   tipGeneration++
-  active.tip?.()
+  active.tip?.dismiss()
 }
-export const dismissChromeSheet = (): void => { active.sheet?.() }
+export const dismissChromeSheet = (): void => { active.sheet?.dismiss() }
 
 /** A pointer press inside the surface or on its opener belongs to that control. */
 export function onOutsidePress(surface: Element | null, opener: Element | null, close: Close): Close {
@@ -34,40 +34,53 @@ export function onOutsidePress(surface: Element | null, opener: Element | null, 
 }
 
 /** Register the visible lifetime with the shared Escape stack. */
-export function registerPopup(kind: Kind, close: Close, surface: Element | null, opener: Element | null, options: { parentOwnsEscape?: boolean } = {}): Close {
-  active[kind]?.()
-  const dismiss = () => { unregister(); close() }
+export function registerPopup(kind: Kind, close: Close, surface: Element | null, opener: Element | null, options: { parentOwnsEscape?: boolean; canDismiss?: () => boolean } = {}): Close {
+  active[kind]?.dismiss()
+  const canDismiss = options.canDismiss ?? (() => true)
+  const dismiss = () => {
+    if (!canDismiss()) return
+    unregister()
+    close()
+  }
   const removeEscape = options.parentOwnsEscape ? undefined : registerEscapeLayer(dismiss)
   const removeOutside = onOutsidePress(surface, opener, dismiss)
   const unregister = () => {
-    if (active[kind] === dismiss) delete active[kind]
+    if (active[kind]?.dismiss === dismiss) delete active[kind]
     removeEscape?.()
     removeOutside()
   }
-  active[kind] = dismiss
+  active[kind] = { dismiss, canDismiss }
   return unregister
 }
 
 /** Modal dialogs and the canvas settings sheet share precedence with the canvas slot. */
 export function usePopupLayer<T extends HTMLElement>(
-  kind: 'dialog' | 'sheet', open: boolean, ref: RefObject<T>, opener: () => HTMLElement | null, close: Close,
-): void {
-  const latest = useRef({ opener, close })
-  latest.current = { opener, close }
+  kind: 'dialog' | 'sheet', open: boolean, ref: RefObject<T>, opener: () => HTMLElement | null, close: Close, canDismiss?: () => boolean,
+) {
+  const registered = useRef(false)
+  const latest = useRef({ opener, close, canDismiss })
+  latest.current = { opener, close, canDismiss }
   useLayoutEffect(() => {
     if (!open || ref.current === null) return
     const inspector = useLaneInspector.getState()
-    if (kind === 'sheet' && (dialogOpen() || surfaceBusy(inspector.current))) {
+    if (active[kind]?.canDismiss() === false || (kind === 'sheet' && (dialogOpen() || surfaceBusy(inspector.current)))) {
       latest.current.close()
       return
     }
     const trigger = latest.current.opener()
-    const unregister = registerPopup(kind, () => latest.current.close(), ref.current, kind === 'sheet' ? trigger : null)
+    const unregister = registerPopup(kind, () => latest.current.close(), ref.current, kind === 'sheet' ? trigger : null, {
+      canDismiss: () => latest.current.canDismiss?.() ?? true,
+    })
+    registered.current = true
     if (kind === 'dialog') dismissChromeSheet()
     dismissMenuForSurface()
     dismissTip()
     inspector.dismiss(false)
     if (inspector.peek !== null) inspector.clearPeek(inspector.peek.id)
-    return unregister
+    return () => {
+      registered.current = false
+      unregister()
+    }
   }, [kind, open, ref])
+  return registered
 }

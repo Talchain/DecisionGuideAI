@@ -13,6 +13,7 @@ interface DialogFocusOptions {
   containFocus?: boolean
   restoreFocus?: boolean
   popup?: boolean
+  canDismiss?: () => boolean
 }
 
 export function useDialogFocus<T extends HTMLElement>(options: DialogFocusOptions) {
@@ -23,13 +24,14 @@ export function useDialogFocus<T extends HTMLElement>(options: DialogFocusOption
   const latest = useRef(options)
   latest.current = options
   useEscapeLayer(open && !options.popup && onEscape !== undefined, () => latest.current.onEscape?.())
-  usePopupLayer('dialog', open && options.popup === true, dialogRef,
-    () => latest.current.opener?.() ?? null, () => latest.current.onEscape?.())
+  const registered = usePopupLayer('dialog', open && options.popup === true, dialogRef,
+    () => latest.current.opener?.() ?? null, () => latest.current.onEscape?.(), () => latest.current.canDismiss?.() ?? true)
 
   useEffect(() => {
     const dialog = dialogRef.current
     if (!open || dialog === null) return
     const { initialFocus, opener, popup, selectInput } = latest.current
+    if (popup && !registered.current) return
     const active = document.activeElement
     const trigger = opener?.() ?? (active instanceof HTMLElement ? active : null)
     const initial = initialFocus?.() ?? dialog
@@ -47,7 +49,7 @@ export function useDialogFocus<T extends HTMLElement>(options: DialogFocusOption
         trigger.focus({ preventScroll: true })
       }
     }
-  }, [containFocus, open, restoreFocus])
+  }, [containFocus, open, registered, restoreFocus])
 
   const onKeyDown = (event: KeyboardEvent<T>) => {
     if (!containFocus || event.defaultPrevented || event.key !== 'Tab') return
