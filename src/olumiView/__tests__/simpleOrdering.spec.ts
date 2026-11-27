@@ -51,7 +51,7 @@ describe('Simple wrapped-row ordering', () => {
   it('uses the group card as a slot and gives each of its connectors one vote regardless of count', () => {
     const fixed = { ...options, sizes: [3] }
     const { base, boxes, order, place } = board(fixed, { ids: ['x', 'group', 'z'], sizes: [3], step: 110 })
-    const groupLink = { ...link('C', 'group'), count: 13 }
+    const groupLink = { ...link('C', 'group'), group: true as const, count: 13 }
     const links = [link('A', 'group'), link('B', 'x'), link('C', 'x'), groupLink]
     const placed = order(links)
     expect(placed).toEqual(place([fixed.ids, ['group', 'x', 'z']]))
@@ -88,6 +88,31 @@ describe('Simple wrapped-row ordering', () => {
     const { base, boxes } = board(options, { ids: ['c', 'a', 'b'], sizes: [2, 1], step: 110 })
     const links = [link('A', 'a'), link('b', 'B'), link('c', 'a'), link('C', 'missing')]
     const cards = boxes(base)
-    expect(score(cards, links)).toEqual(crossingCounts(cards, links, (_link, from, to) => bezierPolyline(from, to)))
+    expect(score(cards, links)).toEqual(crossingCounts(cards, links, (_link, from, to) => bezierPolyline(from, to, 256)))
+  })
+
+  it('uses bottom-to-top handles on a group connector whose target is above its source', () => {
+    const cards = [
+      { id: 'to', x: 0, y: 0, w: 24, h: 30 },
+      { id: 'from', x: 300, y: 300, w: 24, h: 30 },
+      { id: 'below', x: 300, y: 345, w: 24, h: 10 },
+    ]
+    const ordinary = link('from', 'to')
+    const group: SimpleLink = { ...ordinary, group: true }
+    expect(score(cards, [ordinary]).cardHits).toBe(0)
+    expect(score(cards, [group]).cardHits).toBe(1)
+    expect(score(cards, [group])).toEqual(crossingCounts(cards, [group], (_link, from, to) => bezierPolyline(from, to, 256, false)))
+  })
+
+  it('counts both crossings of the H–J and J–D links from the 490 px review case', () => {
+    const cards = [
+      { id: 'H', x: 0, y: 547, w: 272, h: 90 },
+      { id: 'J', x: 592, y: 547, w: 272, h: 90 },
+      { id: 'D', x: 444, y: 409, w: 296, h: 90 },
+    ]
+    const links = [link('H', 'J'), link('J', 'D')]
+    expect(crossingCounts(cards, links, (_link, from, to) => bezierPolyline(from, to, 16)).crossings).toBe(0)
+    expect(crossingCounts(cards, links, (_link, from, to) => bezierPolyline(from, to, 256)).crossings).toBe(2)
+    expect(score(cards, links).crossings).toBe(2)
   })
 })

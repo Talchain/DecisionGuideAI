@@ -301,7 +301,8 @@ function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: Si
     return out
   }
   const orderingBands = base.map(({ ids, fixed, w, starts }) => ({ ids, fixed, rows: starts.map((xs) => xs.map((x) => x + w / 2)) }))
-  return orderSimpleBands(orderingBands, [...links, ...groupLinks], [QUESTION, ...bandOfId.keys()], place, heightOf)
+  const connectors = groupLinks.map(({ from, to }) => ({ from, to, group: true as const }))
+  return orderSimpleBands(orderingBands, [...links, ...connectors], [QUESTION, ...bandOfId.keys()], place, heightOf)
 }
 /** The question bar's width in Simple uses the card width and gap drawn in the options' first row. */
 export function simpleQuestionW(model: ViewModel, row: SimpleRow): number {
