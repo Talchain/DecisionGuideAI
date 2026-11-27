@@ -50,13 +50,3 @@ export function TipPoint({ tipping, card }: { tipping: TippingLine; card: ViewCa
     </div>
   )
 }
-
-/** Use the same bounds as TipPoint so an undrawable crossing has its reading in the fold. */
-export function canDrawTip(tipping: TippingLine, card: ViewCard | null) {
-  const { at, low, high } = tipping
-  if (![at, low, high].every(Number.isFinite) || !(low < high)) return false
-  const range = card === null ? null : figureRange(card)
-  const values = [at, low, high]
-  if (range !== null) values.push(range.low, range.high, range.likely ?? range.low)
-  return spanAxisOf(Math.min(...values), Math.max(...values)) !== null
-}
