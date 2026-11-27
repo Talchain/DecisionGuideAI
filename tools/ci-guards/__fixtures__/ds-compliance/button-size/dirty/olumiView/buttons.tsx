@@ -1,3 +1,13 @@
+type Classed = (props: { className: string }) => JSX.Element
+
+declare const HoverButton: Classed
+declare const Hover: (props: { as?: 'button'; className: string }) => JSX.Element
+declare const OkIconButton: Classed
+declare const Button: (props: { size?: 'sm' | 'md' | 'chip' }) => JSX.Element
+declare const MenuItem: Classed
+declare const clsx: (className: string, variants: Record<string, boolean>) => string
+declare const roomy: boolean
+
 const localClass = 'inline-flex min-h-8'
 
 export const buttons = <>

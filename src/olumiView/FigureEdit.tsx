@@ -37,8 +37,6 @@ export const QUIET = 'invisible group-hover:visible group-focus-within:visible f
 /** With `glyph` the pencil (ds/icons EditIcon) is the cue. The words show on hover, focus or selection. */
 export const QUIET_WORDS = 'hidden group-hover:inline group-focus-within:inline'
 // The older editor is still mounted on shared canvas surfaces.
-const OLDER_FIGURE_TEXT = String.raw`${typography.viewLabel} min-h-7 [.react-flow\_\_node_&]:min-h-6`
-const OLDER_FIGURE_ICON = String.raw`${OLDER_FIGURE_TEXT} min-w-7 [.react-flow\_\_node_&]:min-w-6`
 const FIGURE_PENCIL = 'nodrag inline-flex items-center cursor-pointer text-text-light hover:text-text-body'
 
 
@@ -143,11 +141,6 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
   const lane = isOlumiCoreLane()
   const actionInk = lane ? 'text-text-header' : 'text-info'
   const primaryClass = lane ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS
-  const textGeometry = lane ? controls.chipText : OLDER_FIGURE_TEXT
-  const pencilGeometry = lane ? (words || opener ? controls.chipText : controls.chipIcon) : OLDER_FIGURE_ICON
-  const labelButton = `${textGeometry} nodrag inline-flex items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}`
-  const pencilButton = `${pencilGeometry} ${FIGURE_PENCIL}`
-  const secondary = `${lane ? controls.chipText : `${OLDER_FIGURE_TEXT} rounded-sm px-2 py-0.5`} whitespace-nowrap cursor-pointer disabled:bg-panel-border disabled:border-panel-border disabled:text-text-light disabled:cursor-not-allowed border border-panel-border text-text-body`
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
   const me = useMe((s) => s.me)
