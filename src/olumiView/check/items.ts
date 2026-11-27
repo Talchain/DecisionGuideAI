@@ -12,6 +12,7 @@ export const CHECK_WORDS = {
   examine: 'Worth examining',
   more: (n: number) => `Show ${n} more`,
   fewer: 'Show fewer',
+  ask: 'Ask Olumi about this',
 } as const
 
 type Words = { text: string; at: string }

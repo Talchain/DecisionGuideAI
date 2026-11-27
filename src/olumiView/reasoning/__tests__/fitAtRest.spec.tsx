@@ -9,6 +9,7 @@ const chat = vi.hoisted(() => ({ prefill: vi.fn() }))
 vi.mock('../../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../ViewChat')>()), prefillComposer: chat.prefill }))
 
 import type { View } from '../../client'
+import { CHECK_WORDS } from '../../check/items'
 import { useViewStore } from '../../store'
 import { REASONING_LABELS, RESTS_AT_REST, ViewReasoningBlock } from '../../ViewReasoning'
 import { controls } from '../../../styles/controls'
@@ -23,12 +24,16 @@ const ready = (view: View) => {
 afterEach(() => { cleanup(); clearWhatIf(); chat.prefill.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
 const ROW = [
-  'h3', '[data-check-aim-heading]', '[data-check-aim-line]', '[data-check-item]',
+  'h3', '[data-check-aim-heading]', '[data-check-aim-line]', '[data-check-item]:not([data-check-tile])',
   '[data-check-more]:not([data-check-heading-toggle])', // The heading already counts a toggle in the same row.
   '[data-testid="view-reasoning-rests-toggle"]', '[data-rest] > p', '[data-rest-figure]',
   '[data-testid="reasoning-commitment"] li', '[data-testid="reasoning-rests-key"]',
 ].join(', ')
-const rows = () => [...screen.getByTestId('view-reasoning').querySelectorAll(ROW)].filter((row) => row.closest('[hidden]') === null).length
+const rows = () => {
+  const panel = screen.getByTestId('view-reasoning')
+  const visible = (selector: string) => [...panel.querySelectorAll(selector)].filter((row) => row.closest('[hidden]') === null).length
+  return visible(ROW) + Math.ceil(visible('[data-check-tile]') / 2)
+}
 const CAPACITY_ROWS = 12
 const goldens = readdirSync(path.resolve('src/olumiView/golden')).filter((n) => n.endsWith('.view.json')).sort()
 const restsToggle = () => screen.getByTestId('view-reasoning-rests-toggle')
@@ -59,7 +64,9 @@ describe('Check at rest fits the 1232x704 panel row budget', () => {
       ready(view); render(<ViewReasoningBlock />)
       expect(document.querySelectorAll('[data-rest]')).toHaveLength(0)
       for (const group of document.querySelectorAll('[data-check-group]')) {
-        expect(group.querySelectorAll('[data-check-item]').length).toBeLessThanOrEqual(group.getAttribute('data-check-group') === 'examine' ? 1 : 2)
+        const kind = group.getAttribute('data-check-group')
+        expect(group.querySelectorAll('[data-check-item]').length).toBeLessThanOrEqual(kind === 'needs' ? 4 : kind === 'examine' ? 1 : 2)
+        if (kind === 'needs') expect(group.querySelectorAll('[data-check-item]:not([data-check-tile])')).toHaveLength(0)
       }
       expect(document.querySelectorAll('[data-check-aim-line]')).toHaveLength(0)
       console.info(`[fit] ${name}: ${rows()}`)
@@ -104,6 +111,7 @@ describe('Check actions are disclosed on selection', () => {
     expect(challenge.className.includes(controls.act)).toBe(false)
     fireEvent.click(challenge)
     expect(challenge).toHaveAttribute('aria-expanded', 'true')
-    expect(within(challenge.closest('li')!).getAllByRole('button')).toEqual([challenge])
+    const region = document.getElementById(challenge.getAttribute('aria-controls')!)!
+    expect(within(region).getAllByRole('button').map((button) => button.textContent)).toEqual([CHECK_WORDS.ask])
   })
 })

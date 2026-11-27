@@ -1,8 +1,13 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { transitions } from '../../styles/transitions'
 import { typography } from '../../styles/typography'
-import type { View, ViewModel } from '../client'
+import type { View, ViewCard, ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
+import { useStoredFocusSubject } from '../focus/state'
+import { setFocusSubject, useFocusSubject } from '../focus/subject'
+import { drawKindOf } from '../layout'
 import { FoldChevron } from '../look/FoldChevron'
 import { Hover } from '../look/Hover'
 import { OkIcon } from '../look/icons'
@@ -11,17 +16,21 @@ import { AnswerBox } from '../reasoning/AnswerBox'
 import { useReasoningFocus } from '../reasoning/focusRequest'
 import { ringFrom } from '../reasoning/tabRing'
 import { useViewStore } from '../store'
+import { isDashedCardKind } from '../v12/cards/kind'
+import { optionLetters } from '../v12/cards/letters'
+import { LetterChip } from '../v12/cards/marks'
 import { recordReach, showRecord } from '../v12/showInWorkspace/show'
+import { FaceMark } from '../v12/SimpleFace'
 import { prefillComposer, runMethod } from '../ViewChat'
 import { CHECK_WORDS, checkItemsOf, type CheckGroup, type CheckItem } from './items'
 
 export const CHECK_FILL = 'Put this in the message box'
 export const CHECK_SHOW = 'Show in the workspace'
-const SELECTED_RING = 'check-tab-selected'
 const HOVER_RING = 'check-tab-hover'
-const AT_REST = { needs: 2, find: 2, examine: 1 }
+const AT_REST = { needs: 4, find: 2, examine: 1 }
 const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
+const ITEM = `w-full min-w-0 rounded-sm text-left text-text-header hover:bg-panel-hover aria-expanded:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${transitions.colors} motion-reduce:transition-none`
 
 function FillBox({ text }: { text: string }) {
   return <button type="button" className={QUIET} onClick={() => prefillComposer(text)}><OkIcon id="fill-box" size={14} decorative />{CHECK_FILL}</button>
@@ -44,8 +53,9 @@ function ItemAction({ action }: { action: CheckItem['action'] }) {
   }
 }
 
-function CheckRow({ item, selected, tabIndex, select, onFocus }: {
+function CheckRow({ item, tile, selected, tabIndex, select, onFocus }: {
   item: CheckItem
+  tile?: { card: ViewCard; kind: ReturnType<typeof drawKindOf>; letter?: string }
   selected: boolean
   tabIndex: number
   select: () => void
@@ -55,7 +65,7 @@ function CheckRow({ item, selected, tabIndex, select, onFocus }: {
   const hovered = useRef(false)
   const [openedAnswer, setOpenedAnswer] = useState(false)
   const isAnswer = item.action.kind === 'answer'
-  const hasDetails = item.long.length > 0 || item.action.kind !== 'none'
+  const hover = tile === undefined ? item.long[0] : { text: item.short, at: item.at }
   useLayoutEffect(() => {
     if (selected && isAnswer) setOpenedAnswer(true)
   }, [selected, isAnswer])
@@ -64,10 +74,10 @@ function CheckRow({ item, selected, tabIndex, select, onFocus }: {
   }, [])
   const modelWords = item.kind === 'question' || item.kind === 'widen'
   return (
-    <li>
-      <Hover as="button" type="button" words={selected ? undefined : item.long[0]?.text} wordsAt={item.long[0]?.at}
-        tabIndex={tabIndex} {...(hasDetails ? { 'aria-expanded': selected, 'aria-controls': details } : { 'aria-pressed': selected })}
-        data-check-item={item.key} data-selected={selected}
+    <li className={tile === undefined ? undefined : 'contents'} role="listitem">
+      <Hover as="button" type="button" words={selected ? undefined : hover?.text} wordsAt={hover?.at}
+        tabIndex={tabIndex} aria-expanded={selected} aria-controls={details}
+        data-check-item={item.key} data-selected={selected} data-check-tile={tile?.card.id}
         onClick={select} onFocus={onFocus}
         onPointerEnter={(event) => {
           if (event.pointerType === 'touch') return
@@ -75,32 +85,47 @@ function CheckRow({ item, selected, tabIndex, select, onFocus }: {
           ringFrom(HOVER_RING, item.cards)
         }}
         onPointerLeave={() => { hovered.current = false; ringFrom(HOVER_RING, []) }}
-        className={`${TYPE.body} flex w-full items-start gap-2 rounded-sm px-1 py-1.5 text-left text-text-header hover:bg-panel-hover aria-expanded:bg-panel-hover aria-pressed:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
-        <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
-        <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} {...(modelWords ? { 'data-view-words': item.at } : { 'data-view': item.at })}>{item.short}</span>
+        className={tile === undefined
+          ? `${TYPE.body} ${ITEM} flex items-start gap-2 px-1 py-1.5`
+          : `${TYPE.meta} ${ITEM} flex flex-col justify-between gap-1 border border-panel-border p-2`}>
+        {tile === undefined ? <>
+          <OkIcon id={item.icon} size={14} className="mt-0.5 shrink-0" decorative />
+          <span className={selected ? 'min-w-0' : 'min-w-0 line-clamp-2'} {...(modelWords ? { 'data-view-words': item.at } : { 'data-view': item.at })}>{item.short}</span>
+        </> : <>
+          <span className="flex items-start gap-1">
+            <NodeShapeIndicator nodeKind={tile.kind} dashedOutline={isDashedCardKind(tile.card)} size={14} />
+            {tile.letter === undefined ? null : <LetterChip letter={tile.letter} />}
+            <span className="min-w-0 line-clamp-2" data-view={`${tile.card.id}.heading`}>{tile.card.heading}</span>
+          </span>
+          {item.kind === 'size' || item.kind === 'waits' ? <FaceMark kind="track" /> : <OkIcon id={item.icon} size={14} decorative />}
+        </>}
       </Hover>
-      {hasDetails ? <div id={details} hidden={!selected}>
-        {selected || (isAnswer && openedAnswer) ? <div className="space-y-1 pb-2 pl-6 pr-1">
+      <div id={details} hidden={!selected} className={tile === undefined ? undefined : 'col-span-2'}>
+        {selected || (isAnswer && openedAnswer) ? <div className={tile === undefined ? 'space-y-1 pb-2 pl-6 pr-1' : 'space-y-1 px-2 pb-2'}>
+          {tile === undefined ? null : <p className={`${TYPE.body} m-0 text-text-header`} data-view={item.at}>{item.short}</p>}
           {item.long.map(({ text, at }) => <p key={at} className={`${TYPE.meta} m-0 text-text-body`} data-view={at}>{text}</p>)}
           <ItemAction action={item.action} />
+          {item.action.kind === 'fill' ? null : <div><button type="button" className={QUIET} onClick={() => prefillComposer(item.short)}>{CHECK_WORDS.ask}</button></div>}
         </div> : null}
-      </div> : null}
+      </div>
     </li>
   )
 }
 
-function CheckSection({ group, all, shown, toggle, renderRow }: {
+function CheckSection({ group, all, shown, tiles, restCount, toggle, renderRow }: {
   group: CheckGroup
   all: boolean
   shown: CheckItem[]
+  tiles: CheckItem[]
+  restCount: number
   toggle: () => void
-  renderRow: (item: CheckItem) => JSX.Element
+  renderRow: (item: CheckItem, tiled?: boolean) => JSX.Element
 }) {
   const region = useId()
   const count = group.blocks.reduce((n, block) => n + block.items.length, 0)
-  const visible = new Set(shown)
+  const visible = new Set(shown.slice(tiles.length))
   const blocks = group.blocks.filter((b) => b.items.length > 0 || b.line !== undefined)
-  const foldedItems = Math.max(0, count - AT_REST[group.kind])
+  const foldedItems = count - restCount
   const foldedLines = blocks.filter((block) => block.line !== undefined).length
   // If all figures already fit, the heading opens the scope without adding a row.
   const discloseFromHeading = foldedItems === 0 && foldedLines > 0
@@ -121,14 +146,20 @@ function CheckSection({ group, all, shown, toggle, renderRow }: {
         ) : heading}
       </h3>
       <div id={region} className="space-y-1">
+        {tiles.length === 0 ? null : <ul className="m-0 grid list-none grid-cols-2 gap-1 p-0" role="list">
+          {tiles.map((item) => renderRow(item, true))}
+        </ul>}
         {blocks.map((block) => {
           const rows = block.items.filter((item) => visible.has(item))
+          const heading = all || blocks.length > 1 ? block.heading : undefined
+          const line = all ? block.line : undefined
+          if (rows.length === 0 && heading === undefined && line === undefined) return null
           return (
             <div key={block.key} className="space-y-1">
-              {block.heading === undefined || (!all && blocks.length === 1) ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view={block.heading.at} data-check-aim-heading>{block.heading.text}</p>}
-              {!all || block.line === undefined ? null : <p className="ok-an-scope" data-view={block.line.at} data-check-aim-line>{block.line.text}</p>}
+              {heading === undefined ? null : <p className={`${TYPE.meta} m-0 text-text-light`} data-view={heading.at} data-check-aim-heading>{heading.text}</p>}
+              {line === undefined ? null : <p className="ok-an-scope" data-view={line.at} data-check-aim-line>{line.text}</p>}
               {rows.length === 0 ? null : <ul className="m-0 list-none divide-y divide-panel-border p-0">
-                {rows.map(renderRow)}
+                {rows.map((item) => renderRow(item))}
               </ul>}
             </div>
           )
@@ -145,6 +176,12 @@ function CheckSection({ group, all, shown, toggle, renderRow }: {
 
 type CheckListProps = { model: ViewModel; view: View | null; sid: string | null }
 
+function ownsSelection(key: string, sid: string | null): boolean {
+  const { subject } = useStoredFocusSubject.getState()
+  return subject !== null && subject.sid === sid && sid === useViewStore.getState().sid
+    && subject.kind === 'gap' && subject.source === 'panel' && subject.id === key
+}
+
 export function CheckList(props: CheckListProps) {
   return <ScenarioCheckList key={props.sid} {...props} />
 }
@@ -157,10 +194,20 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   const selectionVersion = useRef(0)
   useLayoutEffect(() => () => { selectionVersion.current += 1 }, [])
   const request = useReasoningFocus((s) => s.request)
-  const checkGroups = useMemo(() => checkItemsOf(model, view), [model, view])
-  const groups = checkGroups.map((group) => {
+  const subject = useFocusSubject()
+  const cards = useMemo(() => new Map(model.cards.map((card) => [card.id, card])), [model])
+  const letters = useMemo(() => optionLetters(model), [model])
+  const sections = useMemo(() => checkItemsOf(model, view).map((group) => {
     const items = group.blocks.flatMap((block) => block.items)
-    return { group, items, shown: expanded[group.kind] ? items : items.slice(0, AT_REST[group.kind]) }
+    const tiles = group.kind === 'needs' ? items.filter((item) => cards.has(item.cards[0]!)) : []
+    const atRest = (group.kind === 'needs' ? tiles : items).slice(0, AT_REST[group.kind])
+    return { group, items, tiles, atRest }
+  }), [cards, model, view])
+  const groups = sections.map((section) => {
+    const { group, items, tiles, atRest } = section
+    if (!expanded[group.kind]) return { ...section, shown: atRest, tiles: group.kind === 'needs' ? atRest : [] }
+    const tiled = new Set(tiles)
+    return { ...section, shown: [...tiles, ...items.filter((item) => !tiled.has(item))] }
   })
   const shown = groups.flatMap((section) => section.shown)
   const active = shown.find((item) => item.key === selected)
@@ -172,30 +219,45 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
 
   function clearSelection() {
     selectionVersion.current += 1
+    if (selected !== null && ownsSelection(selected, sid)) setFocusSubject(null)
     setSelected(null)
   }
 
   async function select(item: CheckItem) {
     const version = ++selectionVersion.current
     setSelected(item.key)
+    setFocusSubject({ kind: 'gap', id: item.key, cards: item.cards, source: 'panel' })
     if (item.cards.length !== 1) return
     const id = item.cards[0]!
     const reach = recordReach(id)
     if (reach === 'show') {
       await showRecord(id)
-      if (version === selectionVersion.current && useViewStore.getState().sid === sid && recordReach(id) === 'card') focusNodeById(id)
+      if (version === selectionVersion.current && ownsSelection(item.key, sid) && recordReach(id) === 'card') focusNodeById(id)
     }
     if (reach === 'card') focusNodeById(id)
   }
 
-  const selectedCards = active?.cards
-  useLayoutEffect(() => {
-    ringFrom(SELECTED_RING, selectedCards ?? [])
-    return () => ringFrom(SELECTED_RING, [])
-  }, [selectedCards])
+  useLayoutEffect(() => () => {
+    if (selected !== null && ownsSelection(selected, sid)) setFocusSubject(null)
+  }, [selected, sid])
 
   useLayoutEffect(() => {
     if (selected !== null && active === undefined) clearSelection()
+  })
+
+  useLayoutEffect(() => {
+    if (subject?.source !== 'canvas' || subject.sid !== sid) return
+    selectionVersion.current += 1
+    for (const { group, items } of sections) {
+      const item = items.find((candidate) => candidate.cards.includes(subject.id))
+      if (item === undefined) continue
+      setSelected(item.key)
+      setExpanded((current) => current[group.kind] ? current : { ...current, [group.kind]: true })
+      return
+    }
+  }, [sections, sid, subject])
+
+  useLayoutEffect(() => {
     if (request === null || request.sid !== sid || request.key === 'commitment' || useReasoningFocus.getState().request !== request) return
     const section = groups.find(({ items }) => items.some((item) => item.key === request.key))
     const item = section?.items.find((item) => item.key === request.key)
@@ -227,19 +289,23 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   if (groups.every(({ group, items }) => items.length === 0 && group.blocks.every((block) => block.line === undefined))) return null
   return (
     <section ref={root} className="space-y-2" aria-label={CHECK_WORDS.title} data-testid="check-list" onKeyDown={moveFocus}>
-      {groups.map(({ group, items, shown }) => {
+      {groups.map(({ group, atRest, shown, tiles }) => {
         const all = expanded[group.kind] ?? false
-        return <CheckSection key={group.kind} group={group} all={all} shown={shown}
+        return <CheckSection key={group.kind} group={group} all={all} shown={shown} tiles={tiles} restCount={atRest.length}
           toggle={() => {
-            if (all && items.slice(AT_REST[group.kind]).some((item) => item.key === selected)) {
+            if (all && selected !== null && !atRest.some((item) => item.key === selected) && shown.some((item) => item.key === selected)) {
               clearSelection()
               root.current?.querySelector<HTMLButtonElement>(`[data-check-more="${group.kind}"]`)?.focus()
             }
             setExpanded((current) => ({ ...current, [group.kind]: !all }))
           }}
-          renderRow={(item) => <CheckRow key={item.key} item={item} selected={item.key === selected}
-            tabIndex={item === tabStop ? 0 : -1} onFocus={() => setFocused(item.key)}
-            select={() => item.key === selected ? clearSelection() : void select(item)} />} />
+          renderRow={(item, tiled) => {
+            const card = tiled ? cards.get(item.cards[0]!) : undefined
+            const tile = card === undefined ? undefined : { card, kind: drawKindOf(card, model), letter: letters.get(card.id) }
+            return <CheckRow key={item.key} item={item} selected={item.key === selected} tile={tile}
+              tabIndex={item === tabStop ? 0 : -1} onFocus={() => setFocused(item.key)}
+              select={() => item.key === selected ? clearSelection() : void select(item)} />
+          }} />
       })}
     </section>
   )

@@ -386,10 +386,13 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(link.textContent).not.toContain(w)
     expect(link.textContent).not.toContain('Start here')
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    fireEvent.click(link)
     cleanup()
     ready(launch); render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
-    expect(document.querySelector(`[data-check-item="${first!.key}"]`)).toHaveTextContent(w)
+    const item = document.querySelector(`[data-check-item="${first!.key}"]`)
+    expect(item).toHaveFocus()
+    expect(item?.closest('li')).toHaveTextContent(w)
   })
 
   it('a challenge alone opens Reasoning and focuses its row when activated with Enter', async () => {

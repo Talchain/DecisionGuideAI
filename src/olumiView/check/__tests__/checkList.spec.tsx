@@ -4,18 +4,33 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const canvas = vi.hoisted(() => ({ ring: vi.fn(), focus: vi.fn(), reach: vi.fn(), show: vi.fn() }))
-const chat = vi.hoisted(() => ({ method: vi.fn() }))
+const chat = vi.hoisted(() => ({ method: vi.fn(), prefill: vi.fn() }))
 vi.mock('../../reasoning/tabRing', async (original) => ({ ...await original<typeof import('../../reasoning/tabRing')>(), ringFrom: canvas.ring }))
 vi.mock('../../../canvas/utils/focusHelpers', async (original) => ({ ...await original<typeof import('../../../canvas/utils/focusHelpers')>(), focusNodeById: canvas.focus }))
 vi.mock('../../v12/showInWorkspace/show', async (original) => ({ ...await original<typeof import('../../v12/showInWorkspace/show')>(), recordReach: canvas.reach, showRecord: canvas.show }))
-vi.mock('../../ViewChat', async (original) => ({ ...await original<typeof import('../../ViewChat')>(), runMethod: chat.method }))
+vi.mock('../../ViewChat', async (original) => {
+  const real = await original<typeof import('../../ViewChat')>()
+  return {
+    ...real,
+    runMethod: chat.method,
+    prefillComposer: (text: string) => {
+      chat.prefill(text)
+      real.prefillComposer(text)
+    },
+  }
+})
 
 import { getOutputTabsForParity } from '../../../canvas/components/OutputsDock'
+import { useCanvasStore } from '../../../canvas/store'
+import { useUIStore } from '../../../stores/uiStore'
 import type { View } from '../../client'
+import { installCanvasFocus } from '../../focus/canvas'
+import { setFocusSubject } from '../../focus/subject'
 import { viewOf } from '../../port/__tests__/viewAt'
 import { useReasoningFocus } from '../../reasoning/focusRequest'
 import { useViewStore } from '../../store'
-import { CheckList } from '../CheckList'
+import { useViewChat } from '../../ViewChat'
+import { CheckList, CHECK_FILL } from '../CheckList'
 import { checkItemsOf, checkNeedsOf, CHECK_WORDS } from '../items'
 
 const fixture = () => {
@@ -60,15 +75,22 @@ const fixture = () => {
 }
 
 const show = (view: View) => {
-  useViewStore.setState({ view, sid: view.id, at: null, stale: false, status: 'ready' })
+  useViewStore.setState({ view, sid: view.id, at: null, error: null, stale: false, status: 'ready' })
   return render(<CheckList model={view.model!} view={view} sid={view.id} />)
 }
 const row = (key: string) => document.querySelector<HTMLButtonElement>(`[data-check-item="${key}"]`)!
 const details = (button: HTMLButtonElement) => document.getElementById(button.getAttribute('aria-controls')!)!
 const toggle = (group: string) => document.querySelector<HTMLButtonElement>(`[data-check-more="${group}"]`)!
+let unsubscribeCanvas: (() => void) | undefined
 
 afterEach(() => {
   cleanup()
+  unsubscribeCanvas?.()
+  unsubscribeCanvas = undefined
+  setFocusSubject(null)
+  useCanvasStore.getState().clearSelection()
+  useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+  useViewChat.setState({ text: '', prefilled: null })
   vi.clearAllMocks()
   canvas.reach.mockReset()
   canvas.show.mockReset()
@@ -106,18 +128,87 @@ describe('What to check', () => {
     expect(document.querySelector('[data-view="run.find_out.0.line"]')).toHaveTextContent(model.run!.find_out![0]!.line)
   })
 
-  it('uses pressed semantics for a row that selects without disclosing details', () => {
-    const { view } = fixture()
+  it('shows four card tiles at rest, then the remaining tiles and card-less rows when expanded', async () => {
+    const user = userEvent.setup()
+    const { view, model, other } = fixture()
+    model.run!.shared_blockers!.push({ aim_id: 'unshown-aim', options: [], text: 'Core card-less need' })
     show(view)
-    fireEvent.click(toggle('needs'))
+    const needs = document.querySelector('[data-check-group="needs"]')!
+    const keys = () => [...needs.querySelectorAll<HTMLButtonElement>('[data-check-item]')].map((button) => button.dataset.checkItem)
+    expect(keys()).toEqual(['blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1'])
+    expect(toggle('needs')).toHaveTextContent(CHECK_WORDS.more(4))
     const held = row('held:second_oven.1')
-    expect(held).not.toHaveAttribute('aria-expanded')
-    expect(held).not.toHaveAttribute('aria-controls')
-    expect(held).toHaveAttribute('aria-pressed', 'false')
+    expect(held.closest('ul')).toHaveClass('grid-cols-2')
+    expect(held.querySelector('[data-node-shape="option"]')).toHaveAttribute('width', '14')
+    expect(held.querySelector('[data-letter-chip]')).toHaveTextContent('A')
+    expect(held.querySelector('[data-view="second_oven.heading"]')).toHaveClass('line-clamp-2')
+    expect(held).toHaveAttribute('aria-expanded', 'false')
+    expect(held).not.toHaveAttribute('aria-pressed')
+    await user.hover(held)
+    expect(await screen.findByRole('tooltip')).toHaveAttribute('data-view', 'second_oven.rows.1.value')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Core held chance')
+    await user.click(held)
+    expect(held).toHaveAttribute('aria-expanded', 'true')
+    expect(details(held)).toHaveClass('col-span-2')
+    expect(held.nextElementSibling).toBe(details(held))
+    expect(details(held).querySelector('[data-view="second_oven.rows.1.value"]')).toHaveTextContent('Core held chance')
+    expect(within(details(held)).getAllByRole('button')).toEqual([within(details(held)).getByRole('button', { name: CHECK_WORDS.ask })])
     fireEvent.click(held)
-    expect(held).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(held)
-    expect(held).toHaveAttribute('aria-pressed', 'false')
+    expect(details(held)).toHaveAttribute('hidden')
+    fireEvent.click(toggle('needs'))
+    expect(keys().slice(4)).toEqual(['waits:fitting', `size:${other.id}`, `worth:${other.id}.0`, 'blocks:2'])
+    expect(row('waits:fitting').querySelector('[data-face-mark="track"]')).toBeInTheDocument()
+    expect(row(`size:${other.id}`).querySelector('[data-face-mark="track"]')).toBeInTheDocument()
+    expect(row('blocks:2')).not.toHaveAttribute('data-check-tile')
+    expect(row('blocks:2')).toHaveTextContent('Core card-less need')
+  })
+
+  it('retargets to the first matching row and unfolds its group without moving focus or the camera', () => {
+    const { view, ranked } = fixture()
+    unsubscribeCanvas = installCanvasFocus()
+    show(view)
+    act(() => row('blocks:0').focus())
+    expect(row('waits:fitting')).toBeNull()
+    act(() => useCanvasStore.getState().selectNodes(['fitting']))
+    expect(row('waits:fitting')).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle('needs')).toHaveAttribute('aria-expanded', 'true')
+    expect(row('blocks:0')).toHaveFocus()
+    expect(canvas.focus).not.toHaveBeenCalled()
+    expect(canvas.show).not.toHaveBeenCalled()
+
+    act(() => useCanvasStore.getState().selectNodes([ranked.id]))
+    expect(row('blocks:1')).toHaveAttribute('aria-expanded', 'true')
+    expect(row(`f:0:${ranked.id}`)).toHaveAttribute('aria-expanded', 'false')
+    act(() => useCanvasStore.getState().selectNodes(['carry_on']))
+    expect(row('blocks:1')).toHaveAttribute('aria-expanded', 'true')
+    expect(row('blocks:0')).toHaveFocus()
+
+    canvas.ring.mockClear()
+    fireEvent.click(row('blocks:1'))
+    expect(row('blocks:1')).toHaveAttribute('aria-expanded', 'false')
+    expect(canvas.ring).not.toHaveBeenCalled()
+  })
+
+  it('places Ask Olumi after the row action, prefills the exact words once and fronts Olumi', () => {
+    const { view, first } = fixture()
+    vi.stubEnv('VITE_FEATURE_AI_PANEL_V2', 'true')
+    useUIStore.setState({ activeOutputTab: 'analysisNew' })
+    useViewChat.setState({ text: 'Existing draft' })
+    show(view)
+    expect(screen.queryByRole('button', { name: CHECK_WORDS.ask })).toBeNull()
+    const figure = row(`f:0:${first.id}`)
+    fireEvent.click(figure)
+    const ask = within(details(figure)).getByRole('button', { name: CHECK_WORDS.ask })
+    expect(within(details(figure)).getAllByRole('button')).toEqual([screen.getByTestId(`check-edit-${first.id}`), ask])
+    fireEvent.click(ask)
+    expect(chat.prefill.mock.calls).toEqual([[first.label]])
+    expect(useViewChat.getState().text).toBe(`Existing draft\n${first.label}`)
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+
+    fireEvent.click(toggle('examine'))
+    const question = row('q:0')
+    fireEvent.click(question)
+    expect(within(details(question)).getAllByRole('button').map((button) => button.textContent)).toEqual([CHECK_FILL])
   })
 
   it('uses the find heading to disclose the scope when all its figures fit', () => {
@@ -160,7 +251,7 @@ describe('What to check', () => {
     expect(chat.method.mock.calls).toEqual([['pre_mortem']])
   })
 
-  it('selects one card, holds its ring apart from hover, and displays only its figure action until deselected', () => {
+  it('selects one card, holds its shared ring apart from hover, and hides the actions when deselected', () => {
     const { view, first } = fixture()
     canvas.reach.mockReturnValue('card')
     const { unmount } = show(view)
@@ -169,22 +260,22 @@ describe('What to check', () => {
     fireEvent.pointerEnter(button)
     expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-hover', [first.id])
     fireEvent.click(button)
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [first.id])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [first.id])
     expect(canvas.focus.mock.calls).toEqual([[first.id]])
     expect(button).toHaveAttribute('data-selected', 'true')
-    expect(within(details(button)).getAllByRole('button')).toEqual([screen.getByTestId(`check-edit-${first.id}`)])
+    expect(within(details(button)).getByTestId(`check-edit-${first.id}`)).toBeInTheDocument()
     expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.line"]')?.textContent).toBe(first.line)
     expect(details(button).querySelector('[data-view="run.find_out.0.figures.1.estimate_text"]')?.textContent).toBe(first.estimate_text)
     fireEvent.pointerLeave(button)
     expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-hover', [])
     fireEvent.click(button)
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [])
     expect(button).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId(`check-edit-${first.id}`)).toBeNull()
     expect(canvas.focus).toHaveBeenCalledTimes(1)
     fireEvent.click(button)
     unmount()
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [])
   })
 
   it('moves focus between row buttons and uses native Enter and Space activation', async () => {
@@ -194,7 +285,7 @@ describe('What to check', () => {
     show(view)
     await user.tab()
     expect(row('blocks:0')).toHaveFocus()
-    await user.keyboard('{ArrowDown}{ArrowDown}')
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}')
     const ranked = row(`f:0:${second.id}`)
     expect(ranked).toHaveFocus()
     expect(ranked).toHaveAttribute('tabindex', '0')
@@ -205,7 +296,7 @@ describe('What to check', () => {
     await user.keyboard(' ')
     expect(ranked).toHaveAttribute('aria-expanded', 'false')
     await user.keyboard('{ArrowUp}')
-    expect(row('blocks:1')).toHaveFocus()
+    expect(row('held:second_oven.1')).toHaveFocus()
   })
 
   it('focuses a folded card only after the show finishes and the card is reachable', async () => {
@@ -216,7 +307,7 @@ describe('What to check', () => {
     show(view)
     fireEvent.click(row(`f:0:${first.id}`))
     expect(canvas.show.mock.calls).toEqual([[first.id]])
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [first.id])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [first.id])
     expect(canvas.focus).not.toHaveBeenCalled()
     await act(async () => finish())
     expect(canvas.reach.mock.calls).toEqual([[first.id], [first.id]])
@@ -275,14 +366,16 @@ describe('What to check', () => {
     const { view, first } = fixture()
     const key = `f:0:${first.id}`
     canvas.reach.mockReturnValue(null)
+    unsubscribeCanvas = installCanvasFocus()
     const { rerender } = show(view)
     fireEvent.click(row(key))
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [first.id])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [first.id])
     expect(canvas.focus).not.toHaveBeenCalled()
     expect(canvas.show).not.toHaveBeenCalled()
+    act(() => useViewStore.setState({ sid: 'another-scenario' }))
     rerender(<CheckList model={view.model!} view={view} sid="another-scenario" />)
     expect(row(key)).toHaveAttribute('aria-expanded', 'false')
-    expect(canvas.ring).toHaveBeenLastCalledWith('check-tab-selected', [])
+    expect(canvas.ring).toHaveBeenLastCalledWith('focus-subject', [])
   })
 
   it('labels analysisNew Check on the Core lane and Reasoning off the lane', () => {

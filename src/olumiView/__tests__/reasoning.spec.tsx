@@ -204,7 +204,7 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([['else_do']])
   })
-  it('CONTRAST: a sharpen row whose move core does not offer has no press', () => {
+  it('a sharpen row whose move Core does not offer keeps the general Ask action', () => {
     const view = structuredClone(read('app-launch.view.json'))
     for (const x of view.model!.sharpen) x.move = 'not_offered'
     ready(view)
@@ -215,6 +215,7 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     for (const row of rows) {
       fireEvent.click(row)
       expect(screen.queryAllByTestId('reasoning-method')).toHaveLength(0)
+      expect(screen.getByRole('button', { name: 'Ask Olumi about this' })).toBeInTheDocument()
     }
   })
 })
