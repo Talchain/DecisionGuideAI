@@ -68,10 +68,11 @@ export function crossingCounts(
 /** React Flow's control offset for a bezier handle (xyflow calculateControlOffset, curvature 0.25). */
 const controlOffset = (distance: number) => (distance >= 0 ? 0.5 * distance : 0.25 * 25 * Math.sqrt(-distance))
 
-/** The link as ViewLinkEdge draws it without a rail or size wire: a bezier from the source's bottom centre to the target's top centre,
- *  or, when the target lies wholly above the source, from the source's top to the target's foot. Sampled as a polyline path. */
-export function bezierPolyline(from: Box, to: Box, samples = 16): string {
-  const up = to.y + to.h <= from.y
+/** A link as its edge draws it without a rail or size wire: a bezier from the source's bottom centre to the target's top centre. ViewLinkEdge
+ *  (`allowUp`) instead runs from the source's top to the target's foot when the target lies wholly above; GroupLinkEdge never does. Sampled
+ *  finely (256 segments by default) so the count is a high-resolution oracle, independent of production's own crossing method. */
+export function bezierPolyline(from: Box, to: Box, samples = 256, allowUp = true): string {
+  const up = allowUp && to.y + to.h <= from.y
   const s = { x: from.x + from.w / 2, y: up ? from.y : from.y + from.h }
   const t = { x: to.x + to.w / 2, y: up ? to.y + to.h : to.y }
   const c1 = { x: s.x, y: up ? s.y - controlOffset(s.y - t.y) : s.y + controlOffset(t.y - s.y) }

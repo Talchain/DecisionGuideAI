@@ -9,7 +9,7 @@ export type BoardCount = { crossings: number; cardHits: number; straight: number
 
 /**
  * The crossing instrument for Simple's layout: the board as Simple draws it at `roomW` (default folds, fixture heights),
- * counting card links AND the grouped-card connectors that `boardOf` adds, each sampled along the renderer's bezier (`crossings`,
+ * counting card links AND the grouped-card connectors that `boardOf` adds, each sampled finely along its renderer's bezier (`crossings`,
  * `cardHits`); `straight` is the old straight-segment count, kept for comparison. Limits: rails (railOf) and size wires are drawn as
  * plain beziers here, and heights are the fixture's, not measured.
  */
@@ -21,6 +21,8 @@ export async function boardCrossings(view: View, roomW: number): Promise<BoardCo
   const heights = new Map<string, number>([...model.cards, ...extras].map((card) => [card.id, card.h ?? 90]))
   const boxes = [...places].map(([id, p]) => ({ id, x: p.x, y: p.y, w: p.w!, h: id === QUESTION ? 85 : heights.get(id) ?? 90 }))
   const links = [...cardLinks(model).map(({ link }) => ({ from: link.from, to: link.to })), ...groupLinks.map((l) => ({ from: l.from, to: l.to }))]
-  const curved = crossingCounts(boxes, links, (_link, from, to) => bezierPolyline(from, to))
+  // Group connectors (GroupLinkEdge) always run bottom to top; card links (ViewLinkEdge) take the upward path when the target is above.
+  const isGroup = new Set(groupLinks.map((l) => `${l.from}>${l.to}`))
+  const curved = crossingCounts(boxes, links, (link, from, to) => bezierPolyline(from, to, 256, !isGroup.has(`${link.from}>${link.to}`)))
   return { ...curved, straight: crossingCounts(boxes, links).crossings, links: cardLinks(model).length, groupLinks: groupLinks.length }
 }
