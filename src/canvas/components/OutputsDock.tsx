@@ -3460,7 +3460,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 title={lane ? undefined : tab.label}
               >
                 <OkIcon id={LANE_TAB_ICON[tab.id]} size={lane ? 14 : undefined} decorative inherit={tab.id !== 'olumi'} />
-                {count ? <span aria-hidden="true" className={`${TAB_COUNT_CLASS} absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 w-max !px-0.5`} data-tab-count>{count}</span> : null}
+                {count ? <span aria-hidden="true" className={`${TAB_COUNT_CLASS} absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 w-max`} data-tab-count>{count}</span> : null}
               </HoverButton>
             )
           })}
