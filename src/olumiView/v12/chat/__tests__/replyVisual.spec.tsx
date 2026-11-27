@@ -18,7 +18,7 @@ vi.mock('../../../../olumiCore/team/api', async (original) => ({
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 
 const served: View = JSON.parse(readFileSync('src/olumiView/fixtures/real/capacity.view3.json', 'utf8'))
-const chartSelector = '[data-form="CH-bands"]'
+const chartSelector = '[data-form="CH-bands"][data-quantity]' // the chart root; each band inside is the same registered form
 
 function ready(visual: unknown) {
   const chat = served.chat.map((turn) => turn.answer === null ? turn : { ...turn, answer: { ...turn.answer, visual } })
@@ -62,16 +62,16 @@ describe('Core’s reply visual in chat', () => {
       row.querySelector('[data-band-words]')?.textContent,
     ])).toEqual(visual.options.map(({ option, letter, label, text }) => [option, letter, label, text]))
     expect(chart.querySelectorAll('[data-band-track]')).toHaveLength(visual.options.length)
-    expect(chart.querySelector('[data-band-range]')).toHaveAttribute('x', '50%')
-    expect(chart.querySelector('[data-band-range]')).toHaveAttribute('width', '50%')
-    expect(chart.querySelector('[data-band-middle]')).toHaveAttribute('x1', '75%')
+    expect(chart.querySelector('[data-outcome-band]')).toHaveAttribute('x', '50%')
+    expect(chart.querySelector('[data-outcome-band]')).toHaveAttribute('width', '50%')
+    expect(chart.querySelector('[data-outcome-mid]')).toHaveAttribute('x1', '75%')
     if ('version' in visual) {
-      expect(chart.querySelector('[data-band-point]')).toHaveAttribute('cx', '60%')
+      expect(chart.querySelector('[data-outcome-point]')).toHaveAttribute('cx', '60%')
       expect(chart.querySelector('[data-band-withheld-track]')).toBeNull()
     } else {
       const withheld = rows[1]!
       expect(withheld.querySelector('[data-band-withheld-track]')).toHaveClass('ok-scale-withheld')
-      expect(withheld.querySelector('[data-band-range], [data-band-middle], [data-band-point]')).toBeNull()
+      expect(withheld.querySelector('[data-outcome-band], [data-outcome-mid], [data-outcome-point]')).toBeNull()
     }
   })
 

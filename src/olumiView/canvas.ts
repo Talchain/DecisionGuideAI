@@ -11,7 +11,6 @@ import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
 import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
-import { visualOfCard } from './visual'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
 import { computeFitPadding } from '../canvas/utils/computeFitPadding'
@@ -145,7 +144,7 @@ async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): P
  * Put the View's model on the canvas at `places` (the question's and every card's). True when the canvas changed. A card (or the
  * question) the person moved stays where they put it; the canvas's measurements are kept, so a re-draw never forgets a card's height.
  */
-export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Placed>, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = [], view: View | null = null): boolean {
+export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Placed>, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = []): boolean {
   const store = useCanvasStore.getState()
   const held = new Map(store.nodes.map((n) => [n.id, n]))
   if (row.cardW === 0) row = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
@@ -178,11 +177,7 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
     // question, in its words. Without it those readers fell back to the node's id ("About: page:question").
     { id: QUESTION, type: VIEW_QUESTION, data: { question: model.question, ...(model.question.text.trim() === '' ? {} : { label: model.question.text }), width: widthOf(QUESTION), ...(scale === undefined ? {} : { scale }) }, position: placeOf(QUESTION), ...kept(QUESTION) },
     // `label` is the card's heading, for the canvas's readers that name a node (the Olumi controls' asks among them, 00063 #3).
-    ...model.cards.map((card) => {
-      // Carry the figure and its binding together while the next View lays out.
-      const bandVisual = visualOfCard(view?.model ?? model, card, view)
-      return { id: card.id, type: VIEW_CARD, data: { card, ...(bandVisual === null ? {} : { bandVisual }), label: card.heading, width: widthOf(card.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(card.id), ...kept(card.id) }
-    }),
+    ...model.cards.map((card) => ({ id: card.id, type: VIEW_CARD, data: { card, label: card.heading, width: widthOf(card.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(card.id), ...kept(card.id) })),
     // V12 Simple: the kept ideas and the folded inputs' group (v12/bands), each in its band.
     ...extras.map((e) => ({ id: e.id, type: e.type, data: { ...e.data, width: widthOf(e.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(e.id), ...kept(e.id) })),
   ]
@@ -214,9 +209,9 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 }
 
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
-export async function layViewCanvas(core: ViewModel, view: View | null = null): Promise<boolean> {
+export async function layViewCanvas(core: ViewModel): Promise<boolean> {
   const { model, extras, links } = boardOf(core)
-  return drawViewCanvas(model, await causalFor(model, extras), extras, links, view)
+  return drawViewCanvas(model, await causalFor(model, extras), extras, links)
 }
 
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
@@ -285,8 +280,7 @@ export function withdrawViewCanvas(): boolean {
 export function placeViewCards(model: ViewModel): Promise<boolean> {
   placed.clear()
   for (const n of useCanvasStore.getState().nodes) if (isViewNode(n)) placed.set(n.id, n.position)
-  const view = useViewStore.getState().view
-  return layViewCanvas(model, view?.model === model ? view : null)
+  return layViewCanvas(model)
 }
 
 /**
@@ -356,7 +350,7 @@ export function useViewCanvas(on: boolean): void {
       if (!live) return
       const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
       drew = { sid, n, model }
-      const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [], view)
+      const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [])
       firstDraw('idle')
       if (!changed || had === null) return
       const arrived: string[] = []
