@@ -36,7 +36,7 @@ function pressEscape() {
 }
 
 describe('OlumiAttentionCard — Escape releases the hold', () => {
-  afterEach(() => vi.unstubAllEnvs())
+  afterEach(() => { vi.unstubAllEnvs() })
 
   beforeEach(() => {
     cleanup()
