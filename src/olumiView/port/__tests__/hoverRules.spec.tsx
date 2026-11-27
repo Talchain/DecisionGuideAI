@@ -97,7 +97,11 @@ describe('every disclosure names the region it opens', () => {
     }
     cleanup()
     ready(view); render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
+    const door = screen.getByTestId('view-reasoning-rests-toggle')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
+    expect(document.getElementById(door.getAttribute('aria-controls')!)).toContainElement(screen.getByTestId('reasoning-rests'))
+    const more = document.querySelector('[data-check-more="examine"]')
     if (more !== null) {
       fireEvent.click(more)
       expect([more.getAttribute('aria-expanded'), document.getElementById(more.getAttribute('aria-controls') ?? '') !== null]).toEqual(['true', true])
@@ -110,7 +114,7 @@ describe('the analysis recipes reach the outputs dock', () => {
   const block = css.slice(css.indexOf('/* analysis */'), css.indexOf('/* LINKS'))
   const rules = block.split('\n').filter((l) => l.startsWith('.'))
   it('every `ok-an-*` class a component uses has a rule, and no such rule stands behind `.olumi-look` (the canvas\'s class; the dock is its sibling) or on `--o-s` (the canvas\'s scale, undefined in the dock)', () => {
-    const used = new Set(['port/PortAnalysisTab.tsx', 'port/WhatMovesIt.tsx'].flatMap((f) => [...readFileSync(path.resolve('src/olumiView', f), 'utf8').matchAll(/ok-an-[a-z-]+/g)].map((m) => m[0])))
+    const used = new Set(['port/PortAnalysisTab.tsx', 'port/WhatMovesIt.tsx', 'check/CheckList.tsx'].flatMap((f) => [...readFileSync(path.resolve('src/olumiView', f), 'utf8').matchAll(/ok-an-[a-z-]+/g)].map((m) => m[0])))
     expect([...used].length).toBeGreaterThan(0)
     for (const c of used) expect(rules.some((r) => r.startsWith(`.${c} `)), `${c} has a rule at the root`).toBe(true)
     expect(rules.length).toBeGreaterThan(0)

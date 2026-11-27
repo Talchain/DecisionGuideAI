@@ -19,7 +19,7 @@ import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { TeamApiError } from '../../../olumiCore/team/api'
-import { StartHere, ViewReasoningBlock } from '../../ViewReasoning'
+import { ViewReasoningBlock } from '../../ViewReasoning'
 import { chatQuestionsOf } from '../../layout'
 
 const read = (): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden/app-launch.view.json'), 'utf8'))
@@ -42,6 +42,14 @@ const withTurn = (view: View, id: number, q: { version: string; earlier: boolean
   const base = view.chat[0]!
   ;(view as { chat: unknown[] }).chat = [...view.chat, { ...base, id, ...q }]
 }
+const selectQuestion = (id: string) => {
+  let row = document.querySelector(`[data-check-item="q:${id}"]`)
+  if (row === null) {
+    fireEvent.click(document.querySelector('[data-check-more="examine"]')!)
+    row = document.querySelector(`[data-check-item="q:${id}"]`)
+  }
+  fireEvent.click(row!)
+}
 const answer = async (words: string) => {
   fireEvent.change(screen.getAllByTestId('reasoning-answer-input')[0]!, { target: { value: words } })
   await act(async () => { fireEvent.click(screen.getAllByTestId('reasoning-answer-send')[0]!) })
@@ -54,6 +62,8 @@ describe('answer in place (CONTRACT §2-§3)', () => {
     const refresh = ready(view)
     api.call.mockResolvedValue({})
     render(<ViewReasoningBlock />)
+    expect(document.querySelector(`[data-answer-for="${Q.id}"]`)).toBeNull()
+    selectQuestion(Q.id)
     expect(document.querySelector(`[data-answer-for="${Q.id}"]`)).not.toBeNull()
     await answer('12')
     expect(api.call).toHaveBeenCalledTimes(1)
@@ -65,6 +75,7 @@ describe('answer in place (CONTRACT §2-§3)', () => {
     ready(typed())
     api.call.mockRejectedValueOnce(new TeamApiError(409, 'That question is no longer asked on the model you see.', false, 'question_stale'))
     render(<ViewReasoningBlock />)
+    selectQuestion(Q.id)
     await answer('12')
     expect(screen.getByTestId('reasoning-answer-error').textContent).toBe('That question is no longer asked on the model you see.')
     expect((screen.getAllByTestId('reasoning-answer-input')[0] as HTMLInputElement).value).toBe('12')
@@ -76,11 +87,15 @@ describe('answer in place (CONTRACT §2-§3)', () => {
     ready(read())
     render(<ViewReasoningBlock />)
     expect(screen.queryAllByTestId('reasoning-answer-input')).toHaveLength(0)
-    expect(screen.getAllByTestId('reasoning-question').length).toBeGreaterThan(0)
+    expect(document.querySelectorAll('[data-check-item^="q:"]').length).toBeGreaterThan(0)
+    selectQuestion('0')
+    expect(screen.getByRole('button', { name: 'Put this in the message box' })).toBeInTheDocument()
     cleanup()
     ready(typed(), { at: 2 })
     render(<ViewReasoningBlock />)
+    selectQuestion(Q.id)
     expect(screen.queryAllByTestId('reasoning-answer-input')).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Put this in the message box' })).toBeInTheDocument()
   })
 })
 
@@ -98,6 +113,7 @@ describe('the box belongs to one question, and a send loses nothing typed (Codex
     let resolve!: (v: unknown) => void
     api.call.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
     render(<ViewReasoningBlock />)
+    selectQuestion(Q.id)
     const input = screen.getAllByTestId('reasoning-answer-input')[0] as HTMLInputElement
     fireEvent.change(input, { target: { value: '12' } })
     await act(async () => { fireEvent.click(screen.getAllByTestId('reasoning-answer-send')[0]!) })
@@ -105,15 +121,17 @@ describe('the box belongs to one question, and a send loses nothing typed (Codex
     await act(async () => { resolve({}) })
     expect([input.readOnly, input.value]).toEqual([false, ''])
   })
-  it('Analysis\'s activity: when the first question changes from A to B, B\'s box starts empty and its answer is sent with B\'s id', async () => {
+  it('Check: when the first question changes from A to B, B\'s box starts empty and its answer is sent with B\'s id', async () => {
     const a = typed()
     ready(a)
-    const r = render(<StartHere model={a.model!} />)
+    const r = render(<ViewReasoningBlock />)
+    selectQuestion(Q.id)
     fireEvent.change(screen.getByTestId('reasoning-answer-input'), { target: { value: 'for A' } })
     const b = typed()
     ;(b.model as unknown as { questions: unknown[] }).questions = [{ id: 'qB', text: 'What would tell you the release is safe?', about: null, role: null, unit: null }]
     ready(b)
-    r.rerender(<StartHere model={b.model!} />)
+    r.rerender(<ViewReasoningBlock />)
+    selectQuestion('qB')
     const input = screen.getByTestId('reasoning-answer-input') as HTMLInputElement
     expect([input.value, input.closest('[data-answer-for]')!.getAttribute('data-answer-for')]).toEqual(['', 'qB'])
     api.call.mockResolvedValueOnce({})

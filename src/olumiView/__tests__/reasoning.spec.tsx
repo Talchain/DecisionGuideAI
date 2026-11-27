@@ -18,10 +18,12 @@ vi.mock('../../olumiCore/team/CardDiffers', async (importOriginal) => ({ ...(awa
 const focus = vi.hoisted(() => ({ node: vi.fn() }))
 vi.mock('../../canvas/utils/focusHelpers', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../canvas/utils/focusHelpers')>()), focusNodeById: focus.node }))
 
+vi.mock('../v12/showInWorkspace/show', async (importOriginal) => ({ ...(await importOriginal<typeof import('../v12/showInWorkspace/show')>()), recordReach: () => 'card' }))
+
 import type { View } from '../client'
 import { useViewStore } from '../store'
 import { challengedCards } from '../layout'
-import { RESTS_AT_REST, ViewReasoningBlock } from '../ViewReasoning'
+import { REASONING_LABELS, RESTS_AT_REST, ViewReasoningBlock } from '../ViewReasoning'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../whatif'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
@@ -44,6 +46,8 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     expect(rests.length).toBeGreaterThan(2)
     ready(view)
     render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-rests')).toBeNull()
+    fireEvent.click(screen.getByTestId('view-reasoning-rests-toggle'))
     const box = screen.getByTestId('reasoning-rests')
     const groups = () => [...box.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])
     const first3 = rests.slice(0, RESTS_AT_REST)
@@ -76,6 +80,7 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     const bare = rs.find((r) => r.line !== '' && (r.figures ?? []).length > 0)!, kept = rs.find((r) => r !== bare && r.line !== '' && (r.figures ?? []).length > 0)!
     ;(bare as { figures?: unknown }).figures = undefined
     ready(view); render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('view-reasoning-rests-toggle'))
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))   // the later groups are behind the one press; opened so both groups are in view
     const box = screen.getByTestId('reasoning-rests')
     const g = box.querySelector<HTMLElement>(`[data-rest="${bare.id}"]`)!
@@ -89,6 +94,7 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
     delete (f as { give?: unknown }).give
     ready(view)
     render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('view-reasoning-rests-toggle'))
     expect(screen.getByTestId('reasoning-rests').querySelector(`[data-rest-figure="${f.id}"] [data-testid="reasoning-share-bar"]`)).not.toBeNull()
     expect(screen.getByTestId('reasoning-rests').querySelectorAll(`[data-testid="reasoning-rests-edit-${f.id}"]`)).toHaveLength(0)
   })
@@ -102,7 +108,9 @@ describe('what the uncertainty rests on (run.rests): a bar per figure, by whose 
   })
 })
 
-const openAll = () => { const more = screen.queryByTestId('reasoning-examine-more'); if (more !== null) fireEvent.click(more) }
+const openAll = () => { const more = document.querySelector('[data-check-more="examine"]'); if (more !== null) fireEvent.click(more) }
+const checkButton = (key: string) => document.querySelector<HTMLButtonElement>(`[data-check-item="${key}"]`)!
+const selectItem = (key: string) => { const row = checkButton(key); fireEvent.click(row); return row.closest('li')! }
 
 describe('worth examining: one list that claims no priority core has not computed', () => {
   it('capacity: no "Start here" lead; challenged cards first, then questions and asks, then sharpen prompts; each Olumi row carries Olumi\'s mark', () => {
@@ -112,7 +120,9 @@ describe('worth examining: one list that claims no priority core has not compute
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
     expect(screen.getByTestId('view-reasoning').textContent).not.toContain('Start here')
     openAll()
-    const kinds = [...screen.getByTestId('reasoning-examine').querySelectorAll<HTMLElement>('li')].map((li) => li.dataset['reasoningChallenge'] !== undefined ? 'c' : li.dataset['sharpen'] !== undefined ? 's' : 'q')
+    const rows = [...document.querySelectorAll<HTMLButtonElement>('[data-check-group="examine"] [data-check-item]')]
+    const kinds = rows.map((row) => row.dataset.checkItem![0]).map((kind) => kind === 'w' ? 'q' : kind)
+    for (const row of rows.filter((r) => !r.dataset.checkItem!.startsWith('c:'))) expect(row.querySelector('[data-icon="olumi-ai"]')).not.toBeNull()
     expect(kinds.join('')).toMatch(/^c*q*s*$/)
   })
   it('CONTRAST: nothing to examine (no challenge, question, offered method or ask) draws no list', () => {
@@ -123,7 +133,7 @@ describe('worth examining: one list that claims no priority core has not compute
     delete w.askOption; delete w.askRisk
     ready(view)
     render(<ViewReasoningBlock />)
-    expect(screen.queryByTestId('reasoning-examine')).toBeNull()
+    expect(document.querySelector('[data-check-group="examine"]')).toBeNull()
   })
 })
 
@@ -135,9 +145,11 @@ describe('questions worth answering: one press fills the message box with core\'
     render(<ViewReasoningBlock />)
     openAll()
     expect([...document.querySelectorAll('[data-view-words^="coaching_questions."]')].map((e) => e.textContent)).toEqual(qs)
-    const rows = screen.getAllByTestId('reasoning-question')
+    const rows = document.querySelectorAll('[data-check-item^="q:"]')
     expect(rows).toHaveLength(qs.length)
     fireEvent.click(rows[1]!)
+    expect(chat.prefill).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: REASONING_LABELS.fill }))
     expect(chat.prefill.mock.calls).toEqual([[qs[1]]])
     expect(chat.method).not.toHaveBeenCalled()
   })
@@ -146,12 +158,14 @@ describe('questions worth answering: one press fills the message box with core\'
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    const ask = screen.queryByTestId('reasoning-widen-askRisk')
+    const ask = checkButton('w:askRisk')
     if (typeof w.askRisk !== 'string') { expect(ask).toBeNull(); return }
-    // The row is core's label; the press is the quiet icon (never the row's primary action) and fills the box with core's draft.
-    expect(ask!.closest('li')!.querySelector('[data-view-words="model_words.askRisk"]')!.textContent).toBe(w.askRisk)
-    expect(ask!.textContent, 'the press is an icon, not a labelled primary').toBe('')
-    fireEvent.click(ask!)
+    expect(ask.querySelector('[data-view-words="model_words.askRisk"]')!.textContent).toBe(w.askRisk)
+    expect(screen.queryByRole('button', { name: REASONING_LABELS.fill })).toBeNull()
+    fireEvent.click(ask)
+    const fill = screen.getByRole('button', { name: REASONING_LABELS.fill })
+    expect(fill).toHaveClass('border-panel-border')
+    fireEvent.click(fill)
     expect(chat.prefill.mock.calls).toEqual([[w.askRiskDraft]])
   })
   it('CONTRAST: a model with no coaching questions draws no question rows', () => {
@@ -159,7 +173,8 @@ describe('questions worth answering: one press fills the message box with core\'
     view.model!.coaching_questions = []
     ready(view)
     render(<ViewReasoningBlock />)
-    expect(screen.queryAllByTestId('reasoning-question')).toHaveLength(0)
+    openAll()
+    expect(document.querySelectorAll('[data-check-item^="q:"]')).toHaveLength(0)
   })
 })
 
@@ -172,7 +187,7 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    const press = document.querySelector<HTMLElement>(`[data-sharpen="${s!.id}"] [data-testid="reasoning-method"]`)!
+    const press = selectItem(`s:${s!.id}`).querySelector<HTMLElement>('[data-testid="reasoning-method"]')!
     expect(press.textContent).toBe('Method words for the move')
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([[s!.move]])
@@ -184,7 +199,7 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    const press = document.querySelector<HTMLElement>(`[data-sharpen="${s.id}"] [data-testid="reasoning-method"]`)!
+    const press = selectItem(`s:${s.id}`).querySelector<HTMLElement>('[data-testid="reasoning-method"]')!
     expect(press.textContent).toBe(methods.find((m) => m.id === 'else_do')!.text)
     fireEvent.click(press)
     expect(chat.method.mock.calls).toEqual([['else_do']])
@@ -195,8 +210,12 @@ describe('try a method: core\'s sharpen prompt with ONE press labelled by core\'
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    expect(document.querySelectorAll('[data-sharpen]').length).toBeGreaterThan(0)
-    expect(screen.queryAllByTestId('reasoning-method')).toHaveLength(0)
+    const rows = document.querySelectorAll<HTMLButtonElement>('[data-check-item^="s:"]')
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) {
+      fireEvent.click(row)
+      expect(screen.queryAllByTestId('reasoning-method')).toHaveLength(0)
+    }
   })
 })
 
@@ -207,10 +226,11 @@ describe('challenge your thinking', () => {
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    const rows = [...document.querySelectorAll<HTMLElement>('[data-reasoning-challenge]')]
-    expect(rows.map((r) => r.dataset['reasoningChallenge'])).toEqual(cs.map((c) => c.id))
+    const rows = [...document.querySelectorAll<HTMLButtonElement>('[data-check-item^="c:"]')]
+    expect(rows.map((r) => r.dataset.checkItem)).toEqual(cs.map((c) => `c:${c.id}`))
+    const item = selectItem(`c:${cs[0]!.id}`)
+    expect(item.querySelector(`[data-view="${cs[0]!.id}.reason"]`)?.textContent ?? null).toBe(cs[0]!.reason)
     expect(expectAllBound(view, screen.getByTestId('view-reasoning'), expect)).toBeGreaterThan(0)
-    fireEvent.click(rows[0]!.querySelector('[data-testid="reasoning-challenge-show"]')!)
     expect(focus.node.mock.calls).toEqual([[cs[0]!.id]])
   })
   it('the Reasoning tab draws none of the Analysis tab\'s chances, and none of the deleted strips (glance, rack, people, commitment)', () => {
@@ -218,7 +238,7 @@ describe('challenge your thinking', () => {
     ready(view)
     render(<ViewReasoningBlock />)
     const body = screen.getByTestId('view-reasoning')
-    expect(body.querySelectorAll('[data-view$=".value"], [data-view="run.lead"], [data-view="run.most_likely.text"]')).toHaveLength(0)
+    expect(body.querySelectorAll('[data-view="run.lead"], [data-view="run.most_likely.text"], [data-testid="analysis-chance-chart"]')).toHaveLength(0)
     for (const t of ['view-reasoning-glance', 'view-reasoning-rack', 'view-reasoning-people', 'view-reasoning-commitment', 'view-reasoning-outcomes']) expect(screen.queryByTestId(t), t).toBeNull()
   })
 })
@@ -269,7 +289,7 @@ describe('towards commitment: where views differ, what is still disputed, what i
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
-    expect(document.querySelectorAll(`[data-reasoning-challenge="${card.id}"]`)).toHaveLength(0)
+    expect(document.querySelectorAll(`[data-check-item="c:${card.id}"]`)).toHaveLength(0)
     const row = screen.getByTestId('reasoning-commitment').querySelector<HTMLElement>(`[data-dissent="${card.id}"]`)!
     expect(row.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
     fireEvent.click(row.querySelector('button')!)
@@ -347,7 +367,7 @@ describe('pending is never shown as current', () => {
     }
     ready(bakery)
     rerender(<ViewReasoningBlock />)
-    expect(screen.getByTestId('view-reasoning').querySelector('[data-testid="reasoning-rests"]')).not.toBeNull()
+    expect(screen.getByTestId('view-reasoning').querySelector('[data-testid="view-reasoning-rests-toggle"]')).not.toBeNull()
   })
 })
 

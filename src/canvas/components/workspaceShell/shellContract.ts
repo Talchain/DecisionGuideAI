@@ -325,6 +325,7 @@ export interface WorkspaceSurfaceDescriptor {
   readonly id: OutputTab
   /** The user-visible label. */
   readonly label: string
+  readonly laneLabel?: string
   /** REQUIRED. See `ShellScrollOwner`. */
   readonly scroll: ShellScrollOwner
   /** REQUIRED. See `ShellPaddingOwner`. */
@@ -484,6 +485,7 @@ export const WORKSPACE_SURFACES: Record<OutputTab, WorkspaceSurfaceDescriptor> =
   analysisNew: {
     id: 'analysisNew',
     label: 'Reasoning',
+    laneLabel: 'Check',
     // ONE pre-run Run control on this surface: its body's "Run the analysis".
     // The shell's Rerun bar joins it only after the first run — see
     // `footerBar`'s 'reanalyseAfterFirstRun' note. (Was 'reanalyse' until

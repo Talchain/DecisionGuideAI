@@ -104,7 +104,7 @@ The chat is the only place for running text. The other right-hand tabs become to
 
 | ID | Tool | Status |
 |---|---|---|
-| TT-check | What to check (CH-worth and CH-status in one list; a press asks Olumi how) | planned, first |
+| TT-check | What to check (CH-worth and CH-status in one list; a press asks Olumi how) | built (lane B, slice 1) |
 | TT-compare | Compare | planned |
 | TT-stress | Stress-test | planned |
 | TT-differ | Where we differ, inside Team (CH-differ) | planned |

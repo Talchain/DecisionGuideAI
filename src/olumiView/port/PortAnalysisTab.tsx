@@ -28,7 +28,7 @@ import { FailureAfterYours, TippingPerOption } from './AnalysisReaders'
 import { WhatMovesIt } from './WhatMovesIt'
 import { FoldChevron } from '../look/FoldChevron'
 import { REASONING_LABELS, RestsOn } from '../ViewReasoning'
-import { actionable, examineOf } from '../reasoning/examine'
+import { checkItemsOf } from '../check/items'
 import { COMMITMENT_WORDS, displayedDissent } from '../reasoning/TowardsCommitment'
 import { useReasoningFocus } from '../reasoning/focusRequest'
 import { useUIStore } from '../../stores/uiStore'
@@ -165,8 +165,8 @@ function WhyThisReading({ model }: { model: ViewModel }) {
 function ToReasoning({ model }: { model: ViewModel }) {
   const view = useViewStore((s) => s.view)
   const dissent = view?.collab.dissent ?? []
-  const items = examineOf(model, view?.session?.methods ?? null, (view?.model_words ?? null) as Record<string, unknown> | null, new Set(dissent.map((d) => d.id)))
-  const first = items.find(actionable)
+  const items = checkItemsOf(model, view).flatMap((group) => group.blocks.flatMap((block) => block.items))
+  const first = items[0]
   if (first === undefined && !dissent.some(displayedDissent)) return null
   return (
     <button type="button" data-testid="analysis-to-reasoning" onClick={() => {

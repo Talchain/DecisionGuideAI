@@ -26,6 +26,7 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
+import { RESTS_AT_REST } from '../../../olumiView/ViewReasoning'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
@@ -59,15 +60,20 @@ describe('the Reasoning tab on the olumi-core lane', () => {
   it('is offered, and pressed it draws core\'s Run from the View: no legacy body, no run cover, no Run control', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     await dockOn('analysisNew')
-    fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
+    const tab = screen.getByRole('tab', { name: 'Check' })
+    expect(tab).toHaveAttribute('data-testid', 'outputs-dock-tab-analysisNew')
+    fireEvent.click(tab)
     const body = screen.getByTestId('view-reasoning')
-    // Redesign, 18 Nov: how sound the thinking is. The model-at-a-glance strip is gone (the canvas and Model tab draw the model); core's
-    // rests are drawn per figure (redesign 2): the first two rests at rest, each figure a bar to its share.
     expect(body.querySelector('[data-testid="view-reasoning-glance"]')).toBeNull()
+    const door = screen.getByTestId('view-reasoning-rests-toggle')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    expect(body.querySelectorAll('[data-rest], [data-testid="reasoning-share-bar"]')).toHaveLength(0)
+    fireEvent.click(door)
+    expect(door).toHaveAttribute('aria-expanded', 'true')
     type R = { id: string; line: string; figures?: { line: string }[] }
-    const rests = (view.model.run.rests as R[]).filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
-    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.slice(0, 2).map((r) => r.id))
-    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]').length).toBe(rests.slice(0, 2).flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '')).length)
+    const rests = (view.model.run.rests as R[]).filter((r) => r.line !== '').slice(0, RESTS_AT_REST)
+    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.map((r) => r.id))
+    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]')).toHaveLength(rests.filter((r) => r.figures?.some((f) => f.line !== '')).length)
     // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
     expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
@@ -78,7 +84,7 @@ describe('the Reasoning tab on the olumi-core lane', () => {
   it('off the lane the tab keeps its legacy body', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     await dockOn('analysisNew')
-    fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Reasoning' }))
     expect(screen.getByTestId('stub-legacy-reasoning')).toBeInTheDocument()
     expect(screen.queryByTestId('view-reasoning')).toBeNull()
   })

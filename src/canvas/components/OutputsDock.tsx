@@ -524,7 +524,7 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
     return true
-  })
+  }).map(surface => isOlumiCoreLane() ? { ...surface, label: surface.laneLabel ?? surface.label } : surface)
 }
 
 /**

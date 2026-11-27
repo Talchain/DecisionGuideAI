@@ -1,103 +1,109 @@
-/**
- * Reasoning at rest fits the panel at 1232x704 (panel ~561 px; was 724 on a model with chances). jsdom has no layout, so the fit is read as
- * ROWS: each line-carrying element the tab draws at rest (section headings, rest sentences, figure rows, examine rows, commitment lines).
- * The first screen holds the lead and at most three more items; everything else is behind a press.
- */
+/** A DOM row count for the 1232x704 panel budget. jsdom does not measure pixel height. */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import path from 'node:path'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+
 const chat = vi.hoisted(() => ({ prefill: vi.fn() }))
 vi.mock('../../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../ViewChat')>()), prefillComposer: chat.prefill }))
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
-import { RESTS_AT_REST, StartHere, ViewReasoningBlock } from '../../ViewReasoning'
+import { REASONING_LABELS, RESTS_AT_REST, ViewReasoningBlock } from '../../ViewReasoning'
 import { controls } from '../../../styles/controls'
 import { clearWhatIf } from '../../whatif'
 import { useMe } from '../../../olumiCore/me'
+import { viewOf } from '../../port/__tests__/viewAt'
 
-const read = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/golden', n), 'utf8'))
-const real = (n: string): View => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', `${n}.view3.json`), 'utf8'))
 const ready = (view: View) => {
-  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false } as never)
+  useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
-afterEach(() => { cleanup(); clearWhatIf(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+afterEach(() => { cleanup(); clearWhatIf(); chat.prefill.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, error: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 
-const ROW = 'h3, [data-rest] > p, [data-rest-figure], [data-testid="reasoning-examine"] li, [data-testid="reasoning-commitment"] li, [data-testid="reasoning-rests-key"], [data-testid="reasoning-focus"]'
-const rows = () => screen.getByTestId('view-reasoning').querySelectorAll(ROW).length
-const items = () => screen.getByTestId('reasoning-examine').querySelectorAll('li').length
-
-/**
- * (Round 3 repair: the total budget is the panel's capacity itself, 12 rows, not arithmetic on the caps; a golden that draws more is a real overflow to fix by
- * cutting rows, not by raising this number. The browser pixel geometry at 1232x704 and 1128 at 1.33 is still owed by S4 and must be attached before the row is resolved.)
- * THE FIT CRITERION (Paul's progressive-disclosure rule; S4 ruling 20 Nov round 3): at most RESTS_AT_REST (3) rest groups at rest, in core's order, the rest behind
- * ONE disclosure. With the groups capped, the at-rest TOTAL is bounded by fixed numbers that do not grow with the model:
- *  - the panel at 1232x704 holds about 12 of these rows, so everything BESIDE the rest groups' own lines (the lead, the examine and commitment items, the
- *    rests heading, core's figure-list label and the key) stays within OUTSIDE_RESTS = 9;
- *  - each rest group at rest is its own three lines at most (its option and aim, core's sentence, its first figure): PER_GROUP = 3;
- *  - so the whole tab at rest is TOTAL_AT_REST = OUTSIDE_RESTS + RESTS_AT_REST * PER_GROUP rows, plus core's one figure-list label.
- * The total is asserted on EVERY golden, european (7 groups) included: it is a count of rows because jsdom has no layout. The pixel height at 1232x704
- * (and 1128 at 1.33) is a browser measurement this file cannot make; S4 supplies it. A row count that passes here does not prove the panel fits.
- */
-const CAPACITY_ROWS = 12 // what the 1232x704 panel (about 561 px) holds, from the 724 px measurement above: a fixed fact of the panel, not derived from the caps below
-const OUTSIDE_RESTS = 3 // so the lead, examine and commitment items, rests heading and key leave room for the groups' own lines
-const PER_GROUP = 3
-const TOTAL_AT_REST = CAPACITY_ROWS
-const groupRows = (g: Element) => g.querySelectorAll('p:not([data-view="run.rests_figures_heading"]), [data-rest-figure]').length
-const outsideRests = () => rows() - [...document.querySelectorAll('[data-rest]')].reduce((n, g) => n + groupRows(g), 0)
+const ROW = [
+  'h3', '[data-check-aim-heading]', '[data-check-aim-line]', '[data-check-item]',
+  '[data-check-more]:not([data-check-heading-toggle])', // The heading already counts a toggle in the same row.
+  '[data-testid="view-reasoning-rests-toggle"]', '[data-rest] > p', '[data-rest-figure]',
+  '[data-testid="reasoning-commitment"] li', '[data-testid="reasoning-rests-key"]',
+].join(', ')
+const rows = () => [...screen.getByTestId('view-reasoning').querySelectorAll(ROW)].filter((row) => row.closest('[hidden]') === null).length
+const CAPACITY_ROWS = 12
 const goldens = readdirSync(path.resolve('src/olumiView/golden')).filter((n) => n.endsWith('.view.json')).sort()
+const restsToggle = () => screen.getByTestId('view-reasoning-rests-toggle')
 
-describe('Reasoning at rest fits the 1232x704 panel', () => {
-  it('european (the model that measured 724 px against a 561 px panel): at most three rest groups at rest, each with its first figure; the other groups and the further figures behind ONE press; opening it draws more rows', () => {
-    ready(read('european.view.json')); render(<ViewReasoningBlock />)
+describe('Check at rest fits the 1232x704 panel row budget', () => {
+  it('european: the rests door is closed at rest and reveals the groups, with further figures behind one press', () => {
+    const view = viewOf('golden/european')
+    ready(view); render(<ViewReasoningBlock />)
     const atRest = rows()
+    expect(atRest, 'the total at rest').toBeLessThanOrEqual(CAPACITY_ROWS)
+    expect(restsToggle()).toHaveAttribute('aria-expanded', 'false')
+    expect(restsToggle().querySelector('[data-count]')).toHaveTextContent(String(view.model!.run!.rests.length))
+    expect(document.querySelectorAll('[data-rest]')).toHaveLength(0)
+    fireEvent.click(restsToggle())
+    expect(rows()).toBeGreaterThan(atRest)
     const groups = [...document.querySelectorAll('[data-rest]')]
-    expect([groups.length, groups.every((g) => groupRows(g) <= PER_GROUP), outsideRests() <= OUTSIDE_RESTS, items() <= 4], `rows at rest: ${atRest}, outside the groups: ${outsideRests()}`).toEqual([RESTS_AT_REST, true, true, true])
-    expect(atRest, 'the TOTAL at rest, not only what is left after subtracting the groups').toBeLessThanOrEqual(TOTAL_AT_REST)
-    expect(screen.getAllByTestId('reasoning-rests-more'), 'ONE press for everything folded').toHaveLength(1)
+    expect(groups).toHaveLength(RESTS_AT_REST)
+    expect(groups.every((g) => g.querySelectorAll('[data-rest-figure]').length <= 1)).toBe(true)
+    expect(screen.getAllByTestId('reasoning-rests-more')).toHaveLength(1)
     fireEvent.click(screen.getByTestId('reasoning-rests-more'))
-    expect(rows(), 'CONTRAST: the folded rows are one press away, not deleted').toBeGreaterThan(atRest)
-    expect(document.querySelectorAll('[data-rest]').length, 'opened: every group, in core\'s order').toBeGreaterThan(RESTS_AT_REST)
+    expect([...document.querySelectorAll<HTMLElement>('[data-rest]')].map((group) => group.dataset.rest)).toEqual(view.model!.run!.rests.map((group) => group.id))
   })
+
   for (const name of goldens) {
-    it(`${name}: whatever core sends, the Reasoning tab at rest draws at most ${RESTS_AT_REST} rest groups and its total rows stay within the fixed budget`, () => {
-      const view = read(name)
-      expect(view.model, `${name}: a golden with no model cannot show it fits; fail rather than skip`).not.toBeNull()
+    it(`${name}: Check groups and disclosures stay within the fixed budget`, () => {
+      const view = viewOf(`golden/${name.replace(/\.view\.json$/, '')}`)
+      expect(view.model, `${name}: a golden must supply a model`).not.toBeNull()
       ready(view); render(<ViewReasoningBlock />)
-      const groups = [...document.querySelectorAll('[data-rest]')]
-      expect([groups.length <= RESTS_AT_REST, groups.every((g) => groupRows(g) <= PER_GROUP), rows() <= TOTAL_AT_REST], `${name}: ${rows()} rows, ${groups.length} groups`).toEqual([true, true, true])
+      expect(document.querySelectorAll('[data-rest]')).toHaveLength(0)
+      for (const group of document.querySelectorAll('[data-check-group]')) {
+        expect(group.querySelectorAll('[data-check-item]').length).toBeLessThanOrEqual(group.getAttribute('data-check-group') === 'examine' ? 1 : 2)
+      }
+      expect(document.querySelectorAll('[data-check-aim-line]')).toHaveLength(0)
+      console.info(`[fit] ${name}: ${rows()}`)
+      expect(rows(), `${name}: ${rows()} rows`).toBeLessThanOrEqual(CAPACITY_ROWS)
     })
   }
-  // Pricing, not bakery: bakery has one group and two figures, so its second figure folds; pricing is the one golden that is whole at rest.
-  it('CONTRAST: a short model (pricing, one rest with one figure) draws it whole at rest, with no press to fold anything, inside the same fixed numbers', () => {
-    ready(read('pricing.view.json')); render(<ViewReasoningBlock />)
-    const groups = [...document.querySelectorAll('[data-rest]')]
-    // The fixed numbers are ONE budget: the panel's 12 rows. OUTSIDE_RESTS (3) is what is left beside a FULL three groups (3 x PER_GROUP); a model with one group has the
-    // rows of the two empty group slots as well, so what may sit outside its groups is the budget less the groups it actually draws.
-    expect([groups.length, outsideRests() <= TOTAL_AT_REST - groups.length * PER_GROUP, rows() <= TOTAL_AT_REST, groups.every((g) => groupRows(g) <= PER_GROUP), screen.queryByTestId('reasoning-rests-more')?.getAttribute('aria-expanded') ?? null], `rows ${rows()}, outside ${outsideRests()}`).toEqual([1, true, true, true, null])
+
+  it('pricing: the door reveals its only group and figure without an inner fold', () => {
+    ready(viewOf('golden/pricing')); render(<ViewReasoningBlock />)
+    expect(document.querySelectorAll('[data-rest]')).toHaveLength(0)
+    expect(rows()).toBeLessThanOrEqual(CAPACITY_ROWS)
+    fireEvent.click(restsToggle())
+    expect(document.querySelectorAll('[data-rest]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-rest-figure]')).toHaveLength(1)
+    expect(screen.queryByTestId('reasoning-rests-more')).toBeNull()
   })
 })
 
-describe('Reasoning: putting a question in the message box is never the primary action', () => {
-  it('app-launch with text-only questions: the lead\'s press is the quiet secondary (not the green action), and a list row\'s press is an icon beside core\'s words; a challenge\'s press (the card) stays the green action', () => {
-    const view = structuredClone(read('app-launch.view.json')); (view.model as unknown as { questions?: unknown }).questions = []
+describe('Check actions are disclosed on selection', () => {
+  it('a text question offers a quiet fill action and a challenge shows its card through selection alone', () => {
+    const view = viewOf('golden/app-launch')
+    view.model!.questions = []
     ready(view)
-    render(<StartHere model={view.model!} />)
-    const lead = screen.getByTestId('reasoning-question')
-    expect([lead.className.includes(controls.act), lead.className.includes('border-panel-border')]).toEqual([false, true])
-    fireEvent.click(lead)
+    render(<ViewReasoningBlock />)
+    const select = (key: string) => {
+      const row = document.querySelector(`[data-check-item="${key}"]`)!
+      fireEvent.click(row)
+      return within(row.closest('li')!)
+    }
+    expect(screen.queryByRole('button', { name: REASONING_LABELS.fill })).toBeNull()
+    const question = select('q:0')
+    const fill = question.getByRole('button', { name: REASONING_LABELS.fill })
+    expect([fill.className.includes(controls.act), fill.className.includes('border-panel-border')]).toEqual([false, true])
+    expect(question.getByRole('button', { name: view.model!.coaching_questions![0] })).toBeInTheDocument()
+    fireEvent.click(fill)
     expect(chat.prefill.mock.calls).toEqual([[view.model!.coaching_questions![0]]])
     cleanup()
+    const cap = viewOf('real/capacity'); ready(cap)
     render(<ViewReasoningBlock />)
-    const press = screen.getAllByTestId('reasoning-question')[0]!
-    expect([press.textContent, press.closest('li')!.querySelector('[data-view-words]')!.textContent!.length > 0]).toEqual(['', true])
-    cleanup()
-    // CONTRAST: a challenged card leads with the green "show" action.
-    const cap = real('capacity'); ready(cap)
-    render(<StartHere model={cap.model!} />)
-    const show = screen.queryByTestId('reasoning-challenge-show')
-    expect([show !== null, show?.className.includes(controls.act)]).toEqual([true, true])
+    const challenge = document.querySelector<HTMLButtonElement>('[data-check-item^="c:"]')!
+    expect(challenge).toBeInTheDocument()
+    expect(challenge.className.includes(controls.act)).toBe(false)
+    fireEvent.click(challenge)
+    expect(challenge).toHaveAttribute('aria-expanded', 'true')
+    expect(within(challenge.closest('li')!).getAllByRole('button')).toEqual([challenge])
   })
 })
