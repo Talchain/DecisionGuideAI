@@ -5,11 +5,13 @@ import type { View, ViewCard, ViewModel, ViewRow } from '../../client'
 import { FigureEdit } from '../../FigureEdit'
 import { FoldChevron, FOLD_SUMMARY } from '../../look/FoldChevron'
 import { Hover } from '../../look/Hover'
+import { resultFigureCardsOf } from '../../port/pick'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
 import { chanceForDots } from '../../resultRange'
-import { currentModel, shownModel, useViewStore } from '../../store'
+import { shownModel, useViewStore } from '../../store'
 import { optionLetters } from '../cards/letters'
 import { LetterChip } from '../cards/marks'
+import { figureRange } from '../contract'
 import { cardOfRecord } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
@@ -145,7 +147,8 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   const aimHeading = useId()
   const stepButtons = useRef(new Map<Step, HTMLButtonElement>())
   const subjectObserved = useRef(false)
-  const selected = figures.find((figure) => figure.record === record) ?? figures[0]
+  const held = view.proposal != null
+  const selected = held ? undefined : figures.find((figure) => figure.record === record) ?? figures[0]
   const selectedRecord = selected?.record
   const base = model.edit_base ?? view.version?.id
   const scope = base == null || selectedRecord === undefined ? null
@@ -205,20 +208,32 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   }
 
   if (selected === undefined) {
-    const unsized = model.cards.flatMap((card) => {
-      const figure = card.figure
-      return card.family === 'quantity' && figure?.text === '' && figure.edit != null ? [{ card, edit: figure.edit }] : []
-    })
+    if (held && figures.length > 0) return <div className={META}>{STRESS_WORDS.held}</div>
+    const resultFigures = resultFigureCardsOf(model, view)
     return (
-      <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className="grid gap-2">
-        {unsized.length === 0 ? <span className={META}>{STRESS_WORDS.empty}</span>
-          : unsized.map(({ card, edit }) => (
-            <div key={card.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2">
-              <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
-              <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
-              <FigureEdit id={card.id} edit={edit} label={STRESS_WORDS.fill} place="tool-stress" />
-            </div>
-          ))}
+      <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled}>
+        {resultFigures.length === 0 ? <span className={META}>{STRESS_WORDS.empty}</span>
+          : <ul role="list" className="m-0 grid list-none grid-cols-3 gap-2 p-0">
+            {resultFigures.map((card) => {
+              const { figure } = card
+              const range = figureRange(card)
+              const unknown = figure == null || figure.state === 'waits' || (figure.text === '' && range === null)
+              return (
+                <li key={card.id} className="col-span-3 grid grid-cols-subgrid items-center"
+                  onMouseEnter={() => ringFrom(RING_SOURCE, [card.id])} onMouseLeave={() => ringFrom(RING_SOURCE, [])}
+                  onFocus={() => ringFrom(RING_SOURCE, [card.id])} onBlur={() => ringFrom(RING_SOURCE, [])}>
+                  <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
+                  {unknown ? (
+                    <>
+                      <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
+                      {figure?.edit != null && <FigureEdit id={card.id} edit={figure.edit} label={STRESS_WORDS.fill} place="tool-stress" />}
+                    </>
+                  ) : range !== null ? <RangeBar card={card} view={model} showFlat />
+                    : <Hover words={figure.title} className={`${META} col-start-3 min-w-0 break-words`}>{figure.text}</Hover>}
+                </li>
+              )
+            })}
+          </ul>}
       </div>
     )
   }
@@ -332,13 +347,13 @@ export function StressTestTab() {
   const view = useViewStore((state) => state.view)
   const model = useViewStore(shownModel)
   const failed = useViewStore((state) => state.status === 'error' || state.error !== null)
-  const held = useViewStore((state) => state.view?.proposal != null && currentModel(state) === null)
+  const held = view?.proposal != null
   const fallback = failed ? STRESS_WORDS.unavailable
     : held ? STRESS_WORDS.held
     : view === null ? STRESS_WORDS.empty : STRESS_WORDS.unavailable
   return (
     <div data-testid="core-stress-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3">
-      {model !== null && view !== null && !held && !failed
+      {model !== null && view !== null && !failed
         ? <StressTest model={model} view={view} />
         : <div className={META}>{fallback}</div>}
     </div>

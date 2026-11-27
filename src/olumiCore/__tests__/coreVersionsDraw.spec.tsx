@@ -4,7 +4,7 @@
  * never drawn as the one asked for, and nothing is written while a past version is on screen.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 vi.mock('../../lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
@@ -144,8 +144,8 @@ describe('R1 review 1: the Team tab writes nothing to the live scenario while a 
     // Held by its fieldset, as a browser holds it (`:disabled`), the view box and every Team form button with it; invitations stay open.
     expect(screen.getByTestId('team-view-text').matches(':disabled')).toBe(true)
     expect(screen.getByTestId('team-commitment-open').matches(':disabled')).toBe(true)
-    fireEvent.click(screen.getByTestId('team-invite-menu-trigger'))
-    expect(screen.getByTestId('team-invite-name').matches(':disabled')).toBe(false)
+    const invite = screen.getByRole('dialog', { name: 'Invite a colleague' })
+    expect(within(invite).getByRole('textbox', { name: 'Their name' }).matches(':disabled')).toBe(false)
     expect(screen.getByTestId('team-past').textContent).toBe(`${TEAM_PAST_HELD}Back to the latest`) // no version sentence the page composes (DL 7 Nov)
     fireEvent.click(screen.getByTestId('team-past-back'))
     expect(useViewStore.getState().at).toBe(1) // the read is on its way; the back goes through the store's look

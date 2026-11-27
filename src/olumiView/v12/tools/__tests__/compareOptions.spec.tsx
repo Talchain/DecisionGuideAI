@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../../../canvas/store'
 import { CoreCompareTab } from '../../../../olumiCore/compare'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
@@ -57,6 +57,8 @@ describe('Compare options', () => {
     render(<CompareOptions model={model} />)
     const buttons = within(picker()).getAllByRole('button')
     expect(buttons).toEqual(optionCards(model).map(chip))
+    expect(picker()).toHaveClass('flex', 'flex-row', 'flex-wrap')
+    expect([...picker().children]).toEqual(buttons)
     for (const button of buttons) expect(button.querySelector('[data-node-shape="option"]')).toBeInTheDocument()
     expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
     expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `B${weekend!.heading}`])
@@ -135,6 +137,33 @@ describe('Compare options', () => {
     expect(explanation).not.toBeVisible()
     fireEvent.click(summary)
     expect(explanation).toBeVisible()
+  })
+
+  it('aligns label, track and value cells across measured and unmeasured aims', () => {
+    render(<CompareOptions model={model} />)
+    const aims = [
+      { id: takings.aim_id, values: [takings.value, miss.value] },
+      { id: membersAim.id, values: ['', ''] },
+    ]
+    for (const { id, values } of aims) {
+      expect(aimBlock(id)).toHaveClass('compare-aim-grid', 'grid')
+      const rows = rowsOf(id)
+      expect(rows).toHaveLength(values.length)
+      rows.forEach((row, index) => {
+        expect(row).toHaveClass('grid', 'grid-cols-subgrid')
+        expect(row.children).toHaveLength(3)
+        const [label, track, value] = row.children
+        expect(label).toBe(rowButton(row))
+        expect(label?.querySelector('[data-letter-chip]')).toBeInTheDocument()
+        expect(track).toHaveClass('ok-face-mark-chance')
+        if (values[index] === '') {
+          expect(value).toBeEmptyDOMElement()
+          expect(track?.querySelector('.ok-face-mark-track')).toBeInTheDocument()
+        } else {
+          expect(within(value as HTMLElement).getByText(values[index]!).textContent).toBe(values[index])
+        }
+      })
+    }
   })
 
   it('fills the dots from each option’s own shown chance, even after swapping the sides', () => {
@@ -268,7 +297,7 @@ describe('Compare options', () => {
 })
 
 describe('Compare tab integration', () => {
-  function stubReads() {
+  beforeEach(() => {
     const reads = vi.fn(async (url: Parameters<typeof fetch>[0]) => {
       const path = String(url)
       if (path === '/api/me') return Response.json({ scenarios: [] })
@@ -279,10 +308,9 @@ describe('Compare tab integration', () => {
     })
     setTeamFetch(reads)
     vi.stubGlobal('fetch', reads)
-  }
+  })
 
   it.each([null, 1, 2])('puts the options ahead of the legacy section with approved version %s', async (n) => {
-    stubReads()
     useViewStore.setState({ sid: studio.id, view: { ...studio, version: n === null ? null : { ...studio.version!, n } }, at: null })
     render(<CoreCompareTab />)
     const legacy = screen.getByRole('heading', { name: CHROME.versions })
@@ -291,7 +319,6 @@ describe('Compare tab integration', () => {
   })
 
   it('shows the option comparison when the first model is held for approval', () => {
-    stubReads()
     const held = JSON.parse(readFileSync('src/olumiView/fixtures/break-even/break-even-pending.view3.json', 'utf8')) as View
     useViewStore.setState({ sid: held.id, view: held, at: null })
     render(<CoreCompareTab />)
@@ -302,7 +329,6 @@ describe('Compare tab integration', () => {
   })
 
   it('shows Core’s if-approved glyph and tip beside its held chance value', () => {
-    stubReads()
     const held = JSON.parse(readFileSync('src/olumiView/fixtures/break-even/break-even-pending.view3.json', 'utf8')) as View
     const card = optionCards(held.model!).find((option) => option.id === 'opt_now')!
     const chance = card.rows.find((row) => row.kind === 'chance')!
@@ -318,7 +344,6 @@ describe('Compare tab integration', () => {
   })
 
   it('restores both choices when the same scenario refreshes and the options are still present', () => {
-    stubReads()
     const view = { ...studio, version: null }
     useViewStore.setState({ sid: studio.id, view, at: null })
     render(<CoreCompareTab />)
@@ -338,7 +363,6 @@ describe('Compare tab integration', () => {
     { stale: true, error: null },
     { stale: false, error: 'Refresh failed' },
   ])('removes the tool and clears its rings if the model becomes stale or the refresh fails', async (unavailable) => {
-    stubReads()
     useViewStore.setState({ sid: studio.id, view: { ...studio, version: null }, at: null, ...unavailable })
     render(<CoreCompareTab />)
     expect(screen.queryByTestId('tool-compare-options')).not.toBeInTheDocument()
@@ -354,7 +378,6 @@ describe('Compare tab integration', () => {
   })
 
   it('shows options while the versions are still loading and starts with the default pair on another scenario', async () => {
-    stubReads()
     useViewStore.setState({ sid: studio.id, view: studio, at: 1 })
     render(<CoreCompareTab />)
     expect(screen.getByTestId('core-compare-loading')).toHaveTextContent('Reading the versions…')

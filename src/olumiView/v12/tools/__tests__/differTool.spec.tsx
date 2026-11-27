@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMe } from '../../../../olumiCore/me'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
@@ -15,7 +16,7 @@ import crossingResponse from '../../../fixtures/debate/differences.core.json'
 import coreResponse from '../../../fixtures/debate/tm04-differences.core.json'
 import revealedView from '../../../fixtures/debate/tm04-cara.view3.json'
 import { useViewStore } from '../../../store'
-import { DifferTool } from '../DifferTool'
+import { DIFFER_TOOL_WORDS, DifferTool } from '../DifferTool'
 import { useDifferSelection } from '../differSelection'
 
 const view = revealedView as unknown as View
@@ -33,6 +34,7 @@ const fetchTeam = vi.fn(async (resource: RequestInfo | URL) => {
 })
 
 beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request')))
   setTeamFetch(fetchTeam)
   useViewStore.setState({ sid, view, status: 'ready', error: null, at: null })
   useMe.setState({ me: { id: view.you_id!, name: view.you }, status: 'ready' })
@@ -47,6 +49,7 @@ afterEach(async () => {
   setTeamFetch(null)
   useViewStore.setState({ sid: null, view: null, status: 'none', at: null })
   useMe.setState({ me: null, status: 'none' })
+  vi.unstubAllGlobals()
   vi.clearAllMocks()
 })
 
@@ -56,9 +59,15 @@ function load(given: View, differences = core.differences) {
 }
 
 const tool = () => screen.getByTestId('tool-differ')
-const choose = (d: Difference) => within(tool()).getByRole('button', {
+const picker = () => within(tool()).getByRole('button', { name: new RegExp(`^${DIFFER_TOOL_WORDS.all} `) })
+const choices = () => within(document.getElementById(picker().getAttribute('aria-controls')!)!)
+const choice = (d: Difference) => choices().getByRole('button', {
   name: [d.label, ...(d.goal_label ? [d.goal_label] : d.sides.map((side) => side.holder))].join(' '),
 })
+function choose(d: Difference) {
+  fireEvent.click(picker())
+  fireEvent.click(choice(d))
+}
 const ranges = () => within(tool()).queryByTestId('tool-differ-ranges')
 const differenceReads = () => fetchTeam.mock.calls.filter(([url]) => String(url).endsWith('/differences')).length
 
@@ -87,6 +96,44 @@ function expectBarEndpoints(figures: Array<[number, number]>) {
 }
 
 describe('Where we differ in Team', () => {
+  it('shows one difference above the axis until the count control opens all seven choices', async () => {
+    load(view)
+    const user = userEvent.setup()
+    render(<DifferTool sid={sid} view={view} />)
+
+    const control = picker()
+    expect(control).toHaveAccessibleName(`${DIFFER_TOOL_WORDS.all} (7)`)
+    expect(control).toHaveAttribute('aria-expanded', 'false')
+    expect(choices().queryByRole('list')).toBeNull()
+    expect(within(tool()).queryByText(link.label)).toBeNull()
+
+    const axis = ranges()!
+    const selectedRow = axis.previousElementSibling as HTMLElement
+    expect(within(selectedRow).getByText(figure.label)).toBeVisible()
+    expect(within(selectedRow).getByText(figure.goal_label)).toBeVisible()
+    expect(axis).toBeVisible()
+
+    await user.tab()
+    expect(control).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(control).toHaveAttribute('aria-expanded', 'true')
+    expect(choices().getAllByRole('listitem')).toHaveLength(7)
+    expect(choice(figure)).toHaveAttribute('aria-pressed', 'true')
+    expect(axis.previousElementSibling).toBe(selectedRow)
+
+    await user.tab()
+    await user.tab()
+    expect(choice(link)).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(control).toHaveAttribute('aria-expanded', 'false')
+    expect(control).toHaveFocus()
+    expect(choices().queryByRole('list')).toBeNull()
+    const nextAxis = within(tool()).getByTestId('tool-differ-sides')
+    expect(nextAxis.previousElementSibling).toBe(selectedRow)
+    expect(within(selectedRow).getByText(link.label)).toBeVisible()
+    expect(within(selectedRow).getByText(link.goal_label)).toBeVisible()
+  })
+
   it('shares one read with the revealed step and hides on a historical View', async () => {
     const before = { ...view, collab: { ...view.collab, shared: [] } }
     useViewStore.setState({ view: before })
@@ -97,7 +144,10 @@ describe('Where we differ in Team', () => {
     act(() => useViewStore.setState({ view }))
     const revealedTool = await screen.findByTestId('tool-differ')
     const team = screen.getByTestId('team-tab')
-    expect(team.firstElementChild).toBe(revealedTool)
+    // Team opens on the people view (Paul, 27 Nov): the heading and members first, then the differences tool, before the steps.
+    expect(team.firstElementChild).toContainElement(screen.getByTestId('team-views-heading'))
+    expect(revealedTool.compareDocumentPosition(screen.getByTestId('team-views-heading')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
+    expect(revealedTool.compareDocumentPosition(within(team).getByTestId('differ-after')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(team).getByTestId('differ-after')).toBeVisible()
     const axis = '[data-form="CH-differ"]'
     expect(team.querySelectorAll(axis)).toHaveLength(1)
@@ -145,17 +195,18 @@ describe('Where we differ in Team', () => {
   it('restores the choice only for the same scenario', () => {
     load(view)
     const { unmount } = render(<DifferTool sid={sid} view={view} />)
-    fireEvent.click(choose(sameLinkOtherAim))
+    choose(sameLinkOtherAim)
     unmount()
 
     const other = { ...view, id: sid + '2' }
     const key = differencesKey(other.id, other)
     useDifferences.setState({ sid: other.id, key, read: key, data: { ...core, scenario: other.id } })
     const { rerender } = render(<DifferTool sid={other.id} view={other} />)
-    expect(choose(figure)).toHaveAttribute('aria-pressed', 'true')
+    expect(within(tool()).getByText(figure.label)).toBeVisible()
     load(view)
     rerender(<DifferTool sid={sid} view={view} />)
-    expect(choose(sameLinkOtherAim)).toHaveAttribute('aria-pressed', 'true')
+    expect(within(tool()).getByText(sameLinkOtherAim.label)).toBeVisible()
+    expect(within(tool()).getByText(sameLinkOtherAim.goal_label)).toBeVisible()
   })
 
   it('shows each figure on the same scale and redraws from the selected record', () => {
@@ -176,14 +227,13 @@ describe('Where we differ in Team', () => {
     load(twoRecords, [figure, second])
     render(<DifferTool sid={sid} view={twoRecords} />)
 
-    expect(choose(figure)).toHaveAttribute('aria-pressed', 'true')
-    expect(choose(second)).toHaveAttribute('aria-pressed', 'false')
+    expect(picker()).toHaveAccessibleName(`${DIFFER_TOOL_WORDS.all} (2)`)
     const tomBefore = expectBarEndpoints([[6, 12], [1, 3]])[1]!
     expect(within(ranges()!).getByText(figure.sides[0]!.figure)).toBeVisible()
     expect(within(ranges()!).getByText(figure.sides[1]!.figure)).toBeVisible()
 
-    fireEvent.click(choose(second))
-    expect(choose(second)).toHaveAttribute('aria-pressed', 'true')
+    choose(second)
+    expect(within(tool()).getByText(second.label)).toBeVisible()
     const tomAfter = expectBarEndpoints([[1, 2], [1, 3]])[1]!
     expect(tomAfter[1]).toBeGreaterThan(tomBefore[1])
     expect(within(ranges()!).getByText(maya.by)).toBeVisible()
@@ -238,31 +288,35 @@ describe('Where we differ in Team', () => {
     const { unmount } = render(<DifferTool sid={sid} view={view} />)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-differ', figure.cards)
 
-    fireEvent.click(choose(link))
+    choose(link)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-differ', link.cards)
     expect(ranges()).toBeNull()
-    fireEvent.click(choose(sameLinkOtherAim))
-    expect(choose(link)).toHaveAttribute('aria-pressed', 'false')
-    expect(choose(sameLinkOtherAim)).toHaveAttribute('aria-pressed', 'true')
-    expect(within(choose(link)).getByText(link.goal_label)).toBeVisible()
-    for (const side of link.sides) expect(within(choose(link)).queryByText(side.holder)).toBeNull()
+    choose(sameLinkOtherAim)
+    fireEvent.click(picker())
+    expect(choice(link)).toHaveAttribute('aria-pressed', 'false')
+    expect(choice(sameLinkOtherAim)).toHaveAttribute('aria-pressed', 'true')
+    expect(within(choice(link)).getByText(link.goal_label)).toBeVisible()
+    for (const side of link.sides) expect(within(choice(link)).queryByText(side.holder)).toBeNull()
 
     for (const factor of factors) {
       const holders = factor.sides.map((side) => side.holder).join(' ')
-      const selector = within(tool()).getByRole('button', { name: `${factor.label} ${holders}`, description: holders })
+      const selector = choices().getByRole('button', { name: `${factor.label} ${holders}`, description: holders })
       for (const side of factor.sides) expect(within(selector).getByText(side.holder)).toBeVisible()
     }
     const intended = factors[1]!
     const holders = intended.sides.map((side) => side.holder).join(' ')
-    fireEvent.click(within(tool()).getByRole('button', { name: `${intended.label} ${holders}`, description: holders }))
+    fireEvent.click(choices().getByRole('button', { name: `${intended.label} ${holders}`, description: holders }))
     const rows = within(tool()).getByTestId('tool-differ-sides')
+    const selectedRow = rows.previousElementSibling as HTMLElement
+    expect(within(selectedRow).getByText(intended.label)).toBeVisible()
+    for (const side of intended.sides) expect(within(selectedRow).getByText(side.holder)).toBeVisible()
     expect(within(rows).getByText(intended.sides[0]!.holder)).toBeVisible()
     expect(within(rows).queryByText(factors[0]!.sides[0]!.holder)).toBeNull()
     expect(ringFrom).toHaveBeenLastCalledWith('tool-differ', [])
     expect(within(rows).queryByRole('button')).toBeNull()
     expect(pressCard).not.toHaveBeenCalled()
 
-    fireEvent.click(choose(figure))
+    choose(figure)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-differ', figure.cards)
     const rowPress = within(ranges()!).getByRole('button', { name: /Priya/, description: COMPARE_WORDS.toCanvas })
     fireEvent.click(rowPress)

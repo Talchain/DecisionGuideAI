@@ -15,13 +15,13 @@ import { useViewStore } from './store'
 import { othersOf } from './layout'
 import type { View } from './client'
 import { putDraft } from '../olumiCore/team/drafts'
-import { inviteNameKey } from '../olumiCore/team/InvitePanel'
+import { inviteNameKey, inviteOpenKey } from '../olumiCore/team/InvitePanel'
 
 /** Open Team with the invite form holding `name`, and bring the form into view. */
 export function inviteUnjoined(sid: string, name: string): void {
   if (name !== '') putDraft<string>(inviteNameKey(sid), () => name)
+  putDraft(inviteOpenKey(sid), () => true)
   useUIStore.getState().forceActivateOutputTab('team')
-  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('[data-testid="team-invite"]')?.scrollIntoView({ block: 'nearest' })))
 }
 
 export function TeamPresence() {
