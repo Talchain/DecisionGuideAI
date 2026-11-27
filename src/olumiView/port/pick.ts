@@ -5,9 +5,12 @@
  * The tab's state is read from the options' ROWS (design, 18 Nov), never from run fields: a qualitative Run still carries `all_withheld:
  * false`, a `sensitivity` sentence and a `waits_on.head` about the chance, so a run field cannot say whether any option has a chance.
  */
-import type { ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
+import type { View, ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
 import { optionCards, worthLinesOf } from '../layout'
+import { cardKindOf } from '../v12/cards/kind'
 import { worthCheckingOf } from '../v12/cards/marks'
+import { linkRole } from '../v12/contract'
+import { needsOf as cardNeedsOf } from '../v12/fields/fields'
 
 /** A fraction of a track as a percent, held to the track. Layout only: never drawn as a number. */
 export const trackPct = (fraction: number): number => Math.max(0, Math.min(100, fraction * 100))
@@ -159,6 +162,26 @@ type CoreEdit = { prompt: string; ask: string }
  * The same card is listed once, in its first class.
  */
 export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null; /** Core's own finding under the title (worth only; Codex 10:39Z: core's actionable text read at rest, not on hover). */ detail?: string }
+
+/** Figures feeding a result or aim, even when Core has given no chance or withdrawn the edit. */
+export function resultFigureCardsOf(model: ViewModel, view: View): ViewCard[] {
+  const ids = new Set<string>()
+  for (const link of model.links) {
+    const role = linkRole(link)
+    if (role === 'input' || role === 'size' || role === 'measures' || role === 'target') {
+      ids.add(link.from)
+    } else if (role === 'effect' || (role === null && (link.kind === 'plain' || link.kind === 'through'))) {
+      // For older links, use the destination's existing card kind and typed result needs.
+      const target = cardOf(model, link.to)
+      if (target === null) continue
+      const { shape } = cardKindOf(target, model, view)
+      const needed = role === null && target.family === 'quantity' && cardNeedsOf(target).needs.some(({ id }) => id === link.from)
+      if (shape === 'calculated' || (role === null && shape === 'aim') || needed) ids.add(link.from)
+    }
+  }
+  return model.cards.filter((card) => card.family === 'quantity' && ids.has(card.id))
+}
+
 export function needsOf(model: ViewModel): Need[] {
   const run = model.run ?? null, out: Need[] = [], seenCard = new Set<string>(), seenText = new Set<string>()
   const push = (n: Need) => {

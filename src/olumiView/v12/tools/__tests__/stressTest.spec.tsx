@@ -2,8 +2,9 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../../../canvas/store'
 import { call } from '../../../../olumiCore/team/api'
-import type { View, ViewRow } from '../../../client'
+import type { View, ViewLink, ViewRow } from '../../../client'
 import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
+import revealed from '../../../fixtures/disagree/x2-revealed.view3.json'
 import capturedTrial from '../../../fixtures/v11/consulting-whatif-priya.json'
 import { pressCard, ringFrom } from '../../../reasoning/tabRing'
 import { useViewStore } from '../../../store'
@@ -19,6 +20,7 @@ vi.mock('../../../../olumiCore/team/api', async (original) => ({
 
 type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
 const base = pricing as unknown as View
+const revealedView = revealed as unknown as View
 const cups = base.model!.cards.find((card) => card.id === 'cups_change')!
 const target = base.model!.cards.find((card) => card.id === 'profit_target')!
 const raise = base.model!.cards.find((card) => card.id === 'raise_price')!
@@ -51,6 +53,8 @@ const picker = () => screen.getByRole('group', { name: STRESS_WORDS.figure })
 const figureChoice = (name: string) => within(picker()).getByRole('button', { name })
 const optionRows = (heading: string) => screen.getAllByRole('button', { name: (name) => name.startsWith(heading) })
 const aimGroups = (name: string) => screen.getAllByRole('group', { name }).filter((group) => group.closest('details') === null)
+const dashedTrack = (row: HTMLElement) => row.querySelector('.ok-face-mark.ok-face-mark-track')
+const figureHeadings = (tool: HTMLElement) => within(tool).getAllByRole('listitem').map((row) => row.firstElementChild?.textContent)
 
 function expectChart(row: HTMLElement, chance: number) {
   expect(row).toHaveAttribute('data-stress-computed', 'true')
@@ -303,34 +307,91 @@ describe('Stress-test', () => {
     expectChart(optionRows(option.heading)[0], row.chance!)
   })
 
-  it('offers Core’s unsized editable figures in card order when no chance row has a driver', () => {
-    const model = { ...base.model!, cards: base.model!.cards.map((card) => {
-      if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: null }] }
-      if (card.id === cups.id || card.id === target.id) return { ...card, figure: { ...card.figure!, text: '' } }
-      if (card.id === 'margin') return { ...card, figure: { ...card.figure!, text: '', edit: null } }
-      return card
-    }) }
-    const unsized = { ...base, model }
-    useViewStore.setState({ view: unsized, sid: base.id, status: 'ready' })
-    draw(unsized)
+  it('shows the revealed model’s calculation and aim figures before it has a driver', () => {
+    useViewStore.setState({ view: revealedView, sid: revealedView.id, status: 'ready' })
+    render(<StressTestTab />)
     const tool = screen.getByTestId('tool-stress')
-    const tracks = [...tool.querySelectorAll('.ok-face-mark.ok-face-mark-track')]
-    expect(tracks.map((track) => track.previousElementSibling?.textContent)).toEqual([cups.heading, target.heading])
+    expect(figureHeadings(tool)).toEqual([
+      'existing capacity', 'per specialist', 'one specialist', 'total capacity', 'capacity target',
+    ])
+    expect(within(tool).getByText('80 tickets/week', { exact: true })).toBeVisible()
+    expect(dashedTrack(tool)).toBeNull()
+    expect(within(tool).queryByRole('button', { name: STRESS_WORDS.fill })).toBeNull()
     expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
-    const [fill] = within(tool).getAllByRole('button', { name: STRESS_WORDS.fill })
-    fireEvent.click(fill)
-    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: cups.id } })
     expect(screen.queryByRole('group', { name: STRESS_WORDS.figure })).toBeNull()
     expect(screen.queryByRole('radio')).toBeNull()
   })
 
-  it('shows the empty line when neither a driver nor an editable unsized figure can be offered', () => {
+  it('shows Core’s range and words for a sized figure and a fill action for an unsized figure', async () => {
+    const model = revealedView.model!
+    const ids = ['existing_capacity', 'per_specialist', 'total_capacity']
+    const mixed: View = {
+      ...revealedView,
+      model: {
+        ...model,
+        cards: model.cards.filter((card) => ids.includes(card.id)).map((card) => {
+          if (card.id === 'existing_capacity') return { ...card, figure: { ...card.figure!, text: '' } }
+          if (card.id === 'per_specialist') return { ...card, figure: { ...card.figure!, range: { low: 10, likely: 20, high: 30, unit: 'ticket/week/specialist' } } }
+          return card
+        }),
+        links: model.links.filter((link) => ids.includes(link.from) && ids.includes(link.to)),
+      },
+    }
+    useViewStore.setState({ view: mixed, sid: mixed.id, status: 'ready' })
+    render(<StressTestTab />)
+    const [unsized, sized] = within(screen.getByTestId('tool-stress')).getAllByRole('listitem')
+    const value = within(sized).getByText('10 to 30 tickets/week/specialist')
+    expect(value).toBeVisible()
+    expect(within(sized).getByTestId('range-band')).toBeVisible()
+    expect(dashedTrack(sized)).toBeNull()
+    expect(within(sized).queryByRole('button')).toBeNull()
+    act(() => value.focus())
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Plausible range: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist')
+
+    expect(dashedTrack(unsized)).toBeEmptyDOMElement()
+    expect(within(unsized).queryByTestId('range-bar')).toBeNull()
+    const fill = within(unsized).getByRole('button', { name: STRESS_WORDS.fill })
+    act(() => fill.focus())
+    expect(ringFrom).toHaveBeenLastCalledWith('tool-stress', ['existing_capacity'])
+    fireEvent.click(fill)
+    expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: 'existing_capacity' } })
+  })
+
+  it('keeps the held proposal’s linked figures visible with their edits withdrawn', () => {
+    const model = revealedView.model!
+    const roles: Record<string, ViewLink['role']> = {
+      existing_capacity: 'reason', per_specialist: 'input', one_specialist: 'input', total_capacity: 'measures', capacity_target: 'target',
+    }
+    const held: View = {
+      ...revealedView,
+      proposal: { id: 1, base: revealedView.version!.id, heading: 'Proposed model', on: '', removed: null, problem: null, marks: [], changes: [], groups: null, from: null },
+      model: {
+        ...model,
+        edit_base: null,
+        cards: model.cards.map((card) => {
+          if (card.id === 'one_specialist') return { ...card, figure: null }
+          return card.figure == null ? card : { ...card, figure: { ...card.figure, edit: null } }
+        }),
+        links: model.links.map((link) => ({ ...link, role: roles[link.from] })),
+      },
+    }
+    useViewStore.setState({ view: held, sid: held.id, status: 'ready' })
+    render(<StressTestTab />)
+    const tool = screen.getByTestId('tool-stress')
+    expect(figureHeadings(tool)).toEqual(['per specialist', 'one specialist', 'total capacity', 'capacity target'])
+    const [, unsized] = within(tool).getAllByRole('listitem')
+    expect(dashedTrack(unsized)).toBeEmptyDOMElement()
+    expect(within(tool).queryByRole('button')).toBeNull()
+    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
+  })
+
+  it('shows the empty line when no figure feeds a calculation or aim', () => {
     const cards = base.model!.cards.map((card) => {
       if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: { ...raiseRow.driver!, figure: 'unresolved' } }] }
-      if (card.id === cups.id) return { ...card, figure: { ...card.figure!, text: '', edit: null } }
+      if (card.id === cups.id) return { ...card, figure: { ...card.figure!, text: '' } }
       return card
     })
-    draw({ ...base, model: { ...base.model!, cards } })
+    draw({ ...base, model: { ...base.model!, cards, links: [] } })
     expect(screen.getByTestId('tool-stress').textContent).toBe(STRESS_WORDS.empty)
   })
 
