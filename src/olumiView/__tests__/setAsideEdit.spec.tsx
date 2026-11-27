@@ -9,14 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import type { View } from '../client'
+import userEvent from '@testing-library/user-event'
+import { writes, type View } from '../client'
 import { useViewStore } from '../store'
 import { ViewCard } from '../../canvas/nodes/ViewCardNode'
-import { setTeamFetch } from '../../olumiCore/team/api'
+import { setTeamFetch, TeamApiError } from '../../olumiCore/team/api'
 import { resetWrites } from '../../olumiCore/team/writes'
 import { useMe } from '../../olumiCore/me'
 import { useModelNotice } from '../notice'
-import { ASIDE_WORDS, useAsideEdit } from '../FigureEdit'
+import { ASIDE_WORDS, HeldEditOffer, useAsideEdit } from '../FigureEdit'
 
 const SID = 's_0123456789ab'
 const approved: View = { ...JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real', 'european-22cards.view3.json'), 'utf8')), id: SID }
@@ -63,6 +64,49 @@ async function setAside() {
 }
 
 describe('✎ while a proposal is held: set aside, then edit on the base core returns', () => {
+  it('keeps the Simple chrome confirmation keyboard-focusable while busy and guards both actions', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    let rejectDiscard!: (reason: TeamApiError) => void
+    const pending = new Promise<never>((_, reject) => { rejectDiscard = reject })
+    const discard = vi.spyOn(writes, 'discard').mockReturnValue(pending)
+    const user = userEvent.setup()
+    try {
+      render(<HeldEditOffer id={card.id} inChrome />)
+      await user.tab()
+      expect(screen.getByTestId(`view-figure-aside-edit-${card.id}`)).toHaveFocus()
+      await user.keyboard('{Enter}')
+
+      const confirm = screen.getByRole('button', { name: ASIDE_WORDS.confirm })
+      const cancel = screen.getByRole('button', { name: 'Cancel' })
+      expect(confirm).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(discard).toHaveBeenCalledTimes(1)
+      expect(confirm).toHaveFocus()
+      for (const button of [confirm, cancel]) {
+        expect(button).toBeEnabled()
+        expect(button).toHaveAttribute('aria-disabled', 'true')
+      }
+
+      await user.keyboard('{Enter}')
+      expect(discard).toHaveBeenCalledTimes(1)
+      await user.tab()
+      expect(cancel).toHaveFocus()
+      await user.keyboard('{Enter}')
+      expect(confirm).toBeInTheDocument()
+      await user.tab({ shift: true })
+      expect(confirm).toHaveFocus()
+
+      const message = 'The pending change could not be set aside.'
+      rejectDiscard(new TeamApiError(409, message))
+      expect(await screen.findByRole('alert')).toHaveTextContent(message)
+      expect(confirm).toHaveFocus()
+      expect(confirm).not.toHaveAttribute('aria-disabled')
+      expect(cancel).not.toHaveAttribute('aria-disabled')
+    } finally {
+      discard.mockRestore()
+    }
+  })
+
   it('catch: the offer shows core\'s heading and base; the press sets aside, then the editor opens; the edit posts on the fresh base and says core\'s version', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '0') // surfaces step 5: this row binds the older look's editor (on the lane a figure is changed in the details' Value row: oneFigureEditor.spec.tsx)
     await setAside()

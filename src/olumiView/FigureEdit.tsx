@@ -102,9 +102,9 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
       <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
       {error && <p role="alert" data-testid={`${place}-aside-error-${id}`} className={`${typography.viewLabel} text-danger`}>{error}</p>}
       <div className={`flex ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`}>
-        <button type="button" autoFocus disabled={busy} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
+        <button type="button" autoFocus disabled={!inChrome && busy} aria-disabled={inChrome && busy ? true : undefined} onClick={() => void aside()} data-testid={`${place}-aside-confirm-${id}`}
           className={isOlumiCoreLane() ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS}>{ASIDE_WORDS.confirm}</button>
-        <button type="button" disabled={busy} onClick={close}
+        <button type="button" disabled={!inChrome && busy} aria-disabled={inChrome && busy ? true : undefined} onClick={() => { if (!busy) close() }}
           className={String.raw`${typography.viewLabel} min-h-7 [.react-flow\_\_node_&]:min-h-6 cursor-pointer text-text-light underline underline-offset-2`}>Cancel</button>
       </div>
     </div>
