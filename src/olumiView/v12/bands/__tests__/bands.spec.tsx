@@ -21,6 +21,7 @@ import { keptIdeasOf } from '../keptIdeas'
 import { FoldCard, IdeaCard, ideaProvenance, VIEW_FOLD, VIEW_IDEA } from '../BandNodes'
 import { KeyLines, KEY_MARK_IDS, keyExtrasOf, keyLinesOf, keyPresent } from '../KeyPill'
 import { ICONS } from '../../../look/icons'
+import { applied } from '../../links/__tests__/applied'
 import { EFFECT_STROKES, INK } from '../../links/styles'
 import { boardOf, drawViewCanvas, GROUP_LINK, ROOT_LINK, VIEW_LINK } from '../../../canvas'
 import { useCanvasStore } from '../../../../canvas/store'
@@ -278,7 +279,10 @@ describe('bands: the key pill', () => {
     const { container } = render(<KeyLines />)
     expect(container.querySelector('[data-key-sample="dotted"] path')!.getAttribute('class')).toBe('ok-key-dotted')
     expect(container.querySelector('[data-key-sample="halo-alert"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-alert')
-    expect(container.querySelector('[data-key-sample="halo-proposed"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-proposed')
+    const proposalHalo = container.querySelector('[data-key-sample="halo-proposed"] path')!
+    expect(proposalHalo).toHaveClass('ok-link-halo', 'ok-link-halo-proposed')
+    expect(applied(proposalHalo)).toMatchObject({ strokeWidth: '3px', opacity: '0.35' })
+    expect(applied(proposalHalo).strokeDasharray).toBeUndefined()
     expect(container.querySelector('[data-key-item="halo-alert"]')).toHaveTextContent('core says alert')
   })
   it('K4 with no role in the View, the key still draws its marks and no line sample', () => {

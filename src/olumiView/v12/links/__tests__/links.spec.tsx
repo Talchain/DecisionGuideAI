@@ -518,17 +518,27 @@ describe('modifier channels (panel-visual system L4)', () => {
   })
   it('L4b proposal is a blue halo under a directional line in an approved model, the direction colour kept; on a first draft it marks nothing (R3)', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
+    useFocusPath.setState({ path: new Set([first.from, first.to]) })
     const c = draw(both({ proposed: true }))
-    expect([applied(line(c)).stroke, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, 'proposed'])
-    expect(c.querySelector('[data-link-halo-path="proposed"]')).not.toBeNull()
+    const lit = applied(line(c))
+    const proposalHalo = c.querySelector('[data-link-halo-path="proposed"]')!
+    expect([lit.stroke, lit.strokeWidth, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, px(PLAIN_WIDTH + 1), 'proposed'])
+    expect(applied(proposalHalo)).toMatchObject({ strokeWidth: lit.strokeWidth, opacity: '0.35' })
+    expect(applied(proposalHalo).strokeDasharray).toBe(lit.strokeDasharray)
+    expect(proposalHalo.nextElementSibling).toBe(line(c))
+    expect(line(c)).toHaveAttribute('marker-end', 'url(#view-link-arrow-0)')
     cleanup()
     useViewStore.setState({ view: { ...view, proposal: { id: 'p1' }, version: null } as unknown as View })
     expect(g(draw(both({ proposed: true }))).hasAttribute('data-link-halo')).toBe(false)
   })
   it('L4c the four channels coexist on one line: direction colour, doubt dash, alert halo and proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
+    useFocusPath.setState({ path: new Set([first.from, first.to]) })
     const c = draw(both({ doubt: true, alert: true, proposed: true }))
-    expect([applied(line(c)).stroke, applied(line(c)).strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
+    const lit = applied(line(c))
+    expect([lit.stroke, lit.strokeDasharray, g(c).getAttribute('data-link-halo')]).toEqual([EFFECT_STROKES.decreases, DOUBT_DASH, 'alert proposed'])
+    expect(applied(c.querySelector('[data-link-halo-path="proposed"]')!)).toMatchObject({ strokeWidth: lit.strokeWidth, strokeDasharray: lit.strokeDasharray, strokeLinecap: lit.strokeLinecap })
+    expect(applied(c.querySelector('[data-link-halo-path="alert"]')!).strokeDasharray).toBeUndefined()
   })
   it('L4d a neutral relation keeps both halos, and an alert reason line keeps its proposal halo', () => {
     useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
@@ -541,9 +551,14 @@ describe('modifier channels (panel-visual system L4)', () => {
     const reason = draw(plain({ alert: true, proposed: true, kind: 'reason', role: 'reason' }))
     expect(g(reason)).toHaveAttribute('data-link-halo', 'proposed')
     expect(reason.querySelector('[data-link-halo-path="alert"]')).toBeNull()
-    const proposalHalo = reason.querySelector('[data-link-halo-path="proposed"]')
+    const proposalHalo = reason.querySelector('[data-link-halo-path="proposed"]')!
     expect(proposalHalo).toHaveClass('ok-link-halo-proposed')
     expect(proposalHalo).not.toHaveClass('ok-link-halo-inner')
+    expect(applied(proposalHalo)).toMatchObject({ strokeDasharray: DOTS, strokeLinecap: 'round' })
+    expect(applied(proposalHalo).strokeDasharray).toBe(applied(line(reason)).strokeDasharray)
+    cleanup()
+    const doubtedReason = draw(plain({ proposed: true, doubt: true, kind: 'reason', role: 'reason' }))
+    expect(applied(doubtedReason.querySelector('[data-link-halo-path="proposed"]')!)).toMatchObject({ strokeDasharray: DOUBT_DASH, strokeLinecap: 'butt' })
     cleanup()
     // One channel alone is still one halo; a first draft still marks no proposal (R3).
     const a = draw(plain({ alert: true })); expect(g(a).getAttribute('data-link-halo')).toBe('alert'); cleanup()
@@ -576,7 +591,8 @@ describe('presentation is token CSS (panel-visual system, no styles in component
   it('the halos, path emphasis and words\' box use stylesheet classes; card outline transitions respect reduced motion', () => {
     for (const sel of ['.ok-link-halo-alert', '.ok-link-halo-proposed', '.ok-link-dotted', '.ok-link-on-path', '.ok-link-words', '.ok-link-mark', '.ok-link-hit', '.ok-link-hidden', '.ok-link-leader', '.ok-link-end', '.ok-link-chip', '.ok-link-ctl']) expect(css, sel).toContain(sel)
     expect(css).toMatch(/@media \(prefers-reduced-motion: no-preference\) \{[^}]*transition: background-color 120ms ease, outline-color 120ms ease/)
-    expect([declared('ok-link-halo-alert')['stroke-width'], declared('ok-link-halo-proposed')['stroke-width']]).toEqual([px(PLAIN_WIDTH + 8), px(PLAIN_WIDTH + 6)])
+    expect(declared('ok-link-halo-alert')['stroke-width']).toBe(px(PLAIN_WIDTH + 8))
+    expect(declared('ok-link-halo-proposed').stroke).toBe('var(--semantic-info)')
     const c = draw(withCausal('increases', { alert: true }))
     const words = document.body.querySelector('[data-view-link-words]') as HTMLElement
     expect(words.className).toContain('ok-link-words')

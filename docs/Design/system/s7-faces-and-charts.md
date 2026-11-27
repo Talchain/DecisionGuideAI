@@ -92,7 +92,7 @@ Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. 
 | LN-leader | dash `2 3` at 1px | `olumiLook.css` |
 | LN-fallback | an unstyled link draws the marker it is given, else the local arrow | `ViewLinkEdge` markers |
 
-**States, not styles:** the 3px lit path, the alert halo (orange) and the Olumi-proposed halo (`info`). Any other stroke, dash or end is unregistered.
+**States, not styles:** the 3px lit path, the alert halo (orange) and the Olumi-proposed halo, a 3px `info` tint under the line that follows its dash. Any other stroke, dash or end is unregistered.
 
 **Open:** the `size` label and the link hover are assembled in the UI. Core should own those words.
 

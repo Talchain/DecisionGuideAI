@@ -223,6 +223,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   const tone = toneOf(stroke)
   const dash = link.doubt ? DOUBT_DASH : null
   const dotted = !coloured && (link.kind === 'reason' || role === 'reason')
+  const dashClasses = `${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`
   const width = (styled?.width ?? PLAIN_WIDTH) + (onPath ? 1 : 0)
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   // THE LINK'S ONE HOVER (L2; Codex review-links-2): every link says its core words through the lane's one Tip (look/Tip.tsx `useAnchoredTip`: 150 ms, Escape,
@@ -301,8 +302,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
       } : undefined}>
       <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
-      {haloProposed ? <path data-link-halo-path="proposed" d={path} className={haloAlert ? 'ok-link-halo ok-link-halo-proposed ok-link-halo-inner' : 'ok-link-halo ok-link-halo-proposed'} /> : null}
-      <BaseEdge id={id} path={path} className={`ok-link-line${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}${reasonAlert ? ' ok-link-reason-alert' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+      {haloProposed ? <path data-link-halo-path="proposed" d={path} className={`ok-link-halo ok-link-halo-proposed${haloAlert ? ' ok-link-halo-inner' : ''}${dashClasses}`} /> : null}
+      <BaseEdge id={id} path={path} className={`ok-link-line${onPath ? ' ok-link-on-path' : ''}${dashClasses}${reasonAlert ? ' ok-link-reason-alert' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
       />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}
