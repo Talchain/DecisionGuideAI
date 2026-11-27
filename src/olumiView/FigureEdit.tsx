@@ -12,8 +12,8 @@ import { typography } from '../styles/typography'
 import { EditIcon } from './ds/icons'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
-import { isForThisPage, useMe } from '../olumiCore/me'
-import { writes } from './client'
+import { isForThisPage, useMe, type Me } from '../olumiCore/me'
+import { writes, type View } from './client'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { useViewStore } from './store'
@@ -56,6 +56,12 @@ export const ASIDE_WORDS = {
   notShown: 'Set aside, but Olumi could not show the model just now. Reload the page to edit.',
 } as const
 
+export function heldEditProposal(view: View | null, sid: string | null, at: number | null, me: Me | null): View['proposal'] {
+  const proposal = view?.proposal ?? null
+  if (proposal === null || view === null || sid === null || at !== null || proposal.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  return proposal
+}
+
 export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figure', inChrome = false }: { id: string; label?: string; place?: string; inChrome?: boolean }): JSX.Element | null {
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
@@ -66,8 +72,8 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   const [error, setError] = useState<string | null>(null)
   const [restoreFocus, setRestoreFocus] = useState(false)
   const tip = useAnchoredTip(ASIDE_WORDS.offer)
-  const p = view?.proposal ?? null
-  if (p === null || view === null || sid === null || at !== null || p.base === null || view.model?.edit_base !== null || !isForThisPage(view, me)) return null
+  const p = heldEditProposal(view, sid, at, me)
+  if (p === null) return null
   const close = () => {
     if (inChrome) setRestoreFocus(true)
     setOpen(false)
@@ -262,6 +268,12 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
 
 type FigureEditProps = Parameters<typeof FigureEditInPlace>[0]
 
+/** Size edits keep their cue even while a proposal is held. */
+export function canOfferFigureEdit(view: View | null, sid: string | null, me: Me | null, edit: CoreEdit): boolean {
+  return edit != null && sid !== null && view !== null && isForThisPage(view, me) &&
+    (view.model?.edit_base != null || isSizeEdit(edit))
+}
+
 /**
  * SURFACES STEP 5: ON THE LANE A FIGURE IS CHANGED IN ONE PLACE, the details panel's Value row (v12/inspect/ValueRow.tsx), whichever control opened it. This control
  * is then only the way there: the pencil (or the aim's own words) opens the details of the card it names with that row's field focused. The editor that stood
@@ -284,9 +296,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   const [asideFor] = useState(() => place === 'view-figure' && useAsideEdit.getState().id === id)
   useEffect(() => { if (asideFor) { useAsideEdit.setState({ id: null }); useLaneInspector.getState().openFigure({ kind: 'card', id }, 'aside', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) } }, [asideFor, id])
   // DL 09:50Z (1): another card's words that open this figure's editor (`opener`) are drawn as plain words where no editor is offered here, never dropped.
-  if (!edit || sid === null || view === null || !isForThisPage(view, me)) return opener ?? null
-  // No version to edit (a proposal is held): a plain figure offers nothing; a risk's size or a link's strength keeps its pencil, said not to act, as before.
-  if (live === null && !size) return opener ?? null
+  if (!canOfferFigureEdit(view, sid, me, edit)) return opener ?? null
   // A press the gate refuses says why, in the gate's own words (core's, or the existing sentence for a past version or another person's page), as the hover already did.
   const press = (): void => { tip.dismiss(); if (off) { if (why !== undefined) showToast(why, 'warning'); return } useLaneInspector.getState().openFigure({ kind: 'card', id }, 'value', { ...(primary !== undefined ? { primary } : {}), ...(tab !== undefined ? { tab } : {}) }) }
   if (opener !== undefined) {

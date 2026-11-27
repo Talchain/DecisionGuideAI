@@ -34,7 +34,7 @@ import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnc
 import { Rail, Strips } from '../v12/detailed/charts'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
-import { FigureEdit, HeldEditOffer, useOpenFigureEdits } from '../FigureEdit'
+import { FigureEdit, HeldEditOffer, canOfferFigureEdit, heldEditProposal, useOpenFigureEdits } from '../FigureEdit'
 import { Badge } from '../Badge'
 import { Hover } from '../look/Hover'
 import { StatedFigure } from '../StatedFigure'
@@ -328,6 +328,10 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   // The reading of this aim over its window (R19, DL P1 10 Nov: said once, on the aim's own card), and the core marks on the face.
   const reading = card === null || model === null ? null : readingOf(model, id)
   const edit = card === null || card.figure === null ? null : card.figure.edit ?? keptEdit
+  const usesSimpleChrome = simple && olumiLook
+  const hasChromeEdit = useViewStore(({ view, sid, at }) => usesSimpleChrome && (edit !== null
+    ? canOfferFigureEdit(view, sid, me, edit)
+    : heldEditProposal(view, sid, at, me) !== null))
   const restsInk = restsOn === null ? '' : restsOn.olumi ? 'border-info text-info' : 'border-text-light text-text-body'
   // G3 (Paul's "do now", 11 Nov): zoomed out the body is blanked and only the far line shows, so the Rests on number is also drawn beside the
   // far line (BaseNode `lodMark`), at the line's own counter-scaled size; the lens then marks its cards on the whole-board first open too.
@@ -354,7 +358,6 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     // Content, not an action: what core folded behind this card is always shown (my 16:02 rule hid it until hover, so a qualitative brief's
     // purposes and tensions read as an empty board: Codex H07, 17:12Z).
     : <p className="ok-count" data-core-badge={id}><Badge cardId={id} badge={badge} at={id === QUESTION ? 'question' : id} />{changeOn === 'badge' ? changeMark : null}</p>
-  const usesSimpleChrome = simple && olumiLook
   // Detailed places the pencil with the figure or Olumi's author line when available.
   const editCue = card === null || card.figure === null ? null : edit !== null
     ? <span className="nodrag inline-flex align-middle" data-figure-edit-wrap="" data-card-action="" data-card-edit-cue=""><FigureEdit id={id} edit={edit} glyph label={estimate ? 'Give yours' : 'Change figure'} words={false} /></span>
@@ -363,8 +366,9 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   const cueOnLead = editCue !== null && card !== null && lead !== null && lead === card.figure?.text
   const cueOnAuthor = editCue !== null && !cueOnLead && olumi
   const personMark = usesSimpleChrome && card !== null && whoseOf(card) === 'person' ? <AuthorGlyph card={card} /> : null
-  const simpleChrome = usesSimpleChrome && (editCue !== null || personMark !== null)
-    ? <div className="ok-card-chrome">{editCue}{personMark}</div> : null
+  const chromeEdit = hasChromeEdit ? editCue : null
+  const simpleChrome = chromeEdit !== null || personMark !== null
+    ? <div className="ok-card-chrome">{chromeEdit}{personMark}</div> : null
   const simpleFootExtra = usesSimpleChrome
     ? (hasDispute || badgeLine !== null ? <>{hasDispute ? <CardDisputeMark card={id} /> : null}{badgeLine}</> : null)
     : <><CardDisputeMark card={id} />{badgeLine}{editCue}</>

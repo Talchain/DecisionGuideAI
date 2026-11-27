@@ -18,6 +18,7 @@ const studio = JSON.parse(readFileSync('src/olumiView/fixtures/cardface/studio.v
 const look = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const chromeRules = [...look.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
   .filter(([, selector]) => selector!.trim().endsWith('.ok-card-chrome'))
+const titleReservationSelector = look.match(/([^{}]+)\{\s*padding-inline-end: calc\(var\(--ok-chrome-width\)/)![1]!.trim()
 
 const setupFixture = () => {
   const { sid, view, at } = useViewStore.getState()
@@ -48,7 +49,7 @@ afterEach(() => {
 })
 
 function draw(id: string) {
-  const card = studio.model!.cards.find((card) => card.id === id)!
+  const card = useViewStore.getState().view!.model!.cards.find((card) => card.id === id)!
   const node = (selected: boolean) => (
     <div className="olumi-look">
       {/* React Flow supplies this wrapper and its selected class on the board. */}
@@ -71,6 +72,7 @@ it('puts the class fee pencil and person mark in the corner and omits the empty 
   expect(chrome).toContainElement(getByTestId('view-figure-edit-class_fee'))
   expect(chrome.querySelector('[data-author-mark="person"] [data-person-mark]')).not.toBeNull()
   expect(container.querySelector('[data-simple-foot]')).toBeNull()
+  expect(getByTestId('node-header-row').firstElementChild).toBe(container.querySelector(titleReservationSelector))
 })
 
 it('keeps Olumi authorship in the foot and puts the unsized figure pencil in the corner', () => {
@@ -80,6 +82,19 @@ it('keeps Olumi authorship in the foot and puts the unsized figure pencil in the
   expect(foot.querySelector('[data-author-mark="olumi"] [data-olumi-mark]')).not.toBeNull()
   expect(container.querySelector('.ok-card-chrome')).toContainElement(getByTestId('view-figure-edit-member_mood'))
   expect(container.querySelector('.ok-card-chrome [data-author-mark]')).toBeNull()
+})
+
+it('gives the title the full width when an Olumi-authored card has no edit or pending proposal', () => {
+  const model = studio.model!
+  const cards = model.cards.map((card) => card.id === 'member_mood'
+    ? { ...card, figure: { ...card.figure!, edit: null } }
+    : card)
+  useViewStore.setState({ view: { ...studio, proposal: null, model: { ...model, cards } } })
+
+  const { container } = draw('member_mood')
+  expect(container.querySelector('[data-simple-foot] [data-author-mark="olumi"]')).not.toBeNull()
+  expect(container.querySelector('.ok-card-chrome')).toBeNull()
+  expect(container.querySelector(titleReservationSelector)).toBeNull()
 })
 
 it('keeps the resting pencil in the tab order and reveals the slot on hover, focus within or selection', async () => {

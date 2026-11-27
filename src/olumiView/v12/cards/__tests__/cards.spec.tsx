@@ -917,9 +917,7 @@ describe('C7 the figure pencil follows the View edit contract', () => {
       const none = { ...editable!, figure: { ...editable!.figure!, edit: null } } as unknown as ViewCard
       const root = draw(withCard(EU, none), none.id, 'simple')
       expect(root.querySelector('[data-card-edit-cue]')).toBeNull()
-      expect(root.querySelector('.ok-card-chrome [data-figure-edit-wrap]') !== null).toBe(
-        olumiLook && root.querySelector('[data-figure-edit-wrap]') !== null,
-      )
+      expect(root.querySelector('.ok-card-chrome [data-figure-edit-wrap]')).toBeNull()
     } finally {
       lane.mockRestore()
     }

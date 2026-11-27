@@ -88,6 +88,9 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
   background: var(--bg-panel);
   padding: var(--ok-gap-inset);
 }
+.olumi-look .ok-card-chrome [data-chrome-confirm] button {
+  padding: var(--ok-gap-tight) var(--ok-gap-stack);
+}
 
 /* The title: 14 / 500, header ink. The kind marker is BaseNode's own (the real shape on the top edge, about 19 px); the option's letter is drawn further down. */
 .olumi-look .react-flow__node [data-testid='node-title'] {
