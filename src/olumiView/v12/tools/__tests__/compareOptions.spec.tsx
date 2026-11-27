@@ -2,8 +2,6 @@ import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { useCanvasStore } from '../../../../canvas/store'
-import { registerFocusHelpers } from '../../../../canvas/utils/focusHelpers'
 import { CoreCompareTab } from '../../../../olumiCore/compare'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { laneTipOf } from '../../../__tests__/tipHelpers'
@@ -16,10 +14,7 @@ import { optionPathOf } from '../../lenses/layers'
 import { COMPARE_OPTIONS_CHROME as CHROME, CompareOptions } from '../CompareOptions'
 import { useCompareSelection } from '../compareSelection'
 
-vi.mock('../../../reasoning/tabRing', async (original) => {
-  const actual = await original<typeof import('../../../reasoning/tabRing')>()
-  return { ringFrom: vi.fn(), pressCard: vi.fn(actual.pressCard) }
-})
+vi.mock('../../../reasoning/tabRing', () => ({ ringFrom: vi.fn(), pressCard: vi.fn() }))
 
 const studio = JSON.parse(readFileSync('src/olumiView/fixtures/cardface/studio.view3.json', 'utf8')) as View
 const model = studio.model!
@@ -34,6 +29,7 @@ const tool = () => screen.getByRole('region', { name: CHROME.title })
 const aimBlock = (id: string) => tool().querySelector<HTMLElement>(`[data-compare-aim="${id}"]`)!
 const rowsOf = (id: string) => [...aimBlock(id).querySelectorAll<HTMLElement>('[data-compare-row]')]
 const rowButton = (row: HTMLElement) => within(row).getByRole('button')
+const resultLine = (row: HTMLElement) => row.querySelector<HTMLElement>('[data-compare-result]')!
 const dots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot]')
 const filledDots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot="filled"]').length
 const change = (select: HTMLElement, id: string) => fireEvent.change(select, { target: { value: id } })
@@ -48,7 +44,6 @@ afterEach(() => {
   vi.unstubAllGlobals()
   setTeamFetch(null)
   useCompareSelection.setState({ byScenario: new Map() })
-  useCanvasStore.getState().clearSelection()
   useViewStore.setState({ sid: null, view: null, at: null, stale: false, error: null })
 })
 
@@ -100,7 +95,8 @@ describe('Compare options', () => {
     const olumi = within(fixedMiss!).getByRole('img', { name: miss.olumi!.title })
     expect(olumi).toHaveClass('text-info')
     expect(laneTipOf(olumi)).toBe(miss.olumi!.title)
-    expect(laneTipOf(rowButton(shown!))).toBe(takings.title)
+    expect(laneTipOf(resultLine(shown!))).toBe(takings.title)
+    expect(laneTipOf(rowButton(shown!))).toBeNull()
     expect(within(aimBlock(membersAim.id)).getByRole('heading')).toHaveTextContent(membersAim.heading)
     for (const row of rowsOf(membersAim.id)) {
       expect(row).not.toHaveTextContent(members.text)
@@ -108,8 +104,8 @@ describe('Compare options', () => {
       expect(dots(row)).toHaveLength(0)
       const track = row.querySelector<HTMLElement>('.ok-face-mark.ok-face-mark-track')!
       expect(track).toBeInTheDocument()
-      expect(laneTipOf(track)).toBe(members.text)
-      expect(laneTipOf(rowButton(row))).toBe(members.text)
+      expect(laneTipOf(resultLine(row))).toBe(members.text)
+      expect(laneTipOf(rowButton(row))).toBeNull()
     }
     const summary = within(aimBlock(membersAim.id)).getByText(CHROME.more)
     const explanation = within(summary.closest('details')!).getAllByText(members.title)[0]!
@@ -147,7 +143,7 @@ describe('Compare options', () => {
     expect(absent).toBeInTheDocument()
     expect(within(limitRow!).getByText(limit.value).textContent).toBe(limit.value)
     expect(dots(limitRow!)).toHaveLength(0)
-    expect(laneTipOf(rowButton(limitRow!))).toBe(limit.title)
+    expect(laneTipOf(resultLine(limitRow!))).toBe(limit.title)
     expect(absent.textContent).toBe(`B${weekend!.heading}`)
     expect(absent.querySelector('.ok-face-mark-track, .ok-face-mark-chance, [data-chance-dots]')).toBeNull()
     expect(laneTipOf(rowButton(absent))).toBeNull()
@@ -226,58 +222,10 @@ describe('Compare options', () => {
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [...path(evening!.id), ...path(weekend!.id)])
     change(second(), carryOn!.id)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [...path(evening!.id), ...path(carryOn!.id)])
+    fireEvent.click(rowButton(rowsOf(takings.aim_id)[1]!))
+    expect(pressCard).toHaveBeenCalledWith(carryOn!.id)
     unmount()
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [])
-  })
-
-  it.each(['tool only', 'same card reselected', 'another card', 'multiple cards', 'card and link'] as const)(
-    'changing a pair clears only its own single-card selection (%s)',
-    (selection) => {
-      const canvas = useCanvasStore.getState()
-      const stop = registerFocusHelpers(canvas.selectNodeWithoutHistory, () => {})
-      try {
-        render(<CompareOptions model={model} />)
-        fireEvent.click(rowButton(rowsOf(takings.aim_id)[0]!))
-        expect(pressCard).toHaveBeenCalledWith(evening!.id)
-        expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
-        if (selection === 'same card reselected') canvas.selectNodeWithoutHistory(evening!.id)
-        if (selection === 'another card') canvas.selectNodeWithoutHistory(membersAim.id)
-        if (selection === 'multiple cards') canvas.selectNodes([evening!.id, membersAim.id])
-        if (selection === 'card and link') {
-          useCanvasStore.setState((s) => ({ selection: { ...s.selection, edgeIds: new Set(['link']) } }))
-        }
-        const before = useCanvasStore.getState().selection
-        change(first(), carryOn!.id)
-        const after = useCanvasStore.getState().selection
-        if (selection === 'tool only') {
-          expect(after.nodeIds.size).toBe(0)
-          expect(after.edgeIds.size).toBe(0)
-        } else {
-          expect(after).toBe(before)
-        }
-      } finally {
-        stop()
-      }
-    },
-  )
-
-  it('keeps its own selection while the card stays in the pair, then clears it when the card leaves', () => {
-    const canvas = useCanvasStore.getState()
-    const stop = registerFocusHelpers(canvas.selectNodeWithoutHistory, () => {})
-    try {
-      render(<CompareOptions model={model} />)
-      fireEvent.click(rowButton(rowsOf(takings.aim_id)[0]!))
-      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
-
-      change(second(), carryOn!.id)
-      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
-      change(second(), evening!.id)
-      expect([...useCanvasStore.getState().selection.nodeIds]).toEqual([evening!.id])
-      change(second(), weekend!.id)
-      expect(useCanvasStore.getState().selection.nodeIds.size).toBe(0)
-    } finally {
-      stop()
-    }
   })
 
   it('renders nothing with one option', () => {
