@@ -104,7 +104,7 @@ The chat is the only place for running text. The other right-hand tabs become to
 
 | ID | Tool | Status |
 |---|---|---|
-| TT-check | What to check (CH-worth and CH-status in one list; a press asks Olumi how) | planned, first |
+| TT-check | What to check (CH-worth and CH-status in one list; a press asks Olumi how) | built (lane B, slice 1) |
 | TT-compare | Compare: an option chip picker, then each aim with both options' chance dots and Core's words; gaps are dashed rows; no connecting line, because View v3 proves no pairing (`src/olumiView/v12/tools/CompareOptions.tsx`, above the versions and what-ifs) | built (lane C, 27 Nov); waits on Core for pairing proof |
 | TT-stress | Stress-test: step a driver figure through computed points only (Core's lower and higher thirds, as saved, and each what-if trial Core answered); saved-vs-step ChanceDots pairs; unsized figures with their fill action before any driver exists (`src/olumiView/v12/tools/StressTest.tsx`, its own lane-only tab) | built (lane C, 27 Nov); the dashed untested stretch waits on a RangeBar change; display text for `driver.low/high` and a label per driver record are Core asks |
 | TT-differ | Where we differ, inside Team (CH-differ): choose a revealed difference, then each person's figure on one axis, with the cards ringed (`src/olumiView/v12/tools/DifferTool.tsx`, `v12/scale/DifferAxis.tsx`); one status mark per person before the reveal; invite in a header menu | built (lane C, 27 Nov); the flip point and a typed figure reference per side are Core asks (the side match is an interim text compare until then) |

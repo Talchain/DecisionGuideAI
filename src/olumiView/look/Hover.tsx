@@ -19,6 +19,7 @@ type HoverProps = {
   anchorRef?: Ref<HTMLElement>
   href?: string
   words: string | undefined | null
+  wordsAt?: string
   tipSpacing?: TipSpacing
   tipIcon?: ReactNode
   as?: ElementType
@@ -28,11 +29,11 @@ type HoverProps = {
   children?: ReactNode
 } & HTMLAttributes<HTMLElement> & { [k: `data-${string}`]: string | number | boolean | undefined }
 
-export function Hover({ anchorRef, words, tipSpacing, tipIcon, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
+export function Hover({ anchorRef, words, wordsAt, tipSpacing, tipIcon, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
   const As: ElementType = as
   const isButton = as === 'button'
   const has = words !== undefined && words !== null && words !== ''
-  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(has ? words : undefined, tipSpacing, tipIcon)
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(has ? words : undefined, tipSpacing, tipIcon, wordsAt)
   const props: Record<string, unknown> = { ...rest }
   if (isButton && disabled === true) props['aria-disabled'] = true
   if (onClick !== undefined || has || isButton) {

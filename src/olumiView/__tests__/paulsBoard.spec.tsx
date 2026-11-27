@@ -23,7 +23,7 @@ import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { REASONING_LABELS } from '../ViewReasoning'
 import { COMMITMENT_WORDS, displayedDissent } from '../reasoning/TowardsCommitment'
-import { actionable, examineOf } from '../reasoning/examine'
+import { checkItemsOf } from '../check/items'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
@@ -108,13 +108,12 @@ describe('the panel on a pending first model', () => {
     expect(empty.querySelector('[data-testid="analysis-needs"]')).toBeNull()
     expect(empty.querySelectorAll('section')).toHaveLength(0)
     const dissent = bare.collab.dissent ?? []
-    const items = examineOf(bare.model!, bare.session?.methods ?? null, (bare.model_words ?? null) as Record<string, unknown> | null, new Set(dissent.map((d) => d.id)))
-    const examine = items.some(actionable)
+    const items = checkItemsOf(bare.model!, bare).flatMap((group) => group.blocks.flatMap((block) => block.items))
     const rows = empty.querySelectorAll<HTMLButtonElement>('button[data-testid="analysis-to-reasoning"]')
-    expect(rows).toHaveLength(examine || dissent.some(displayedDissent) ? 1 : 0)
+    expect(rows).toHaveLength(items.length > 0 || dissent.some(displayedDissent) ? 1 : 0)
     if (rows.length > 0) {
-      expect(rows[0]!).toHaveTextContent(examine ? REASONING_LABELS.examine : COMMITMENT_WORDS.heading)
-      expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(examine ? String(items.length) : null)
+      expect(rows[0]!).toHaveTextContent(items.length === 0 ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine)
+      expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(items.length === 0 ? null : String(items.length))
       expect(rows[0]!.querySelector('[data-view], [data-view-words]')).toBeNull()
     }
   })

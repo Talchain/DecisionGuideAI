@@ -4,7 +4,7 @@
  * keeps its legacy body.
  */
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -26,29 +26,32 @@ import { OutputsDock, OUTPUTS_DOCK_STORAGE_KEY } from '../OutputsDock'
 import { useCanvasStore } from '../../store'
 import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
+import { RESTS_AT_REST } from '../../../olumiView/ViewReasoning'
 import { useViewStore } from '../../../olumiView/store'
+import { checkItemsOf } from '../../../olumiView/check/items'
+import type { View } from '../../../olumiView/client'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
-const view = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
+const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))
 
 beforeEach(() => {
   if (typeof window.matchMedia !== 'function') {
     Object.defineProperty(window, 'matchMedia', { writable: true, value: (q: string) => ({ matches: false, media: q, onchange: null, addListener: () => {}, removeListener: () => {}, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => true }) })
   }
-  const reply = (async () => new Response(JSON.stringify(view), { status: 200 })) as unknown as typeof fetch
-  vi.stubGlobal('fetch', reply)
-  setTeamFetch(reply)
   sessionStorage.clear()
   useUIStore.setState({ activeRightPanel: null, activeOutputTab: 'analysisNew' } as never)
   useCanvasStore.setState({ nodes: [{ id: 'goal-1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } }], edges: [], currentScenarioId: UUID, hasCompletedFirstRun: true } as never)
-  // Not a held member (`gated`, which the synthetic golden reads true): a held member lands on the Team panel, which on the lane has no
-  // tabs (DL ruling 9 Nov), and this row is about the Reasoning tab.
-  useViewStore.setState({ uuid: UUID, sid: view.id, view: { ...view, gated: false }, error: null, stale: false, status: 'ready' } as never)
 })
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); setTeamFetch(null) })
 
-const dockOn = async (tab: string) => {
+const dockOn = async (tab: string, fixture = view) => {
+  // Held members land on a Team panel without tabs.
+  const servedView = { ...fixture, gated: false }
+  const reply = (async () => new Response(JSON.stringify(servedView), { status: 200 })) as unknown as typeof fetch
+  vi.stubGlobal('fetch', reply)
+  setTeamFetch(reply)
+  useViewStore.setState({ uuid: UUID, sid: servedView.id, view: servedView, error: null, stale: false, status: 'ready' })
   sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ isOpen: true, activeTab: tab }))
   const r = render(<ConversationProvider><OutputsDock /></ConversationProvider>)
   await act(async () => { await new Promise((res) => setTimeout(res, 30)) })
@@ -59,15 +62,19 @@ describe('the Reasoning tab on the olumi-core lane', () => {
   it('is offered, and pressed it draws core\'s Run from the View: no legacy body, no run cover, no Run control', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     await dockOn('analysisNew')
-    fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
+    const tab = screen.getByRole('tab', { name: /^Check(?: \d+)?$/ })
+    expect(tab).toHaveAttribute('data-testid', 'outputs-dock-tab-analysisNew')
+    fireEvent.click(tab)
     const body = screen.getByTestId('view-reasoning')
-    // Redesign, 18 Nov: how sound the thinking is. The model-at-a-glance strip is gone (the canvas and Model tab draw the model); core's
-    // rests are drawn per figure (redesign 2): the first two rests at rest, each figure a bar to its share.
     expect(body.querySelector('[data-testid="view-reasoning-glance"]')).toBeNull()
-    type R = { id: string; line: string; figures?: { line: string }[] }
-    const rests = (view.model.run.rests as R[]).filter((r) => r.line !== '' && (r.figures ?? []).some((f) => f.line !== ''))
-    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.slice(0, 2).map((r) => r.id))
-    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]').length).toBe(rests.slice(0, 2).flatMap((r) => (r.figures ?? []).filter((f) => f.line !== '')).length)
+    const door = screen.getByTestId('view-reasoning-rests-toggle')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    expect(body.querySelectorAll('[data-rest], [data-testid="reasoning-share-bar"]')).toHaveLength(0)
+    fireEvent.click(door)
+    expect(door).toHaveAttribute('aria-expanded', 'true')
+    const rests = view.model!.run!.rests.filter((r) => r.line !== '').slice(0, RESTS_AT_REST)
+    expect([...body.querySelectorAll<HTMLElement>('[data-rest]')].map((e) => e.dataset['rest'])).toEqual(rests.map((r) => r.id))
+    expect(body.querySelectorAll('[data-testid="reasoning-share-bar"]')).toHaveLength(rests.filter((r) => r.figures?.some((f) => f.line !== '')).length)
     // Each option's chance and core's driver line live in Analysis only: Reasoning draws neither (no duplicate).
     expect(body.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
@@ -75,10 +82,46 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     expect(document.querySelectorAll('[data-testid="stub-reanalyse-bar"], [data-testid="stub-readiness-bar"]').length).toBe(0)
   })
 
+  it('shows the Check count on the strip and rail and omits the badge for zero Team dissent', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    await dockOn('analysisNew')
+    const count = checkItemsOf(view.model!, view).flatMap((group) => group.blocks.flatMap((block) => block.items)).length
+    expect(count).toBeGreaterThan(0)
+    const strip = within(screen.getByTestId('outputs-dock-tablist'))
+    const check = strip.getByRole('tab', { name: `Check ${count}` })
+    expect(check.querySelector('[data-tab-count]')).toHaveTextContent(String(count))
+    expect(within(check).getByText('Check')).toBeVisible()
+    expect(strip.getByRole('tab', { name: 'Team' }).querySelector('[data-tab-count]')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('dock-collapse-control'))
+    const rail = within(await screen.findByTestId('outputs-dock-rail-tablist'))
+    const corner = rail.getByRole('tab', { name: `Check ${count}` }).querySelector('[data-tab-count]')
+    expect(corner).toHaveTextContent(String(count))
+    expect(corner).toHaveClass('absolute')
+    expect(rail.getByRole('tab', { name: 'Team' }).querySelector('[data-tab-count]')).toBeNull()
+  })
+
+  it('shows a two-digit Team dissent count in the strip and rail tab names and badges', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const dissent = Array.from({ length: 12 }, (_, i) => ({
+      id: `dissent-${i}`, holder: 'Ada', holder_id: null, position: 'Check the estimate.', confirmed: null,
+    }))
+    await dockOn('analysisNew', { ...view, collab: { ...view.collab, dissent } })
+    const strip = within(screen.getByTestId('outputs-dock-tablist'))
+    const team = strip.getByRole('tab', { name: 'Team 12' })
+    expect(team.querySelector('[data-tab-count]')).toHaveTextContent('12')
+
+    fireEvent.click(screen.getByTestId('dock-collapse-control'))
+    const rail = within(await screen.findByTestId('outputs-dock-rail-tablist'))
+    const badge = rail.getByRole('tab', { name: 'Team 12' }).querySelector('[data-tab-count]')
+    expect(badge).toHaveTextContent('12')
+    expect(badge).toHaveClass('absolute', 'right-0', 'top-0', 'translate-x-1/2', '-translate-y-1/2')
+  })
+
   it('off the lane the tab keeps its legacy body', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '')
     await dockOn('analysisNew')
-    fireEvent.click(screen.getByTestId('outputs-dock-tab-analysisNew'))
+    fireEvent.click(screen.getByRole('tab', { name: 'Reasoning' }))
     expect(screen.getByTestId('stub-legacy-reasoning')).toBeInTheDocument()
     expect(screen.queryByTestId('view-reasoning')).toBeNull()
   })

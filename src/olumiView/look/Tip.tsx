@@ -29,7 +29,7 @@ function anchorElement(anchor: HTMLElement | undefined): HTMLElement | undefined
   return typeof anchor?.closest === 'function' ? anchor : undefined
 }
 
-export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: HTMLElement; spacing?: TipSpacing; icon?: ReactNode }): JSX.Element | null {
+export function Tip({ id, text, anchorRect, anchor, spacing, icon, at }: { id?: string; text: string; anchorRect: DOMRect | null; anchor?: HTMLElement; spacing?: TipSpacing; icon?: ReactNode; at?: string }): JSX.Element | null {
   const el = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const t = el.current
@@ -54,7 +54,7 @@ export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: stri
   const body = rest.join('\n')
   const stacked = body !== '' && spacing !== undefined
   return (
-    <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={`${TIP_CLASS} ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`}>
+    <div ref={el} id={id} role="tooltip" data-view={at} data-testid="lane-tip" className={`${TIP_CLASS} ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`}>
       <span data-tip-title="" className={[body === '' ? '' : 'ok-tip-title', icon ? 'flex items-start gap-1.5' : ''].filter(Boolean).join(' ')}>
         {icon ? <><span className="shrink-0">{icon}</span><span className="min-w-0">{head}</span></> : head}
       </span>
@@ -116,7 +116,7 @@ export function useTipDismissOnMove(shown: boolean, hide: () => void) {
  * transformed ancestor moves it). Opens on the pointer's rest (mouse and pen) and on keyboard focus; closes on leave, blur, Escape, or `dismiss()`
  * (call it on press). `describedBy` is the tip's id while it is open.
  */
-export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, icon?: ReactNode) {
+export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, icon?: ReactNode, at?: string) {
   const id = useId()
   const { activeTooltip, showTooltip, hideTooltip } = useTipDelay()
   // Two ways to be active, tracked apart: the tip closes only when neither is left (or on Escape / press / scroll / resize).
@@ -143,7 +143,7 @@ export function useAnchoredTip(words: string | undefined, spacing?: TipSpacing, 
     }
   }, [cardTipOpen, id])
   useTipDismissOnMove(shown, hideTooltip)
-  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} anchor={anchor} spacing={spacing} icon={icon} />, document.body) : null
+  const tip = shown && typeof document !== 'undefined' ? createPortal(<Tip id={id} text={text} anchorRect={activeTooltip.rect} anchor={anchor} spacing={spacing} icon={icon} at={at} />, document.body) : null
   return { handlers, tip, describedBy: shown ? id : undefined, dismiss }
 }
 

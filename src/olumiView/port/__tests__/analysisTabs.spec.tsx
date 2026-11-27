@@ -23,7 +23,7 @@ import { REASONING_LABELS, ViewReasoningBlock } from '../../ViewReasoning'
 import { SimpleFace } from '../../v12/SimpleFace'
 import { COMMITMENT_WORDS } from '../../reasoning/TowardsCommitment'
 import { useReasoningFocus } from '../../reasoning/focusRequest'
-import { actionable, examineOf } from '../../reasoning/examine'
+import { checkItemsOf } from '../../check/items'
 import { TIPPING_FIGURE } from '../AnalysisReaders'
 import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, rangeOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
@@ -354,11 +354,17 @@ describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232;
   })
 })
 
-const withoutExamineItems = () => {
+const withoutCheckItems = () => {
   const view = structuredClone(viewOf('golden/app-launch'))
   view.model_words = null as never
   Object.assign(view.model!, { questions: [], coaching_questions: [], sharpen: [] })
-  for (const card of view.model!.cards) card.challenged = false
+  Object.assign(view.model!.run!, { shared_blockers: [], waits_on: null, find_out: [] })
+  for (const card of view.model!.cards) {
+    card.challenged = false
+    card.worth_checking = []
+    card.rows = card.rows.filter((row) => row.kind !== 'none' && row.kind !== 'chance')
+    if (card.figure != null) card.figure.edit = null
+  }
   view.collab.dissent = []
   return view
 }
@@ -366,8 +372,8 @@ const withoutExamineItems = () => {
 describe('no chance yet: a link to Reasoning before what a result needs', () => {
   it('app-launch: one row with the full list count above readiness, while Reasoning keeps the item words', () => {
     const launch = viewOf('golden/app-launch'), model = launch.model!
-    const items = examineOf(model, launch.session?.methods ?? null, (launch.model_words ?? null) as Record<string, unknown> | null, new Set(launch.collab.dissent.map((d) => d.id)))
-    const first = items.find(actionable)
+    const items = checkItemsOf(model, launch).flatMap((group) => group.blocks.flatMap((block) => block.items))
+    const first = items[0]
     expect([tabStateOf(model), first !== undefined]).toEqual(['none', true])
     ready(launch); render(<PortAnalysisTab />)
     const link = screen.getByTestId('analysis-to-reasoning'), needs = screen.getByTestId('analysis-needs')
@@ -376,20 +382,22 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(link).toHaveTextContent(REASONING_LABELS.examine)
     expect(link.querySelector('[data-count]')?.textContent).toBe(String(items.length))
     expect(link.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const w = first!.kind === 'question' ? first!.q : first!.kind === 'challenge' ? first!.card.heading : first!.kind === 'widen' ? first!.w.label : first!.s.lead
+    const w = first!.short
     expect(link.textContent).not.toContain(w)
     expect(link.textContent).not.toContain('Start here')
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    fireEvent.click(link)
     cleanup()
     ready(launch); render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
-    fireEvent.click(screen.queryByTestId('reasoning-examine-more') ?? document.createElement('i'))
-    expect(screen.getByTestId('reasoning-examine').textContent).toContain(w)
+    const item = document.querySelector(`[data-check-item="${first!.key}"]`)
+    expect(item).toHaveFocus()
+    expect(item?.closest('li')).toHaveTextContent(w)
   })
 
   it('a challenge alone opens Reasoning and focuses its row when activated with Enter', async () => {
     const user = userEvent.setup()
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     ready(view)
     useUIStore.setState({ activeOutputTab: 'results' })
@@ -403,21 +411,23 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
     render(<ViewReasoningBlock />)
-    const challenge = screen.getByTestId('reasoning-challenge-show').closest('li')
-    expect(challenge).toHaveAttribute('data-reasoning-challenge', card.id)
+    const challenge = document.querySelector(`[data-check-item="c:${card.id}"]`)
+    expect(challenge).toHaveTextContent(card.heading)
     expect(challenge).toHaveFocus()
-    expect(challenge).toHaveAttribute('tabindex', '-1')
+    expect(challenge).toHaveAttribute('tabindex', '0')
+    expect(challenge).toHaveAttribute('aria-expanded', 'true')
     expect(useReasoningFocus.getState().request).toBeNull()
   })
 
   it('dissent alone opens Reasoning and focuses Towards commitment', () => {
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     view.collab.dissent = [{ id: card.id, holder: 'Sarah', position: 'Keep this risk open.', holder_id: null, confirmed: null }]
     ready(view)
     useUIStore.setState({ activeOutputTab: 'results' })
     render(<PortAnalysisTab />)
-    const link = screen.getByRole('button', { name: COMMITMENT_WORDS.heading })
+    const link = screen.getByTestId('analysis-to-reasoning')
+    expect(link).toHaveTextContent(COMMITMENT_WORDS.heading)
     expect(link.querySelector('[data-count]')).toBeNull()
     fireEvent.click(link)
     expect(useReasoningFocus.getState().request).toEqual({ sid: view.id, key: 'commitment' })
@@ -428,26 +438,28 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(useReasoningFocus.getState().request).toBeNull()
   })
 
-  it('no actionable item and no dissent leaves the readiness list without a link', () => {
-    ready(withoutExamineItems()); render(<PortAnalysisTab />)
+  it('no Check items or dissent draws no link or readiness rows', () => {
+    ready(withoutCheckItems()); render(<PortAnalysisTab />)
     expect(screen.queryByTestId('analysis-to-reasoning')).toBeNull()
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
-    expect(screen.getByTestId('analysis-needs')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-needs')).toBeNull()
   })
 
   it('a typed question on the current saved view has its AnswerBox in Reasoning only', () => {
-    const view = withoutExamineItems()
+    const view = withoutCheckItems()
     const question = { id: 'release-date', text: 'When is the release?', about: null, role: null, unit: null }
     view.model!.questions = [question]
     ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
     expect(within(tab()).queryByText(question.text)).toBeNull()
     expect(within(tab()).queryByTestId('reasoning-answer-input')).toBeNull()
+    expect(screen.queryByTestId('reasoning-answer-input')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: question.text }))
     expect(within(screen.getByTestId('view-reasoning')).getByTestId('reasoning-answer-input').closest('form')).toHaveAttribute('data-answer-for', question.id)
   })
 
   it('Enter on the waiting goal measure line reveals and focuses the folded question', async () => {
     const user = userEvent.setup()
-    const view = withoutExamineItems(), model = view.model!
+    const view = withoutCheckItems(), model = view.model!
     const goal = model.cards.find((card) => card.id === 'protect_user_trust')!
     goal.bound = { ...goal.bound!, measured: false }
     goal.doubt = true
@@ -456,12 +468,12 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     model.questions = [question]
     ready(view)
     render(<><SimpleFace card={goal} model={model} noted={false} /><ViewReasoningBlock /></>)
-    const examined = screen.getByTestId('reasoning-examine')
-    const row = () => examined.querySelector(`[data-examine="q:${question.id}"]`)
-    const more = within(examined).getByTestId('reasoning-examine-more')
+    const examined = document.querySelector('[data-check-group="examine"]')!
+    const row = () => examined.querySelector(`[data-check-item="q:${question.id}"]`)
+    const more = examined.querySelector('[data-check-more="examine"]')!
     const line = screen.getByRole('button', { name: 'Not counted yet' })
 
-    expect(within(examined).getAllByTestId('reasoning-challenge-show')).toHaveLength(4)
+    expect(examined.querySelectorAll('[data-check-item^="c:"]')).toHaveLength(1)
     expect(row()).toBeNull()
     expect(more).toHaveAttribute('aria-expanded', 'false')
     line.focus()
@@ -475,26 +487,26 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
   })
 
   it('leaves another scenario’s request alone until the scenario changes', () => {
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     ready(view)
     const request = { sid: 's_other', key: `c:${card.id}` }
     useReasoningFocus.setState({ request })
     render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+    expect(document.querySelector(`[data-check-item="c:${card.id}"]`)).not.toHaveFocus()
     expect(useReasoningFocus.getState().request).toEqual(request)
     act(() => { useViewStore.setState({ sid: request.sid }) })
     expect(useReasoningFocus.getState().request).toBeNull()
-    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+    expect(document.querySelector(`[data-check-item="c:${card.id}"]`)).not.toHaveFocus()
   })
 
   it('clears a request for an item that is no longer present', () => {
-    const view = withoutExamineItems()
+    const view = withoutCheckItems()
     ready(view)
     useReasoningFocus.setState({ request: { sid: view.id, key: 'c:missing' } })
     render(<ViewReasoningBlock />)
     expect(useReasoningFocus.getState().request).toBeNull()
-    expect(screen.getByTestId('reasoning-commitment')).not.toHaveFocus()
+    expect(document.querySelector('[data-check-item][data-selected="true"]')).toBeNull()
   })
 })
 
@@ -688,7 +700,7 @@ describe('the Analysis link to Reasoning', () => {
     useUIStore.setState({ activeOutputTab: 'results' })
     ready(view); render(<PortAnalysisTab />)
     const row = screen.getByTestId('analysis-to-reasoning')
-    const items = examineOf(view.model!, view.session?.methods ?? null, (view.model_words ?? null) as Record<string, unknown> | null, new Set(view.collab.dissent.map((d) => d.id)))
+    const items = checkItemsOf(view.model!, view).flatMap((group) => group.blocks.flatMap((block) => block.items))
     expect(row.querySelector('[data-count]')?.textContent).toBe(String(items.length))
     fireEvent.click(row)
     expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
