@@ -53,7 +53,7 @@ function Considered({ sid, e, onWrote, W }: { sid: string; e: View['evidence'][n
       )}
       {c?.why != null && <Hover as="p" words={c.why.title} className={`${META} whitespace-pre-wrap break-words`} data-testid={`team-evidence-why-${e.id}`}>{c.why.text}</Hover>}
       <div>
-        <Button size="sm" variant="secondary" data-testid={`team-evidence-consider-${e.id}`} disabled={mine || sending} onClick={() => void ask()}>{W.evidence.consider}</Button>
+        <Button size="chip" variant="secondary" data-testid={`team-evidence-consider-${e.id}`} disabled={mine || sending} onClick={() => void ask()}>{W.evidence.consider}</Button>
       </div>
       {error && <p role="alert" data-testid={`team-evidence-consider-error-${e.id}`} className={ERR}>{error}</p>}
     </div>
@@ -114,7 +114,7 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
       </ul>
 
       {!open ? (
-        <div><Button size="sm" variant="secondary" data-testid="team-evidence-open" onClick={() => put({ open: true })}>{W.evidence.add}</Button></div>
+        <div><Button size="chip" variant="secondary" data-testid="team-evidence-open" onClick={() => put({ open: true })}>{W.evidence.add}</Button></div>
       ) : (
         <div className={CARD} data-testid="team-evidence-form">
           <label htmlFor="team-evidence-text" className={LABEL}>{W.evidence.text}</label>
@@ -140,8 +140,8 @@ export function EvidencePanel({ sid, view, onWrote }: { sid: string; view: View;
           <p className={META}>{W.evidence.sharedNote}</p>
           {error && <p role="alert" data-testid="team-evidence-error" className={ERR}>{error}</p>}
           <div className="flex gap-2">
-            <Button size="sm" data-testid="team-evidence-add" disabled={!ready || busy} onClick={() => void add()}>{W.evidence.add}</Button>
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => put({ open: false })}>{W.evidence.cancel}</Button>
+            <Button size="chip" data-testid="team-evidence-add" disabled={!ready || busy} onClick={() => void add()}>{W.evidence.add}</Button>
+            <Button size="chip" variant="ghost" disabled={busy} onClick={() => put({ open: false })}>{W.evidence.cancel}</Button>
           </div>
         </div>
       )}

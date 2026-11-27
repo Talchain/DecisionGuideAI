@@ -1,4 +1,5 @@
 /** The Results tab draws the selected aim and keeps the longer reading behind one fold. */
+import { controls } from '../../styles/controls'
 import { useId, useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
@@ -137,7 +138,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && notes.length === 0 && timing.length === 0 && compared.length === 0) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${controls.chipText} inline-flex items-center gap-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
         <FoldChevron open={open} />{ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
@@ -169,7 +170,7 @@ function ToReasoning({ model }: { model: ViewModel }) {
       useReasoningFocus.setState({ request: sid === null || key === null ? null : { sid, key } })
       useUIStore.getState().forceActivateOutputTab('analysisNew')
     }}
-      className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-body hover:bg-panel-hover`}>
+      className={`${controls.chipText} flex w-full items-center gap-2 text-left text-text-body hover:bg-panel-hover`}>
       <span className="min-w-0 flex-1">{key === 'commitment' ? COMMITMENT_WORDS.heading : CHECK_WORDS.title}</span>
       {key === 'commitment' ? null : <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{items.length}</span>}
     </button>
@@ -194,7 +195,7 @@ function ChanceResults({ model }: { model: ViewModel }) {
         <div role="group" aria-label="Aim" className="flex flex-wrap gap-1">
           {groups.map((g) => (
             <button key={g.aimId} type="button" aria-pressed={g.aimId === group.aimId} data-view={g.aim.at}
-              className={`${TYPE.meta} min-h-7 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover transition-colors duration-fast motion-reduce:transition-none`}
+              className={`${controls.chipText} border border-panel-border text-text-header hover:bg-panel-hover aria-pressed:bg-panel-hover transition-colors duration-fast motion-reduce:transition-none`}
               onClick={() => setAim(g.aimId)}>{g.aim.text}</button>
           ))}
         </div>
@@ -204,7 +205,7 @@ function ChanceResults({ model }: { model: ViewModel }) {
       <WhatMovesIt model={model} />
       <TippingPerOption model={model} />
       {lead == null || lead === '' ? null : (
-        <button type="button" className={`${TYPE.meta} min-h-7 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}
+        <button type="button" className={`${controls.chipText} border border-panel-border text-text-header hover:bg-panel-hover`}
           onClick={() => prefillComposer(lead)}>{CHECK_WORDS.ask}</button>
       )}
     </>

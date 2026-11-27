@@ -4,6 +4,7 @@
  * words in the message box for the person to edit and send: nothing is sent here, no route is added, and the kept idea itself is never changed. It
  * works with a model, with a proposal pending and with no model at all. The idea's words and the names are core's; the labels are fixed notation.
  */
+import { controls } from '../../../styles/controls'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
 import type { View } from '../../client'
@@ -35,7 +36,7 @@ export function IdeaPanel(): JSX.Element | null {
   const { source, method, keeper } = ideaDetailOf(view, idea)
   // An idea kept on an approved model is a record of it (core's strategy item): Challenge runs core's typed challenge on it (UI-E). A `kept:` row is not.
   const onModel = !idea.id.startsWith('kept:') && view.version !== null
-  const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
+  const ask = `${controls.chipText} border border-panel-border text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
       className={`ok-float ${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] grid max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] auto-rows-max grid-cols-1 overflow-y-auto text-text-body`}>

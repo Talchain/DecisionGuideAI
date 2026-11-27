@@ -29,6 +29,7 @@ import { scenarioIdWrite } from '../canvas/stores/unboundModelBinding'
 import { ThinkingIndicator } from '../canvas/conversation/zones/ThinkingIndicator'
 import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
+import { HIT_44_TALL } from '../styles/hitArea'
 import { useGuidanceStore, withOlumiReveal } from '../canvas/stores/guidanceStore'
 import { takeAskTargetBinding } from '../canvas/ui/inspector-v2/askTargetBinding'
 import { focusNodeById } from '../canvas/utils/focusHelpers'
@@ -237,7 +238,7 @@ export function Blocks({ parts, at, first = 1, item, everyLine = false, fold = f
       {groups.slice(0, head).map((g, gi) => groupEl(g, gi))}
       {foldable
         ? <button type="button" aria-expanded={!folded} data-testid="view-reply-fold" onClick={() => setWhole(!whole)}
-            className={`${typography.viewPanelHeading} inline-flex min-h-[24px] items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}<FoldChevron open={!folded} /></button>
+            className={`${controls.chipText} inline-flex items-center gap-1 self-start text-text-light hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{folded ? (coreLines === null ? SHOW_WHOLE_REPLY : SHOW_WHOLE_FIRST) : SHOW_LESS}<FoldChevron open={!folded} /></button>
         : null}
       {under === undefined ? groups.slice(head).map((g, gi) => groupEl(g, head + gi)) : null}
     </>
@@ -639,7 +640,7 @@ export function TurnInFlight({ turn, me, view, shown = false, replyVisible = fal
           </p>
         )}
         {running || turn === null || turn.said === null || turn.by_id !== me || turn.ask !== 'message' ? null
-          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+          : <button type="button" disabled={busy} data-testid="view-chat-turn-again" onClick={() => void sayAgain()} className={`${controls.chipText} ${HIT_44_TALL} border border-panel-border text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}>Try again</button>}
       </li>
     </ol>
   )
@@ -980,7 +981,7 @@ export function Proposal({ p, busy, evidence, inRow = false, open = true, onOpen
       {changes.length === 0 || closed || read?.noted == null ? null : (
         <div className="grid gap-1" data-testid="view-noted">
           <p className="m-0 text-text-light"><span data-view="proposal.to_read.noted.text">{read.noted.text}</span>
-            {notedHeld ? null : <> <button type="button" aria-expanded={notedOpen} onClick={() => setShowNoted((o) => !o)} className="rounded-sm text-text-body underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header" data-testid="view-noted-show-all">{notedOpen ? NOTED_SHOW_FEWER : NOTED_SHOW_ALL}</button></>}</p>
+            {notedHeld ? null : <> <button type="button" aria-expanded={notedOpen} onClick={() => setShowNoted((o) => !o)} className={`${controls.chipText} text-text-body underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`} data-testid="view-noted-show-all">{notedOpen ? NOTED_SHOW_FEWER : NOTED_SHOW_ALL}</button></>}</p>
           {notedOpen ? <ul className="m-0 grid list-none gap-1 p-0" data-testid="view-noted-lines">{read.noted.lines.map(line)}</ul> : null}
         </div>
       )}
@@ -1585,8 +1586,8 @@ export function MoveTap({ turn, next, arrow = false, primary = false, at }: { tu
   return (
     arrow
       ? <HoverButton words={next.label} type="button" data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)} aria-label={next.label}
-          className={`inline-flex h-8 w-8 flex-none items-center justify-center rounded-full ${controls.act}`}><OkIcon id="move-tap" size={14} decorative /></HoverButton>
-      : <div><Button size="sm" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
+          className={`${controls.chipIcon} inline-flex flex-none items-center justify-center ${controls.act}`}><OkIcon id="move-tap" size={14} decorative /></HoverButton>
+      : <div><Button size="chip" variant={primary ? 'primary' : 'secondary'} data-testid="view-next-move" data-move={next.move} disabled={busy} onClick={() => void takeMove(turn, next)}>{at === undefined ? next.label : <span data-view={`${at}.label`}>{next.label}</span>}</Button></div>
   )
 }
 
@@ -1930,11 +1931,11 @@ function SessionGoal({ session, held }: { session: Session; held: boolean }) {
           <OkIcon id="goal" size={14} decorative />
           <HoverButton words={session.set_by === null ? undefined : `Set by ${session.set_by}`} type="button" disabled={held} onClick={() => setChanging(true)}
             aria-label={`${GOAL_QUESTION} ${goal.text}. Change it`} data-testid="view-session-goal-change"
-            className="py-1 text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
+            className={`${controls.chipText} text-text-body hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed`}>
             <span data-view="session.goal.text">{goal.text}</span>
           </HoverButton>
           <HoverButton words={`Clear: ${goal.text}`} type="button" disabled={held} onClick={() => choose(null)} aria-label={`Clear: ${goal.text}`} data-testid="view-session-goal-clear"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed">
+            className={`${controls.chipIcon} inline-flex items-center justify-center text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:text-text-light aria-disabled:cursor-not-allowed`}>
             <OkIcon id="clear-goal" size={14} decorative inherit />
           </HoverButton>
         </span>
@@ -2299,7 +2300,7 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
       {past === null ? null : (
         <p className="flex flex-wrap items-center gap-2" data-testid="view-composer-past">
           <span>{PAST_HELD}</span>
-          <button type="button" className="rounded-sm px-2 py-1 border border-panel-border" data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
+          <button type="button" className={`${controls.chipText} border border-panel-border`} data-testid="view-composer-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</button>
         </p>
       )}
       <label className={briefLabel ? `${typography.viewPanelHeading} text-text-header` : 'sr-only'} htmlFor="view-chat-text">{briefLabel ? 'Your brief' : 'Message Olumi'}</label>
@@ -2326,8 +2327,8 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
             <span role="group" aria-label="Ways to test the model" className="flex items-center gap-0.5" data-testid="view-composer-methods">
               {/* The four methods are the registry's method icons, neutral (Paul, 17 Nov: icons carry no hue); the method's own label is the hover. */}
               {V10_METHODS.map(({ key, label }) => (
-                <OkIconButton key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} disabled={busy} testid={`view-composer-method-${key}`}
-                  className={`h-7 w-7 rounded-md hover:bg-panel-hover${armed === key ? ' bg-panel-hover' : ''}`}
+                <OkIconButton tone="ghost" key={key} id={METHOD_ICON[key]} words={label} pressed={armed === key} disabled={busy} testid={`view-composer-method-${key}`}
+                  className={`hover:bg-panel-hover${armed === key ? ' bg-panel-hover' : ''}`}
                   onClick={() => { if (pressChallenge(key) === 'prefixed') box.current?.focus() }} />
               ))}
             </span>
@@ -2340,24 +2341,24 @@ function ViewComposerBody({ analysisAction }: { analysisAction?: AIInputBarProps
         <div className="ml-auto flex flex-none items-center justify-end gap-1" data-testid="view-composer-actions">
           {/* v10 review item 10: the popout moved here from a 44 px strip above every conversation; same control, same test id, drawn in the composer's icon row. */}
           {popped ? null : (
-            <OkIconButton id="popout" words={CHAT_POPOUT_LABEL} hover={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="h-7 w-7 rounded-md hover:bg-panel-hover" onClick={popOutChat} />
+            <OkIconButton tone="ghost" id="popout" words={CHAT_POPOUT_LABEL} hover={CHAT_POPOUT_TITLE} testid="view-chat-popout" className="hover:bg-panel-hover" onClick={popOutChat} />
           )}
           {/* P5 (system spec): the ONE entry to Record what you will do, an icon beside the other right-side icons (its words are the hover); the form opens in the thread. */}
           <RecordStepButton />
           {analysisAction === undefined ? null : (
-            <OkIconButton id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse"
-              className={`h-7 w-7 rounded-md hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />
+            <OkIconButton tone="ghost" id="run-analysis" words={blocked ? analysisAction.blockedReason ?? analysisAction.label : analysisAction.label} active={analysisAction.isRunning} testid="view-composer-analyse"
+              className={`hover:bg-panel-hover${analysisAction.isRunning ? ' [&_svg]:animate-spin' : ''}`} disabled={past !== null || analysisAction.isRunning || !analysisAction.canRun} onClick={analysisAction.onRun} />
           )}
           {/* Words-start (17 Nov): the one deliberate choice for a new brief, beside Send; Send still builds a model (the default). */}
           {!brief ? null : (
             <HoverButton words={TALK_FIRST_HOVER} type="button" disabled={sendHeld} data-testid="view-composer-talk-first" onClick={() => { if (!sendHeld) void send(true) }}
-              className={`${typography.viewPanelHeading} inline-flex min-h-7 items-center gap-1.5 rounded-md px-2 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:cursor-default`}>
+              className={`${controls.chipText} inline-flex items-center gap-1.5 text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header aria-disabled:cursor-default`}>
               <OkIcon id="talk-first" size={14} inherit />{TALK_FIRST}
             </HoverButton>
           )}
           <button type="button" disabled={sendHeld} aria-label="Send" data-testid="view-composer-send" onClick={submit}
             onMouseDown={(event) => { if (brief && event.button === 0 && document.activeElement === box.current) event.preventDefault() }}
-            className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${controls.act}`}>
+            className={`${controls.chipIcon} inline-flex items-center justify-center ${controls.act}`}>
             <OkIcon id="send" inherit decorative /><span className="sr-only">Send</span>
           </button>
         </div>

@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { NodeShapeIndicator } from '../../canvas/nodes/NodeShapeIndicator'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { controls } from '../../styles/controls'
 import { transitions } from '../../styles/transitions'
 import { typography } from '../../styles/typography'
 import type { View, ViewCard, ViewModel } from '../client'
@@ -29,8 +30,8 @@ export const CHECK_FILL = 'Put this in the message box'
 export const CHECK_SHOW = 'Show in the workspace'
 const HOVER_RING = 'check-tab-hover'
 const AT_REST = { needs: 4, find: 2, examine: 1 }
-const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
-const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
+const QUIET = `${controls.chipText} inline-flex items-center gap-1 border border-panel-border text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const MORE = `${controls.chipText} text-text-light underline underline-offset-2 hover:text-text-header`
 const ITEM = `w-full min-w-0 rounded-sm text-left text-text-header hover:bg-panel-hover aria-expanded:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header ${transitions.colors} motion-reduce:transition-none`
 
 function FillBox({ text }: { text: string }) {
@@ -151,7 +152,7 @@ function CheckSection({ group, all, shown, tiles, restCount, toggle, renderRow }
       <h3 className={`${typography.viewPanelHeading} m-0 flex items-center gap-2 text-text-header`} data-check-heading>
         {discloseFromHeading ? (
           <button type="button" aria-expanded={all} aria-controls={region} onClick={toggle} data-check-more={group.kind} data-check-heading-toggle
-            className="flex w-full items-center gap-2 rounded-sm text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+            className={`${controls.chipText} flex w-full items-center gap-2 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
             {heading}
             <FoldChevron open={all} className="ml-auto text-text-light" />
           </button>

@@ -138,8 +138,8 @@ export const SelectionPill = memo(function SelectionPill({ after, mark, chip = f
         <span className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full border border-panel-border bg-panel-hover pl-2 ${typo(meta, 'text-text-body')}`} data-testid="selection-chip">
           {shape == null ? null : <span aria-hidden="true" className="inline-flex flex-none">{shape}</span>}
           <Hover words={label} className="line-clamp-2 min-w-0 break-words" data-testid="selection-chip-label">About: {label}</Hover>
-          {canAsk ? <OkIconButton id="ask-about-this" words={`Ask about ${label}`} testid="selection-ask-chip" size={14} className="h-6 w-6 hover:text-text-header" onClick={ask} /> : null}
-          <OkIconButton id="cancel-close" words="Clear the selection" testid="selection-pill-clear" size={12} className="h-6 w-6 rounded-full hover:text-text-header" onClick={() => useCanvasStore.getState().clearSelection()} />
+          {canAsk ? <OkIconButton id="ask-about-this" words={`Ask about ${label}`} testid="selection-ask-chip" size={14} className={isOlumiCoreLane() ? 'hover:text-text-header' : 'h-6 w-6 hover:text-text-header'} onClick={ask} /> : null}
+          <OkIconButton id="cancel-close" words="Clear the selection" testid="selection-pill-clear" size={12} className={isOlumiCoreLane() ? 'hover:text-text-header' : 'h-6 w-6 rounded-full hover:text-text-header'} onClick={() => useCanvasStore.getState().clearSelection()} />
         </span>
         {extra == null ? null : <SelectionDetail key={selection.id}>{extra}</SelectionDetail>}
       </div>

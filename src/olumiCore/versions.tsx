@@ -1,3 +1,4 @@
+import { controls } from '../styles/controls'
 import { useEffect, useId, useState } from 'react'
 import { Button } from '../components/ui/Button'
 import { HoverButton } from '../olumiView/look/Hover'
@@ -52,7 +53,7 @@ function VersionRecord({ sid, v, versions, drawn, domId }: { sid: string; v: Ver
   return (
     <div id={domId} className="grid gap-2 pb-2 pl-3" data-testid={`${id}-record`}>
       {error && <p role="alert" className={ERR} data-testid={`${id}-error`}>{error}</p>}
-      {!drawn && <div><Button size="sm" variant="secondary" data-testid={`${id}-draw`} onClick={() => void draw()}>Draw on the canvas</Button></div>}
+      {!drawn && <div><Button size="chip" variant="secondary" data-testid={`${id}-draw`} onClick={() => void draw()}>Draw on the canvas</Button></div>}
       {refused && <p role="alert" className={ERR} data-testid={`${id}-draw-error`}>{refused}</p>}
       {(c || (over === null && next === null)) && <p className={BODY} data-testid={`${id}-who`}>{said.charAt(0).toUpperCase() + said.slice(1)}</p>}
       {c && over !== null && <>
@@ -104,7 +105,7 @@ export function CoreVersions(): JSX.Element {
     <div className="grid gap-3" data-testid="core-versions">
       {past !== null && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="secondary" data-testid="core-versions-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
+          <Button size="chip" variant="secondary" data-testid="core-versions-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
         </div>
       )}
       <ul className="m-0 grid list-none gap-1 p-0" data-testid="core-versions-list">
@@ -114,7 +115,7 @@ export function CoreVersions(): JSX.Element {
             <li key={v.id} data-testid="core-version-row" data-version={v.n} aria-current={inUse ? 'true' : undefined}>
               {/* The version the canvas draws (the latest, or the one the person drew): core's label for it, set in the heavier weight. */}
               <HoverButton type="button" data-testid={`core-version-open-${v.n}`} aria-expanded={open.has(v.n)} aria-controls={open.has(v.n) ? `${recordIds}-${v.n}` : undefined} words={inUse ? current?.label : undefined}
-                className={`${BODY} w-full rounded px-1 py-0.5 text-left hover:bg-panel-hover ${inUse ? 'font-semibold text-text-header' : ''}`} onClick={() => toggle(v.n)}>
+                className={`${controls.chipText} w-full text-left hover:bg-panel-hover ${inUse ? 'font-medium text-text-header' : ''}`} onClick={() => toggle(v.n)}>
                 Version {v.n} <span className="font-normal text-text-light">· {when(v.at)} · approved by {v.by}</span>
               </HoverButton>
               {open.has(v.n) && <VersionRecord sid={sid} v={v} versions={versions} drawn={inUse} domId={`${recordIds}-${v.n}`} />}

@@ -231,6 +231,17 @@ const CLASSES = [
     lineTokens: v12Tokens(V12_CSS),
   },
   laneSourceClass('v12-typography-token', 'Typography tokens that resolve to 11/13/16px or weight 600/700'),
+  {
+    id: 'v12-button-size',
+    mode: 'ratchet',
+    description: 'Explicit button heights and legacy shared Button sizes on lane surfaces',
+    laneSource: true,
+    inScope: (p) => !isTest(p) && /\.tsx$/.test(p) && (inV12(p) ||
+      /^olumiCore\/(?:compare|scenarioCompare|versions|DeleteMyDataDialog)\.tsx$/.test(p) ||
+      /^components\/layout\/(?:TopBar|LeftSidebar|CanvasToolButton|CanvasViewportControls|KebabMenu)\.tsx$/.test(p) ||
+      /^canvas\/components\/(?:OlumiAttentionCard|OutputsDock|SelectionPill|workspaceShell\/WorkspaceShellTabStrip)\.tsx$/.test(p) ||
+      /^canvas\/(?:contextMenu\/ContextRows|edges\/ViewLinkEdge|versions\/WhatChangedPanel|help\/KeyboardLegend|nodes\/BaseNode)\.tsx$/.test(p)),
+  },
   laneSourceClass('v12-inline-style', 'Explicit style props on DOM elements, except verified CSS-variable-only object literals', { tsxOnly: true }),
   {
     id: 'v12-important-css',

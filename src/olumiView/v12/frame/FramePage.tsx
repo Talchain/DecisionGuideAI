@@ -6,7 +6,7 @@ import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
 import type { View, ViewCard } from '../../client'
 import { OlumiMark, PersonMark } from '../cards/marks'
-import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
+import { VIEW_CHIP_CLASS, VIEW_CHIP_OUTLINE_CLASS } from '../../../v5/blocks/chipClass'
 import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { targetCardOf } from '../../model/targets'
 import { useModelEdit } from '../../model/editing'
@@ -110,13 +110,13 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
       <section className="grid gap-2" aria-label={FRAME_WORDS.question}>
         <div className="flex items-start gap-2">
           <h2 className={`${typography.viewPanelBody} m-0 min-w-0 flex-1 break-words font-medium text-text-header`} data-testid="frame-question">{q.text}</h2>
-          {model.cards.length === 0 ? null : <HoverButton type="button" className={`${EDIT} ${focus}`} data-testid="frame-edit-question" words="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</HoverButton>}
+          {model.cards.length === 0 ? null : <HoverButton type="button" className={`${lane ? VIEW_CHIP_CLASS : EDIT} ${focus}`} data-testid="frame-edit-question" words="Puts the question in the message box, for you to finish and send" onClick={editQuestion}>{FRAME_WORDS.askChange}</HoverButton>}
         </div>
       </section>
       {model.cards.length === 0 ? (
         <section className="grid gap-2" data-testid="frame-no-model">
           <p className={H}>{FRAME_WORDS.noModel}</p>
-          <div><button type="button" className={`${BTN} ${focus}`} data-testid="frame-build" onClick={() => { onClose(); editQuestion() }}>{FRAME_WORDS.build}</button></div>
+          <div><button type="button" className={`${lane ? VIEW_CHIP_OUTLINE_CLASS : BTN} ${focus}`} data-testid="frame-build" onClick={() => { onClose(); editQuestion() }}>{FRAME_WORDS.build}</button></div>
         </section>
       ) : (
         <>
@@ -140,7 +140,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
           )}
           <div className="flex flex-wrap items-center gap-3">
             {more > 0 ? <span className={`${BODY} text-text-light`} data-testid="frame-more">{moreCardsWords(more)}</span> : null}
-            <button type="button" className={`${BTN} ${focus}`} data-testid="frame-full-graph" onClick={onClose}><OkIcon id="show-in-workspace" size={14} decorative inherit className="mr-1" />{FRAME_WORDS.fullGraph}</button>
+            <button type="button" className={`${lane ? VIEW_CHIP_OUTLINE_CLASS : BTN} ${focus}`} data-testid="frame-full-graph" onClick={onClose}><OkIcon id="show-in-workspace" size={14} decorative inherit className="mr-1" />{FRAME_WORDS.fullGraph}</button>
           </div>
         </>
       )}

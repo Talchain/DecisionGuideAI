@@ -17,6 +17,7 @@
  *
  * Every label is core's (`figure.edit.prompt`) or core’s `model_words`. Nothing typed is read, converted or rounded here.
  */
+import { controls } from '../../styles/controls'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -41,10 +42,10 @@ import { useLaneInspector } from '../v12/edit/inspectorStore'
 export const RECIPE = {
   // The person's commit is the lane's one green action (`bg-success`, ink text; chipClass), the chat's own recipe, never black and never Olumi's blue. A held one reads as held by token.
   primary: `${VIEW_CHIP_PRIMARY_CLASS} aria-disabled:cursor-default aria-disabled:bg-panel-border aria-disabled:text-text-light`,
-  secondary: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1.5 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
-  action: `${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center gap-1 rounded-sm text-text-light hover:text-text-body hover:underline aria-disabled:cursor-default ${ACTION_FOCUS}`,
-  quiet: `${typography.viewPanelMeta} inline-flex h-7 cursor-pointer items-center rounded-sm px-1 text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
-  olumi: `${typography.viewPanelMeta} inline-flex min-h-[28px] cursor-pointer items-center gap-1.5 rounded-sm px-1 text-info hover:underline ${ACTION_FOCUS}`,
+  secondary: `${controls.chipText} inline-flex cursor-pointer items-center text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  action: `${controls.chipText} inline-flex cursor-pointer items-center gap-1 text-text-light hover:text-text-body hover:underline aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  quiet: `${controls.chipText} inline-flex cursor-pointer items-center text-text-light hover:text-text-body hover:underline disabled:cursor-default aria-disabled:cursor-default ${ACTION_FOCUS}`,
+  olumi: `${controls.chipText} inline-flex cursor-pointer items-center gap-1.5 text-info hover:underline ${ACTION_FOCUS}`,
   input: `${typography.viewPanelBody} h-9 w-full rounded-md border border-field bg-panel px-2.5 text-text-body placeholder:text-text-light ${ACTION_FOCUS}`,
   label: `${typography.viewPanelMeta} block text-text-light`,
   error: `${typography.viewPanelMeta} m-0 text-danger`,

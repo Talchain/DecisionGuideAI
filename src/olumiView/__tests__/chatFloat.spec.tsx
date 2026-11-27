@@ -53,7 +53,7 @@ describe('A2 stop/float, DL 10 Nov', () => {
     await waitFor(() => expect(document.querySelector('[role="tooltip"]')?.textContent).toBe('Open in floating window'))
     fireEvent.pointerLeave(popout)
     // CHANGED BY DESIGN (v10 review item 10): the popout left its 44 px strip above the thread for the composer's icon row (a 28 px icon, like its neighbours).
-    expect(popout).toHaveClass('w-7', 'h-7') // the lane's 28 px icon (18 Nov), as its neighbours
+    expect(popout).toHaveClass('min-w-7', 'min-h-7') // the lane's 28 px icon (18 Nov), as its neighbours
     expect(popout.closest('[data-testid="view-composer-actions"]')).not.toBeNull()
     fireEvent.click(popout)
     const panel = getByTestId('view-chat-float')
@@ -130,7 +130,7 @@ describe('A2 stop/float, DL 10 Nov', () => {
     fireEvent.click(getByTestId('view-chat-popout'))
     const dock = getByTestId('view-chat-dockback')
     expect(dock).toHaveAccessibleName('Dock to panel')
-    expect(dock).toHaveClass('min-h-[44px]', 'min-w-[44px]')
+    expect(dock).toHaveClass('min-h-7', 'min-w-7')
     fireEvent.pointerDown(dock, { button: 0, pointerId: 1, clientX: 400, clientY: 90 })
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 1000, clientY: 600 })
     expect(useChatFloat.getState().position).toEqual({ x: 52, y: 78 })

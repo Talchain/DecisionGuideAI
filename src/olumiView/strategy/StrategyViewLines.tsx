@@ -8,6 +8,7 @@
  * RevealDock's name row) and its line drops the card's name, which the panel's heading already says; their words for it show only when they
  * differ from the view's words above.
  */
+import { controls } from '../../styles/controls'
 import { useState } from 'react'
 import { BODY, META } from '../../olumiCore/team/ui'
 import type { View } from '../client'
@@ -45,7 +46,7 @@ export function StrategyViewLines({ view, v, card = null }: { view: View; v: { i
     </ul>
     {rest.length === 0 ? null : (
       <button type="button" aria-expanded={more} data-testid={`strategy-view-more-${v.id}`} onClick={() => setMore((m) => !m)}
-        className={`${META} inline-flex min-h-6 cursor-pointer items-center justify-self-start text-text-body underline underline-offset-2 hover:text-text-header`}>
+        className={`${controls.chipText} inline-flex cursor-pointer items-center justify-self-start text-text-body underline underline-offset-2 hover:text-text-header`}>
         {more ? `Only this card from ${v.by}` : `${rest.length} more from ${v.by}`}
       </button>
     )}

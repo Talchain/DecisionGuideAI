@@ -4,9 +4,9 @@
  * and a press focuses and selects the card on the canvas (the same focus channel the Reasoning tab uses). A pointer to a record the canvas does not
  * draw names nothing, and a reply with no pointer draws no chip. "About" and "on the canvas" are the board's fixed chrome.
  */
+import { controls } from '../../../styles/controls'
 import { OkIcon } from '../../look/icons'
 import { useAnchoredTip } from '../../look/Tip'
-import { typography } from '../../../styles/typography'
 import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import type { View, ViewTurn } from '../../client'
 import { endRing, pointRing } from '../../ring'
@@ -40,7 +40,7 @@ export function AboutChips({ cards }: { cards: readonly AboutCard[] }): JSX.Elem
       <button type="button" onClick={() => { dismiss(); focusNodeById(ids[0]!) }} onMouseEnter={() => pointRing(ids)} onMouseLeave={(e) => { if (document.activeElement !== e.currentTarget) endRing() }}
         {...handlers} onFocus={(e) => { pointRing(ids); handlers.onFocus(e) }} onBlur={() => { endRing(); handlers.onBlur() }} aria-describedby={describedBy}
         data-testid="view-about-chip" data-card={ids[0]} data-cards={ids.join(' ')}
-        className={`${typography.viewPanelMeta} inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        className={`${controls.chipText} inline-flex items-center gap-1 text-text-light hover:bg-panel-hover hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="on-canvas" size={14} decorative /><span aria-hidden="true">{cards.length}</span><span className="sr-only">{aboutCountWords(cards.length)}</span>
       </button>
       {tip}

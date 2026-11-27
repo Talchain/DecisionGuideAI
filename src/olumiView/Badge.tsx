@@ -5,6 +5,7 @@
  * as core's page marks it: outlined, with core's change glyphs (`badge.change`, `+` added, `↻` changed) beside its text, so a change
  * behind a fold is seen before it is approved (final review 00004 #3).
  */
+import { controls } from '../styles/controls'
 import type { ComponentPropsWithoutRef } from 'react'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { HoverButton } from './look/Hover'
@@ -32,12 +33,13 @@ export function toggleBadge(cardId: string, badge: BadgeT): Promise<boolean> {
 }
 
 export function Badge({ cardId, badge, at }: { cardId: string; badge: BadgeT; at: string }) {
+  const lane = isOlumiCoreLane()
   const face = badgeFace(badge), named = face === null ? badgeNamed(badge) : null
   // With a face, the hover says the badge's words whole first (the face may say "and 2 more"), then core's title for what it folds.
   const title = face !== null && said(badge.words) ? (said(badge.title) ? `${badge.words}\n${badge.title}` : badge.words) : badge.title
   const button: ComponentPropsWithoutRef<'button'> & { 'data-proposed'?: boolean; 'data-badge-words'?: string } = {
     type: 'button',
-    className: `nodrag nopan inline-flex min-h-[24px] min-w-[24px] items-center cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? 'rounded-sm border border-dashed border-info px-1' : ''}`,
+    className: `nodrag nopan inline-flex ${lane ? controls.chipText : 'min-h-[24px] min-w-[24px]'} items-center cursor-pointer text-left underline-offset-2 hover:underline ${badge.proposed ? `border border-dashed border-info ${lane ? '' : 'rounded-sm px-1'}` : ''}`,
     'aria-label': badge.label,
     'aria-expanded': badge.open,
     'data-proposed': badge.proposed || undefined,
@@ -52,7 +54,7 @@ export function Badge({ cardId, badge, at }: { cardId: string; badge: BadgeT; at
         // DL round 5 (rehearsal item 9): core's words wrap without leaving one word alone on the last line ('out').
         ? <span className="inline-flex items-start gap-1"><span aria-hidden="true" className="shrink-0 whitespace-nowrap" data-view={`${at}.badge.icon`}>{named.icon}</span><span className="[text-wrap:pretty]" data-view={`${at}.badge.words`}>{named.words}</span></span>
         : <span data-view={`${at}.badge.text`}>{badge.text}</span>}{badge.proposed && badge.change !== '' ? <> <span className="text-info" data-view={`${at}.badge.change`}>{badge.change}</span></> : null}</>
-  return isOlumiCoreLane()
+  return lane
     ? <HoverButton {...button} words={title}>{children}</HoverButton>
     : <button {...button} title={title}>{children}</button>
 }

@@ -15,11 +15,11 @@
  * while gated, or on an earlier version, nothing is read or drawn. The read is the Team tab's own (`differencesKey`), so the dock and the
  * canvas never read the same View twice.
  */
+import { controls } from '../../styles/controls'
 import { Fragment, useEffect } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { HoverButton } from '../../olumiView/look/Hover'
 import { useUIStore } from '../../stores/uiStore'
-import { typography } from '../../styles/typography'
 import { useViewStore } from '../../olumiView/store'
 import { CARD_WIDTH } from '../../olumiView/layout'
 import { differencesKey, readDifferences, useDifferences, type Difference, type Differences } from './differences'
@@ -84,7 +84,7 @@ export function DifferChip({ d, card }: { d: Difference; card: string }): JSX.El
   return (
     <HoverButton words={`${d.label}\n${d.status_text}`} type="button" data-differ-chip={d.record} data-differ-card={card}
       onClick={(e) => { e.stopPropagation(); openDiffer(d) }}
-      className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-full border border-panel-border bg-panel py-0.5 pl-0.5 ${d.chip ? 'pr-2.5' : 'pr-0.5'} text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
+      className={`${controls.chipText} pointer-events-auto inline-flex max-w-full flex-none cursor-pointer items-center gap-1.5 border border-panel-border bg-panel text-left text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-grid h-[18px] w-[18px] flex-none place-items-center rounded-full border border-panel-border bg-canvas text-text-body">
         <OkIcon id="differ-link" size={12} decorative />
       </span>

@@ -1,3 +1,4 @@
+import { controls } from '../../../styles/controls'
 import { useEffect, useId, useRef } from 'react'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import type { ViewCard, ViewModel, ViewRow } from '../../client'
@@ -27,7 +28,7 @@ export const COMPARE_OPTIONS_CHROME = {
 } as const
 
 const RING = 'tool-compare-options'
-const PICK = `${TYPE.body} inline-flex min-h-7 min-w-0 max-w-full flex-none items-center gap-1 rounded-control border border-panel-border px-2 py-1 text-left text-text-header hover:bg-panel-hover aria-pressed:border-text-header aria-pressed:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const PICK = `${controls.chipText} inline-flex min-w-0 max-w-full flex-none items-center gap-1 border border-panel-border text-left text-text-header hover:bg-panel-hover aria-pressed:border-text-header aria-pressed:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 type OptionEntry = { card: ViewCard; letter: string; row: ViewRow | undefined }
 
 function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
@@ -48,7 +49,7 @@ function OptionRow({ card, letter, row }: OptionEntry) {
   return (
     <div data-compare-row={row?.kind ?? 'absent'} className="compare-option-row col-span-full grid min-w-0 grid-cols-subgrid items-start rounded-sm py-1 transition-[transform,opacity] duration-fast ease-out hover:bg-panel-hover motion-reduce:transition-none">
       <button type="button" onClick={() => pressCard(card.id)}
-        className={`${TYPE.meta} min-w-0 text-left text-text-header`}>
+        className={`${controls.chipText} min-w-0 text-left text-text-header`}>
         <span className="olumi-look contents"><LetterChip letter={letter} /></span><wbr />
         <span>{card.heading}</span>
       </button>

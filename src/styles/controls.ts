@@ -1,3 +1,5 @@
+import { typography } from './typography'
+
 /**
  * Olumi control surfaces — the one place that decides what an INTERACTIVE
  * control looks like.
@@ -76,6 +78,11 @@ const DISABLED_FENCE =
 const CANVAS_VALUE_BOX = 'rounded-sm border -mx-1 -my-px px-[3px] py-0 transition-colors'
 
 export const controls = {
+  // dock tabs: comp-approved sizes, Paul to judge any change
+  chipText: `min-h-7 rounded-control px-2 py-0 ${typography.viewPanelMeta}`,
+  chipIcon: `min-h-7 min-w-7 shrink-0 rounded-control p-0 ${typography.viewPanelMeta}`,
+  toolbarButton: `h-[30px] min-w-[30px] rounded-control py-0 ${typography.viewPanelBody}`,
+
   /**
    * A control that accepts typed input.
    *

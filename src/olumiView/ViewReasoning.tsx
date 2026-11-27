@@ -16,6 +16,7 @@ import { ShareBar, ShareKeyMark } from './v12/scale/ShareBar'
 import { GlyphMark } from './look/Hover'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
+import { controls } from '../styles/controls'
 
 /** The tab's own labels, the only words not core's. */
 export const REASONING_LABELS = {
@@ -28,7 +29,7 @@ export const REASONING_LABELS = {
   show: CHECK_SHOW,
 } as const
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
-const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
+const MORE = `${controls.chipText} text-text-light underline underline-offset-2 hover:text-text-header`
 /** Figures drawn per group at rest (every group is drawn): core orders them by share, so the first is the one that carries most of that group's uncertainty. */
 const REST_FIGURES = 1
 /** At most this many rest groups at rest, in core's order (Paul's progressive-disclosure rule); the others sit behind the one existing "Show n more" press. */

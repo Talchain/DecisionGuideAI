@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import { useCallback, useEffect, useState } from 'react'
 import { OkIcon } from '../../olumiView/look/icons'
 import { teamApi, TeamApiError, type Invite } from './api'
@@ -66,7 +67,7 @@ export function InvitePanel({ sid, made, onMade }: { sid: string; made: MadeInvi
           {invites.map((i) => (
             <li key={i.id} data-testid={`team-invite-${i.id}`} className={`${META} flex items-center gap-2`}>
               <span>{i.name} · invited by {i.by} · {i.status}</span>
-              {i.revocable && i.status === 'live' && <button type="button" className="cursor-pointer underline underline-offset-2" onClick={() => void revoke(i.id)} data-testid={`team-invite-revoke-${i.id}`}>Revoke</button>}
+              {i.revocable && i.status === 'live' && <button type="button" className={`${controls.chipText} cursor-pointer underline underline-offset-2`} onClick={() => void revoke(i.id)} data-testid={`team-invite-revoke-${i.id}`}>Revoke</button>}
             </li>
           ))}
         </ul>

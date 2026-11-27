@@ -5,6 +5,7 @@
  * card's marks row. Selecting either opens it in the dock (the Team tab). Every word is core's, whole (N3): each mark's hover and name, each
  * figure's and each piece of evidence's own, never composed here.
  */
+import { controls } from '../styles/controls'
 import type { CSSProperties } from 'react'
 import { HoverButton } from './look/Hover'
 import { SELECTED_RING } from '../styles/selected'
@@ -69,7 +70,7 @@ export function CardEvidenceMarks({ card }: { card: string }): JSX.Element | nul
         return (
           <HoverButton key={e.id} type="button" aria-pressed={on} aria-label={e.mark_label} words={e.mark_title} data-node-tooltip="true" data-evidence-mark={e.id}
             onClick={(ev) => { ev.stopPropagation(); openEvidence(e.id) }}
-            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
+            className={`${controls.chipIcon} pointer-events-auto inline-grid cursor-pointer place-items-center border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             <OkIcon id="brief" size={14} decorative inherit />
           </HoverButton>
         )
@@ -118,7 +119,7 @@ export function CardViewInitials({ card }: { card: string }): JSX.Element | null
         return (
           <HoverButton key={`${m.view}`} type="button" aria-pressed={on} aria-label={words} words={words} data-node-tooltip="true" data-reveal-initial={m.view} data-reveal-status={m.status ?? undefined}
             onClick={(e) => { e.stopPropagation(); openView(m.view) }}
-            className={`pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border bg-canvas ${typography.viewLabel} text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
+            className={`${controls.chipIcon} pointer-events-auto inline-grid cursor-pointer place-items-center border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header ${on ? `border-text-header ${SELECTED_RING}` : 'border-panel-border'}`}>
             {initial(m.by)}
           </HoverButton>
         )
@@ -156,7 +157,7 @@ export function CardViewChips({ card }: { card: string }): JSX.Element | null {
         <HoverButton key={chip.key} type="button" aria-pressed={on} aria-label={chip.label} words={chip.title} data-node-tooltip="true" data-reveal-card-chip={card} data-reveal-kind={chip.kind}
           data-reveal-chip={chip.kind === 'evidence' ? undefined : chip.views[0]} data-reveal-evidence-chip={chip.kind === 'evidence' ? chip.evidence[0] : undefined}
           onClick={(e) => { e.stopPropagation(); if (chip.kind === 'evidence') openEvidence(chip.evidence[0]!, card, chip.key); else openView(chip.views[0]!, card, chip.key) }}
-          className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 text-left ${i === 0 ? 'flex-1 pr-2.5' : 'flex-none pr-2'} ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
+          className={`${controls.chipText} pointer-events-auto inline-flex min-w-0 cursor-pointer items-center gap-1.5 border border-panel-border bg-panel text-left ${i === 0 ? 'flex-1 ' : 'flex-none '} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2 ${on ? 'shadow-2' : ''}`}>
           {chip.kind === 'disagreement' && chip.people.length >= 2
             ? <DriverDifferMark people={chip.people} evidence={chip.evidence.length > 0} />
             : <People people={chip.people} />}

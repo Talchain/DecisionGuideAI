@@ -23,6 +23,7 @@
  * - Slow-run feedback messages (20s/40s thresholds)
  */
 
+import { controls } from '../../styles/controls'
 import { useEffect, useLayoutEffect, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { AlertTriangle, CheckCircle, HelpCircle } from 'lucide-react'
 import { HoverButton } from '../../olumiView/look/Hover'
@@ -3451,7 +3452,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 // icon in the natural tab order, exactly as at `463fc931`.
                 data-testid={`outputs-dock-rail-tab-${tab.id}`}
                 onClick={() => handleTabClick(tab.id)}
-                className={`${count ? 'relative ' : ''}flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                className={`${count ? 'relative ' : ''}flex items-center justify-center ${lane ? controls.chipIcon : `w-7 h-7 rounded-full ${typography.caption}`} border focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
                     ? 'text-info border-info'
                     : 'text-text-header bg-panel border-panel-border hover:bg-panel'
@@ -3827,7 +3828,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                       // it REDs on growth as well as on an unrecorded fix. New
                       // markup in the shell host stays on-scale so the ratchet
                       // holds without the pin moving.
-                      className={`${typography.panelBody} rounded px-3 py-2 bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+                      className={`${isOlumiCoreLane() ? controls.chipText : `${typography.panelBody} rounded px-3 py-2`} bg-primary text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                       data-testid="outputs-analysis-empty-describe"
                     >
                       Describe your situation to Olumi

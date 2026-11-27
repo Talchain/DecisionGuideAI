@@ -5,6 +5,7 @@
  * panel's. Core's own notes on what Olumi used, inferred and left out (ED-12) are not served yet, so the panel says that and composes none.
  * "All tabs" goes back to the dock as it was; the dock's own composer stays below it for a reply, and a reply sent from it shows here.
  */
+import { controls } from '../styles/controls'
 import { useEffect, useRef } from 'react'
 import { create } from 'zustand'
 import { typography } from '../styles/typography'
@@ -55,7 +56,7 @@ export function BriefPanel(): JSX.Element | null {
         <header className="space-y-0.5">
           <div className="flex items-start justify-between gap-2">
             <h2 className={`${typography.viewPanelBody} flex items-center gap-2 font-medium text-text-header`}><OkIcon id="brief" decorative />Original brief</h2>
-            <button type="button" className={`${typography.viewPanelMeta} inline-flex min-h-[24px] flex-none cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
+            <button type="button" className={`${controls.chipText} inline-flex flex-none cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`} data-testid="brief-panel-all-tabs" onClick={() => leaveBriefPanel(sid)}>All tabs</button>
           </div>
           {a.version === null && a.by === null ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-testid="brief-panel-meta">{a.version}{a.version === null || a.versionAt === null ? null : <> · <span data-view="version.at_text">{a.versionAt}</span></>}{a.version !== null && a.by !== null ? ' · ' : null}{a.by === null ? null : <span data-view="brief_by">{a.by}</span>}</p>}
         </header>

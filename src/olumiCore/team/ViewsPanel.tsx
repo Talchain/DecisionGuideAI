@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import { useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import type { View } from '../../olumiView/client'
@@ -208,7 +209,7 @@ export function ViewEntry({ sid, view, onWrote }: { sid: string; view: View; onW
                 <div className="grid gap-1" data-testid={`team-mine-earlier-${v.id}`}>
                   <p className={META}>{view.team_words.views.earlier}</p>
                   <div>
-                    <Button size="sm" variant="secondary" data-testid={`team-reuse-${v.id}`} disabled={busy || sending || viewLocked || text.trim() !== ''}
+                    <Button size="chip" variant="secondary" data-testid={`team-reuse-${v.id}`} disabled={busy || sending || viewLocked || text.trim() !== ''}
                       onClick={() => { setText(v.text); if (error) setError(null) }}>{view.team_words.views.reuse}</Button>
                   </div>
                 </div>
@@ -272,7 +273,7 @@ export function RevealMarks({ view, promoted }: { view: View; /** Cards whose re
       {marks.map((m) => <li key={`${m.card}:${m.kind}`} className="grid gap-0.5" data-testid={`team-mark-${m.card}-${m.kind}`} data-mark-views={m.views.join(',')} data-mark-kind={m.kind}>
         {/* DL round 5: the mark says which card it is about, by that card's heading (core's words), so "Only Sam raised it" is never an orphan. */}
         {markHeading(view, m.card) === null ? null : (
-          <HoverButton words="Show it on the canvas" type="button" className={`${BODY} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline`} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}
+          <HoverButton words="Show it on the canvas" type="button" className={`${controls.chipText} inline-flex items-start gap-1.5 text-left font-medium text-text-header hover:underline`} data-testid={`team-mark-heading-${m.card}`} data-view={`${m.card}.heading`}
             onClick={() => focusNodeById(m.card)}>
             <span className="min-w-0 break-words">{markHeading(view, m.card)}</span>
             <span className="mt-0.5 flex-none text-text-light"><OkIcon id="on-canvas" size={14} decorative /></span>

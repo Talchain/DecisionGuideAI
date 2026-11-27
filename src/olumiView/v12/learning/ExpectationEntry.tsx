@@ -39,7 +39,7 @@ export function ExpectationEntry({ sid, view }: { sid: string; view: View }): JS
           <OkIcon id="decide-by" size={14} decorative inherit />{EXPECTATION_WORDS.review} {k.review_on}
         </p>
       )}
-      <div><Button size="sm" variant="secondary" data-testid="expectation-entry-record" onClick={() => goToOutcome(sid, k.id)}>{EXPECTATION_WORDS.record}</Button></div>
+      <div><Button size="chip" variant="secondary" data-testid="expectation-entry-record" onClick={() => goToOutcome(sid, k.id)}>{EXPECTATION_WORDS.record}</Button></div>
     </section>
   )
 }
