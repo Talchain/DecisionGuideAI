@@ -48,7 +48,7 @@ import {
   Scale, UnfoldVertical, Unlink, Unplug, Upload, User, UserCheck, UserPlus, Users, Waypoints, Wrench, X, XCircle, Zap, ZoomIn, ZoomOut, FlipVertical2,
   Repeat2, Anchor, Combine, CircleDot, FileQuestion, FlaskConical, FoldHorizontal, Ruler, ToggleRight,
   GitBranch, MoveLeft, MoveRight, Spline, Type,
-  ClipboardList, CloudLightning, Dices, Goal, Route, KeyRound, LibraryBig, ListOrdered, MessageCircle,
+  ChevronDownCircle, ChevronRightCircle, ClipboardList, CloudLightning, CloudRain, Dices, Goal, Route, KeyRound, LibraryBig, ListFilter, ListOrdered, MessageCircle,
   MessageCircleMore, PenLine, ScanEye, ShieldQuestion, Signpost, UsersRound,
   type LucideIcon,
 } from 'lucide-react'
@@ -131,7 +131,7 @@ const sessionMethodIcons = {
   'method-differ': e(UsersRound, 'Different perspectives', '--text-light', 'icon-only', 'olumi-ask'),
   'method-find_first': e(ListOrdered, 'What to find out first', '--text-light', 'icon-only', 'olumi-ask'),
   'method-have_true': e(KeyRound, 'What needs to be true', '--text-light', 'icon-only', 'olumi-ask'),
-  'method-go_wrong': e(CloudLightning, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
+  'method-go_wrong': e(CloudRain, 'What could go wrong', '--text-light', 'icon-only', 'olumi-ask'),
   'method-pre_mortem': e(ShieldQuestion, 'Imagine it failed', '--text-light', 'icon-only', 'olumi-ask'),
   'method-else_do': e(Route, 'Explore alternatives', '--text-light', 'icon-only', 'olumi-ask'),
   'method-right_question': e(MessageCircleMore, 'Revisit the question', '--text-light', 'icon-only', 'olumi-ask'),
@@ -261,7 +261,7 @@ export const ICONS = {
   'lens-tradeoffs': e(Scale, 'Trade-offs', '--text-light', 'icon-only', 'navigate'),
   'lens-premortem': e(CloudLightning, 'If it failed', '--text-light', 'icon-only', 'navigate'),
   'lens-what-changes': e(Activity, 'What would change', '--text-light', 'icon-only', 'navigate'),
-  'more-cards': e(ChevronDown, 'More cards', '--text-light', 'icon-plus-word', 'navigate', { alt: ChevronRight }),
+  'more-cards': e(ChevronDownCircle, 'More cards', '--text-light', 'icon-plus-word', 'navigate', { alt: ChevronRightCircle }),
 
   // chrome
   'info-more': e(Info, 'More detail', '--text-light', 'icon-only', 'chrome', { keepWords: "core's status line (data-view `${at}.status`) stays visible while waiting" }),
@@ -319,7 +319,7 @@ export const ICONS = {
   'check-estimate-under-aims': e(Anchor, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-result-rests-on-range': e(Ruler, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-one-figure': e(CircleDot, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
-  'check-only-supporting': e(Scale, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
+  'check-only-supporting': e(ListFilter, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-shared-evidence': e(Combine, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-narrow-range': e(FoldHorizontal, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
   'check-no-evidence': e(FileQuestion, 'Olumi suggests checking this', '--text-light', 'icon-only', 'state'),
@@ -502,7 +502,7 @@ export function OkIconButton({ id, onClick, words, hover, variant, active, press
       aria-expanded={expanded}
       aria-controls={expanded === undefined ? undefined : controls}
       data-testid={testid}
-      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${compact ? chip : `${HIT_44} inline-flex shrink-0 items-center justify-center disabled:text-text-light`}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined || lane ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
+      className={`ok-icon-btn${tone === 'primary' ? ' ok-icon-btn-primary' : ''} ${HIT_44} ${compact ? chip : 'inline-flex shrink-0 items-center justify-center disabled:text-text-light'}${tone === 'primary' ? '' : ` ${colourClass(token)}`}${count === undefined || lane ? '' : ' gap-1 px-1.5'}${className ? ` ${className}` : ''}`}
     >
       <Glyph id={id} size={size} variant={variant} />
       {count === undefined ? null : <span className={`${typography.caption} tabular-nums`} data-testid={testid === undefined ? undefined : `${testid}-count`} aria-hidden="true">{count}</span>}

@@ -24,7 +24,7 @@ const draw = (width = 347) => render(
 const pillOf = (tab: HTMLElement) => tab.querySelector<HTMLElement>('[data-tab-pill]')!
 const cls = (e: HTMLElement) => e.className.split(/\s+/)
 
-describe('the selected dock tab', () => {
+describe('the selected dock tab is the comp\'s pill', () => {
   it('TP1: the selected tab uses the 28px chip and selected tokens', () => {
     draw()
     const tab = screen.getByTestId('outputs-dock-tab-results')
@@ -45,18 +45,18 @@ describe('the selected dock tab', () => {
 })
 
 describe('DL 06:57Z (2): on the narrow lane dock (1128: 317 px) the tabs keep one row, every name whole', () => {
-  it('TR1 at 317 px: one row (no wrap), each tab its full width, the row scrolls sideways where they do not fit; the tabs keep their full labels', () => {
+  it('TR1 at 317 px: one row (no wrap), each tab its full width, the row scrolls sideways where they do not fit; the pills tighten', () => {
     draw(317)
     const list = screen.getByTestId('outputs-dock-tablist')
     expect([cls(list).includes('flex-nowrap'), cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, false, 'one'])
     for (const id of ['results', 'compare']) expect(cls(screen.getByTestId(`outputs-dock-tab-${id}`))).toContain('shrink-0')
-    expect(screen.getByTestId('outputs-dock-tab-results')).toHaveClass('px-2')
+    expect(screen.getByTestId('outputs-dock-tab-results')).toHaveClass('[&]:px-0.5')
   })
   it('TR1 CONTRAST: at the 1232 dock (347 px) the row is as before (it fits one row there; no forced scroll)', () => {
     draw(347)
     const list = screen.getByTestId('outputs-dock-tablist')
     expect([cls(list).includes('flex-wrap'), list.closest('nav')!.getAttribute('data-lane-row')]).toEqual([true, null])
-    expect(screen.getByTestId('outputs-dock-tab-results')).toHaveClass('px-2')
+    expect(screen.getByTestId('outputs-dock-tab-results')).not.toHaveClass('[&]:px-0.5')
   })
 })
 

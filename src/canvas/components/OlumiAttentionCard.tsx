@@ -103,7 +103,7 @@ export const isQuestion = (text: string | undefined): boolean => typeof text ===
 
 const CARD_WIDTH = 268
 /** The folded note's icon, square (`h-6 w-6`). */
-const ICON = 28
+const ICON = 24
 const CARD_GAP = 14
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
@@ -399,7 +399,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     return (
       <button ref={iconRef} type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
         onClick={() => setOpenedKey(attention.turnId ?? null)}
-        className={`${controls.chipIcon} pointer-events-auto inline-flex items-center justify-center border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+        className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{ position: 'absolute', left: iconLeft.current, top: Math.max(anchorBox.y - ICON / 2, iconFloor), zIndex: 95 }}>
         <OlumiMark size={14} aria-hidden="true" />
       </button>

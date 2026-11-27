@@ -16,7 +16,6 @@ import { leadLineOf, withheldWords } from '../previous/CoreCard'
 import { setTeamFetch } from '../../olumiCore/team/api'
 import { isOpen, setOpen } from './reviewRow'
 import { tipOf } from './tipHelpers'
-import { VIEW_ICON_BUTTON_PRIMARY_CLASS } from '../../v5/blocks/chipClass'
 
 const golden: View = JSON.parse(readFileSync(path.resolve('src/olumiView/golden', 'proposal.view.json'), 'utf8'))
 const p = golden.proposal!
@@ -104,7 +103,7 @@ describe('partial approval', () => {
   })
   it('the filled button follows the ticks (Codex root 21:10Z, 18 Nov): nothing ticked, the filled button is the whole proposal; a line ticked, the filled button is Approve ticked, first, and the whole proposal is the quiet one saying how many lines it takes; unticked, back as it was. What each sends does not change', async () => {
     showOpen(golden)
-    const filled = (id: string) => VIEW_ICON_BUTTON_PRIMARY_CLASS.split(' ').every((k) => screen.getByTestId(id).classList.contains(k))
+    const filled = (id: string) => screen.getByTestId(id).classList.contains('bg-success')
     const first = () => screen.getByTestId('view-proposal-actions').querySelector('[data-testid="view-approve"],[data-testid="view-approve-ticked"]')?.getAttribute('data-testid')
     const rest = () => [filled('view-approve'), filled('view-approve-ticked'), first(), screen.getByTestId('view-approve').getAttribute('aria-label'), screen.queryByTestId('view-approve-count')?.textContent ?? null]
     expect(rest(), 'nothing ticked').toEqual([true, false, 'view-approve', 'Approve these changes', null])

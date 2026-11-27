@@ -204,7 +204,9 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     // On one row the tabs fill it with their dividers, as at 1232, and none can shrink below its label.
     for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).toMatch(/\bshrink-0\b/); expect(tab.className).toMatch(/(^|\s)before:hidden(\s|$)/) /* CHANGED BY DESIGN (v10 review item 8): no separators on the lane */ }
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
-    for (const tab of screen.getAllByRole('tab')) expect(tab).toHaveClass('min-h-7', 'rounded-control')
+    for (const name of ['Analysis', 'Model']) {
+      expect(screen.getByRole('tab', { name })).toHaveClass('min-h-7', 'rounded-control')
+    }
     cleanup(); lane.core = false
     draw(300)
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])

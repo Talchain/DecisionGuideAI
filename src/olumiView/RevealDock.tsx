@@ -236,7 +236,7 @@ export function RevealDock({ view }: { view: View }): JSX.Element | null {
           <Next view={view} chip={chip} />
           {/* One row, as the comp: the primary action and the quiet one side by side. */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="chip" variant="primary" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => { select(null); forgetLanded() })}>{view.reveal_words.bringEvidence}</Button>
+            <Button size="chip" variant="primary" className="min-h-[44px]" data-testid="reveal-dock-bring-evidence" onClick={() => bringEvidence(() => { select(null); forgetLanded() })}>{view.reveal_words.bringEvidence}</Button>
             {difference && difference.status !== 'pending' ? <button type="button" data-testid="reveal-dock-keep-open" onClick={() => void keep()} disabled={busy || kept} aria-pressed={kept}
               className={`${controls.chipText} inline-flex cursor-pointer items-center text-text-body hover:text-text-header disabled:opacity-60`}>{differences?.headings.dissent}</button> : null}
           </div>

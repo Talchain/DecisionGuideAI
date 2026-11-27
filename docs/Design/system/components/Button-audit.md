@@ -2,15 +2,15 @@
 
 Source recount on the joined UI tree starting at `8c0b417c3`. The unit is a button render site. It follows native buttons, `HoverButton`, `Hover as="button"`, `OkIconButton`, `Button`, `MenuItem`, `SubMenu`, and shared chrome to their DOM controls. Mapped records are counted once at their source site. Menu rows are counted as a role. Native `summary` disclosures, navigation links outside menus, and older-look branches are outside the census.
 
-A recipe includes named chip, toolbar and menu geometry. “Matching size” records a site whose starting geometry already matched its role but came from a local declaration. The role column names the closest recipe for the sites that started off-size. After migration, card and content-row controls listed in [Button exceptions](Button.md#exceptions) retain their existing geometry.
+A recipe includes named chip, toolbar and menu geometry. “Matching size” records a site whose starting geometry already matched its role but came from a local declaration. The role column names the closest recipe for the sites that started off-size. After migration, controls listed in [Button exceptions](Button.md#exceptions) retain their existing geometry.
 
 | UI lane | Sites | Recipe before | Matching size before | Off-size before | Recipe after | Kept geometry |
 |---|---:|---:|---:|---:|---:|---:|
-| View | 254 | 80 | 35 | 139 | 234 | 20 |
+| View | 254 | 80 | 35 | 139 | 233 | 21 |
 | Team | 36 | 1 | 0 | 35 | 34 | 2 |
 | Versions and comparison | 13 | 0 | 0 | 13 | 11 | 2 |
-| Shared chrome | 45 | 30 | 3 | 12 | 45 | 0 |
-| **Total** | **348** | **111** | **38** | **199** | **324** | **24** |
+| Shared chrome | 45 | 30 | 3 | 12 | 44 | 1 |
+| **Total** | **348** | **111** | **38** | **199** | **322** | **26** |
 
 
 ## Typography
@@ -62,7 +62,7 @@ Counted explicit utilities, arbitrary values, CSS declarations, and references t
 | [`src/olumiView/LinkMarkChip.tsx:76`](../../../../src/olumiView/LinkMarkChip.tsx#L76) · `button` | text chip | Off-size | Recipe |
 | [`src/olumiView/ResultBand.tsx:50`](../../../../src/olumiView/ResultBand.tsx#L50) · `HoverButton` | text chip | Off-size | Recipe |
 | [`src/olumiView/RevealDock.tsx:217`](../../../../src/olumiView/RevealDock.tsx#L217) · `OkIconButton` | icon chip | Recipe | Recipe |
-| [`src/olumiView/RevealDock.tsx:239`](../../../../src/olumiView/RevealDock.tsx#L239) · `Button` | text chip | Off-size | Recipe |
+| [`src/olumiView/RevealDock.tsx:239`](../../../../src/olumiView/RevealDock.tsx#L239) · `Button` | text chip | Off-size | Kept geometry |
 | [`src/olumiView/RevealDock.tsx:240`](../../../../src/olumiView/RevealDock.tsx#L240) · `button` | text chip | Off-size | Recipe |
 | [`src/olumiView/RevealMarks.tsx:71`](../../../../src/olumiView/RevealMarks.tsx#L71) · `HoverButton` | icon chip | Off-size | Recipe |
 | [`src/olumiView/RevealMarks.tsx:120`](../../../../src/olumiView/RevealMarks.tsx#L120) · `HoverButton` | icon chip | Off-size | Recipe |
@@ -352,7 +352,7 @@ Counted explicit utilities, arbitrary values, CSS declarations, and references t
 |---|---|---|---|
 | [`src/olumiCore/DeleteMyDataDialog.tsx:119`](../../../../src/olumiCore/DeleteMyDataDialog.tsx#L119) · `Button` (Cancel) | text chip | Off-size | Recipe |
 | [`src/olumiCore/DeleteMyDataDialog.tsx:124`](../../../../src/olumiCore/DeleteMyDataDialog.tsx#L124) · `button` (Delete my data) | text chip | Off-size | Recipe |
-| [`src/canvas/components/OlumiAttentionCard.tsx:398`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L398) · `button` | icon chip | Off-size | Recipe |
+| [`src/canvas/components/OlumiAttentionCard.tsx:398`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L398) · `button` | icon chip | Off-size | Kept geometry |
 | [`src/canvas/components/OlumiAttentionCard.tsx:477`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L477) · `button` | icon chip | Off-size | Recipe |
 | [`src/canvas/components/OlumiAttentionCard.tsx:523`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L523) · `button` | icon chip | Off-size | Recipe |
 | [`src/canvas/components/OlumiAttentionCard.tsx:558`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L558) · `button` | text chip | Off-size | Recipe |

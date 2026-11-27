@@ -11,7 +11,7 @@ The lane uses 28px chips and 30px toolbar faces. Controls use the 6px `radius-co
 | Toolbar | `controls.toolbarButton` · 30px face, 12px type. Fixed-width icons are 30px with no horizontal padding. Counted icons use 4px and labels use 8px | `TOOLBAR_ICON`, `TOOLBAR_RAIL_ICON`, `TOOLBAR_COUNTED_ICON`, `TOOLBAR_LABEL`, `TOOLBAR_ACTION` |
 | Menu row | `MENU_ROW` · a single line with the menu's own padding | `MenuItem`, `SubMenu` |
 
-A button with an icon and visible count uses the text-chip geometry so it can grow with the count.
+A button with an icon and visible count uses the text-chip geometry so it can grow with the count. `OkIconButton` keeps a separate 44px hit area.
 
 ## Rules
 
@@ -21,6 +21,11 @@ A button with an icon and visible count uses the text-chip geometry so it can gr
 - Use the 12px, 14px and 18px typography tokens at weight 400 or 500.
 
 ## Exceptions
+
+Two controls retain specific geometry.
+
+- [Bring evidence](../../../../src/olumiView/RevealDock.tsx#L239) keeps its 44px target in the Reveal dock.
+- [Folded attention icon](../../../../src/canvas/components/OlumiAttentionCard.tsx#L398) keeps its 24px circle so its bounds match the placement calculation at the card corner.
 
 The following buttons target an entire content block or appear in place of readable content. Their geometry belongs to that content.
 
