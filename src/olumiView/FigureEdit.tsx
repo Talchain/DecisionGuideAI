@@ -102,7 +102,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
     </>
   )
   return (
-    <div className={`nodrag nopan grid ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`} role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`} data-chrome-confirm={inChrome ? '' : undefined}
+    <div className={`nodrag nopan grid ${inChrome ? 'ok-card-gap-stack' : 'gap-2'}`} role="group" aria-label={ASIDE_WORDS.offer} data-testid={`${place}-aside-${id}`} data-chrome-confirm={inChrome ? '' : undefined} data-figure-edit-panel={inChrome ? id : undefined}
       onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape' && !busy) close() }}>
       <p className={typography.viewLabel}>{ASIDE_WORDS.first}</p>
       <p className={`${typography.viewLabel} text-text-light`}><span data-view="proposal.heading">{p.heading}</span> · <span data-view="proposal.on">{p.on}</span></p>
