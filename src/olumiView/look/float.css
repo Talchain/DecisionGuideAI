@@ -1,0 +1,9 @@
+.ok-float {
+  box-sizing: border-box;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+  padding: var(--ok-float-inset, var(--space-3));
+  gap: var(--ok-float-stack, var(--space-2));
+}

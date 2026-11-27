@@ -187,7 +187,7 @@ describe('CanvasContextMenu — shared-model authority', () => {
   it('mounts the lane menu and focuses its first row in the opening render', () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     render(<CanvasContextMenu target={paneTarget} onClose={onClose} screenToFlowPosition={screenToFlowPosition} />)
-    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toHaveClass('p-1.5')
+    expect(screen.getByRole('menu', { name: 'Canvas context menu' })).toHaveClass('ok-float')
     expect(screen.getByRole('menuitem', { name: 'Ask Olumi' })).toHaveFocus()
   })
 

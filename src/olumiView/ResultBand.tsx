@@ -57,7 +57,7 @@ export function RestsShareFill({ card }: { card: ViewCard }): JSX.Element | null
             line is the button's Tip, and pressing it opens Rests on, which draws every entry's line whole (restsOf). */}
         <span data-rests-neutral={card.id}>{NEUTRAL_REST_WORDS}</span>
       </HoverButton>
-      {open && whole ? <p className="ok-pop nodrag nopan" role="note" data-rests-said={card.id}>{whole}</p> : null}
+      {open && whole ? <p className="ok-float ok-pop nodrag nopan" role="note" data-rests-said={card.id}>{whole}</p> : null}
     </span>
   )
 }

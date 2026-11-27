@@ -89,32 +89,32 @@ export function DeleteMyDataDialog({ onCancel, onDeleted }: { onCancel: () => vo
         tabIndex={-1}
         onKeyDown={onKeyDown}
         data-testid="olumi-core-delete-dialog"
-        className="w-full max-w-md rounded-md bg-panel shadow-panel p-6 outline-none"
+        className="ok-float grid w-full max-w-md outline-none"
       >
-        <h2 id="olumi-core-delete-title" className={`${typography.h4} text-text-header`}>Delete your data?</h2>
-        <p id="olumi-core-delete-about" className={`${typography.bodySmall} mt-2 text-text-body`}>
+        <h2 id="olumi-core-delete-title" className={`${typography.viewPanelHeadline} text-text-header`}>Delete your data?</h2>
+        <p id="olumi-core-delete-about" className={`${typography.viewPanelBody} text-text-body`}>
           {words === null ? 'Olumi shows you what deleting would do before anything is deleted.' : 'This is what deleting your data does. It cannot be undone.'}
         </p>
 
         {busy === 'reading' && (
-          <p role="status" className={`${typography.bodySmall} mt-4 text-text-light`} data-testid="olumi-core-delete-reading">Finding what would be deleted…</p>
+          <p role="status" className={`${typography.viewPanelBody} text-text-light`} data-testid="olumi-core-delete-reading">Finding what would be deleted…</p>
         )}
 
         {/* Core's sentences, verbatim and in core's order: one per line, nothing rebuilt from the counts. */}
         {words !== null && (
-          <ul className={`${typography.bodySmall} mt-4 list-disc space-y-2 pl-5 text-text-body`} data-testid="olumi-core-delete-words">
+          <ul className={`${typography.viewPanelBody} list-disc space-y-2 pl-5 text-text-body`} data-testid="olumi-core-delete-words">
             {words.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         )}
 
         {busy === 'deleting' && (
-          <p role="status" className={`${typography.bodySmall} mt-4 text-text-light`} data-testid="olumi-core-delete-deleting">Deleting your data…</p>
+          <p role="status" className={`${typography.viewPanelBody} text-text-light`} data-testid="olumi-core-delete-deleting">Deleting your data…</p>
         )}
         {error !== null && (
-          <p role="alert" className={`${typography.bodySmall} mt-4 text-danger`} data-testid="olumi-core-delete-error">{error}</p>
+          <p role="alert" className={`${typography.viewPanelBody} text-danger`} data-testid="olumi-core-delete-error">{error}</p>
         )}
 
-        <div className="mt-6 flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button ref={cancelButton} variant="secondary" size="sm" onClick={cancel} disabled={busy === 'deleting'} data-testid="olumi-core-delete-cancel">
             Cancel
           </Button>

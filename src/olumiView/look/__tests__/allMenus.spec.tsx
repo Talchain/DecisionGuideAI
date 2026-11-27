@@ -91,7 +91,7 @@ describe('lane menus use the shared shell and focus contract', () => {
     const menu = screen.getByRole('menu', { name: menuName })
     const rows = within(menu).getAllByRole(rowRole)
     expect(menu).toHaveAttribute('data-olumi-menu')
-    expect(menu).toHaveClass('p-1.5', 'bg-panel', 'shadow-2')
+    expect(menu).toHaveClass('ok-float')
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(trigger).not.toHaveAttribute('title')
     expect(menu.querySelector('[title]')).toBeNull()

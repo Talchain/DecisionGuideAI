@@ -2,6 +2,7 @@
 
 /* Olumi Design System Tokens */
 @import './styles/brand.css';
+@import './olumiView/look/float.css';
 
 @tailwind base;
 @tailwind components;

@@ -633,7 +633,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
             {/* The state marks through the one list and the one "+N" overflow the Simple foot uses (marks.tsx CardMarks); "set aside" is said once, by its status line. */}
             <CardMarks card={card} taken={card.driver != null ? 1 : 0} omit={['set-aside']} />
             {changeOn === 'foot' ? changeMark : null}
-            {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} />}
+            {viewNow === null ? null : <WorkedSteps view={viewNow} id={id} floating={olumiLook} />}
             {badge === null ? null : <BadgeCount cardId={id} badge={badge} at={id} />}
             {cueOnAuthor ? editCue : null}
             <span className="ok-dt-whose" data-core-author={id}><AuthorMark card={card} /></span>

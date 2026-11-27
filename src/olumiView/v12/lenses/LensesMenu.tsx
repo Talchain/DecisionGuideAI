@@ -36,7 +36,7 @@ const NO_LAYER_LABEL = 'Layers'
 export const LENSES_TESTID = 'v12-layers'
 /** A layer's reading panel stands beside the rail. */
 const at = `absolute left-full top-0 ml-3 nodrag nopan ${CANVAS_LAYER_CLASS.chromeMenu}`
-const pop = `${at} rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}`
+const pop = `ok-float ${at} grid auto-rows-max grid-cols-1 ${typography.viewPanelBody}`
 
 export function LensesMenu(): JSX.Element | null {
   const view = useViewStore((s) => s.view)
@@ -224,7 +224,7 @@ export function LayerPanel({ view, layer, onClose }: { view: View; layer: LayerI
   }
 
   return (
-    <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] space-y-3 overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
+    <div className={`${pop} ${wide ? 'w-[420px]' : 'w-[300px]'} max-h-[70vh] overflow-auto`} role="region" aria-label={title} data-testid={`${LENSES_TESTID}-panel`}>
       <Head title={title} tag={tag} count={count} onClose={onClose} />
       {body}
     </div>

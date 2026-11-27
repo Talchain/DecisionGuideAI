@@ -291,7 +291,7 @@ export function KebabMenu({
 
         {lane && settingsOpen && (
           <form ref={settingsForm} aria-label="Canvas settings" onSubmit={(event) => { event.preventDefault(); closeSettings() }}
-            className={`absolute right-0 top-full mt-2 max-h-[60vh] w-56 max-w-[calc(100vw-1rem)] overflow-auto rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${CANVAS_LAYER_CLASS.chromeMenu} ${typography.viewPanelBody}`}>
+            className={`ok-float absolute right-0 top-full mt-2 grid max-h-[60vh] auto-rows-max grid-cols-1 w-56 max-w-[calc(100vw-1rem)] overflow-auto ${CANVAS_LAYER_CLASS.chromeMenu} ${typography.viewPanelBody}`}>
             <div className="flex items-center justify-between gap-2">
               <h2 className={`${typography.viewPanelHeadline} text-text-header`}>Canvas settings</h2>
               <HoverButton type="button" words="Close canvas settings" aria-label="Close canvas settings" onClick={closeSettings}

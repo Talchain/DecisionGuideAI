@@ -44,10 +44,10 @@ export function ViewLegend({ open, onOpenChange }: Props) {
   return (
     <div ref={wrap} className="relative w-full">
       <div role="dialog" aria-label="How to read this" data-testid="view-legend"
-        className="absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] bg-panel border border-panel-border rounded-lg shadow-3 p-3 z-[1200]">
-        <div className={`${typography.viewPanelMeta} text-text-body font-medium mb-2 shrink-0`}>How to read this</div>
+        className="ok-float absolute left-full ml-2 bottom-0 w-72 flex flex-col max-h-[calc(100vh-96px)] z-[1200]">
+        <div className={`${typography.viewPanelMeta} text-text-body font-medium shrink-0`}>How to read this</div>
         {/* The one key (Paul, 17 Nov): the link lines and marks the bottom-right pill used to show, then core's own key. */}
-        <div className="mb-2 shrink-0 border-b border-panel-border pb-2"><KeyLines /></div>
+        <div className="shrink-0 border-b border-panel-border pb-2"><KeyLines /></div>
         <ul className="min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-3 gap-y-1">
           {key.map((k, i) => (
             <li key={i} className={`${typography.viewPanelBody} text-text-body flex items-baseline gap-1.5`} data-view-key={i}>
@@ -58,7 +58,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
           ))}
         </ul>
         {sensitivity === null ? null : (
-          <Hover as="p" className={`${typography.viewPanelBody} text-text-body mt-2 pt-2 border-t border-panel-border flex items-baseline gap-1.5`} words={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
+          <Hover as="p" className={`${typography.viewPanelBody} text-text-body pt-2 border-t border-panel-border flex items-baseline gap-1.5`} words={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
             <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(130,120,187,0.55)] bg-[rgba(130,120,187,0.18)]" />
             <span>{sensitivity.text}</span>
           </Hover>

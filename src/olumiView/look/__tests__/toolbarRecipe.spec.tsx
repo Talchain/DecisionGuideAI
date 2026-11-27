@@ -167,7 +167,7 @@ describe('the compact floating toolbar recipe', () => {
     render(<ViewWhatIfKey />)
     const tray = screen.getByTestId('view-whatif-key')
     const actions = within(tray).getByTestId('view-whatif-bar')
-    expect(tray).toHaveClass('bg-panel', 'border-panel-border', 'shadow-2')
+    expect(tray).toHaveClass('ok-float')
     expect(actions).not.toHaveClass('bg-panel')
     expectNeutralFaces(tray)
     const keep = within(actions).getByRole('button', { name: 'Keep it' })

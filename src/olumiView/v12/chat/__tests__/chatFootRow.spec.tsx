@@ -49,7 +49,7 @@ it('opens one source upward, closes on a second press, Escape or outside press, 
   const proposal = getByTestId('view-chat-foot-proposal'), asks = getByTestId('view-chat-foot-asks')
   expect(box).toHaveAttribute('hidden')
   expect(box.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(box).toHaveClass('ok-pinned', 'overflow-y-auto')
+  expect(box).toHaveClass('ok-float', 'ok-pinned', 'overflow-y-auto')
   fireEvent.click(asks)
   expect(asks).toHaveAttribute('aria-expanded', 'true')
   fireEvent.click(proposal)

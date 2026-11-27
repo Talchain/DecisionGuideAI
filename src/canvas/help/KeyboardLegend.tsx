@@ -189,7 +189,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
     >
       <div
         ref={dialogRef}
-        className={lane ? 'flex max-h-[80vh] w-full max-w-3xl flex-col gap-3 overflow-hidden rounded-lg bg-panel p-3 shadow-3 focus:outline-none' : 'bg-white rounded-md shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none'}
+        className={lane ? 'ok-float flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden focus:outline-none' : 'bg-white rounded-md shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none'}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         onClick={event => event.stopPropagation()}

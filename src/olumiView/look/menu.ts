@@ -3,7 +3,7 @@ import { FOOT_CONTROLS, HEAD_CONTROLS, LENS_KEYS } from '../regions'
 import { openBoxes, regionFor } from './placeReaders'
 import { typography } from '../../styles/typography'
 
-/** The menu's own box. */
+/** The older Add Figure menu's shell. */
 export const MENU_SHELL = `rounded-md border border-panel-border bg-panel p-1.5 shadow-2 ${typography.viewPanelBody}`
 /** One row of it (its colour, and its focused, checked and disabled states, are the menu's). */
 export const MENU_ROW = 'rounded-sm px-3 py-2.5'
@@ -15,7 +15,7 @@ export const MENU_SEPARATOR = 'my-1 border-t border-panel-border'
  * until someone has opened a picture of it (UI lead, 18 Nov). The two looks are named here, once, and the shared menu asks `menuLook`.
  */
 const OLDER_MENU = { shell: 'rounded-md border border-panel-border bg-panel py-2 shadow-2', row: `h-9 px-4 ${typography.panelBody}`, separator: 'mx-2 my-2' } as const
-const LANE_MENU = { shell: MENU_SHELL, row: MENU_ROW, separator: MENU_SEPARATOR } as const
+const LANE_MENU = { shell: `ok-float ${typography.viewPanelBody}`, row: MENU_ROW, separator: MENU_SEPARATOR } as const
 export const menuLook = (lane: boolean): { readonly shell: string; readonly row: string; readonly separator: string } => (lane ? LANE_MENU : OLDER_MENU)
 
 /** Free space beside the chrome, using the canvas's measured regions. */

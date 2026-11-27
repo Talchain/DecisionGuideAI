@@ -56,7 +56,7 @@ export function ScenarioTitleDialog({ onClose }: { onClose: () => void }): JSX.E
       className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex items-start justify-center overflow-y-auto bg-[var(--backdrop)] px-3 pt-24`}
       onMouseDown={(e) => { if (e.target === e.currentTarget && !sending) onClose() }}
       onKeyDown={onKeyDown}>
-      <form onSubmit={(e) => void save(e)} className="grid w-full max-w-[420px] gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-3">
+      <form onSubmit={(e) => void save(e)} className="ok-float grid w-full max-w-[420px]">
         <h2 className={`${typography.panelHeader} m-0 text-text-header`}>{TITLE_WORDS.heading}</h2>
         <label htmlFor="scenario-title-input" className={typography.viewLabel}>{TITLE_WORDS.label}</label>
         <input id="scenario-title-input" ref={inputRef} data-testid="scenario-title-input" autoComplete="off" maxLength={200} value={typed} disabled={sending}

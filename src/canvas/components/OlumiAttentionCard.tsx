@@ -613,13 +613,14 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     </>
   )
   const content = body(true)
-  const shell = (props: Record<string, unknown>, inside: JSX.Element) => (
+  const shellClass = lane ? 'ok-float' : 'rounded-lg border border-panel-border bg-panel shadow-panel p-3'
+  const shell = (props: Record<string, unknown>, inside: JSX.Element, surfaceClass = shellClass) => (
     <div
       {...props}
       data-anchor-id={anchorId}
       {...(link ? { 'data-anchor-kind': 'link' } : {})}
       {...(note ? { 'data-move': note.move } : {})}
-      className="pointer-events-auto rounded-lg border border-panel-border bg-panel shadow-panel p-3"
+      className={`pointer-events-auto ${surfaceClass}`}
       role="complementary"
       aria-label={`Olumi on ${anchorId}`}
     >
@@ -636,5 +637,5 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   const onCanvas = shell({ ref: cardRef, ...(inPanel ? { 'data-note-measure': '', 'aria-hidden': true, inert: '' } : { 'data-testid': OLUMI_ATTENTION_CARD_TESTID }),
     style: { position: 'absolute', left, top, width: CARD_WIDTH, zIndex: 95, ...(unseen ? { visibility: 'hidden', pointerEvents: 'none' } : {}) } }, inPanel ? body(false) : content)
   if (!inPanel || slot === null) return onCanvas
-  return <>{onCanvas}{createPortal(shell({ 'data-testid': OLUMI_ATTENTION_CARD_TESTID, 'data-in-panel': true }, content), slot)}</>
+  return <>{onCanvas}{createPortal(shell({ 'data-testid': OLUMI_ATTENTION_CARD_TESTID, 'data-in-panel': true }, content, ''), slot)}</>
 }

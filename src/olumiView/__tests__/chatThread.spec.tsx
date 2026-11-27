@@ -653,7 +653,7 @@ describe('Contract 3 (15 Nov): the pinned proposal is ONE row, closed at rest; o
     const p = heldWords()
     const { getByTestId } = render(<ViewChat />)
     const box = getByTestId('view-chat-pinned')
-    expect(box).toHaveClass('ok-pinned', 'min-h-0', 'overflow-y-auto')
+    expect(box).toHaveClass('ok-float', 'ok-pinned', 'min-h-0', 'overflow-y-auto')
     expect(box.className).not.toContain('min-h-[112px]')
     const step = getByTestId('view-next-step')
     expect([step.tagName, step.getAttribute('data-step'), step.getAttribute('aria-label')]).toEqual(['SECTION', 'approve', 'Next step'])

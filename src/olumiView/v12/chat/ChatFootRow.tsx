@@ -67,7 +67,7 @@ export function ChatFootRow({ sources, trailing, ask, onAskOpened }: {
   const available = entries.filter((source) => source.count > 0 && present[source.id])
   return <>
     {/* Keep every source mounted while folded: drafts survive switching chips, and the canvas always finds its note portal target. */}
-    <div ref={box} id={panelId} hidden={open === null} className="ok-pinned min-h-0 overflow-y-auto" data-testid="view-chat-pinned">
+    <div ref={box} id={panelId} hidden={open === null} className="ok-float ok-pinned min-h-0 overflow-y-auto" data-testid="view-chat-pinned">
       {entries.map((source) => (
         <div key={source.id} data-foot-source={source.id} hidden={open !== source.id}
           {...(source.id === 'note' ? { [VIEW_NOTE_SLOT]: '' } : {})}>

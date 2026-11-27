@@ -38,7 +38,7 @@ export function IdeaPanel(): JSX.Element | null {
   const ask = 'rounded-lg border border-panel-border px-2 py-1 text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
   return (
     <section aria-label="Kept idea" data-testid="view-idea-panel" data-idea={idea.id}
-      className={`${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded-md border border-panel-border bg-panel p-3 text-text-body`}>
+      className={`ok-float ${typography.viewPanelBody} absolute bottom-16 left-16 z-[1250] grid max-h-[60%] w-[320px] max-w-[calc(100%-8rem)] auto-rows-max grid-cols-1 overflow-y-auto text-text-body`}>
       {/* The kept words as the conversation draws them (no `**` or "## " shown raw), as on the card. */}
       <div className="space-y-1" data-testid="view-idea-panel-text"><ReplyBlocks text={idea.text} /></div>
       <div className={`${typography.viewPanelMeta} space-y-0.5 text-text-light`}>

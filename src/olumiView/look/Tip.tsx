@@ -14,6 +14,7 @@ import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type Key
 import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { typography } from '../../styles/typography'
+import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { CANVAS_LAYER_CLASS } from '../../canvas/layers'
 import { placeNear } from './placeNear'
 import { placeHost } from './placeHost'
@@ -21,7 +22,7 @@ import { placeHost } from './placeHost'
 export const TIP_GAP = 8
 /** The one open delay for every hover (ms). */
 export const TIP_DELAY = 150
-export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-[var(--tip-y,0px)] ${CANVAS_LAYER_CLASS.menuTooltip} ok-tip whitespace-pre-line break-words rounded-sm border border-panel-border bg-panel shadow-1 ${typography.viewPanelMeta} text-text-body`
+export const TIP_CLASS = `pointer-events-none fixed left-[var(--tip-x,0px)] top-[var(--tip-y,0px)] ${CANVAS_LAYER_CLASS.menuTooltip} ok-tip whitespace-pre-line break-words ${typography.viewPanelMeta} text-text-body`
 
 export type TipSpacing = 'peek' | 'list'
 
@@ -53,12 +54,16 @@ export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: stri
   const [head = '', ...rest] = text.split('\n')
   const body = rest.join('\n')
   const stacked = body !== '' && spacing !== undefined
+  const lane = isOlumiCoreLane()
+  const shell = lane
+    ? `ok-float${stacked ? ' flex flex-col' : ''}`
+    : `rounded-sm border border-panel-border bg-panel shadow-1 ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`
   return (
-    <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={`${TIP_CLASS} ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`}>
+    <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={`${TIP_CLASS} ${shell}`}>
       <span data-tip-title="" className={[body === '' ? '' : 'ok-tip-title', icon ? 'flex items-start gap-1.5' : ''].filter(Boolean).join(' ')}>
         {icon ? <><span className="shrink-0">{icon}</span><span className="min-w-0">{head}</span></> : head}
       </span>
-      {body === '' ? null : <>{'\n'}<span data-tip-body="" className={stacked ? 'flex flex-col gap-3' : undefined}>
+      {body === '' ? null : <>{'\n'}<span data-tip-body="" className={stacked ? `flex flex-col ${lane ? 'gap-2' : 'gap-3'}` : undefined}>
         {stacked ? rest.map((line, i) => <Fragment key={i}>{i === 0 ? null : '\n'}<span>{line}</span></Fragment>) : body}
       </span></>}
     </div>

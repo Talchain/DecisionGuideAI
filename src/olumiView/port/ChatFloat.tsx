@@ -182,7 +182,7 @@ export function ChatFloatHost({ children, composer }: { children: ReactNode; com
   const size = still === null ? sizeOf(box, kept) : { ...sizeOf(box), height: still.height }, placed = still ?? contained(position!, box, kept)
   return <>{createPortal(
     <div ref={panel} role="dialog" aria-label="Olumi conversation" data-testid="view-chat-float"
-      className={`ok-chat-float fixed flex flex-col overflow-hidden bg-panel text-text-body ${CANVAS_LAYER_CLASS.chatFloat}`}
+      className={`ok-float ok-chat-float fixed flex flex-col overflow-hidden text-text-body ${CANVAS_LAYER_CLASS.chatFloat}`}
       style={{
         '--chat-float-x': `${placed.x}px`,
         '--chat-float-y': `${placed.y}px`,

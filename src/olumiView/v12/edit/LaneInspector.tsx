@@ -157,7 +157,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at])
   if (target === null || (card === null && link === null)) return null
-  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} w-[280px] rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col gap-3 overflow-hidden`
+  const frame = `nodrag nopan fixed ${CANVAS_LAYER_CLASS.sheet} ok-float w-[280px] ${typography.viewPanelBody} left-[var(--lane-details-x,76px)] top-[var(--lane-details-y,112px)] flex max-h-[min(60vh,var(--lane-details-h,60vh))] flex-col overflow-hidden`
   const closeX = <button type="button" aria-label="Close details" onClick={() => close()} className="grid h-7 w-7 flex-none cursor-pointer place-items-center rounded-sm text-text-light hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header"><OkIcon id="cancel-close" size={14} decorative inherit /></button>
   const chip = (r: (typeof rows)[number]) => {
     const Icon = r.icon

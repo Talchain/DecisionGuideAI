@@ -5,7 +5,7 @@ const TOOLBAR_SURFACE = 'rounded-md border border-panel-border bg-panel shadow-2
 export const TOOLBAR_SHELL = `${TOOLBAR_SURFACE} p-1`
 export const TOOLBAR_BAR = `${TOOLBAR_SHELL} flex items-center`
 export const TOOLBAR_RAIL = `${TOOLBAR_SHELL} flex flex-col items-center`
-export const TOOLBAR_TRAY = `pointer-events-auto flex min-h-0 max-h-[min(52vh,28rem)] flex-col gap-3 p-3 ${TOOLBAR_SURFACE}`
+export const TOOLBAR_TRAY = `ok-float pointer-events-auto flex min-h-0 max-h-[min(52vh,28rem)] flex-col`
 export const TOOLBAR_BAR_SEPARATOR = 'mx-1 my-1 w-px shrink-0 self-stretch bg-panel-border'
 export const TOOLBAR_RAIL_SEPARATOR = 'mx-1 my-1 h-px shrink-0 self-stretch bg-panel-border'
 

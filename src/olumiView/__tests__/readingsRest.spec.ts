@@ -129,7 +129,7 @@ const words = readFileSync('src/olumiView/v12/cards/words.ts', 'utf8')
   })
   it('CATCH: the pinned box lost its 112 px floor, so a one-row review does not reserve a taller box', () => {
     // The pinned box can shrink to its rows and scroll independently at the foot of the thread.
-    expect(readFileSync('src/olumiView/v12/chat/ChatFootRow.tsx', 'utf8')).toContain('className="ok-pinned min-h-0 overflow-y-auto" data-testid="view-chat-pinned"')
+    expect(readFileSync('src/olumiView/v12/chat/ChatFootRow.tsx', 'utf8')).toContain('className="ok-float ok-pinned min-h-0 overflow-y-auto" data-testid="view-chat-pinned"')
     expect(chat).not.toContain('min-h-[112px]')
   })
   it('CATCH: a withheld option card says core\'s why, else title, else text, and names the field in data-view', () => {

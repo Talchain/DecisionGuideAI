@@ -119,7 +119,7 @@ export function RowWords({ words, at, reason, ring }: { words: string; at: strin
     <span className="ok-dt-whole" data-row-words={at} data-row-words-long="">
       <Hover as="button" words={words} type="button" className="ok-dt-icon ok-dt-press nodrag nopan" aria-label={words} aria-expanded={open} {...ring?.focus}
         onClick={(e: MouseEvent<HTMLElement>) => { e.stopPropagation(); ring?.pointer.onClick(); setOpen((o) => !o) }}><OkIcon id="full-answer" size={MARK_SIZE} words={words} decorative /></Hover>
-      {open ? <p className="ok-pop nodrag nopan" role="note">{words}</p> : null}
+      {open ? <p className="ok-float ok-pop nodrag nopan" role="note">{words}</p> : null}
     </span>
   )
 }

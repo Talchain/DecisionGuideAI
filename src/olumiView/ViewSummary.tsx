@@ -80,8 +80,8 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
   return (
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={DECISION_BRIEF_TRIGGER_LABEL} data-testid="summary-page" onKeyDown={onKeyDown}
       className="fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] z-[1600] flex justify-center bg-black/20 px-3 pb-3 pt-14" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="flex w-full max-w-[820px] flex-col rounded-md border border-panel-border bg-panel shadow-panel">
-        <div className="flex items-center gap-2 border-b border-panel-border px-4 py-3">
+      <div className="ok-float flex w-full max-w-[820px] flex-col">
+        <div className="flex items-center gap-2 border-b border-panel-border pb-2">
           <OkIcon id="brief" size={14} decorative inherit />
           <span className={`${typography.viewPanelMeta} font-medium text-text-header`}>{DECISION_BRIEF_TRIGGER_LABEL}</span>
           <span className="flex-1" />
@@ -96,7 +96,7 @@ export function SummaryPage({ sid, at, onClose, trigger }: { sid: string; at: nu
             <OkIcon id="cancel-close" size={14} decorative inherit />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4">
+        <div className="flex-1 overflow-y-auto">
           {state === null ? <p className={typography.viewPanelBody} role="status">{SUMMARY_LOADING}</p>
             : 'error' in state ? <p className={typography.viewPanelBody} role="alert" data-testid="summary-error">{state.error}</p>
             : <SummaryDocument summary={state.summary} />}

@@ -147,7 +147,7 @@ export function WhatChangedPanel({ isOpen, onClose }: WhatChangedPanelProps) {
         data-testid="what-changed-panel"
         className={`fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] ${CANVAS_LAYER_CLASS.modalBackdrop} flex justify-end bg-[var(--backdrop)] pb-[var(--bottombar-h,0px)] pt-[var(--topbar-h,0px)]`}
         onKeyDown={onKeyDown} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-        <div className="flex min-h-0 w-full max-w-[420px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-3">
+        <div className="ok-float flex min-h-0 w-full max-w-[420px] flex-col">
           <header className="flex shrink-0 items-center justify-between gap-2">
             <h2 className={`${typography.panelHeader} text-text-header`}>Version history</h2>
             <button ref={cancel} type="button" onClick={onClose} className={VIEW_CHIP_CLASS}>Close</button>

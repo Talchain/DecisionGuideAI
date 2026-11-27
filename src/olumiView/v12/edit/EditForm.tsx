@@ -211,7 +211,7 @@ export function LaneEditForm({ spec, anchor, beside, onClose }: { spec: EditSpec
   const note = spec.kind === 'size' ? spec.edit.note : null
   return createPortal(
     <form ref={box} tabIndex={lane ? -1 : undefined} role="dialog" aria-label={title} data-testid="lane-edit-form" data-kind={spec.kind}
-      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2 ${typography.viewPanelBody}${beside === undefined ? (lane ? ' left-1/2 top-24 max-h-[70vh] -translate-x-1/2 overflow-hidden' : '') : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
+      className={`fixed ${CANVAS_LAYER_CLASS.contextMenu} nodrag nopan flex w-[280px] flex-col ${lane ? 'ok-float' : 'gap-3 rounded-lg border border-panel-border bg-panel p-3 shadow-2'} ${typography.viewPanelBody}${beside === undefined ? (lane ? ' left-1/2 top-24 max-h-[70vh] -translate-x-1/2 overflow-hidden' : '') : ' left-[var(--lane-form-x,8px)] top-[var(--lane-form-y,8px)] max-h-[var(--lane-form-h,100vh)] overflow-hidden'}`}
       style={position} onKeyDown={onKeyDown} onSubmit={(e) => { e.preventDefault(); void go() }}>
       <div className="min-h-0 space-y-3 overflow-y-auto">
       {lane ? <h2 className={`${typography.panelHeader} text-text-header`}>{title}</h2> : null}

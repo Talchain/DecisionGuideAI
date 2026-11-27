@@ -3,7 +3,10 @@
   max-width: min(320px, calc(100vw - 1rem));
 }
 
-.olumi-menu:not(.olumi-menu-older) {
+.olumi-menu.ok-float {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
   width: 232px;
 }
 

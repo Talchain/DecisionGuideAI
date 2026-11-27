@@ -204,7 +204,8 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 .olumi-look .ok-card-frame [data-testid="anchor-body-rail-beside"]:not(:has(> .ok-face)) { padding-right: var(--ok-anchor-rail-padding); }
 
 /* Worked steps (slice 2): closed by default, so a card's height on the board is unchanged; each step one line of core's words. */
-.olumi-look .ok-steps > ol { margin-top: var(--ok-gap-stack); display: grid; gap: var(--ok-gap-inset); }
+.olumi-look .ok-steps > ol { margin-top: var(--ok-gap-stack); }
+.olumi-look .ok-steps > ol:not(.ok-float) { gap: var(--ok-gap-inset); }
 .olumi-look .ok-steps li { color: var(--text-body); }
 .olumi-look .ok-steps li b { font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; }
 .olumi-look .ok-step-name { color: var(--text-light); }
@@ -227,12 +228,14 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 /* While a card's steps are open as a pop-out, that card is drawn above its neighbours: they once painted over its lower lines (Codex 006d #2).
    React Flow sets each node's z-index inline, so only !important lifts it. */
 .olumi-look .react-flow__node:has(.ok-steps[open]:not(.ok-steps-inline)) { z-index: 2000 !important; }
-/* WHAT OPENS BESIDE A CARD, ONE SURFACE (.ok-pop; the two <details> bodies take it by their own selectors): out of the card's flow under
-   its opener, a panel card (12 px radius and padding, the emphasis border, elevation 2), the card's small text in body ink. */
+/* Card pop-ups sit below their openers and use the card's scaled spacing. */
 .olumi-look .ok-steps[open] > ol, .olumi-look .ok-pop {
   position: absolute; left: 0; top: calc(100% + var(--ok-gap-tight)); z-index: 40; width: calc(280px * var(--o-s)); max-width: none; margin: 0; white-space: normal;
-  color: var(--text-body); background: var(--bg-panel); border: 1px solid var(--border-emphasis); border-radius: 12px; box-shadow: var(--shadow-2);
-  padding: var(--ok-gap-inset);
+  color: var(--text-body);
+}
+.olumi-look .ok-steps > .ok-float, .olumi-look .ok-pop {
+  --ok-float-inset: var(--ok-gap-inset);
+  --ok-float-stack: var(--ok-gap-stack);
 }
 /* R7 (16 Nov): a card whose figure waits draws its working open, IN the card's flow (its height is part of the board's layout), not as a pop-out. */
 .olumi-look .ok-steps.ok-steps-inline[open] > ol { position: static; width: auto; margin: var(--ok-gap-stack) 0 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
@@ -289,15 +292,12 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 [data-presentation="v10"] .react-flow__node.v10-pulse { animation: ok-ring-pulse 700ms ease-out 1; }
 @media (prefers-reduced-motion: reduce) { [data-presentation="v10"] .react-flow__node.v10-pulse { animation: none; } }
 
-/* The conversation is portalled to the body. Its existing 10px radius is between the small and medium tokens. */
+/* The conversation is portalled to the body and positioned within the canvas. */
 .ok-chat-float {
   left: var(--chat-float-x);
   top: var(--chat-float-y);
   width: var(--chat-float-width);
   height: var(--chat-float-height);
-  border-radius: calc((var(--radius-sm) + var(--radius-md)) / 2);
-  border: 1px solid var(--border-default);
-  box-shadow: var(--shadow-2);
 }
 .ok-card-far-mark[class] { line-height: 1.25; }
 
@@ -348,12 +348,11 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 /* The words take the rest of the mark's row, so long words wrap within it and never drop below the mark (Codex, eea8f332). */
 .ok-lead-action:has(.ok-lead-action-basis) .ok-lead-action-words { flex: 1 1 0; }
 .ok-lead-action-basis { flex-basis: 100%; padding-left: calc(14px + var(--space-1)); }
-/* Olumi's proposal, pinned at the foot of the thread just above the composer (17 Nov, the calm panel): ONE line (Olumi's mark, core's heading, Review,
-   Approve, Set aside) under a single hairline, no outline box, no fade. The box's inner section and the proposal are laid out as its own contents, so the
-   actions' sticky foot is held by the box's own scroll and Approve stays in view however short the panel. */
+/* The pinned tray scrolls independently of the thread. Its proposal and inner section share the
+   tray's layout so the sticky actions stay visible when the dock is short. */
 .ok-pinned {
   display: flex; flex-direction: column; flex: 0 1 auto; max-height: 62%; container-type: inline-size;
-  margin: var(--space-3) 0 0; padding-inline: var(--space-3); border: 0; border-top: 1px solid var(--border-default); border-radius: 0; background: var(--bg-panel);
+  margin: var(--space-3) 0 0;
 }
 .ok-pinned [data-testid='view-next-step'], .ok-pinned [data-testid='view-chat-proposal'] { display: contents; }
 /* The conversation and the open foot panel have separate scroll areas. Keep a readable share

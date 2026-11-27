@@ -17,7 +17,7 @@ import { Tip, TIP_GAP, TIP_DELAY, rowTipOf, useAnchoredTip } from '../Tip'
 import { installPlaceHost } from '../placeHost'
 import { lanePlaceHost } from '../placeReaders'
 
-afterEach(() => { cleanup() })
+afterEach(() => { cleanup(); vi.unstubAllEnvs() })
 
 /** A menu row as the menu draws it: its label in `[data-menu-label]`, drawn `shown` px wide while its words need `needs` px. */
 const row = (label: string, shown: number, needs: number): HTMLElement => {
@@ -57,13 +57,13 @@ describe('what a menu row\'s tip says', () => {
 })
 
 describe('the one Tip', () => {
-  it('one look (the panel\'s ground and border, the small radius, 240 px at most, read only) and its place in two custom properties, with no inline left or top', () => {
+  it('uses the shared popup shell and places it with two custom properties, with no inline left or top', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
     render(<Tip id="tooltip-x" text={'A row\'s whole words\nand its note'} anchorRect={rect(100, 200, 220, 32)} />)
     const tip = screen.getByRole('tooltip')
     expect(tip).toHaveAttribute('id', 'tooltip-x')
     expect(tip.textContent).toBe('A row\'s whole words\nand its note')
-    for (const c of ['rounded-sm', 'border', 'border-panel-border', 'bg-panel', 'ok-tip', 'pointer-events-none', 'whitespace-pre-line', 'shadow-1']) expect(tip.classList.contains(c), c).toBe(true)
-    expect([...tip.classList].filter((c) => /^rounded(-|$)/.test(c)), 'one radius').toEqual(['rounded-sm'])
+    expect(tip).toHaveClass('ok-float', 'ok-tip', 'pointer-events-none', 'whitespace-pre-line')
     expect([tip.style.left, tip.style.top], 'no inline position').toEqual(['', ''])
     expect([tip.style.getPropertyValue('--tip-x'), tip.style.getPropertyValue('--tip-y')], 'right of its row, level with it').toEqual([`${100 + 220 + TIP_GAP}px`, '200px'])
   })
