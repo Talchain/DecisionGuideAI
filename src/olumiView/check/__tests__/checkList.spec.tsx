@@ -504,7 +504,7 @@ describe('readiness in Check', () => {
     }
   })
 
-  it('uses the card a missing result points to for suppressing its wait and size rows', () => {
+  it('suppresses wait and size rows for every explicit blocker of a missing result', () => {
     const { model, other } = fixture()
     const run = model.run!
     run.shared_blockers = []
@@ -512,12 +512,28 @@ describe('readiness in Check', () => {
     const none = option.rows.find((row) => row.kind === 'none')!
     const keysForTarget = () => checkNeedsOf(model).filter((item) => item.cards.includes(other.id) && item.kind !== 'worth').map(({ key }) => key)
     expect(keysForTarget()).toEqual([`size:${other.id}`])
-    option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: other.id }] }
+    option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: other.id }, { role: 'figure', ref: 'fitting' }] }
     expect(keysForTarget()).toEqual(['none:second_oven.0'])
+    expect(checkNeedsOf(model).some(({ key }) => key === 'waits:fitting')).toBe(false)
     run.waits_on!.items.push({ ...run.waits_on!.items[0]!, id: other.id })
     expect(keysForTarget()).toEqual(['none:second_oven.0'])
     option.rows[0] = none
     expect(keysForTarget()).toEqual([`waits:${other.id}`])
+  })
+
+  it('keeps an independent wait on the aim when a missing result names a different blocker', () => {
+    const model = viewOf('golden/bakery').model!
+    const waits = model.run!.waits_on!.items
+    const aim = model.cards.find((card) => card.id === 'within_budget')!
+    const option = model.cards.find((card) => card.id === 'second_oven')!
+    const none = option.rows.find((row) => row.kind === 'none')!
+    option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: 'oven_price' }] }
+    waits.push({ ...waits[0]!, id: aim.id, text: aim.heading, title: '', edit: null, answer: false })
+
+    const items = checkNeedsOf(model)
+    expect(items.find(({ key }) => key === 'none:second_oven.0')?.cards).toEqual(['oven_price'])
+    expect(items.find(({ key }) => key === 'none:longer_hours.0')?.cards).toEqual([aim.id])
+    expect(items.find(({ key }) => key === `waits:${aim.id}`)).toMatchObject({ cards: [aim.id], short: aim.heading })
   })
 
   it('covers only the options Core names in a shared blocker and skips reference rows', () => {

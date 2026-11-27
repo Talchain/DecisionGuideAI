@@ -103,14 +103,23 @@ describe('every option’s line is reachable from Results or Check', () => {
       const aims = new Set(chances.map(({ aimId }) => aimId))
       const needs = new Set(checkNeedsOf(model).map((x) => x.at))
       ready(view); render(<PortAnalysisTab />)
-      for (const aimId of aims) {
+      const visitOrder = [...aims]
+      if (aims.size > 1) {
+        const defaultAim = tab().querySelector('[data-chart-aim]')?.getAttribute('data-chart-aim')
+        expect(visitOrder).toContain(defaultAim)
+        visitOrder.splice(visitOrder.indexOf(defaultAim!), 1)
+        visitOrder.push(defaultAim!)
+      }
+      for (const aimId of visitOrder) {
         const forAim = chances.filter((chance) => chance.aimId === aimId)
         if (aims.size > 1) {
           const control = screen.getByRole('group', { name: 'Aim' })
           const aimPaths = new Set(forAim.map(({ path }) => `${path}.aim`))
           const button = within(control).getAllByRole('button').find((el) => aimPaths.has(el.getAttribute('data-view') ?? ''))
           expect(button, aimId).toBeInTheDocument()
+          expect(button).toHaveAttribute('aria-pressed', 'false')
           fireEvent.click(button!)
+          expect(button).toHaveAttribute('aria-pressed', 'true')
         }
         const chart = document.querySelector(`[data-chart-aim="${aimId}"]`)!
         expect(chart).not.toBeNull()
