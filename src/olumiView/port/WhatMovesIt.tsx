@@ -1,22 +1,15 @@
-/**
- * Under the chance chart, the science as short rows with one press each (design, 18 Nov). The figures the chances move most with are named
- * once, at the chart's whiskers (`ChanceChart`), with their ✎ there; this section never names them again:
- * - what would change which option leads: core's own line (`run.tipping` about the lead, else core's reason nothing tested does), with a
- *   try on its figure where core names one (nothing saved);
- * - what is worth finding out first: core's ranking (`run.find_out`, its heading and each figure's line with core's give words and ✎), then
- *   any worth line (`run.science`) the ranking does not already name. A figure the ranking gives a ✎ is not given a second ✎ at the chart.
- * Under each ranking, core's qualification sentence (`find_out[].line`) is drawn at rest, and each figure's estimate size is
- * drawn in the row (core's `estimate_text`; a worth line carries it in its `hover`, drawn whole), no longer only a title.
- * The heading and its hint are core's lens words (`lens_words.label/hint.what_changes`).
- */
 import type { ViewModel, ViewRun } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { GlyphMark, Hover } from '../look/Hover'
 import { useViewStore } from '../store'
 import { TipPoint } from '../v12/scale/TipPoint'
-import { cardOf, findOutOf, leadChangeOf, aimSilentsOf } from './pick'
+import { cardOf, findOutOf, leadChangeOf } from './pick'
+import { figureRange } from '../v12/contract'
+import { spanAxisOf } from '../v12/scale/axis'
+import type { TippingLine } from '../tipping'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
+import { RESULT_ROW_GRID } from './OptionRow'
 
 /** Fixed chrome, used only where core sends no lens words. */
 export const MOVES_FALLBACK = 'What would change it'
@@ -59,46 +52,60 @@ export function FindOutRanking({ run, only, edit }: { run: ViewRun | null; only:
   )
 }
 
-export function WhatMovesIt({ model }: { model: ViewModel }) {
-  const words = useViewStore((s) => s.view?.lens_words ?? null)
+
+/** Use the same bounds as TipPoint so an undrawable crossing has its reading in the fold. */
+function canDrawTip(tipping: TippingLine, card: ReturnType<typeof cardOf>) {
+  const { at, low, high } = tipping
+  if (![at, low, high].every(Number.isFinite) || !(low < high)) return false
+  const range = card === null ? null : figureRange(card)
+  const values = [at, low, high]
+  if (range !== null) values.push(range.low, range.high, range.likely ?? range.low)
+  return spanAxisOf(Math.min(...values), Math.max(...values)) !== null
+}
+
+export function leadReadingOf(model: ViewModel) {
   const run = model.run ?? null
   const lead = leadChangeOf(run)
-  const { aims, worth } = findOutOf(run)
-  // Core's reason for each aim it tests no lead on, said where a lead's crossing would be; the one already drawn as `lead` is not drawn twice, and an
-  // aim whose lead crossing IS drawn has no reason to add.
-  const leadTipping = lead?.kind === 'tipping' ? run?.tipping?.find((_, i) => lead.at === `run.tipping.${i}.line`) : undefined
-  const leadAim = leadTipping?.aim ?? null
-  const silents = aimSilentsOf(run).filter((x) => x.at !== lead?.at && x.aim !== leadAim)
-  if (lead === null && silents.length + aims.length + worth.length === 0) return null
-  const leadCard = lead === null ? null : cardOf(model, lead.figure)
+  if (lead === null) return null
+  const card = cardOf(model, lead.figure)
+  const crossing = lead.kind === 'tipping' ? run?.tipping?.find((_, i) => lead.at === `run.tipping.${i}.line`) : undefined
+  const tipping = crossing !== undefined && canDrawTip(crossing, card) ? crossing : null
+  return { ...lead, card, tipping, hoverAt: lead.at.replace(/\.line$/, lead.kind === 'tipping' ? '.hover' : '.text') }
+}
+
+export function MovesHeading() {
+  const words = useViewStore((s) => s.view?.lens_words ?? null)
   return (
-    <section className="space-y-2" data-testid="analysis-what-moves" aria-label={words?.label.what_changes ?? MOVES_FALLBACK}>
-      <Hover as="h3" words={words?.hint.what_changes} className={`${typography.viewPanelHeading} m-0 text-text-header`} {...(words === null ? {} : { 'data-view-words': 'lens_words.label.what_changes' })}>
-        {words?.label.what_changes ?? MOVES_FALLBACK}
-      </Hover>
-      {lead === null ? null : (
-        <p className={`${TYPE.meta} m-0 flex items-start gap-2 text-text-body`} data-testid="analysis-lead-change" data-lead-change={lead.kind}>
-          <Hover words={lead.hover} className="min-w-0 flex-1" data-view={lead.at}>{lead.line}</Hover>
-          {leadCard?.figure?.edit == null ? null : <FigureEdit id={leadCard.id} edit={leadCard.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${leadCard.heading}`} />}
-        </p>
-      )}
-      {leadTipping === undefined ? null : <TipPoint tipping={leadTipping} card={leadCard} />}
-      {silents.map((x) => (
-        <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} data-testid="analysis-aim-silent" data-silent-aim={x.aim}><Hover words={x.hover} data-view={x.at}>{x.line}</Hover></p>
-      ))}
-      <FindOutRanking run={run} only={null} edit />
-      {worth.length === 0 ? null : (
-        <ul className="m-0 list-none space-y-1 p-0" data-testid="view-run-worth">
-          {worth.map(({ line: l, i }) => (
-            <li key={l.id} className={`${TYPE.meta} text-text-body`} data-view-fact={l.id}>
-              {l.olumi === null ? null : <><GlyphMark mark={l.olumi} className="text-info" view={`run.science.${i}.olumi.glyph`} /> </>}
-              <span data-view={`run.science.${i}.line`}>{l.line}</span>
-              {l.hover === '' ? null : <span className="ok-an-detail ok-an-detail-lines" data-view={`run.science.${i}.hover`}>{l.hover}</span>}
-              {l.figure?.give == null ? null : <span className="ml-1" data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} /></span>}
-            </li>
-          ))}
-        </ul>
-      )}
+    <Hover as="h3" words={words?.hint.what_changes} wordsAt="lens_words.hint.what_changes"
+      className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view-words={words === null ? undefined : 'lens_words.label.what_changes'}>
+      {words?.label.what_changes ?? MOVES_FALLBACK}
+    </Hover>
+  )
+}
+
+type LeadReading = NonNullable<ReturnType<typeof leadReadingOf>>
+
+export function LeadTry({ card }: Pick<LeadReading, 'card'>) {
+  return card?.figure?.edit == null ? null : (
+    <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-lead" glyph words={false} primary="try" label={`Try a figure for ${card.heading}`} />
+  )
+}
+
+export function WhatMovesIt({ lead }: { lead: LeadReading | null }) {
+  if (lead?.tipping == null) return null
+  const { card, tipping } = lead
+  const figureAt = lead.at.replace(/\.line$/, '.figure.label')
+  return (
+    <section className="space-y-2" data-testid="analysis-what-moves">
+      <MovesHeading />
+      <div className={`${RESULT_ROW_GRID} items-center`} data-testid="analysis-lead-change" data-lead-change={lead.kind}>
+        <Hover as="div" className="col-span-2 grid min-w-0 grid-cols-subgrid items-center rounded-sm" data-testid="analysis-lead-picture"
+          words={lead.line} wordsAt={lead.at}>
+          {tipping.figure == null ? null : <span className={`${TYPE.meta} min-w-0 break-words text-text-header`} data-view={figureAt}>{tipping.figure.label}</span>}
+          <div className="col-start-2 min-w-0"><TipPoint tipping={tipping} card={card} /></div>
+        </Hover>
+        <div className="justify-self-start"><LeadTry card={card} /></div>
+      </div>
     </section>
   )
 }

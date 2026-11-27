@@ -6,12 +6,12 @@ import { shownModel, useViewStore } from '../store'
 import { WhatIfShown } from '../ViewChances'
 import { StateStrip, useTabState } from '../reasoning/StateStrip'
 import { comparedGroupsOf, notesBesideTiming } from '../layout'
-import { ChanceChart } from './ChanceChart'
+import { ChanceChart, tailNoteOf } from './ChanceChart'
 import { LikelyOutcome } from './LikelyOutcome'
-import { cardOf, chartGroupsOf, limitGroupsOf, tabStateOf } from './pick'
+import { cardOf, chartGroupsOf, limitGroupsOf, rangeOf, tabStateOf, type ChartGroup } from './pick'
 import { TYPE } from './type'
-import { FailureAfterYours, TippingPerOption } from './AnalysisReaders'
-import { WhatMovesIt } from './WhatMovesIt'
+import { AimReading, aimReadingOf, FailureAfterYours, optionTippingOf, TippingPerOption, useFailureReading, WorthReading, worthReadingOf } from './AnalysisReaders'
+import { leadReadingOf, MovesHeading, WhatMovesIt } from './WhatMovesIt'
 import { FoldChevron } from '../look/FoldChevron'
 import { CHECK_WORDS, checkItemsOf } from '../check/items'
 import { prefillComposer } from '../ViewChat'
@@ -120,19 +120,55 @@ function ComparedLines({ groups }: { groups: ReturnType<typeof comparedGroupsOf>
   )
 }
 
-/** Core's notes, timing, most-likely reading and comparisons, closed at rest. */
-function WhyThisReading({ model }: { model: ViewModel }) {
+function chanceReadingOf(model: ViewModel, group: ChartGroup | undefined) {
+  const run = model.run
+  const tails = group?.rows.flatMap(({ card, row, i }) => row.tail?.text
+    ? [{ card, text: row.tail.text, at: `${card.id}.rows.${i}.tail.text` }]
+    : []) ?? []
+  const tailNote = tailNoteOf(run)
+  const note = tails.length > 0 && group !== undefined && tailNote?.aims.includes(group.aimId) ? tailNote.text : null
+  const sensitivity = group?.rows.some(({ row }) => rangeOf(row) !== null) && run?.sensitivity?.text ? run.sensitivity : null
+  return { tails, note, sensitivity }
+}
+
+function ChanceReading({ tails, note, sensitivity }: ReturnType<typeof chanceReadingOf>) {
+  if (tails.length === 0 && sensitivity === null) return null
+  return (
+    <section className="space-y-1" data-testid="analysis-chance-reading">
+      {sensitivity === null ? null : (
+        <Hover as="p" className="m-0" data-testid="analysis-chart-ends" words={sensitivity.title} wordsAt="run.sensitivity.title" data-view="run.sensitivity.text">{sensitivity.text}</Hover>
+      )}
+      {note === null ? null : <p className="m-0" data-view="run.tail_note.text">{note}</p>}
+      {tails.map(({ card, text, at }) => (
+        <div key={at} data-tail-option={card.id}>
+          <p className="m-0 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</p>
+          <p className="m-0" data-view={at}>{text}</p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+/** Core's longer reading, closed at rest. */
+function WhyThisReading({ model, lead, group }: { model: ViewModel; lead: ReturnType<typeof leadReadingOf>; group: ChartGroup | undefined }) {
   const [open, setOpen] = useState(false)
   const regionId = useId()
   const run = model.run ?? null
+  const failure = useFailureReading(run)
   if (run === null) return null
+  const tipping = optionTippingOf(run, lead?.at)
+  const worth = worthReadingOf(run)
+  const silents = aimReadingOf(run, lead)
+  const hasAimReading = (lead !== null && (lead.tipping === null || lead.hover !== '')) || silents.length > 0
   const ml = run.most_likely ?? null
   const mlCard = ml?.estimate == null ? null : cardOf(model, ml.estimate)
   const { notes, timing } = visibleReadingItems(model)
+  const chance = chanceReadingOf(model, group)
   const compared = comparedGroupsOf(run)
     .map((group) => ({ ...group, lines: group.lines.filter(({ line }) => line.line !== '') }))
     .filter(({ lines }) => lines.length > 0)
-  if (ml == null && notes.length === 0 && timing.length === 0 && compared.length === 0) return null
+  if (ml === null && notes.length === 0 && timing.length === 0 && tipping === null && worth.length === 0 &&
+      !hasAimReading && failure === null && chance.tails.length === 0 && chance.sensitivity === null && compared.length === 0) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
@@ -141,6 +177,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
       {!open ? null : (
         <div id={regionId} className={`${TYPE.meta} mt-2 space-y-2 text-text-body`} data-testid="analysis-why-region">
           <LeavesOut notes={notes} timing={timing} />
+          <ChanceReading {...chance} />
           {ml == null ? null : (
             <p className="m-0" data-testid="analysis-why-most-likely">
               <Hover words={ml.title} wordsAt="run.most_likely.title" data-view="run.most_likely.text">{ml.text}</Hover>
@@ -148,6 +185,11 @@ function WhyThisReading({ model }: { model: ViewModel }) {
             </p>
           )}
           {ml?.rests_on_text == null || ml.rests_on_text === '' ? null : <p className="m-0 text-text-light" data-view="run.most_likely.rests_on_text">{ml.rests_on_text}</p>}
+          <TippingPerOption model={model} reading={tipping} />
+          {worth.length > 0 && lead?.tipping == null && !hasAimReading ? <MovesHeading /> : null}
+          <WorthReading lines={worth} />
+          <AimReading lead={lead} silents={silents} />
+          <FailureAfterYours reading={failure} />
           <ComparedLines groups={compared} />
         </div>
       )}
@@ -174,12 +216,18 @@ function ToReasoning({ model }: { model: ViewModel }) {
   )
 }
 
-function ChanceResults({ model }: { model: ViewModel }) {
-  const [aim, setAim] = useState<string | null>(null)
-  const groups = chartGroupsOf(model)
-  const group = groups.find((g) => g.aimId === aim) ?? groups[0]
+function ChanceResults({ model, groups, group, setAim, leadReading }: {
+  model: ViewModel
+  groups: ChartGroup[]
+  group: ChartGroup
+  setAim: (aim: string) => void
+  leadReading: ReturnType<typeof leadReadingOf>
+}) {
   const run = model.run
-  if (group === undefined || run == null) return null
+  if (run == null) return null
+  // The shared chart reads both marks and prose. Pass its picture fields here; the fold reads the original selected rows.
+  const pictureGroup = { ...group, rows: group.rows.map((r) => ({ ...r, row: { ...r.row, tail: undefined } })) }
+  const pictureModel = { ...model, run: { ...run, sensitivity: run.sensitivity == null ? run.sensitivity : { ...run.sensitivity, text: '' } } }
   const lead = run.lead
   const lens = run.lenses?.findIndex((l) => l.id === 'goal') ?? -1
   return (
@@ -197,31 +245,38 @@ function ChanceResults({ model }: { model: ViewModel }) {
           ))}
         </div>
       )}
-      <ChanceChart model={model} group={group} />
+      <ChanceChart model={pictureModel} group={pictureGroup} />
       <LikelyOutcome model={model} group={group} />
-      <WhatMovesIt model={model} />
-      <TippingPerOption model={model} />
-      {lead == null || lead === '' ? null : (
-        <button type="button" className={`${TYPE.meta} min-h-7 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}
-          onClick={() => prefillComposer(lead)}>{CHECK_WORDS.ask}</button>
-      )}
+      <WhatMovesIt lead={leadReading} />
     </>
   )
 }
 
 /** The tab's body for one model. */
 export function PortAnalysis({ model, stated = false }: { model: ViewModel; stated?: boolean }) {
-  const state = tabStateOf(model)
   const sid = useViewStore((s) => s.sid)
+  return <ResultsBody key={sid} model={model} stated={stated} />
+}
+
+function ResultsBody({ model, stated }: { model: ViewModel; stated: boolean }) {
+  const state = tabStateOf(model)
+  const [aim, setAim] = useState<string | null>(null)
+  const groups = state === 'chance' ? chartGroupsOf(model) : []
+  const group = groups.find((g) => g.aimId === aim) ?? groups[0]
+  const lead = group === undefined ? null : model.run?.lead
+  const leadReading = group === undefined ? null : leadReadingOf(model)
   // The dock's wrapper keeps a 16px gutter; the tab takes the panel's 12px.
   return (
     <div className={`${TYPE.body} -mx-1 space-y-5`} data-testid="port-analysis-tab" data-analysis-state={state}>
       <WhatIfShown model={model} labelled={!stated} />
-      {state === 'chance' ? <ChanceResults key={sid} model={model} /> : null}
+      {group === undefined ? null : <ChanceResults model={model} groups={groups} group={group} setAim={setAim} leadReading={leadReading} />}
       <Limits model={model} />
-      {state === 'chance' ? <FailureAfterYours model={model} /> : null}
       <ToReasoning model={model} />
-      <WhyThisReading key={sid} model={model} />
+      <WhyThisReading model={model} lead={leadReading} group={group} />
+      {lead == null || lead === '' ? null : (
+        <button type="button" className={`${TYPE.meta} min-h-7 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover`}
+          onClick={() => prefillComposer(lead)}>{CHECK_WORDS.ask}</button>
+      )}
     </div>
   )
 }
