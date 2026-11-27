@@ -4,15 +4,13 @@
  * present on the canvas (and "doubted", "not settled" where such a link is drawn), each with core's own words from `model.key` (ids effect, input,
  * size, doubted, unsettled, measures, target); only the items core sends are drawn. Row 2, present-only (panel-visual L1, L2, L4): the dotted reason line, the alert and proposal halos under a line, and the six midpoint direction marks in the registry's ids and words. Row 3: Olumi's mark and a person's mark (fixed notation chrome).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { View, ViewLink, ViewModel } from '../../client'
 import { cardLinks, drawnModelOf, linkByOlumi } from '../../layout'
 import { useViewStore } from '../../store'
-import { boardOf } from '../../canvas'
-import { levelOf, useSimpleLevel } from '../simpleStore'
-import { useInputsOpen } from './foldStore'
+import { useBoard } from '../../canvas'
 import { linkRole } from '../contract'
 import { firstDraft as firstDraftOf, linkLook } from '../fields/fields'
 import { DOUBT_DASH, EFFECT_STROKES, EDGE_NEUTRAL, LINK_STYLES, linkAlertStyle, linkStyle } from '../links/styles'
@@ -141,11 +139,8 @@ export function KeyLines() {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
   // Swatches stand only for links the board draws as themselves: on Simple a folded input's or a closed group's links run into a neutral group connector.
-  const sid = useViewStore((s) => s.sid)
-  const level = useSimpleLevel((s) => levelOf(sid, s))
-  const open = useInputsOpen((s) => s.open)
-  // boardOf reads the store's sid (its level and fold state), so a new sid with the same View re-projects too.
-  const board = useMemo(() => (model === null ? null : boardOf(model, open).model), [model, open, level, sid])
+  // The canvas's own projection hook, so a swatch can only stand for a link the board draws as itself.
+  const board = useBoard()?.model ?? null
   if (view === null || model === null || board === null) return null
   const lines = keyLinesOf(model)
   const { underlays, marks } = keyExtrasOf(view)

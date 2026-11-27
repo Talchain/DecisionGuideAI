@@ -310,15 +310,23 @@ export function useSimpleBudgetKey(on: boolean, simple: boolean): string {
   return n
 }
 
+/** The one board projection (boardOf) that the canvas and the key (KeyPill KeyLines) both read, so they never disagree. It is re-projected when
+ *  the View, its sid, that sid's level or the folds change: every store field boardOf reads. */
+export function useBoard(): ReturnType<typeof boardOf> | null {
+  const view = useViewStore((s) => s.view), sid = useViewStore((s) => s.sid)
+  const level = useSimpleLevel((s) => levelOf(sid, s))
+  const open = useInputsOpen((s) => s.open)
+  return useMemo(() => (view?.model == null ? null : boardOf(view.model, open)), [view, open, level, sid])
+}
+
 export function useViewCanvas(on: boolean): void {
   const view = useViewStore((s) => s.view)
+  const sidNow = useViewStore((s) => s.sid)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
-  const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
-  const open = useInputsOpen((s) => s.open)
-  const board = useMemo(() => (view?.model == null ? null : boardOf(view.model, open)), [view, open, level])
+  const level = useSimpleLevel((s) => levelOf(sidNow, s))
+  const board = useBoard()
   const model = board?.model ?? null
   // Kept ideas outlive the model they were kept beside: with no model they are drawn alone (ideasOnlyOf), never with a fabricated card.
-  const sidNow = useViewStore((s) => s.sid)
   const ideasOnly = useMemo(() => ideasOnlyOf(view, sidNow), [view, sidNow])
   // Folds start closed (DL ruling 9 Nov (ii): 77cdc6f6's first-look fold opening is retired for this serve; the route is one click away on
   // the badge's count), so a reopened board draws what the first one did.

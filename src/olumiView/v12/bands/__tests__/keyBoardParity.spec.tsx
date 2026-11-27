@@ -6,7 +6,7 @@ import type { View, ViewLink } from '../../../client'
 import { cardLinks, drawnModelOf } from '../../../layout'
 import { useViewStore } from '../../../store'
 import { ViewLegend } from '../../../ViewLegend'
-import { boardOf } from '../../../canvas'
+import { boardOf, useBoard } from '../../../canvas'
 import { setDefaultLevel } from '../../simpleStore'
 import { inputIdsOf } from '../bands'
 import { inputsFolded, useInputsOpen } from '../foldStore'
@@ -220,6 +220,19 @@ describe('Simple folded inputs (PL 1526): a swatch stands only for a link the bo
     expect(swatch()).not.toBeNull()
     act(() => useViewStore.setState({ sid: 'sid-other' }))
     expect(swatch()).toBeNull()
+  })
+  it('the canvas and the key read one projection (useBoard): across a sid switch both draw the link as itself, or neither does', () => {
+    const at = folded.view.model!.links[folded.at]!
+    let drawsIt: boolean | null = null
+    function Canvas() { const board = useBoard(); drawsIt = board === null ? null : cardLinks(board.model).some(({ link }) => link === at); return null }
+    const { key } = drawSimple(true)
+    render(<Canvas />)
+    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]') !== null
+    expect([drawsIt, swatch()]).toEqual([true, true])
+    act(() => useViewStore.setState({ sid: 'sid-other' }))
+    expect([drawsIt, swatch()]).toEqual([false, false])
+    act(() => useViewStore.setState({ sid: folded.view.id }))
+    expect([drawsIt, swatch()]).toEqual([true, true])
   })
   it('contrast, opened: the board draws the edge and the key’s halo swatch matches it', () => {
     const { key, edges } = drawSimple(true)
