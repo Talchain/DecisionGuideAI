@@ -31,7 +31,8 @@ import { useReasoningFocus } from '../../reasoning/focusRequest'
 import { useViewStore } from '../../store'
 import { useViewChat } from '../../ViewChat'
 import { CheckList, CHECK_FILL } from '../CheckList'
-import { checkItemsOf, checkNeedsOf, CHECK_WORDS } from '../items'
+import { checkItemsOf, checkNeedsOf } from '../items'
+import { CHECK_WORDS } from '../words'
 
 const fixture = () => {
   const view = viewOf('golden/bakery')
@@ -320,12 +321,15 @@ describe('What to check', () => {
 
   it('moves focus between row buttons and uses native Enter and Space activation', async () => {
     const user = userEvent.setup()
-    const { view, second } = fixture()
+    const { view, other, second } = fixture()
     canvas.reach.mockReturnValue('show')
     show(view)
     await user.tab()
     expect(row('blocks:0')).toHaveFocus()
     await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}')
+    const observation = row(`worth:${other.id}.0`)
+    expect(observation).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
     const ranked = row(`f:0:${second.id}`)
     expect(ranked).toHaveFocus()
     expect(ranked).toHaveAttribute('tabindex', '0')
@@ -335,6 +339,8 @@ describe('What to check', () => {
     expect(canvas.focus).not.toHaveBeenCalled()
     await user.keyboard(' ')
     expect(ranked).toHaveAttribute('aria-expanded', 'false')
+    await user.keyboard('{ArrowUp}')
+    expect(observation).toHaveFocus()
     await user.keyboard('{ArrowUp}')
     expect(row('held:second_oven.1')).toHaveFocus()
   })

@@ -24,6 +24,9 @@ import { TYPE } from '../port/type'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
 import { Door } from './parts'
+import { displayedDissent } from './dissent'
+
+export { displayedDissent } from './dissent'
 
 /** The section's chrome (the record labels are the Team tab's own, SavedActions). */
 export const COMMITMENT_WORDS = {
@@ -78,8 +81,6 @@ function Recorded({ k, view }: { k: Commitment; view: View }) {
     </li>
   )
 }
-
-export const displayedDissent = (d: View['collab']['dissent'][number]) => (d.confirmed?.words ?? d.position) !== ''
 
 export function TowardsCommitment({ view }: { view: View }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)

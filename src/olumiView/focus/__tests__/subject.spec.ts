@@ -1,13 +1,16 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCanvasStore } from '../../../canvas/store'
 import { viewOf } from '../../port/__tests__/viewAt'
-import { ringFrom } from '../../reasoning/tabRing'
+import * as tabRing from '../../reasoning/tabRing'
 import { useViewStore } from '../../store'
 import { installCanvasFocus } from '../canvas'
 import { setFocusSubject, useFocusSubject } from '../subject'
 
-vi.mock('../../reasoning/tabRing', async (original) => ({ ...await original<typeof import('../../reasoning/tabRing')>(), ringFrom: vi.fn() }))
+beforeEach(() => {
+  // Observe the loaded module so both focus entry points use the same spy.
+  vi.spyOn(tabRing, 'ringFrom').mockImplementation(() => {})
+})
 
 let unsubscribe: (() => void) | undefined
 
@@ -38,7 +41,7 @@ describe('the shared focus subject', () => {
     select(['oven_price'])
     const card = result.current
     expect(card).toEqual({ kind: 'card', id: 'oven_price', cards: ['oven_price'], source: 'canvas', sid: view.id })
-    expect(vi.mocked(ringFrom).mock.calls).toEqual([['focus-subject', []]])
+    expect(vi.mocked(tabRing.ringFrom).mock.calls).toEqual([['focus-subject', []]])
     select(['oven_price'])
     select(['oven_price', 'second_oven'])
     expect(result.current).toBe(card)
@@ -46,8 +49,8 @@ describe('the shared focus subject', () => {
     expect(result.current).toBe(card)
     select([])
     expect(result.current).toBeNull()
-    expect(ringFrom).toHaveBeenCalledTimes(2)
-    expect(ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
+    expect(tabRing.ringFrom).toHaveBeenCalledTimes(2)
+    expect(tabRing.ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
 
     select(['second_oven'])
     expect(result.current).toEqual({ kind: 'option', id: 'second_oven', cards: ['second_oven'], source: 'canvas', sid: view.id })
@@ -61,15 +64,15 @@ describe('the shared focus subject', () => {
     const { result } = renderHook(useFocusSubject)
     const gap = { kind: 'gap', id: 'needs-price', cards: ['oven_price'], source: 'panel' } as const
     act(() => setFocusSubject(gap))
-    vi.mocked(ringFrom).mockClear()
+    vi.mocked(tabRing.ringFrom).mockClear()
     act(() => useCanvasStore.getState().selectNodes(['oven_price']))
     expect(result.current).toEqual({ ...gap, sid: view.id })
     act(() => useCanvasStore.getState().clearSelection())
     expect(result.current).toEqual({ ...gap, sid: view.id })
-    expect(ringFrom).not.toHaveBeenCalled()
+    expect(tabRing.ringFrom).not.toHaveBeenCalled()
     act(() => useCanvasStore.getState().selectNodes(['second_oven']))
     expect(result.current?.source).toBe('canvas')
-    expect(vi.mocked(ringFrom).mock.calls).toEqual([['focus-subject', []]])
+    expect(vi.mocked(tabRing.ringFrom).mock.calls).toEqual([['focus-subject', []]])
   })
 
   it('scopes reads to the active sid and releases the ring on panel set and clear', () => {
@@ -78,17 +81,17 @@ describe('the shared focus subject', () => {
     const gap = { kind: 'gap', id: 'needs-price', cards: ['oven_price'], source: 'panel' } as const
     act(() => setFocusSubject(gap))
     expect(result.current).toEqual({ ...gap, sid: view.id })
-    expect(vi.mocked(ringFrom).mock.calls).toEqual([['focus-subject', []], ['focus-subject', ['oven_price']]])
+    expect(vi.mocked(tabRing.ringFrom).mock.calls).toEqual([['focus-subject', []], ['focus-subject', ['oven_price']]])
 
     act(() => useViewStore.setState({ sid: 'another-scenario' }))
     expect(result.current).toBeNull()
     act(() => useViewStore.setState({ sid: null }))
     act(() => setFocusSubject(null))
-    expect(ringFrom).toHaveBeenCalledTimes(2)
+    expect(tabRing.ringFrom).toHaveBeenCalledTimes(2)
     act(() => useViewStore.setState({ sid: view.id }))
     act(() => setFocusSubject(null))
     expect(result.current).toBeNull()
-    expect(ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
+    expect(tabRing.ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
   })
 
   it('clears the subject and ring on a sid change and when the canvas subscription ends', () => {
@@ -99,14 +102,14 @@ describe('the shared focus subject', () => {
     const gap = { kind: 'gap', id: 'needs-price', cards: ['oven_price'], source: 'panel' } as const
     act(() => setFocusSubject(gap))
     act(() => useViewStore.setState({ sid: null }))
-    expect(ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
+    expect(tabRing.ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
     act(() => useViewStore.setState({ sid: view.id }))
     expect(result.current).toBeNull()
     act(() => setFocusSubject(gap))
     act(stop)
     unsubscribe = undefined
     expect(result.current).toBeNull()
-    expect(ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
+    expect(tabRing.ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
     act(() => useCanvasStore.getState().selectNodes(['oven_price']))
     expect(result.current).toBeNull()
   })

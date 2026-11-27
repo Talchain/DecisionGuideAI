@@ -9,7 +9,7 @@ const chat = vi.hoisted(() => ({ prefill: vi.fn() }))
 vi.mock('../../ViewChat', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../ViewChat')>()), prefillComposer: chat.prefill }))
 
 import type { View } from '../../client'
-import { CHECK_WORDS } from '../../check/items'
+import { CHECK_WORDS } from '../../check/words'
 import { useViewStore } from '../../store'
 import { REASONING_LABELS, RESTS_AT_REST, ViewReasoningBlock } from '../../ViewReasoning'
 import { controls } from '../../../styles/controls'

@@ -6,7 +6,7 @@
  * false`, a `sensitivity` sentence and a `waits_on.head` about the chance, so a run field cannot say whether any option has a chance.
  */
 import type { ViewCard, ViewModel, ViewRow, ViewRun } from '../client'
-import { optionCards, worthLinesOf } from '../layout'
+import { optionCards, worthLinesOf } from '../model/selectors'
 
 export { trackPct } from '../resultRange'
 

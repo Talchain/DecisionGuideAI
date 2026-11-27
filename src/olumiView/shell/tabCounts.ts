@@ -2,7 +2,7 @@ import { isOlumiCoreLane } from '../../olumiCore/lane'
 import type { OutputTab } from '../../stores/uiStore'
 import { typography } from '../../styles/typography'
 import { checkItemsOf } from '../check/items'
-import { displayedDissent } from '../reasoning/TowardsCommitment'
+import { displayedDissent } from '../reasoning/dissent'
 import { shownModel, useViewStore } from '../store'
 
 export const TAB_COUNT_CLASS = `${typography.viewPanelMeta} shrink-0 rounded-full border border-panel-border bg-panel px-1 text-text-light tabular-nums`
