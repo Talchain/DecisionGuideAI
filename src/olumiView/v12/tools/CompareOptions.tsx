@@ -27,7 +27,7 @@ export const COMPARE_OPTIONS_CHROME = {
 } as const
 
 const RING = 'tool-compare-options'
-const PICK = `${TYPE.body} inline-flex min-h-7 min-w-0 items-center gap-1 rounded-control border border-panel-border px-2 py-1 text-left text-text-header hover:bg-panel-hover aria-pressed:border-text-header aria-pressed:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const PICK = `${TYPE.body} inline-flex min-h-7 min-w-0 max-w-full flex-none items-center gap-1 rounded-control border border-panel-border px-2 py-1 text-left text-text-header hover:bg-panel-hover aria-pressed:border-text-header aria-pressed:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
 type OptionEntry = { card: ViewCard; letter: string; row: ViewRow | undefined }
 
 function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
@@ -40,31 +40,35 @@ function dotsOf(card: ViewCard, row: ViewRow | undefined): number | null {
 }
 
 function OptionRow({ card, letter, row }: OptionEntry) {
-  const olumi = row?.kind === 'none' ? null : row?.olumi
-  const likely = row?.kind === 'chance' ? row.likely : null
-  const ifApproved = row?.kind === 'chance' ? row.if_approved : null
+  const result = row?.kind === 'none' ? undefined : row
+  const words = row?.kind === 'none' ? row.text : row?.title
+  const likely = result?.kind === 'chance' ? result.likely : null
+  const ifApproved = result?.kind === 'chance' ? result.if_approved : null
 
   return (
-    <div data-compare-row={row?.kind ?? 'absent'} className="compare-option-row grid min-w-0 gap-1 rounded-sm py-1 transition-[transform,opacity] duration-fast ease-out hover:bg-panel-hover motion-reduce:transition-none">
+    <div data-compare-row={row?.kind ?? 'absent'} className="compare-option-row col-span-full grid min-w-0 grid-cols-subgrid items-start rounded-sm py-1 transition-[transform,opacity] duration-fast ease-out hover:bg-panel-hover motion-reduce:transition-none">
       <button type="button" onClick={() => pressCard(card.id)}
-        className={`${TYPE.meta} flex min-w-0 items-baseline text-left text-text-header`}>
-        <span className="olumi-look contents"><LetterChip letter={letter} /></span>
-        <span className="min-w-0 break-words">{card.heading}</span>
+        className={`${TYPE.meta} min-w-0 text-left text-text-header`}>
+        <span className="olumi-look contents"><LetterChip letter={letter} /></span><wbr />
+        <span>{card.heading}</span>
       </button>
-      <Hover words={row?.kind === 'none' ? row.text : row?.title} data-compare-result="" className="flex min-w-0 items-center gap-2">
-        {/* Reuse the canvas chance mark's ten-dot footprint wherever there's a result line. */}
-        <span className="ok-face-mark-chance flex min-h-4 items-center" aria-hidden="true">
-          {row === undefined || row.kind === 'none'
+      <Hover words={words} focusable={result === undefined} data-compare-result={result === undefined ? '' : undefined}
+        className="ok-face-mark-chance flex min-h-4 items-center">
+        <span className="contents" aria-hidden="true">
+          {result === undefined
             ? <span className="ok-face-mark ok-face-mark-track" />
-            : <ChanceDots chance={dotsOf(card, row)} />}
+            : <ChanceDots chance={dotsOf(card, result)} />}
         </span>
-        {row === undefined || row.kind === 'none' ? null : (
-          <span className={`${TYPE.meta} min-w-0 break-words text-text-body`}>
+      </Hover>
+      <Hover words={result?.title} data-compare-result={result === undefined ? undefined : ''}
+        className={`${TYPE.meta} min-w-0 text-text-body`}>
+        {result === undefined ? null : (
+          <>
             {likely == null ? null : <><GlyphMark mark={likely} className="text-text-header" />{' '}</>}
-            {olumi == null ? null : <><GlyphMark mark={olumi} className={colourClass('--info')} />{' '}</>}
+            {result.olumi == null ? null : <><GlyphMark mark={result.olumi} className={colourClass('--info')} />{' '}</>}
             {ifApproved == null ? null : <><GlyphMark mark={ifApproved} className={colourClass('--info')} />{' '}</>}
-            <span>{row.value}</span>
-          </span>
+            <span>{result.value}</span>
+          </>
         )}
       </Hover>
     </div>
@@ -86,7 +90,7 @@ function AimDetails({ model, entries, headingId }: {
   if (details.length === 0) return null
 
   return (
-    <details>
+    <details className="col-span-full min-w-0">
       <summary aria-describedby={headingId} className={`${FOLD_SUMMARY} ${TYPE.meta} cursor-pointer py-1 text-text-body`}>
         <FoldChevron />{COMPARE_OPTIONS_CHROME.more}
       </summary>
@@ -121,8 +125,8 @@ function AimGroup({ model, aimId, aim, entries }: {
   const id = useId()
   const headingId = aim === undefined ? undefined : id
   return (
-    <div role="group" aria-labelledby={headingId} data-compare-aim={aimId ?? ''} className="grid gap-1 border-t border-panel-border pt-2">
-      {aim === undefined ? null : <Hover as="h3" id={headingId} words={aim} className={`${TYPE.meta} m-0 truncate text-text-light`}>{aim}</Hover>}
+    <div role="group" aria-labelledby={headingId} data-compare-aim={aimId ?? ''} className="compare-aim-grid grid min-w-0 gap-1 border-t border-panel-border pt-2">
+      {aim === undefined ? null : <Hover as="h3" id={headingId} words={aim} className={`${TYPE.meta} col-span-full m-0 truncate text-text-light`}>{aim}</Hover>}
       {entries.map((entry, i) => <OptionRow key={`${i}:${entry.card.id}`} {...entry} />)}
       {entries.length > 1 ? <AimDetails model={model} entries={entries} headingId={headingId} /> : null}
     </div>
@@ -171,7 +175,7 @@ function OptionComparison({ model, options, a, b, setPair }: {
 
   return (
     <section ref={tool} aria-label={COMPARE_OPTIONS_CHROME.title} className="min-w-0 space-y-2" data-form="TT-compare" data-testid={RING} data-paired="false">
-      <div role="group" aria-label={COMPARE_OPTIONS_CHROME.picker} className="flex flex-wrap gap-2">
+      <div role="group" aria-label={COMPARE_OPTIONS_CHROME.picker} className="flex flex-row flex-wrap gap-2">
         {options.map((card) => (
           <button type="button" key={card.id} data-compare-option={card.id} aria-pressed={card.id === aId || card.id === bId} className={PICK}
             ref={(button) => { if (button === null) chips.current.delete(card.id); else chips.current.set(card.id, button) }}
@@ -185,7 +189,7 @@ function OptionComparison({ model, options, a, b, setPair }: {
           </button>
         ))}
       </div>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 grid-cols-1 gap-2">
         {[...aims].map((aimId) => {
           const aRow = aRows.get(aimId)
           const bRow = bRows.get(aimId)
