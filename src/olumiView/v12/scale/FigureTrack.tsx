@@ -26,27 +26,30 @@ export function FigureTrack({ min, max, bands = [], ticks = [], tip, untested = 
   if (!Number.isFinite(max - min) || max <= min) return null
 
   const axis = { min, max }
-  const position = (at: number) => pctOf(axis, at)
-  const width = ({ low, high }: Span) => position(high) - position(low)
+  const position = (at: number) => ({ '--scale-x': `${pctOf(axis, at)}%` }) as CSSProperties
+  const span = ({ low, high }: Span, minimum = 0) => ({
+    ...position(low),
+    '--scale-width': `${Math.max(minimum, pctOf(axis, high) - pctOf(axis, low))}%`,
+  }) as CSSProperties
   const by = bands.length === 1 ? bands[0]?.style : undefined
 
   return (
     <div data-form="CH-range" data-testid="range-bar" data-card={card} data-by={by} className="ok-scale ok-scale-range">
       <div className={untested.length === 0 ? 'ok-scale-track' : 'ok-scale-track ok-scale-tip-track'}>
         {untested.map((gap, i) => (
-          <span key={i} data-testid="range-untested" className="ok-scale-untested" style={{ '--scale-x': `${position(gap.low)}%`, '--scale-width': `${Math.max(0, width(gap))}%` } as CSSProperties} />
+          <span key={i} data-testid="range-untested" className="ok-scale-untested" style={span(gap)} />
         ))}
         {bands.map((band, i) => (
           <span key={band.id ?? i} className="ok-scale" data-by={band.style}>
             <span data-testid="range-band" data-style={band.style === 'olumi' ? 'dotted' : 'solid'}
-              className="ok-scale-range-band" style={{ '--scale-x': `${position(band.low)}%`, '--scale-width': `${Math.max(1, width(band))}%` } as CSSProperties} />
+              className="ok-scale-range-band" style={span(band, 1)} />
           </span>
         ))}
         {ticks.map(({ at, kind }, i) => (
           <span key={`${kind}:${i}`} data-testid={`range-${kind}`} data-at={kind === 'tried' ? at : undefined}
-            className={TICK_CLASS[kind]} style={{ '--scale-x': `${position(at)}%` } as CSSProperties} />
+            className={TICK_CLASS[kind]} style={position(at)} />
         ))}
-        {tip == null ? null : <span data-testid="tip-marker" className="ok-scale-tip-marker ok-scale-figure-tip" style={{ '--scale-x': `${position(tip)}%` } as CSSProperties} />}
+        {tip == null ? null : <span data-testid="tip-marker" className="ok-scale-tip-marker ok-scale-figure-tip" style={position(tip)} />}
       </div>
     </div>
   )

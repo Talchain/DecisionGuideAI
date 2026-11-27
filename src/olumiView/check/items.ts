@@ -11,7 +11,7 @@ export { CHECK_WORDS } from './words'
 type Words = { text: string; at: string }
 type Edit = { prompt: string; ask: string }
 type Action =
-  | { kind: 'edit'; id: string; edit: Edit; label: string; lead?: string }
+  | { kind: 'edit'; id: string; edit: Edit; label: string }
   | { kind: 'method'; id: string; words: Words }
   | { kind: 'answer'; question: Question }
   | { kind: 'fill'; text: string }
@@ -27,7 +27,6 @@ export type CheckItem = {
   at: string
   long: Words[]
   value?: Words
-  mark?: { glyph: string; title: string; at: string }
   cards: string[]
   action: Action
 }
@@ -143,8 +142,7 @@ export function checkItemsOf(model: ViewModel, view: View | null): CheckGroup[] 
           short: figure.label, at: `${path}.label`, cards: [figure.id],
           long: wordsAt(figure.line, `${path}.line`),
           value: wordsAt(figure.estimate_text, `${path}.estimate_text`)[0],
-          mark: figure.mark == null ? undefined : { ...figure.mark, at: `${path}.mark.glyph` },
-          action: figure.give == null ? NONE : { kind: 'edit', id: figure.id, edit: figure.give.edit, label: figure.label, lead: figure.give.text },
+          action: figure.give == null ? NONE : { kind: 'edit', id: figure.id, edit: figure.give.edit, label: figure.label },
         }
       }),
     }

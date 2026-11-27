@@ -1,17 +1,13 @@
-import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps } from 'react'
 import { setFocusSubject, useFocusSubject } from '../focus/subject'
 import { Hover } from '../look/Hover'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 
-type Props = Omit<ComponentProps<typeof Hover>, 'as' | 'type' | 'onClick' | 'children'> & {
-  id: string
-  ring: string
-  label: ReactNode
-  value: ReactNode
-  track?: ReactNode
-}
+export const RESULT_ROW_GRID = '-mx-1 grid w-[calc(100%+0.5rem)] grid-cols-[minmax(0,3fr)_minmax(0,8fr)_minmax(0,3fr)] gap-x-2 px-1 py-1'
 
-export function OptionRow({ id, ring, label, value, track, className = '', ...props }: Props) {
+type Props = Omit<ComponentProps<typeof Hover>, 'as' | 'type' | 'onClick'> & { id: string; ring: string }
+
+export function OptionRow({ id, ring, className = '', ...props }: Props) {
   const subject = useFocusSubject()
   const current = subject?.kind === 'option' && subject.source === 'canvas' && subject.id === id
   const light = () => ringFrom(ring, [id])
@@ -23,11 +19,5 @@ export function OptionRow({ id, ring, label, value, track, className = '', ...pr
       setFocusSubject({ kind: 'option', id, cards: [id], source: 'panel' })
     }}
     onMouseEnter={light} onMouseLeave={clear} onFocus={light} onBlur={clear}
-    className={`-mx-1 block w-[calc(100%+0.5rem)] space-y-1 rounded-sm px-1 py-1 text-left hover:bg-panel-hover aria-[current=true]:bg-panel-hover transition-colors duration-fast motion-reduce:transition-none ${className}`}>
-    <span className="grid grid-cols-2 items-baseline gap-x-2" data-option-summary="">
-      <span className="min-w-0">{label}</span>
-      <span className="min-w-0 max-w-full break-words text-right" data-option-value="">{value}</span>
-    </span>
-    {track == null ? null : <span className="block w-full" data-option-track="">{track}</span>}
-  </Hover>
+    className={`rounded-sm text-left hover:bg-panel-hover aria-[current=true]:bg-panel-hover transition-colors duration-fast motion-reduce:transition-none ${className}`} />
 }

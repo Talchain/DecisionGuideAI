@@ -1,9 +1,8 @@
-import '../../look/olumiLook.css'
 import type { ViewRun } from '../../client'
 import { trackPct } from '../../resultRange'
 
 type Figure = NonNullable<ViewRun['rests'][number]['figures']>[number]
-const WHOSE_FILL: Record<Figure['whose'], string> = { olumi: 'ok-scale-share-olumi', theirs: 'fill-text-header', mixed: 'fill-text-light' }
+const WHOSE_FILL: Record<Figure['whose'], string> = { olumi: 'fill-info', theirs: 'fill-text-header', mixed: 'fill-text-light' }
 
 /** One figure's share of a rest's uncertainty: a bar to core's fraction (geometry only; core's line says the number), coloured by whose figure it is. */
 export function ShareBar({ f }: { f: Figure }) {
