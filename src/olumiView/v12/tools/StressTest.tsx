@@ -13,7 +13,7 @@ import { LetterChip } from '../cards/marks'
 import { cardOfRecord } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
-import { useToolSubject } from './focusAdapter'
+import { useFocusSubject } from './focusAdapter'
 import { stressTrialKey, tryStressValue, useStressTrials, type TrialStep } from './stressTrials'
 
 export const STRESS_STEPS = { low: 'Lower values', saved: 'As saved', high: 'Higher values' } as const
@@ -136,7 +136,8 @@ function stressReadings(model: ViewModel) {
 export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   const { aims, figures, unlabelled } = useMemo(() => stressReadings(model), [model])
   const letters = useMemo(() => optionLetters(model), [model])
-  const subjectId = useToolSubject()?.id
+  const subject = useFocusSubject()
+  const subjectId = subject?.source === 'canvas' ? subject.id : undefined
   const subjectRecord = (figures.find((figure) => figure.record === subjectId) ??
     figures.find((figure) => figure.card.id === subjectId))?.record
   const [record, setRecord] = useState<string>()

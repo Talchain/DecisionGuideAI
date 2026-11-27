@@ -335,6 +335,8 @@ describe('Stress-test', () => {
   })
 
   it('retargets to the selected canvas figure and returns keyboard focus to the computed points', () => {
+    // The focus subject (lane B's signature) belongs to the open scenario and its shown model.
+    useViewStore.setState({ sid: view.id, view, status: 'ready', stale: false, error: null })
     draw()
     fireEvent.click(radio('high'))
     act(() => useCanvasStore.setState({ selection: { nodeIds: new Set([target.id]), edgeIds: new Set(), anchorPosition: null } }))
