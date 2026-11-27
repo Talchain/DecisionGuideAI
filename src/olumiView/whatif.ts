@@ -37,9 +37,14 @@ type Shown = { sid: string; base: number; quantity: string; typed: string; varia
 export const useWhatIf = create<{ shown: Shown | null }>()(() => ({ shown: null }))
 export const clearWhatIf = () => useWhatIf.setState({ shown: null })
 
+/** Read Core's what-if for one figure as typed, on version `base`. */
+export async function runWhatIf(sid: string, base: number, quantity: string, typed: string): Promise<WhatIfVariant | null> {
+  const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [{ quantity, typed }] }] })
+  return a.variants[0] ?? null
+}
+
 /** Core's what-if for one figure, as typed, on version `base`; the answer replaces any what-if shown. Core's refusal is thrown as it says it. */
 export async function tryWhatIf(sid: string, base: number, quantity: string, typed: string): Promise<void> {
-  const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [{ quantity, typed }] }] })
-  const variant = a.variants[0]
-  useWhatIf.setState({ shown: variant === undefined ? null : { sid, base, quantity, typed, variant } })
+  const variant = await runWhatIf(sid, base, quantity, typed)
+  useWhatIf.setState({ shown: variant === null ? null : { sid, base, quantity, typed, variant } })
 }
