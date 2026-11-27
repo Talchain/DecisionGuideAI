@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { typography } from '../../../styles/typography'
 import type { View, ViewCard, ViewModel, ViewRow } from '../../client'
 import { FoldChevron, FOLD_SUMMARY } from '../../look/FoldChevron'
 import { Hover } from '../../look/Hover'
 import { pressCard, ringFrom } from '../../reasoning/tabRing'
 import { chanceForDots } from '../../resultRange'
-import { currentModel, useViewStore } from '../../store'
+import { shownModel, useViewStore } from '../../store'
 import { optionLetters } from '../cards/letters'
 import { LetterChip } from '../cards/marks'
 import { cardOfRecord } from '../lenses/layers'
@@ -19,16 +19,17 @@ export const STRESS_WORDS = {
   values: 'Figure values',
   empty: 'Stress-testing needs a worked-out chance first.',
   held: 'Stress-test starts once a version is approved.',
+  unavailable: 'The latest results could not be read.',
   details: 'How these were worked out',
   other: 'Olumi tested this against another figure',
-  none: 'Olumi found no figure this moves with',
+  none: 'Olumi names no figure for this option here',
   savedLabel: 'As saved',
 } as const
 
 type Step = keyof typeof STRESS_STEPS
 type ChanceRow = Extract<ViewRow, { kind: 'chance' }>
 type OptionReading = { option: ViewCard; row: ChanceRow }
-type DriverFigure = { record: string; card: ViewCard }
+type DriverFigure = { record: string; label: string; card: ViewCard | undefined }
 
 const STEPS: readonly Step[] = ['low', 'saved', 'high']
 const RING_SOURCE = 'tool-stress'
@@ -49,29 +50,46 @@ function stressReadings(model: ViewModel) {
     }
   }
 
+  // Badge records are IDs only. A folded record can take its own label from Core's results.
+  const run = model.run
+  const namedFigures = [
+    ...(run?.rests ?? []).flatMap((rest) => rest.figures ?? []),
+    ...(run?.tipping ?? []).map((tip) => tip.figure),
+    ...(run?.failure ?? []).flatMap((failure) => failure.figures),
+    ...(run?.find_out ?? []).flatMap((aim) => aim.figures),
+  ]
   const figures: DriverFigure[] = []
   for (const record of records) {
     const card = cardOfRecord(model, record)
-    if (card !== undefined) figures.push({ record, card })
+    const label = card?.id === record ? card.heading : namedFigures.find((figure) => figure.id === record)?.label
+    if (label) figures.push({ record, label, card })
   }
-  const order = new Map(model.cards.map((card, index) => [card, index] as const))
-  figures.sort((a, b) => order.get(a.card)! - order.get(b.card)!)
-  return { aims, figures }
+  const order = new Map(model.cards.map((card, index) => [card.id, index] as const))
+  const rank = ({ card }: DriverFigure) => card === undefined ? model.cards.length : order.get(card.id)!
+  figures.sort((a, b) => rank(a) - rank(b))
+  return { aims, figures, unlabelled: records.size - figures.length }
 }
 
 export function StressTest({ model, view }: { model: ViewModel; view: View }) {
-  const { aims, figures } = useMemo(() => stressReadings(model), [model])
+  const { aims, figures, unlabelled } = useMemo(() => stressReadings(model), [model])
   const letters = useMemo(() => optionLetters(model), [model])
   const [record, setRecord] = useState<string>()
   const [step, setStep] = useState<Step>('saved')
+  const aimHeading = useId()
   const stepButtons = useRef<Partial<Record<Step, HTMLButtonElement | null>>>({})
   const selected = figures.find((figure) => figure.record === record) ?? figures[0]
+  const selectedRecord = selected?.record
   const moving = useMemo(() => selected === undefined ? [] : [...aims.values()].flat()
     .filter(({ row }) => row.driver?.figure === selected.record), [aims, selected])
 
   useEffect(() => {
-    const ids = selected === undefined ? [] : [selected.card.id, ...new Set(moving.map(({ option }) => option.id))]
-    ringFrom(RING_SOURCE, ids)
+    if (record !== selectedRecord) setRecord(selectedRecord)
+  }, [record, selectedRecord])
+  useEffect(() => {
+    const ids = new Set<string>()
+    if (selected?.card !== undefined) ids.add(selected.card.id)
+    for (const { option } of moving) ids.add(option.id)
+    ringFrom(RING_SOURCE, [...ids])
   }, [selected, moving])
   useEffect(() => () => ringFrom(RING_SOURCE, []), [])
 
@@ -87,15 +105,15 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   }
 
   if (selected === undefined) {
-    return <div data-form="TT-stress" data-testid="tool-stress" className={META}>{STRESS_WORDS.empty}</div>
+    return <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className={META}>{STRESS_WORDS.empty}</div>
   }
 
-  const figure = selected.record === selected.card.id ? selected.card.figure : null
+  const figureCard = selected.record === selected.card?.id ? selected.card : undefined
   return (
-    <div data-form="TT-stress" data-testid="tool-stress" className="grid min-w-0 gap-3">
+    <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled} className="grid min-w-0 gap-3">
       <select aria-label={STRESS_WORDS.figure} value={selected.record} onChange={(event) => setRecord(event.target.value)}
         className={`${typography.viewPanelBody} ${FOCUS} min-h-7 w-fit min-w-0 max-w-full rounded-md border border-panel-border bg-panel px-2 text-text-header`}>
-        {figures.map(({ record, card }) => <option key={record} value={record}>{card.heading}</option>)}
+        {figures.map(({ record, label }) => <option key={record} value={record}>{label}</option>)}
       </select>
 
       <div role="radiogroup" aria-label={STRESS_WORDS.values} className="grid grid-cols-3 gap-1 rounded-md border border-panel-border p-1">
@@ -109,17 +127,17 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
         ))}
       </div>
 
-      {figure != null && (
+      {figureCard?.figure != null && (
         <div className="grid auto-cols-fr grid-flow-col items-center gap-2">
-          <RangeBar card={selected.card} view={view} />
-          <Hover words={figure.title} className={`${META} min-w-0 break-words`}>{figure.text}</Hover>
+          <RangeBar card={figureCard} view={view} />
+          <Hover words={figureCard.figure.title} className={`${META} min-w-0 break-words`}>{figureCard.figure.text}</Hover>
         </div>
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)_max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
-        {[...aims].map(([aimId, readings]) => (
-          <Fragment key={aimId}>
-            <h3 className={`${typography.viewPanelHeading} col-span-3 m-0 mt-2 text-text-header`}>{readings[0].row.aim}</h3>
+        {[...aims].map(([aimId, readings], index) => (
+          <div key={aimId} role="group" aria-labelledby={`${aimHeading}-${index}`} className="col-span-3 grid grid-cols-subgrid gap-y-1">
+            <h3 id={`${aimHeading}-${index}`} className={`${typography.viewPanelHeading} col-span-3 m-0 mt-2 text-text-header`}>{readings[0].row.aim}</h3>
             {readings.map(({ option, row }) => {
               const driver = row.driver
               const computed = driver == null ? 'none' : driver.figure === selected.record ? 'true' : 'other'
@@ -133,7 +151,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
                   data-stress-computed={computed} data-stress-chance={chance ?? undefined}
                   className={`${typography.viewPanelBody} ${FOCUS} col-span-3 grid min-h-7 cursor-pointer grid-cols-subgrid items-center rounded-sm py-1 text-left hover:bg-panel-hover`}>
                   <span className="flex min-w-0 items-center gap-1 text-text-header">
-                    <span aria-hidden="true"><LetterChip letter={letters.get(option.id)!} /></span>
+                    <span className="olumi-look contents" aria-hidden="true"><LetterChip letter={letters.get(option.id)!} /></span>
                     <span className="min-w-0 break-words">{option.heading}</span>
                   </span>
                   {computed === 'true' && <span className="col-start-2"><ChanceDots chance={chance} /></span>}
@@ -143,7 +161,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
                 </Hover>
               )
             })}
-          </Fragment>
+          </div>
         ))}
       </div>
 
@@ -155,7 +173,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
           {moving.map(({ option, row }) => (
             <li key={`${option.id}:${row.aim_id}`} className="grid gap-1">
               <span className={`${typography.viewPanelHeading} text-text-header`}>{option.heading}</span>
-              <span>{selected.card.heading}</span>
+              <span>{selected.label}</span>
               <span>{row.title}</span>
               {step !== 'saved' && <div><div className={META}>{STRESS_WORDS.savedLabel}</div><div>{row.value}</div></div>}
             </li>
@@ -168,12 +186,17 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
 
 export function StressTestTab() {
   const view = useViewStore((state) => state.view)
-  const model = useViewStore(currentModel)
+  const model = useViewStore(shownModel)
+  const readUnavailable = useViewStore((state) => state.stale || state.error !== null)
+  const held = view?.proposal != null
+  const fallback = view === null ? STRESS_WORDS.empty
+    : held && !readUnavailable ? STRESS_WORDS.held
+    : STRESS_WORDS.unavailable
   return (
     <div data-testid="core-stress-tab" className="mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3">
-      {model !== null && view !== null
+      {model !== null && view !== null && !held
         ? <StressTest model={model} view={view} />
-        : <div className={META}>{view?.proposal != null ? STRESS_WORDS.held : STRESS_WORDS.empty}</div>}
+        : <div className={META}>{fallback}</div>}
     </div>
   )
 }
