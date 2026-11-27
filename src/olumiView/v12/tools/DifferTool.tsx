@@ -15,7 +15,7 @@ import { DifferAxis } from '../scale/DifferAxis'
 import { useRevealedDifferences } from '../views/SimpleSummary'
 import { COMPARE_WORDS } from '../views/WhereWeDiffer'
 import { useDifferSelection } from './differSelection'
-import { useFocusSubject } from './focusAdapter'
+import { useFocusSubject } from '../../focus/subject'
 
 export const DIFFER_TOOL_WORDS = { all: 'All differences', more: 'More on this difference' } as const
 
