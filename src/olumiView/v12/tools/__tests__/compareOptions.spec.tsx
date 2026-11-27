@@ -72,6 +72,8 @@ describe('Compare options', () => {
 
   it('retargets the second row from an outside canvas option and leaves focus in the tool', () => {
     const previous = useCanvasStore.getState().selection
+    // The focus subject (lane B's signature) belongs to the open scenario and its shown model.
+    useViewStore.setState({ sid: studio.id, view: studio, at: null, stale: false, error: null })
     try {
       render(<><button type="button">Canvas</button><CompareOptions model={model} /></>)
       const canvas = screen.getByRole('button', { name: 'Canvas' })
