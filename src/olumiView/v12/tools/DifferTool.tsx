@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId } from 'react'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import { useCanvasStore } from '../../../canvas/store'
+import { focusNodeById } from '../../../canvas/utils/focusHelpers'
 import { differencesKey, readDifferences, useDifferences, type Difference } from '../../../olumiCore/team/differences'
 import { typography } from '../../../styles/typography'
 import type { View } from '../../client'
@@ -8,12 +9,13 @@ import { drawKindOf } from '../../layout'
 import { FoldChevron, FOLD_SUMMARY } from '../../look/FoldChevron'
 import { HoverButton } from '../../look/Hover'
 import { OkIcon } from '../../look/icons'
-import { pressCard, ringFrom } from '../../reasoning/tabRing'
+import { ringFrom } from '../../reasoning/tabRing'
 import { useViewStore } from '../../store'
 import { isDashedCardKind } from '../cards/kind'
 import { cardOfRecord } from '../lenses/layers'
 import { DifferAxis } from '../scale/DifferAxis'
 import { revealedForYou } from '../views/differGroups'
+import { useDifferSelection } from './differSelection'
 
 export const DIFFER_TOOL_WORDS = { more: 'More on this difference' } as const
 
@@ -28,7 +30,19 @@ function cardsFor(model: View['model'], d: Difference): readonly string[] {
 }
 
 function DifferenceMark({ model, difference }: { model: View['model']; difference: Difference }): JSX.Element | null {
-  if (difference.kind === 'link') return <OkIcon id="model-relationship" size={14} decorative />
+  if (difference.kind === 'link') {
+    // Core identifies a link difference as link:<record>[:<part>], from the same reference as its stance.
+    const links = model?.links.filter((link) => {
+      const ref = link.holds ?? link.remove
+      return ref == null
+        ? link.records.some((record) => difference.record === `link:${record}`)
+        : difference.record === `link:${ref.record}${ref.part ? `:${ref.part}` : ''}`
+    })
+    const sign = links?.length === 1 ? links[0]!.causal?.sign : undefined
+    const tone = sign === 'increases' ? 'text-[color:var(--edge-positive)]'
+      : sign === 'decreases' ? 'text-[color:var(--edge-negative)]' : 'text-[color:var(--edge-neutral)]'
+    return <OkIcon id="model-relationship" size={14} decorative inherit className={tone} />
+  }
   const [id] = cardsFor(model, difference)
   const card = model?.cards.find((c) => c.id === id)
   return card === undefined ? null : <NodeShapeIndicator nodeKind={drawKindOf(card, model ?? null)} dashedOutline={isDashedCardKind(card)} />
@@ -43,12 +57,13 @@ export function DifferTool({ sid, view }: { sid: string; view: View }): JSX.Elem
     if (key !== null && key !== lastAttempt) void readDifferences(sid, key)
   }, [sid, key, lastAttempt])
 
-  if (data === null || data.gated || data.differences.length === 0) return null
-  return <RevealedTool key={sid} view={view} heading={data.heading} differences={data.differences} />
+  if (data === null || data.gated || data.version !== (view.version?.n ?? null) || data.differences.length === 0) return null
+  return <RevealedTool sid={sid} view={view} heading={data.heading} differences={data.differences} />
 }
 
-function RevealedTool({ view, heading, differences }: { view: View; heading: string; differences: readonly Difference[] }): JSX.Element {
-  const [choice, setChoice] = useState<string | null>(null)
+function RevealedTool({ sid, view, heading, differences }: { sid: string; view: View; heading: string; differences: readonly Difference[] }): JSX.Element {
+  const choice = useDifferSelection((s) => s.bySid[sid])
+  const pickerId = useId()
   const chosen = differences.find((d) => differenceId(d) === choice) ?? differences[0]!
   const chosenId = differenceId(chosen)
   const cards = cardsFor(view.model, chosen)
@@ -74,22 +89,33 @@ function RevealedTool({ view, heading, differences }: { view: View; heading: str
         latest.clearSelection()
       }
     }
-  }, [chosenId, pathCard])
+  }, [sid, chosenId, pathCard])
 
   return (
     <section data-form="TT-differ" data-testid="tool-differ" aria-label={heading} className="grid gap-3">
       <h2 className={`${typography.viewPanelHeading} text-text-header`}>{heading}</h2>
       <ul className="m-0 grid list-none gap-1 p-0">
-        {differences.map((d) => {
+        {differences.map((d, i) => {
           const id = differenceId(d)
+          const showHolders = !d.goal_label
+          const holdersId = showHolders ? `${pickerId}-holders-${i}` : undefined
           return (
             <li key={id}>
-              <HoverButton type="button" aria-pressed={id === chosenId} words={d.status_text} onClick={() => setChoice(id)}
+              <HoverButton type="button" aria-pressed={id === chosenId} aria-describedby={holdersId} words={d.status_text}
+                onClick={() => useDifferSelection.getState().choose(sid, id)}
                 className={`${typography.viewPanelBody} ${FOCUS} flex w-full items-start gap-1.5 rounded-sm border border-transparent px-2 py-1 text-left text-text-header hover:bg-panel-hover aria-pressed:border-panel-border aria-pressed:bg-panel-hover`}>
                 <DifferenceMark model={view.model} difference={d} />
                 <span className="grid min-w-0 gap-0.5 break-words">
                   <span>{d.label}</span>
                   {d.goal_label && <span className={`${typography.viewPanelMeta} text-text-light`}>{d.goal_label}</span>}
+                  {showHolders && <span id={holdersId} className={`${typography.viewPanelMeta} flex flex-wrap gap-1 text-text-light`}>
+                    {d.sides.map((side) => (
+                      <span key={side.holder_id} className="inline-flex min-w-0 items-center gap-1 rounded-sm border border-panel-border px-1">
+                        <OkIcon id="person-mark" size={14} decorative inherit />
+                        <span className="min-w-0">{side.holder}</span>
+                      </span>
+                    ))}
+                  </span>}
                 </span>
               </HoverButton>
             </li>
@@ -97,7 +123,7 @@ function RevealedTool({ view, heading, differences }: { view: View; heading: str
         })}
       </ul>
       <DifferAxis view={view} d={chosen} at={RING_SOURCE} showWords
-        onFocusCard={firstCard === undefined ? undefined : () => pressCard(firstCard)} />
+        onFocusCard={firstCard === undefined ? undefined : () => focusNodeById(firstCard)} />
       <details>
         <summary className={`${FOLD_SUMMARY} ${typography.viewPanelMeta} ${FOCUS} cursor-pointer rounded-sm text-text-body`}>
           <FoldChevron />{DIFFER_TOOL_WORDS.more}

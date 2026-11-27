@@ -173,7 +173,8 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       </fieldset>
     ),
     reveal: <fieldset disabled={past} className="contents"><RevealStep sid={sid} view={view} onWrote={refresh} /></fieldset>,
-    differ: <fieldset disabled={past} className="contents"><WhereWeDiffer sid={sid} view={view} onWrote={refresh} /></fieldset>,
+    // On the current View, the tool above the steps owns the shared figure axis.
+    differ: <fieldset disabled={past} className="contents"><WhereWeDiffer sid={sid} view={view} onWrote={refresh} axis={past} /></fieldset>,
     commit: <fieldset disabled={past} className="min-w-0 space-y-4"><SavedActions sid={sid} view={view} /><CommitmentPanel sid={sid} view={view} onWrote={refresh} part="form" /></fieldset>,
     outcome: view.collab.commitments.length === 0
       ? <p className={META} data-testid="team-outcome-later">{STEP_WORDS.outcomeLater}</p>

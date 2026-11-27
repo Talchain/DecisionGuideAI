@@ -47,6 +47,7 @@ export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: 
   const spans = sideSpans(view, d)
   if (spans === null && !showWords) return null
   const axis = spans === null ? null : axisOf(spans)
+  const values = spans?.flatMap(({ lo, hi }) => [lo, hi]) ?? []
   return (
     <ul data-form="CH-differ" data-testid={`${id}-${axis === null ? 'sides' : 'ranges'}`}
       className={`m-0 grid list-none gap-2 p-0 ${axis === null ? 'grid-cols-[minmax(0,1fr)_minmax(0,2fr)]' : 'grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]'}`}>
@@ -58,7 +59,7 @@ export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: 
               <OkIcon id="person-mark" size={14} decorative inherit testid="differ-person-mark" />
               <span className="min-w-0">{s.holder}</span>
             </span>
-            {axis !== null && span !== undefined && <SpanTrack axis={axis} span={span} />}
+            {axis !== null && span !== undefined && <SpanTrack axis={axis} span={span} values={values} />}
             <span className="min-w-0 break-words text-text-body" data-range-text="">{span?.text ?? s.figure}</span>
           </>
         )
@@ -79,15 +80,23 @@ export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: 
   )
 }
 
-function SpanTrack({ axis, span }: { axis: Span; span: Span }): JSX.Element {
+function SpanTrack({ axis, span, values }: { axis: Span; span: Span; values: readonly number[] }): JSX.Element {
   const start = at(axis, span.lo)
   const end = at(axis, span.hi)
+  const minimum = 1.6
+  const point = span.lo === span.hi
+  const short = end - start < minimum
+  const midpoint = (start + end) / 2
+  // Clip visual padding at the track and the next greater value, so a short mark cannot overtake it.
+  const next = values.reduce((limit, value) => value > span.hi ? Math.min(value, limit) : limit, Infinity)
+  const limit = next === Infinity ? end : at(axis, next)
+  const left = short ? Math.max(0, midpoint - minimum / 2) : start
+  const right = short ? Math.min(100, midpoint + minimum / 2, point ? 100 : limit) : end
   return (
     <svg viewBox="0 0 100 8" preserveAspectRatio="none" className="block h-2 w-full overflow-visible" aria-hidden="true" data-range-lo={span.lo} data-range-hi={span.hi}>
       <rect x="0" y="3.5" width="100" height="1" className="fill-current text-panel-border" />
-      {span.lo === span.hi
-        ? <rect x={Math.max(0, start - 0.8)} y="0" width="1.6" height="8" className="fill-current text-text-header" data-range-mark="point" />
-        : <rect x={start} y="1.5" width={Math.max(1.6, end - start)} height="5" rx="1" className="fill-current text-text-header" data-range-mark="span" />}
+      <rect x={left} y={point ? 0 : 1.5} width={right - left} height={point ? 8 : 5} rx={point ? undefined : 1}
+        className="fill-current text-text-header" data-range-mark={point ? 'point' : 'span'} />
     </svg>
   )
 }
