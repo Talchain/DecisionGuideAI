@@ -239,7 +239,7 @@ describe('bands: the key pill', () => {
     expect(stroke('decreases')).not.toBe(INK)
     expect(screen.getByTestId('view-key-lines').className).not.toMatch(/text-\[(9|10|11)px\]/)
     expect(screen.getByTestId('view-key-lines').className).toContain('text-[12px]')
-    expect(container.querySelector('[data-key-sample="unsettled"]')!.className).toContain('text-[12px]')
+    expect(container.querySelector('[data-key-sample="unsettled"]')!.getAttribute('class')).toContain('text-[12px]') // an SVG's className is not a string
   })
   it('K6 a link with core\'s `direction` is a modelled effect even with no `causal`; the doubted sample keeps both direction colours and arrows, dashed', () => {
     const typed = { ...model.links[0]!, role: 'input', causal: null, direction: 'raises', doubt: true }
@@ -284,7 +284,7 @@ describe('bands: the key pill', () => {
     expect(keyExtrasOf({ ...settled, model: { ...settled.model!, links: [{ ...settled.model!.links[0]! }] } } as View).underlays.has('halo-alert')).toBe(false)
     useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
-    expect(container.querySelector('[data-key-sample="dotted"]')).toBeNull()
+    expect(container.querySelector('[data-key-sample="dotted"] path')?.getAttribute('stroke-dasharray')).toBe('0.1 6')
     expect(container.querySelector('[data-key-item="dotted"]')).toHaveTextContent('core says reason')
     expect(container.querySelector('[data-key-sample="halo-alert"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-alert')
     expect(container.querySelector('[data-key-sample="halo-proposed"] path')!.getAttribute('class')).toBe('ok-link-halo ok-link-halo-proposed')

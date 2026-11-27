@@ -12,36 +12,26 @@ import { reducedFaceSize } from '../../olumiView/camera'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, Position, useStore, type EdgeProps, type ReactFlowState } from '@xyflow/react'
 import { linkWordsAt, type Placed } from './linkWordsPlace'
 import { railOf, railSlots, railWordsAt } from './linkRail'
-import type { ViewLink } from '../../olumiView/client'
 import { typography } from '../../styles/typography'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { LaneLinkRemoveButton } from '../../olumiView/v12/edit/LaneLinkRemoveButton'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
-import { linkByOlumi } from '../../olumiView/layout'
 import { useViewStore } from '../../olumiView/store'
-import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
+import { linkWordsIdOf, useViewFocusLink, useViewHover, type ViewLinkData } from '../../olumiView/canvas'
 import { useDriverLink } from '../../olumiView/lens'
 import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
-import { linkRole, sizedLink } from '../../olumiView/v12/contract'
-import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
+import { sizedLink } from '../../olumiView/v12/contract'
+import { firstDraft as firstDraftOf, linkKey } from '../../olumiView/v12/fields/fields'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
-import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
-import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkAlertStyle, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
+import { ICONS, OkIcon } from '../../olumiView/look/icons'
+import { LINK_MARK_IDS, linkLookOf } from '../../olumiView/v12/links/linkLook'
 import { placeAt } from '../../olumiView/v12/links/place'
 import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { EndMarker, OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
 import { railObstacles, useLinkWordsBoxes, useRailBoxes, wordsBefore } from '../../olumiView/railBoxes'
 
-export type ViewLinkData = { link: ViewLink; i: number }
-/**
- * The midpoint mark of a modelled effect (panel-visual system L2): the registry's icon for its typed direction, so the direction is said by shape as
- * well as by colour. Six states, six registry ids (look/icons.tsx `link-*`); `none` (core's "no effect") keeps its own.
- */
-type LinkMark = 'raises' | 'lowers' | 'depends' | 'disputed' | 'unknown' | 'none'
-const ICONS_HOVER = (m: LinkMark): string => ICONS[MARK_ID[m]].hover
-const MARK_ID: Readonly<Record<LinkMark, IconId>> = { raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' }
 export type CardBox = { readonly id: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }
 /**
  * The cards as React Flow holds them now (flow units). React Flow refills one `nodeLookup` Map in place (xyflow adoptUserNodes), so a
@@ -60,33 +50,21 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
  * So the V12 rules below (R5 ladder and neutral lines, the lit path, the first draft) need no second look beside them.
  */
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
-  const { link, i } = data as ViewLinkData
+  const { link, i, owner } = data as ViewLinkData
+  const view = useViewStore((s) => owner ? owner.view : s.view)
+  const model = view?.model ?? null
   const causal = link.causal ?? null
-  // D4 (the lead, 17 Nov): a causal belief's direction is core's (`link.direction`, fields.ts linkLook); a line core sends none for keeps its typed
-  // sign (`causal.sign`), as before: a calculation line's sign is real and already derived, so adopting the field never strips a colour a line has today.
-  const look = linkLook(link)
-  const direction: Direction | null = look.source === 'view' && look.direction !== null ? look.direction
-    : causal?.sign === 'increases' ? 'raises' : causal?.sign === 'decreases' ? 'lowers' : causal?.sign === 'unknown' ? 'unknown' : null
-  // V12 (rule 2): a modelled effect says its sign by nothing but its direction of travel; only a legacy link with no typed `causal` keeps its label.
+  const firstDraft = view !== null && firstDraftOf(view).firstDraft === true
+  const look = useMemo(() => linkLookOf(link, model, firstDraft), [link, model, firstDraft])
+  const { role, styled, direction, directionMark, mark, modelled, byOlumi, dash, doubt, end, dotted, reasonAlert, haloAlert, haloProposed } = look
   const signed = causal === null && direction === null && link.label !== ''
-  // L2: a modelled effect's midpoint mark is its typed direction's small icon (`none` keeps its own); no verdict (depends, disputed, unknown) stays the neutral grey.
-  const mark: LinkMark | null = direction !== null ? direction : causal?.sign === 'none' ? 'none' : null
-  const verdictless = direction === 'depends' || direction === 'disputed' || direction === 'unknown' ? direction : null
-  const role = linkRole(link)
-  const style = linkStyle(link)
-  // R5 (Paul, 16 Nov): only a link the engine marks as a causal effect (`causal`, or a direction) is a modelled effect, coloured by its direction and
-  // weighted on the width ladder, whatever its role says; every other line is a plain 2 px line (a role's own colour and end stay, its dots and weights do not).
-  const styled = causal === null && direction === null && style !== null && style.role !== 'effect' ? style : null
-  const modelled = styled === null && (causal !== null || direction !== null)
-  // The mark's word is the key item core names for it (`label_key`); an older core's View, without the field, is read by its glyph (fields.ts linkKey).
-  const labelWord = useViewStore((s) => causal === null && s.view?.model != null ? linkKey(link, s.view.model.key).item?.text : undefined)
-  const byOlumi = useViewStore((s) => (s.view?.model == null ? false : linkByOlumi(s.view.model, link.from, link.to)))
+  const verdictless = direction === 'depends' || direction === 'disputed' || direction === 'unknown'
+  // The mark's word is the key item core names for it (`label_key`), else its glyph on older Views.
+  const labelWord = causal === null && model !== null ? linkKey(link, model.key).item?.text : undefined
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const hovered = useViewHover((h) => h.id)
   // A path is lit while a card is hovered or selected (focusPath.ts): emphasise its links without dimming any others.
   const onPath = useFocusPath((f) => f.path !== null && f.path.has(source) && f.path.has(target))
-  // R3: on a first draft (a proposal and no approved version) everything is proposed, so a proposal is no mark on a link.
-  const firstDraft = useViewStore((s) => s.view !== null && firstDraftOf(s.view).firstDraft === true)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   // What would change: a link leaving (or sized by) a figure an option's chance moves most with is drawn wider, in ink.
@@ -169,7 +147,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // A no-verdict icon (D4) is the line's meaning, not words: Simple draws it at rest at every zoom (its type is counter-scaled to the board, so it is not "zoomed out").
   // The mark is the line's meaning, not words: every modelled effect always says its direction, at every zoom and level and in a crowd (its type is
   // counter-scaled to the board). Only the longer words (the sign glyph, `effect.text`) disclose progressively, by zoom and nearness.
-  const markShown = mark !== null && role !== 'size'
+  const markShown = mark !== null
   const textShown = (signed || effect !== null) && role !== 'size' && (!zoomedOut || near)
   const words = markShown || textShown
   // Words with no room within reach of their link (PL/DL 7 Nov: never detached) are hidden at rest and shown, with their leader, while the
@@ -207,32 +185,16 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   useLayoutEffect(() => { placeAt(ctlRef.current, ctlStand.current.x, ctlStand.current.y) })
   const markCards = useMemo(() => (words && !hidden ? [...clearOf, { id: '', x: x - size.w / 2, y: y - size.h / 2, w: size.w, h: size.h }] : clearOf), [words, hidden, clearOf, x, y, size])
   const markVisible = markShown && !hidden
-  // L1: every View link is drawn at rest (the old fold of reason links and route rails to hover and selection is gone); only `focusPath` fades a link, and
-  // only while a path is lit.
-  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; structural and reason links use neutral ink by default. EVERY line is one width (L3).
-  // A dash means doubt and nothing else; a reason link is DOTTED (L1, a round-dot recipe, never a dash).
-  // L4: polarity is the colour, doubt the dash, and alert and proposal each have a halo. On a reason link, alert colours the stroke instead.
-  // A driver link (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model already approved; on a first draft everything is
-  // proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model is Olumi's whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
-  const olumiInk = (link.proposed || byOlumi) && !firstDraft
-  const coloured = styled !== null || modelled
-  const alertStyle = linkAlertStyle(link)
-  const reasonAlert = alertStyle === 'reason'
-  const haloAlert = alertStyle === 'halo', haloProposed = olumiInk
-  const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : driver ? 'var(--text-header)' : EDGE_NEUTRAL
-  // The ink is a tone class on the `<g>` (olumiLook.css `.ok-link-tone-*` sets `--link-tone` from a token); the line, its end and its leader read it. No inline style.
-  const tone = toneOf(stroke)
-  const dash = link.doubt ? DOUBT_DASH : null
-  const dotted = !coloured && (link.kind === 'reason' || role === 'reason')
-  const pathClasses = `${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`
-  const width = (styled?.width ?? PLAIN_WIDTH) + (onPath ? 1 : 0)
+  const tone = styled === null && !modelled && driver ? 'ink' : look.tone
+  const pathClasses = `${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${doubt ? ' ok-link-doubt' : ''}`
+  const width = look.width + (onPath ? 1 : 0)
   const title = causal === null ? link.title : [causal.text, causal.author?.title, link.title].filter(Boolean).join('\n')
   // THE LINK'S ONE HOVER (L2; Codex review-links-2): every link says its core words through the lane's one Tip (look/Tip.tsx `useAnchoredTip`: 150 ms, Escape,
   // closes on leave and blur), by pointer on the line, its mark or its words, and by keyboard focus on the link. They are core's: the title, the typed belief's
   // text and its author's title, the effect's `text` and `title`, and the key word core names for the sign, each once, in that order. A modelled mark core gave
   // no words for says its registry entry's words (look/icons.tsx `link-*`); nothing is written here.
   const said = [...new Set([...title.split('\n'), link.effect?.text, link.effect?.title, labelWord].filter((t): t is string => typeof t === 'string' && t !== ''))].join('\n')
-  const tipWords = said !== '' ? said : mark === null ? '' : ICONS_HOVER(mark)
+  const tipWords = said !== '' ? said : directionMark === null ? '' : ICONS[LINK_MARK_IDS[directionMark]].hover
   const gRef = useRef<SVGGElement | null>(null)
   const markEl = useRef<HTMLSpanElement | null>(null)
   const linkTip = useAnchoredTip(tipWords, 'peek')
@@ -292,19 +254,19 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     tipNow.current.dismiss()
     if (focused) tipNow.current.handlers.onFocus(anchored({} as SyntheticEvent, 'focus'))
   }, [viewport]) // eslint-disable-line react-hooks/exhaustive-deps -- a new viewport is the only trigger
-  const name = title !== '' ? title : mark === null ? '' : ICONS_HOVER(mark)
+  const name = title !== '' ? title : directionMark === null ? '' : ICONS[LINK_MARK_IDS[directionMark]].hover
   const arrow = `view-link-arrow-${i}`
   return (
-    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled?.end ?? (modelled ? 'arrow' : undefined)} data-link-dash={dash ?? undefined} data-link-dotted={dotted || undefined} data-link-reason-alert={reasonAlert ? '' : undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
+    <g data-view-link={`links.${i}`} data-link-direction={direction ?? undefined} data-link-confidence={look.confidence ?? undefined} data-rail={rail ? '' : undefined} data-driver-link={driver || undefined} data-kind={link.kind} data-alert={link.alert || undefined} data-proposed={link.proposed || undefined} data-olumi={linkOlumi || undefined} data-causal-sign={causal?.sign} data-causal-state={causal?.strength.state} data-causal-disputed={causal?.disputed || undefined} data-link-role={styled?.role ?? role ?? undefined} data-link-end={styled !== null || modelled ? end : undefined} data-link-dash={doubt ? dash ?? undefined : undefined} data-link-dotted={dotted || undefined} data-link-reason-alert={reasonAlert ? '' : undefined} data-link-halo={haloAlert || haloProposed ? [haloAlert ? 'alert' : '', haloProposed ? 'proposed' : ''].filter(Boolean).join(' ') : undefined} data-link-width={width} data-on-path={onPath || undefined} className={`ok-link ok-link-tone-${tone}`} role="group" aria-label={name !== '' ? name : undefined} aria-describedby={linkTip.describedBy} data-link-tone={tone}
       ref={gRef} onPointerEnter={(e) => { setHot(true); linkTip.handlers.onPointerEnter(anchored(e, 'pointer')) }} onPointerLeave={() => { setHot(false); linkTip.handlers.onPointerLeave() }}
       onClick={isOlumiCoreLane() ? () => {
         linkTip.dismiss()
         useLaneInspector.getState().open({ kind: 'link', id })
       } : undefined}>
-      <defs><EndMarker id={arrow} end={styled?.end ?? 'arrow'} /></defs>
+      <defs><EndMarker id={arrow} end={end} /></defs>
       {haloAlert ? <path data-link-halo-path="alert" d={path} className="ok-link-halo ok-link-halo-alert" /> : null}
       {haloProposed ? <path data-link-halo-path="proposed" d={path} className={`ok-link-halo ok-link-halo-proposed${haloAlert ? ' ok-link-halo-inner' : ''}${pathClasses}`} /> : null}
-      <BaseEdge id={id} path={path} className={`ok-link-line${pathClasses}${reasonAlert ? ' ok-link-reason-alert' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : styled.end === 'none' ? undefined : `url(#${arrow})`}
+      <BaseEdge id={id} path={path} className={`ok-link-line${pathClasses}${reasonAlert ? ' ok-link-reason-alert' : ''}`} markerEnd={styled === null ? markerEnd ?? `url(#${arrow})` : end === 'none' ? undefined : `url(#${arrow})`}
       />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}
@@ -317,10 +279,10 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         // along the path clear of every card and the chips on its rail (R5 item 3; TM-04 gate), so they never cover a card's or a chip's text.
         <EdgeLabelRenderer>
           <div ref={attachWords} id={linkWordsIdOf(i)} className={`ok-link-words nodrag nopan ${typography.viewLabel} flex flex-col items-center rounded px-1 font-normal text-text-light${hidden ? ' ok-link-hidden' : ''}`} data-view-link-words={`links.${i}`}>
-            {!markShown || mark === null ? null : (
-              <span ref={markEl} data-view-link-mark={`links.${i}`} data-link-direction={mark} data-view-link-unsettled={verdictless === null ? undefined : `links.${i}`} className="ok-link-mark inline-flex">
+            {mark === null ? null : (
+              <span ref={markEl} data-view-link-mark={`links.${i}`} data-link-direction={mark} data-view-link-unsettled={verdictless ? `links.${i}` : undefined} className="ok-link-mark inline-flex">
                 {/* The registry draws the glyph; the hover is the link's one Tip (the `<g>`'s handlers), so this icon carries none of its own. */}
-                <OkIcon id={MARK_ID[mark]} size={12} decorative inherit />
+                <OkIcon id={LINK_MARK_IDS[mark]} size={12} decorative inherit />
               </span>
             )}
             {/* Far at rest the sign WAITS hidden, never removed: the box keeps one measured size whatever the placement says, so size and placement settle
