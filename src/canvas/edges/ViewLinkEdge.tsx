@@ -26,6 +26,7 @@ import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
+import { useEscapeLayer } from '../../olumiView/v12/edit/escapeLayers'
 import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
 import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
 import { placeAt } from '../../olumiView/v12/links/place'
@@ -261,6 +262,8 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   }, [focused]) // eslint-disable-line react-hooks/exhaustive-deps -- `anchored` and the hook's handlers are read fresh through refs; focus opening is the only trigger
   // Escape closes it whichever way it opened, the pointer's or the focus's.
   const tipOpen = linkTip.describedBy !== undefined
+  const lane = isOlumiCoreLane()
+  useEscapeLayer(lane && tipOpen, linkTip.dismiss)
   // The focus target is React Flow's `.react-flow__edge` wrapper (canvas.ts gives it `aria-describedby` = the words id), so while the Tip is open under focus its id
   // is appended there, and the previous value comes back on close or blur (the same host rule as look/icons.tsx LabelledIcon).
   const tipId = linkTip.describedBy
@@ -273,11 +276,11 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
     return () => { if (before === null) host.removeAttribute('aria-describedby'); else host.setAttribute('aria-describedby', before) }
   }, [focused, tipId])
   useEffect(() => {
-    if (!tipOpen) return
+    if (lane || !tipOpen) return
     const close = (e: KeyboardEvent) => { if (e.key === 'Escape') tipNow.current.dismiss() }
     document.addEventListener('keydown', close)
     return () => document.removeEventListener('keydown', close)
-  }, [tipOpen])
+  }, [lane, tipOpen])
   // The Tip keeps its first measure, so the board moving under it (pan, zoom) closes it, as a scroll does; a focused link then opens it again at its new place.
   // The viewport is read only while the pointer is on this link or it has focus, so a pan never re-renders every link.
   const [hot, setHot] = useState(false)

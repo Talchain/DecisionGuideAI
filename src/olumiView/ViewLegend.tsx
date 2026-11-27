@@ -10,6 +10,7 @@ import { useViewStore } from './store'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import type { NodeType } from '../canvas/domain/nodes'
 import { KeyLines } from './v12/bands/KeyPill'
+import { useEscapeLayer } from './v12/edit/escapeLayers'
 
 /** A key item that names a card kind is drawn with the card's own marker (the shape on the canvas), by core's item id; core's words stay the
  *  label. Every other item keeps core's glyph (17 Nov: a limit read as a goal; the key now shows the limit's outlined square, the aim's diamond). */
@@ -31,16 +32,19 @@ export function ViewLegend({ open, onOpenChange }: Props) {
     return banded ? m?.run?.sensitivity ?? null : null
   })
   const wrap = useRef<HTMLDivElement>(null)
-  // Escape or a press outside closes it, as the legacy key does.
+  const hasKey = key !== null && key.length > 0
+  useEscapeLayer(open && hasKey, () => onOpenChange(false))
   useEffect(() => {
     if (!open) return
+    if (!hasKey) {
+      onOpenChange(false)
+      return
+    }
     const onPointer = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) onOpenChange(false) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); onOpenChange(false) } }
     document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onPointer); document.removeEventListener('keydown', onKey) }
-  }, [open, onOpenChange])
-  if (!open || key === null || key.length === 0) return null
+    return () => document.removeEventListener('mousedown', onPointer)
+  }, [open, hasKey, onOpenChange])
+  if (!open || !hasKey) return null
   return (
     <div ref={wrap} className="relative w-full">
       <div role="dialog" aria-label="How to read this" data-testid="view-legend"

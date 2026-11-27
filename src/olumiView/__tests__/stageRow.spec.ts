@@ -17,6 +17,35 @@ const BOARDS = { run2: load('live-v51-run2-approved.view.json'), run1: load('liv
 const FREE_1128 = 1128 - (1128 - 811) - 45, FREE_2000 = 2000 - (2000 - 1640) - 45
 const FREE_1440 = 1440 - 360 - 45
 
+it.each(['Simple', 'Detailed'] as const)('%s spaces every neighbour and tier on the joined-board fixture at 1232', async (mode) => {
+  const model = load('live-4352bfa3-copy-v5.view.json').model!
+  const row = mode === 'Simple' ? simpleStageRow(840) : stageRow(model, 840)
+  const size = new Map([
+    [QUESTION, { width: questionBarWidth(model, row), height: 83 }] as const,
+    ...model.cards.map((c, index) => [c.id, { width: row.cardW - index % 4, height: 127 + index % 5 * 12 }] as const),
+  ])
+  const places = await causalPlaces(model, size, { row })
+  const rows = new Map<number, { x: number; width: number; height: number }[]>()
+  for (const [id, p] of places) {
+    const { width, height } = size.get(id)!
+    rows.set(p.y, [...(rows.get(p.y) ?? []), { x: p.x, width: p.w ?? width, height }])
+  }
+  expect(rows.size).toBeGreaterThan(2)
+  let previousBottom: number | undefined
+  let neighbours = 0
+  for (const [top, cards] of [...rows].sort(([a], [b]) => a - b)) {
+    if (previousBottom !== undefined) expect(top - previousBottom).toBe(48)
+    previousBottom = top + Math.max(...cards.map((c) => c.height))
+    cards.sort((a, b) => a.x - b.x)
+    for (let i = 1; i < cards.length; i++) {
+      const previous = cards[i - 1]!
+      expect(cards[i]!.x - (previous.x + previous.width)).toBeCloseTo(24, 10)
+      neighbours++
+    }
+  }
+  expect(neighbours).toBeGreaterThan(0)
+})
+
 describe('the options row is sized to the stage (DL-538)', () => {
   for (const [name, view] of Object.entries(BOARDS)) {
     const model = view.model!, ids = allOptionCards(model).map((c) => c.id)
@@ -102,12 +131,15 @@ describe('DL-REQ-0020 question bar', () => {
 
   for (const simple of [false, true]) {
     const mode = simple ? 'Simple' : 'Detailed'
+    const rowAt = (roomW: number, board = model) => simple
+      ? { ...simpleStageRow(roomW), questionGapX: undefined }
+      : stageRow(board, roomW)
 
     it.each([[1440, FREE_1440], [2000, FREE_2000]])(`${mode} at %i with the dock open: five options, two-card question, at the options row start (Detailed) / centred over the first options row (Simple)`, async (_stageW, roomW) => {
-      const row = simple ? simpleStageRow(roomW) : stageRow(model, roomW)
+      const row = rowAt(roomW)
       expect(options).toHaveLength(5)
       const cardW = simple ? simpleBand(row, options.length).w : row.cardW
-      const cap = 2 * cardW + row.gapX
+      const cap = 2 * cardW + (row.questionGapX ?? row.gapX)
       const width = questionBarWidth(model, row)
       const size = new Map([[QUESTION, { width, height: 85 }], ...model.cards.map((c) => [c.id, { width: row.cardW, height: c.h }] as const)])
       const places = await causalPlaces(model, size, { row })
@@ -132,9 +164,9 @@ describe('DL-REQ-0020 question bar', () => {
     })
 
     it(`${mode} with two options: the question keeps the two-card span`, () => {
-      const row = simple ? simpleStageRow(FREE_2000) : stageRow(two, FREE_2000)
+      const row = rowAt(FREE_2000, two)
       const cardW = simple ? simpleBand(row, 2).w : row.cardW
-      expect(questionBarWidth(two, row)).toBe(2 * cardW + row.gapX)
+      expect(questionBarWidth(two, row)).toBe(2 * cardW + (row.questionGapX ?? row.gapX))
     })
   }
 })

@@ -14,7 +14,7 @@ import { balancedRowSizes, layoutGraph, solveLayoutCardWidths } from '../canvas/
 import { labelCounterScale, LABEL_COUNTER_SCALE_CAP } from '../canvas/utils/zoomLegibility'
 import { packRows } from '../canvas/utils/packRows'
 import { ascending, leftToRight } from './geometry/rowOrder'
-import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W, ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
+import { LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW, REPEATED_CARD_W, ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
@@ -101,6 +101,9 @@ export const LIMIT_TIER = 4
 const W = REPEATED_CARD_W, GAP_X = 48 // UI restore stage 1: the previous product's card, the width its layout places (nodeLayoutConstants)
 /** The gap under a card: the least room between two cards one above the other. */
 export const GAP_Y = 14
+/** Olumi board spacing in flow units (brand.css --space-6 and --space-12). */
+const BOARD_SPACE_6 = 24
+const BOARD_SPACE_12 = 48
 
 /** A View card's width on the canvas: core's page card (review 00063 #4). */
 export const CARD_WIDTH = W
@@ -170,14 +173,18 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * THE PREVIOUS PRODUCT'S GRAPH FOR CORE'S MODEL (UI restore stage 1, rows 5 and 6; DL ruling 10 Nov on Paul's test: "so much worse than it
  * used to be"). Each View card as its kind and each View link as an edge, placed by the previous product's own layout (`layoutGraph`,
  * canvas/utils/layout.ts) and by nothing else: one layered layout, top to bottom by default, its direction and spacing the ones the
- * layout store holds. No family rows, no four-card wrap, no left column of routes, no aims beside the question laid over it (the
- * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
- * core's is read or written here.
+ * layout store holds. The engine establishes row membership and order before the Olumi board packs the rows to s8 spacing.
+ * `size` is each card as the canvas measured it (else its slot width and core's height).
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[] } = {}): Promise<Map<string, SimplePlace>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[]; railed?: ReadonlySet<string> } = {}): Promise<Map<string, SimplePlace>> {
   // Simple uses model bands and card order. Only Detailed needs layoutGraph's positions.
   if (options.row?.simple === true) return simplePlaces(model, size, options.row, options.extras)
-  const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
+  const nodes = engineNodes(model, (id, w, h) => {
+    const face = size.get(id)
+    if (face === undefined) return { width: w, height: h }
+    // The crossing-aware layout includes the chip rail in a measured card's box.
+    return options.railed?.has(id) ? { ...face, height: face.height + TREE_RAIL_Y } : face
+  })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
   // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
@@ -186,18 +193,30 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   const laid = await layoutGraph(nodes, edges, { direction, spacing: options.spacing, preserveLocked: false, maxPerRow })
   const places = new Map(laid.nodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
   if (direction !== 'DOWN' && direction !== 'UP') return places
-  const packed = packRows(places, QUESTION, options.row?.cardW ?? W, options.row?.gapX ?? ROW_GAP_X)
+  const widthOf = (id: string) => size.get(id)?.width ?? options.row?.cardW ?? W
+  const packed = packRows(places, QUESTION, widthOf, BOARD_SPACE_6)
   // The question bar is up to two cards wide; Detailed at the row's start, Simple centred (DL-REQ-0020 retires DL-538's span).
   const opts = allOptionCards(model).map((c) => packed.get(c.id)).filter((p): p is { x: number; y: number } => p !== undefined), q = packed.get(QUESTION)
   if (options.row !== undefined && q !== undefined && opts.length > 0) packed.set(QUESTION, { x: Math.min(...opts.map((p) => p.x)), y: q.y })
-  if (options.row !== undefined && direction === 'DOWN') besideTheMeasure(model, packed, options.row)
+  if (options.row !== undefined && direction === 'DOWN') besideTheMeasure(model, packed, options.row, widthOf)
   // DL 1232 fault 3: on a stage-sized board every row starts where the options row starts (each row was closed up about its own centre, so
   // rows of the same count drifted apart and the board grew wider than the stage). Order across is kept.
-  if (options.row !== undefined && opts.length > 0) {
-    const left = Math.min(...allOptionCards(model).map((c) => packed.get(c.id)?.x ?? Infinity))
-    const rows = new Map<number, string[]>()
-    for (const [id, p] of packed) if (id !== QUESTION) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
-    for (const ids of rows.values()) { const shift = left - Math.min(...ids.map((id) => packed.get(id)!.x)); for (const id of ids) { const p = packed.get(id)!; packed.set(id, { x: p.x + shift, y: p.y }) } }
+  const left = options.row !== undefined && opts.length > 0 ? Math.min(...opts.map((p) => p.x)) : undefined
+  const rows = new Map<number, string[]>()
+  for (const [id, p] of packed) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
+  // Use the final rows and drawn heights. ELK includes box padding and prompt space,
+  // and moving an aim beside its measure can change the last row's tallest card.
+  const heights = new Map(nodes.map((n) => [n.id, size.get(n.id)?.height ?? n.measured!.height!]))
+  const ys = ascending([...rows.keys()])
+  let y = ys[0] ?? 0
+  for (const top of ys) {
+    const ids = rows.get(top)!
+    const shift = left === undefined ? 0 : left - Math.min(...ids.map((id) => packed.get(id)!.x))
+    for (const id of ids) {
+      const p = packed.get(id)!
+      packed.set(id, { x: p.x + shift, y: direction === 'DOWN' ? y : top })
+    }
+    y += Math.max(...ids.map((id) => heights.get(id)!)) + BOARD_SPACE_12
   }
   return packed
 }
@@ -208,7 +227,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
  * 24 flow units apart and rows 48 apart (the band's label stands in that gap). The budget is production's own (ROW_BUDGET_W) or, in a narrower
  * room, the room at the zoom at which type at the counter-scale cap draws 11 px.
  */
-export const SIMPLE_GAP_X = LAYOUT_NODE_GAP, SIMPLE_GAP_Y = LAYOUT_LAYER_GAP
+export const SIMPLE_GAP_X = BOARD_SPACE_6, SIMPLE_GAP_Y = BOARD_SPACE_12
 /** The zoom at which 12 px type at the counter-scale cap draws 11 px (the card text floor on screen): the board is laid out to fit across at it. */
 export const SIMPLE_READABLE_ZOOM = 11 / (12 * LABEL_COUNTER_SCALE_CAP)
 /** Where a band's label stands above its first row: this far over the row's top, clear of the kind marker's overhang and of an arrow head arriving
@@ -315,7 +334,7 @@ export function ideasOnlyPlaces(extras: readonly SimpleExtra[], size: ReadonlyMa
  * (the layout's last layer: the measure links into them), they move up into the row above, to the right of its last card, so the board
  * reads options, figures, then the measure and the goal side by side, one row shorter. Geometry only; nothing else moves.
  */
-function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { cardW: number; gapX: number; perRow?: number }): void {
+function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: number }>, row: { perRow?: number }, widthOf: (id: string) => number): void {
   const aims = new Set(aimsOf(model))
   const ys = ascending([...new Set([...packed].filter(([id]) => id !== QUESTION).map(([, p]) => p.y))])
   if (ys.length < 3) return
@@ -325,11 +344,10 @@ function besideTheMeasure(model: ViewModel, packed: Map<string, { x: number; y: 
   const beside = [...packed].filter(([id, p]) => id !== QUESTION && p.y === above)
   // Only where the row has room for them within the stage's count (DL 1232 fault 3); else the aims keep their own row.
   if (beside.length === 0 || (row.perRow !== undefined && beside.length + foot.length > Math.max(row.perRow, allOptionCards(model).length))) return
-  let x = Math.max(...beside.map(([, p]) => p.x)) + row.cardW + row.gapX
-  for (const id of leftToRight(foot, packed)) { packed.set(id, { x, y: above }); x += row.cardW + row.gapX }
+  let x = Math.max(...beside.map(([id, p]) => p.x + widthOf(id))) + BOARD_SPACE_6
+  for (const id of leftToRight(foot, packed)) { packed.set(id, { x, y: above }); x += widthOf(id) + BOARD_SPACE_6 }
 }
-/** The room between two cards in a row of the board: the previous layout's own (its node gap and its box padding). */
-export const ROW_GAP_X = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
+export const ROW_GAP_X = BOARD_SPACE_6
 /**
  * J1 step 1 (Codex's order, DL 8 Nov: "one readable path"): a relation core draws as a card, whose reason links name the two drawn cards
  * of a link between them, is that link: the board draws the link and not the card ("Visits revenue" and "Reminded" were cards sitting
@@ -1263,26 +1281,25 @@ export const CARD_MIN_W = 140
 /** The readable floor the row is sized for (camera.ts READABLE_WHOLE_ZOOM: 11px text over 12px), kept here so layout does not import the camera. */
 const READABLE_FLOOR = 11 / 12
 /**
- * DL-538 (14 Nov, the target screen): the board's rows are sized to the stage. The card width (and the row gap) are the ones at which the
- * widest row of options fits the free canvas across (`roomW`, ViewCanvas's insets) at the readable floor: the full card and the full gap
- * where they fit, else the layout's node gap and a card between CARD_MIN_W and the full card. A stage
- * too narrow even at CARD_MIN_W pans (the camera never shrinks the board to a zoomed-out face).
+ * DL-538: preserve the stage's card widths, wrapping and question bar span when packing the rows at the s8 gap.
  */
-export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number; perRow?: number } {
+export function stageRow(model: ViewModel, roomW: number): { cardW: number; gapX: number; perRow?: number; questionGapX?: number } {
   const n = Math.max(1, allOptionCards(model).length), room = roomW / READABLE_FLOOR
   // perRow (DL 1232 fault 3): how many cards of this width fit across the stage, so every other row wraps at that count and the board is
   // never wider than the stage but for an options row that cannot fit (that one pans, with the "more to the right" cue).
-  const fit = (w: number, g: number) => Math.max(1, Math.floor((room + g) / (w + g)))
-  if (roomW <= 0) return { cardW: W, gapX: ROW_GAP_X }
-  if (n * W + (n - 1) * ROW_GAP_X <= room) return { cardW: W, gapX: ROW_GAP_X, perRow: fit(W, ROW_GAP_X) }
+  const fit = (w: number, gap: number) => Math.max(1, Math.floor((room + gap) / (w + gap)))
+  const questionGapX = LAYOUT_NODE_GAP + LAYOUT_PADDING_X
+  if (roomW <= 0) return { cardW: W, gapX: BOARD_SPACE_6, questionGapX }
+  if (n * W + (n - 1) * questionGapX <= room) return { cardW: W, gapX: BOARD_SPACE_6, perRow: fit(W, questionGapX), questionGapX }
   const cardW = Math.max(CARD_MIN_W, Math.min(W, Math.floor((room - (n - 1) * LAYOUT_NODE_GAP) / n)))
-  return { cardW, gapX: LAYOUT_NODE_GAP, perRow: fit(cardW, LAYOUT_NODE_GAP) }
+  return { cardW, gapX: BOARD_SPACE_6, perRow: fit(cardW, LAYOUT_NODE_GAP) }
 }
 /** The question bar is up to two cards wide; Detailed at the row's start, Simple centred (DL-REQ-0020 retires DL-538's span). */
-export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }): number => {
+export const questionBarWidth = (model: ViewModel, row: { cardW: number; gapX: number; questionGapX?: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }): number => {
   if (row.simple === true) return simpleQuestionW(model, row)
   const n = Math.max(1, allOptionCards(model).length)
-  return capQuestionWidth(n * row.cardW + (n - 1) * row.gapX, row.cardW, row.gapX)
+  const gap = row.questionGapX ?? row.gapX
+  return capQuestionWidth(n * row.cardW + (n - 1) * gap, row.cardW, gap)
 }
 
 /** A reading explanation is shared only across matching rows with the same non-empty heading. */

@@ -1,8 +1,8 @@
 /**
  * UI restore stage 1, rows 5 and 6 (DL ruling 10 Nov on Paul's test of the served build: "so much worse than it used to be"): the board is
  * the previous product's layout and nothing laid over it. Each card stands where `layoutGraph` (canvas/utils/layout.ts) puts its own kind,
- * top to bottom by default: the question, the options, the factors, the outcomes and risks, the aims last. The overrides of 4 to 8 Nov
- * (aims beside the question, a left column of routes, rows by depth in the room at 1232) are gone. Core's goldens; positions bound by id.
+ * top to bottom by default: the question, the options, the factors, the outcomes and risks, the aims last. The Olumi board packs the
+ * resulting rows to the s8 gaps. Core's goldens; positions bound by id.
  */
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -33,9 +33,13 @@ describe("the board is the previous product's layout", () => {
       expect(places.get(QUESTION)).toEqual({ x: own.get(QUESTION)!.x, y: own.get(QUESTION)!.y })
       const rows = new Map<number, string[]>()
       for (const [id, at] of own) if (id !== QUESTION) rows.set(at.y, [...(rows.get(at.y) ?? []), id])
-      for (const [y, ids] of rows) {
+      let previousY = places.get(QUESTION)!.y
+      for (const [y, ids] of [...rows].sort(([a], [b]) => a - b)) {
         ids.sort((a, b) => own.get(a)!.x - own.get(b)!.x)
-        for (const id of ids) expect(places.get(id)!.y, id).toBe(y)
+        const packedY = places.get(ids[0]!)!.y
+        expect(packedY).toBeGreaterThan(previousY)
+        for (const id of ids) expect(places.get(id)!.y, id).toBe(packedY)
+        previousY = packedY
         expect([...ids].sort((a, b) => places.get(a)!.x - places.get(b)!.x), `row ${y}`).toEqual(ids)
         ids.slice(1).forEach((id, i) => expect(places.get(id)!.x - places.get(ids[i]!)!.x, id).toBeCloseTo(CARD_WIDTH + ROW_GAP_X))
         const mid = (m: Map<string, { x: number; y: number }>) => (m.get(ids[0]!)!.x + m.get(ids[ids.length - 1]!)!.x + CARD_WIDTH) / 2

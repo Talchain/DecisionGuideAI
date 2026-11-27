@@ -10,11 +10,12 @@
  * matters is that the hold is released, not which element was on screen when
  * it was.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, cleanup } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, fireEvent, render, cleanup } from '@testing-library/react'
 import { OlumiAttentionCard } from '../OlumiAttentionCard'
 import { useCanvasStore } from '../../store'
 import type { OlumiAttentionNote } from '../../utils/olumiAttention'
+import { useEscapeLayer } from '../../../olumiView/v12/edit/escapeLayers'
 
 vi.mock('@xyflow/react', () => ({
   useStore: (selector: (s: { transform: [number, number, number] }) => unknown) =>
@@ -35,6 +36,8 @@ function pressEscape() {
 }
 
 describe('OlumiAttentionCard — Escape releases the hold', () => {
+  afterEach(() => { vi.unstubAllEnvs() })
+
   beforeEach(() => {
     cleanup()
     useCanvasStore.setState({
@@ -42,6 +45,46 @@ describe('OlumiAttentionCard — Escape releases the hold', () => {
       edges: [],
       olumiAttention: null,
     })
+  })
+
+  it('on the Olumi board, closes a newer surface before releasing a hold without a note', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    useCanvasStore.setState({
+      olumiAttention: { nodeIds: ['fac_price'], edgeIds: [], note: null, caveat: null, turnId: null, modelVersion: null },
+    })
+    render(<OlumiAttentionCard />)
+    const closeNewer = vi.fn()
+    function NewerSurface({ open }: { open: boolean }) {
+      useEscapeLayer(open, closeNewer)
+      return null
+    }
+    const { rerender } = render(<NewerSurface open />)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(closeNewer).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().olumiAttention).not.toBeNull()
+    rerender(<NewerSurface open={false} />)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(useCanvasStore.getState().olumiAttention).toBeNull()
+  })
+
+  it('puts a replacement hold above a surface opened during the original hold', () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    const initial = { nodeIds: ['fac_price'], edgeIds: [], note: null, caveat: null, turnId: 'first', modelVersion: null }
+    useCanvasStore.setState({ olumiAttention: initial })
+    render(<OlumiAttentionCard />)
+    const closeOther = vi.fn()
+    function OtherSurface() {
+      useEscapeLayer(true, closeOther)
+      return null
+    }
+    render(<OtherSurface />)
+
+    act(() => useCanvasStore.setState({ olumiAttention: { ...initial, turnId: 'replacement' } }))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(useCanvasStore.getState().olumiAttention).toBeNull()
+    expect(closeOther).not.toHaveBeenCalled()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(closeOther).toHaveBeenCalledTimes(1)
   })
 
   it('clears a held attention that is showing a card', () => {
