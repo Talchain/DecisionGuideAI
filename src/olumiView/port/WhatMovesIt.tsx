@@ -2,10 +2,8 @@ import type { ViewModel, ViewRun } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { GlyphMark, Hover } from '../look/Hover'
 import { useViewStore } from '../store'
-import { TipPoint } from '../v12/scale/TipPoint'
+import { canDrawTip, TipPoint } from '../v12/scale/TipPoint'
 import { cardOf, findOutOf, leadChangeOf } from './pick'
-import { figureRange } from '../v12/contract'
-import { spanAxisOf } from '../v12/scale/axis'
 import type { TippingLine } from '../tipping'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
@@ -51,16 +49,6 @@ export function FindOutRanking({ run, only, edit }: { run: ViewRun | null; only:
   )
 }
 
-
-/** Use the same bounds as TipPoint so an undrawable crossing has its reading in the fold. */
-function canDrawTip(tipping: TippingLine, card: ReturnType<typeof cardOf>) {
-  const { at, low, high } = tipping
-  if (![at, low, high].every(Number.isFinite) || !(low < high)) return false
-  const range = card === null ? null : figureRange(card)
-  const values = [at, low, high]
-  if (range !== null) values.push(range.low, range.high, range.likely ?? range.low)
-  return spanAxisOf(Math.min(...values), Math.max(...values)) !== null
-}
 
 export function leadReadingOf(model: ViewModel) {
   const run = model.run ?? null
