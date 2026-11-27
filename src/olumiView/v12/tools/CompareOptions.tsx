@@ -16,7 +16,7 @@ import { LetterChip } from '../cards/marks'
 import { cardOfRecord, optionPathOf } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { useCompareSelection, type Pair } from './compareSelection'
-import { useToolSubject } from './focusAdapter'
+import { useFocusSubject } from './focusAdapter'
 import './compareOptions.css'
 
 export const COMPARE_OPTIONS_CHROME = {
@@ -138,8 +138,8 @@ function OptionComparison({ model, options, a, b, setPair }: {
 }) {
   const aId = a.id
   const bId = b?.id
-  const subject = useToolSubject()
-  const subjectId = subject?.kind === 'card' && options.some((card) => card.id === subject.id) ? subject.id : null
+  const subject = useFocusSubject()
+  const subjectId = subject?.source === 'canvas' && (subject.kind === 'option' || subject.kind === 'card') && options.some((card) => card.id === subject.id) ? subject.id : null
   const handledSubject = useRef<string | null>(null)
   const tool = useRef<HTMLElement>(null)
   const chips = useRef(new Map<string, HTMLButtonElement>())
