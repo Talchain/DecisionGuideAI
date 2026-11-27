@@ -4,13 +4,14 @@
  * present on the canvas (and "doubted", "not settled" where such a link is drawn), each with core's own words from `model.key` (ids effect, input,
  * size, doubted, unsettled, measures, target); only the items core sends are drawn. Row 2, present-only (panel-visual L1, L2, L4): the dotted reason line, the alert and proposal halos under a line, and the six midpoint direction marks in the registry's ids and words. Row 3: Olumi's mark and a person's mark (fixed notation chrome).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { View, ViewLink, ViewModel } from '../../client'
 import { cardLinks, drawnModelOf, linkByOlumi } from '../../layout'
 import { useViewStore } from '../../store'
-import { useBoard } from '../../canvas'
+import { VIEW_LINK } from '../../canvas'
+import { useCanvasStore } from '../../../canvas/store'
 import { linkRole } from '../contract'
 import { firstDraft as firstDraftOf, linkLook } from '../fields/fields'
 import { DOUBT_DASH, EFFECT_STROKES, EDGE_NEUTRAL, LINK_STYLES, linkAlertStyle, linkStyle } from '../links/styles'
@@ -138,14 +139,15 @@ export function useDockInset(): number {
 export function KeyLines() {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
-  // Swatches stand only for links the board draws as themselves: on Simple a folded input's or a closed group's links run into a neutral group connector.
-  // The canvas's own projection hook, so a swatch can only stand for a link the board draws as itself.
-  const board = useBoard()?.model ?? null
-  if (view === null || model === null || board === null) return null
+  // PL 1647: swatches follow what the active canvas has committed, its own link edges (drawViewCanvas), so a pending or failed layout that leaves
+  // the previous board up keeps the key on that board. A folded input's or a closed group's links are a neutral group connector, never a link edge.
+  const edges = useCanvasStore((s) => s.edges)
+  const committed = useMemo(() => edges.flatMap((e) => (e.type === VIEW_LINK ? [(e.data as unknown as { link: ViewLink }).link] : [])), [edges])
+  if (view === null || model === null) return null
   const lines = keyLinesOf(model)
   const { underlays, marks } = keyExtrasOf(view)
   const first = firstDraftOf(view).firstDraft === true
-  const drawn = cardLinks(board).map(({ link }) => ({
+  const drawn = committed.map((link) => ({
     ...drawnAs(link),
     doubt: !!link.doubt,
     alert: linkAlertStyle(link),

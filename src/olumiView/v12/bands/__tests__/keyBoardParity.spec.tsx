@@ -3,10 +3,11 @@ import { readFileSync } from 'node:fs'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { View, ViewLink } from '../../../client'
-import { cardLinks, drawnModelOf } from '../../../layout'
+import { drawnModelOf } from '../../../layout'
 import { useViewStore } from '../../../store'
 import { ViewLegend } from '../../../ViewLegend'
-import { boardOf, useBoard } from '../../../canvas'
+import { boardOf, drawViewCanvas, GROUP_LINK, VIEW_LINK } from '../../../canvas'
+import { useCanvasStore } from '../../../../canvas/store'
 import { setDefaultLevel } from '../../simpleStore'
 import { inputIdsOf } from '../bands'
 import { inputsFolded, useInputsOpen } from '../foldStore'
@@ -28,15 +29,21 @@ const typed = (links: ViewLink[], ids: string[]): View => ({
 afterEach(() => {
   cleanup()
   useViewStore.setState({ view: null })
+  useCanvasStore.setState({ nodes: [], edges: [] } as never)
 })
+
+/** PL 1647: the key follows what the canvas committed. Commit the board as the canvas does (drawViewCanvas over boardOf). */
+const commitBoard = () => { const b = boardOf(useViewStore.getState().view!.model!); drawViewCanvas(b.model, new Map(), b.extras, b.links) }
+/** The committed edges of one type, from the canvas store. */
+const committed = (type: string) => useCanvasStore.getState().edges.filter((e) => e.type === type)
+/** The board's own drawing of each committed link edge, by its place in the View's links. */
+const committedEdges = () => new Map(committed(VIEW_LINK).map((e) => { const { link, i } = e.data as unknown as { link: ViewLink; i: number }; return [i, drawLinkEdge(link, i)] }))
 
 function draw(view: View) {
   useViewStore.setState({ view })
+  commitBoard()
   render(<ViewLegend open onOpenChange={() => {}} />)
-  const edges = new Map(
-    cardLinks(drawnModelOf(view.model!)).map(({ link, i }) => [i, drawLinkEdge(link, i)]),
-  )
-  return { key: screen.getByTestId('view-key-lines'), edges }
+  return { key: screen.getByTestId('view-key-lines'), edges: committedEdges() }
 }
 
 function boardTrace(edge: Element) {
@@ -186,10 +193,9 @@ describe('Simple folded inputs (PL 1526): a swatch stands only for a link the bo
     setDefaultLevel('simple')
     useInputsOpen.setState({ open: open ? { [folded.view.id]: true } : {} })
     useViewStore.setState({ view: folded.view, sid: folded.view.id })
+    commitBoard()
     render(<ViewLegend open onOpenChange={() => {}} />)
-    const board = boardOf(folded.view.model!).model
-    const edges = new Map(cardLinks(board).map(({ link, i }) => [i, drawLinkEdge(link, i)]))
-    return { key: screen.getByTestId('view-key-lines'), edges }
+    return { key: screen.getByTestId('view-key-lines'), edges: committedEdges() }
   }
   it('the fixture folds and the alerted link runs from a folded input', () => {
     expect(inputsFolded(folded.view.id, drawnModelOf(folded.view.model!), {})).toBe(true)
@@ -202,37 +208,31 @@ describe('Simple folded inputs (PL 1526): a swatch stands only for a link the bo
     expect(row.textContent).toBe('Core’s alert explanation')
     expect(row.querySelector('[data-key-sample]')).toBeNull()
   })
-  it('one mounted key follows the fold: folded has no swatch and a neutral connector, opening it adds the matching swatch, folding again removes it', () => {
+  const link = () => folded.view.model!.links[folded.at]!
+  /** The folded link is drawn as a neutral group connector into its target (GroupLinkEdge), not as its own link edge. */
+  const connectorDrawn = () => committed(GROUP_LINK).some((e) => e.target === link().to && e.source !== link().from)
+  it('one mounted key follows the committed board: a fold change shows in the key only once the canvas commits it', () => {
     const { key } = drawSimple(false)
-    const link = folded.view.model!.links[folded.at]!
-    expect(boardOf(folded.view.model!).links.some((g) => g.to === link.to && g.from !== link.from)).toBe(true)
-    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]')
-    expect(swatch()).toBeNull()
-    act(() => useInputsOpen.setState({ open: { [folded.view.id]: true } }))
-    expect(swatch()).not.toBeNull()
-    expect(boardOf(folded.view.model!).links.some((g) => g.to === link.to && g.from !== link.from)).toBe(false)
-    act(() => useInputsOpen.setState({ open: {} }))
-    expect(swatch()).toBeNull()
-  })
-  it('a new sid with the same View re-projects: an opened sid shows the swatch, a sid not opened does not', () => {
-    const { key } = drawSimple(true)
-    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]')
-    expect(swatch()).not.toBeNull()
-    act(() => useViewStore.setState({ sid: 'sid-other' }))
-    expect(swatch()).toBeNull()
-  })
-  it('the canvas and the key read one projection (useBoard): across a sid switch both draw the link as itself, or neither does', () => {
-    const at = folded.view.model!.links[folded.at]!
-    let drawsIt: boolean | null = null
-    function Canvas() { const board = useBoard(); drawsIt = board === null ? null : cardLinks(board.model).some(({ link }) => link === at); return null }
-    const { key } = drawSimple(true)
-    render(<Canvas />)
     const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]') !== null
-    expect([drawsIt, swatch()]).toEqual([true, true])
+    expect([connectorDrawn(), swatch()]).toEqual([true, false])
+    act(() => useInputsOpen.setState({ open: { [folded.view.id]: true } }))
+    expect([connectorDrawn(), swatch()]).toEqual([true, false]) // layout pending: the folded board is still up, and so is its key
+    act(() => { commitBoard() })
+    expect([connectorDrawn(), swatch()]).toEqual([false, true])
+    act(() => useInputsOpen.setState({ open: {} }))
+    expect(swatch()).toBe(true) // the opened board is still drawn
+    act(() => { commitBoard() })
+    expect([connectorDrawn(), swatch()]).toEqual([true, false])
+  })
+  it('a failed or pending layout after a sid switch leaves the previous board, and the key stays with what is drawn', () => {
+    const { key } = drawSimple(true)
+    const swatch = () => key.querySelector('[data-key-item="halo-alert"] svg[data-key-sample]') !== null
+    const drawsIt = () => committed(VIEW_LINK).some((e) => (e.data as unknown as { i: number }).i === folded.at)
+    expect([drawsIt(), swatch()]).toEqual([true, true])
     act(() => useViewStore.setState({ sid: 'sid-other' }))
-    expect([drawsIt, swatch()]).toEqual([false, false])
-    act(() => useViewStore.setState({ sid: folded.view.id }))
-    expect([drawsIt, swatch()]).toEqual([true, true])
+    expect([drawsIt(), swatch()]).toEqual([true, true])
+    act(() => { commitBoard() })
+    expect([drawsIt(), swatch()]).toEqual([false, false])
   })
   it('contrast, opened: the board draws the edge and the key’s halo swatch matches it', () => {
     const { key, edges } = drawSimple(true)

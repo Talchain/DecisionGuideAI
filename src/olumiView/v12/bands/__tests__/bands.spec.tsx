@@ -30,6 +30,9 @@ import { setGroupOpen, setInputsOpen } from '../foldStore'
 import { groupIdOf } from '../groups'
 import { GroupLinkEdge } from '../GroupLinkEdge'
 
+/** PL 1647: the key reads the canvas's committed link edges, so a key test first commits the board the way the canvas does (drawViewCanvas over boardOf). */
+const commitBoard = () => { const b = boardOf(useViewStore.getState().view!.model!); drawViewCanvas(b.model, new Map(), b.extras, b.links) }
+
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
 const H = 60
@@ -214,7 +217,7 @@ describe('bands: the key pill', () => {
   })
   it('K3 CHANGED BY DESIGN (Paul 17 Nov: one key, in the left menu): the key\'s lines and marks are two rows, samples then Olumi\'s and a person\'s marks', () => {
     const m = withKey(['effect', 'size'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'size', causal: null }])
-    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
     const pill = screen.getByTestId('view-key-lines')
     expect(pill.querySelector('[data-key-row="lines"]')!.querySelectorAll('[data-key-item]')).toHaveLength(2)
@@ -227,7 +230,7 @@ describe('bands: the key pill', () => {
       { ...model.links[1]!, causal: { sign: 'unknown' } },
       { ...model.links[2]!, doubt: false, causal: { sign: 'decreases' } },
     ])
-    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
     const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).getAttribute('stroke')
     expect(stroke('increases')).toBe(EFFECT_STROKES.increases)
@@ -242,7 +245,7 @@ describe('bands: the key pill', () => {
     const typed = { ...model.links[0]!, role: 'input', causal: null, direction: 'raises', doubt: true }
     expect([...keyPresent(withKey(['effect', 'input'], [typed]))].sort()).toEqual(['doubted', 'effect'])
     const lowers = { ...model.links[1]!, causal: null, direction: 'lowers', doubt: true }
-    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey(['doubted'], [typed, lowers]) }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey(['doubted'], [typed, lowers]) }, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
     const item = container.querySelector('[data-key-item="doubted"]')!
     expect(item).toHaveTextContent('core says doubted')
@@ -258,7 +261,7 @@ describe('bands: the key pill', () => {
     const { marks, underlays } = keyExtrasOf({ ...view, model: m } as View)
     expect([...marks].sort()).toEqual(['depends', 'disputed', 'lowers', 'none', 'raises', 'unknown'])
     expect(underlays.size).toBe(0)
-    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
     expect(KEY_MARK_IDS).toEqual({ raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' })
     expect([...container.querySelectorAll('[data-key-direction]')].map((e) => e.getAttribute('data-key-direction'))).toEqual(['raises', 'lowers', 'depends', 'disputed', 'unknown', 'none'])
@@ -266,7 +269,7 @@ describe('bands: the key pill', () => {
     expect(words).toEqual([ICONS['link-raises'].hover, ICONS['link-lowers'].hover, ICONS['link-depends'].hover, ICONS['link-none'].hover])
     cleanup()
     const none = render(<KeyLines />)
-    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey([], [{ ...l0, causal: null, direction: null }]) }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: withKey([], [{ ...l0, causal: null, direction: null }]) }, status: 'ready' } as never); commitBoard()
     none.rerender(<KeyLines />)
     expect(none.container.querySelector('[data-key-direction]')).toBeNull()
   })
@@ -279,7 +282,7 @@ describe('bands: the key pill', () => {
     expect([...x].sort()).toEqual(['dotted', 'halo-alert', 'halo-proposed'])
     expect(keyExtrasOf({ ...settled, model: { ...settled.model!, first_draft: true } } as View).underlays.has('halo-proposed')).toBe(false)
     expect(keyExtrasOf({ ...settled, model: { ...settled.model!, links: [{ ...settled.model!.links[0]! }] } } as View).underlays.has('halo-alert')).toBe(false)
-    useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: settled, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
     expect(container.querySelector('[data-key-sample="dotted"]')).toBeNull()
     expect(container.querySelector('[data-key-item="dotted"]')).toHaveTextContent('core says reason')
@@ -288,7 +291,7 @@ describe('bands: the key pill', () => {
     expect(container.querySelector('[data-key-item="halo-alert"]')).toHaveTextContent('core says alert')
   })
   it('K4 with no role in the View, the key still draws its marks and no line sample', () => {
-    useViewStore.setState({ sid: view.id, view: { ...view, model: { ...model, key: key(['input']) } }, status: 'ready' } as never)
+    useViewStore.setState({ sid: view.id, view: { ...view, model: { ...model, key: key(['input']) } }, status: 'ready' } as never); commitBoard()
     render(<KeyLines />)
     const pill = screen.getByTestId('view-key-lines')
     expect(pill.querySelector('[data-key-row="lines"]')).toBeNull()
