@@ -4,12 +4,15 @@
  * present on the canvas (and "doubted", "not settled" where such a link is drawn), each with core's own words from `model.key` (ids effect, input,
  * size, doubted, unsettled, measures, target); only the items core sends are drawn. Row 2, present-only (panel-visual L1, L2, L4): the dotted reason line, the alert and proposal halos under a line, and the six midpoint direction marks in the registry's ids and words. Row 3: Olumi's mark and a person's mark (fixed notation chrome).
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { View, ViewLink, ViewModel } from '../../client'
 import { cardLinks, drawnModelOf, linkByOlumi } from '../../layout'
 import { useViewStore } from '../../store'
+import { boardOf } from '../../canvas'
+import { levelOf, useSimpleLevel } from '../simpleStore'
+import { useInputsOpen } from './foldStore'
 import { linkRole } from '../contract'
 import { firstDraft as firstDraftOf, linkLook } from '../fields/fields'
 import { DOUBT_DASH, EFFECT_STROKES, EDGE_NEUTRAL, LINK_STYLES, linkAlertStyle, linkStyle } from '../links/styles'
@@ -137,11 +140,15 @@ export function useDockInset(): number {
 export function KeyLines() {
   const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
-  if (view === null || model === null) return null
+  // Swatches stand only for links the board draws as themselves: on Simple a folded input's or a closed group's links run into a neutral group connector.
+  const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
+  const open = useInputsOpen((s) => s.open)
+  const board = useMemo(() => (model === null ? null : boardOf(model, open).model), [model, open, level])
+  if (view === null || model === null || board === null) return null
   const lines = keyLinesOf(model)
   const { underlays, marks } = keyExtrasOf(view)
   const first = firstDraftOf(view).firstDraft === true
-  const drawn = cardLinks(drawnModelOf(model)).map(({ link }) => ({
+  const drawn = cardLinks(board).map(({ link }) => ({
     ...drawnAs(link),
     doubt: !!link.doubt,
     alert: linkAlertStyle(link),
@@ -151,7 +158,8 @@ export function KeyLines() {
   const hasPolarity = (sign: (typeof EFFECT_POLARITY)[number]['id'], doubt: boolean, alert = false, proposed = false) =>
     drawn.some((d) => d.direction === (sign === 'increases' ? 'raises' : 'lowers') && d.doubt === doubt
       && d.alert === (alert ? 'halo' : null) && d.proposed === proposed)
-  const showUnsettled = marks.has('unknown') && lines.some((l) => l.id === 'unsettled')
+  const boardMarks = new Set(drawn.flatMap((d) => (d.mark === null ? [] : [d.mark])))
+  const showUnsettled = boardMarks.has('unknown') && lines.some((l) => l.id === 'unsettled')
   // Words are core's key items where core sends one (reason, alert, olumi), else the registry's own (the marks); a sample core has no word for stands without one.
   const coreWord = (id: string) => (model.key ?? []).find((k) => k.id === id)?.text
   const UNDERLAYS: readonly { kind: KeyUnderlay; word: string | undefined }[] = [
@@ -185,7 +193,7 @@ export function KeyLines() {
           </span>)}
           {markWords.map((w) => (
             <span key={w} className={item} data-key-item="direction">
-              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w && !(m === 'unknown' && showUnsettled)).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={14} decorative /></span>)}{w}
+              {(Object.keys(KEY_MARK_IDS) as KeyMark[]).filter((m) => marks.has(m) && ICONS[KEY_MARK_IDS[m]].hover === w && boardMarks.has(m) && !(m === 'unknown' && showUnsettled)).map((m) => <span key={m} data-key-direction={m} className="inline-flex"><OkIcon id={KEY_MARK_IDS[m]} size={14} decorative /></span>)}{w}
             </span>
           ))}
         </div>
