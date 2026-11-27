@@ -4,7 +4,6 @@ import { GlyphMark, Hover } from '../look/Hover'
 import { useViewStore } from '../store'
 import { canDrawTip, TipPoint } from '../v12/scale/TipPoint'
 import { cardOf, findOutOf, leadChangeOf } from './pick'
-import type { TippingLine } from '../tipping'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
 
