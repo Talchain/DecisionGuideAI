@@ -101,7 +101,7 @@ afterEach(() => {
 })
 
 describe('What to check', () => {
-  it('uses the fixed groups and Core order, keeping identical words and dropping only the matching size id', () => {
+  it('uses the fixed groups and Core order, keeping identical words and listing blocked figures once in readiness', () => {
     const { model, view, ranked, other, first, second } = fixture()
     const groups = checkItemsOf(model, view)
     expect(groups.map((group) => group.kind)).toEqual(['needs', 'find', 'examine'])
@@ -109,11 +109,9 @@ describe('What to check', () => {
     expect(needs!.slice(0, 2).map(({ key, short }) => [key, short])).toEqual([['blocks:0', 'Same words'], ['blocks:1', 'Same words']])
     expect(needs!.filter(({ kind }) => kind === 'waits').map(({ key, short }) => [key, short])).toEqual([['waits:fitting', 'Same words']])
     expect(checkNeedsOf(model).map(({ key }) => key)).toEqual([
-      'blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1', 'waits:fitting', `size:${ranked.id}`, `size:${other.id}`, `worth:${other.id}.0`,
+      'blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1', 'waits:fitting', `worth:${other.id}.0`,
     ])
-    expect(needs!.map(({ key }) => key)).toEqual([
-      'blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1', 'waits:fitting', `size:${other.id}`, `worth:${other.id}.0`,
-    ])
+    expect(needs!.map(({ key }) => key)).toEqual(checkNeedsOf(model).map(({ key }) => key))
     expect(needs!.at(-1)).toMatchObject({ key: `worth:${other.id}.0`, short: other.heading, at: `${other.id}.worth_checking.0.title`, long: [{ text: 'Core observation', at: `${other.id}.worth_checking.0.text` }] })
     expect(find!.map(({ key }) => key)).toEqual([`f:0:${second.id}`, `f:0:${first.id}`])
     const widen = ['askOption', 'askRisk'].filter((key) => view.model_words[key as keyof View['model_words']]).map((key) => `w:${key}`)
@@ -127,11 +125,17 @@ describe('What to check', () => {
     fireEvent.click(toggle('find'))
     expect(screen.getByText('Core line without figures')).toHaveAttribute('data-view', 'run.find_out.1.line')
     expect(document.querySelector('[data-view="run.find_out.0.line"]')).toHaveTextContent(model.run!.find_out![0]!.line)
+
+    model.run!.shared_blockers = []
+    expect(checkNeedsOf(model).filter(({ kind }) => kind === 'size').map(({ key }) => key)).toEqual([`size:${ranked.id}`, `size:${other.id}`])
+    const unblocked = checkItemsOf(model, view).find(({ kind }) => kind === 'needs')!
+    expect(unblocked.blocks.flatMap(({ items }) => items.filter(({ kind }) => kind === 'size').map(({ key }) => key))).toEqual([`size:${other.id}`])
   })
 
   it('shows four readiness tiles and the observation at rest, then the remaining tiles and card-less rows', async () => {
     const user = userEvent.setup()
     const { view, model, other } = fixture()
+    model.run!.shared_blockers![0]!.aim_id = 'carry_on'
     model.run!.shared_blockers!.push({ aim_id: 'unshown-aim', options: [], text: 'Core card-less need' })
     show(view)
     const needs = document.querySelector('[data-check-group="needs"]')!
@@ -479,16 +483,57 @@ describe('readiness in Check', () => {
     const view = viewOf('golden/app-launch'), run = view.model!.run!
     const items = checkNeedsOf(view.model!)
     const blockers = run.shared_blockers!.map((b, i) => [`blocks:${i}`, b.text, `run.shared_blockers.${i}.text`])
-    const waits = run.waits_on!.items.flatMap((item, i) => item.text === '' ? [] : [[`waits:${item.id}`, item.text, `run.waits_on.items.${i}.text`]])
+    const blockedIds = new Set(run.shared_blockers!.map((b) => b.aim_id))
+    const waits = run.waits_on!.items.flatMap((item, i) =>
+      item.text === '' || blockedIds.has(item.id) ? [] : [[`waits:${item.id}`, item.text, `run.waits_on.items.${i}.text`]])
     expect(items.slice(0, blockers.length).map((item) => [item.key, item.short, item.at])).toEqual(blockers)
     expect(items.filter((item) => item.kind === 'waits').map((item) => [item.key, item.short, item.at])).toEqual(waits)
     show(view)
     if (toggle('needs') !== null) fireEvent.click(toggle('needs'))
+    const needs = document.querySelector('[data-check-group="needs"]')!
+    for (const id of ['protect_user_trust', 'boss_discussion']) {
+      expect(run.waits_on!.items.some((item) => item.id === id)).toBe(true)
+      expect(items.filter((item) => item.cards.includes(id))).toHaveLength(1)
+      expect(needs.querySelectorAll(`[data-check-tile="${id}"]`)).toHaveLength(1)
+    }
+    expect(row('waits:schedule_assumptions')).toBeInTheDocument()
     for (const [key, words, at] of [...blockers, ...waits]) {
       fireEvent.click(row(key!))
       const bound = row(key!).closest('li')!.querySelector(`[data-view="${at}"]`)
       expect(bound?.textContent).toBe(words)
     }
+  })
+
+  it('suppresses wait and size rows for every explicit blocker of a missing result', () => {
+    const { model, other } = fixture()
+    const run = model.run!
+    run.shared_blockers = []
+    const option = model.cards.find((card) => card.id === 'second_oven')!
+    const none = option.rows.find((row) => row.kind === 'none')!
+    const keysForTarget = () => checkNeedsOf(model).filter((item) => item.cards.includes(other.id) && item.kind !== 'worth').map(({ key }) => key)
+    expect(keysForTarget()).toEqual([`size:${other.id}`])
+    option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: other.id }, { role: 'figure', ref: 'fitting' }] }
+    expect(keysForTarget()).toEqual(['none:second_oven.0'])
+    expect(checkNeedsOf(model).some(({ key }) => key === 'waits:fitting')).toBe(false)
+    run.waits_on!.items.push({ ...run.waits_on!.items[0]!, id: other.id })
+    expect(keysForTarget()).toEqual(['none:second_oven.0'])
+    option.rows[0] = none
+    expect(keysForTarget()).toEqual([`waits:${other.id}`])
+  })
+
+  it('keeps an independent wait on the aim when a missing result names a different blocker', () => {
+    const model = viewOf('golden/bakery').model!
+    const waits = model.run!.waits_on!.items
+    const aim = model.cards.find((card) => card.id === 'within_budget')!
+    const option = model.cards.find((card) => card.id === 'second_oven')!
+    const none = option.rows.find((row) => row.kind === 'none')!
+    option.rows[0] = { ...none, blocked_by: [{ role: 'figure', ref: 'oven_price' }] }
+    waits.push({ ...waits[0]!, id: aim.id, text: aim.heading, title: '', edit: null, answer: false })
+
+    const items = checkNeedsOf(model)
+    expect(items.find(({ key }) => key === 'none:second_oven.0')?.cards).toEqual(['oven_price'])
+    expect(items.find(({ key }) => key === 'none:longer_hours.0')?.cards).toEqual([aim.id])
+    expect(items.find(({ key }) => key === `waits:${aim.id}`)).toMatchObject({ cards: [aim.id], short: aim.heading })
   })
 
   it('covers only the options Core names in a shared blocker and skips reference rows', () => {

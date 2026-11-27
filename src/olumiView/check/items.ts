@@ -67,10 +67,16 @@ export function checkNeedsOf(model: ViewModel): CheckItem[] {
 
   const run = model.run
   const blockers = run?.shared_blockers ?? []
-  blockers.forEach((b, i) => push(`blocks:${i}`, 'blocks', b.text, `run.shared_blockers.${i}.text`, b.aim_id, cardOf(model, b.aim_id)?.figure?.edit ?? null))
+  blockers.forEach((b, i) => {
+    seen.add(b.aim_id)
+    push(`blocks:${i}`, 'blocks', b.text, `run.shared_blockers.${i}.text`, b.aim_id, cardOf(model, b.aim_id)?.figure?.edit ?? null)
+  })
   const options = optionCards(model)
   for (const card of options) card.rows.forEach((row, i) => {
-    if (row.kind !== 'none' || row.aim_role === 'reference') return
+    if (row.kind !== 'none') return
+    // An aim can host a missing result while still having its own independent wait.
+    for (const { ref } of row.blocked_by ?? []) seen.add(ref)
+    if (row.aim_role === 'reference') return
     if (blockers.some((b) => b.aim_id === row.aim_id && (b.options ?? []).includes(card.id))) return
     const id = row.blocked_by?.[0]?.ref ?? row.aim_id ?? null
     const at = `${card.id}.rows.${i}`

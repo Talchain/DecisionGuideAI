@@ -21,7 +21,7 @@ import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
 import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
-import { REASONING_LABELS } from '../ViewReasoning'
+import { REASONING_LABELS, ViewReasoningBlock } from '../ViewReasoning'
 import { COMMITMENT_WORDS } from '../reasoning/TowardsCommitment'
 import { displayedDissent } from '../reasoning/dissent'
 import { checkItemsOf } from '../check/items'
@@ -101,6 +101,8 @@ describe('the panel on a pending first model', () => {
     expect(withNeeds.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).toBeNull()
     expect(withNeeds.querySelector('[data-testid="analysis-to-reasoning"] [data-count]')).toHaveTextContent(/^[1-9]/)
+    const check = render(<ViewReasoningBlock />).container
+    expect(check.querySelectorAll('[data-check-group="needs"] [data-check-item]').length).toBeGreaterThan(0)
     cleanup()
     const bare = structuredClone(EU)
     Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], timing: [], compared: [] })

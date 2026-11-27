@@ -1,8 +1,8 @@
 /**
  * Said once (Paul's 19 Nov hiring re-test: the same Olumi figure "not yet sized" stood on all four option cards). Fixture: core 78c3afc4's own café shape
  * (src/view/__tests__/waits-said-once.test.ts, every option waits on one Olumi figure), written out by viewOf with zero provider calls
- * (fixtures/core-78c3afc4/cafe-waits.view3.json). Core no longer sends a per-option "Still unresolved"; the page says nothing on each option and lists
- * the figure once in what results need; where core's step differs per option, each keeps its own; an identical old step is said once, on the aim.
+ * (fixtures/core-78c3afc4/cafe-waits.view3.json). The page carries Core's shared blocker in Check. Where Core's step differs per option,
+ * each keeps its own. An identical old step is said once, on the aim.
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -34,11 +34,16 @@ afterEach(() => { cleanup(); setDefaultLevel('simple'); useViewStore.setState({ 
 const opts = CAFE.model!.cards.filter((c) => c.kind === 'option').map((c) => c.id)
 const unresolvedOn = (v: View, level: Level) => opts.map((id) => { const n = (draw(v, id, level).textContent ?? '').split('Still unresolved').length - 1; cleanup(); return n })
 describe('core 78c3afc4 café (every option waits on one Olumi figure): the UI says it once', () => {
-  it('W1 no option card says "Still unresolved" at either level; the run lists the figure once', () => {
+  it('W1 no option card says "Still unresolved" at either level; Check carries Core’s shared blocker once', () => {
     expect(opts).toHaveLength(4)
     for (const level of ['simple', 'working'] as const) expect([level, unresolvedOn(CAFE, level)]).toEqual([level, [0, 0, 0, 0]])
-    const waits = checkNeedsOf(CAFE.model!).filter((p) => p.kind === 'waits').map((p) => p.key)
-    expect(waits).toEqual(['waits:tip_gain'])
+    const model = CAFE.model!
+    expect(model.run!.waits_on!.items.map(({ id }) => id)).toContain('tip_gain')
+    const needs = checkNeedsOf(model)
+    expect(needs.filter(({ kind }) => kind === 'blocks')).toMatchObject([
+      { cards: ['aim_tips'], at: 'run.shared_blockers.0.text', short: model.run!.shared_blockers![0]!.text },
+    ])
+    expect(needs.some(({ key }) => key === 'waits:tip_gain')).toBe(false)
   })
   const withAdd = (add: (id: string) => string): View => ({ ...CAFE, model: { ...CAFE.model!, cards: CAFE.model!.cards.map((c) => (c.kind === 'option' ? { ...c, headline: { ...(c as { headline: object }).headline, add: add(c.id) } } : c)) } } as View)
   it('W2 CONTRAST: an option whose own step differs keeps its own line (the probe reads the field)', () => {
