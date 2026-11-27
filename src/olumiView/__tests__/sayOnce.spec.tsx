@@ -118,4 +118,35 @@ describe('SC-02: each tab says each thing once', () => {
     expect(premises.querySelector(`[data-view="${add.id}.premises.1.text"]`)).toBeNull()
     expect(premises.querySelector(`[data-view="${share.id}.premises.2.text"]`)?.textContent).toBe(share.premises[2]!.text)
   })
+
+  it('Reasoning (app-launch): each record is drawn once and a same-word premise without an id is kept', () => {
+    const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-app-launch.view3.json'), 'utf8'))
+    const cards = view.model!.cards
+    const discussion = cards.find((card) => card.id === 'boss_discussion')!
+    const delay = cards.find((card) => card.id === 'option_delay')!
+    const isolate = cards.find((card) => card.id === 'option_isolate')!
+    const prerequisite = cards.find((card) => card.id === 'isolation_prerequisite')!
+    const position = discussion.premises[0]!
+    expect([position.id, delay.premises[2]!.id]).toEqual(['initial_position', 'initial_position'])
+    expect(isolate.premises[0]!.id).toBe(prerequisite.id)
+    expect(prerequisite.reason).toBeTruthy()
+
+    const unlinkedIndex = discussion.premises.length
+    discussion.premises.push({ ...position, id: null })
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('view-reasoning-premises-toggle'))
+    const premises = screen.getByTestId('view-reasoning-premises-region')
+
+    for (const [paths, text] of [
+      [['boss_discussion.premises.0.text', 'option_delay.premises.2.text'], position.text],
+      [['option_isolate.premises.0.text', 'isolation_prerequisite.reason'], isolate.premises[0]!.text],
+    ] as const) {
+      const drawn = premises.querySelectorAll(paths.map((p) => `[data-view="${p}"]`).join(', '))
+      expect(drawn).toHaveLength(1)
+      expect(drawn[0]).toHaveAttribute('data-view', paths[0])
+      expect(drawn[0]!.textContent).toBe(text)
+    }
+    expect(premises.querySelector(`[data-view="boss_discussion.premises.${unlinkedIndex}.text"]`)?.textContent).toBe(position.text)
+  })
 })

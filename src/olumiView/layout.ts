@@ -956,11 +956,17 @@ export function optionInFocusOf(view: { model: ViewModel | null }, selected: Rea
 /** The cards of the given families, in the View's order (the model at a glance: options, factors, risks). */
 export const familyCards = (model: ViewModel, families: readonly string[]): ViewCard[] => model.cards.filter((c) => families.includes(c.family))
 const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'left_out']
-/** The premises and reasoning card reasons in Core's order, excluding records already covered by Check by id. */
+/** Keep the first premise for each record id, then the remaining reasoning card reasons. Check already covers its challenge ids. */
 export function premisesOnce(model: ViewModel, checkChallengeIds: ReadonlySet<string>): { premises: { card: ViewCard; p: ViewCard['premises'][number]; j: number }[]; cards: ViewCard[] } {
-  const premises = model.cards.flatMap((card) => (card.premises ?? []).flatMap((p, j) =>
-    p.id != null && checkChallengeIds.has(p.id) ? [] : [{ card, p, j }]))
-  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.reason !== null && !checkChallengeIds.has(c.id))
+  const seen = new Set(checkChallengeIds)
+  const premises = model.cards.flatMap((card) => (card.premises ?? []).flatMap((p, j) => {
+    if (p.id != null) {
+      if (seen.has(p.id)) return []
+      seen.add(p.id)
+    }
+    return [{ card, p, j }]
+  }))
+  const cards = model.cards.filter((c) => REASONING_FAMILIES.includes(c.family) && c.reason !== null && !seen.has(c.id))
   return { premises, cards }
 }
 /** The model at a glance, as the previous PoC's strip (side-by-side, 6 Nov): Options, Factors, Risks and Outcomes, each row the cards the
