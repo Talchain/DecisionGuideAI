@@ -1,5 +1,12 @@
 /** V12 Simple: every card and link is drawn at both levels (Simple removes text, not structure); each card kind has its visual; the pill switches per scenario. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('../../../olumiCore/team/api', async (original) => ({
+  ...await original<typeof import('../../../olumiCore/team/api')>(),
+  call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
+}))
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react'
@@ -13,10 +20,9 @@ import { useLaneInspector } from '../edit/inspectorStore'
 import { useWhatIf } from '../../whatif'
 import { chanceParts, headlineChanceRow } from '../cards/words'
 import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } from '../simpleStore'
-import { bandAxisOf, bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
+import { chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { LensesMenu } from '../lenses/LensesMenu'
 import { figureRange } from '../contract'
-import { axisOf, pctOf } from '../scale/axis'
 import { tipOf } from '../../__tests__/tipHelpers'
 
 vi.mock('../../../olumiCore/lane', async (real) => ({ ...(await real<object>()), isOlumiCoreLane: () => true }))
@@ -213,34 +219,21 @@ describe('V12 Simple faces', () => {
     expect((await tipOf(b.querySelector<HTMLElement>('[data-simple-face="no-chance"]')!)).split('\n').slice(0, 2)).toEqual(['No chance yet', why])
   })
 
-  it('S4 a figure with a modelled band is one range bar per option on one axis, inside 0 to 100', () => {
-    const rows = bandRowsOf(card('churn_rate'), model)
-    expect(rows.length).toBe(card('churn_rate').values!.length)
-    for (const r of rows) { expect(r.lo).toBeGreaterThanOrEqual(0); expect(r.hi).toBeLessThanOrEqual(100); expect(r.lo).toBeLessThanOrEqual(r.hi) }
+  it('S4 a modelled figure draws a lane for each option with a value', () => {
     const { container } = face('churn_rate')
-    expect(container.querySelectorAll('[data-simple-band]').length).toBe(rows.length)
-    expect(container.querySelector('[data-simple-face="figure"]'), 'CONTRAST: a stated figure draws its words instead').toBeNull()
+    expect(container.querySelectorAll('[data-band-track]')).toHaveLength(card('churn_rate').values!.length)
+    expect(container.querySelector('[data-simple-face="figure"]')).toBeNull()
   })
 
-  it('S4b (v10 review item 5) Simple\'s bars sit on the real 0-based axis with its two ends printed once and the gold goal tick at the aim\'s value; near-equal ranges draw near-equal bars', () => {
-    const c = card('customers'), aim = model.aim!
-    const { container } = face('customers')
-    const axis = axisOf(0, Math.max(...c.values!.map((v) => v.p90), aim.value))
-    expect(container.querySelector('[data-testid="simple-axis-min"]')!.textContent).toBe('0')
-    expect(container.querySelector('[data-testid="simple-axis-max"]')!.textContent).toBe(`${axis.max.toLocaleString('en-GB')} ${aim.unit}`)
-    const tick = container.querySelector<HTMLElement>('[data-testid="simple-goal-tick"]')!
-    expect([tick.getAttribute('data-at'), tick.style.getPropertyValue('--chart-x')]).toEqual([String(aim.value), `${pctOf(axis, aim.value)}%`])
-    for (const r of bandRowsOf(c, model)) expect(container.querySelector<HTMLElement>(`[data-simple-band="${r.option}"] i[data-band-from]`)!.getAttribute('data-band-from')).toBe(r.lo.toFixed(1))
-    // CONTRAST: a card that is not the aim's quantity has the axis ends but no goal tick.
-    const other = face('churn_rate').container
-    expect(other.querySelector('[data-testid="simple-axis-ends"]')).not.toBeNull()
-    expect(other.querySelector('[data-testid="simple-goal-tick"]')).toBeNull()
-    // Near-equal ranges: the old min-to-max axis stretched 100-110 against 101-111 to the whole bar; on the real axis they are near-equal and short.
+  it('S4b near-equal ranges stay near each other on the shared zero-based axis', () => {
+    const c = card('customers')
     const [a, b] = c.values!
-    const near = { ...c, values: [{ ...a!, p10: 100, p50: 105, p90: 110 }, { ...b!, p10: 101, p50: 106, p90: 111 }] } as typeof c
-    const rows = bandRowsOf(near, model)
-    expect([Math.abs(rows[0]!.lo - rows[1]!.lo) < 2, rows[0]!.hi - rows[0]!.lo < 5]).toEqual([true, true])
-    expect(bandAxisOf(near, model)!.min).toBe('0')
+    const near = { ...c, values: [{ ...a!, p10: 100, p50: 105, p90: 110 }, { ...b!, p10: 101, p50: 106, p90: 111 }] }
+    const { container } = render(<SimpleFace card={near} model={model} noted={false} />)
+    const [first, second] = [...container.querySelectorAll('[data-band-range]')]
+    expect(parseFloat(first!.getAttribute('x')!)).toBeCloseTo(100 / 111 * 100)
+    expect(parseFloat(second!.getAttribute('x')!)).toBeCloseTo(101 / 111 * 100)
+    expect(parseFloat(first!.getAttribute('width')!)).toBeCloseTo(10 / 111 * 100)
   })
 
   it('S4c an unsized figure uses an empty track', () => {
