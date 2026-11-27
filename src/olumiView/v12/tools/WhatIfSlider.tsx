@@ -1,13 +1,12 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react'
-import { TeamApiError } from '../../../olumiCore/team/api'
+import { useId, useLayoutEffect, useState } from 'react'
+import { unitIsDisplayable } from '../../../utils/unitClassifier'
 import { typography } from '../../../styles/typography'
-import type { View } from '../../client'
+import type { View, ViewRun } from '../../client'
 import { optionCards } from '../../layout'
 import { Hover } from '../../look/Hover'
-import { WhatIfBars } from '../../port/WhatIfBars'
 import { useViewStore } from '../../store'
 import { Row, WhatIfSizeLines } from '../../ViewChances'
-import { runWhatIf, WHAT_IF_STALE, type WhatIfVariant } from '../../whatif'
+import { clearSliderPreview, syncWhatIfBase, trySliderPoint, useWhatIfSliderStore } from './whatIfSliderStore'
 import { figureRange } from '../contract'
 
 export const WHAT_IF_SLIDER_WORDS = {
@@ -16,7 +15,7 @@ export const WHAT_IF_SLIDER_WORDS = {
   release: 'Release to try this value',
   preview: 'What-if, not saved',
   clear: 'Clear',
-  ineligible: 'To try a value, this figure needs an editable numeric range and a visible basis if Olumi supplied it.',
+  ineligible: 'To try a value, this figure needs an editable number. Olumi assumptions also need a supported range and a visible basis.',
   unavailable: 'Olumi could not read this what-if.',
 } as const
 
@@ -29,125 +28,115 @@ export function whatIfInputOf(view: View, quantity: string) {
   const card = view.model?.cards.find((item) => item.id === quantity && item.family === 'quantity')
   const figure = card?.figure
   const range = card && figureRange(card)
-  const reason = view.model?.run?.waits_on?.items.find((item) => item.id === quantity)?.title
+  const run = view.model?.run
+  const unitAsk = run?.ask?.about.includes(quantity) ? run.ask.text : null
+  const reason = unitAsk ?? run?.waits_on?.items.find((item) => item.id === quantity)?.title
   const refused = { reason: reason || WHAT_IF_SLIDER_WORDS.ineligible }
   if (!card || figure?.edit == null || 'route' in figure.edit || figure.state === 'waits'
-    || !range || range.low >= range.high) return refused
+    || !range || range.low > range.high || unitAsk !== null || !unitIsDisplayable(range.unit)) return refused
 
   const author = card.author
+  const common = { range, label: card.heading, words: figure.text, title: figure.title }
   if (author?.by === 'person' || author?.by === 'brief' || author?.by === 'mixed') {
-    return { range, label: card.heading, words: figure.text, assumption: null }
+    if (range.low < range.high) return { ...common, kind: 'range' as const, assumption: null }
+    if (range.likely === range.low) return { ...common, kind: 'point' as const, assumption: null }
   }
-  // The author hover can contain only an attribution. Figure-first is the View's
-  // separate, typed basis, and is usable here only when it identifies this saved figure.
-  const given = view.session?.figure_first?.given
-  const basis = given?.olumi
-  if (author?.by === 'olumi' && range.unit.trim() && given?.quantity === quantity && basis?.version === view.version?.n
-    && basis?.unit === range.unit && basis.low === range.low && basis.high === range.high
-    && basis.likely === range.likely && basis.basis.trim()) {
-    return { range, label: card.heading, words: figure.text, assumption: { author: author.text, basis: basis.basis } }
+  // Core's author title uses a colon only when its current Olumi origin supplies
+  // a basis. A bare attribution and a rename alone don't qualify.
+  if (author?.by === 'olumi' && range.low < range.high && /^Proposed by Olumi:\s+\S/.test(author.title)) {
+    return { ...common, kind: 'range' as const, assumption: author.title }
   }
   return refused
 }
 
-type Preview = {
-  position: number | null
-  pending: boolean
-  notice: string | null
-  variant: WhatIfVariant | null
-}
-type Flight = { scenario: string; quantity: string; base: number }
-
-// Pass the current View at both mounts. A chat host also pins its visual's version
-// and can omit the mount when its frozen Run no longer matches.
-export function WhatIfSlider({ view, quantity, pinnedVersion }: {
-  view: View; quantity: string; pinnedVersion?: number
-}) {
+export function useWhatIfBase(view: View) {
   const at = useViewStore((state) => state.sid === view.id ? state.at : null)
   const stale = useViewStore((state) => state.sid === view.id && (state.stale || state.error !== null))
   const latest = useViewStore((state) => state.sid === view.id ? state.view?.version?.id ?? null : undefined)
-  const [flight, setFlight] = useState<Flight | null>(null)
   const base = view.version?.id
-  if (base == null || at !== null || stale || view.proposal != null || view.model?.edit_base !== base
-    || (latest !== undefined && latest !== base) || (pinnedVersion !== undefined && pinnedVersion !== base)) return null
+  return base == null || at !== null || stale || view.proposal != null || view.model?.edit_base !== base
+    || (latest !== undefined && latest !== base) ? null : base
+}
+
+type RunId = string | number
+
+// Chat passes the pinned visual's version and Run. Older Views may omit the Run id.
+export function WhatIfSlider({ view, quantity, pinnedVersion, pinnedRun, currentRun }: {
+  view: View; quantity: string; pinnedVersion?: number; pinnedRun?: RunId | null; currentRun?: RunId | null
+}) {
+  const base = useWhatIfBase(view)
+  useLayoutEffect(() => { if (base !== null) syncWhatIfBase(view.id, base) }, [view.id, base])
+  const run = (view.model?.run as (ViewRun & { id?: RunId }) | null | undefined)?.id ?? currentRun
+  if (base === null || (pinnedVersion !== undefined && pinnedVersion !== base)
+    || (pinnedRun != null && run != null && pinnedRun !== run)) return null
 
   const input = whatIfInputOf(view, quantity)
   if ('reason' in input) return <p className={META}>{input.reason}</p>
 
-  const superseded = flight?.scenario === view.id && flight.quantity === quantity && flight.base !== base
-  return <SliderPreview key={JSON.stringify([view.id, base, quantity])} view={view} base={base} quantity={quantity} input={input}
-    superseded={superseded} setFlight={setFlight} />
+  return <SliderPreview key={JSON.stringify([view.id, base, quantity, input.kind])} view={view} base={base} quantity={quantity} input={input} />
 }
 
-function SliderPreview({ view, base, quantity, input, superseded, setFlight }: {
+function SliderPreview({ view, base, quantity, input }: {
   view: View; base: number; quantity: string; input: Exclude<ReturnType<typeof whatIfInputOf>, { reason: string }>
-  superseded: boolean; setFlight: (flight: Flight | null) => void
 }) {
   const id = useId()
   const { range, words, assumption } = input
   const start = range.likely ?? (range.low / 2 + range.high / 2)
-  const [draft, setDraft] = useState<number | null>(null)
-  const [preview, setPreview] = useState<Preview | null>(null)
-  const request = useRef(0)
-  const committed = useRef<number | null>(null)
-  useLayoutEffect(() => () => { request.current += 1 }, [])
+  const [draft, setDraft] = useState<string | null>(null)
+  const preview = useWhatIfSliderStore(({ scenarios }) => {
+    const current = scenarios.get(view.id)
+    return current?.base === base ? current.records.get(quantity) : undefined
+  })
 
   function clear() {
-    request.current += 1
-    committed.current = null
-    setFlight(null)
     setDraft(null)
-    setPreview(null)
+    clearSliderPreview(view.id, base, quantity)
   }
 
-  async function release(value: number) {
-    if (draft === null || value === committed.current || !Number.isFinite(value) || value < range.low || value > range.high) return
-    committed.current = value
-    const ticket = ++request.current
-    setFlight({ scenario: view.id, quantity, base })
+  function release(value: number) {
+    if (draft === null || !Number.isFinite(value)) return
+    if (input.kind === 'range' && (value < range.low || value > range.high)) return
     setDraft(null)
-    setPreview({ position: value, pending: true, notice: null, variant: null })
-    try {
-      const variant = await runWhatIf(view.id, base, quantity, { kind: 'point', value })
-      if (request.current !== ticket) return
-      setFlight(null)
-      setPreview({ position: value, pending: false, variant, notice: variant === null ? WHAT_IF_SLIDER_WORDS.unavailable : null })
-    } catch (error) {
-      if (request.current !== ticket) return
-      setFlight(null)
-      const coreMessage = error instanceof TeamApiError && (error.body as { error?: unknown } | null)?.error
-      const message = typeof coreMessage === 'string' && coreMessage ? coreMessage
-        : error instanceof TeamApiError && !error.uncertain ? error.message : WHAT_IF_SLIDER_WORDS.unavailable
-      committed.current = null
-      setPreview({ position: null, pending: false, variant: null, notice: message })
-    }
+    void trySliderPoint(view.id, base, quantity, value)
   }
 
   const variant = preview?.variant
   const edit = variant?.edits.find((item) => item.quantity === quantity)
   const status = preview?.pending ? WHAT_IF_SLIDER_WORDS.pending
-    : preview?.notice ?? variant?.stopped ?? variant?.blocked ?? variant?.why_not ?? (superseded ? WHAT_IF_STALE : null)
+    : preview?.notice ?? variant?.stopped ?? variant?.blocked ?? variant?.why_not ?? (preview && !variant ? WHAT_IF_SLIDER_WORDS.unavailable : null)
   const model = view.model!
   return (
     <div className="grid min-w-0 gap-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <label htmlFor={id} className={META}>{WHAT_IF_SLIDER_WORDS.label}</label>
-        {(preview !== null || superseded) && <button type="button" onClick={clear} className={`${META} ${FOCUS} underline`}>{WHAT_IF_SLIDER_WORDS.clear}</button>}
+        {preview !== undefined && <button type="button" onClick={clear} className={`${META} ${FOCUS} underline`}>{WHAT_IF_SLIDER_WORDS.clear}</button>}
       </div>
-      <input id={id} type="range" min={range.low} max={range.high} step="any"
+      {input.kind === 'point' ? (
+        <div className="flex items-center gap-2">
+          <input id={id} type="number" step="any" value={draft ?? preview?.position ?? start}
+            aria-describedby={`${id}-unit`}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') { event.preventDefault(); release(event.currentTarget.valueAsNumber) }
+            }}
+            onBlur={(event) => { release(event.currentTarget.valueAsNumber); setDraft(null) }}
+            className={`${typography.viewPanelBody} ${FOCUS} min-w-0 grow rounded-sm border border-panel-border bg-panel px-2 text-text-body`} />
+          <span id={`${id}-unit`} className={META}>{range.unit}</span>
+        </div>
+      ) : <input id={id} type="range" min={range.low} max={range.high} step="any"
         value={draft ?? preview?.position ?? start}
         aria-valuetext={draft !== null ? WHAT_IF_SLIDER_WORDS.release : edit?.words ?? (preview?.pending ? WHAT_IF_SLIDER_WORDS.pending : words)}
         aria-describedby={`${id}-figure`}
-        onChange={(event) => setDraft(event.currentTarget.valueAsNumber)}
+        onChange={(event) => setDraft(event.currentTarget.value)}
         onPointerUp={(event) => void release(event.currentTarget.valueAsNumber)}
         onPointerCancel={() => setDraft(null)}
         onKeyUp={(event) => { if (RELEASE_KEYS.includes(event.key)) void release(event.currentTarget.valueAsNumber) }}
         onBlur={(event) => void release(event.currentTarget.valueAsNumber)}
-        className={`${FOCUS} w-full accent-text-header`} />
+        className={`${FOCUS} w-full accent-text-header`} />}
       <div id={`${id}-figure`} className={META}>
         <span>{input.label}</span>
-        {preview === null && <p className="m-0">{words}</p>}
-        {assumption !== null && <div><div>{assumption.author}</div><div>{assumption.basis}</div></div>}
+        {preview === undefined && <Hover as="p" words={input.title} className="m-0">{words}</Hover>}
+        {assumption !== null && <div>{assumption}</div>}
       </div>
       <div role="status" className={META}>
         {status}
@@ -165,7 +154,6 @@ function SliderPreview({ view, base, quantity, input, superseded, setFlight }: {
                 return (
                   <div key={card.id}>
                     <div className={typography.viewPanelHeading}>{card.heading}</div>
-                    <WhatIfBars card={card} rows={rows} facts={variant.facts} />
                     {rows.map((row, i) => <Row key={i} card={{ ...card, id: `whatif.${id}.${card.id}` }} row={row} i={i} />)}
                     <WhatIfSizeLines variant={variant} option={card.id} />
                   </div>

@@ -7,6 +7,9 @@ import pending from '../../../fixtures/break-even/break-even-pending.view3.json'
 import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
 import { useViewStore } from '../../../store'
 import type { WhatIfAnswer, WhatIfSize } from '../../../whatif'
+import { setFocusSubject } from '../../../focus/subject'
+import { useStoredFocusSubject } from '../../../focus/state'
+import { useWhatIfSliderStore } from '../whatIfSliderStore'
 import { StressTest } from '../StressTest'
 import { WhatIfSlider, WHAT_IF_SLIDER_WORDS as WORDS } from '../WhatIfSlider'
 
@@ -14,14 +17,14 @@ vi.mock('../../../reasoning/tabRing', () => ({ pressCard: vi.fn(), ringFrom: vi.
 
 // ROW-V-DESIGN.v2 §0 and §4 pin the figures and expected outcomes in prose.
 // No captured pre-seed View or Core answers were found in lead-20261125 or the View fixtures.
-// This synthetic View adapts the pricing capture's structure and supplies explicit trial
-// ranges, which the design's point figures do not specify. Answers are API.md shape stubs.
+// Both pinned inputs are points. The projected View uses Core's flat-range shape.
+// The labelled answers below are API.md shape stubs.
 const source = pricing as unknown as View
 const sid = source.id
 const base = source.version!.id
 const path = `/api/scenarios/${sid}/whatif`
-const raise = { id: 'a_raise', label: 'A raise', value: 1_300_000, low: 1_100_000, high: 1_500_000, unit: 'GBP', words: '£1.3m' }
-const spend = { id: 'b_spend', label: 'B spend', value: 150_000, low: 120_000, high: 180_000, unit: 'GBP/month', words: '£150k/month' }
+const raise = { id: 'a_raise', label: 'A raise', value: 1_300_000, unit: 'GBP', words: '£1.3m' }
+const spend = { id: 'b_spend', label: 'B spend', value: 150_000, unit: 'GBP/month', words: '£150k/month' }
 const basis = 'Lean spend plus four hires at about £10,400/month fully loaded, all assumed.'
 const aim = 'runway_aim'
 const [optionA, optionB] = source.model!.cards.filter((card) => card.family === 'option')
@@ -35,27 +38,20 @@ const options = [
 const figures: ViewCard[] = [raise, spend].map((input) => ({
   ...template, family: 'quantity', id: input.id, heading: input.label,
   figure: { text: input.words, title: input.words, edit: { prompt: input.label, ask: 'Give a figure.' },
-    range: { low: input.low, high: input.high, likely: input.value, unit: input.unit } },
+    range: { low: input.value, high: input.value, likely: input.value, unit: input.unit } },
   author: input === raise ? { by: 'person', text: 'Your figure', title: 'You said £1.3m' }
-    : { by: 'olumi', text: 'Olumi’s estimate', title: 'Proposed by Olumi' },
+    : { by: 'olumi', text: 'Olumi’s estimate', title: `Proposed by Olumi: ${basis}` },
 }))
 const view: View = {
   ...source,
   model: { ...source.model!, cards: [...options, ...figures] },
-  session: { ...source.session, figure_first: {
-    offer: null, headings: { theirs: 'Yours', olumi: 'Olumi’s figure', basis: 'Basis', seen: 'Seen', adopted: 'Adopted' },
-    given: { view: 5, quantity: spend.id, label: spend.label, at: '',
-      theirs: { quantity: spend.id, label: spend.label, text: '£120k/month', title: '£120k/month', unit: spend.unit, version: source.version!.n, value: 120_000 },
-      olumi: { text: spend.words, title: spend.words, basis, version: source.version!.n, low: spend.low, high: spend.high, likely: spend.value, unit: spend.unit },
-      seen_before: { status: 'unknown', text: 'Unknown' }, adopted: null, note: '',
-    },
-  } },
+
 }
 const aLine = 'A · Run lean: the middle outcome for Runway moves from 12.00 months to 13.85 months.'
 const bLine = 'B · Hire faster: the middle outcome for Runway moves from 13.33 months to 16.67 months.'
 const stale = 'this what-if was asked on a different version'
 const why = 'The middle outcome moves, and the chances shown stay the same.'
-const assumption = 'Olumi’s what-if for B spend: £120k to £180k/month.'
+const assumption = 'Olumi’s estimate for B spend is £150k/month.'
 const unavailable = 'Olumi cannot read the unit for A raise.'
 
 function answer(input: typeof raise) {
@@ -84,10 +80,12 @@ const route = vi.fn<(body: unknown) => Response | Promise<Response>>()
 const network = vi.fn<typeof fetch>()
 const renderStress = (v = view) => <StressTest view={v} model={v.model!} />
 const slider = () => screen.getByRole('slider', { name: WORDS.label })
+const numberField = () => screen.getByRole('spinbutton', { name: WORDS.label })
 const posts = () => network.mock.calls.filter(([, init]) => init?.method === 'POST')
 function move(value: number) {
-  fireEvent.change(slider(), { target: { value: String(value) } })
+  fireEvent.change(numberField(), { target: { value: String(value) } })
 }
+const enter = () => fireEvent.keyDown(numberField(), { key: 'Enter' })
 function body(quantity: string, value: number) {
   return { base, variants: [{ edits: [{ quantity, value: { kind: 'point', value } }] }] }
 }
@@ -116,6 +114,8 @@ afterEach(() => {
     vi.unstubAllGlobals()
     setPagePerson(null)
     useViewStore.setState(useViewStore.getInitialState(), true)
+    useWhatIfSliderStore.setState(useWhatIfSliderStore.getInitialState(), true)
+    useStoredFocusSubject.setState({ subject: null })
   }
 })
 
@@ -123,37 +123,57 @@ describe('V-4 · What-if slider from the approved View', () => {
   it('(a) sends the numeric point only on release and reads A’s runway, status and assumptions verbatim', async () => {
     route.mockReturnValue(Response.json(answer(raise)))
     render(renderStress())
-    expect(slider()).toHaveAttribute('min', String(raise.low))
-    expect(slider()).toHaveAttribute('max', String(raise.high))
-    expect(slider()).toHaveValue(String(raise.value))
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(numberField()).toHaveValue(raise.value)
+    expect(numberField()).toHaveAccessibleDescription(raise.unit)
+    expect(screen.queryByTestId('range-bar')).toBeNull()
     move(1_400_000)
     move(1_500_000)
     expect(network).not.toHaveBeenCalled()
-    fireEvent.pointerUp(slider())
+    enter()
     expect(await screen.findByText(aLine)).toBeVisible()
     expect(screen.getByText(assumption)).toBeVisible()
     expect(screen.getByText(why)).toBeVisible()
-    expect(screen.getByTestId('view-whatif-track')).toBeVisible()
+    const preview = screen.getByLabelText(WORDS.preview)
+    expect(preview).toHaveTextContent(row.value)
+    expect(preview.querySelector('[data-testid="view-whatif-saved"]')).toBeNull()
+    fireEvent.blur(numberField())
     expect(route).toHaveBeenCalledWith(body(raise.id, 1_500_000))
     expect(route).toHaveBeenCalledOnce()
   })
 
-  it('(b) tries the labelled B assumption from its visible basis and reads B’s runway on keyboard release', async () => {
+  it('(b) refuses the pinned Olumi spend point even though it has a visible basis', () => {
+    // The 16.67-month stub is the documented target, which cannot be requested
+    // from a flat Olumi input without inventing a trial range.
     route.mockReturnValue(Response.json(answer(spend)))
     render(renderStress())
     fireEvent.click(screen.getByRole('button', { name: spend.label }))
-    expect(screen.getByText(basis, { exact: false })).toBeVisible()
-    expect(slider()).toHaveAttribute('min', String(spend.low))
-    expect(slider()).toHaveAttribute('max', String(spend.high))
-    move(120_000)
+    expect(screen.getByText(WORDS.ineligible)).toBeVisible()
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    expect(network).not.toHaveBeenCalled()
+  })
+
+  it('tries an actual ranged Olumi input using its current card basis and exact bounds', async () => {
+    const ranged = source.model!.cards.find((card) => card.id === 'cups_change')!
+    const bounds = ranged.figure!.range!
+    const a = answer(raise)
+    route.mockReturnValue(Response.json({ ...a, variants: [{ ...a.variants[0], size: [], rows: [], facts: [],
+      edits: [{ quantity: ranged.id, label: ranged.heading, words: 'Set cups change to −900 cups/month.' }],
+    }] }))
+    render(<WhatIfSlider view={source} quantity={ranged.id} />)
+    expect(screen.getByText(ranged.author!.title)).toBeVisible()
+    expect(slider()).toHaveAttribute('min', String(bounds.low))
+    expect(slider()).toHaveAttribute('max', String(bounds.high))
+    fireEvent.change(slider(), { target: { value: String(bounds.low) } })
     expect(network).not.toHaveBeenCalled()
     fireEvent.keyUp(slider(), { key: 'Home' })
-    expect(await screen.findByText(bLine)).toBeVisible()
-    expect(route).toHaveBeenCalledWith(body(spend.id, 120_000))
+    expect(await screen.findByText('Set cups change to −900 cups/month.')).toBeVisible()
+    expect(route).toHaveBeenCalledWith(body(ranged.id, bounds.low))
     expect(route).toHaveBeenCalledOnce()
   })
 
-  it('offers the slider from a visible calculation input when no chance row names a driver', () => {
+  it('offers the number field from a visible calculation input when no chance row names a driver', () => {
     const link = { ...view.model!.links[0], from: raise.id, to: 'runway', role: 'input' as const }
     const result: ViewCard = { ...template, id: 'runway', heading: 'Runway', figure: null, author: null }
     const noDriver: View = { ...view, model: { ...view.model!, links: [link],
@@ -161,8 +181,21 @@ describe('V-4 · What-if slider from the approved View', () => {
     } }
     render(renderStress(noDriver))
     fireEvent.click(screen.getByRole('button', { name: raise.label }))
-    expect(slider()).toHaveValue(String(raise.value))
+    expect(numberField()).toHaveValue(raise.value)
     expect(network).not.toHaveBeenCalled()
+  })
+
+  it('retargets to a focused visible non-driver with other drivers present', () => {
+    const focused: ViewCard = { ...figures[0], id: 'reserve', heading: 'Reserve' }
+    const v: View = { ...view, model: { ...view.model!, cards: [...view.model!.cards, focused] } }
+    useViewStore.setState({ view: v, sid, status: 'ready' })
+    render(renderStress(v))
+    act(() => setFocusSubject({ kind: 'card', id: focused.id, cards: [focused.id], source: 'canvas' }))
+    expect(screen.getByRole('button', { name: focused.heading })).toHaveAttribute('aria-pressed', 'true')
+    expect(numberField()).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: spend.label }))
+    expect(screen.getByText(WORDS.ineligible)).toBeVisible()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
   })
 
   it('(c) refuses an unsupported input using Core’s reason, even with a worked result row', () => {
@@ -178,15 +211,11 @@ describe('V-4 · What-if slider from the approved View', () => {
     expect(network).not.toHaveBeenCalled()
   })
 
-  it('(c) requires a typed basis for an Olumi estimate and refuses a point with no supported span', () => {
-    const noBasis = { ...view, session: { ...view.session, figure_first: null } }
-    const { rerender } = render(<WhatIfSlider view={noBasis} quantity={spend.id} />)
-    expect(screen.getByText(WORDS.ineligible)).toBeVisible()
-    expect(screen.queryByRole('slider')).toBeNull()
-    const point: View = { ...view, model: { ...view.model!, cards: [
-      { ...figures[0], figure: { ...figures[0].figure!, range: { low: raise.value, high: raise.value, likely: raise.value, unit: raise.unit } } },
-    ] } }
-    rerender(<WhatIfSlider view={point} quantity={raise.id} />)
+  it('(c) refuses a ranged Olumi card when the current author title only gives attribution', () => {
+    const id = 'cups_change'
+    const cards = source.model!.cards.map((card) => card.id === id
+      ? { ...card, author: { ...card.author!, title: 'Proposed by Olumi · Named by Priya' } } : card)
+    render(<WhatIfSlider view={{ ...source, model: { ...source.model!, cards } }} quantity={id} />)
     expect(screen.getByText(WORDS.ineligible)).toBeVisible()
     expect(screen.queryByRole('slider')).toBeNull()
     expect(network).not.toHaveBeenCalled()
@@ -195,38 +224,51 @@ describe('V-4 · What-if slider from the approved View', () => {
   it('(d) hides a pending-only draft and a chat visual pinned to an older version', () => {
     const draft: View = { ...view, version: null, proposal: (pending as unknown as View).proposal, model: { ...view.model!, edit_base: null } }
     const { rerender } = render(renderStress(draft))
-    expect(screen.queryByRole('slider')).toBeNull()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
     rerender(<WhatIfSlider view={view} quantity={raise.id} pinnedVersion={base - 1} />)
-    expect(screen.queryByRole('slider')).toBeNull()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    rerender(<WhatIfSlider view={view} quantity={raise.id} pinnedVersion={base} pinnedRun="old" currentRun="new" />)
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    rerender(<WhatIfSlider view={view} quantity={raise.id} pinnedVersion={base} pinnedRun="new" currentRun="new" />)
+    expect(numberField()).toBeVisible()
     expect(network).not.toHaveBeenCalled()
   })
 
   it('(e) says Core’s stale-base refusal verbatim and drops the previous result', async () => {
     route.mockReturnValueOnce(Response.json(answer(raise))).mockReturnValueOnce(Response.json({ error: stale }, { status: 409 }))
-    render(renderStress())
+    const first = render(renderStress())
     move(1_500_000)
-    fireEvent.pointerUp(slider())
+    enter()
     expect(await screen.findByText(aLine)).toBeVisible()
+    first.unmount()
+    const second = render(renderStress())
+    expect(screen.getByText(aLine)).toBeVisible()
     move(1_450_000)
-    fireEvent.pointerUp(slider())
+    fireEvent.blur(numberField())
     expect(await screen.findByText(stale)).toBeVisible()
+    second.unmount()
+    render(renderStress())
+    expect(screen.getByText(stale)).toBeVisible()
     expect(screen.queryByText(aLine)).toBeNull()
-    expect(slider()).toHaveValue(String(raise.value))
+    expect(numberField()).toHaveValue(raise.value)
   })
 
   it('(e) drops a late success when the approved version changes', async () => {
     let settle!: (response: Response) => void
     route.mockImplementation(() => new Promise((resolve) => { settle = resolve }))
-    const { rerender } = render(renderStress())
+    useViewStore.setState({ view, sid, status: 'ready' })
+    const first = render(renderStress())
     move(1_500_000)
-    fireEvent.pointerUp(slider())
+    enter()
     await waitFor(() => expect(route).toHaveBeenCalledOnce())
     const later = { ...view, version: { ...view.version!, id: base + 1 }, model: { ...view.model!, edit_base: base + 1 } }
-    rerender(renderStress(later))
+    first.unmount()
+    useViewStore.setState({ view: later })
     await act(async () => { settle(Response.json(answer(raise))) })
+    render(renderStress(later))
     expect(screen.queryByText(aLine)).toBeNull()
     expect(screen.getByText(stale)).toBeVisible()
-    expect(slider()).toHaveValue(String(raise.value))
+    expect(numberField()).toHaveValue(raise.value)
   })
 
   it('(f) Clear restores the original slider position and saved view without another request', async () => {
@@ -234,11 +276,11 @@ describe('V-4 · What-if slider from the approved View', () => {
     useViewStore.setState({ view, sid, status: 'ready' })
     render(renderStress())
     move(1_500_000)
-    fireEvent.pointerUp(slider())
+    enter()
     expect(await screen.findByText(aLine)).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: WORDS.clear }))
     expect(screen.queryByText(aLine)).toBeNull()
-    expect(slider()).toHaveValue(String(raise.value))
+    expect(numberField()).toHaveValue(raise.value)
     expect(useViewStore.getState().view).toBe(view)
     expect(screen.getAllByText(row.value).some((line) => line.closest('button'))).toBe(true)
     expect(route).toHaveBeenCalledOnce()

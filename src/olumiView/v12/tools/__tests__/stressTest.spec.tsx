@@ -98,7 +98,7 @@ afterEach(() => {
 })
 
 describe('Stress-test', () => {
-  it('moves only the selected record’s rows across the three readings and keeps the figure range static', () => {
+  it('moves only the selected record’s rows across the three readings with a single range track', () => {
     draw()
     expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-form', 'TT-stress')
     expect(screen.getByTestId('tool-stress')).toHaveAttribute('data-stress-unlabelled', '0')
@@ -116,7 +116,9 @@ describe('Stress-test', () => {
     expect(raiseProfit.querySelector('[data-letter-chip]')).toHaveTextContent('A')
     expect(raiseProfit.querySelector('[data-letter-chip]')?.closest('.olumi-look.contents')).toBeInTheDocument()
     expect(keepProfit.querySelector('[data-letter-chip]')).toHaveTextContent('B')
-    const originalBand = screen.getByTestId('range-band').getAttribute('style')
+    const slider = screen.getByRole('slider', { name: WHAT_IF_SLIDER_WORDS.label })
+    const { low, high } = cups.figure!.range!
+    expect(screen.queryByTestId('range-band')).toBeNull()
     expect(radio('saved')).toBeChecked()
     for (const step of ['saved', 'low', 'high'] as const) {
       fireEvent.click(radio(step))
@@ -126,7 +128,8 @@ describe('Stress-test', () => {
         expectSavedPair(raiseProfit, raiseRow.chance!)
         expectSavedPair(raiseAnnual, raiseSecond.chance!)
       } else expect(raiseProfit.querySelectorAll('[data-chance-dots]')).toHaveLength(1)
-      expect(screen.getByTestId('range-band')).toHaveAttribute('style', originalBand)
+      expect(slider).toHaveAttribute('min', String(low))
+      expect(slider).toHaveAttribute('max', String(high))
       expect(screen.queryByTestId('range-tried')).toBeNull()
       for (const [row, value, kind] of [[keepProfit, keepFirst.value, 'other'], [keepAnnual, keepSecond.value, 'none']] as const) {
         expect(row).toHaveAttribute('data-stress-computed', kind)
@@ -174,7 +177,7 @@ describe('Stress-test', () => {
 
     const words = new Set([
       ...Object.values(STRESS_STEPS), ...Object.values(STRESS_WORDS), ...Object.values(WHAT_IF_SLIDER_WORDS),
-      cups.heading, target.heading, cups.figure!.text, raise.heading, keep.heading,
+      cups.heading, target.heading, cups.figure!.text, cups.author!.title, raise.heading, keep.heading,
       raiseRow.aim, secondAim.aim, raiseRow.value, raiseSecond.value, keepFirst.value, keepSecond.value,
       raiseRow.title, raiseSecond.title, 'A', 'B',
     ])
@@ -353,7 +356,7 @@ describe('Stress-test', () => {
     const [unsized, sized] = within(tool).getAllByRole('listitem')
     expect(within(sized).getByTestId('range-point')).toBeVisible()
     expect(dashedTrack(sized)).toBeNull()
-    expect(within(sized).queryByRole('button')).toBeNull()
+    expect(within(sized).queryByRole('button', { name: STRESS_WORDS.fill })).toBeNull()
 
     expect(dashedTrack(unsized)).toBeEmptyDOMElement()
     expect(within(unsized).queryByTestId('range-bar')).toBeNull()
@@ -377,7 +380,9 @@ describe('Stress-test', () => {
     const spend = within(tool).getByText('Spend', { exact: true }).closest('li')!
     expect(dashedTrack(spend)).toBeEmptyDOMElement()
     expect(within(spend).queryByText('waits on: oven price')).toBeNull()
-    expect(within(spend).queryByRole('button')).toBeNull()
+    expect(within(spend).queryByRole('button', { name: STRESS_WORDS.fill })).toBeNull()
+    fireEvent.click(within(spend).getByRole('button', { name: 'Spend' }))
+    expect(tool).toHaveTextContent(WHAT_IF_SLIDER_WORDS.ineligible)
   })
 
   it('keeps the held proposal’s linked figures visible with their edits withdrawn', async () => {
@@ -521,7 +526,7 @@ describe('Stress-test', () => {
       base: view.model!.edit_base, variants: [{ edits: [{ quantity: cups.id, typed }] }],
     })
     expect(point).toBeChecked()
-    expect(screen.getByTestId('range-tried')).toHaveAttribute('data-at', '-500')
+    expect(screen.queryByTestId('range-bar')).toBeNull()
     expectChart(profit, 0.77)
     expectChart(annual, 0.22)
     expectSavedPair(profit, raiseRow.chance!)
@@ -540,7 +545,7 @@ describe('Stress-test', () => {
     fireEvent.keyDown(range, { key: 'ArrowLeft' })
     expect(point).toBeChecked()
     expect(point).toHaveFocus()
-    expect(screen.getByTestId('range-tried')).toHaveAttribute('data-at', '-500')
+    expect(screen.queryByTestId('range-bar')).toBeNull()
 
     fireEvent.click(figureChoice(target.heading))
     expect(screen.getAllByRole('radio')).toHaveLength(3)
