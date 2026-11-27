@@ -87,8 +87,9 @@ export function WorthReading({ lines }: { lines: ReturnType<typeof worthReadingO
       {lines.map(({ line: l, i }) => (
         <li key={l.id} className={`${TYPE.meta} text-text-body`} data-view-fact={l.id}>
           {l.olumi === null ? null : <><GlyphMark mark={l.olumi} className="text-info" view={`run.science.${i}.olumi.glyph`} /> </>}
-          <Hover words={l.hover} wordsAt={`run.science.${i}.hover`} data-view={`run.science.${i}.line`}>{l.line}</Hover>
+          <span data-view={`run.science.${i}.line`}>{l.line}</span>
           {l.figure?.give == null ? null : <span className="ml-1" data-worth-give={l.id}><FigureEdit id={l.figure.id} edit={l.figure.give.edit} place="worth" glyph words={false} lead={l.figure.give.text} label={`Change ${l.figure.label}`} /></span>}
+          {l.hover ? <p className="m-0 whitespace-pre-line text-text-light" data-view={`run.science.${i}.hover`}>{l.hover}</p> : null}
         </li>
       ))}
     </ul>
@@ -103,8 +104,8 @@ export function aimReadingOf(run: ViewRun | null, lead: LeadReading) {
 
 export function AimReading({ lead, silents }: { lead: LeadReading; silents: ReturnType<typeof aimReadingOf> }) {
   const withoutPicture = lead !== null && lead.tipping === null ? lead : null
-  const detail = lead?.tipping != null && lead.hover !== '' ? lead : null
-  if (withoutPicture === null && detail === null && silents.length === 0) return null
+  const withPicture = lead?.tipping == null ? null : lead
+  if (withoutPicture === null && withPicture === null && silents.length === 0) return null
   return (
     <section className="space-y-1" data-testid="analysis-aim-reading">
       {lead?.tipping == null ? <MovesHeading /> : null}
@@ -114,7 +115,12 @@ export function AimReading({ lead, silents }: { lead: LeadReading; silents: Retu
           <LeadTry card={withoutPicture.card} />
         </p>
       )}
-      {detail === null ? null : <p className="m-0" data-view={detail.hoverAt}>{detail.hover}</p>}
+      {withPicture === null ? null : (
+        <div className="space-y-1">
+          <p className="m-0" data-view={withPicture.at}>{withPicture.line}</p>
+          {withPicture.hover ? <p className="m-0 text-text-light" data-view={withPicture.hoverAt}>{withPicture.hover}</p> : null}
+        </div>
+      )}
       {silents.map((x) => (
         <p key={x.at} className={`${TYPE.meta} m-0 text-text-body`} data-testid="analysis-aim-silent" data-silent-aim={x.aim}>
           <Hover words={x.hover} wordsAt={x.at.replace(/\.line$/, '.text')} data-view={x.at}>{x.line}</Hover>

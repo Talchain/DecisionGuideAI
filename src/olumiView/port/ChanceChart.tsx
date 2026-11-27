@@ -7,12 +7,12 @@ import { OkIcon } from '../look/icons'
 import { GlyphMark, Hover } from '../look/Hover'
 import type { ViewCard } from '../client'
 import { FigureEdit } from '../FigureEdit'
-import { findOutOf, rangeOf, type ChartGroup, type ChartRow } from './pick'
+import { cardOf, findOutOf, rangeOf, type ChartGroup, type ChartRow } from './pick'
 import { typography } from '../../styles/typography'
 import { TYPE } from './type'
 import { ChanceKeyMark, ChanceTrack } from '../v12/scale/ChanceTrack'
 import { ChanceDots } from '../v12/scale/ChanceDots'
-import { OptionRow, RESULT_ROW_GRID } from './OptionRow'
+import { OptionRow } from './OptionRow'
 import { chanceForDots, isFixedMiss } from '../resultRange'
 
 /** The chart's own chrome: the key's two words and the axis. What low and high mean is core's sentence, on the key's hover. */
@@ -39,18 +39,15 @@ function Marks({ marks }: { marks: readonly { glyph: string; title: string }[] }
 }
 
 /**
- * The figure a whisker is for, named once: core's heading, core's words for its value, Olumi's mark where core gives one, and ✎ to give your
+ * The figure a whisker is for, named once: core's heading, core's figure value on hover, Olumi's mark where core gives one, and ✎ to give your
  * own (what narrows a range Olumi estimated), unless core's find-out ranking below already offers that ✎.
  */
 function FigureLabel({ card, given }: { card: ViewCard; given: ReadonlySet<string> }) {
   return (
     <span className={`${TYPE.meta} flex min-h-6 items-center gap-1 text-text-light`} data-chart-figure={card.id}>
       <OkIcon id="why-moves" size={14} decorative />
-      <span className="min-w-0">
-        <span data-view={`${card.id}.heading`}>{card.heading}</span>
-        {card.figure == null || card.figure.text === '' ? null : <>{' '}<span className="text-text-body" data-view={`${card.id}.figure.text`}>{card.figure.text}</span></>}
-        {card.olumi == null ? null : <>{' '}<GlyphMark mark={card.olumi} className="text-info" view={`${card.id}.olumi.glyph`} /></>}
-      </span>
+      <Hover words={card.figure?.text} wordsAt={`${card.id}.figure.text`} className="min-w-0 break-words" data-view={`${card.id}.heading`}>{card.heading}</Hover>
+      {card.olumi == null ? null : <GlyphMark mark={card.olumi} className="shrink-0 text-info" view={`${card.id}.olumi.glyph`} />}
       {card.figure?.edit == null || given.has(card.id) ? null : <FigureEdit id={card.id} edit={card.figure.edit} place="analysis-mover" glyph words={false} label={`Give your figure for ${card.heading}`} />}
     </span>
   )
@@ -69,24 +66,23 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
   return (
     <li data-chart-option={card.id}>
       <OptionRow id={card.id} ring={RING} words={row.title} wordsAt={`${card.id}.rows.${i}.title`}
-        className={`${RESULT_ROW_GRID} items-end`}>
-        <span className="flex min-w-0 flex-wrap items-baseline gap-1">
-          <span className={`${TYPE.body} min-w-0 break-words text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
-          <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
-            {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
-            {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
+        label={(
+          <span className="flex min-w-0 flex-wrap items-baseline gap-1">
+            <span className={`${TYPE.body} min-w-0 break-words text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+            <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
+              {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
+              {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
+            </span>
           </span>
-        </span>
-        <span className="min-w-0">
-          {fixedMiss ? null : <>{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></>}
-        </span>
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 [&_[data-chance-dots]]:max-w-full [&_[data-chance-dots]]:flex-wrap">
-          <span className={`${TYPE.meta} min-w-0 break-words text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
-          <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
-        </span>
-        {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
-            label is a sibling of the press below, never inside it; when every whisker is for one figure it is named once, under the chart. */}
-      </OptionRow>
+        )}
+        value={(
+          <span className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 [&_[data-chance-dots]]:max-w-full [&_[data-chance-dots]]:justify-end [&_[data-chance-dots]]:flex-wrap">
+            <span className={`${TYPE.meta} min-w-0 break-words text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+            <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
+          </span>
+        )}
+        track={fixedMiss ? null : <>{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></>}
+      />
       {range === null || figure === null ? null : <span className="block px-1"><FigureLabel card={figure} given={given} /></span>}
       {/* Core's worst-tenth sentence for this option and aim (R7, `rows[].tail`, optional): supporting detail
           under its own bar, verbatim, never composed from its numbers and never a comparison across options. */}
@@ -105,6 +101,10 @@ export const tailNoteOf = (run: unknown): { text: string; aims: string[] } | nul
 }
 const tailOf = (row: ChartRow['row']): string | null => (row.tail !== undefined && row.tail.text !== '' ? row.tail.text : null)
 
+export function whiskerFigureOf(model: ViewModel, row: ChartRow['row']) {
+  return cardOf(model, rangeOf(row)?.figure)
+}
+
 /** The selected aim's chance rows share one 0 to 100 axis. */
 export function ChanceChart({ model, group }: { model: ViewModel; group: ChartGroup }) {
   const [openAim, setOpenAim] = useState<string | null>(null)
@@ -115,7 +115,7 @@ export function ChanceChart({ model, group }: { model: ViewModel; group: ChartGr
   if (run === null) return null
   const ranged = group.rows.some(({ row }) => rangeOf(row) !== null)
   const { given } = findOutOf(run)
-  const figureOf = (r: ChartRow) => { const f = rangeOf(r.row); return f === null ? null : model.cards.find((c) => c.id === f.figure) ?? null }
+  const figureOf = ({ row }: ChartRow) => whiskerFigureOf(model, row)
   const figures = [...new Set(group.rows.map(figureOf).filter((c): c is ViewCard => c !== null))]
   const shared = figures.length === 1 ? figures[0]! : null
   const marks = [...new Map(group.rows.flatMap(({ row }) => [row.likely, row.olumi]).filter((m): m is NonNullable<typeof m> => m != null).map((m) => [m.glyph, m] as const)).values()]

@@ -201,7 +201,12 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect([...sec.querySelectorAll<HTMLElement>('[data-outcome-option]')].map((e) => e.dataset['outcomeOption'])).toEqual(rows.map((r) => r.card.id))
     for (const { card, row, i } of rows) {
       const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
-      expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
+      const value = el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!
+      const track = el.querySelector('[data-testid="analysis-outcome-track"]')!
+      expect(value.textContent).toBe(row.outcome!.text)
+      expect(value.closest('[data-option-value]')).toHaveClass('text-right', 'break-words', 'max-w-full')
+      expect(value.closest('[data-option-summary]')?.nextElementSibling).toBe(track.closest('[data-option-track]'))
+      expect(track.closest('[data-option-track]')).toHaveClass('w-full')
       expect([el.querySelector('button')!.getAttribute('title'), await tipOf(el.querySelector('button')!)], card.id).toEqual([null, row.outcome!.title])
       if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
       else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
@@ -259,7 +264,7 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
   })
 })
 
-it.each(['real/hiring', 'core/an01-studio'] as const)('%s Results at rest only draws the lead and the pictures’ labels and values', (name) => {
+it.each(['real/hiring', 'core/an01-studio', 'golden/bakery'] as const)('%s Results at rest only draws the lead and the pictures’ labels and values', (name) => {
   const view = viewOf(name), groups = chartGroupsOf(view.model!)
   vi.stubEnv('VITE_OLUMI_CORE', '1')
   ready(view); render(<PortAnalysisTab />)
@@ -274,7 +279,7 @@ it.each(['real/hiring', 'core/an01-studio'] as const)('%s Results at rest only d
   expect(root.querySelector('[data-view="run.lead"]')?.textContent).toBe(view.model!.run!.lead)
   for (const el of root.querySelectorAll('[data-view]')) {
     const at = el.getAttribute('data-view')!
-    const pictureLabel = /\.rows\.\d+\.(aim|value|outcome\.text|state_text|(likely|olumi)\.glyph)$|^run\.lenses\.\d+\.label$|^run\.tipping\.\d+\.figure\.label$|\.figure\.text$|\.olumi\.glyph$/.test(at)
+    const pictureLabel = /\.rows\.\d+\.(aim|value|outcome\.text|state_text|(likely|olumi)\.glyph)$|^run\.lenses\.\d+\.label$|^run\.tipping\.\d+\.figure\.label$|\.olumi\.glyph$/.test(at)
     expect(labels.has(at) || pictureLabel, at).toBe(true)
   }
   expect(expectAllBound(view, root, expect)).toBeGreaterThan(0)
@@ -393,7 +398,12 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const dots = first.querySelector('[data-chance-dots]')!
     expect(words.textContent).toBe(row.value)
     expect(words.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(axis.compareDocumentPosition(words) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const summary = words.closest('[data-option-summary]')!
+    expect(summary).toHaveClass('grid-cols-2')
+    expect(summary.firstElementChild?.querySelector(`[data-view="${card.id}.heading"]`)).not.toBeNull()
+    expect(words.closest('[data-option-value]')).toHaveClass('text-right', 'break-words', 'max-w-full')
+    expect(summary.nextElementSibling).toBe(axis.closest('[data-option-track]'))
+    expect(summary.nextElementSibling).toHaveClass('w-full')
     expect(dots.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(row.chance! * 10))
     expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
@@ -661,6 +671,33 @@ describe('what would change it', () => {
     expect(expectAllBound(view, screen.getByTestId('analysis-what-moves'), expect)).toBeGreaterThan(0)
   })
 
+  it('keeps each whisker’s heading visible and its Core figure value on hover and in the reading fold', async () => {
+    const view = viewOf('golden/bakery'), model = view.model!
+    ready(view); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    const labels = [...chart.querySelectorAll<HTMLElement>('[data-chart-figure]')]
+    expect(labels.length).toBeGreaterThan(1)
+    for (const label of labels) {
+      const id = label.dataset.chartFigure!
+      const card = model.cards.find((c) => c.id === id)!
+      const heading = label.querySelector<HTMLElement>(`[data-view="${id}.heading"]`)!
+      expect(heading.textContent).toBe(card.heading)
+      expect(tab().querySelector(`[data-view="${id}.figure.text"]`)).toBeNull()
+      fireEvent.pointerEnter(heading)
+      const tip = await screen.findByRole('tooltip')
+      expect(tip).toHaveAttribute('data-view', `${id}.figure.text`)
+      expect(tip.textContent).toBe(card.figure!.text)
+      fireEvent.pointerLeave(heading)
+    }
+    why()
+    const box = reading().getByTestId('analysis-chance-reading')
+    for (const label of labels) {
+      const id = label.dataset.chartFigure!
+      const card = model.cards.find((c) => c.id === id)!
+      expect(box.querySelector(`[data-whisker-figure="${id}"] [data-view="${id}.figure.text"]`)?.textContent).toBe(card.figure!.text)
+    }
+  })
+
   it('every whisker for one figure: it is named once, beside the key, never under each bar; CONTRAST two figures are named at their bars', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance' && r.driver != null) r.driver.figure = 'extra_sold_per_oven'
@@ -843,7 +880,7 @@ describe('why this reading: core\'s long reading, one press away', () => {
 })
 
 describe('what would have to be true, what could go wrong, what rests on Olumi\'s guesses: core\'s words, on the tab', () => {
-  it('bakery: the per-option crossing is drawn verbatim with its hover as the one Tip, and the lead crossing is drawn once (WhatMovesIt\'s), not twice', async () => {
+  it('bakery: the option crossing keeps its own Tip, and the lead sentence is available on the picture and once in the fold', async () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
     const opt = run.tipping.find((t) => t.kind !== 'lead')!, lead = run.tipping.find((t) => t.kind === 'lead')!
     ready(view); render(<PortAnalysisTab />)
@@ -853,10 +890,16 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     expect(p.querySelector('[data-view^="run.tipping."]')!.textContent).toBe(opt.line)
     expect([p.getAttribute('title'), await tipOf(p.querySelector<HTMLElement>('[data-view^="run.tipping."]')!)]).toEqual([null, opt.hover])
     expect(box.querySelector(`[data-view-fact="${lead.id}"]`)).toBeNull()
-    expect([...tab().querySelectorAll('span')].filter((e) => e.textContent === lead.line)).toHaveLength(0)
-    expect(laneTipOf(screen.getByTestId('analysis-lead-picture'))).toBe(lead.line)
+    const picture = screen.getByTestId('analysis-lead-picture')
+    expect(picture.textContent).not.toContain(lead.line)
+    expect(laneTipOf(picture)).toBe(lead.line)
     const leadIndex = run.tipping.indexOf(lead)
-    expect(reading().getByTestId('analysis-aim-reading').querySelector(`[data-view="run.tipping.${leadIndex}.hover"]`)?.textContent).toBe(lead.hover)
+    const aim = reading().getByTestId('analysis-aim-reading')
+    const sentences = tab().querySelectorAll(`[data-view="run.tipping.${leadIndex}.line"]`)
+    expect(sentences).toHaveLength(1)
+    expect(aim).toContainElement(sentences[0] as HTMLElement)
+    expect(sentences[0]?.textContent).toBe(lead.line)
+    expect(aim.querySelector(`[data-view="run.tipping.${leadIndex}.hover"]`)?.textContent).toBe(lead.hover)
     // In the open reading: core's heading is a section heading, not a quiet caption; the figure press is named, never a bare card heading.
     const fig = box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!
     expect([box.querySelector('[data-view="run.tipping_heading"]')!.tagName, (fig.getAttribute('aria-label') ?? '').startsWith(`${TIPPING_FIGURE}: `), fig.hasAttribute('title'), fig.querySelectorAll('svg').length]).toEqual(['H3', true, false, 1])
@@ -987,6 +1030,7 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
     expect(tab().querySelector('[data-view^="run.find_out"]')).toBeNull()
     const find = document.querySelector<HTMLElement>('[data-check-group="find"]')!
     expect(find.querySelector('[data-view="run.find_out_heading"]')?.textContent).toBe(run.find_out_heading)
+    fireEvent.click(find.querySelector('[data-check-more="find"]')!)
     for (const aim of aims) {
       const i = run.find_out!.indexOf(aim)
       expect(find.querySelector(`[data-view="run.find_out.${i}.line"]`)?.textContent).toBe(aim.line)
@@ -1003,15 +1047,18 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
   })
 
   it('Check omits the scope line when the ranking has no qualification', () => {
-    const view = viewOf('golden/bakery'), aim = view.model!.run!.find_out![0]!
+    const view = viewOf('golden/bakery'), ranking = view.model!.run!.find_out!, aim = ranking[0]!
     aim.compared = []; aim.not_compared = []; aim.within = []; aim.line = ''
+    ranking.push({ ...aim, aim: 'other_aim', figures: [], line: 'Qualification for another aim.' })
     ready(view); render(<ViewReasoningBlock />)
     const find = document.querySelector('[data-check-group="find"]')!
+    fireEvent.click(find.querySelector('[data-check-more="find"]')!)
     expect(find.querySelector('[data-check-item^="f:0:"]')).not.toBeNull()
+    expect(find.querySelector('[data-view="run.find_out.1.line"]')?.textContent).toBe(ranking[1]!.line)
     expect(find.querySelector('[data-view="run.find_out.0.line"]')).toBeNull()
   })
 
-  it('keeps the worth line, its pencil and the whole estimate detail on hover inside the reading fold', async () => {
+  it('draws the worth line, its pencil and the whole estimate detail together inside the reading fold', () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
     const i = run.science!.findIndex((l) => l.kind === 'worth' && l.hover !== '')
     expect(i).toBeGreaterThanOrEqual(0)
@@ -1024,7 +1071,7 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
     expect(line.textContent).toBe(worth.line)
     expect(line.closest('li')!.getAttribute('title')).toBeNull()
     expect(within(box).getByTestId(`worth-edit-${worth.figure!.id}`)).toBeInTheDocument()
-    expect(await tipOf(line)).toBe(worth.hover)
+    expect(line.closest('li')!.querySelector(`[data-view="run.science.${i}.hover"]`)?.textContent).toBe(worth.hover)
   })
 
   it('A2 bakery (a chance; the none state is pinned in the no-chance test above): core\'s notes are one quiet list in the fold, each verbatim at its path; under the chart when there is one', () => {

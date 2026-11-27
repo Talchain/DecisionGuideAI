@@ -682,6 +682,8 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .olumi-look .ok-key-underlay { overflow: visible; }
 
 /* Scale charts keep their original track, marks and labels. Only their measured values come from React. */
+.ok-check-figure-mark { color: var(--info); }
+.ok-scale-share-olumi { fill: var(--info); }
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }
 .ok-scale-range { margin: var(--space-1) 0; }
 .ok-scale-track { position: relative; height: 16px; background: var(--border-default); border-radius: calc(var(--radius-control) / 2); }

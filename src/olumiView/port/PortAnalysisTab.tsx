@@ -6,7 +6,7 @@ import { shownModel, useViewStore } from '../store'
 import { WhatIfShown } from '../ViewChances'
 import { StateStrip, useTabState } from '../reasoning/StateStrip'
 import { comparedGroupsOf, notesBesideTiming } from '../layout'
-import { ChanceChart, tailNoteOf } from './ChanceChart'
+import { ChanceChart, tailNoteOf, whiskerFigureOf } from './ChanceChart'
 import { LikelyOutcome } from './LikelyOutcome'
 import { cardOf, chartGroupsOf, limitGroupsOf, rangeOf, tabStateOf, type ChartGroup } from './pick'
 import { TYPE } from './type'
@@ -83,11 +83,14 @@ function Limits({ model }: { model: ViewModel }) {
                     { text: row.value, at: `${card.id}.rows.${i}.value` },
                     { text: row.olumi?.title ?? '', at: `${card.id}.rows.${i}.olumi.title` },
                   ]}
-                  className={`${TYPE.body} flex min-h-7 w-full items-baseline gap-2 px-1 py-0.5`}>
-                  <span className="min-w-0 flex-1 text-text-header" data-view={`${card.id}.heading`}>{card.heading}</span>
-                  {row.state_text == null || row.state_text === '' ? null : <span className={`${TYPE.meta} shrink-0 text-text-body`} data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span>}
-                  {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className={`${TYPE.meta} shrink-0 text-info`} view={`${card.id}.rows.${i}.olumi.glyph`} />}
-                </OptionRow>
+                  label={<span className={`${TYPE.body} break-words text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>}
+                  value={(
+                    <span className={`${TYPE.meta} text-text-body`}>
+                      {row.state_text ? <span data-view={`${card.id}.rows.${i}.state_text`}>{row.state_text}</span> : null}
+                      {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="ml-1 text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
+                    </span>
+                  )}
+                />
               </li>
             ))}
           </ul>
@@ -128,16 +131,24 @@ function chanceReadingOf(model: ViewModel, group: ChartGroup | undefined) {
   const tailNote = tailNoteOf(run)
   const note = tails.length > 0 && group !== undefined && tailNote?.aims.includes(group.aimId) ? tailNote.text : null
   const sensitivity = group?.rows.some(({ row }) => rangeOf(row) !== null) && run?.sensitivity?.text ? run.sensitivity : null
-  return { tails, note, sensitivity }
+  const figures = new Set(group?.rows.map(({ row }) => whiskerFigureOf(model, row)))
+  const whiskers = [...figures].flatMap((card) => card?.figure?.text ? [{ id: card.id, heading: card.heading, text: card.figure.text }] : [])
+  return { tails, note, sensitivity, whiskers }
 }
 
-function ChanceReading({ tails, note, sensitivity }: ReturnType<typeof chanceReadingOf>) {
-  if (tails.length === 0 && sensitivity === null) return null
+function ChanceReading({ tails, note, sensitivity, whiskers }: ReturnType<typeof chanceReadingOf>) {
+  if (tails.length === 0 && sensitivity === null && whiskers.length === 0) return null
   return (
     <section className="space-y-1" data-testid="analysis-chance-reading">
       {sensitivity === null ? null : (
         <Hover as="p" className="m-0" data-testid="analysis-chart-ends" words={sensitivity.title} wordsAt="run.sensitivity.title" data-view="run.sensitivity.text">{sensitivity.text}</Hover>
       )}
+      {whiskers.map(({ id, heading, text }) => (
+        <div key={id} data-whisker-figure={id}>
+          <p className="m-0 text-text-header" data-view={`${id}.heading`}>{heading}</p>
+          <p className="m-0" data-view={`${id}.figure.text`}>{text}</p>
+        </div>
+      ))}
       {note === null ? null : <p className="m-0" data-view="run.tail_note.text">{note}</p>}
       {tails.map(({ card, text, at }) => (
         <div key={at} data-tail-option={card.id}>
@@ -159,7 +170,7 @@ function WhyThisReading({ model, lead, group }: { model: ViewModel; lead: Return
   const tipping = optionTippingOf(run, lead?.at)
   const worth = worthReadingOf(run)
   const silents = aimReadingOf(run, lead)
-  const hasAimReading = (lead !== null && (lead.tipping === null || lead.hover !== '')) || silents.length > 0
+  const hasAimReading = lead !== null || silents.length > 0
   const ml = run.most_likely ?? null
   const mlCard = ml?.estimate == null ? null : cardOf(model, ml.estimate)
   const { notes, timing } = visibleReadingItems(model)
@@ -168,7 +179,7 @@ function WhyThisReading({ model, lead, group }: { model: ViewModel; lead: Return
     .map((group) => ({ ...group, lines: group.lines.filter(({ line }) => line.line !== '') }))
     .filter(({ lines }) => lines.length > 0)
   if (ml === null && notes.length === 0 && timing.length === 0 && tipping === null && worth.length === 0 &&
-      !hasAimReading && failure === null && chance.tails.length === 0 && chance.sensitivity === null && compared.length === 0) return null
+      !hasAimReading && failure === null && chance.tails.length === 0 && chance.sensitivity === null && chance.whiskers.length === 0 && compared.length === 0) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">

@@ -9,7 +9,6 @@ import { spanAxisOf } from '../v12/scale/axis'
 import type { TippingLine } from '../tipping'
 import { TYPE } from './type'
 import { typography } from '../../styles/typography'
-import { RESULT_ROW_GRID } from './OptionRow'
 
 /** Fixed chrome, used only where core sends no lens words. */
 export const MOVES_FALLBACK = 'What would change it'
@@ -98,7 +97,7 @@ export function WhatMovesIt({ lead }: { lead: LeadReading | null }) {
   return (
     <section className="space-y-2" data-testid="analysis-what-moves">
       <MovesHeading />
-      <div className={`${RESULT_ROW_GRID} items-center`} data-testid="analysis-lead-change" data-lead-change={lead.kind}>
+      <div className="-mx-1 grid w-[calc(100%+0.5rem)] grid-cols-[minmax(0,3fr)_minmax(0,8fr)_minmax(0,3fr)] items-center gap-x-2 px-1 py-1" data-testid="analysis-lead-change" data-lead-change={lead.kind}>
         <Hover as="div" className="col-span-2 grid min-w-0 grid-cols-subgrid items-center rounded-sm" data-testid="analysis-lead-picture"
           words={lead.line} wordsAt={lead.at}>
           {tipping.figure == null ? null : <span className={`${TYPE.meta} min-w-0 break-words text-text-header`} data-view={figureAt}>{tipping.figure.label}</span>}
