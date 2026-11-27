@@ -1,6 +1,6 @@
 import { useEffect, useId } from 'react'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
-import type { Difference } from '../../../olumiCore/team/differences'
+import { differencesKey, useDifferences, type Difference } from '../../../olumiCore/team/differences'
 import { typography } from '../../../styles/typography'
 import type { View } from '../../client'
 import { drawKindOf } from '../../layout'
@@ -45,7 +45,9 @@ export function DifferTool(props: DifferToolProps): JSX.Element | null {
 
 function CurrentDifferTool({ sid, view }: DifferToolProps): JSX.Element | null {
   const data = useRevealedDifferences(sid, view)
-  if (data === null || data.gated || data.version !== (view.version?.n ?? null) || data.differences.length === 0) return null
+  const key = differencesKey(sid, view)
+  const currentRead = useDifferences((s) => s.read === key)
+  if (!currentRead || data === null || data.gated || data.version !== (view.version?.n ?? null) || data.differences.length === 0) return null
   return <RevealedTool sid={sid} view={view} heading={data.heading} differences={data.differences} />
 }
 
