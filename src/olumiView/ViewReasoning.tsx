@@ -11,7 +11,7 @@ import { TowardsCommitment } from './reasoning/TowardsCommitment'
 import { useReasoningFocus } from './reasoning/focusRequest'
 import { AnsweredList } from './reasoning/AnswerBox'
 import { StateStrip, useTabState } from './reasoning/StateStrip'
-import { trackPct } from './port/pick'
+import { ShareBar, ShareKeyMark } from './v12/scale/ShareBar'
 import { GlyphMark } from './look/Hover'
 import { TYPE } from './port/type'
 import { typography } from '../styles/typography'
@@ -34,20 +34,6 @@ const REST_FIGURES = 1
 export const RESTS_AT_REST = 3
 
 type Rest = ViewRun['rests'][number]
-type Figure = NonNullable<Rest['figures']>[number]
-const WHOSE_FILL: Record<Figure['whose'], string> = { olumi: 'fill-info', theirs: 'fill-text-header', mixed: 'fill-text-light' }
-
-/** One figure's share of a rest's uncertainty: a bar to core's fraction (geometry only; core's line says the number), coloured by whose figure it is. */
-function ShareBar({ f }: { f: Figure }) {
-  const w = trackPct(f.share)
-  return (
-    <svg className="block h-1.5 w-full" aria-hidden="true" data-testid="reasoning-share-bar" data-share={w} data-whose={f.whose}>
-      <rect x="0" y="0" width="100%" height="6" rx="3" className="fill-panel-border" />
-      <rect x="0" y="0" width={`${w}%`} height="6" rx="3" className={WHOSE_FILL[f.whose]} />
-    </svg>
-  )
-}
-
 /**
  * What the uncertainty rests on (core's `run.rests`): per option and aim, in core's order, each figure core names as a bar to its share of
  * the variation, Olumi's in Olumi's blue, a person's in ink; core's line beside it, and core's give ✎ at the figure's first appearance, so
@@ -115,7 +101,7 @@ export function RestsOn({ model, run, headed = true }: { model: ViewModel; run: 
       )}
       <p className={`${TYPE.meta} m-0 flex flex-wrap items-center gap-3 text-text-light`} aria-hidden="true" data-testid="reasoning-rests-key">
         {(['olumi', 'theirs', 'mixed'] as const).filter((w) => whose.has(w)).map((w) => (
-          <span key={w} className="inline-flex items-center gap-1"><svg className="h-2 w-2"><rect width="8" height="8" rx="2" className={WHOSE_FILL[w]} /></svg>{w === 'olumi' ? REASONING_LABELS.olumi : w === 'theirs' ? REASONING_LABELS.yours : REASONING_LABELS.mixed}</span>
+          <span key={w} className="inline-flex items-center gap-1"><ShareKeyMark whose={w} />{w === 'olumi' ? REASONING_LABELS.olumi : w === 'theirs' ? REASONING_LABELS.yours : REASONING_LABELS.mixed}</span>
         ))}
       </p>
     </section>

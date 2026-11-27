@@ -8,6 +8,9 @@
  */
 import type { ViewCard, ViewModel, ViewRow } from './client'
 
+/** A fraction of a track as a percent, held to the track. */
+export const trackPct = (fraction: number): number => Math.max(0, Math.min(100, fraction * 100))
+
 export type RangeBand = { readonly from: number; readonly to: number; readonly openLow: boolean; readonly openHigh: boolean }
 
 /**

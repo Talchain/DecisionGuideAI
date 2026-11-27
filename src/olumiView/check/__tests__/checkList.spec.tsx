@@ -461,3 +461,110 @@ describe('What to check', () => {
     expect(getOutputTabsForParity().find((tab) => tab.id === 'analysisNew')?.label).toBe('Reasoning')
   })
 })
+
+describe('readiness in Check', () => {
+  it('keeps shared blockers first and waits in Core order, with exact words at their paths', () => {
+    const view = viewOf('golden/app-launch'), run = view.model!.run!
+    const items = checkNeedsOf(view.model!)
+    const blockers = run.shared_blockers!.map((b, i) => [`blocks:${i}`, b.text, `run.shared_blockers.${i}.text`])
+    const waits = run.waits_on!.items.flatMap((item, i) => item.text === '' ? [] : [[`waits:${item.id}`, item.text, `run.waits_on.items.${i}.text`]])
+    expect(items.slice(0, blockers.length).map((item) => [item.key, item.short, item.at])).toEqual(blockers)
+    expect(items.filter((item) => item.kind === 'waits').map((item) => [item.key, item.short, item.at])).toEqual(waits)
+    show(view)
+    if (toggle('needs') !== null) fireEvent.click(toggle('needs'))
+    for (const [key, words, at] of [...blockers, ...waits]) {
+      fireEvent.click(row(key!))
+      const bound = row(key!).closest('li')!.querySelector(`[data-view="${at}"]`)
+      expect(bound?.textContent).toBe(words)
+    }
+  })
+
+  it('covers only the options Core names in a shared blocker and skips reference rows', () => {
+    const view = viewOf('golden/app-launch'), model = view.model!, blocker = model.run!.shared_blockers![0]!
+    const card = model.cards.find((c) => blocker.options.includes(c.id) && c.rows.some((r) => r.kind === 'none' && r.aim_id === blocker.aim_id))!
+    const i = card.rows.findIndex((r) => r.kind === 'none' && r.aim_id === blocker.aim_id)
+    const key = `none:${card.id}.${i}`, optionRow = card.rows[i]!
+    expect(checkNeedsOf(model).some((item) => item.key === key)).toBe(false)
+    blocker.options = blocker.options.filter((id) => id !== card.id)
+    expect(checkNeedsOf(model).find((item) => item.key === key)).toMatchObject({ at: `${card.id}.rows.${i}.text` })
+    Object.assign(optionRow, { aim_role: 'reference' })
+    expect(checkNeedsOf(model).some((item) => item.key === key)).toBe(false)
+    Object.assign(optionRow, { aim_role: 'contender' })
+    expect(checkNeedsOf(model).some((item) => item.key === key)).toBe(true)
+  })
+
+  it('keeps a single shared bakery blocker for the unchecked limit even when every option names it', () => {
+    const view = viewOf('golden/bakery'), model = view.model!
+    const options = model.cards.filter((c) => c.family === 'option')
+    const none = options.flatMap((c) => c.rows.filter((row) => row.kind === 'none'))
+    expect(none.length).toBeGreaterThan(1)
+    const aim = none[0]!.aim_id!
+    expect(none.every((row) => row.aim_id === aim)).toBe(true)
+    expect(checkNeedsOf(model).filter((item) => item.key.startsWith('none:') && item.short === none[0]!.text)).toHaveLength(none.length)
+    model.run!.shared_blockers = [{ aim_id: aim, options: options.map((c) => c.id), text: none[0]!.text }]
+    const items = checkNeedsOf(model)
+    expect(items.filter((item) => item.key.startsWith('blocks:') && item.cards.includes(aim))).toHaveLength(1)
+    expect(items.filter((item) => item.key.startsWith('none:') && item.short === none[0]!.text)).toHaveLength(0)
+  })
+
+  it('folds overflow while keeping Olumi’s observation reachable with its actionable words', () => {
+    const view = viewOf('golden/app-launch'), model = view.model!, card = model.cards.find((c) => c.family !== 'option')!
+    card.worth_checking = [{ code: 'assumption_without_test', olumi: true, title: 'Core observation title', text: 'Core actionable detail', rests_on: [] }]
+    model.run!.shared_blockers = Array.from({ length: 6 }, (_, i) => ({ text: `Blocker ${i}`, aim_id: card.id, options: [] }))
+    const items = checkNeedsOf(model)
+    show(view)
+    const group = document.querySelector('[data-check-group="needs"]')!
+    expect(group.querySelectorAll('[data-check-item]')).toHaveLength(4)
+    expect(row('blocks:5')).toBeNull()
+    const more = toggle('needs')
+    expect(more).toHaveTextContent(`Show ${items.length - 4} more`)
+    fireEvent.click(more)
+    expect(group.querySelectorAll('[data-check-item]')).toHaveLength(items.length)
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    const observation = row(`worth:${card.id}.0`)
+    fireEvent.click(observation)
+    expect(details(observation).querySelector(`[data-view="${card.id}.worth_checking.0.title"]`)).toHaveTextContent('Core observation title')
+    expect(details(observation).querySelector(`[data-view="${card.id}.worth_checking.0.text"]`)).toHaveTextContent('Core actionable detail')
+  })
+
+  it('omits the needs disclosure when all card tiles fit', () => {
+    const view = viewOf('golden/app-launch'), model = view.model!
+    model.run!.shared_blockers = model.run!.shared_blockers!.slice(0, 2)
+    model.run!.waits_on = null
+    for (const card of model.cards) {
+      card.rows = []
+      card.worth_checking = []
+      if (card.figure != null) card.figure = { ...card.figure, edit: null }
+    }
+    show(view)
+    expect(document.querySelectorAll('[data-check-group="needs"] [data-check-item]')).toHaveLength(2)
+    expect(toggle('needs')).toBeNull()
+  })
+
+  it('offers Core’s figure edit for an unsized input and removes it for a calculated or sized figure', () => {
+    const view = viewOf('golden/app-launch'), model = view.model!
+    const card = model.cards.find((c) => c.figure?.edit != null && c.status === null)!
+    model.run!.waits_on = null
+    model.run!.find_out = []
+    const figure = { ...card.figure!, text: '' }
+    card.figure = figure
+    Object.assign(card, { kind: 'result', values: [{ option: 'x', text: 'v', p10: 1, p50: 2, p90: 3 }] })
+    const key = `size:${card.id}`
+    expect(checkNeedsOf(model).some((item) => item.key === key)).toBe(false)
+    Object.assign(card, { kind: 'driver', values: null })
+    expect(checkNeedsOf(model).find((item) => item.key === key)?.action).toMatchObject({ kind: 'edit', edit: figure.edit })
+    canvas.reach.mockReturnValue('card')
+    show(view)
+    if (row(key) === null) fireEvent.click(toggle('needs'))
+    const button = row(key)
+    expect(button.querySelector(`[data-view="${card.id}.heading"]`)).toHaveTextContent(card.heading)
+    fireEvent.click(button)
+    expect(canvas.focus).toHaveBeenCalledWith(card.id)
+    expect(within(details(button)).getByTestId(`check-edit-${card.id}`)).toBeInTheDocument()
+    cleanup()
+    card.figure = { ...figure, text: 'Core supplied a figure' }
+    show(view)
+    if (toggle('needs') !== null) fireEvent.click(toggle('needs'))
+    expect(row(key)).toBeNull()
+  })
+})

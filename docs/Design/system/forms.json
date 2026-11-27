@@ -17,23 +17,23 @@
   "charts": [
     {
       "id": "CH-chance",
-      "component": "src/olumiView/v12/scale/ChanceDots.tsx",
-      "status": "open"
+      "component": "src/olumiView/v12/scale/ChanceTrack.tsx",
+      "status": "built"
     },
     {
       "id": "CH-range",
-      "component": "src/olumiView/v12/scale/RangeBar.tsx",
+      "component": "src/olumiView/v12/scale/FigureTrack.tsx",
       "status": "built"
     },
     {
       "id": "CH-bands",
-      "component": null,
-      "status": "built, to converge"
+      "component": "src/olumiView/v12/scale/OptionBand.tsx",
+      "status": "card-face bands still inline, to converge"
     },
     {
       "id": "CH-rests",
-      "component": null,
-      "status": "planned"
+      "component": "src/olumiView/v12/scale/ShareBar.tsx",
+      "status": "glance in Check, behind the Door"
     },
     {
       "id": "CH-tip",
@@ -83,7 +83,11 @@
   ],
   "renderers": [
     "src/olumiView/v12/scale/ChanceDots.tsx",
+    "src/olumiView/v12/scale/ChanceTrack.tsx",
+    "src/olumiView/v12/scale/FigureTrack.tsx",
+    "src/olumiView/v12/scale/OptionBand.tsx",
     "src/olumiView/v12/scale/RangeBar.tsx",
+    "src/olumiView/v12/scale/ShareBar.tsx",
     "src/olumiView/v12/scale/TipPoint.tsx"
   ],
   "primitives": {
@@ -124,25 +128,18 @@
     {"file": "src/canvas/nodes/DirectionNeededLayer.tsx", "replaced_by": null},
     {"file": "src/canvas/nodes/NodeShapeIndicator.tsx", "replaced_by": null},
     {"file": "src/canvas/nodes/ProposalGhostLayer.tsx", "replaced_by": null},
-    {"file": "src/canvas/nodes/ViewCardNode.tsx", "replaced_by": "CH-chance"},
     {"file": "src/canvas/nodes/WhatIfMarkLayer.tsx", "replaced_by": null},
     {"file": "src/canvas/nodes/shared/ConnRow.tsx", "replaced_by": null},
     {"file": "src/canvas/onboarding/EmptyState.tsx", "replaced_by": null},
     {"file": "src/canvas/panels/_shared/PanelShell.tsx", "replaced_by": null},
     {"file": "src/canvas/ui/inspector-v2/shared/ProbabilityArc.tsx", "replaced_by": null},
     {"file": "src/olumiCore/team/CardDispute.tsx", "replaced_by": "CH-differ"},
-    {"file": "src/olumiView/ViewReasoning.tsx", "replaced_by": "CH-rests"},
     {"file": "src/olumiView/look/olumiLook.css", "replaced_by": null},
-    {"file": "src/olumiView/port/AnalysisReaders.tsx", "replaced_by": "CH-tip"},
-    {"file": "src/olumiView/port/ChanceChart.tsx", "replaced_by": "CH-chance"},
-    {"file": "src/olumiView/port/LikelyOutcome.tsx", "replaced_by": "CH-range"},
-    {"file": "src/olumiView/port/WhatMovesIt.tsx", "replaced_by": "CH-tip"},
     {"file": "src/olumiView/previous/CoreCard.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/SimpleFace.tsx", "replaced_by": "CH-bands"},
     {"file": "src/olumiView/v12/bands/BandLayer.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/bands/KeyPill.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/detailed/marks.tsx", "replaced_by": "CH-chance"},
-    {"file": "src/olumiView/v12/edit/LaneEditingLayer.tsx", "replaced_by": "CH-range"},
     {"file": "src/olumiView/v12/inspect/FigureInspector.tsx", "replaced_by": "CH-chance"},
     {"file": "src/olumiView/v12/journey/JourneyRecord.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/scale/ConditionalBar.tsx", "replaced_by": "CH-chance"},

@@ -13,12 +13,12 @@
  * `HoverButton` is `Hover as="button"`. `GlyphMark` is core's mark (glyph and title) drawn as an image named by its title.
  */
 import { forwardRef, type ButtonHTMLAttributes, type ElementType, type HTMLAttributes, type ReactNode, type Ref } from 'react'
-import { useAnchoredTip, type TipSpacing } from './Tip'
+import { useAnchoredTip, type TipLine, type TipSpacing } from './Tip'
 
 type HoverProps = {
   anchorRef?: Ref<HTMLElement>
   href?: string
-  words: string | undefined | null
+  words: string | readonly TipLine[] | undefined | null
   wordsAt?: string
   tipSpacing?: TipSpacing
   tipIcon?: ReactNode
@@ -32,8 +32,10 @@ type HoverProps = {
 export function Hover({ anchorRef, words, wordsAt, tipSpacing, tipIcon, as = 'span', focusable = true, disabled, children, onClick, onFocus, onBlur, onKeyDown, onPointerEnter, onPointerLeave, tabIndex, ...rest }: HoverProps): JSX.Element {
   const As: ElementType = as
   const isButton = as === 'button'
-  const has = words !== undefined && words !== null && words !== ''
-  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(has ? words : undefined, tipSpacing, tipIcon, wordsAt)
+  const lines = typeof words === 'object' && words !== null ? words.filter((line) => line.text !== '') : undefined
+  const text = typeof words === 'string' ? words : lines?.map((line) => line.text).join('\n')
+  const has = text !== undefined && text !== ''
+  const { handlers, tip, describedBy, dismiss } = useAnchoredTip(text, tipSpacing, tipIcon, wordsAt, lines)
   const props: Record<string, unknown> = { ...rest }
   if (isButton && disabled === true) props['aria-disabled'] = true
   if (onClick !== undefined || has || isButton) {

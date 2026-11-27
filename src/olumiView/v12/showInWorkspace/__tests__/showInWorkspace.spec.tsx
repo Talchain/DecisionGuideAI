@@ -26,7 +26,7 @@ vi.mock('../../../revealCamera', async (orig) => ({
   freePane: () => ({ size: { ...paneNow.value.size }, inset: { ...paneNow.value.inset } }),
 }))
 const pressed = vi.hoisted(() => ({ cards: [] as string[] }))
-vi.mock('../../../reasoning/tabRing', async (orig) => ({ ...(await orig<typeof import('../../../reasoning/tabRing')>()), pressCard: (id: string) => { pressed.cards.push(id) } }))
+vi.mock('../../../../canvas/utils/focusHelpers', async (orig) => ({ ...(await orig<typeof import('../../../../canvas/utils/focusHelpers')>()), focusNodeById: (id: string) => { pressed.cards.push(id) } }))
 vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
@@ -38,7 +38,7 @@ import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane,
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
 import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore, useShown } from '../show'
 import { RETURN_TO_BEFORE, SHOW_IN_WORKSPACE, ShowInWorkspace } from '../ShowInWorkspace'
-import { ResultNeeds } from '../../../port/ResultNeeds'
+import { CheckList } from '../../../check/CheckList'
 import { cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type Next } from '../targets'
 
 // ── fixtures ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1351,15 +1351,19 @@ describe('S13 what counts as in view at the foot, and a board that lays itself o
 })
 
 // ── S14 ──────────────────────────────────────────────────────────────────────────────────
-describe('S14 a result need whose record the board does not draw as a card (Analysis tab, ResultNeeds)', () => {
+describe('S14 a result need whose record the board does not draw as a card (Check)', () => {
   /** INVENTED: the run names `id` as the one blocker (invented words), so the list has one row about that record. */
   function needing(v: View, id: string): View {
     const out = clone(v)
     out.model!.run!.shared_blockers = [{ aim_id: id, options: [], text: 'Invented words: this is not known yet.' }]
     return out
   }
-  const rowButton = (c: { container: HTMLElement }): HTMLButtonElement => c.container.querySelector<HTMLButtonElement>('[data-need="blocks:0"] button')!
-  const mountNeeds = (_v: View) => render(<ResultNeeds model={useViewStore.getState().view!.model!} />, { container: document.body.appendChild(document.createElement('div')) })
+  const rowButton = (c: { container: HTMLElement }): HTMLButtonElement => c.container.querySelector<HTMLButtonElement>('[data-check-item="blocks:0"]')!
+  const mountNeeds = (view: View) => {
+    const mounted = render(<CheckList model={view.model!} view={view} sid={view.id} />, { container: document.body.appendChild(document.createElement('div')) })
+    if (rowButton(mounted) === null) fireEvent.click(mounted.container.querySelector('[data-check-more="needs"]')!)
+    return mounted
+  }
   beforeEach(() => { pressed.cards = [] })
 
   it('a relation drawn as a link: the press is enabled and shows the link\'s two end cards, as a reply would', async () => {
@@ -1367,7 +1371,7 @@ describe('S14 a result need whose record the board does not draw as a card (Anal
     expect(rf.at.has('i_adoption_pilot'), 'precondition: the model lists it, the board draws it as a link, not a card').toBe(false)
     const c = mountNeeds(m)
     expect(rowButton(c).disabled).toBe(false)
-    expect(rowButton(c).closest('[data-need]')!.getAttribute('data-need')).toBe('blocks:0')
+    expect(rowButton(c).getAttribute('data-check-item')).toBe('blocks:0')
     await press(rowButton(c)); await run(100)
     expect(rf.sets).toStrictEqual([{ to: cameraFor(boxOf(['cross_team_adoption', 'pilot_conversion']), pane(), V0), opts: { duration: MOVE_MS }, holds: true }])
     expect(pressed.cards).toStrictEqual([])
@@ -1393,7 +1397,7 @@ describe('S14 a result need whose record the board does not draw as a card (Anal
     await answer(reads[0]!, ok(opened)); lay(); await run(300)
   })
 
-  it('contrast: a need that is a plain card still presses that card by id and shows nothing; a need nothing can place stays disabled', async () => {
+  it('contrast: a need that is a plain card still presses that card by id and shows nothing; a need nothing can place still opens its Check details', async () => {
     const v = needing(growth, 'cross_team_adoption'); install(v); lay()
     const c = mountNeeds(v)
     expect(rowButton(c).getAttribute('aria-disabled')).toBeNull()
@@ -1403,9 +1407,10 @@ describe('S14 a result need whose record the board does not draw as a card (Anal
     cleanup()
     const n = needing(growth, 'invented_nothing_draws_this'); install(n); lay()
     const d = mountNeeds(n)
-    // Held as the Tip's Hov holds it: aria-disabled, still focusable so the hover can say why; the press does nothing.
-    expect(rowButton(d).getAttribute('aria-disabled')).toBe('true')
+    expect(rowButton(d)).toBeEnabled()
     await press(rowButton(d)); await run(100)
+    expect(rowButton(d)).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(rowButton(d).getAttribute('aria-controls')!)?.textContent).toContain('Invented words: this is not known yet.')
     expect(rf.sets).toStrictEqual([])
     expect(pressed.cards).toStrictEqual(['cross_team_adoption'])
   })

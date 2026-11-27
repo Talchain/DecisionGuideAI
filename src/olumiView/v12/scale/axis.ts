@@ -55,7 +55,7 @@ export const fmtTip = (n: number, digits: number): string => {
   return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s
 }
 
-export const pctOf = (a: Axis, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))
+export const pctOf = (a: Pick<Axis, 'min' | 'max'>, v: number): number => Math.min(100, Math.max(0, ((v - a.min) / (a.max - a.min)) * 100))
 export const fmt = (n: number): string => n.toLocaleString('en-GB', { maximumFractionDigits: 2 })
 
 /** The View model, from either the View or the model itself. */
