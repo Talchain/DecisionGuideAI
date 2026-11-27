@@ -746,9 +746,8 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .olumi-look .react-flow__node.v12-on-path[data-path-tone='person'] [role='group'][aria-label] { outline: 2px solid var(--text-light); }
 /* The keyboard focus rule outranks React Flow's own focus colour even when its CSS loads later. */
 .ok-key-sample .ok-link-line.ok-link-on-path,
-.ok-key-sample .ok-link-line.ok-link-focused,
-.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line.ok-link-on-path,
-.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line.ok-link-focused { stroke: var(--link-tone); stroke-width: 3px; }
+.olumi-look .react-flow__edge:focus-visible .react-flow__edge-path.ok-link-line,
+.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line.ok-link-on-path { stroke: var(--link-tone); stroke-width: 3px; }
 @media (prefers-reduced-motion: no-preference) {
   .olumi-look .react-flow__node [role='group'][aria-label] { transition: background-color 120ms ease, outline-color 120ms ease; }
 }
@@ -761,7 +760,7 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 .ok-link-halo { fill: none; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.35; pointer-events: none; }
 .ok-link-halo-alert { stroke: var(--olumi-mark-orange); stroke-width: 10px; }
 .ok-link-halo-proposed { stroke: var(--semantic-info); stroke-width: 3px; }
-.ok-link-halo-proposed.ok-link-focused,
+.olumi-look .react-flow__edge:focus-visible .ok-link-halo-proposed,
 .ok-link-halo-proposed.ok-link-on-path { stroke-width: 5px; }
 .ok-link-line.ok-link-reason-alert { --link-tone: var(--olumi-mark-orange); }
 /* The midpoint mark: one small grey icon from the typed direction, counter-scaled to the board. Hover and focus are the link's one Tip. */

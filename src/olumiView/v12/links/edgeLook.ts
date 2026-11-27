@@ -9,7 +9,6 @@ export interface EdgeLookState {
   firstDraft?: boolean
   onPath?: boolean
   driver?: boolean
-  focused?: boolean
 }
 
 type ConnectorLookState = { connector: 'root' | 'group'; mixedDirection?: boolean }
@@ -30,7 +29,7 @@ export function edgeLook(state: EdgeLookState | ConnectorLookState) {
       toneClass: 'ok-link-tone-neutral', lineClass: 'ok-link-line', end, allowMarkerOverride: false, width: PLAIN_WIDTH,
     }
   }
-  const { link, byOlumi, firstDraft, onPath, driver, focused } = state
+  const { link, byOlumi, firstDraft, onPath, driver } = state
   const causal = link.causal ?? null
   const look = linkLook(link)
   const direction = look.source === 'view' && look.direction !== null ? look.direction
@@ -47,7 +46,7 @@ export function edgeLook(state: EdgeLookState | ConnectorLookState) {
   const tone = toneOf(stroke)
   const dash = link.doubt ? DOUBT_DASH : null
   const dotted = styled === null && !modelled && (link.kind === 'reason' || role === 'reason')
-  const pathClasses = `${onPath ? ' ok-link-on-path' : ''}${focused ? ' ok-link-focused' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`
+  const pathClasses = `${onPath ? ' ok-link-on-path' : ''}${dotted ? ' ok-link-dotted' : ''}${dash !== null ? ' ok-link-doubt' : ''}`
   const alert = linkAlertStyle(link)
   const reasonAlert = alert === 'reason'
   const halos: HaloPath[] = []
@@ -65,6 +64,6 @@ export function edgeLook(state: EdgeLookState | ConnectorLookState) {
     lineClass: `ok-link-line${pathClasses}${reasonAlert ? ' ok-link-reason-alert' : ''}`,
     end,
     allowMarkerOverride: styled === null,
-    width: (styled?.width ?? PLAIN_WIDTH) + (onPath || focused ? 1 : 0),
+    width: (styled?.width ?? PLAIN_WIDTH) + (onPath ? 1 : 0),
   }
 }

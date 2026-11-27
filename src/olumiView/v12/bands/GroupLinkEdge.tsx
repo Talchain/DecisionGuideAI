@@ -6,6 +6,7 @@
 import { memo, useId } from 'react'
 import { getBezierPath, type EdgeProps } from '@xyflow/react'
 import { edgeLook } from '../links/edgeLook'
+import { useDrawnLook } from '../links/drawnLooks'
 import { LinkTrace } from '../links/LinkTrace'
 import type { GroupLink } from './groups'
 
@@ -16,11 +17,12 @@ function GroupLinkEdgeImpl({ id, data, sourceX, sourceY, targetX, targetY, sourc
   const { count, mixedDirection } = data as unknown as GroupLink
   const arrow = useId()
   const look = edgeLook({ connector: 'group', mixedDirection })
+  const signature = useDrawnLook(id, look)
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
   return (
     <g className={look.toneClass} data-group-link={id} data-group-link-count={count} data-mixed-direction={mixedDirection ? '' : undefined}>
       <title>{groupLinkTitle(count)}</title>
-      <LinkTrace look={look} path={path} marker={arrow} id={id} />
+      <LinkTrace look={look} signature={signature} path={path} marker={arrow} id={id} />
     </g>
   )
 }

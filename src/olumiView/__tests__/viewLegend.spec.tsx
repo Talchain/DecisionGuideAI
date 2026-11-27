@@ -1,7 +1,6 @@
 /**
  * THE LANE'S KEY IS CORE'S (DL 4 Nov): on the olumi-core lane "How to read this" draws `model.key` from core's View (the page's KEY as
- * data), every glyph and its words in core's order, and never the legacy key of legacy marks. Asserted from core's goldens, never from
- * words written here, so the rows prove the key is View-fed.
+ * data). Glossary rows keep Core's words and order, with the board's markers for known kinds. Link samples need mounted edges.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
@@ -23,13 +22,19 @@ const openKey = (view: View | null) => {
 }
 
 describe('the lane\'s key is core\'s, from the View', () => {
-  it('every item of model.key, glyph and words, in core\'s order; not the legacy key', () => {
+  it('shows Core’s glossary words and leaves link samples empty without a mounted board', () => {
     const v = pricing as unknown as View, key = v.model!.key
     expect(key.length).toBeGreaterThan(20)
     openKey(v)
     const dialog = screen.getByTestId('view-legend')
     const rows = within(dialog).getAllByRole('listitem')
-    expect(rows.map((r) => r.textContent)).toEqual(key.map((k) => `${k.glyph}${k.text}`))
+    expect(rows.map((r) => r.lastElementChild?.textContent)).toEqual(key.map((k) => k.text))
+    for (const [i, row] of rows.entries()) {
+      const glyph = row.firstElementChild!
+      if (glyph.hasAttribute('data-key-mark')) expect(glyph.querySelector('svg')).not.toBeNull()
+      else expect(glyph.textContent).toBe(key[i]!.glyph)
+    }
+    expect(dialog.querySelector('[data-key-sample]')).toBeNull()
     expect(screen.queryByTestId('canvas-legend-popover')).toBeNull()
   })
 

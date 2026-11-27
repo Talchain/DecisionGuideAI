@@ -39,6 +39,7 @@ import { boardKeyOf, CORE_LANE_FIT_FLOOR, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOT
 import { LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 import { drawnHeightsKey, measuredOf, QUESTION, settleIdsOf, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
+import { DrawnLooksVisible } from './v12/links/drawnLooks'
 import type { View, ViewCard } from './client'
 import { whoseOf } from './v12/cards/marks'
 import { FOOT_GUTTER, restClearOfFoot, zoomClearOfFoot } from './footClear'
@@ -520,7 +521,7 @@ function ViewFlow() {
   const mine = (e: unknown) => { if (e) { userMoved.current = true; movedAt.current += 1; activity.current = { at: Date.now(), active: true } } }
   const mineEnd = (e: unknown) => { if (e) activity.current = { at: Date.now(), active: false } }
   return (
-    <>
+    <DrawnLooksVisible.Provider value={framed}>
       <ReactFlow snapToGrid={snapToGrid} snapGrid={snapGrid}
         // Paul's option inspector (audit F34): a press on an option card opens its details, as right-click "Open details" does.
         onNodeClick={(e, n) => {
@@ -603,7 +604,7 @@ function ViewFlow() {
       {/* V12: in Simple, Olumi's note is a badge on its card and its words are in the panel; the floating note card is Detailed's. */}
       {level === 'simple' ? null : <OlumiAttentionCard />}
       <OutputsDock />
-    </>
+    </DrawnLooksVisible.Provider>
   )
 }
 

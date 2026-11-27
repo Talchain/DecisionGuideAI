@@ -17,13 +17,13 @@ import { isOlumiCoreLane } from '../../olumiCore/lane'
 import { LaneLinkRemoveButton } from '../../olumiView/v12/edit/LaneLinkRemoveButton'
 import { useLaneInspector } from '../../olumiView/v12/edit/inspectorStore'
 import { LinkRemove, useRemovingLink } from '../../olumiView/LinkRemove'
-import { useViewStore } from '../../olumiView/store'
-import { linkWordsIdOf, useViewHover } from '../../olumiView/canvas'
+import { linkWordsIdOf, useViewFocusLink, useViewHover } from '../../olumiView/canvas'
 import { LinkMarkChip } from '../../olumiView/LinkMarkChip'
 import { sizedLink } from '../../olumiView/v12/contract'
 import { linkKey } from '../../olumiView/v12/fields/fields'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { edgeLook } from '../../olumiView/v12/links/edgeLook'
+import { useDrawnLook } from '../../olumiView/v12/links/drawnLooks'
 import { placeAt } from '../../olumiView/v12/links/place'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
 import { OlumiLineMark, SizeLabel } from '../../olumiView/v12/links/LinkEnds'
@@ -51,15 +51,19 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
   const { link, i } = data as ViewLinkData
   const causal = link.causal ?? null
+  const inputs = useLinkLookInputs()
+  const key = inputs.model == null ? null : linkKey(link, inputs.model.key)
   // The mark's word is the key item core names for it (`label_key`); an older core's View, without the field, is read by its glyph (fields.ts linkKey).
-  const labelWord = useViewStore((s) => causal === null && s.view?.model != null ? linkKey(link, s.view.model.key).item?.text : undefined)
-  const state = linkLookState({ id, source, target }, { link, i }, useLinkLookInputs())
-  const { byOlumi, onPath, driver, focused } = state
+  const labelWord = causal === null ? key?.item?.text : undefined
+  const state = linkLookState({ source, target }, { link, i }, inputs)
+  const { byOlumi, onPath, driver } = state
+  const focused = useViewFocusLink((s) => s.id === id)
   const linkOlumi = causal === null ? byOlumi : causal.author?.by === 'olumi'
   const hovered = useViewHover((h) => h.id)
   const fromSelected = useStore((s) => s.nodeLookup.get(source)?.selected === true)
   const toSelected = useStore((s) => s.nodeLookup.get(target)?.selected === true)
   const look = edgeLook(state)
+  const signature = useDrawnLook(id, look, key?.source === 'view' ? key.item?.id ?? null : null)
   const { direction, confidence, mark, directionMark, role, styled, modelled, tone, toneClass, dash, dotted, reasonAlert, halos, end, width } = look
   // Only a legacy link without a typed causal belief or direction keeps its sign glyph.
   const signed = causal === null && direction === null && link.label !== ''
@@ -253,7 +257,7 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
         linkTip.dismiss()
         useLaneInspector.getState().open({ kind: 'link', id })
       } : undefined}>
-      <LinkTrace look={look} path={path} marker={arrow} id={id} markerEnd={markerEnd} />
+      <LinkTrace look={look} signature={signature} path={path} marker={arrow} id={id} markerEnd={markerEnd} keepMarkerDefs />
       {styled?.label != null && sizeAt !== null ? <SizeLabel i={i} x={(sourceX + sizeAt.x) / 2} y={(sourceY + sizeAt.y) / 2} text={styled.label} /> : null}
       {modelled && linkOlumi ? <OlumiLineMark i={i} x={rail?.x ?? midX} y={rail?.y ?? midY} name={causal?.author?.title} /> : null}
       {words && !hidden && placed.leaderTo ? (

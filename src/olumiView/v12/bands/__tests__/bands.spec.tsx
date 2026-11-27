@@ -29,6 +29,7 @@ import { tipOf } from '../../../__tests__/tipHelpers'
 import { setGroupOpen, setInputsOpen } from '../foldStore'
 import { groupIdOf } from '../groups'
 import { GroupLinkEdge } from '../GroupLinkEdge'
+import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/model/fixtures/bakery-author.core-a62f0899.view3.json'), 'utf8')) as View
 const model = view.model!
@@ -195,30 +196,42 @@ describe('bands: figures no link touches, and the causal path', () => {
 describe('bands: the key pill', () => {
   const key = (ids: string[]) => ids.map((id) => ({ id, glyph: '·', text: `core says ${id}` }))
   const withKey = (ids: string[], links: unknown[] = model.links as unknown[]): ViewModel => ({ ...model, key: key(ids), links } as ViewModel)
+  const causal = (sign: 'increases' | 'unknown' | 'none') => ({
+    sign, text: '', author: null, strength: { state: 'unsized' },
+  })
   const drawKey = (m: ViewModel) => {
     showSimple(view.id)
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never)
     drawViewCanvas(m, new Map())
-    return render(<KeyLines />).container
+    const { nodes, edges } = useCanvasStore.getState()
+    const placedNodes = nodes.map((node) => ({
+      ...node, width: 100, height: 40,
+      handles: [
+        { type: 'source' as const, position: Position.Bottom, x: 50, y: 40 },
+        { type: 'target' as const, position: Position.Top, x: 50, y: 0 },
+      ],
+    }))
+    render(<><ReactFlow nodes={placedNodes} edges={edges} edgeTypes={{ [VIEW_LINK]: ViewLinkEdge }} /><KeyLines /></>)
+    return screen.getByTestId('view-key-lines')
   }
   const labels = (c: HTMLElement) => [...c.querySelectorAll('[data-key-row="link"] [data-key-item]')]
   const sample = (c: HTMLElement, id: string) => c.querySelector(`[data-key-item="${id}"]`)?.parentElement?.querySelector('[data-key-sample]')
 
-  it('K1 uses only Core’s words for the roles the board draws', () => {
-    const links = [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'measures', causal: null }]
+  it('K1 uses verbatim words for the label IDs Core sends', () => {
+    const links = [{ ...model.links[0]!, causal: causal('increases'), label_key: 'effect' }, { ...model.links[1]!, role: 'measures', causal: null, label_key: 'measures' }]
     const c = drawKey(withKey(['effect', 'input', 'measures', 'olumi'], links))
     expect(labels(c).map((el) => el.getAttribute('data-key-item'))).toEqual(['effect', 'measures'])
     expect(labels(c).map((el) => el.textContent)).toEqual(['core says effect', 'core says measures'])
   })
 
-  it.each([['increases', 'effect'], [null, 'input']] as const)('K1b labels the drawn role (causal sign %s)', (sign, role) => {
-    const link = { ...model.links[0]!, role: 'input', direction: null, causal: sign && { sign } }
-    const c = drawKey(withKey(['effect', 'input'], [link]))
-    expect(labels(c).map((el) => el.getAttribute('data-key-item'))).toEqual([role])
+  it.each(['increases', null] as const)('K1b respects Core’s label even when the role is input (causal sign %s)', (sign) => {
+    const link = { ...model.links[0]!, role: 'input', direction: null, causal: sign && causal(sign), label_key: 'evidence' }
+    const c = drawKey(withKey(['effect', 'input', 'evidence'], [link]))
+    expect(labels(c).map((el) => el.getAttribute('data-key-item'))).toEqual(['evidence'])
   })
 
   it('K2 matches doubt and unsettled by id and leaves an unlabelled link sample visible', () => {
-    const doubted = { ...model.links[0]!, doubt: true }, unsure = { ...model.links[1]!, causal: { sign: 'unknown' } }
+    const doubted = { ...model.links[0]!, doubt: true, label_key: 'doubted' }, unsure = { ...model.links[1]!, causal: causal('unknown'), label_key: 'unsettled' }
     const plain = { ...model.links[2]!, causal: null, direction: null, doubt: false }
     const c = drawKey(withKey(['doubted', 'unsettled'], [doubted, unsure, plain]))
     expect(labels(c).map((el) => el.getAttribute('data-key-item'))).toEqual(['doubted', 'unsettled'])
@@ -226,7 +239,7 @@ describe('bands: the key pill', () => {
   })
 
   it('K3 places the link samples before Olumi’s and a person’s marks', () => {
-    const m = withKey(['effect', 'size'], [{ ...model.links[0]!, causal: { sign: 'increases' } }, { ...model.links[1]!, role: 'size', causal: null }])
+    const m = withKey(['effect', 'size'], [{ ...model.links[0]!, causal: causal('increases'), label_key: 'effect' }, { ...model.links[1]!, role: 'size', causal: null, label_key: 'size' }])
     const c = drawKey(m)
     expect(c.querySelectorAll('[data-key-row="link"]')).toHaveLength(2)
     expect(c.querySelector('[data-key-item="effect"]')).toHaveTextContent('core says effect')
@@ -249,9 +262,9 @@ describe('bands: the key pill', () => {
   })
 
   it('K6 a doubted effect keeps its own direction colour, dash and arrow', () => {
-    const typed = { ...model.links[0]!, role: 'input', causal: null, direction: 'raises', doubt: true }
+    const typed = { ...model.links[0]!, role: 'input', causal: null, direction: 'raises', doubt: true, label_key: 'doubted' }
     const c = drawKey(withKey(['effect', 'input', 'doubted'], [typed]))
-    expect(labels(c).map((el) => el.textContent)).toEqual(['core says effect', 'core says doubted'])
+    expect(labels(c).map((el) => el.textContent)).toEqual(['core says doubted'])
     expect(c.querySelectorAll('[data-key-sample]')).toHaveLength(1)
     const svg = sample(c, 'doubted')!
     const trace = svg.querySelector('.ok-link-line')!
@@ -265,7 +278,7 @@ describe('bands: the key pill', () => {
   it('K7 shows each of the six marks and leaves them unlabelled when Core provides no words', () => {
     const cases = [
       ...['raises', 'lowers', 'depends', 'disputed', 'unknown'].map((direction, i) => ({ ...model.links[i]!, causal: null, direction })),
-      { ...model.links[5]!, causal: { sign: 'none' }, direction: null },
+      { ...model.links[5]!, causal: causal('none'), direction: null },
     ]
     const c = drawKey(withKey([], cases))
     expect([...c.querySelectorAll('[data-key-direction]')].map((el) => el.getAttribute('data-key-direction'))).toEqual(['raises', 'lowers', 'depends', 'disputed', 'unknown', 'none'])
@@ -273,9 +286,9 @@ describe('bands: the key pill', () => {
   })
 
   it('K8 a reason line is dotted, an alert is orange, and a proposal is blue after the first draft', () => {
-    const reason = { ...model.links[0]!, kind: 'reason', role: 'reason', causal: null, direction: null }
-    const alert = { ...model.links[1]!, causal: { sign: 'increases' }, alert: true }
-    const proposed = { ...model.links[2]!, causal: { sign: 'increases' }, proposed: true, doubt: false }
+    const reason = { ...model.links[0]!, kind: 'reason', role: 'reason', causal: null, direction: null, label_key: 'reason' }
+    const alert = { ...model.links[1]!, causal: causal('increases'), alert: true, label_key: 'alert' }
+    const proposed = { ...model.links[2]!, causal: causal('increases'), proposed: true, doubt: false, label_key: 'olumi' }
     const m = { ...withKey(['reason', 'alert', 'olumi'], [reason, alert, proposed]), first_draft: false }
     const c = drawKey(m)
     const reasonLine = sample(c, 'reason')!.querySelector('.ok-link-line')!
