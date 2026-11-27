@@ -111,19 +111,22 @@ describe('Where we differ in Team', () => {
     expect(screen.queryByTestId('tool-differ')).toBeNull()
   })
 
-  it('keeps the last matching version and chosen aim when the shared read rejects', async () => {
+  it('hides the tool and clears its ring on a same-version refresh with a stale response', async () => {
     const current = { ...view, signature: view.signature + '2' }
     const matchKey = differencesKey(sid, current)
     const { rerender } = render(<DifferTool sid={sid} view={view} />)
     await screen.findByTestId('tool-differ')
-    fireEvent.click(choose(sameLinkOtherAim))
+    expect(ringFrom).toHaveBeenLastCalledWith('tool-differ', figure.cards)
+    vi.mocked(ringFrom).mockClear()
 
     fetchTeam.mockRejectedValueOnce(new Error('connection lost'))
     rerender(<DifferTool sid={sid} view={current} />)
+    expect(screen.queryByTestId('tool-differ')).toBeNull()
     await waitFor(() => expect(useDifferences.getState()).toMatchObject({
       key: matchKey, read: differencesKey(sid, view), error: expect.any(String),
     }))
-    expect(choose(sameLinkOtherAim)).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('tool-differ')).toBeNull()
+    expect(vi.mocked(ringFrom).mock.calls).toEqual([['tool-differ', []]])
   })
 
   it('waits for the response version to match the displayed View, even when the request key matches', async () => {
