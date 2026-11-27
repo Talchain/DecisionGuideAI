@@ -4287,7 +4287,7 @@
     "v12-spacing": {
       "mode": "ratchet",
       "description": "Off-contract spacing utilities, numeric style props and pixel literals in spacing declarations",
-      "total": 236,
+      "total": 237,
       "byFile": {
         "src/canvas/nodes/GoalNode.tsx": 20,
         "src/olumiView/look/olumiLook.css": 19,
@@ -4363,6 +4363,7 @@
         "src/olumiView/v12/chat/CardMenuHeader.tsx": 1,
         "src/olumiView/v12/chat/KeptIdeas.tsx": 1,
         "src/olumiView/v12/edit/LaneInspector.tsx": 1,
+        "src/olumiView/v12/lenses/LayerCanvasStyle.tsx": 1,
         "src/olumiView/v12/views/RoundRead.tsx": 1
       },
       "signatures": {
@@ -5319,6 +5320,12 @@
           "file": "src/olumiView/v12/edit/LaneInspector.tsx",
           "token": "off-scale utility: mt-0.5",
           "sample": "<OkIcon id=\"committed\" size={14} decorative className=\"mt-0.5\" /><span className=\"min-w-0 break-words\">{k.lines.join(' ·"
+        },
+        "v12-spacing :: src/olumiView/v12/lenses/LayerCanvasStyle.tsx :: pixel declaration: padding-bottom: 22px": {
+          "count": 1,
+          "file": "src/olumiView/v12/lenses/LayerCanvasStyle.tsx",
+          "token": "pixel declaration: padding-bottom: 22px",
+          "sample": "`${card(id)}{padding-bottom:22px;position:relative}`,"
         },
         "v12-spacing :: src/olumiView/v12/views/FrameLines.tsx :: off-scale utility: gap-0.5": {
           "count": 2,

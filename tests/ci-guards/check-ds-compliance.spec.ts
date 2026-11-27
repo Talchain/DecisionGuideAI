@@ -112,6 +112,11 @@ describe('DS v5 compliance ratchet guard', () => {
       'pixel declaration: row-gap: 6px',
       'pixel declaration: column-gap: var(--other, 5px)',
     ]],
+    ['template', [
+      'pixel declaration: padding-bottom: 22px',
+      'pixel declaration: gap: 6px',
+      'pixel declaration: margin-left: -4px',
+    ]],
   ] as const)('V12 spacing ratchets %s violations under --enforce', (fixture, tokens) => {
     const { status, stdout } = run(['--root', `${FX}/spacing/${fixture}`, '--baseline', empty, '--enforce', '--json'])
     expect(status).toBe(1)

@@ -92,6 +92,45 @@ function hasOffScalePixels(value) {
   return false
 }
 
+function spacingDeclarationToken({ prop, value }) {
+  if (CSS_SPACING.test(prop) && hasOffScalePixels(value)) {
+    return `pixel declaration: ${prop}: ${value.replace(/\s+/g, ' ').trim()}`
+  }
+}
+
+const TEMPLATE_HOLE = '__ds_css_interpolation__'
+
+function scanTemplateSpacing(node, source, add) {
+  const first = ts.isTemplateExpression(node) ? node.head : node
+  let css = first.rawText ?? first.text
+  if (ts.isTemplateExpression(node)) {
+    for (const { expression, literal } of node.templateSpans) {
+      const lines = source.text.slice(expression.pos, literal.getStart(source)).replace(/[^\r\n]/g, '')
+      css += TEMPLATE_HOLE + lines + (literal.rawText ?? literal.text)
+    }
+  }
+  if (!css.includes('{') || !/px\b/i.test(css)) return
+
+  // A complete interpolation can stand between rules or declarations. Keep
+  // the marker in names and values so declarations with holes are skipped.
+  css = css.replace(/(^|[;{}])(\s*)__ds_css_interpolation__(?=\s*(?:[;}]|$)|\s+[\w-]+\s*:)/g, '$1$2/*__ds_css_interpolation__*/')
+  let stylesheet
+  try {
+    stylesheet = postcss.parse(css)
+  } catch (error) {
+    if (error.name !== 'CssSyntaxError') throw error
+    return
+  }
+  const firstLine = source.getLineAndCharacterOfPosition(first.getStart(source)).line
+  stylesheet.walkDecls((declaration) => {
+    if (declaration.parent.type === 'root') return
+    const { start, end } = declaration.source
+    if (css.slice(start.offset, end.offset).includes(TEMPLATE_HOLE)) return
+    const token = spacingDeclarationToken(declaration)
+    if (token) add(token, firstLine + start.line - 1)
+  })
+}
+
 // Only an object literal whose every property explicitly names a CSS variable is exempt.
 // Computed keys, spreads and variables can introduce ordinary properties and still count.
 function customPropertiesOnly(attribute) {
@@ -250,10 +289,11 @@ function isViewChild(node) {
 export function scanLaneSource(file, text) {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
   const hits = {}
-  const add = (rule, node, token) => {
+  const addAtLine = (rule, token, line) => {
     const occurrences = hits[rule] ??= []
-    occurrences.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line, token })
+    occurrences.push({ line, token })
   }
+  const add = (rule, node, token) => addAtLine(rule, token, source.getLineAndCharacterOfPosition(node.getStart(source)).line)
   const spacingClassStrings = new Set()
   const readSpacingClass = (node) => {
     if (spacingClassStrings.has(node)) return
@@ -291,6 +331,9 @@ export function scanLaneSource(file, text) {
     return readCopy(child, checkCase, started)
   }
   function visit(node) {
+    if (file.endsWith('.tsx') && (ts.isTemplateExpression(node) || ts.isNoSubstitutionTemplateLiteral(node))) {
+      scanTemplateSpacing(node, source, (token, line) => addAtLine('v12-spacing', token, line))
+    }
     if ((ts.isVariableDeclaration(node) || ts.isPropertyAssignment(node)) && CLASS_RECIPE_NAME.test(node.name.text ?? '')) {
       readClassStrings(node.initializer, readSpacingClass)
     }
@@ -367,12 +410,8 @@ export function scanLaneStylesheet(file, text) {
   })
   stylesheet.walkDecls((declaration) => {
     const line = declaration.source.start.line - 1
-    if (CSS_SPACING.test(declaration.prop) && hasOffScalePixels(declaration.value)) {
-      hits['v12-spacing'].push({
-        line,
-        token: `pixel declaration: ${declaration.prop}: ${declaration.value.replace(/\s+/g, ' ').trim()}`,
-      })
-    }
+    const spacing = spacingDeclarationToken(declaration)
+    if (spacing) hits['v12-spacing'].push({ line, token: spacing })
     if (declaration.important) {
       hits['v12-important-css'].push({ line, token: `${declaration.prop} !important` })
     }
