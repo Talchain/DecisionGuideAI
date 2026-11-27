@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
-import { useViewStore } from '../olumiView/store'
+import { shownModel, useViewStore } from '../olumiView/store'
 import { call, TeamApiError } from './team/api'
 import { BODY, CARD, ERR, H, META, QUIET } from './team/ui'
 import { typography } from '../styles/typography'
@@ -263,7 +263,7 @@ const TAB = 'mx-auto grid w-full max-w-[440px] grid-cols-1 gap-4 p-3'
 
 export function CoreCompareTab(): JSX.Element {
   const sid = useViewStore((s) => s.sid)
-  const model = useViewStore((s) => s.view?.model ?? null)
+  const model = useViewStore(shownModel)
   const held = useViewStore((s) => s.view?.proposal != null)
   const latest = useLatestApproved()
   return (
