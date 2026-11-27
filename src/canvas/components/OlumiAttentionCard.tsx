@@ -377,9 +377,9 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // The cards as drawn (their real rects, in this note's frame); the store's sizes only where the DOM has none (tests).
   anchorRef.current = anchorId
   const drawn = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.cards : []
-  const controls = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.controls : []
+  const occupiedControlBoxes = cardHeight > 0 && drawnNow.key !== '' ? drawnNow.controls : []
   const others = cardHeight > 0
-    ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...controls]
+    ? [...(drawn.length > 0 ? drawn : nodes.filter((n) => n.id !== anchorId).map((n) => screenBox(n as never))), ...occupiedControlBoxes]
     : []
   // The frame the note lives in bounds it on every side: never clipped at an edge, never under the controls.
   const frameRect = cardRef.current?.offsetParent?.getBoundingClientRect()
@@ -405,7 +405,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
       </button>
     )
   }
-  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, controls)
+  const { left, top } = attentionCardSpot(anchorBox, { w: CARD_WIDTH, h: cardHeight }, others, CARD_GAP, roomRight, CARD_GAP, roomBottom, occupiedControlBoxes)
   // ⛔ NEVER OVER A CARD ON THE CORE LANE (DL 4 Nov, the real capacity model's witness): where even the whole canvas has no free spot,
   // the note goes into the Olumi tab, under Next step (`VIEW_NOTE_SLOT`), which is opened for it; never over a card.
   const inPanel = lane && drawn.length > 0 && spotCovers({ left, top }, { w: CARD_WIDTH, h: cardHeight }, drawn)

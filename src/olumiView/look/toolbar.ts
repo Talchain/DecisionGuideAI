@@ -29,13 +29,14 @@ const FACE = `${GEOMETRY} ${STATE}`
 // The shared track is flush. Expand across the track, and use the face's own extent along the track.
 const BAR_HIT = HIT_44.replace('after:w-11', 'after:w-full')
 const RAIL_HIT = HIT_44.replace('after:h-11', 'after:h-full')
-const LABEL = `gap-1.5 text-text-body`
+const ICON_GEOMETRY = 'w-[30px] px-0'
+const LABEL = 'gap-1.5 px-2 text-text-body'
 
-export const TOOLBAR_ICON = `${FACE} ${BAR_HIT} text-text-light`
-export const TOOLBAR_COUNTED_ICON = `${FACE} ${BAR_HIT} gap-1 text-text-light`
+export const TOOLBAR_ICON = `${FACE} ${BAR_HIT} ${ICON_GEOMETRY} text-text-light`
+export const TOOLBAR_COUNTED_ICON = `${FACE} ${BAR_HIT} gap-1 px-1 text-text-light`
 export const TOOLBAR_LABEL = `${FACE} ${BAR_HIT} ${LABEL}`
-export const TOOLBAR_RAIL_ICON = `${FACE} ${RAIL_HIT} text-text-light`
+export const TOOLBAR_RAIL_ICON = `${FACE} ${RAIL_HIT} ${ICON_GEOMETRY} text-text-light`
 export const OLDER_TOOLBAR_RAIL_ICON = `${FACE_BASE} h-[30px] w-[30px] min-w-[30px] rounded-sm ${STATE} ${RAIL_HIT} text-text-light`
-export const TOOLBAR_ACTION = `${GEOMETRY} ${BAR_HIT} gap-1.5 aria-disabled:opacity-50`
+export const TOOLBAR_ACTION = `${GEOMETRY} ${BAR_HIT} gap-1.5 px-2 aria-disabled:opacity-50`
 export const TOOLBAR_STATUS = `inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap px-2 ${typography.viewPanelMeta} text-text-body`
 export const TOOLBAR_TITLE = `${typography.viewPanelHeadline} text-text-header`

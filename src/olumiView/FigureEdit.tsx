@@ -101,7 +101,7 @@ export function HeldEditOffer({ id, label = 'Change figure', place = 'view-figur
   if (!open) return (
     <>
       <button type="button" data-testid={`${place}-aside-edit-${id}`} data-card-action="" autoFocus={restoreFocus} onClick={() => { tip.dismiss(); setOpen(true) }} aria-label={`${label}: ${ASIDE_WORDS.offer}`} {...tip.handlers} aria-describedby={tip.describedBy}
-        className={(isOlumiCoreLane() ? `${words ? controls.chipText : controls.chipIcon} ${FIGURE_PENCIL}` : String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`)}><EditIcon /></button>
+        className={(isOlumiCoreLane() ? `${controls.chipIcon} ${FIGURE_PENCIL}` : String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`)}><EditIcon /></button>
       {tip.tip}
     </>
   )

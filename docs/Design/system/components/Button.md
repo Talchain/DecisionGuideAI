@@ -8,7 +8,7 @@ The lane uses 28px chips and 30px toolbar faces. Controls use the 6px `radius-co
 |---|---|---|
 | Text chip | `controls.chipText` · `min-h-7`, 8px horizontal padding, 12px type | `VIEW_CHIP_PRIMARY_CLASS`, `VIEW_CHIP_CLASS`, `VIEW_CHIP_OUTLINE_CLASS`, shared `Button size="chip"` |
 | Icon chip | `controls.chipIcon` · `min-h-7`, 28px minimum width, no padding, 12px type | `VIEW_ICON_BUTTON_PRIMARY_CLASS`, `VIEW_ICON_BUTTON_CLASS`, `OkIconButton` |
-| Toolbar | `controls.toolbarButton` · 30px face, 30px minimum width, 8px horizontal padding, 12px type | `TOOLBAR_ICON`, `TOOLBAR_RAIL_ICON`, `TOOLBAR_COUNTED_ICON`, `TOOLBAR_LABEL`, `TOOLBAR_ACTION` |
+| Toolbar | `controls.toolbarButton` · 30px face, 12px type. Fixed-width icons are 30px with no horizontal padding. Counted icons use 4px and labels use 8px | `TOOLBAR_ICON`, `TOOLBAR_RAIL_ICON`, `TOOLBAR_COUNTED_ICON`, `TOOLBAR_LABEL`, `TOOLBAR_ACTION` |
 | Menu row | `MENU_ROW` · a single line with the menu's own padding | `MenuItem`, `SubMenu` |
 
 A button with an icon and visible count uses the text-chip geometry so it can grow with the count.

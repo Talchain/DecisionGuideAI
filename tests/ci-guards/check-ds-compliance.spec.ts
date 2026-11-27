@@ -53,12 +53,13 @@ describe('DS v5 compliance ratchet guard', () => {
     const { netNew } = JSON.parse(stdout)
     expect(Object.keys(netNew)).toEqual(['v12-button-size'])
     expect(netNew['v12-button-size'].mode).toBe('ratchet')
+    expect(netNew['v12-button-size'].items).toContainEqual(expect.objectContaining({ token: '<Button size="md">', delta: 2 }))
     expect(netNew['v12-button-size'].items.map(({ token }: { token: string }) => token).sort()).toEqual([
-      '<Button size="md">', '[min-height:32px]', 'h-[30px]', 'min-h-8', 'min-h-[32px]', 'size-8', 'sm:min-h-9',
+      '<Button size="md">', '[&:hover]:h-8', '[min-height:32px]', 'h-[30px]', 'min-h-8', 'min-h-[32px]', 'size-8', 'sm:min-h-9',
     ])
   })
 
-  it('V12 button size accepts the geometry recipes and ignores height on non-buttons', () => {
+  it('V12 button size accepts the geometry recipes and ignores sizing on children and non-buttons', () => {
     const { status, stdout } = run(['--root', `${FX}/button-size/clean`, '--baseline', empty, '--enforce', '--json'])
     expect(status).toBe(0)
     expect(JSON.parse(stdout).netNew).toEqual({})

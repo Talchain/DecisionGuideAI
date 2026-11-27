@@ -52,6 +52,7 @@ const SPACING_UTILITY = /(?:^|:)!?-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy])
 const CLASS_RECIPE_NAME = /(?:^|_)CLASS(?:ES)?(?:_|$)|^class(?:Names?|es)?$|Class(?:Names?|es|Recipes)?$/
 const CLASS_HELPERS = new Set(['clsx', 'cn', 'classNames', 'classnames', 'twMerge'])
 const BUTTON_WRAPPER = /^(?:button|Button|HoverButton|OkIconButton|MenuItem|SubMenu|MenuRow|CanvasToolButton|ViewSummaryTrigger|VersionsTrigger|SizeEditButton|LaneLinkRemoveButton|AskButton|RecordStepButton|UseAsActionButton|CommitToThisButton)$/
+const NON_FACE_VARIANT = /(?:^|:)(?:(?:before|after|\*{1,2}):|\[&[>_+~])/
 const BUTTON_HEIGHT = /(?:^|:)!?(?:(?:h|min-h|size)-.+|\[(?:height|min-height):.+\])!?$/
 
 function isButtonSite(tag, attribute) {
@@ -383,14 +384,14 @@ export function scanLaneSource(file, text) {
         return value && ts.isStringLiteralLike(value) ? value.text : undefined
       }
       if (isButtonSite(tag, attribute) || (file === 'olumiView/look/Menu.tsx' && tag === 'Row')) {
-        const size = attribute('size')
+        const size = attributes.some((entry) => entry.name.getText(source) === 'size') ? attribute('size') : 'md'
         if (tag === 'Button' && (size === 'sm' || size === 'md')) {
           add('v12-button-size', node, `<Button size="${size}">`)
         }
         const seen = new Set()
         const read = (literal) => {
           for (const token of literal.text.split(/\s+/)) {
-            if (!/(?:^|:)(?:before|after):/.test(token) && BUTTON_HEIGHT.test(token)) {
+            if (!NON_FACE_VARIANT.test(token) && BUTTON_HEIGHT.test(token)) {
               add('v12-button-size', node, token)
             }
           }

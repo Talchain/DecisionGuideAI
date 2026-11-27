@@ -7,5 +7,5 @@ export const buttons = <>
   <MenuItem className={MENU_ROW} />
   <div className="h-[30px]" />
   <Hover className="min-h-8" />
-  <button className="relative after:h-11" />
+  <button className="relative after:h-11 [&>svg]:h-4 sm:[&_svg]:size-4 [&>span[data-icon]]:min-h-4" />
 </>

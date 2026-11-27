@@ -6,5 +6,7 @@ export const buttons = <>
   <Hover as={'button'} className="h-[30px]" />
   <OkIconButton className={clsx('size-8', { 'sm:min-h-9': roomy })} />
   <Button size="md" />
+  <Button />
+  <button className="[&:hover]:h-8" />
   <MenuItem className="[min-height:32px]" />
 </>

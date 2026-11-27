@@ -237,7 +237,7 @@ const CLASSES = [
     description: 'Explicit button heights and legacy shared Button sizes on lane surfaces',
     laneSource: true,
     inScope: (p) => !isTest(p) && /\.tsx$/.test(p) && (inV12(p) ||
-      /^olumiCore\/(?:compare|scenarioCompare|versions)\.tsx$/.test(p) ||
+      /^olumiCore\/(?:compare|scenarioCompare|versions|DeleteMyDataDialog)\.tsx$/.test(p) ||
       /^components\/layout\/(?:TopBar|LeftSidebar|CanvasToolButton|CanvasViewportControls|KebabMenu)\.tsx$/.test(p) ||
       /^canvas\/components\/(?:OlumiAttentionCard|OutputsDock|SelectionPill|workspaceShell\/WorkspaceShellTabStrip)\.tsx$/.test(p) ||
       /^canvas\/(?:contextMenu\/ContextRows|edges\/ViewLinkEdge|versions\/WhatChangedPanel|help\/KeyboardLegend|nodes\/BaseNode)\.tsx$/.test(p)),

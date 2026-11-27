@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2 } from 'lucide-react'
+import { controls } from '../styles/controls'
 import { typography } from '../styles/typography'
 import { CANVAS_LAYER_CLASS } from '../canvas/layers'
 import { Button } from '../components/ui/Button'
@@ -115,7 +116,7 @@ export function DeleteMyDataDialog({ onCancel, onDeleted }: { onCancel: () => vo
         )}
 
         <div className="flex flex-wrap justify-end gap-3">
-          <Button ref={cancelButton} variant="secondary" size="sm" onClick={cancel} disabled={busy === 'deleting'} data-testid="olumi-core-delete-cancel">
+          <Button ref={cancelButton} variant="secondary" size="chip" onClick={cancel} disabled={busy === 'deleting'} data-testid="olumi-core-delete-cancel">
             Cancel
           </Button>
           {/* Offered only with core's sentences on screen: nothing is deleted unread. */}
@@ -125,7 +126,7 @@ export function DeleteMyDataDialog({ onCancel, onDeleted }: { onCancel: () => vo
               onClick={() => void confirm()}
               disabled={busy !== null}
               data-testid="olumi-core-delete-confirm"
-              className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 ${typography.buttonSmall} bg-danger text-text-on-color border border-transparent hover:bg-danger/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 disabled:cursor-not-allowed disabled:opacity-40`}
+              className={`inline-flex items-center gap-2 whitespace-nowrap ${controls.chipText} font-medium bg-danger text-text-on-color border border-transparent hover:bg-danger/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 disabled:cursor-not-allowed disabled:opacity-40`}
             >
               <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
               Delete my data

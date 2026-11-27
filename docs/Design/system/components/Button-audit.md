@@ -9,8 +9,8 @@ A recipe includes named chip, toolbar and menu geometry. “Matching size” rec
 | View | 254 | 80 | 35 | 139 | 234 | 20 |
 | Team | 36 | 1 | 0 | 35 | 34 | 2 |
 | Versions and comparison | 13 | 0 | 0 | 13 | 11 | 2 |
-| Shared chrome | 43 | 30 | 3 | 10 | 43 | 0 |
-| **Total** | **346** | **111** | **38** | **197** | **322** | **24** |
+| Shared chrome | 45 | 30 | 3 | 12 | 45 | 0 |
+| **Total** | **348** | **111** | **38** | **199** | **324** | **24** |
 
 
 ## Typography
@@ -350,6 +350,8 @@ Counted explicit utilities, arbitrary values, CSS declarations, and references t
 
 | Render site | Role | Before | After |
 |---|---|---|---|
+| [`src/olumiCore/DeleteMyDataDialog.tsx:119`](../../../../src/olumiCore/DeleteMyDataDialog.tsx#L119) · `Button` (Cancel) | text chip | Off-size | Recipe |
+| [`src/olumiCore/DeleteMyDataDialog.tsx:124`](../../../../src/olumiCore/DeleteMyDataDialog.tsx#L124) · `button` (Delete my data) | text chip | Off-size | Recipe |
 | [`src/canvas/components/OlumiAttentionCard.tsx:398`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L398) · `button` | icon chip | Off-size | Recipe |
 | [`src/canvas/components/OlumiAttentionCard.tsx:477`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L477) · `button` | icon chip | Off-size | Recipe |
 | [`src/canvas/components/OlumiAttentionCard.tsx:523`](../../../../src/canvas/components/OlumiAttentionCard.tsx#L523) · `button` | icon chip | Off-size | Recipe |
