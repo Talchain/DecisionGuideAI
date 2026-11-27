@@ -22,8 +22,8 @@ export function ChanceTrack({ chance, range }: { chance: number; range: { low: n
 
 export function ChanceKeyMark({ kind }: { kind: 'low' | 'high' }) {
   return kind === 'low'
-    ? <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>
-    : <svg className="h-2.5 w-2.5"><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>
+    ? <svg className="h-2.5 w-2.5" data-chance-key={kind}><circle cx="50%" cy="50%" r="3" strokeWidth="1.5" className="fill-panel stroke-text-body" /></svg>
+    : <svg className="h-2.5 w-2.5" data-chance-key={kind}><circle cx="50%" cy="50%" r="3" className="fill-text-body" /></svg>
 }
 
 export default ChanceTrack

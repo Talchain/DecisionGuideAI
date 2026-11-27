@@ -2007,7 +2007,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         ${olumiLook ? 'ok-card-frame' : ''}
         group relative rounded-md border ${
           /* ⭐ ONE RESTING ELEVATION ON EVERY FAMILY, THE GOAL INCLUDED (contract
-             v3.1 FRAME-05 / ANC-08: `.node{box-shadow:0 2px 4px #25252005}`,
+             v3.1 FRAME-05 / ANC-08 sets the resting shadow,
              no per-kind override). The goal carried `shadow-3` — DS v5 §5's
              MODAL/OVERLAY elevation — so at the landing zoom it floated above
              the board. It is set apart by geometry (wide, alone in its row) and
@@ -2284,12 +2284,11 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* Graph Editing Experience Task 5: Impact preview indicator (top-left to avoid rank badge collision) */}
       {impactDirection && (
         <div
-          className="absolute -top-3 -left-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm"
-          style={{
-            backgroundColor: impactDirection === 'increase' ? 'var(--semantic-success, #22c55e)'
-              : impactDirection === 'decrease' ? 'var(--semantic-danger, #ef4444)'
-              : 'var(--text-muted, #9ca3af)',
-          }}
+          className={`absolute -top-3 -left-3 z-20 rounded-full w-5 h-5 flex items-center justify-center shadow-sm ${
+            impactDirection === 'increase' ? (olumiLook ? 'bg-[color:var(--edge-positive)]' : 'bg-success')
+              : impactDirection === 'decrease' ? (olumiLook ? 'bg-[color:var(--edge-negative)]' : 'bg-danger')
+              : 'bg-text-light'
+          }`}
         >
           {impactDirection === 'increase' && <ArrowUp className="w-3 h-3 text-white" />}
           {impactDirection === 'decrease' && <ArrowDown className="w-3 h-3 text-white" />}

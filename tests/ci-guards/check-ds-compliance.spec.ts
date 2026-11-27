@@ -40,6 +40,21 @@ describe('DS v5 compliance ratchet guard', () => {
   writeFileSync(empty, JSON.stringify({ classes: {} }))
   afterAll(() => rmSync(tmp, { recursive: true, force: true }))
 
+  it('enforces zero hex in canvas nodes and Olumi view even with a matching baseline', () => {
+    const root = `${FX}/hex-zero`
+    const baseline = path.join(tmp, 'hex-zero-baseline.json')
+    expect(run(['--root', root, '--baseline', baseline, '--update']).status).toBe(0)
+
+    const { status, stdout } = run(['--root', root, '--baseline', baseline, '--enforce', '--json'])
+    expect(status).toBe(1)
+    const { netNew } = JSON.parse(stdout)
+    expect(netNew['production-hex'].items).toEqual([
+      expect.objectContaining({ file: `${root}/canvas/nodes/frame.tsx`, token: '#AB12CD' }),
+      expect.objectContaining({ file: `${root}/olumiView/chart.css`, token: '#ABC9' }),
+      expect.objectContaining({ file: `${root}/olumiView/chart.css`, token: '#0004' }),
+    ])
+  })
+
   it('HARD-FAIL: catches net-new gating violations (dirty vs empty baseline) under --enforce', () => {
     const { status, out } = run(['--root', `${FX}/dirty`, '--baseline', empty, '--enforce'])
     expect(status).toBe(1)

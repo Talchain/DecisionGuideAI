@@ -19,12 +19,12 @@ export function ConditionalBar({ card }: { card: ViewCard; view?: { model?: View
   const d = driverChances(card)
   if (d === null) return null
   const lo = Math.min(d.low, d.high) * 100, hi = Math.max(d.low, d.high) * 100
-  const dot = (p: number, id: string) => <span data-testid={id} data-p={p} className="ok-scale-dot ok-scale-conditional-dot" style={{ '--scale-x': `${p * 100}%` } as CSSProperties} />
+  const dot = (p: number, bound: 'low' | 'high') => <span data-testid={`conditional-${bound}`} data-conditional-bound={bound} data-p={p} className="ok-scale-dot ok-scale-conditional-dot" style={{ '--scale-x': `${p * 100}%` } as CSSProperties} />
   return (
     <Hover as="div" data-testid="conditional-bar" data-card={card.id} words={card.driver?.title || undefined} className="ok-scale ok-scale-range">
       <div className="ok-scale-track">
         <span className="ok-scale-conditional-span" style={{ '--scale-x': `${lo}%`, '--scale-width': `${hi - lo}%` } as CSSProperties} />
-        {dot(d.low, 'conditional-low')}{dot(d.high, 'conditional-high')}
+        {dot(d.low, 'low')}{dot(d.high, 'high')}
       </div>
       <div className="flex justify-between">
         <span data-testid="conditional-low-label">low {sampledChanceWords(d.low)}</span>

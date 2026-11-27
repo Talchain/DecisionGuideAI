@@ -117,6 +117,10 @@
   --bg-panel: rgb(var(--bg-panel-rgb));
   --bg-panel-hover-rgb: 254 249 243;
   --bg-panel-hover: rgb(var(--bg-panel-hover-rgb));
+
+  /* Active-tab tint used by the older panel and toolbar. */
+  --panel-tab-active-bg-rgb: 243 248 250;
+  --panel-tab-active-bg: rgb(var(--panel-tab-active-bg-rgb));
   --border-default-rgb: 238 230 216;
   --border-default: rgb(var(--border-default-rgb));
 

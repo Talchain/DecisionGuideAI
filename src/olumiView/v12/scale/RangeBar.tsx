@@ -9,7 +9,7 @@ import type { View, ViewCard, ViewModel } from '../../client'
 import { figureRange, linkRole } from '../contract'
 import { aimOf, axisOf, modelOf, pctOf } from './axis'
 
-export function RangeBar({ card, view, tried, showFlat = false }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null; showFlat?: boolean }) {
+export function RangeBar({ card, view, tried, showFlat = false, byOlumi }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null; showFlat?: boolean; byOlumi?: boolean }) {
   const range = figureRange(card)
   if (range === null) return null
   const model = modelOf(view as { model?: ViewModel | null })
@@ -22,7 +22,7 @@ export function RangeBar({ card, view, tried, showFlat = false }: { card: ViewCa
   if (!showFlat && flat && deadline === null && t === null) return null
   const pointOnly = showFlat && flat
   const marker = pointOnly ? range.low : range.likely
-  const olumi = (card as { author?: { by?: unknown } | null }).author?.by === 'olumi'
+  const olumi = byOlumi ?? (card.author?.by === 'olumi')
   const vals = [range.low, range.high, ...(marker === null ? [] : [marker]), ...(t === null ? [] : [t]), ...(deadline === null ? [] : [deadline])]
   const axis = axisOf(Math.min(...vals), Math.max(...vals), 1)
   const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
