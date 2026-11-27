@@ -4,7 +4,7 @@
  * whole of core's model is in view on first open and after each new version; the person zooms in from there.
  */
 import type { View } from './client'
-import { labelCounterScale, LABEL_LEGIBLE_ZOOM, LABEL_SCALE_QUANTUM } from '../canvas/utils/zoomLegibility'
+import { labelCounterScale, LABEL_LEGIBLE_ZOOM, LABEL_SCALE_QUANTUM, LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM } from '../canvas/utils/zoomLegibility'
 
 export const CORE_LANE_FIT_FLOOR = 0.25
 
@@ -26,12 +26,7 @@ export const READABLE_WHOLE_ZOOM = MIN_CARD_TEXT_PX / 12
 export const reducedFaceSize = (zoom: number): number =>
   Number.isFinite(zoom) && zoom > 0 && zoom < READABLE_WHOLE_ZOOM ? Math.ceil(labelCounterScale(zoom) * LABEL_SCALE_QUANTUM) / LABEL_SCALE_QUANTUM : 0
 
-/**
- * V12 Simple's fit floor: production's own (LABEL_LEGIBLE_ZOOM, 0.5). Simple draws its type at production's counter-scale, fixed when the board is
- * laid out from the zoom its WIDTH fits across the room at (layout.ts simpleScaleOf). R1 priority 2 outranks 3: where the whole model fits at the floor
- * or above, it is framed whole (its type then draws 9.8 px at the floor); where it does not (ViewCanvas simpleFrame), the camera opens at the zoom the
- * board's own type draws 11 px, its top in view, and the "N more below" cue counts the rest. Below 0.5 cards would near their reduced face (LOD_BODY_HIDDEN_ZOOM, 0.45).
- */
+/** The readable floor for Show's existing Simple refit. */
 export const SIMPLE_FIT_FLOOR = LABEL_LEGIBLE_ZOOM
 
 /** The zoom at or above which the whole board is shown at once: the readable floor (R25), so a whole-board fit never draws text under
@@ -40,6 +35,14 @@ export const WHOLE_FIT_ZOOM = READABLE_WHOLE_ZOOM
 
 type Rect = { x: number; y: number; width: number; height: number }
 type Insets = { top: number; right: number; bottom: number; left: number }
+/** Zoom and translation come from a single face's settled bounds. Null requests the far face. */
+export function simpleFrameFor(bounds: Rect, pane: { width: number; height: number }, insets: Insets, far: boolean) {
+  // Inside the restore boundary, a seeded far face keeps its short boxes.
+  const limit = far ? LOD_BODY_RESTORED_ZOOM - 0.001 : 1
+  const viewport = wholeAtTopViewport(bounds, pane, insets, limit, far ? CORE_LANE_FIT_FLOOR : 0)
+  return far || viewport.zoom >= LOD_BODY_HIDDEN_ZOOM ? viewport : null
+}
+
 /**
  * READABLE FIRST (DL 4 Nov, 17Z ruling on R1.1: "readable first wins"). The visible rect is the canvas minus the dock; the board is framed
  * inside it, never behind the dock. Null when the whole board fits it at `WHOLE_FIT_ZOOM` or more: the product's own fit then frames

@@ -119,6 +119,7 @@ export const askKindOf = (family: string): 'factor' | 'risk' | 'goal' | 'option'
 
 /** The question's card on core's page (olumi-core src/view/model.ts QUESTION): what a link to the question as a whole ends at. */
 export const QUESTION = 'page:question'
+export const QUESTION_LAYOUT_HEIGHT = 85
 /** The nodes the canvas waits on before it settles: the question, each model card it holds, and the kept ideas and group cards it draws (the folded
  *  inputs' `group:inputs` and each row's `group:<kind>:<band>`, v12/bands/groups.ts) (picking, so here). Kept ideas with no model have no question
  *  card to wait on (`hasModel` false): waiting on one held their frame to the FRAME_WAIT_MS cap. */
@@ -163,7 +164,7 @@ export const measuredOf = <T extends { id: string; measured?: { width?: number; 
 type Size = { width: number; height: number }
 /** The View's cards and question as the previous product's layout reads them: each by its kind (the question as the decision). */
 const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) => Size): Node[] => [
-  { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, W, 85) },
+  { id: QUESTION, type: 'decision', data: { kind: 'decision' }, position: { x: 0, y: 0 }, measured: at(QUESTION, W, QUESTION_LAYOUT_HEIGHT) },
   ...model.cards.map((c): Node => { const kind = drawKindOf(c, model); return { id: c.id, type: kind, data: { kind, ...(kind === 'constraint' ? { layoutTier: LIMIT_TIER } : {}) }, position: { x: 0, y: 0 }, measured: at(c.id, W, c.h) } }),
 ]
 /**
@@ -259,7 +260,7 @@ function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: Si
   const shapes = bands.map(({ ids }) => simpleBand(row, ids.length))
   const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), simpleQuestionW(model, row))
   const scale = simpleScaleOf(boardW, row.roomW)
-  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 90)
+  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? QUESTION_LAYOUT_HEIGHT : extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 90)
   const parents = new Map<string, string[]>()
   for (const { link } of cardLinks(model)) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
   const out = new Map<string, SimplePlace>()
@@ -440,7 +441,7 @@ export function briefAccountOf(view: View): BriefAccount {
  */
 export const COLUMN_GAP_X = 56, COLUMN_GAP_Y = 12, RAIL_GAP_Y = 32 // a rail is 28 px: one chip (24) and its 4 px margin
 export function causalColumns(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set()): Map<string, { x: number; y: number }> {
-  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: QUESTION_LAYOUT_HEIGHT } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
   const reasonCard = (c: ViewCard) => c.family === 'relation'
   // Where the story ends: the aims and limits; on a board with none yet (J1, a first version), the figures every link leads to (a card
   // with a plain link into it and none out of it), so the story still reads from its causes to what they move.
@@ -520,7 +521,7 @@ export const TREE_RAIL_Y = 44
  * Positions only: no word of core's is read or written here.
  */
 export function routeTree(model: ViewModel, size: ReadonlyMap<string, Size>, questionWidth: number, railed: ReadonlySet<string> = new Set(), room = 0, roomW = 0): Map<string, { x: number; y: number }> {
-  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: 85 } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
+  const at = (id: string): Size => size.get(id) ?? (id === QUESTION ? { width: questionWidth, height: QUESTION_LAYOUT_HEIGHT } : { width: W, height: model.cards.find((c) => c.id === id)?.h ?? 0 })
   const below = (id: string) => at(id).height + (railed.has(id) ? TREE_RAIL_Y : 0)
   const reasonCard = (c: ViewCard) => c.family === 'relation'
   const plain = model.links.filter((l) => l.kind !== 'reason')

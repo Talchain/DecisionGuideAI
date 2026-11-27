@@ -222,7 +222,6 @@ import { StressTestTab } from '../../olumiView/v12/tools/StressTest' // lane C (
 import { shownModel, useViewStore } from '../../olumiView/store'
 import { TAB_COUNT_CLASS, useLaneTabCount } from '../../olumiView/shell/tabCounts'
 import { useViewFollows } from '../../olumiView/follow'
-import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewPoll } from '../../olumiView/poll'
 import { useViewNote } from '../../olumiView/note'
 import { useOwnViewFirst } from '../../olumiCore/ownViewFirst'
@@ -827,7 +826,6 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   const checkCount = useLaneTabCount('analysisNew')
   const teamCount = useLaneTabCount('team')
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
-  useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
   const briefPanel = useBriefPanelShown() && isOlumiCoreLane()
   // J1 gate: a revealed view or a piece of evidence open from the board is a focused panel too, as the brief's account is: the selection

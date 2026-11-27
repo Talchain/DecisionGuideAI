@@ -35,7 +35,6 @@ import { QUESTION } from '../layout'
 import { boardKeyOf, openBadgesKeyOf } from '../camera'
 import { setLevel, useSimpleLevel } from '../v12/simpleStore'
 import { railOf } from '../../canvas/edges/linkRail'
-import { frameDue, FRAME_WAIT_MS, REVEAL_MS } from '../ViewCanvas'
 import { Proposal } from '../ViewChat'
 import { useViewLens, usePreMortemGate } from '../lens'
 import { clearWhatIf, useWhatIf, type WhatIfAnswer } from '../whatif'
@@ -509,22 +508,7 @@ describe('the DL\'s look at A13d (12 Nov)', () => {
   })
 })
 
-describe('the DL\'s look at A13f (12 Nov)', () => {
-  it('PB11: the first frame is due once the board settles, or after a bounded WAIT IN TIME however few frames a throttled pane drew; CONTRAST: unsettled and early, not yet', () => {
-    expect(frameDue(true, 0)).toBe(true)
-    expect(frameDue(false, FRAME_WAIT_MS)).toBe(true) // ~5 frames at 3 fps: the old 300-frame cap waited ~100 s
-    expect(frameDue(false, FRAME_WAIT_MS - 1)).toBe(false)
-    expect(FRAME_WAIT_MS).toBeLessThanOrEqual(2000)
-  })
-  it('PB12: the board is not painted until its first frame (class ok-board-unframed on the flow, hidden by the look sheet), and never hidden past REVEAL_MS; CONTRAST: the settle\'s own wait is shorter', () => {
-    const canvas = readFileSync(path.resolve('src/olumiView/ViewCanvas.tsx'), 'utf8'), look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    expect(canvas).toMatch(/className=\{framed \? 'olumi-look' : 'olumi-look ok-board-unframed'\}/)
-    expect(look).toMatch(/\.olumi-look\.ok-board-unframed \.react-flow__viewport \{ visibility: hidden; \}/)
-    expect(canvas).toMatch(/setTimeout\(\(\) => \{ framedRef\.current = true; setFramed\(true\) \}, REVEAL_MS\)/)
-    expect(canvas).toMatch(/if \(!holdsCards\) return; const t = setTimeout/) // the wait starts with the first card, not at mount (a cold open mounts before the data)
-    expect(canvas).not.toMatch(/drawn\.length === 0 && ids\.size === 0\)\) \{ framedRef/) // an empty board is never "framed"
-    expect(REVEAL_MS).toBeGreaterThan(FRAME_WAIT_MS)
-    expect(REVEAL_MS).toBeLessThanOrEqual(3000)
-    expect((canvas.match(/(?:const|,) FRAME_WAIT_MS =/g) ?? []).length).toBe(1)
-  })
+it('PB12: the look hides the viewport during opening so it can be measured before the first frame', () => {
+  const look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  expect(look).toMatch(/\.olumi-look\.ok-board-unframed \.react-flow__viewport \{ visibility: hidden; \}/)
 })
