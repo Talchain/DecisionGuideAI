@@ -2631,15 +2631,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* Node header — shape + title on same row (spec Section 3.2) */}
       <div
         data-testid="node-header-row"
+        className={olumiLook ? 'ok-card-header-row' : undefined}
         style={{
           display: 'flex',
           alignItems: 'flex-start',
-          // Same source as the layout's header reservation, so the gap the card
-          // is sized for is the gap it renders (NODE_HEADER_RESERVE_PX).
-          gap: `${NODE_HEADER_GAP_PX}px`,
-          // Scaled with the text (Paul 1 Oct, "no spacing between different lines"): a fixed 4px rendered 2px at
-          // the landing zoom while the title above it rendered at 0.82×.
-          marginBottom: NODE_ROW_GAP_SCALED,
+          // The older look shares the layout's header reservation. The Olumi
+          // look scales this gap with the card in olumiLook.css.
+          ...(!olumiLook ? { gap: `${NODE_HEADER_GAP_PX}px`, marginBottom: NODE_ROW_GAP_SCALED } : {}),
           // Gap 11: clear of the corner marks when the title shares its line.
           ...(cornerHeaderReserve !== undefined ? { paddingRight: cornerHeaderReserve } : {}),
           // Let the header slot drop below the title rather than squeezing the
@@ -2900,7 +2898,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
             by identity rather than by walking up from a mark (trap 19). */}
         <BottomCardMark><span
           data-testid="node-provenance-mark-group"
-          className="inline-flex items-center gap-1 shrink-0"
+          className={olumiLook ? 'inline-flex items-center ok-card-gap-tight shrink-0' : 'inline-flex items-center gap-1 shrink-0'}
         >
           {/* Paul, 27 Oct: a card's icons sit on its bottom row only. Olumi's authorship mark (it sat after the title)
               moves here unchanged — a static glyph, never the band's ask — so the move is display only. */}
@@ -2928,7 +2926,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
         {headerSlot && (
           <BottomCardMark><span
             data-testid="node-header-slot-group"
-            className={CANVAS_HEADER_GLYPH_GROUP_CLASSES}
+            className={olumiLook ? 'inline-flex items-center ok-card-gap-tight shrink-0 ml-auto' : CANVAS_HEADER_GLYPH_GROUP_CLASSES}
           >
             {headerSlot as ReactNode}
           </span></BottomCardMark>
@@ -2951,7 +2949,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               onClick={handleExpandToggle}
               onPointerDown={(e) => e.stopPropagation()}
               {...(isCoreCard ? { 'data-card-action': '' } : {})}
-              className="nodrag nopan shrink-0 p-0.5 rounded text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors"
+              className={`nodrag nopan shrink-0 ${olumiLook ? 'ok-card-description-toggle' : 'p-0.5'} rounded text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors`}
               aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
               data-testid="node-description-toggle"
             >
@@ -2979,8 +2977,8 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {(hasCornerSlot || statePill !== null) && (
         <div
           data-testid={`node-state-row-${id}`}
-          className="flex flex-wrap items-center gap-1 [&>*]:max-w-full [&>*]:whitespace-normal"
-          style={{ marginBottom: NODE_ROW_GAP_SCALED }}
+          className={`flex flex-wrap items-center ${olumiLook ? 'ok-card-gap-tight ok-card-state-row' : 'gap-1'} [&>*]:max-w-full [&>*]:whitespace-normal`}
+          style={olumiLook ? undefined : { marginBottom: NODE_ROW_GAP_SCALED }}
         >
           {/* Caller-supplied state member — first in DOM order. Today it has
               exactly one caller: OptionNode's "Leading option" pill, which used
@@ -3012,7 +3010,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
       {/* Expanded description (markdown) */}
       {isExpanded && description && (
         <div
-          className={`${labelType} ${isCoreCard ? 'text-text-light' : 'text-text-body opacity-85'} mt-3 max-h-[200px] overflow-y-auto node-description`}
+          className={`${labelType} ${isCoreCard ? 'text-text-light' : 'text-text-body opacity-85'} ${olumiLook ? 'ok-card-description' : 'mt-3'} max-h-[200px] overflow-y-auto node-description`}
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via safeRichText (sanitizeMarkdown shim)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
@@ -3106,7 +3104,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
           {/* The person's model holds this item; the calculation does not include it yet (`livingModelCanvas.ts`). One
               quiet line, in the words the goal card's list used to carry. */}
           {livingOnly !== null && (
-            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${isCoreCard ? typography.viewLabel : typography.edgeLabel} text-text-light mt-1`}>
+            <div data-testid={NOT_IN_CALCULATION_TEST_ID} className={`${isCoreCard ? typography.viewLabel : typography.edgeLabel} text-text-light ${olumiLook ? 'ok-card-not-in-calculation' : 'mt-1'}`}>
               {notInCalculationWords(livingOnly)}
             </div>
           )}
@@ -3118,13 +3116,13 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               The target glyph is the one the constraint badge uses, so the two
               surfaces read as one idea rather than two. */}
           {showConstraintLines && (
-            <div className="mt-1.5 space-y-0.5" data-testid="factor-constraint-lines">
+            <div className={olumiLook ? 'ok-card-constraints' : 'mt-1.5 space-y-0.5'} data-testid="factor-constraint-lines">
               {/* Paul, 27 Oct: the limit's target glyph sits on the bottom row, once per card, in the marks' neutral grey
                   (blue is Olumi's alone); the lines keep their words. Declared = delivered (contract v3.1 ICON-11): the
                   glyph carries `--canvas-label-scale`. */}
               <BottomCardMark><Target size={9} data-testid="factor-constraint-mark" className={`text-text-light shrink-0 ${CANVAS_GLYPH_SIZE_CLASSES[9]}`} aria-hidden="true" /></BottomCardMark>
               {constraintLines.map((text, i) => (
-                <div key={i} className="flex items-start gap-1">
+                <div key={i} className={`flex items-start ${olumiLook ? 'ok-card-gap-tight' : 'gap-1'}`}>
                   <span className={`${isCoreCard ? typography.viewLabel : typography.edgeLabel} text-text-body`}>
                     {/* "Limit" names what the number IS. The formatter supplies
                         the operator, the unit and any "· Inferred limit"
@@ -3169,7 +3167,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
                * to the line, which is exactly why the mark beside it can escape
                * the ellipsis.
                */
-              className={`absolute left-0 right-0 top-0 flex gap-1 ${lodWords !== undefined && lodBodyLine === null ? 'ok-far-face h-full items-center' : 'items-baseline'}`}
+              className={`absolute left-0 right-0 top-0 flex ${olumiLook ? 'ok-card-gap-tight' : 'gap-1'} ${lodWords !== undefined && lodBodyLine === null ? 'ok-far-face h-full items-center' : 'items-baseline'}`}
               style={{ visibility: 'visible' }}
             >
               {lodMark}

@@ -8,7 +8,8 @@ Each rule needs a check that fails when the rule is broken. This page lists the 
 
 | Check | What it catches | What it misses |
 |---|---|---|
-| `pnpm run ci:guard:ds:enforce` | New breaches above `tools/ci-guards/ds-compliance-baseline.json`, in six gating classes. Two of them cover V12 (`v12-scale-tsx` and `v12-scale-css`): sizes off 12/14/18, weights off 400/500, serif and mono, `rgb()` literals, radius classes `xl` and up, and the glyphs ✎ ⓘ ✕ ✗. | Old breaches, because it is a ratchet. It also misses sizes that come from a token, such as `typography.panelMeta` at 11px. It does not check spacing, inline styles, `!important` or icons. Its V12 scope is `src/olumiView` and `src/olumiCore/team` only. Its radius allowance includes 14. |
+| `pnpm run ci:guard:ds:enforce` | New breaches above `tools/ci-guards/ds-compliance-baseline.json`, across the gating classes. Two of them cover V12 type and colour (`v12-scale-tsx` and `v12-scale-css`): sizes off 12/14/18, weights off 400/500, serif and mono, `rgb()` literals, radius classes `xl` and up, and the glyphs ✎ ⓘ ✕ ✗. | Old breaches, because it is a ratchet. It also misses sizes that come from a token, such as `typography.panelMeta` at 11px. The type and colour rules cover `src/olumiView` and `src/olumiCore/team`. Their radius allowance includes 14. |
+| `v12-spacing` (in the same guard) | New breaches of the [spacing standard](s8-spacing.md). It checks literals in spacing utilities, style props and CSS declarations in the V12 scope and `src/canvas/nodes`, excluding tests. | Existing breaches, computed values and spacing at runtime, including whether a card gap scales with zoom. |
 | `pnpm run ci:guard:ds` | The same scan as above. | It always exits 0 on breaches, so it never blocks. Use the `enforce` form. |
 | `pnpm run lint` | `brand-tokens/no-raw-colors` as an error, for `src/canvas/**/*.tsx` only. | Raw colours in `src/olumiView`. There is no rule against inline styles, `!important`, type size or icon size. |
 | `pnpm run typecheck` | TypeScript errors, as a per-file ratchet. | It checks nothing about design. |
@@ -32,7 +33,6 @@ Each rule needs a check that fails when the rule is broken. This page lists the 
 
 ## Rules with no check
 
-- The spacing standard.
 - Blue means Olumi only, and green is for actions.
 - No inline styles and no `!important` in components.
 - No native `title` (except on the two tabs above).

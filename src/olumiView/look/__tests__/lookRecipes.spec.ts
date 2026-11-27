@@ -12,6 +12,17 @@ const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selectors
 const SMALL = ['.ok-qual', '.ok-status', '.ok-count', '.ok-caption', '.ok-quiet', '.ok-by', '.ok-limit', '.ok-next']
 
 describe("the look's recipes, each written once", () => {
+  it('scales the card inset, the title gap and the face gaps with the same card scale', () => {
+    const bodyOf = (selector: string) => rules.find((rule) => rule.selectors.includes(selector))!.body
+    const frame = bodyOf(".olumi-look .react-flow__node [role='group'][aria-label]")
+    expect(frame).toContain('--ok-gap-tight: calc(var(--space-1) * var(--o-s));')
+    expect(frame).toContain('--ok-gap-stack: calc(var(--space-2) * var(--o-s));')
+    expect(frame).toContain('--ok-gap-inset: calc(var(--space-3) * var(--o-s));')
+    expect(frame).toContain('padding: var(--ok-gap-inset);')
+    expect(bodyOf('.olumi-look .ok-face')).toContain('margin-top: var(--ok-gap-tight);')
+    expect(bodyOf('.olumi-look .ok-card-gap-tight')).toContain('gap: var(--ok-gap-tight);')
+    expect(bodyOf('.olumi-look .ok-card-gap-stack')).toContain('gap: var(--ok-gap-stack);')
+  })
   it("a card's small text takes its size and line height from one rule (the compact card draws at the board's scale like every card, R4, 16 Nov)", () => {
     for (const cls of SMALL) {
       const sizing = rules.filter((r) => /font-size|line-height/.test(r.body) && r.selectors.some((s) => s.endsWith(cls) && !s.includes('[data-simple-compact]')))

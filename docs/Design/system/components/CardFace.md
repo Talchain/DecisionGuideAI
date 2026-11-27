@@ -8,7 +8,7 @@ A card on the board: one record of the model, with its kind, title, figure and s
 
 - **Frame**:
   - 248px wide (Simple grows to 296 at most), `radius-md` (12px, a literal in the lane CSS);
-  - a 1px border in the kind's colour, `bg-panel` and 12px padding;
+  - a 1px border in the kind's colour, `bg-panel` and scaled inset padding (12px at scale 1);
   - no shadow.
 - **Kind marker**: 19.2px, on the top edge.
 - **Title**: `viewTitle` (14/500), at most two lines.
@@ -16,7 +16,7 @@ A card on the board: one record of the model, with its kind, title, figure and s
 - **Range bar**: 16px. An unknown is an empty dashed track.
 - **Chance**: `viewHeadline` (18/500), with a gauge in the option colour.
 - **Bound**: a pill (`2px 8px`, `radius-pill`, `border-default`).
-- **Gaps inside the face**: 8px.
+- **Spacing** follows the [binding spacing standard](../s8-spacing.md). Title to face uses tight (4px at scale 1) and items in the face use stack (8px at scale 1). Both scale with the card.
 - **Foot**: state marks first, then the author last. At most three marks, then "+N".
 - At rest the face carries no sentences: each state is a value or a mark, words on the hover (s7-faces-and-charts.md, FACE rows).
 - **Detailed**: the same frame, at least 208px wide and fit to its content, with a fuller foot.

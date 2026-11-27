@@ -1,0 +1,10 @@
+/* .bad { padding: 12px; } */
+.card {
+  @apply px-3 gap-[var(--space-2)];
+  padding: var(--space-3) /* 15px */ 0;
+  margin-inline: 0px -1px;
+  gap: calc(var(--space-2) * var(--o-s));
+  row-gap: var(--space-1, calc(12px + 4px));
+  column-gap: 1px;
+  width: 13px;
+}

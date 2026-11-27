@@ -223,6 +223,10 @@ describe('the card\'s kind, from the View\'s structure (canvas rule 5)', () => {
         expect(mark?.querySelector('polygon')).toHaveAttribute('fill', 'var(--success)')
         if (rung === 'line') expect(root.querySelector('[data-testid="node-title"]')).toHaveAttribute('data-lod-far-title', 'true')
         else expect(faceOf(root, 'members')).toHaveAttribute('data-ok-kind', 'outcome')
+        if (level === 'simple') {
+          expect(root.querySelector('[data-simple-card]')).toHaveClass('ok-card-gap-stack')
+          expect(root.querySelector('[data-simple-foot]')).toHaveClass('ml-auto', 'ok-card-gap-stack')
+        }
         cleanup()
       }
     } finally {

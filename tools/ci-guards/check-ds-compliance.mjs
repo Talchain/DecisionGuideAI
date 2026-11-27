@@ -250,6 +250,13 @@ const CLASSES = [
     laneSource: true,
   },
   laneSourceClass('v12-panel-padding', '16px p-4 or px-4 utilities on lane panel elements', { mode: 'report', tsxOnly: true }),
+  {
+    id: 'v12-spacing',
+    mode: 'ratchet',
+    description: 'Off-contract spacing utilities, numeric style props and pixel literals in spacing declarations',
+    inScope: (p) => (inV12(p) || (!isTest(p) && under(p, 'canvas/nodes'))) && /\.(ts|tsx|css)$/.test(p),
+    laneSource: true,
+  },
   laneSourceClass('v12-ui-words', 'Em dashes, ampersands between words, American spellings or banned phrases in lane JSX copy', { tsxOnly: true }),
   laneSourceClass('v12-sentence-case', 'Capitalised words after the first in lane JSX headings and buttons', { mode: 'report', tsxOnly: true }),
   {

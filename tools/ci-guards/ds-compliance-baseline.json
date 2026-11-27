@@ -4284,6 +4284,1068 @@
         }
       }
     },
+    "v12-spacing": {
+      "mode": "ratchet",
+      "description": "Off-contract spacing utilities, numeric style props and pixel literals in spacing declarations",
+      "total": 236,
+      "byFile": {
+        "src/canvas/nodes/GoalNode.tsx": 20,
+        "src/olumiView/look/olumiLook.css": 19,
+        "src/canvas/nodes/OptionNode.tsx": 12,
+        "src/canvas/nodes/FactorNode.tsx": 10,
+        "src/olumiCore/team/CardDispute.tsx": 9,
+        "src/canvas/nodes/DecisionNode.tsx": 7,
+        "src/olumiView/model/ModelCardRow.tsx": 7,
+        "src/olumiView/strategy/overview/StrategyOverviewPage.tsx": 7,
+        "src/canvas/nodes/shared/canvasGlyphScale.ts": 6,
+        "src/olumiView/BriefPanel.tsx": 6,
+        "src/olumiView/port/ChanceChart.tsx": 6,
+        "src/olumiView/RevealDock.tsx": 5,
+        "src/olumiView/ViewFigureFirst.tsx": 5,
+        "src/olumiView/ViewModelTab.tsx": 5,
+        "src/olumiView/model/detail.tsx": 5,
+        "src/olumiView/v12/views/WhereWeDiffer.tsx": 5,
+        "src/canvas/nodes/ProposalGhostLayer.tsx": 4,
+        "src/canvas/nodes/shared/CardMark.tsx": 4,
+        "src/canvas/nodes/shared/EdgePills.tsx": 4,
+        "src/olumiCore/team/ViewsPanel.tsx": 4,
+        "src/olumiView/LinkMarkChip.tsx": 4,
+        "src/canvas/nodes/RiskNode.tsx": 3,
+        "src/canvas/nodes/ViewCardNode.tsx": 3,
+        "src/olumiCore/team/CardDiffers.tsx": 3,
+        "src/olumiView/RevealMarks.tsx": 3,
+        "src/olumiView/reasoning/TowardsCommitment.tsx": 3,
+        "src/olumiView/strategy/StrategyViewLines.tsx": 3,
+        "src/canvas/nodes/BaseNode.tsx": 2,
+        "src/canvas/nodes/OutcomeNode.tsx": 2,
+        "src/canvas/nodes/shared/ConnRow.tsx": 2,
+        "src/canvas/nodes/shared/EstimateMarker.tsx": 2,
+        "src/canvas/nodes/shared/FactorTurningPointTrack.tsx": 2,
+        "src/canvas/nodes/shared/GoalOtherAims.tsx": 2,
+        "src/canvas/nodes/shared/NodeValueEditor.tsx": 2,
+        "src/olumiCore/team/CommitmentPanel.tsx": 2,
+        "src/olumiView/EvidenceDock.tsx": 2,
+        "src/olumiView/FigureEdit.tsx": 2,
+        "src/olumiView/ViewChat.tsx": 2,
+        "src/olumiView/model/LinkRow.tsx": 2,
+        "src/olumiView/strategy/StrategyChips.tsx": 2,
+        "src/olumiView/v10.tsx": 2,
+        "src/olumiView/v12/chat/OlumiAsks.tsx": 2,
+        "src/olumiView/v12/views/FrameLines.tsx": 2,
+        "src/canvas/nodes/ReducedFace.tsx": 1,
+        "src/canvas/nodes/ViewQuestionNode.tsx": 1,
+        "src/canvas/nodes/shared/GoalTodayLevelLine.tsx": 1,
+        "src/canvas/nodes/shared/MetricPills.tsx": 1,
+        "src/canvas/nodes/shared/NodeChip.tsx": 1,
+        "src/canvas/nodes/shared/NodeCoachingMarker.tsx": 1,
+        "src/canvas/nodes/shared/NodeNotesMark.tsx": 1,
+        "src/canvas/nodes/shared/TierInvitation.tsx": 1,
+        "src/olumiCore/team/LinkStance.tsx": 1,
+        "src/olumiCore/team/SavedActions.tsx": 1,
+        "src/olumiCore/team/TeamTab.tsx": 1,
+        "src/olumiView/FindingLine.tsx": 1,
+        "src/olumiView/Rename.tsx": 1,
+        "src/olumiView/ViewChances.tsx": 1,
+        "src/olumiView/ViewReasoning.tsx": 1,
+        "src/olumiView/ViewSummary.tsx": 1,
+        "src/olumiView/look/icons.tsx": 1,
+        "src/olumiView/port/LikelyOutcome.tsx": 1,
+        "src/olumiView/port/PortAnalysisTab.tsx": 1,
+        "src/olumiView/previous/CoreCard.tsx": 1,
+        "src/olumiView/reasoning/AnswerBox.tsx": 1,
+        "src/olumiView/strategy/StrategyOverview.tsx": 1,
+        "src/olumiView/strategy/overview/StrategyOverviewOpener.tsx": 1,
+        "src/olumiView/v12/SimpleFace.tsx": 1,
+        "src/olumiView/v12/actionsMenu.tsx": 1,
+        "src/olumiView/v12/arrival/FirstArrival.tsx": 1,
+        "src/olumiView/v12/bands/BandLayer.tsx": 1,
+        "src/olumiView/v12/bands/IdeaPanel.tsx": 1,
+        "src/olumiView/v12/chat/CardMenuHeader.tsx": 1,
+        "src/olumiView/v12/chat/KeptIdeas.tsx": 1,
+        "src/olumiView/v12/edit/LaneInspector.tsx": 1,
+        "src/olumiView/v12/views/RoundRead.tsx": 1
+      },
+      "signatures": {
+        "v12-spacing :: src/canvas/nodes/BaseNode.tsx :: off-scale utility: p-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/BaseNode.tsx",
+          "token": "off-scale utility: p-0.5",
+          "sample": "className={`nodrag nopan shrink-0 ${olumiLook ? 'ok-card-description-toggle' : 'p-0.5'} rounded text-text-light hover:bg"
+        },
+        "v12-spacing :: src/canvas/nodes/BaseNode.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/BaseNode.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className={olumiLook ? 'ok-card-constraints' : 'mt-1.5 space-y-0.5'} data-testid=\"factor-constraint-lines\">"
+        },
+        "v12-spacing :: src/canvas/nodes/DecisionNode.tsx :: arbitrary utility: ml-[calc(4px*var(--canvas-label-scale,1))]": {
+          "count": 2,
+          "file": "src/canvas/nodes/DecisionNode.tsx",
+          "token": "arbitrary utility: ml-[calc(4px*var(--canvas-label-scale,1))]",
+          "sample": "className={`${typography.edgeLabel} ml-[calc(4px*var(--canvas-label-scale,1))] text-text-light`}"
+        },
+        "v12-spacing :: src/canvas/nodes/DecisionNode.tsx :: arbitrary utility: pt-[3px]": {
+          "count": 2,
+          "file": "src/canvas/nodes/DecisionNode.tsx",
+          "token": "arbitrary utility: pt-[3px]",
+          "sample": "? `pt-[3px] min-w-0 line-clamp-2 break-words ${typography.edgeLabel} text-text-light`"
+        },
+        "v12-spacing :: src/canvas/nodes/DecisionNode.tsx :: arbitrary utility: gap-x-[calc(4px*var(--canvas-label-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/DecisionNode.tsx",
+          "token": "arbitrary utility: gap-x-[calc(4px*var(--canvas-label-scale,1))]",
+          "sample": ": 'pt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'"
+        },
+        "v12-spacing :: src/canvas/nodes/DecisionNode.tsx :: off-scale utility: gap-y-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/DecisionNode.tsx",
+          "token": "off-scale utility: gap-y-0.5",
+          "sample": ": 'pt-[3px] flex min-w-0 items-baseline gap-x-[calc(4px*var(--canvas-label-scale,1))] flex-wrap gap-y-0.5'"
+        },
+        "v12-spacing :: src/canvas/nodes/DecisionNode.tsx :: arbitrary utility: gap-[calc(3px*var(--canvas-label-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/DecisionNode.tsx",
+          "token": "arbitrary utility: gap-[calc(3px*var(--canvas-label-scale,1))]",
+          "sample": "className=\"inline-flex shrink-0 items-center gap-[calc(3px*var(--canvas-label-scale,1))] self-center\""
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: arbitrary utility: px-[calc(6px*var(--canvas-label-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "arbitrary utility: px-[calc(6px*var(--canvas-label-scale,1))]",
+          "sample": "<span data-testid={`factor-asked-slot-${props.id}`} className=\"inline-flex rounded-sm border border-dashed border-text-l"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: off-scale utility: mb-0.5": {
+          "count": 3,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "off-scale utility: mb-0.5",
+          "sample": "<p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className=\"space-y-0.5\">"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: off-scale utility: gap-y-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "off-scale utility: gap-y-0.5",
+          "sample": "<span className=\"inline-flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5\" data-testid=\"factor-empty-value\">"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`${typography.nodeTitle} absolute bottom-full left-0 right-0 z-30 pointer-events-none text-info mb-1 bg-panel"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<div className={`${typography.edgeLabel} mt-0.5 text-text-light`} data-testid={`factor-stored-range-${props.id}`}>"
+        },
+        "v12-spacing :: src/canvas/nodes/FactorNode.tsx :: arbitrary utility: ml-[calc(2.5px*var(--canvas-label-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/FactorNode.tsx",
+          "token": "arbitrary utility: ml-[calc(2.5px*var(--canvas-label-scale,1))]",
+          "sample": "<span data-testid={`factor-value-mark-slot-${props.id}`} className=\"whitespace-nowrap ml-[calc(2.5px*var(--canvas-label-"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"flex flex-col gap-0.5\">"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: arbitrary utility: px-[7px]": {
+          "count": 5,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "arbitrary utility: px-[7px]",
+          "sample": "<div key={c.constraint_id ?? c.id ?? i} className=\"flex items-center justify-between gap-1 px-[7px] py-px bg-panel borde"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: off-scale utility: py-px": {
+          "count": 4,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "off-scale utility: py-px",
+          "sample": "<div key={c.constraint_id ?? c.id ?? i} className=\"flex items-center justify-between gap-1 px-[7px] py-px bg-panel borde"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: off-scale utility: mt-0.5": {
+          "count": 6,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<p className={`${typography.edgeLabel} text-text-body m-0 mt-0.5`}>"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: arbitrary utility: pt-[3px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "arbitrary utility: pt-[3px]",
+          "sample": "<div className=\"pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: arbitrary utility: gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "arbitrary utility: gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))]",
+          "sample": "<div className=\"pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-"
+        },
+        "v12-spacing :: src/canvas/nodes/GoalNode.tsx :: off-scale utility: gap-y-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/GoalNode.tsx",
+          "token": "off-scale utility: gap-y-0.5",
+          "sample": "<div className=\"pt-[3px] flex min-w-0 flex-wrap items-center gap-x-[min(8px,calc(7px*var(--canvas-label-scale,1)))] gap-"
+        },
+        "v12-spacing :: src/canvas/nodes/OptionNode.tsx :: off-scale utility: mt-0.5": {
+          "count": 5,
+          "file": "src/canvas/nodes/OptionNode.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}"
+        },
+        "v12-spacing :: src/canvas/nodes/OptionNode.tsx :: off-scale utility: mb-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/OptionNode.tsx",
+          "token": "off-scale utility: mb-0.5",
+          "sample": "<p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>{isBaselineOption ? 'Baseline factor"
+        },
+        "v12-spacing :: src/canvas/nodes/OptionNode.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/OptionNode.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"flex flex-col gap-0.5\">"
+        },
+        "v12-spacing :: src/canvas/nodes/OptionNode.tsx :: arbitrary utility: gap-[0.3em]": {
+          "count": 1,
+          "file": "src/canvas/nodes/OptionNode.tsx",
+          "token": "arbitrary utility: gap-[0.3em]",
+          "sample": "<span className={`${typography.edgeLabel} inline-flex items-center gap-[0.3em] text-text-light shrink-0`} aria-hidden=\"t"
+        },
+        "v12-spacing :: src/canvas/nodes/OptionNode.tsx :: arbitrary utility: pl-[0.3em]": {
+          "count": 2,
+          "file": "src/canvas/nodes/OptionNode.tsx",
+          "token": "arbitrary utility: pl-[0.3em]",
+          "sample": "className={`${typography.edgeLabel} text-text-light whitespace-nowrap pl-[0.3em]`}"
+        },
+        "v12-spacing :: src/canvas/nodes/OutcomeNode.tsx :: off-scale utility: mb-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/OutcomeNode.tsx",
+          "token": "off-scale utility: mb-0.5",
+          "sample": "<p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>"
+        },
+        "v12-spacing :: src/canvas/nodes/ProposalGhostLayer.tsx :: numeric style: gap: 6": {
+          "count": 1,
+          "file": "src/canvas/nodes/ProposalGhostLayer.tsx",
+          "token": "numeric style: gap: 6",
+          "sample": "style={{ left: x, top: y, gap: 6, pointerEvents: 'auto' }}"
+        },
+        "v12-spacing :: src/canvas/nodes/ProposalGhostLayer.tsx :: numeric style: padding: 12": {
+          "count": 1,
+          "file": "src/canvas/nodes/ProposalGhostLayer.tsx",
+          "token": "numeric style: padding: 12",
+          "sample": "style={{ left: c.x, top: c.y, width: c.w, minHeight: GHOST_CARD_HEIGHT, padding: 12, gap: 4, pointerEvents: 'none' }}"
+        },
+        "v12-spacing :: src/canvas/nodes/ProposalGhostLayer.tsx :: numeric style: gap: 4": {
+          "count": 2,
+          "file": "src/canvas/nodes/ProposalGhostLayer.tsx",
+          "token": "numeric style: gap: 4",
+          "sample": "style={{ left: c.x, top: c.y, width: c.w, minHeight: GHOST_CARD_HEIGHT, padding: 12, gap: 4, pointerEvents: 'none' }}"
+        },
+        "v12-spacing :: src/canvas/nodes/ReducedFace.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/ReducedFace.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div ref={root} {...rootAttrs} data-reduced-face=\"\" className={`absolute !m-0 flex flex-col gap-0.5 rounded-xl border bg"
+        },
+        "v12-spacing :: src/canvas/nodes/RiskNode.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/RiskNode.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`${typography.edgeLabel} flex w-fit items-center bg-panel border border-danger/30 text-text-body rounded-full"
+        },
+        "v12-spacing :: src/canvas/nodes/RiskNode.tsx :: off-scale utility: mb-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/RiskNode.tsx",
+          "token": "off-scale utility: mb-0.5",
+          "sample": "<p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>"
+        },
+        "v12-spacing :: src/canvas/nodes/ViewCardNode.tsx :: off-scale utility: py-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/ViewCardNode.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "<span className={`${typography.viewPanelMeta} inline-block max-w-full rounded-[11px] border border-info/30 px-2 py-0.5 f"
+        },
+        "v12-spacing :: src/canvas/nodes/ViewCardNode.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/ViewCardNode.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className={`${typography.viewValue} min-w-0 basis-full space-y-0.5 ${estimate ? 'text-info' : ''}`} title={estimate"
+        },
+        "v12-spacing :: src/canvas/nodes/ViewQuestionNode.tsx :: arbitrary utility: mt-[5px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/ViewQuestionNode.tsx",
+          "token": "arbitrary utility: mt-[5px]",
+          "sample": "<p className={`${typography.viewHeadline} flex items-start gap-2 text-text-header`}><span className=\"mt-[5px] inline-fle"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/CardMark.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/shared/CardMark.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "case 'level-meter': return <span aria-hidden=\"true\" className=\"inline-flex items-end gap-0.5\">{[1, 2, 3, 4, 5].map(n => "
+        },
+        "v12-spacing :: src/canvas/nodes/shared/CardMark.tsx :: off-scale utility: p-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/CardMark.tsx",
+          "token": "off-scale utility: p-0.5",
+          "sample": "case 'target-dashed': return <span aria-hidden=\"true\" className=\"inline-flex rounded-full border border-dashed border-te"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/CardMark.tsx :: off-scale utility: ml-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/CardMark.tsx",
+          "token": "off-scale utility: ml-0.5",
+          "sample": "{caption !== undefined && <span aria-hidden=\"true\" data-testid={testId ? `${testId}-caption` : undefined} className=\"ml-"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/ConnRow.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/ConnRow.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className=\"flex items-center gap-1 py-0.5 cursor-pointer nodrag nopan hover:bg-panel-hover rounded transition-colors\""
+        },
+        "v12-spacing :: src/canvas/nodes/shared/ConnRow.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/ConnRow.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<p className={`${typography.edgeLabel} text-text-light m-0 mt-0.5`}>"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EdgePills.tsx :: arbitrary utility: gap-[3px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EdgePills.tsx",
+          "token": "arbitrary utility: gap-[3px]",
+          "sample": "<div className=\"flex gap-[3px] mt-1 flex-wrap\">"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EdgePills.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EdgePills.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "className={`${typography.edgeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-[10px] border-[0.5px] bor"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EdgePills.tsx :: arbitrary utility: px-[5px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EdgePills.tsx",
+          "token": "arbitrary utility: px-[5px]",
+          "sample": "className={`${typography.edgeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-[10px] border-[0.5px] bor"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EdgePills.tsx :: arbitrary utility: py-[1px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EdgePills.tsx",
+          "token": "arbitrary utility: py-[1px]",
+          "sample": "className={`${typography.edgeLabel} inline-flex items-center gap-0.5 px-[5px] py-[1px] rounded-[10px] border-[0.5px] bor"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EstimateMarker.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EstimateMarker.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/EstimateMarker.tsx :: off-scale utility: px-px": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/EstimateMarker.tsx",
+          "token": "off-scale utility: px-px",
+          "sample": "const classes = `${SOURCE_MARK_TYPE_CLASSES} inline-flex items-baseline gap-0.5 px-px align-baseline`"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/FactorTurningPointTrack.tsx :: arbitrary utility: px-[calc(5px*var(--canvas-label-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/FactorTurningPointTrack.tsx",
+          "token": "arbitrary utility: px-[calc(5px*var(--canvas-label-scale,1))]",
+          "sample": "const TRACK_ROW_CLASS = 'h-[calc(10px*var(--canvas-small-label-scale,1))] px-[calc(5px*var(--canvas-label-scale,1))]'"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/FactorTurningPointTrack.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/FactorTurningPointTrack.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "className=\"group nodrag nopan mt-1 flex w-full flex-col items-start gap-0.5 text-left focus:outline-none focus-visible:r"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/GoalOtherAims.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/shared/GoalOtherAims.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div data-testid=\"goal-other-aims\" className=\"mt-1.5 flex flex-col gap-0.5\">"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/GoalTodayLevelLine.tsx :: off-scale utility: mr-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/GoalTodayLevelLine.tsx",
+          "token": "off-scale utility: mr-0.5",
+          "sample": "<Glyph aria-hidden=\"true\" data-today-glyph={level.basis} className={`${SOURCE_MARK_GLYPH_CLASSES} mr-0.5 align-[-1px]`} "
+        },
+        "v12-spacing :: src/canvas/nodes/shared/MetricPills.tsx :: arbitrary utility: gap-[3px]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/MetricPills.tsx",
+          "token": "arbitrary utility: gap-[3px]",
+          "sample": "<div className=\"flex gap-[3px] mt-1.5 items-center flex-wrap\">"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/NodeChip.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/NodeChip.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`${typography.edgeLabel} font-medium inline-flex items-center px-2 py-0.5 rounded-md border border-transparen"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/NodeCoachingMarker.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/NodeCoachingMarker.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "className={`nodrag nopan inline-flex items-center justify-center gap-0.5 h-[calc(24px*var(--canvas-glyph-scale,1))] min-"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/NodeNotesMark.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/NodeNotesMark.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "className={`nodrag nopan inline-flex shrink-0 items-center gap-0.5 rounded-sm text-text-light hover:text-info focus:outl"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/NodeValueEditor.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/canvas/nodes/shared/NodeValueEditor.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<span className=\"inline-flex flex-col items-start gap-0.5\">"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/TierInvitation.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/TierInvitation.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"mt-1 flex flex-col gap-0.5\" data-testid=\"tier-invitations\">"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: gap-[calc(6px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: gap-[calc(6px*var(--canvas-glyph-scale,1))]",
+          "sample": "6: 'gap-[calc(6px*var(--canvas-glyph-scale,1))]',"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: gap-[calc(4px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: gap-[calc(4px*var(--canvas-glyph-scale,1))]",
+          "sample": "'absolute top-[5px] right-[7px] z-10 flex items-center gap-[calc(4px*var(--canvas-glyph-scale,1))]'"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: [&>:last-child]:pr-[calc(6px+90px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: [&>:last-child]:pr-[calc(6px+90px*var(--canvas-glyph-scale,1))]",
+          "sample": "3: '[&>:last-child]:pr-[calc(6px+90px*var(--canvas-glyph-scale,1))]',"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: [&>:last-child]:pr-[calc(6px+120px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: [&>:last-child]:pr-[calc(6px+120px*var(--canvas-glyph-scale,1))]",
+          "sample": "4: '[&>:last-child]:pr-[calc(6px+120px*var(--canvas-glyph-scale,1))]',"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: [&>:last-child]:pr-[calc(6px+150px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: [&>:last-child]:pr-[calc(6px+150px*var(--canvas-glyph-scale,1))]",
+          "sample": "5: '[&>:last-child]:pr-[calc(6px+150px*var(--canvas-glyph-scale,1))]',"
+        },
+        "v12-spacing :: src/canvas/nodes/shared/canvasGlyphScale.ts :: arbitrary utility: [&>:last-child]:pr-[calc(6px+180px*var(--canvas-glyph-scale,1))]": {
+          "count": 1,
+          "file": "src/canvas/nodes/shared/canvasGlyphScale.ts",
+          "token": "arbitrary utility: [&>:last-child]:pr-[calc(6px+180px*var(--canvas-glyph-scale,1))]",
+          "sample": "6: '[&>:last-child]:pr-[calc(6px+180px*var(--canvas-glyph-scale,1))]',"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDiffers.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/CardDiffers.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-ful"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDiffers.tsx :: off-scale utility: pl-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/CardDiffers.tsx",
+          "token": "off-scale utility: pl-0.5",
+          "sample": "className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-ful"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDiffers.tsx :: off-scale utility: pr-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/CardDiffers.tsx",
+          "token": "off-scale utility: pr-0.5",
+          "sample": "className={`pointer-events-auto inline-flex min-h-6 max-w-full flex-none cursor-pointer items-center gap-1.5 rounded-ful"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDispute.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiCore/team/CardDispute.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"mt-1 grid gap-0.5\" data-testid=\"card-split\" data-card-split={card.id} data-axis-min={axis.min} data-axis"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDispute.tsx :: arbitrary utility: ml-[18px]": {
+          "count": 1,
+          "file": "src/olumiCore/team/CardDispute.tsx",
+          "token": "arbitrary utility: ml-[18px]",
+          "sample": "<p className={`${typography.viewLabel} m-0 ml-[18px] flex justify-between gap-2 whitespace-nowrap text-text-light`} data"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDispute.tsx :: off-scale utility: mt-0.5": {
+          "count": 3,
+          "file": "src/olumiCore/team/CardDispute.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<p className=\"m-0 flex items-start gap-1.5 text-text-body\" data-testid=\"lane-differ-line\"><OkIcon id=\"revealed-differenc"
+        },
+        "v12-spacing :: src/olumiCore/team/CardDispute.tsx :: off-scale utility: space-y-0.5": {
+          "count": 3,
+          "file": "src/olumiCore/team/CardDispute.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<ul className=\"m-0 list-none space-y-0.5 p-0\" data-differ-sides=\"\">"
+        },
+        "v12-spacing :: src/olumiCore/team/CommitmentPanel.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/CommitmentPanel.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex-none\"><OkIcon id={on ? 'trigger-taken' : 'add'} size={14} decorative /></span><span>{t.text"
+        },
+        "v12-spacing :: src/olumiCore/team/CommitmentPanel.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/CommitmentPanel.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<span className=\"grid gap-0.5 break-words\">"
+        },
+        "v12-spacing :: src/olumiCore/team/LinkStance.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/LinkStance.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<li key={x.key} className={`${BODY} grid gap-0.5 break-words`} data-link-said={x.key}>"
+        },
+        "v12-spacing :: src/olumiCore/team/SavedActions.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/SavedActions.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<ul className=\"m-0 grid list-none gap-0.5 p-0\" data-testid={`team-saved-action-keeps-${k.id}`}>"
+        },
+        "v12-spacing :: src/olumiCore/team/TeamTab.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/TeamTab.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "{!open && <span className={`${META} min-w-0 break-words py-0.5`} data-testid={`team-step-${id}-summary`}>{summary}</span"
+        },
+        "v12-spacing :: src/olumiCore/team/ViewsPanel.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiCore/team/ViewsPanel.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<ul className=\"m-0 grid list-none gap-0.5 p-0\" data-testid={`${at}-figures`}>"
+        },
+        "v12-spacing :: src/olumiCore/team/ViewsPanel.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/ViewsPanel.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "{stanceOf(v) !== null && <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-testid={`t"
+        },
+        "v12-spacing :: src/olumiCore/team/ViewsPanel.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiCore/team/ViewsPanel.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex-none text-text-light\"><OkIcon id=\"on-canvas\" size={14} decorative /></span>"
+        },
+        "v12-spacing :: src/olumiView/BriefPanel.tsx :: off-scale utility: px-3.5": {
+          "count": 3,
+          "file": "src/olumiView/BriefPanel.tsx",
+          "token": "off-scale utility: px-3.5",
+          "sample": "<div className=\"space-y-2.5 px-3.5 pb-2 pt-3.5\">"
+        },
+        "v12-spacing :: src/olumiView/BriefPanel.tsx :: off-scale utility: pt-3.5": {
+          "count": 1,
+          "file": "src/olumiView/BriefPanel.tsx",
+          "token": "off-scale utility: pt-3.5",
+          "sample": "<div className=\"space-y-2.5 px-3.5 pb-2 pt-3.5\">"
+        },
+        "v12-spacing :: src/olumiView/BriefPanel.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/BriefPanel.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<header className=\"space-y-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/BriefPanel.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/BriefPanel.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<p className={`${typography.viewPanelBody} flex gap-2 text-text-header`}><OkIcon id=\"olumi-mark\" decorative className=\"m"
+        },
+        "v12-spacing :: src/olumiView/EvidenceDock.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/EvidenceDock.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div key={id} className=\"grid gap-0.5\" data-evidence-record={id} data-evidence-card={card?.id}>"
+        },
+        "v12-spacing :: src/olumiView/EvidenceDock.tsx :: arbitrary utility: mt-[3px]": {
+          "count": 1,
+          "file": "src/olumiView/EvidenceDock.tsx",
+          "token": "arbitrary utility: mt-[3px]",
+          "sample": "<OkIcon id=\"olumi-mark\" decorative className=\"mt-[3px]\" />"
+        },
+        "v12-spacing :: src/olumiView/FigureEdit.tsx :: off-scale utility: py-0.5": {
+          "count": 2,
+          "file": "src/olumiView/FigureEdit.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={primary === 'set' ? `${primaryClass} whitespace-nowrap` : String.raw`${typography.viewLabel} min-h-7 [.react-"
+        },
+        "v12-spacing :: src/olumiView/FindingLine.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/FindingLine.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"grid min-w-0 gap-0.5\" data-finding={at}>"
+        },
+        "v12-spacing :: src/olumiView/LinkMarkChip.tsx :: off-scale utility: py-0.5": {
+          "count": 2,
+          "file": "src/olumiView/LinkMarkChip.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`ok-link-chip${at === null ? ' ok-link-hidden' : ''} nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-po"
+        },
+        "v12-spacing :: src/olumiView/LinkMarkChip.tsx :: off-scale utility: pl-0.5": {
+          "count": 2,
+          "file": "src/olumiView/LinkMarkChip.tsx",
+          "token": "off-scale utility: pl-0.5",
+          "sample": "className={`ok-link-chip${at === null ? ' ok-link-hidden' : ''} nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-po"
+        },
+        "v12-spacing :: src/olumiView/Rename.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/Rename.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`${typography.viewLabel} min-h-[24px] cursor-pointer rounded-sm ${controls.actColours} px-2 py-0.5 disabled:b"
+        },
+        "v12-spacing :: src/olumiView/RevealDock.tsx :: arbitrary utility: mt-[3px]": {
+          "count": 3,
+          "file": "src/olumiView/RevealDock.tsx",
+          "token": "arbitrary utility: mt-[3px]",
+          "sample": "<OkIcon id=\"olumi-mark\" decorative className=\"mt-[3px]\" />"
+        },
+        "v12-spacing :: src/olumiView/RevealDock.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/RevealDock.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": ": stance === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5 font-normal tex"
+        },
+        "v12-spacing :: src/olumiView/RevealDock.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/RevealDock.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"grid gap-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/RevealMarks.tsx :: arbitrary utility: ml-[var(--card-rail-offset)]": {
+          "count": 1,
+          "file": "src/olumiView/RevealMarks.tsx",
+          "token": "arbitrary utility: ml-[var(--card-rail-offset)]",
+          "sample": "<div ref={railRef} className={`nodrag mt-1 flex w-[var(--card-rail-width)] flex-row ${wrap} justify-center gap-1.5${offs"
+        },
+        "v12-spacing :: src/olumiView/RevealMarks.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/RevealMarks.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-md border border"
+        },
+        "v12-spacing :: src/olumiView/RevealMarks.tsx :: off-scale utility: pl-0.5": {
+          "count": 1,
+          "file": "src/olumiView/RevealMarks.tsx",
+          "token": "off-scale utility: pl-0.5",
+          "sample": "className={`pointer-events-auto inline-flex min-h-6 min-w-0 cursor-pointer items-center gap-1.5 rounded-md border border"
+        },
+        "v12-spacing :: src/olumiView/ViewChances.tsx :: off-scale utility: pt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/ViewChances.tsx",
+          "token": "off-scale utility: pt-0.5",
+          "sample": "<div className=\"space-y-1 pt-0.5\" data-whatif-size-of={option}>"
+        },
+        "v12-spacing :: src/olumiView/ViewChat.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiView/ViewChat.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<ul className=\"m-0 grid list-none gap-0.5 p-0 pl-3\">"
+        },
+        "v12-spacing :: src/olumiView/ViewFigureFirst.tsx :: off-scale utility: space-y-0.5": {
+          "count": 5,
+          "file": "src/olumiView/ViewFigureFirst.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className=\"space-y-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/ViewModelTab.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiView/ViewModelTab.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "return <span className=\"inline-flex items-center gap-0.5\">{[...kinds].map((kind) => <NodeShapeIndicator key={kind} nodeK"
+        },
+        "v12-spacing :: src/olumiView/ViewModelTab.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/ViewModelTab.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "{open ? <ul id={listId} className=\"m-0 mb-2 ml-2 mt-0.5 list-none space-y-0.5 p-0\">{children}</ul> : null}"
+        },
+        "v12-spacing :: src/olumiView/ViewModelTab.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/ViewModelTab.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "{open ? <ul id={listId} className=\"m-0 mb-2 ml-2 mt-0.5 list-none space-y-0.5 p-0\">{children}</ul> : null}"
+        },
+        "v12-spacing :: src/olumiView/ViewModelTab.tsx :: off-scale utility: p-0.5": {
+          "count": 1,
+          "file": "src/olumiView/ViewModelTab.tsx",
+          "token": "off-scale utility: p-0.5",
+          "sample": "className=\"inline-flex flex-none items-center gap-0.5 rounded-full border border-panel-border bg-panel p-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/ViewReasoning.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/ViewReasoning.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "const mark = <OkIcon id={MARK[e.kind]} size={14} className=\"mt-0.5\" decorative />"
+        },
+        "v12-spacing :: src/olumiView/ViewSummary.tsx :: off-scale utility: pt-14": {
+          "count": 1,
+          "file": "src/olumiView/ViewSummary.tsx",
+          "token": "off-scale utility: pt-14",
+          "sample": "className=\"fixed inset-y-0 left-0 right-[var(--dock-right-offset,0rem)] z-[1600] flex justify-center bg-black/20 px-3 pb"
+        },
+        "v12-spacing :: src/olumiView/look/icons.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/look/icons.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<span className={`inline-flex gap-0.5 ${className ?? ''}`} {...rest}>"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 0 0 4px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 0 0 4px",
+          "sample": ".ok-said-by { margin: 0 0 4px; font-size: 12px; line-height: 16px; color: var(--text-light); }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 0 6px 0 0": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 0 6px 0 0",
+          "sample": "float: left; margin: 0 6px 0 0; display: inline-grid; place-items: center; width: 18px; height: 18px;"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin-top: 2px": {
+          "count": 2,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin-top: 2px",
+          "sample": ".ok-reply .ok-reply-more { margin-top: 2px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin-bottom: 8px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin-bottom: 8px",
+          "sample": ".ok-reply .ok-reply-more[open] > summary { margin-bottom: 8px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: padding-left: calc(14px + var(--space-1))": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: padding-left: calc(14px + var(--space-1))",
+          "sample": ".ok-lead-action-basis { flex-basis: 100%; padding-left: calc(14px + var(--space-1)); }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin-top: 8px": {
+          "count": 3,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin-top: 8px",
+          "sample": ".ok-pinned [data-review-body] > * + * { margin-top: 8px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 8px 16px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 8px 16px",
+          "sample": "margin: 8px 16px; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: 12px; background: var"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: gap: 16px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: gap: 16px",
+          "sample": ".ok-explain { display: grid; gap: 16px; margin-top: 8px; font-size: 12px; color: var(--text-body); line-height: 18px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: gap: 12px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: gap: 12px",
+          "sample": ".ok-explain ul { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 12px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 0 0 8px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 0 0 8px",
+          "sample": ".ok-explain-head { margin: 0 0 8px; font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: 0; text-transf"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 8px 0 0": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 8px 0 0",
+          "sample": ".ok-explain .ok-steps[open] > ol { position: static; margin: 8px 0 0; padding-left: 12px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: padding-left: 12px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: padding-left: 12px",
+          "sample": ".ok-explain .ok-steps[open] > ol { position: static; margin: 8px 0 0; padding-left: 12px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin-left: -4px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin-left: -4px",
+          "sample": ".ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-t"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin-top: -4px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin-top: -4px",
+          "sample": ".ok-an-dot { position: absolute; left: var(--an-left, 0); top: 50%; width: 8px; height: 8px; margin-left: -4px; margin-t"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: margin: 6px 0 2px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: margin: 6px 0 2px",
+          "sample": ".ok-scale-outcomes { position: relative; margin: 6px 0 2px; padding-left: 22px; }"
+        },
+        "v12-spacing :: src/olumiView/look/olumiLook.css :: pixel declaration: padding-left: 22px": {
+          "count": 1,
+          "file": "src/olumiView/look/olumiLook.css",
+          "token": "pixel declaration: padding-left: 22px",
+          "sample": ".ok-scale-outcomes { position: relative; margin: 6px 0 2px; padding-left: 22px; }"
+        },
+        "v12-spacing :: src/olumiView/model/LinkRow.tsx :: off-scale utility: mt-0.5": {
+          "count": 2,
+          "file": "src/olumiView/model/LinkRow.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<Hover words={link.effect.title} className={`${typography.viewPanelMeta} mt-0.5 block tabular-nums text-text-light`} dat"
+        },
+        "v12-spacing :: src/olumiView/model/ModelCardRow.tsx :: off-scale utility: mt-0.5": {
+          "count": 6,
+          "file": "src/olumiView/model/ModelCardRow.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className={`${typography.viewPanelTabular} mt-0.5 block text-text-body`}>"
+        },
+        "v12-spacing :: src/olumiView/model/ModelCardRow.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/model/ModelCardRow.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<span className=\"mt-1 block space-y-0.5\">{card.rows.map((row, i) => <OptionLine key={i} card={card} row={row} i={i} expe"
+        },
+        "v12-spacing :: src/olumiView/model/detail.tsx :: off-scale utility: mt-0.5": {
+          "count": 2,
+          "file": "src/olumiView/model/detail.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "{expert && a !== null && a.title !== '' ? <p className={`${typography.viewPanelMeta} m-0 mt-0.5 break-words pl-5 text-te"
+        },
+        "v12-spacing :: src/olumiView/model/detail.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/model/detail.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<ul className=\"m-0 list-none space-y-0.5 p-0\">"
+        },
+        "v12-spacing :: src/olumiView/model/detail.tsx :: off-scale utility: gap-y-0.5": {
+          "count": 2,
+          "file": "src/olumiView/model/detail.tsx",
+          "token": "off-scale utility: gap-y-0.5",
+          "sample": "<div className=\"flex flex-wrap items-center gap-x-3 gap-y-0.5\" data-model-actions={card.id}>"
+        },
+        "v12-spacing :: src/olumiView/port/ChanceChart.tsx :: off-scale utility: mb-0.5": {
+          "count": 1,
+          "file": "src/olumiView/port/ChanceChart.tsx",
+          "token": "off-scale utility: mb-0.5",
+          "sample": "<span className={`${TYPE.meta} mb-0.5 grid grid-cols-3 tabular-nums text-text-light`} aria-hidden=\"true\" data-testid=\"an"
+        },
+        "v12-spacing :: src/olumiView/port/ChanceChart.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/port/ChanceChart.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<ul className=\"m-0 grid list-none gap-0.5 p-0\" data-chart-marks>"
+        },
+        "v12-spacing :: src/olumiView/port/ChanceChart.tsx :: off-scale utility: mt-0.5": {
+          "count": 2,
+          "file": "src/olumiView/port/ChanceChart.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1\">"
+        },
+        "v12-spacing :: src/olumiView/port/ChanceChart.tsx :: off-scale utility: space-y-0.5": {
+          "count": 2,
+          "file": "src/olumiView/port/ChanceChart.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid={ranged ? 'analysis-chart-key' : 'analysis-"
+        },
+        "v12-spacing :: src/olumiView/port/LikelyOutcome.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/port/LikelyOutcome.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className={`${TYPE.meta} mt-0.5 block tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.t"
+        },
+        "v12-spacing :: src/olumiView/port/PortAnalysisTab.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/port/PortAnalysisTab.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "<Hover as=\"button\" type=\"button\" onClick={() => pressCard(card.id)} words={row.olumi == null ? row.title : `${row.title}"
+        },
+        "v12-spacing :: src/olumiView/previous/CoreCard.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/previous/CoreCard.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": ": <Hover focusable={false} words={tried} className={`max-w-[180px] break-words rounded-sm border border-panel-border bg-"
+        },
+        "v12-spacing :: src/olumiView/reasoning/AnswerBox.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/reasoning/AnswerBox.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<p className={`${TYPE.body} m-0 flex items-start gap-2 text-text-header`}><OkIcon id=\"olumi-mark\" size={14} className=\"m"
+        },
+        "v12-spacing :: src/olumiView/reasoning/TowardsCommitment.tsx :: off-scale utility: mt-0.5": {
+          "count": 2,
+          "file": "src/olumiView/reasoning/TowardsCommitment.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<OkIcon id=\"commit-action\" size={14} className=\"mt-0.5\" decorative />"
+        },
+        "v12-spacing :: src/olumiView/reasoning/TowardsCommitment.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/reasoning/TowardsCommitment.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<span className=\"min-w-0 flex-1 space-y-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/strategy/StrategyChips.tsx :: arbitrary utility: ml-[var(--card-rail-offset)]": {
+          "count": 1,
+          "file": "src/olumiView/strategy/StrategyChips.tsx",
+          "token": "arbitrary utility: ml-[var(--card-rail-offset)]",
+          "sample": "<div ref={railRef} className={`nodrag mt-1 flex w-[var(--card-rail-width)] flex-row ${wrap} justify-center gap-1.5${offs"
+        },
+        "v12-spacing :: src/olumiView/strategy/StrategyChips.tsx :: off-scale utility: pl-0.5": {
+          "count": 1,
+          "file": "src/olumiView/strategy/StrategyChips.tsx",
+          "token": "off-scale utility: pl-0.5",
+          "sample": "className={`pointer-events-auto inline-flex h-6 max-w-full cursor-pointer items-center gap-1.5 rounded-full border borde"
+        },
+        "v12-spacing :: src/olumiView/strategy/StrategyOverview.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/strategy/StrategyOverview.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "{l.pill === null ? null : <span className={`${META} rounded-full border border-panel-border px-2 py-0.5`} data-strategy-"
+        },
+        "v12-spacing :: src/olumiView/strategy/StrategyViewLines.tsx :: off-scale utility: py-0.5": {
+          "count": 2,
+          "file": "src/olumiView/strategy/StrategyViewLines.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "return <span className={`${META} rounded-full border border-panel-border px-2 py-0.5 font-normal text-text-body`} data-t"
+        },
+        "v12-spacing :: src/olumiView/strategy/StrategyViewLines.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/strategy/StrategyViewLines.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "onCard(l.about.id) && l.text === v.text ? null : <li key={`${l.view}:${l.about.id}`} className=\"grid gap-0.5\" data-strat"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewOpener.tsx :: arbitrary utility: pt-[52px]": {
+          "count": 1,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewOpener.tsx",
+          "token": "arbitrary utility: pt-[52px]",
+          "sample": "return <div className=\"fixed inset-0 z-[1200] bg-panel pt-[52px]\" data-testid=\"strategy-overview-stage\">{children(view!,"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewPage.tsx :: arbitrary utility: -ml-[7px]": {
+          "count": 1,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewPage.tsx",
+          "token": "arbitrary utility: -ml-[7px]",
+          "sample": "<Hover key={`${h.id}-${i}`} as=\"span\" words={h.name} role=\"img\" data-testid=\"holder\" data-holder={h.id} aria-label={h.na"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewPage.tsx :: off-scale utility: py-0.5": {
+          "count": 1,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewPage.tsx",
+          "token": "off-scale utility: py-0.5",
+          "sample": "{row.pill === '' ? <span /> : <span data-testid=\"pill\" className={`whitespace-nowrap rounded-full border px-2 py-0.5 ${t"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewPage.tsx :: arbitrary utility: pl-[106px]": {
+          "count": 2,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewPage.tsx",
+          "token": "arbitrary utility: pl-[106px]",
+          "sample": "<div className=\"relative flex h-14 items-center justify-between pl-[106px] pr-4\">"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewPage.tsx :: arbitrary utility: gap-x-[52px]": {
+          "count": 1,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewPage.tsx",
+          "token": "arbitrary utility: gap-x-[52px]",
+          "sample": "<div className=\"grid grid-cols-[484px_484px] gap-x-[52px] pb-8 pl-[106px] pt-2\">"
+        },
+        "v12-spacing :: src/olumiView/strategy/overview/StrategyOverviewPage.tsx :: arbitrary utility: gap-[22px]": {
+          "count": 2,
+          "file": "src/olumiView/strategy/overview/StrategyOverviewPage.tsx",
+          "token": "arbitrary utility: gap-[22px]",
+          "sample": "<div className=\"grid content-start gap-[22px]\">{col(['question', 'aim', 'routes', 'assumptions']).map((g) => <Section ke"
+        },
+        "v12-spacing :: src/olumiView/v10.tsx :: arbitrary utility: mt-[2px]": {
+          "count": 1,
+          "file": "src/olumiView/v10.tsx",
+          "token": "arbitrary utility: mt-[2px]",
+          "sample": "const mark = <OkIcon id=\"olumi-mark\" size={14} decorative testid={`view-driver-mark-${card.id}`} className=\"mt-[2px]\" />"
+        },
+        "v12-spacing :: src/olumiView/v10.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v10.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "return <div className=\"mt-1 space-y-0.5\" data-testid={`view-values-${card.id}`}>{bars.map((b) => <ValueBarRow key={b.opt"
+        },
+        "v12-spacing :: src/olumiView/v12/SimpleFace.tsx :: off-scale utility: gap-px": {
+          "count": 1,
+          "file": "src/olumiView/v12/SimpleFace.tsx",
+          "token": "off-scale utility: gap-px",
+          "sample": "<div className={`relative grid ${olumiLook ? 'ok-card-band-gap' : 'gap-px'}`} data-simple-axis={id}>"
+        },
+        "v12-spacing :: src/olumiView/v12/actionsMenu.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/actionsMenu.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<OkIcon id=\"needs-analysis\" size={14} decorative className=\"mt-0.5\" />{onceWords}"
+        },
+        "v12-spacing :: src/olumiView/v12/arrival/FirstArrival.tsx :: arbitrary utility: mt-[3px]": {
+          "count": 1,
+          "file": "src/olumiView/v12/arrival/FirstArrival.tsx",
+          "token": "arbitrary utility: mt-[3px]",
+          "sample": "<OkIcon id=\"view-only\" size={14} decorative className=\"mt-[3px]\" />"
+        },
+        "v12-spacing :: src/olumiView/v12/bands/BandLayer.tsx :: off-scale utility: gap-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/bands/BandLayer.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<span className=\"inline-flex shrink-0 items-center gap-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/v12/bands/IdeaPanel.tsx :: off-scale utility: space-y-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/bands/IdeaPanel.tsx",
+          "token": "off-scale utility: space-y-0.5",
+          "sample": "<div className={`${typography.viewPanelMeta} space-y-0.5 text-text-light`}>"
+        },
+        "v12-spacing :: src/olumiView/v12/chat/CardMenuHeader.tsx :: off-scale utility: mt-px": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/CardMenuHeader.tsx",
+          "token": "off-scale utility: mt-px",
+          "sample": "<NodeShapeIndicator nodeKind={kind} size={14} dashedOutline={card !== undefined && isDashedCardKind(card)} className=\"mt"
+        },
+        "v12-spacing :: src/olumiView/v12/chat/KeptIdeas.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/chat/KeptIdeas.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<OkIcon id=\"idea-keep\" size={14} decorative className=\"mt-0.5\" />"
+        },
+        "v12-spacing :: src/olumiView/v12/chat/OlumiAsks.tsx :: off-scale utility: mt-0.5": {
+          "count": 2,
+          "file": "src/olumiView/v12/chat/OlumiAsks.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex-none\"><OkIcon id=\"olumi-mark\" size={14} decorative /></span>"
+        },
+        "v12-spacing :: src/olumiView/v12/edit/LaneInspector.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/edit/LaneInspector.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<OkIcon id=\"committed\" size={14} decorative className=\"mt-0.5\" /><span className=\"min-w-0 break-words\">{k.lines.join(' ·"
+        },
+        "v12-spacing :: src/olumiView/v12/views/FrameLines.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiView/v12/views/FrameLines.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<ul className=\"m-0 grid list-none gap-0.5 p-0\">{options.map((o, i) => <li key={i} className={`${BODY} break-words`}>{o}<"
+        },
+        "v12-spacing :: src/olumiView/v12/views/RoundRead.tsx :: off-scale utility: mt-0.5": {
+          "count": 1,
+          "file": "src/olumiView/v12/views/RoundRead.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex-none\"><OkIcon id=\"olumi-mark\" size={14} decorative /></span><span className=\"min-w-0 break-"
+        },
+        "v12-spacing :: src/olumiView/v12/views/WhereWeDiffer.tsx :: off-scale utility: gap-0.5": {
+          "count": 2,
+          "file": "src/olumiView/v12/views/WhereWeDiffer.tsx",
+          "token": "off-scale utility: gap-0.5",
+          "sample": "<div className=\"grid gap-0.5\">"
+        },
+        "v12-spacing :: src/olumiView/v12/views/WhereWeDiffer.tsx :: off-scale utility: mt-0.5": {
+          "count": 3,
+          "file": "src/olumiView/v12/views/WhereWeDiffer.tsx",
+          "token": "off-scale utility: mt-0.5",
+          "sample": "<span className=\"mt-0.5 flex-none text-text-light\"><OkIcon id=\"on-canvas\" size={14} decorative /></span>"
+        }
+      }
+    },
     "v12-ui-words": {
       "mode": "ratchet",
       "description": "Em dashes, ampersands between words, American spellings or banned phrases in lane JSX copy",

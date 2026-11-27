@@ -80,6 +80,50 @@ describe('DS v5 compliance ratchet guard', () => {
     expect(JSON.parse(json.out).netNew['v12-panel-padding'].items).toMatchObject([{ token: 'px-4', delta: 1 }])
   })
 
+  it.each([
+    ['arbitrary', [
+      'arbitrary utility: p-[12px]',
+      'arbitrary utility: hover:md:-ms-[3px]',
+      'arbitrary utility: [&>span]:gap-x-[2px]',
+      'arbitrary utility: space-y-[0.5rem]',
+    ]],
+    ['off-scale', [
+      'off-scale utility: p-0.5',
+      'off-scale utility: gap-px',
+      'off-scale utility: py-3.5',
+      'off-scale utility: hover:-mt-7',
+      'off-scale utility: [&:hover]:gap-y-9',
+      'off-scale utility: space-x-11',
+      'off-scale utility: me-14',
+    ]],
+    ['numeric', [
+      'numeric style: paddingInline: 12',
+      'numeric style: marginTop: -3',
+      'numeric style: gap: 8',
+    ]],
+    ['pixels', [
+      'pixel declaration: padding-inline: 4px 8px',
+      'pixel declaration: margin-left: -0.5px',
+      'pixel declaration: gap: calc(var(--space-2) + 3px)',
+      'pixel declaration: row-gap: 6px',
+      'pixel declaration: column-gap: var(--other, 5px)',
+    ]],
+  ] as const)('V12 spacing ratchets %s violations under --enforce', (fixture, tokens) => {
+    const { status, stdout } = run(['--root', `${FX}/spacing/${fixture}`, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(1)
+    const { netNew } = JSON.parse(stdout)
+    expect(Object.keys(netNew)).toEqual(['v12-spacing'])
+    expect(netNew['v12-spacing'].mode).toBe('ratchet')
+    expect(netNew['v12-spacing'].items.map(({ token, delta }: { token: string; delta: number }) => [token, delta]).sort())
+      .toEqual(tokens.map((token) => [token, 1]).sort())
+  })
+
+  it('V12 spacing allows tokens, permitted scale steps and hairlines, and ignores comments and tests', () => {
+    const { status, stdout } = run(['--root', `${FX}/spacing/clean`, '--baseline', empty, '--enforce', '--json'])
+    expect(status).toBe(0)
+    expect(JSON.parse(stdout).netNew).toEqual({})
+  })
+
   it('allows the existing Olumi story mark in ViewChat but gates new blue controls in the same file', () => {
     const { status, stdout } = run(['--root', `${FX}/blue-chat`, '--baseline', empty, '--enforce', '--json'])
     expect(status).toBe(1)

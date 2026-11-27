@@ -48,6 +48,47 @@ const COPY_PROPS = new Set(['words', 'label', 'aria-label', 'placeholder', 'tip'
 const UI_WORDS = /—|(?<=[\p{L}\p{N}]\s*)&(?=\s*[\p{L}\p{N}])|(?<![\p{L}\p{N}_])(?:color|behavior|center|organize|analyze|favorite|gray|recommend|best|winner|you\s+should|go\s+with)(?![\p{L}\p{N}_])/giu
 const WORD = /[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu
 const PRODUCT_NAMES = new Set(['Olumi', "Olumi's", 'Olumi’s'])
+const SPACING_UTILITY = /(?:^|:)!?-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy])-(\[.*\]|0\.5|px|3\.5|7|9|11|14)!?$/
+const SPACE_VAR = /\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)/
+const STYLE_SPACING = /^(?:(?:padding|margin)(?:[A-Z]\w*)?|gap|rowGap|columnGap)$/
+const CSS_SPACING = /^(?:(?:padding|margin)(?:-[a-z-]+)?|gap|row-gap|column-gap)$/i
+
+function scanSpacingUtilities(text, add) {
+  for (const token of text.split(/\s+/)) {
+    const value = SPACING_UTILITY.exec(token)?.[1]
+    if (value === undefined) continue
+    if (!value.startsWith('[')) add(`off-scale utility: ${token}`)
+    else if (!SPACE_VAR.test(value)) add(`arbitrary utility: ${token}`)
+  }
+}
+
+function scanStyleSpacing(node, add) {
+  if (ts.isPropertyAssignment(node) && STYLE_SPACING.test(node.name.text ?? '')) {
+    let value = node.initializer
+    while (ts.isParenthesizedExpression(value) || ts.isAsExpression(value) || ts.isSatisfiesExpression(value)) {
+      value = value.expression
+    }
+    const number = ts.isPrefixUnaryExpression(value) &&
+      (value.operator === ts.SyntaxKind.MinusToken || value.operator === ts.SyntaxKind.PlusToken) ? value.operand : value
+    if (ts.isNumericLiteral(number) && Number(number.text) !== 0) {
+      add(node, `numeric style: ${node.name.text}: ${value.getText()}`)
+    }
+  }
+  ts.forEachChild(node, (child) => scanStyleSpacing(child, add))
+}
+
+function hasOffScalePixels(value) {
+  // Skip strings and comments, and keep track of nested calls within a spacing var() fallback.
+  const parts = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)|[()]|(?<![\w.#-])[+-]?(?:\d*\.\d+|\d+)px\b/gi
+  let tokenDepth = 0
+  for (const [part] of value.matchAll(parts)) {
+    if (part.toLowerCase().startsWith('var(')) tokenDepth++
+    else if (part === '(' && tokenDepth > 0) tokenDepth++
+    else if (part === ')' && tokenDepth > 0) tokenDepth--
+    else if (tokenDepth === 0 && /^[+-]?\d*\.?\d+px$/i.test(part) && ![0, 1].includes(Math.abs(Number.parseFloat(part)))) return true
+  }
+  return false
+}
 
 // Only an object literal whose every property explicitly names a CSS variable is exempt.
 // Computed keys, spreads and variables can introduce ordinary properties and still count.
@@ -233,6 +274,9 @@ export function scanLaneSource(file, text) {
         if (name === 'className' && PANEL.test(tag) && attribute.initializer) {
           scanStrings(attribute.initializer, PANEL_PADDING, 'v12-panel-padding')
         }
+        if (name === 'style' && attribute.initializer && ts.isJsxExpression(attribute.initializer) && attribute.initializer.expression) {
+          scanStyleSpacing(attribute.initializer.expression, (property, token) => add('v12-spacing', property, token))
+        }
       }
       if (localCopy && sentenceCase && ts.isJsxOpeningElement(node)) {
         node.parent.children.reduce(checkCaseChildren, false)
@@ -245,6 +289,7 @@ export function scanLaneSource(file, text) {
       }
     }
     if (isStringSegment(node)) {
+      scanSpacingUtilities(node.text, (token) => add('v12-spacing', node, token))
       if (file.endsWith('.tsx')) {
         for (const match of node.text.matchAll(IMPORTANT)) add('v12-important-utility', node, match[1])
         for (const match of node.text.matchAll(IMPORTANT_DECLARATION)) add('v12-important-css', node, `${match[1]} !important`)
@@ -263,9 +308,19 @@ export function scanLaneSource(file, text) {
 // PostCSS recognises multiline declarations, while quoted text and comments are
 // distinct from the declaration's important flag.
 export function scanLaneStylesheet(file, text) {
-  const hits = { 'v12-important-css': [], 'v12-blue-css-var': [] }
-  postcss.parse(text, { from: file }).walkDecls((declaration) => {
+  const hits = { 'v12-important-css': [], 'v12-blue-css-var': [], 'v12-spacing': [] }
+  const stylesheet = postcss.parse(text, { from: file })
+  stylesheet.walkAtRules('apply', (rule) => {
+    scanSpacingUtilities(rule.params, (token) => hits['v12-spacing'].push({ line: rule.source.start.line - 1, token }))
+  })
+  stylesheet.walkDecls((declaration) => {
     const line = declaration.source.start.line - 1
+    if (CSS_SPACING.test(declaration.prop) && hasOffScalePixels(declaration.value)) {
+      hits['v12-spacing'].push({
+        line,
+        token: `pixel declaration: ${declaration.prop}: ${declaration.value.replace(/\s+/g, ' ').trim()}`,
+      })
+    }
     if (declaration.important) {
       hits['v12-important-css'].push({ line, token: `${declaration.prop} !important` })
     }

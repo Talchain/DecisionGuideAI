@@ -81,6 +81,7 @@ export const AuthorGlyph = ({ card }: { card: ViewCard }): JSX.Element | null =>
 export type SimpleFaceProps = {
   readonly card: ViewCard
   readonly model: ViewModel | null
+  readonly olumiLook?: boolean
   /** Olumi's note sits beside this card (core's `next.at`): Olumi's mark in a ring here, the words in the panel. */
   readonly noted: boolean
   /** Core's own label for that step (`next.label`), the mark's name; the fixed name where core sends none. */
@@ -122,7 +123,7 @@ export function sharedResultWords(headline: NonNullable<ViewCard['headline']>): 
 
 type StateLine = { readonly text?: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly shape?: FaceMarkKind; readonly isValue?: true }
 
-export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const limit = card.family === 'option' ? limitLeadOf(card) : null
@@ -134,6 +135,8 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   const axisInfo = card.family === 'option' ? null : bandAxisOf(card, model)
   const held = card.family === 'option' ? [] : withheldValues(card)
   const hasFigure = card.figure != null && card.figure.text !== ''
+  const tight = olumiLook ? 'ok-card-gap-tight' : 'gap-1'
+  const stack = olumiLook ? 'ok-card-gap-stack' : 'gap-2'
   const nameOf = (aid: string | null | undefined, own?: string) => own ?? (aid == null ? '' : model?.cards.find((c) => c.id === aid)?.heading ?? '')
   let visual: ReactNode = null
   let state: StateLine | null = null
@@ -142,12 +145,12 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     if (h?.state === 'chance' && chance !== null) {
       const row = headlineChanceRow(card)
       visual = (
-        <Hover as="div" focusable={hasQualifier} className="flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1"
+        <Hover as="div" focusable={hasQualifier} className={`flex min-w-0 basis-full flex-wrap items-center ${olumiLook ? 'ok-card-gap-chance' : 'gap-x-2 gap-y-1'}`}
           data-simple-face="chance" data-simple-qual={hasQualifier ? id : undefined}
           words={hasQualifier ? hoverLines(chance.head, chance.qualifier, h.title, description) : h.title || h.text}>
           <p className={`${typography.viewValue} min-w-0 break-words text-text-header`} data-simple-chance={id}>
             {chance.head}
-            {row?.olumi == null ? null : <span className="ml-1 inline-flex align-middle"><OlumiMark words={row.olumi.title} /></span>}
+            {row?.olumi == null ? null : <span className={`inline-flex align-middle ${olumiLook ? 'ok-card-mark-after' : 'ml-1'}`}><OlumiMark words={row.olumi.title} /></span>}
           </p>
           <ChanceDots chance={chanceForDots(row)} />
         </Hover>
@@ -177,9 +180,9 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     visual = (
       // ONE visual: each option's band is a thin bar of its own, stacked (up to 4, 4 px each) on the one shared axis; the letters and words are the hover.
       // The options core could not calculate are named by their letters after the bars (R6: no dashed track), core's reason the state line.
-      <Hover as="div" focusable={false} className="grid min-w-0 basis-full gap-2" data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
+      <Hover as="div" focusable={false} className={`grid min-w-0 basis-full ${stack}`} data-simple-face="range" words={bands.length === 0 ? undefined : bands.map((b) => `${b.letter} ${b.heading} · ${b.text}`).join('\n')}>
         {bands.length === 0 ? null : (
-          <div className="relative grid gap-px" data-simple-axis={id}>
+          <div className={`relative grid ${olumiLook ? 'ok-card-band-gap' : 'gap-px'}`} data-simple-axis={id}>
             {axisInfo?.goalAt == null ? null : <i className="pointer-events-none absolute -top-[2px] -bottom-[2px] block w-0 border-l-2 ok-simple-goal-tick" style={{ '--chart-x': `${axisInfo.goalAt}%` } as CSSProperties} data-testid="simple-goal-tick" data-at={axisInfo.goal ?? undefined} />}
         {bands.slice(0, 4).map((b) => (
           <Hover as="div" focusable={false} key={b.option} words={`${b.heading} · ${b.text}`} className="flex items-center" data-simple-band={b.option}>
@@ -192,7 +195,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
           </div>
         )}
         {axisInfo === null || bands.length === 0 ? null : (
-          <div className={`${typography.viewLabel} flex justify-between gap-2 whitespace-nowrap text-text-light`} data-testid="simple-axis-ends">
+          <div className={`${typography.viewLabel} flex justify-between ${stack} whitespace-nowrap text-text-light`} data-testid="simple-axis-ends">
             <span data-testid="simple-axis-min">{axisInfo.min}</span>
             <span data-testid="simple-axis-max">{axisInfo.max}{axisInfo.unit === null ? '' : ` ${axisInfo.unit}`}</span>
           </div>
@@ -222,7 +225,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     const question = waitingMeasureQuestion(card, model)
     if (card.bound.measured === false || shared !== null) {
       visual = (
-        <div className="flex min-w-0 basis-full items-center gap-1" data-simple-face="target" data-simple-bound-state={id}>
+        <div className={`flex min-w-0 basis-full items-center ${tight}`} data-simple-face="target" data-simple-bound-state={id}>
           {shared !== null ? null : <Hover words={hoverLines(card.bound.text, card.bound.title)} className="inline-flex items-center">
             <FaceMark kind="bound" />
           </Hover>}
@@ -234,7 +237,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     } else {
       visual = (
         <Hover focusable={false} as="p" words={card.bound.title || card.bound.text}
-          className={card.bound.measured ? `${typography.viewValue} ok-tone-goal flex min-w-0 basis-full items-center gap-1` : 'ok-quiet flex min-w-0 basis-full items-center gap-1'}
+          className={card.bound.measured ? `${typography.viewValue} ok-tone-goal flex min-w-0 basis-full items-center ${tight}` : `ok-quiet flex min-w-0 basis-full items-center ${tight}`}
           data-simple-face="target" data-simple-bound-state={card.bound.measured ? undefined : id}>
           {card.bound.measured ? <span className="ok-pill ok-bound min-w-0">
             {target === null ? bound : <FigureEdit id={target.id} edit={target.figure!.edit ?? null} place="view-aim" opener={bound} />}
@@ -253,7 +256,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
-      <Hover focusable={false} words={card.figure?.title || words || undefined} className="flex min-w-0 basis-full flex-col gap-1" data-simple-scale={id}>
+      <Hover focusable={false} words={card.figure?.title || words || undefined} className={`flex min-w-0 basis-full flex-col ${tight}`} data-simple-scale={id}>
         {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
         {scale}
       </Hover>
@@ -302,7 +305,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
   // A card core no longer holds as live (`status`, e.g. "ruled out") is marked for the look: its name draws in the light ink (olumiLook.css).
   return (
     <>
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
+    <div className={`flex flex-wrap items-center ${olumiLook ? stack : 'gap-x-2 gap-y-2'}`} data-simple-card={id} data-simple-set-aside={card.status != null && card.status !== '' ? '' : undefined} data-simple-more={more.length === 0 ? undefined : more.length}
       data-simple-description={state === null && !hasQualifier && description !== null ? id : undefined}
       {...(cardWords === '' ? {} : { tabIndex: 0, 'aria-describedby': moreTip.describedBy, ...moreHandlers })}>
       {visual}
@@ -316,7 +319,7 @@ export function SimpleFace({ card, model, noted, notedWords, kind = cardKindOf(c
       )}
       {/* THE FOOT, one order on both faces (C1, 20 Nov): the state marks (the kind's own icon, then core's marks with the "+N" overflow, the change, Olumi's
           question), then the count badges and the rest of `extra`, then whose it is LAST. */}
-      <div className="ml-auto flex flex-none items-center gap-2" data-simple-foot={id}>
+      <div className={`ml-auto flex flex-none items-center ${stack}`} data-simple-foot={id}>
         {card.family === 'option' && isBaseline(card) ? <BaselinePill id={id} /> : null}
         {kind.shape === 'assumption' ? <KindTag id={id} model={model} /> : null}
         {card.family === 'condition' ? <ConditionTag id={id} /> : null}
