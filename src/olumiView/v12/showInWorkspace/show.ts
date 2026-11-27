@@ -137,6 +137,7 @@ export async function showInWorkspace(turn: number | null, next: Pointer | null)
   const st = useViewStore.getState()
   const plan = planShow(st.view, next, boardNow(st.sid))
   if (port === null || plan === null) return
+  const interruptedReply = run !== null && run.turn !== null
   run?.ctl.abort()
   clearPulse()
   const scope = scopeNow()
@@ -146,7 +147,9 @@ export async function showInWorkspace(turn: number | null, next: Pointer | null)
   const mine: Run = { ctl: new AbortController(), kind: 'show', turn, fresh, was: useShown.getState().turn }
   run = mine
   const signal = mine.ctl.signal
-  if (turn !== null) useShown.setState({ turn, busy: true, said: null }) // a show from no reply leaves every reply's control as it is
+  if (turn !== null) useShown.setState({ turn, busy: true, said: null })
+  // A record show ends the reply's pending work and keeps its Return control tied to the original snapshot.
+  else if (interruptedReply) useShown.setState({ busy: false })
   const release = port.hold()
   let held = port.capture().held
   let failed: string | null = null, overtaken = false

@@ -45,12 +45,9 @@ type GroupData = { id: string; kind: GroupKind; kinds: readonly CardKindName[]; 
 export type FoldCardData = { count: number; sid: string | null; width: number; group?: GroupData }
 /** Said on a folded group that holds a challenge (groups.ts challengedIn). */
 export const groupChallenged = (n: number): string => `${n} challenged inside`
-/** D1c's count (Codex UI reviewer 008 v8: neutral words, not "not sized yet"); each card says its own state once its row is opened. */
-export const olumiMore = (n: number): string => `${n} more from Olumi`
 
 export function foldHeadingOf({ count, group }: Pick<FoldCardData, 'count' | 'group'>): [string, string?] {
   if (group === undefined) return [`${count} inputs`]
-  if (group.kind === 'olumi') return [olumiMore(count)]
   if (group.kind === 'notes') return [notesCount(count)]
   return group.words === null ? [String(count)] : [String(count), group.words]
 }
@@ -70,13 +67,13 @@ export function FoldCard({ id, data }: NodeProps) {
     // D1: one press opens the row's group in place for this visit; the grouped cards' headings are the hover. Olumi's group is framed in Olumi's blue, dashed
     // (a proposal not yet the person's) inside an approved model; on a first draft everything is proposed, so nothing is marked for it (R3); the notes stack
     // in the panel's border.
-    const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow, olumis = group.kind === 'olumi'
+    const proposed = group.kind === 'proposed', marked = proposed && !firstDraftNow
     return (
       <>{handles}<HoverButton type="button" data-testid="view-group-card" data-group={group.id} data-group-kind={group.kind} data-group-count={count} aria-expanded={false}
         onClick={() => { if (sid !== null) setGroupOpen(sid, group.id) }} words={group.hover} tipSpacing="list"
         className={`${BOARD_TEXT} flex items-center gap-1.5 rounded-md border bg-panel p-3 text-left text-text-body hover:text-text-header ${marked ? 'border-dashed border-info' : 'border-panel-border'}`}
         style={{ '--band-card-width': `${width}px`, '--band-card-min-height': `${FOLD_H}px` } as CSSProperties}>
-        {proposed || olumis ? <OlumiMark words={group.words} /> : null}
+        {proposed ? <OlumiMark words={group.words} /> : null}
         <span className="font-medium tabular-nums text-text-header">{heading}</span>
         {words !== undefined ? <span className="min-w-0 truncate">{words}</span> : null}
         {group.challenged > 0 ? <Hover role="img" focusable={false} data-group-challenged={group.challenged} aria-label={groupChallenged(group.challenged)} words={groupChallenged(group.challenged)} className="inline-flex flex-none"><OkIcon id="challenged" size={14} decorative className="[&>svg]:h-[calc(14px*var(--o-s,1))] [&>svg]:w-[calc(14px*var(--o-s,1))]" /></Hover> : null}

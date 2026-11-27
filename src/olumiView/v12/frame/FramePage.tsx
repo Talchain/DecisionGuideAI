@@ -127,7 +127,7 @@ export function FramePage({ view, onClose }: { view: View; onClose: () => void }
               {limits.length === 0 ? null : <div className="grid gap-2"><span className={LABEL}>{FRAME_WORDS.limits}</span><ul className="m-0 grid list-none gap-3 p-0" data-testid="frame-limits">{limits.map(renderAim)}</ul></div>}
             </section>
           )}
-          {finding === null ? (surface === 'frame' ? <FindingLine model={model} at="frame" onFocusFigure={onClose} /> : null)
+          {finding === null ? (surface === 'frame' ? <FindingLine model={model} at="frame" /> : null)
             : <p className={`${BODY} whitespace-pre-wrap break-words`} data-testid="frame-finding">{finding.join(' ')}</p>}
           {routes.length === 0 ? null : (
             <section className="grid gap-2" aria-label={FRAME_WORDS.routes}>

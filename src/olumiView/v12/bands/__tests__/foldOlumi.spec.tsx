@@ -3,7 +3,7 @@ vi.mock('../../../../lib/supabase', () => ({ getSessionIdentity: async () => ({ 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View, ViewCard, ViewModel } from '../../../client'
-import { cardGroupsOf, groupKindOf } from '../groups'
+import { groupKindOf } from '../groups'
 
 const base = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/core-38eebca9/bakery-asked.view3.json'), 'utf8')) as View
 const card = (id: string) => base.model!.cards.find((c) => c.id === id)!
@@ -24,6 +24,5 @@ describe('approved Olumi figures with no value yet stay drawn on Simple', () => 
     const cards = [saved('oven_price', 'driver', 'olumi'), saved('spend', 'result', 'olumi')]
     const { model, view } = withCards(cards)
     expect(cards.map((card) => groupKindOf(card, model, view))).toEqual([null, null])
-    expect(cardGroupsOf(model, view).filter((g) => g.kind === 'olumi')).toEqual([])
   })
 })
