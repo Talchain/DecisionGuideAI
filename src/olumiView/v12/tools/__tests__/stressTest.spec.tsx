@@ -15,6 +15,7 @@ import bakery from '../../__tests__/fixtures/issue7-e499eff6-bakery-asked.view3.
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { StressTest, StressTestTab, STRESS_STEPS, STRESS_WORDS } from '../StressTest'
 import { useStressTrials } from '../stressTrials'
+import { WHAT_IF_SLIDER_WORDS } from '../WhatIfSlider'
 import { installCanvasFocus } from '../../../focus/canvas'
 import { useStoredFocusSubject } from '../../../focus/state'
 
@@ -172,7 +173,7 @@ describe('Stress-test', () => {
     }
 
     const words = new Set([
-      ...Object.values(STRESS_STEPS), ...Object.values(STRESS_WORDS),
+      ...Object.values(STRESS_STEPS), ...Object.values(STRESS_WORDS), ...Object.values(WHAT_IF_SLIDER_WORDS),
       cups.heading, target.heading, cups.figure!.text, raise.heading, keep.heading,
       raiseRow.aim, secondAim.aim, raiseRow.value, raiseSecond.value, keepFirst.value, keepSecond.value,
       raiseRow.title, raiseSecond.title, 'A', 'B',

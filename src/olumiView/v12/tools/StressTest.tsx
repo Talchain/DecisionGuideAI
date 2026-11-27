@@ -17,6 +17,7 @@ import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
 import { useFocusSubject } from '../../focus/subject'
 import { stressTrialKey, tryStressValue, useStressTrials, type TrialStep } from './stressTrials'
+import { WhatIfSlider, whatIfInputOf } from './WhatIfSlider'
 
 export const STRESS_STEPS = { low: 'Lower values', saved: 'As saved', high: 'Higher values' } as const
 
@@ -143,6 +144,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   const subjectRecord = (figures.find((figure) => figure.record === subjectId) ??
     figures.find((figure) => figure.card.id === subjectId))?.record
   const [record, setRecord] = useState<string>()
+  const [fallbackRecord, setFallbackRecord] = useState<string>()
   const [choice, setChoice] = useState<{ step: Step; scope?: string }>({ step: 'saved' })
   const aimHeading = useId()
   const stepButtons = useRef(new Map<Step, HTMLButtonElement>())
@@ -177,6 +179,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
       setChoice({ step: 'saved' })
       if (subjectObserved.current) stepButtons.current.get('saved')?.focus()
     }
+    setFallbackRecord(subjectId)
     subjectObserved.current = true
   }, [subjectId, subjectRecord])
   useLayoutEffect(() => {
@@ -210,6 +213,8 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
   if (selected === undefined) {
     if (held && figures.length > 0) return <div className={META}>{STRESS_WORDS.held}</div>
     const resultFigures = resultFigureCardsOf(model, view)
+    const canTry = view.version != null && view.version.id === model.edit_base && !held
+    const chosenFigure = canTry ? resultFigures.find((card) => card.id === fallbackRecord) : undefined
     return (
       <div data-form="TT-stress" data-testid="tool-stress" data-stress-unlabelled={unlabelled}>
         {resultFigures.length === 0 ? <span className={META}>{STRESS_WORDS.empty}</span>
@@ -222,7 +227,11 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
                 <li key={card.id} className="col-span-3 grid grid-cols-subgrid items-center"
                   onMouseEnter={() => ringFrom(RING_SOURCE, [card.id])} onMouseLeave={() => ringFrom(RING_SOURCE, [])}
                   onFocus={() => ringFrom(RING_SOURCE, [card.id])} onBlur={() => ringFrom(RING_SOURCE, [])}>
-                  <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
+                  {canTry && !('reason' in whatIfInputOf(view, card.id))
+                    ? <button type="button" aria-pressed={chosenFigure?.id === card.id}
+                        className={`${typography.viewPanelHeading} ${FOCUS} break-words text-left text-text-header hover:bg-panel-hover`}
+                        onClick={() => { setFallbackRecord(card.id); pressCard(card.id) }}>{card.heading}</button>
+                    : <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>}
                   {unknown ? (
                     <>
                       <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
@@ -234,6 +243,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
               )
             })}
           </ul>}
+        {chosenFigure !== undefined && <WhatIfSlider view={view} quantity={chosenFigure.id} />}
       </div>
     )
   }
@@ -273,6 +283,7 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
           <Hover words={figureCard.figure.title} className={`${META} min-w-0 break-words`}>{figureCard.figure.text}</Hover>
         </div>
       )}
+      <WhatIfSlider view={view} quantity={selected.record} />
 
       <div className="grid grid-cols-[minmax(0,1fr)_max-content_minmax(0,1fr)] gap-x-2 gap-y-1">
         {[...aims].map(([aimId, readings], index) => (

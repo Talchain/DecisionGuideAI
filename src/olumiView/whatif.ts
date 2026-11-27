@@ -5,7 +5,7 @@
  * last answer is held here while it is shown, and dropped once the View moves to another version. Saving the figure stays the edit route.
  */
 import { create } from 'zustand'
-import { call } from '../olumiCore/team/api'
+import { call, TeamApiError } from '../olumiCore/team/api'
 import type { ViewRow } from './client'
 
 export type WhatIfVariant = {
@@ -19,7 +19,7 @@ export type WhatIfVariant = {
   most_likely: { text: string; title: string } | null
   /** Core's numbered facts for this copy. A chance fact carries the number behind an option row's words, bound by option and aim ids
    *  (core 55c0c03f sends the what-if rows without `chance`; measured 10 Nov). Read only to place a mark, never to write a figure. */
-  facts?: { id: string; about?: { kind: string; option?: string; goal?: string; chance?: number } }[]
+  facts?: { id: string; text?: string; about?: { kind: string; option?: string; goal?: string; chance?: number; olumi?: boolean } }[]
   /** SCI-13 (core wip/science-size 7e998523, `### SCI-13 field`): for each live option and aim, what happens beside the chance, read over
    *  the same draws: core's sentence (`line`) and the numbers behind it. Only `line` is drawn, verbatim; the numbers are typed, never shown. */
   size?: WhatIfSize[]
@@ -37,9 +37,16 @@ type Shown = { sid: string; base: number; quantity: string; typed: string; varia
 export const useWhatIf = create<{ shown: Shown | null }>()(() => ({ shown: null }))
 export const clearWhatIf = () => useWhatIf.setState({ shown: null })
 
-/** Read Core's what-if for one figure as typed, on version `base`. */
-export async function runWhatIf(sid: string, base: number, quantity: string, typed: string): Promise<WhatIfVariant | null> {
-  const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [{ quantity, typed }] }] })
+export const WHAT_IF_STALE = 'this what-if was asked on a different version'
+type WhatIfPoint = { kind: 'point'; value: number }
+
+/** Read Core's what-if for one figure, on version `base`. */
+export async function runWhatIf(sid: string, base: number, quantity: string, input: string | WhatIfPoint): Promise<WhatIfVariant | null> {
+  const edit = typeof input === 'string' ? { quantity, typed: input } : { quantity, value: input }
+  const a = await call<WhatIfAnswer>('POST', `/api/scenarios/${encodeURIComponent(sid)}/whatif`, { base, variants: [{ edits: [edit] }] })
+  if (typeof input !== 'string' && (a.scenario !== sid || a.version?.id !== base)) {
+    throw new TeamApiError(409, WHAT_IF_STALE)
+  }
   return a.variants[0] ?? null
 }
 
