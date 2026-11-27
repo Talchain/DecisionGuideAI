@@ -20,17 +20,12 @@ import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { cardDsKindOf, cardKind, declaredCardKind, type FieldCard } from './v12/fields/fields'
+import { allOptionCards, optionCards } from './model/selectors'
 
-/** Every option card in the View's order, live or not (the Summary shows a withheld option's status and reason too). */
-export const allOptionCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.family === 'option')
-/**
- * The option cards core compares, in the View's own order: what the chances block draws. An option core does not compare carries its
- * status on its card ("removed", "ruled out"); it has no chance to show, and the block leaves it out as the base does (review 00051).
- */
+export { allOptionCards, challengedCards, optionCards, worthLinesOf } from './model/selectors'
+
 /** The cards whose figure the person may set (core offers `figure.edit`): the ones a what-if can try a different value for. */
 export const triableCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit != null)
-
-export const optionCards = (model: ViewModel): ViewCard[] => allOptionCards(model).filter((c) => c.status === null)
 
 /** The cards whose figure the person may set, in the View's own order: core offers `figure.edit` only there, and only while no proposal is held. */
 export const settableFigures = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.figure?.edit)
@@ -831,15 +826,6 @@ export function linkEndHeading(model: ViewModel, id: string): string {
   return (model.cards.find((c) => c.id === id) ?? model.cards.find((c) => c.badge?.records.includes(id) === true))?.heading ?? ''
 }
 
-/** The science kinds Worth checking first knows how to say (olumi.view/3 `run.science[].kind`). */
-const WORTH_KINDS: ReadonlySet<string> = new Set(['worth'])
-/**
- * The Run's science lines Worth checking first draws, each with its place in `run.science` (its View path): only the kinds it knows. A
- * kind core adds later (D2: middle, better, an 'unresolved' status) is drawn as nothing until this page knows what it means.
- */
-export const worthLinesOf = <T extends { kind: string }>(science: readonly T[]): { line: T; i: number }[] =>
-  science.map((line, i) => ({ line, i })).filter(({ line }) => WORTH_KINDS.has(line.kind))
-
 /**
  * The DGAI node kind a View card is drawn as on the canvas (the original look), by its role in core's model, the same on every version: a
  * figure core works out from others (a `through` link arrives at it) is an outcome, any other figure a factor; the rest as `askKindOf`.
@@ -969,8 +955,6 @@ export function optionInFocusOf(view: { model: ViewModel | null }, selected: Rea
 // ── The Reasoning tab's picks (Paul, 6 Nov: the previous PoC's sections; ViewReasoning.tsx draws them, picking is done only here) ──
 /** The cards of the given families, in the View's order (the model at a glance: options, factors, risks). */
 export const familyCards = (model: ViewModel, families: readonly string[]): ViewCard[] => model.cards.filter((c) => families.includes(c.family))
-/** The cards core marks `challenged` (a challenge, a disagreement, evidence that challenges), in the View's order. */
-export const challengedCards = (model: ViewModel): ViewCard[] => model.cards.filter((c) => c.challenged === true)
 const REASONING_FAMILIES = ['assumption', 'condition', 'claim', 'evidence', 'left_out']
 /** The reasons of the cards core marks challenged: each is drawn as its challenge (ViewReasoning's Challenge rows), so a premise in the same
  *  words is that same thing (core sends it at both paths, SC-02) and is not said again as a premise, in the door or the rack. */

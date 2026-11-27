@@ -86,6 +86,7 @@ import { markPath, focusIdOf, useFocusPath } from './v12/bands/focusPath'
 import { FoldCard, IdeaCard, VIEW_FOLD, VIEW_IDEA } from './v12/bands/BandNodes'
 import { IdeaPanel } from './v12/bands/IdeaPanel'
 import { keptIdeasOf } from './v12/ideas'
+import { installCanvasFocus } from './focus/canvas'
 
 // UI restore, 11 Nov (Paul: "the previous UI plugged into the alpha data model"): each card and the question are drawn on the previous
 // product's card frame with core's words (./previous/CoreCard), on this canvas, so none of the previous canvas's own hooks run.
@@ -608,6 +609,7 @@ function ViewFlow() {
 
 /** The lane's canvas with the providers its dock and note read (the same ones the legacy canvas gives them). */
 export function ViewCanvas(): JSX.Element {
+  useEffect(installCanvasFocus, [])
   useV10Lane()
   useDockFullHeight()
   return (

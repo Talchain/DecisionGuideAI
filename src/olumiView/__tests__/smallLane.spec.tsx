@@ -57,10 +57,14 @@ describe('Reasoning\'s fill-the-box press has its own icon', () => {
     useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false } as never)
     useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
     const { container } = render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more'); if (more !== null) fireEvent.click(more)
-    const rows = screen.getAllByTestId('reasoning-question')
+    const more = document.querySelector('[data-check-more="examine"]'); if (more !== null) fireEvent.click(more)
+    const rows = document.querySelectorAll('[data-check-item^="q:"]')
     expect(rows.length).toBeGreaterThan(0)
-    for (const r of rows) expect(r.querySelector('svg')!.getAttribute('class')).toContain('lucide-text-cursor-input')
+    for (const r of rows) {
+      fireEvent.click(r)
+      const action = screen.getByRole('button', { name: 'Put this in the message box' })
+      expect(action.querySelector('svg')!.getAttribute('class')).toContain('lucide-text-cursor-input')
+    }
     expect(container.querySelector('svg.lucide-message-square')).toBeNull()
   })
 })

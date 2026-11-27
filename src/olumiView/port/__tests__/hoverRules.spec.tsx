@@ -9,11 +9,12 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { PortAnalysisTab } from '../PortAnalysisTab'
+import { CheckFirst } from '../CheckFirst'
 import { ViewReasoningBlock } from '../../ViewReasoning'
 import { tipOnFocus } from '../../__tests__/tipHelpers'
 import { viewOf } from './viewAt'
@@ -54,13 +55,22 @@ describe('hover is the one Tip: no native title on the analysis lane', () => {
   })
   it('bakery: the chart\'s lens heading, the lead-change words and a ranking\'s figure mark each reach the Tip by REAL keyboard focus', async () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
-    ready(view); render(<PortAnalysisTab />)
+    ready(view); render(<><PortAnalysisTab /><CheckFirst view={view} place="asks" /></>)
     const goal = run.lenses!.find((l) => l.id === 'goal')!
     const heading = document.querySelector<HTMLElement>('[data-view="run.lead"]')!
     expect([heading.getAttribute('title'), heading.tabIndex]).toEqual([null, 0])
     expect(await tipOnFocus(heading)).toBe(goal.title)
     const mark = document.querySelector<HTMLElement>('[data-find-out-figure] [role="img"]')
-    if (mark !== null) expect([mark.getAttribute('title'), mark.tabIndex, await tipOnFocus(mark)]).toEqual([null, 0, mark.getAttribute('aria-label')])
+    expect(mark).not.toBeNull()
+    expect([mark!.getAttribute('title'), mark!.tabIndex, await tipOnFocus(mark!)]).toEqual([null, 0, mark!.getAttribute('aria-label')])
+    const leadIndex = run.tipping.findIndex((line) => line.kind === 'lead')
+    const lead = run.tipping[leadIndex]!
+    const picture = screen.getByTestId('analysis-lead-picture')
+    expect(await tipOnFocus(picture)).toBe(lead.line)
+    fireEvent.pointerEnter(picture)
+    const tip = await waitFor(() => screen.getByRole('tooltip'))
+    expect(tip).toHaveAttribute('data-view', `run.tipping.${leadIndex}.line`)
+    fireEvent.pointerLeave(picture)
   })
 })
 
@@ -85,11 +95,10 @@ describe('every disclosure names the region it opens', () => {
   it('european: the chart\'s "more", the long reading\'s toggle, the rests\' "show more" and the examine list\'s press each carry aria-controls resolving to a drawn region once open', () => {
     const view = viewOf('golden/european')
     ready(view); render(<PortAnalysisTab />)
-    for (const id of ['analysis-chart-more', 'analysis-why-toggle', 'reasoning-rests-more']) {
+    for (const id of ['analysis-chart-more', 'analysis-why-toggle']) {
       const btn = screen.getByTestId(id)
       expect([id, btn.getAttribute('aria-expanded')]).toEqual([id, 'false'])
-      // the chart's and the long reading's region is drawn only when open, so closed they name nothing (the rests' target is always drawn)
-      if (id !== 'reasoning-rests-more') expect(btn.getAttribute('aria-controls'), `${id}: closed`).toBeNull()
+      expect(btn.getAttribute('aria-controls'), `${id}: closed`).toBeNull()
       fireEvent.click(btn)
       expect([id, btn.getAttribute('aria-expanded')]).toEqual([id, 'true'])
       const region = document.getElementById(btn.getAttribute('aria-controls') ?? '')
@@ -97,7 +106,16 @@ describe('every disclosure names the region it opens', () => {
     }
     cleanup()
     ready(view); render(<ViewReasoningBlock />)
-    const more = screen.queryByTestId('reasoning-examine-more')
+    const door = screen.getByTestId('view-reasoning-rests-toggle')
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
+    expect(document.getElementById(door.getAttribute('aria-controls')!)).toContainElement(screen.getByTestId('reasoning-rests'))
+    const restsMore = screen.getByTestId('reasoning-rests-more')
+    expect(restsMore).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(restsMore)
+    expect(restsMore).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(restsMore.getAttribute('aria-controls')!)).toBeInTheDocument()
+    const more = document.querySelector('[data-check-more="examine"]')
     if (more !== null) {
       fireEvent.click(more)
       expect([more.getAttribute('aria-expanded'), document.getElementById(more.getAttribute('aria-controls') ?? '') !== null]).toEqual(['true', true])
@@ -110,7 +128,7 @@ describe('the analysis recipes reach the outputs dock', () => {
   const block = css.slice(css.indexOf('/* analysis */'), css.indexOf('/* LINKS'))
   const rules = block.split('\n').filter((l) => l.startsWith('.'))
   it('every `ok-an-*` class a component uses has a rule, and no such rule stands behind `.olumi-look` (the canvas\'s class; the dock is its sibling) or on `--o-s` (the canvas\'s scale, undefined in the dock)', () => {
-    const used = new Set(['port/PortAnalysisTab.tsx', 'port/WhatMovesIt.tsx'].flatMap((f) => [...readFileSync(path.resolve('src/olumiView', f), 'utf8').matchAll(/ok-an-[a-z-]+/g)].map((m) => m[0])))
+    const used = new Set(['port/PortAnalysisTab.tsx', 'port/WhatMovesIt.tsx', 'check/CheckList.tsx'].flatMap((f) => [...readFileSync(path.resolve('src/olumiView', f), 'utf8').matchAll(/ok-an-[a-z-]+/g)].map((m) => m[0])))
     expect([...used].length).toBeGreaterThan(0)
     for (const c of used) expect(rules.some((r) => r.startsWith(`.${c} `)), `${c} has a rule at the root`).toBe(true)
     expect(rules.length).toBeGreaterThan(0)

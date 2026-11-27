@@ -23,21 +23,29 @@ import { REASONING_LABELS, ViewReasoningBlock } from '../../ViewReasoning'
 import { SimpleFace } from '../../v12/SimpleFace'
 import { COMMITMENT_WORDS } from '../../reasoning/TowardsCommitment'
 import { useReasoningFocus } from '../../reasoning/focusRequest'
-import { actionable, examineOf } from '../../reasoning/examine'
+import { checkItemsOf, checkNeedsOf } from '../../check/items'
 import { TIPPING_FIGURE } from '../AnalysisReaders'
-import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, needsOf, rangeOf, tabStateOf, trackPct } from '../pick'
+import { chartGroupsOf, chartRowsOf, leadAimOf, moversOf, rangeOf, tabStateOf, trackPct } from '../pick'
 import { expectAllBound, viewOf } from './viewAt'
-import { tipOf } from '../../__tests__/tipHelpers'
+import { laneTipOf, tipOf } from '../../__tests__/tipHelpers'
+import { installCanvasFocus } from '../../focus/canvas'
+import { setFocusSubject } from '../../focus/subject'
+import { useCanvasStore } from '../../../canvas/store'
+import { useStoredFocusSubject } from '../../focus/state'
+import { useViewChat } from '../../ViewChat'
 import { useUIStore } from '../../../stores/uiStore'
 
 const ready = (view: View) => {
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
 }
-afterEach(() => { cleanup(); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
+let stopCanvasFocus: (() => void) | undefined
+afterEach(() => { cleanup(); stopCanvasFocus?.(); stopCanvasFocus = undefined; vi.unstubAllEnvs(); setFocusSubject(null); useCanvasStore.getState().clearSelection(); useViewChat.setState({ text: '', prefilled: null }); focus.node.mockReset(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const tab = () => screen.getByTestId('port-analysis-tab')
 /** The chart's one control for what folds: each option's tail, the low/high key, the marks' legend. */
 const more = () => fireEvent.click(screen.getByTestId('analysis-chart-more'))
+const why = () => fireEvent.click(screen.getByTestId('analysis-why-toggle'))
+const reading = () => within(screen.getByTestId('analysis-why-region'))
 
 describe('the tab\'s state comes from the options\' rows', () => {
   it('bakery (chance rows) is "chance" and draws the chart; app-launch (every row "none") is "none" and draws no chart, no lead and no chance key, though its Run carries a sensitivity sentence', () => {
@@ -54,15 +62,14 @@ describe('the tab\'s state comes from the options\' rows', () => {
     expect(document.querySelector('[data-view="run.lead"]')).toBeNull()
     expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
-    // Nor core's reading of the chances: nothing is offered about chances that are not shown. Its notes are another matter (A2): they stay, as the
-    // "leaves out" list, each verbatim at its path.
     const notes = (launch.model!.run!.notes ?? []).filter((n) => n.text !== '')
     expect(notes.length).toBeGreaterThan(0)
-    expect(screen.queryByTestId('analysis-why')).toBeNull()
+    expect(screen.queryByTestId('analysis-leaves-out')).toBeNull()
+    why()
     expect([...screen.getByTestId('analysis-leaves-out').querySelectorAll('li')].map((e) => e.textContent)).toEqual(notes.map((n) => n.text))
   })
 
-  it('limit rows only (bakery with its chance rows made limit rows): each option\'s state against the limit, by its row path; no chart', () => {
+  it('limit rows only (bakery with its chance rows made limit rows): each option\'s state against the limit, by its row path, with the condition on hover; no chart', async () => {
     const view = structuredClone(viewOf('golden/bakery'))
     for (const c of optionCards(view.model!)) c.rows = c.rows.map((r) => (r.kind === 'chance' ? { kind: 'limit', value: r.value, olumi: r.olumi, aim: r.aim, aim_id: r.aim_id, title: r.title, state_text: 'state words', estimate: null } as never : r))
     expect(tabStateOf(view.model!)).toBe('limit')
@@ -72,37 +79,113 @@ describe('the tab\'s state comes from the options\' rows', () => {
     const ids = optionCards(view.model!).filter((c) => c.rows.some((r) => r.kind === 'limit')).map((c) => c.id)
     expect([...limits.querySelectorAll<HTMLElement>('[data-limit-option]')].map((e) => e.dataset['limitOption'])).toEqual(ids)
     expect(expectAllBound(view, limits, expect)).toBeGreaterThan(0)
-    // Core's line for each state is drawn, with any condition it carries, never only on hover.
-    for (const c of optionCards(view.model!)) c.rows.forEach((r, i) => { if (r.kind === 'limit') expect(limits.querySelector(`[data-view="${c.id}.rows.${i}.value"]`)!.textContent, c.id).toBe(r.value) })
+    expect(limits.querySelector('[data-view$=".value"]')).toBeNull()
+    for (const card of optionCards(view.model!)) for (const [i, row] of card.rows.entries()) {
+      if (row.kind !== 'limit') continue
+      const button = limits.querySelector<HTMLElement>(`[data-limit-option="${card.id}"]`)!
+      expect(button.querySelector(`[data-view="${card.id}.rows.${i}.state_text"]`)).toHaveTextContent(row.state_text!)
+      fireEvent.pointerEnter(button)
+      const tip = await screen.findByRole('tooltip')
+      expect(tip.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)?.textContent).toBe(row.value)
+      expect(tip.querySelector(`[data-view="${card.id}.rows.${i}.title"]`)?.textContent).toBe(row.title)
+      fireEvent.pointerLeave(button)
+    }
   })
 })
 
-describe('every option\'s line for every aim is drawn somewhere, never dropped', () => {
+describe('every option’s line is reachable from Results or Check', () => {
   for (const n of ['real/hiring', 'golden/s_ce285b3617bb', 'core/an01-european-otheraims', 'core/an01-studio-otheraims', 'core/an01-studio', 'golden/bakery', 'golden/european', 'golden/app-launch'] as const) {
-    it(`${n}: a chance in its aim's chart, a limit under its limit, and anything else in what a result needs (or its aim's shared blocker)`, () => {
-      const view = viewOf(n), m = view.model!, needs = new Set(needsOf(m).map((x) => x.key))
-      const blocked = new Set((m.run?.shared_blockers ?? []).map((b) => b.aim_id))
+    it(`${n}: charts numeric chances by aim, shows limits and retains missing results in Check`, () => {
+      const view = viewOf(n), model = view.model!, groups = chartGroupsOf(model)
+      const needs = new Set(checkNeedsOf(model).map((x) => x.key))
       ready(view); render(<PortAnalysisTab />)
-      let charted = 0
-      for (const c of optionCards(m)) c.rows.forEach((r, i) => {
+      const switches = screen.queryAllByRole('group', { name: 'Aim' }).flatMap((group) => within(group).getAllByRole('button'))
+      for (const [i, group] of groups.entries()) {
+        if (switches[i] !== undefined) fireEvent.click(switches[i]!)
+        const chart = document.querySelector(`[data-chart-aim="${group.aimId}"]`)!
+        expect(chart).not.toBeNull()
+        expect(document.querySelectorAll('[data-chart-aim]')).toHaveLength(1)
+        const numeric = optionCards(model).filter((c) => c.rows.some((row) => row.aim_id === group.aimId && row.kind === 'chance' && Number.isFinite(row.chance)))
+        expect([...chart.querySelectorAll('[data-chart-option]')].map((el) => el.getAttribute('data-chart-option'))).toEqual(numeric.map((c) => c.id))
+      }
+      for (const c of optionCards(model)) c.rows.forEach((r, i) => {
         const where = `${c.id}.rows.${i}`
-        if (r.kind === 'chance' && typeof r.chance === 'number') { charted++; expect(document.querySelector(`[data-chart-aim="${r.aim_id}"] [data-chart-option="${c.id}"]`), where).not.toBeNull() }
-        else if (r.kind === 'limit') expect(document.querySelector(`[data-limit-aim="${r.aim_id}"] [data-limit-option="${c.id}"]`), where).not.toBeNull()
-        else if (r.kind === 'chance') expect(needs.has(`held:${where}`), where).toBe(true)
-        else expect(needs.has(`none:${where}`) || (r.aim_id !== null && blocked.has(r.aim_id)) || [...needsOf(m)].some((x) => x.text === r.text), where).toBe(true)
+        if (r.kind === 'limit') expect(document.querySelector(`[data-limit-aim="${r.aim_id}"] [data-limit-option="${c.id}"]`), where).not.toBeNull()
+        else if (r.kind === 'chance' && !Number.isFinite(r.chance) && r.value !== '') expect(needs.has(`held:${where}`), where).toBe(true)
+        else if (r.kind === 'none' && r.aim_role !== 'reference' && r.text !== '') {
+          const covered = (model.run?.shared_blockers ?? []).some((b) => b.aim_id === r.aim_id && (b.options ?? []).includes(c.id))
+          expect(needs.has(`none:${where}`) || covered, where).toBe(true)
+        }
       })
-      // CONTRAST: the charts hold exactly the numeric chances, no more.
-      expect(document.querySelectorAll('[data-chart-option]').length).toBe(charted)
     })
   }
-  it('an aim other than the lead keeps its own chart, titled by core\'s aim words; the lead aim\'s is first, under core\'s lead (real/hiring)', () => {
+
+  it('switches both pictures by keyboard, defaulting to the lead aim with Core’s words at each path', async () => {
     const view = viewOf('real/hiring'), groups = chartGroupsOf(view.model!)
     expect(groups.length).toBeGreaterThan(1)
+    const tails = groups.map((group, i) => {
+      const { card, row, i: rowIndex } = group.rows[0]!
+      row.tail = { text: `Core tail for aim ${i}.`, mean: 3, unit: null, share: 0.1 }
+      return { text: row.tail.text, at: `${card.id}.rows.${rowIndex}.tail.text` }
+    })
     ready(view); render(<PortAnalysisTab />)
-    const drawn = [...document.querySelectorAll<HTMLElement>('[data-chart-aim]')]
-    expect(drawn.map((e) => e.dataset['chartAim'])).toEqual(groups.map((g) => g.aimId))
-    expect(drawn[0]!.querySelector('[data-view="run.lead"]')).not.toBeNull()
-    expect(drawn[1]!.querySelector(`[data-view="${groups[1]!.aim.at}"]`)!.textContent).toBe(groups[1]!.aim.text)
+    why()
+    const control = screen.getByRole('group', { name: 'Aim' })
+    const segments = within(control).getAllByRole('button')
+    expect(segments.map((segment) => [segment.textContent, segment.getAttribute('data-view')])).toEqual(groups.map(({ aim }) => [aim.text, aim.at]))
+    expect(segments[0]).toHaveAttribute('aria-pressed', 'true')
+    const lead = tab().querySelector('[data-view="run.lead"]')!
+    expect(lead.textContent).toBe(view.model!.run!.lead)
+    expect(lead.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const user = userEvent.setup()
+    for (const [i, group] of groups.entries()) {
+      segments[i]!.focus()
+      await user.keyboard('{Enter}')
+      expect(segments.map((segment) => segment.getAttribute('aria-pressed'))).toEqual(groups.map((_, j) => String(i === j)))
+      expect([...tab().querySelectorAll('[data-chart-aim]')].map((el) => el.getAttribute('data-chart-aim'))).toEqual([group.aimId])
+      const expected = group.rows.filter(({ row }) => row.outcome != null)
+      expect([...tab().querySelectorAll('[data-outcome-aim]')].map((el) => el.getAttribute('data-outcome-aim'))).toEqual(expected.length ? [group.aimId] : [])
+      expect([...tab().querySelectorAll('[data-outcome-option]')].map((el) => el.getAttribute('data-outcome-option'))).toEqual(expected.map(({ card }) => card.id))
+      expect(lead.textContent).toBe(view.model!.run!.lead)
+      const details = reading().getByTestId('analysis-chance-reading')
+      expect([...details.querySelectorAll('[data-view$=".tail.text"]')].map((el) => ({
+        text: el.textContent, at: el.getAttribute('data-view'),
+      }))).toEqual([tails[i]])
+    }
+  })
+
+  it('offers one Ask Olumi press after the picture and appends Core’s lead to the draft', () => {
+    const view = viewOf('golden/bakery')
+    ready(view)
+    vi.stubEnv('VITE_FEATURE_AI_PANEL_V2', 'true')
+    useUIStore.setState({ activeOutputTab: 'results' })
+    useViewChat.setState({ text: 'Existing draft' })
+    render(<PortAnalysisTab />)
+    expect(screen.queryByRole('group', { name: 'Aim' })).toBeNull()
+    const ask = screen.getByRole('button', { name: 'Ask Olumi about this' })
+    for (const id of ['analysis-chance-chart', 'analysis-likely-outcome', 'analysis-what-moves', 'analysis-to-reasoning', 'analysis-why']) {
+      expect(screen.getByTestId(id).compareDocumentPosition(ask) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    fireEvent.click(ask)
+    expect(useViewChat.getState().text).toBe(`Existing draft\n${view.model!.run!.lead}`)
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+
+  it('marks the canvas option in both pictures and publishes a panel subject when a row is pressed', () => {
+    const view = viewOf('golden/bakery'), [first, second] = chartRowsOf(view.model!)
+    ready(view); render(<PortAnalysisTab />)
+    stopCanvasFocus = installCanvasFocus()
+    act(() => useCanvasStore.getState().selectNodes([first!.card.id]))
+    for (const selector of ['chart', 'outcome']) {
+      const current = tab().querySelector(`[data-${selector}-option="${first!.card.id}"] button`)
+      expect(current).toHaveAttribute('aria-current', 'true')
+      expect(current).toHaveClass('aria-[current=true]:bg-panel-hover')
+    }
+    const button = tab().querySelector(`[data-outcome-option="${second!.card.id}"] button`)!
+    expect(button).not.toHaveAttribute('aria-current')
+    fireEvent.click(button)
+    expect(useStoredFocusSubject.getState().subject).toEqual({ sid: view.id, kind: 'option', id: second!.card.id, cards: [second!.card.id], source: 'panel' })
+    expect(focus.node).toHaveBeenCalledWith(second!.card.id)
   })
 })
 
@@ -118,7 +201,12 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect([...sec.querySelectorAll<HTMLElement>('[data-outcome-option]')].map((e) => e.dataset['outcomeOption'])).toEqual(rows.map((r) => r.card.id))
     for (const { card, row, i } of rows) {
       const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
-      expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
+      const value = el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!
+      const track = el.querySelector('[data-testid="analysis-outcome-track"]')!
+      expect(value.textContent).toBe(row.outcome!.text)
+      expect(value.closest('[data-option-value]')).toHaveClass('text-right', 'break-words', 'max-w-full')
+      expect(value.closest('[data-option-summary]')?.nextElementSibling).toBe(track.closest('[data-option-track]'))
+      expect(track.closest('[data-option-track]')).toHaveClass('w-full')
       expect([el.querySelector('button')!.getAttribute('title'), await tipOf(el.querySelector('button')!)], card.id).toEqual([null, row.outcome!.title])
       if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
       else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
@@ -154,6 +242,9 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     const hiring = viewOf('real/hiring')
     expect(hiring.model!.run!.lenses ?? []).toEqual([])
     ready(hiring); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-likely-outcome')).toBeNull()
+    const secondAim = chartGroupsOf(hiring.model!)[1]!
+    fireEvent.click(within(screen.getByRole('group', { name: 'Aim' })).getByRole('button', { name: secondAim.aim.text }))
     expect(screen.getByTestId('analysis-likely-outcome').querySelector('h3')!.textContent).toBe(OUTCOME_WORDS.heading)
     cleanup()
     ready(viewOf('core/an01-app-launch')); render(<PortAnalysisTab />)
@@ -173,17 +264,43 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
   })
 })
 
+it.each(['real/hiring', 'core/an01-studio', 'golden/bakery'] as const)('%s Results at rest only draws the lead and the pictures’ labels and values', (name) => {
+  const view = viewOf(name), groups = chartGroupsOf(view.model!)
+  vi.stubEnv('VITE_OLUMI_CORE', '1')
+  ready(view); render(<PortAnalysisTab />)
+  const root = tab()
+  const labels = new Set([
+    'run.lead',
+    ...groups.map(({ aim }) => aim.at),
+    ...optionCards(view.model!).map((card) => `${card.id}.heading`),
+  ])
+  expect(screen.getByTestId('analysis-why-toggle')).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.queryByTestId('analysis-why-region')).toBeNull()
+  expect(root.querySelector('[data-view="run.lead"]')?.textContent).toBe(view.model!.run!.lead)
+  for (const el of root.querySelectorAll('[data-view]')) {
+    const at = el.getAttribute('data-view')!
+    const pictureLabel = /\.rows\.\d+\.(aim|value|outcome\.text|state_text|(likely|olumi)\.glyph)$|^run\.lenses\.\d+\.label$|^run\.tipping\.\d+\.figure\.label$|\.olumi\.glyph$/.test(at)
+    expect(labels.has(at) || pictureLabel, at).toBe(true)
+  }
+  expect(expectAllBound(view, root, expect)).toBeGreaterThan(0)
+  for (const id of ['analysis-chance-reading', 'analysis-tipping', 'analysis-aim-reading', 'view-run-worth', 'analysis-failure', 'port-find-out']) {
+    expect(screen.queryByTestId(id)).toBeNull()
+  }
+})
+
 describe('the chance chart', () => {
-  it('R7 tail (core 4e411e82, `rows[].tail` on a chance row): core\'s finished sentence is drawn verbatim under THAT option\'s bar AT REST (A1), not folded; CONTRAST: an option whose row carries no tail draws none', () => {
+  it('R7 tail (core 4e411e82, `rows[].tail` on a chance row): Core’s finished sentence is drawn verbatim for that option in the reading fold; CONTRAST: an option whose row carries no tail draws none', () => {
     const view = structuredClone(viewOf('golden/bakery')), rows = chartRowsOf(view.model!)
     const [a, b] = rows as [typeof rows[0], typeof rows[0]]
     const words = "In the worst tenth of the runs for 'A', 'B' comes to about 3 a week, in this model on current information, not a forecast."
     ;(view.model!.cards.find((c) => c.id === a.card.id)!.rows[a.i] as { tail?: unknown }).tail = { text: words, mean: 3, unit: null, share: 0.1 }
     ready(view); render(<PortAnalysisTab />)
-    const chart = screen.getByTestId('analysis-chance-chart')
-    expect(chart.querySelector(`[data-chart-option="${a.card.id}"] [data-view="${a.card.id}.rows.${a.i}.tail.text"]`)?.textContent).toBe(words)
-    expect(chart.querySelector(`[data-chart-option="${b.card.id}"] [data-view$=".tail.text"]`)).toBeNull()
-    expect(chart.querySelectorAll('[data-view$=".tail.text"]')).toHaveLength(1)
+    expect(tab().querySelector('[data-view$=".tail.text"]')).toBeNull()
+    why()
+    const box = reading().getByTestId('analysis-chance-reading')
+    expect(box.querySelector(`[data-tail-option="${a.card.id}"] [data-view="${a.card.id}.rows.${a.i}.tail.text"]`)?.textContent).toBe(words)
+    expect(box.querySelector(`[data-tail-option="${b.card.id}"] [data-view$=".tail.text"]`)).toBeNull()
+    expect(box.querySelectorAll('[data-view$=".tail.text"]')).toHaveLength(1)
   })
   it('tail note (core s3-tail-once 7e6add3d, `run.tail_note`): core\'s one note for the short worst-tenth lines is drawn ONCE, before the lines it explains, for the aims it lists; CONTRAST: no note, or one for an aim with no line, draws nothing', () => {
     const NOTE = "Worst tenth: the mean of what the aim measures in the worst tenth of that option's runs, in this model on current information, not a forecast."
@@ -194,13 +311,16 @@ describe('the chance chart', () => {
       return view
     }
     ready(build((ids) => [...new Set(ids)])); render(<PortAnalysisTab />)
-    const chart = screen.getByTestId('analysis-chance-chart')
-    const notes = chart.querySelectorAll('[data-view="run.tail_note.text"]'), lines = chart.querySelectorAll('[data-view$=".tail.text"]')
+    expect(tab().querySelector('[data-view="run.tail_note.text"]')).toBeNull()
+    why()
+    const box = reading().getByTestId('analysis-chance-reading')
+    const notes = box.querySelectorAll('[data-view="run.tail_note.text"]'), lines = box.querySelectorAll('[data-view$=".tail.text"]')
     expect([notes.length, notes[0]?.textContent, lines.length > 1]).toEqual([1, NOTE, true])
     expect(notes[0]!.compareDocumentPosition(lines[0]!) & Node.DOCUMENT_POSITION_FOLLOWING, 'read before the lines').toBeTruthy()
     cleanup()
     ready(build(() => ['some_other_aim'])); render(<PortAnalysisTab />)
-    expect(screen.getByTestId('analysis-chance-chart').querySelector('[data-view="run.tail_note.text"]')).toBeNull()
+    why()
+    expect(reading().getByTestId('analysis-chance-reading').querySelector('[data-view="run.tail_note.text"]')).toBeNull()
   })
   it('bakery: one bar per option with a chance for the lead aim, in core\'s order; each bar filled to its chance and its whisker at its driver\'s two chances; core\'s words under it', () => {
     const view = viewOf('golden/bakery'), rows = chartRowsOf(view.model!)
@@ -245,13 +365,13 @@ describe('the chance chart', () => {
     const view = structuredClone(viewOf('golden/bakery'))
     ready(view); render(<PortAnalysisTab />)
     expect(screen.getByTestId('analysis-chart-key').hasAttribute('title'), 'no native title on the key').toBe(false)
-    // What the two ends ARE is core's sentence, once, OPEN at rest (Codex 008 item 3: folded, the ends could read as a confidence interval); only the marks' legend folds.
-    expect(document.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
-    const ends = document.querySelector('[data-view="run.sensitivity.text"]')!
+    expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    why()
+    const box = reading().getByTestId('analysis-chance-reading')
+    expect(box.querySelectorAll('[data-view="run.sensitivity.text"]')).toHaveLength(1)
+    const ends = box.querySelector<HTMLElement>('[data-view="run.sensitivity.text"]')!
     expect(ends.textContent).toBe(view.model!.run!.sensitivity.text)
-    expect(ends.closest('details'), 'not inside any fold').toBeNull()
-    expect([ends.getAttribute('title'), await tipOf(ends as HTMLElement)]).toEqual([null, view.model!.run!.sensitivity.title])
-    expect(screen.getByTestId('analysis-chart-key').contains(ends)).toBe(true)
+    expect([ends.getAttribute('title'), await tipOf(ends)]).toEqual([null, view.model!.run!.sensitivity.title])
     cleanup()
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') r.driver = null
     ready(view); render(<PortAnalysisTab />)
@@ -259,7 +379,8 @@ describe('the chance chart', () => {
     expect(screen.queryByTestId('analysis-chart-key')).toBeNull()
     expect(screen.queryByTestId('analysis-chart-marks'), 'CONTRAST: the mark\'s own meaning is still offered, in the marks key and not the range key').not.toBeNull()
     expect(document.querySelectorAll('[data-chance-range]')).toHaveLength(0)
-    expect(document.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    why()
+    expect(screen.getByTestId('analysis-why-region').querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
   })
 })
 
@@ -277,7 +398,12 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const dots = first.querySelector('[data-chance-dots]')!
     expect(words.textContent).toBe(row.value)
     expect(words.compareDocumentPosition(dots) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(dots.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const summary = words.closest('[data-option-summary]')!
+    expect(summary).toHaveClass('grid-cols-2')
+    expect(summary.firstElementChild?.querySelector(`[data-view="${card.id}.heading"]`)).not.toBeNull()
+    expect(words.closest('[data-option-value]')).toHaveClass('text-right', 'break-words', 'max-w-full')
+    expect(summary.nextElementSibling).toBe(axis.closest('[data-option-track]'))
+    expect(summary.nextElementSibling).toHaveClass('w-full')
     expect(dots.querySelectorAll('[data-chance-dot="filled"]')).toHaveLength(Math.round(row.chance! * 10))
     expect(first.querySelector('[data-testid="analysis-chance-track"]')!.compareDocumentPosition(axis) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
     expect([...axis.children].map((e) => e.textContent)).toEqual(['0%', '50%', '100%'])
@@ -288,7 +414,7 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     const mark = screen.getByTestId('analysis-chart-fold').querySelector(`[data-chart-mark="${likely.glyph}"]`)!
     expect(mark.textContent).toBe(`${likely.glyph}${likely.title}`)
   })
-  it('only the low/high key, the marks\' legend and the tails fold, behind ONE real button with its state said (never hover alone, never a <details> whose closed body is still drawn); the ends\' meaning stays open beside the chart', () => {
+  it('the chart’s low/high key and marks legend fold, behind ONE real button with its state said (never hover alone, never a <details> whose closed body is still drawn); the ends’ meaning is in Why this reading', () => {
     const view = viewOf('golden/bakery')
     ready(view); render(<PortAnalysisTab />)
     const button = screen.getByTestId('analysis-chart-more'), key = screen.getByTestId('analysis-chart-key')
@@ -298,7 +424,9 @@ describe('the chance chart reads at a glance (audit ChanceChart group, 18 Nov)',
     more()
     const fold = screen.getByTestId('analysis-chart-fold')
     expect([screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded'), fold.querySelectorAll('[data-chart-mark]').length > 0, fold.contains(screen.getByTestId('analysis-chart-ends-key'))]).toEqual(['true', true, true])
-    expect(fold.contains(key.querySelector('[data-view="run.sensitivity.text"]'))).toBe(false)
+    expect(fold.querySelector('[data-view="run.sensitivity.text"]')).toBeNull()
+    why()
+    expect(reading().getByTestId('analysis-chance-reading').querySelector('[data-view="run.sensitivity.text"]')).not.toBeNull()
     more()
     expect([screen.getByTestId('analysis-chart-more').getAttribute('aria-expanded'), screen.queryByTestId('analysis-chart-fold')]).toEqual(['false', null])
   })
@@ -312,36 +440,41 @@ describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232;
     tails: document.querySelectorAll('[data-view$=".tail.text"]').length,
   })
   for (const n of ['golden/bakery', 'real/hiring'] as const) {
-    it(`${n}: at rest every option × aim chance row (bar, core's words, its whisker where core gives a range), core's lead, the figure and core's sentence for the ends, and every likely outcome row are drawn; and each option's tail (A1) are drawn; the low/high key and the marks' legend are not. CONTRAST: one press draws them`, () => {
+    it(`${n}: at rest every option’s chance row for the active aim (bar, core's words, its whisker where core gives a range), Core’s lead, figure labels and likely outcomes are drawn. Each disclosure opens its own detail`, () => {
       const view = structuredClone(viewOf(n)), m = view.model!, groups = chartGroupsOf(m)
       const { card, i } = groups[0]!.rows[0]!
       ;(m.cards.find((c) => c.id === card.id)!.rows[i] as { tail?: unknown }).tail = { text: 'core tail words', mean: 3, unit: null, share: 0.1 }
-      const outcomes = groups.flatMap((g) => g.rows.filter((r) => r.row.outcome != null).map((r) => `${g.aimId}:${r.card.id}`))
+      const firstAim = groups[0]!
+      const outcomes = firstAim.rows.filter((r) => r.row.outcome != null).map((r) => `${firstAim.aimId}:${r.card.id}`)
       // bakery's chances carry ranges (whiskers); hiring's do not, so there nothing about ranges is drawn in either state.
       const ranged = groups.some((g) => g.rows.some((r) => rangeOf(r.row) !== null))
-      expect([groups.length > 0, outcomes.length > 0, ranged], 'fixture').toEqual([true, true, n === 'golden/bakery'])
+      expect([groups.length > 0, outcomes.length > 0, ranged], 'fixture').toEqual([true, n === 'golden/bakery', n === 'golden/bakery'])
       ready(view); render(<PortAnalysisTab />)
       const chart = screen.getByTestId('analysis-chance-chart')
-      for (const g of groups) for (const r of g.rows) {
+      for (const r of firstAim.rows) {
+        const g = firstAim
         const li = chart.querySelector(`[data-chart-aim="${g.aimId}"] [data-chart-option="${r.card.id}"]`), at = `${g.aimId}:${r.card.id}`
         expect(li?.querySelector('[data-chance-bar]'), at).not.toBeNull()
         expect(li?.querySelector(`[data-view="${r.card.id}.rows.${r.i}.value"]`)?.textContent, at).toBe(r.row.value)
         expect(li?.querySelector('[data-chance-range]') != null, `${at}: its whisker at rest`).toBe(rangeOf(r.row) !== null)
       }
-      expect(chart.querySelector('[data-view="run.lead"]')?.textContent).toBe(m.run!.lead)
-      const likely = screen.getByTestId('analysis-likely-outcome')
-      expect(outcomes.filter((k) => { const [a, c] = k.split(':'); return likely.querySelector(`[data-outcome-aim="${a}"] [data-outcome-option="${c}"]`) === null })).toEqual([])
+      expect(tab().querySelector('[data-view="run.lead"]')?.textContent).toBe(m.run!.lead)
+      const likely = screen.queryByTestId('analysis-likely-outcome')
+      expect(likely !== null).toBe(outcomes.length > 0)
+      expect(outcomes.filter((k) => { const [a, c] = k.split(':'); return likely?.querySelector(`[data-outcome-aim="${a}"] [data-outcome-option="${c}"]`) == null })).toEqual([])
       const rest = drawnNow()
-      expect(rest, 'at rest').toEqual({ whiskers: rest.whiskers, figures: rest.figures, ends: ranged ? 1 : 0, endsKey: 0, marks: 0, tails: 1 })
+      expect(rest, 'at rest').toEqual({ whiskers: rest.whiskers, figures: rest.figures, ends: 0, endsKey: 0, marks: 0, tails: 0 })
       expect([rest.whiskers > 0, rest.figures > 0], 'a whisker at rest has its figure').toEqual([ranged, ranged])
       more()
       const open = drawnNow()
-      expect({ ...open, marks: 0 }, 'one press: the folded detail too, and nothing drawn at rest goes').toEqual({ ...rest, endsKey: ranged ? 1 : 0, tails: 1 })
+      expect({ ...open, marks: 0 }, 'one press: the folded detail too, and nothing drawn at rest goes').toEqual({ ...rest, endsKey: ranged ? 1 : 0 })
       expect(open.marks, 'the marks\' legend').toBeGreaterThan(0)
-      expect(chart.querySelector(`[data-chart-option="${card.id}"] [data-view="${card.id}.rows.${i}.tail.text"]`)?.textContent).toBe('core tail words')
+      why()
+      expect(drawnNow()).toEqual({ ...open, ends: ranged ? 1 : 0, tails: 1 })
+      expect(reading().getByTestId('analysis-chance-reading').querySelector(`[data-tail-option="${card.id}"] [data-view="${card.id}.rows.${i}.tail.text"]`)?.textContent).toBe('core tail words')
     })
   }
-  it('a chart with only a tail (no range, no mark): the tail is drawn at rest and there is nothing to fold, so no control (A1); CONTRAST: no tail, no control either', () => {
+  it('a chart with only a tail (no range, no mark): the tail is in Why this reading and the chart has no disclosure with or without the tail', () => {
     const view = structuredClone(viewOf('golden/bakery')), rows = chartRowsOf(view.model!)
     for (const c of optionCards(view.model!)) for (const r of c.rows) if (r.kind === 'chance') { r.driver = null; r.likely = null; r.olumi = null }
     ready(view); render(<PortAnalysisTab />)
@@ -349,47 +482,58 @@ describe('Analysis fits at rest (UI lead, 19 Nov: 279 px over the panel at 1232;
     cleanup()
     ;(view.model!.cards.find((c) => c.id === rows[0]!.card.id)!.rows[rows[0]!.i] as { tail?: unknown }).tail = { text: 'core tail words', mean: 3, unit: null, share: 0.1 }
     ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector(`[data-chart-option="${rows[0]!.card.id}"] [data-view$=".tail.text"]`)?.textContent).toBe('core tail words')
+    expect(tab().querySelector('[data-view$=".tail.text"]')).toBeNull()
+    why()
+    expect(reading().getByTestId('analysis-chance-reading').querySelector(`[data-tail-option="${rows[0]!.card.id}"] [data-view$=".tail.text"]`)?.textContent).toBe('core tail words')
     expect(screen.queryByTestId('analysis-chart-more')).toBeNull()
   })
 })
 
-const withoutExamineItems = () => {
+const withoutCheckItems = () => {
   const view = structuredClone(viewOf('golden/app-launch'))
   view.model_words = null as never
   Object.assign(view.model!, { questions: [], coaching_questions: [], sharpen: [] })
-  for (const card of view.model!.cards) card.challenged = false
+  Object.assign(view.model!.run!, { shared_blockers: [], waits_on: null, find_out: [] })
+  for (const card of view.model!.cards) {
+    card.challenged = false
+    card.worth_checking = []
+    card.rows = card.rows.filter((row) => row.kind !== 'none' && row.kind !== 'chance')
+    if (card.figure != null) card.figure.edit = null
+  }
   view.collab.dissent = []
   return view
 }
 
 describe('no chance yet: a link to Reasoning before what a result needs', () => {
-  it('app-launch: one row with the full list count above readiness, while Reasoning keeps the item words', () => {
+  it('app-launch: one row with the full list count, while Check keeps the item words', () => {
     const launch = viewOf('golden/app-launch'), model = launch.model!
-    const items = examineOf(model, launch.session?.methods ?? null, (launch.model_words ?? null) as Record<string, unknown> | null, new Set(launch.collab.dissent.map((d) => d.id)))
-    const first = items.find(actionable)
+    const items = checkItemsOf(model, launch).flatMap((group) => group.blocks.flatMap((block) => block.items))
+    const first = items[0]
     expect([tabStateOf(model), first !== undefined]).toEqual(['none', true])
     ready(launch); render(<PortAnalysisTab />)
-    const link = screen.getByTestId('analysis-to-reasoning'), needs = screen.getByTestId('analysis-needs')
+    const link = screen.getByTestId('analysis-to-reasoning')
     expect(tab().contains(link)).toBe(true)
     expect(within(tab()).getAllByTestId('analysis-to-reasoning')).toHaveLength(1)
     expect(link).toHaveTextContent(REASONING_LABELS.examine)
     expect(link.querySelector('[data-count]')?.textContent).toBe(String(items.length))
-    expect(link.compareDocumentPosition(needs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    const w = first!.kind === 'question' ? first!.q : first!.kind === 'challenge' ? first!.card.heading : first!.kind === 'widen' ? first!.w.label : first!.s.lead
+    expect(screen.queryByTestId('analysis-needs')).toBeNull()
+    expect(link.compareDocumentPosition(screen.getByTestId('analysis-why')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const w = first!.short
     expect(link.textContent).not.toContain(w)
     expect(link.textContent).not.toContain('Start here')
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    fireEvent.click(link)
     cleanup()
     ready(launch); render(<ViewReasoningBlock />)
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
-    fireEvent.click(screen.queryByTestId('reasoning-examine-more') ?? document.createElement('i'))
-    expect(screen.getByTestId('reasoning-examine').textContent).toContain(w)
+    const item = document.querySelector(`[data-check-item="${first!.key}"]`)
+    expect(item).toHaveFocus()
+    expect(item?.closest('li')).toHaveTextContent(w)
   })
 
   it('a challenge alone opens Reasoning and focuses its row when activated with Enter', async () => {
     const user = userEvent.setup()
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     ready(view)
     useUIStore.setState({ activeOutputTab: 'results' })
@@ -403,21 +547,23 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
     render(<ViewReasoningBlock />)
-    const challenge = screen.getByTestId('reasoning-challenge-show').closest('li')
-    expect(challenge).toHaveAttribute('data-reasoning-challenge', card.id)
+    const challenge = document.querySelector(`[data-check-item="c:${card.id}"]`)
+    expect(challenge).toHaveTextContent(card.heading)
     expect(challenge).toHaveFocus()
-    expect(challenge).toHaveAttribute('tabindex', '-1')
+    expect(challenge).toHaveAttribute('tabindex', '0')
+    expect(challenge).toHaveAttribute('aria-expanded', 'true')
     expect(useReasoningFocus.getState().request).toBeNull()
   })
 
   it('dissent alone opens Reasoning and focuses Towards commitment', () => {
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     view.collab.dissent = [{ id: card.id, holder: 'Sarah', position: 'Keep this risk open.', holder_id: null, confirmed: null }]
     ready(view)
     useUIStore.setState({ activeOutputTab: 'results' })
     render(<PortAnalysisTab />)
-    const link = screen.getByRole('button', { name: COMMITMENT_WORDS.heading })
+    const link = screen.getByTestId('analysis-to-reasoning')
+    expect(link).toHaveTextContent(COMMITMENT_WORDS.heading)
     expect(link.querySelector('[data-count]')).toBeNull()
     fireEvent.click(link)
     expect(useReasoningFocus.getState().request).toEqual({ sid: view.id, key: 'commitment' })
@@ -428,26 +574,31 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     expect(useReasoningFocus.getState().request).toBeNull()
   })
 
-  it('no actionable item and no dissent leaves the readiness list without a link', () => {
-    ready(withoutExamineItems()); render(<PortAnalysisTab />)
-    expect(screen.queryByTestId('analysis-to-reasoning')).toBeNull()
+  it('an empty Check keeps the link with a zero count and requests no row focus', () => {
+    ready(withoutCheckItems()); render(<PortAnalysisTab />)
+    const link = screen.getByTestId('analysis-to-reasoning')
+    expect(link.querySelector('[data-count]')).toHaveTextContent('0')
+    fireEvent.click(link)
+    expect(useReasoningFocus.getState().request).toBeNull()
     expect(screen.queryByTestId('reasoning-focus')).toBeNull()
-    expect(screen.getByTestId('analysis-needs')).toBeInTheDocument()
+    expect(screen.queryByTestId('analysis-needs')).toBeNull()
   })
 
   it('a typed question on the current saved view has its AnswerBox in Reasoning only', () => {
-    const view = withoutExamineItems()
+    const view = withoutCheckItems()
     const question = { id: 'release-date', text: 'When is the release?', about: null, role: null, unit: null }
     view.model!.questions = [question]
     ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
     expect(within(tab()).queryByText(question.text)).toBeNull()
     expect(within(tab()).queryByTestId('reasoning-answer-input')).toBeNull()
+    expect(screen.queryByTestId('reasoning-answer-input')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: question.text }))
     expect(within(screen.getByTestId('view-reasoning')).getByTestId('reasoning-answer-input').closest('form')).toHaveAttribute('data-answer-for', question.id)
   })
 
   it('Enter on the waiting goal measure line reveals and focuses the folded question', async () => {
     const user = userEvent.setup()
-    const view = withoutExamineItems(), model = view.model!
+    const view = withoutCheckItems(), model = view.model!
     const goal = model.cards.find((card) => card.id === 'protect_user_trust')!
     goal.bound = { ...goal.bound!, measured: false }
     goal.doubt = true
@@ -456,12 +607,12 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
     model.questions = [question]
     ready(view)
     render(<><SimpleFace card={goal} model={model} noted={false} /><ViewReasoningBlock /></>)
-    const examined = screen.getByTestId('reasoning-examine')
-    const row = () => examined.querySelector(`[data-examine="q:${question.id}"]`)
-    const more = within(examined).getByTestId('reasoning-examine-more')
+    const examined = document.querySelector('[data-check-group="examine"]')!
+    const row = () => examined.querySelector(`[data-check-item="q:${question.id}"]`)
+    const more = examined.querySelector('[data-check-more="examine"]')!
     const line = screen.getByRole('button', { name: 'Not counted yet' })
 
-    expect(within(examined).getAllByTestId('reasoning-challenge-show')).toHaveLength(4)
+    expect(examined.querySelectorAll('[data-check-item^="c:"]')).toHaveLength(1)
     expect(row()).toBeNull()
     expect(more).toHaveAttribute('aria-expanded', 'false')
     line.focus()
@@ -475,26 +626,26 @@ describe('no chance yet: a link to Reasoning before what a result needs', () => 
   })
 
   it('leaves another scenario’s request alone until the scenario changes', () => {
-    const view = withoutExamineItems(), card = view.model!.cards[0]!
+    const view = withoutCheckItems(), card = view.model!.cards[0]!
     card.challenged = true
     ready(view)
     const request = { sid: 's_other', key: `c:${card.id}` }
     useReasoningFocus.setState({ request })
     render(<ViewReasoningBlock />)
-    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+    expect(document.querySelector(`[data-check-item="c:${card.id}"]`)).not.toHaveFocus()
     expect(useReasoningFocus.getState().request).toEqual(request)
     act(() => { useViewStore.setState({ sid: request.sid }) })
     expect(useReasoningFocus.getState().request).toBeNull()
-    expect(screen.getByTestId('reasoning-challenge-show').closest('li')).not.toHaveFocus()
+    expect(document.querySelector(`[data-check-item="c:${card.id}"]`)).not.toHaveFocus()
   })
 
   it('clears a request for an item that is no longer present', () => {
-    const view = withoutExamineItems()
+    const view = withoutCheckItems()
     ready(view)
     useReasoningFocus.setState({ request: { sid: view.id, key: 'c:missing' } })
     render(<ViewReasoningBlock />)
     expect(useReasoningFocus.getState().request).toBeNull()
-    expect(screen.getByTestId('reasoning-commitment')).not.toHaveFocus()
+    expect(document.querySelector('[data-check-item][data-selected="true"]')).toBeNull()
   })
 })
 
@@ -511,9 +662,40 @@ describe('what would change it', () => {
     const t = run.tipping.findIndex((x) => x.kind === 'lead')
     const lead = screen.getByTestId('analysis-lead-change')
     expect(lead.dataset['leadChange']).toBe('tipping')
-    expect(lead.querySelector(`[data-view="run.tipping.${t}.line"]`)!.textContent).toBe(run.tipping[t]!.line)
+    const picture = within(lead).getByTestId('analysis-lead-picture')
+    expect(picture).toContainElement(screen.getByTestId('tip-point'))
+    expect(picture.querySelector(`[data-view="run.tipping.${t}.figure.label"]`)?.textContent).toBe(run.tipping[t]!.figure.label)
+    expect(picture.textContent).not.toContain(run.tipping[t]!.line)
+    expect(laneTipOf(picture, 'focus')).toBe(run.tipping[t]!.line)
     expect(lead.querySelector(`[data-testid="analysis-lead-edit-${run.tipping[t]!.figure.id}"]`)).not.toBeNull()
     expect(expectAllBound(view, screen.getByTestId('analysis-what-moves'), expect)).toBeGreaterThan(0)
+  })
+
+  it('keeps each whisker’s heading visible and its Core figure value on hover and in the reading fold', async () => {
+    const view = viewOf('golden/bakery'), model = view.model!
+    ready(view); render(<PortAnalysisTab />)
+    const chart = screen.getByTestId('analysis-chance-chart')
+    const labels = [...chart.querySelectorAll<HTMLElement>('[data-chart-figure]')]
+    expect(labels.length).toBeGreaterThan(1)
+    for (const label of labels) {
+      const id = label.dataset.chartFigure!
+      const card = model.cards.find((c) => c.id === id)!
+      const heading = label.querySelector<HTMLElement>(`[data-view="${id}.heading"]`)!
+      expect(heading.textContent).toBe(card.heading)
+      expect(tab().querySelector(`[data-view="${id}.figure.text"]`)).toBeNull()
+      fireEvent.pointerEnter(heading)
+      const tip = await screen.findByRole('tooltip')
+      expect(tip).toHaveAttribute('data-view', `${id}.figure.text`)
+      expect(tip.textContent).toBe(card.figure!.text)
+      fireEvent.pointerLeave(heading)
+    }
+    why()
+    const box = reading().getByTestId('analysis-chance-reading')
+    for (const label of labels) {
+      const id = label.dataset.chartFigure!
+      const card = model.cards.find((c) => c.id === id)!
+      expect(box.querySelector(`[data-whisker-figure="${id}"] [data-view="${id}.figure.text"]`)?.textContent).toBe(card.figure!.text)
+    }
   })
 
   it('every whisker for one figure: it is named once, beside the key, never under each bar; CONTRAST two figures are named at their bars', () => {
@@ -528,11 +710,14 @@ describe('what would change it', () => {
 
   it('a figure core\'s find-out ranking gives a ✎ is not given a second ✎ beside its mover row; CONTRAST: without the ranking the mover row has it', () => {
     const view = structuredClone(viewOf('golden/bakery'))
-    ready(view); render(<PortAnalysisTab />)
+    ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
     const ranked = view.model!.run!.find_out!.flatMap((a) => a.figures.filter((f) => f.give != null).map((f) => f.id))
     expect(ranked).toContain('extra_sold_per_oven')
     expect(document.querySelector('[data-testid="analysis-mover-edit-extra_sold_per_oven"]')).toBeNull()
-    expect(document.querySelectorAll('[data-testid="worth-edit-extra_sold_per_oven"]')).toHaveLength(1)
+    expect(within(tab()).queryByTestId('port-find-out')).toBeNull()
+    const find = document.querySelector('[data-check-group="find"]')!
+    fireEvent.click(find.querySelector('[data-check-item$=":extra_sold_per_oven"]')!)
+    expect(within(find as HTMLElement).getAllByTestId('check-edit-extra_sold_per_oven')).toHaveLength(1)
     cleanup()
     view.model!.run!.find_out = []
     view.model!.run!.science = []
@@ -546,155 +731,40 @@ describe('what would change it', () => {
   })
 })
 
-describe('what a result needs', () => {
-  it('app-launch (no chance yet): the Reasoning link comes before what a result needs, then Olumi\'s notes, with each list drawn once', () => {
-    ready(viewOf('golden/app-launch')); render(<PortAnalysisTab />)
-    expect(tab().dataset['analysisState']).toBe('none')
-    const needs = screen.getAllByTestId('analysis-needs')
-    const notes = screen.getAllByTestId('analysis-leaves-out')
-    expect(needs).toHaveLength(1)
-    expect(notes).toHaveLength(1)
-    expect(screen.getByTestId('analysis-to-reasoning').compareDocumentPosition(needs[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(needs[0]!.compareDocumentPosition(notes[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('bakery (chance shown): Olumi\'s notes come before what a result needs, with each list drawn once', () => {
-    ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
-    expect(tab().dataset['analysisState']).toBe('chance')
-    const needs = screen.getAllByTestId('analysis-needs')
-    const notes = screen.getAllByTestId('analysis-leaves-out')
-    expect(needs).toHaveLength(1)
-    expect(notes).toHaveLength(1)
-    expect(notes[0]!.compareDocumentPosition(needs[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('app-launch (no chance yet): core\'s blockers first in core\'s order, then what the chances wait on, each card once; each row core\'s words at its path', () => {
-    const view = viewOf('golden/app-launch'), run = view.model!.run!
-    ready(view); render(<PortAnalysisTab />)
-    const box = screen.getByTestId('analysis-needs')
-    expect(box.dataset['needsUnder']).toBe('alone')
-    const keys = [...box.querySelectorAll<HTMLElement>('[data-need]')].map((e) => e.dataset['need'])
-    const blocks = run.shared_blockers!.map((_, i) => `blocks:${i}`)
-    expect(keys.slice(0, blocks.length)).toEqual(blocks)
-    // A card a blocker names is not listed again as a wait.
-    const blocked = new Set(run.shared_blockers!.map((b) => b.aim_id))
-    const waits = run.waits_on!.items.filter((it) => !blocked.has(it.id) && it.text !== '').map((it) => `waits:${it.id}`)
-    expect(keys.slice(blocks.length, blocks.length + waits.length)).toEqual(waits.slice(0, Math.max(0, 5 - blocks.length)))
-    expect(expectAllBound(view, box, expect)).toBe(keys.length)
-  })
-
-  it('a shared blocker covers only the options it names for its aim: CONTRAST, an option it does not name keeps its own line', () => {
-    const view = structuredClone(viewOf('golden/app-launch')), m = view.model!
-    const b = m.run!.shared_blockers![0]!
-    const own = optionCards(m).flatMap((c) => c.rows.map((r, i) => ({ c, r, i }))).find(({ r, c }) => r.kind === 'none' && r.aim_id === b.aim_id && b.options.includes(c.id))
-    expect(own, 'precondition: an option row the blocker covers').toBeDefined()
-    expect(needsOf(m).some((n) => n.key === `none:${own!.c.id}.${own!.i}`)).toBe(false)
-    b.options = b.options.filter((o) => o !== own!.c.id)
-    const keys = needsOf(m).map((n) => n.key)
-    expect(keys.includes(`none:${own!.c.id}.${own!.i}`) || needsOf(m).some((n) => n.text === (own!.r as { text: string }).text)).toBe(true)
-  })
-
-  it('R1 (core candidate 14): an option row core marks `aim_role: "reference"` is the comparison baseline, not a missing result: it leaves "What a result needs"; CONTRAST: another none row without the role stays', () => {
-    const view = structuredClone(viewOf('golden/app-launch')), m = view.model!
-    m.run!.shared_blockers = [] // every option's none row then speaks for itself
-    const keyed = new Set(needsOf(m).map((n) => n.key))
-    const rows = optionCards(m).flatMap((c) => c.rows.map((r, i) => ({ c, r, i }))).filter(({ c, i }) => keyed.has(`none:${c.id}.${i}`))
-    // CONTRAST (the same row, the same model): without the role it is listed, as a contender with a missing mechanism must be.
-    expect(rows.length, 'precondition: an uncovered none row listed as a need').toBeGreaterThanOrEqual(1)
-    const ref = rows[0]!
-    ;(ref.r as { aim_role?: string }).aim_role = 'reference'
-    expect(needsOf(m).map((n) => n.key)).not.toContain(`none:${ref.c.id}.${ref.i}`)
-    ;(ref.r as { aim_role?: string }).aim_role = 'contender' // any other value is not the reference
-    expect(needsOf(m).map((n) => n.key)).toContain(`none:${ref.c.id}.${ref.i}`)
-  })
-
-  it('more than five: five at rest, the rest one press away', () => {
-    const view = viewOf('real/hosting'), all = needsOf(view.model!)
-    expect(all.length, 'precondition: more than five').toBeGreaterThan(5)
-    ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelectorAll('[data-need]')).toHaveLength(5)
-    fireEvent.click(screen.getByTestId('analysis-needs-more'))
-    expect(document.querySelectorAll('[data-need]')).toHaveLength(all.length)
-    expect(screen.getByTestId('analysis-needs-more').querySelector('[data-fold-chevron="open"]'), 'polish 13: the chevron turns when open').not.toBeNull()
-    // CONTRAST: five or fewer draw no fold (app-launch).
-    cleanup(); const few = viewOf('golden/app-launch'); expect(needsOf(few.model!).length).toBeLessThanOrEqual(5)
-    ready(few); render(<PortAnalysisTab />)
-    expect(screen.queryByTestId('analysis-needs-more')).toBeNull()
-  })
-
-  it('Olumi\'s worth-checking findings are read at rest even when more than five other rows fold (DL/Codex 19 Nov); CONTRAST: the sixth other row folds', () => {
-    const view = viewOf('golden/app-launch'), model = view.model!
-    const card = model.cards.find((c) => c.family !== 'option')!
-    ;(card as { worth_checking?: unknown }).worth_checking = [{ code: 'w', olumi: true, title: 'WORTH TITLE AT REST', text: 'worth text' }]
-    // Enough other rows to fold: blockers core sends for the run.
-    const run = model.run as unknown as { shared_blockers?: { text: string; aim_id: string }[] }
-    run.shared_blockers = [...(run.shared_blockers ?? []), ...Array.from({ length: 6 }, (_, i) => ({ text: `BLOCKER ${i}`, aim_id: card.id }))]
-    const all = needsOf(model), rest = all.filter((n) => n.cls !== 'worth'), w = all.find((n) => n.cls === 'worth')!
-    expect(rest.length).toBeGreaterThan(5)
-    ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector(`[data-need="${w.key}"]`)!.textContent).toContain('WORTH TITLE AT REST')
-    expect(document.querySelector(`[data-need-detail="${w.key}"]`)!.textContent, 'core\'s actionable text under the title, at rest').toBe('worth text')
-    expect(document.querySelector(`[data-need="${rest[5]!.key}"]`), 'the sixth other row is folded').toBeNull()
-    expect(screen.getByTestId('analysis-needs-more').textContent).toContain(String(rest.length - 5))
-  })
-
-  it('a press on a row focuses the card it is about, by id', () => {
-    const view = viewOf('golden/app-launch'), first = needsOf(view.model!)[0]!
-    ready(view); render(<PortAnalysisTab />)
-    fireEvent.click(document.querySelector(`[data-need="${first.key}"] button`)!)
-    expect(focus.node.mock.calls).toEqual([[first.card]])
-  })
-
-  it('a result core works out (kind result, with its own values) is never listed as a figure to give; CONTRAST: the same card as a plain factor is', () => {
-    const view = structuredClone(viewOf('golden/app-launch'))
-    const c = view.model!.cards.find((k) => k.figure != null && k.figure.edit != null && k.status === null)!
-    view.model!.run!.waits_on = null
-    c.figure = { ...c.figure!, text: '' }
-    Object.assign(c, { kind: 'result', values: [{ option: 'x', text: 'v', p10: 1, p50: 2, p90: 3, if_absent: [], olumi: false, if_approved: null }] })
-    expect(needsOf(view.model!).some((n) => n.key === `size:${c.id}`)).toBe(false)
-    Object.assign(c, { kind: 'driver', values: null })
-    expect(needsOf(view.model!).some((n) => n.key === `size:${c.id}`)).toBe(true)
-  })
-
-  it('a figure no one has given yet is listed with core\'s ✎ (its edit); CONTRAST: once it has words it is not listed', () => {
-    const view = structuredClone(viewOf('golden/app-launch'))
-    const c = view.model!.cards.find((k) => k.figure != null && k.figure.edit != null && k.status === null)
-    expect(c, 'precondition: an editable figure').toBeDefined()
-    c!.figure = { ...c!.figure!, text: '' }
-    view.model!.run!.waits_on = null
-    ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector(`[data-need="size:${c!.id}"] [data-view="${c!.id}.heading"]`)!.textContent).toBe(c!.heading)
-    if (needsOf(view.model!).findIndex((n) => n.key === `size:${c!.id}`) < 5) expect(document.querySelector(`[data-testid="analysis-need-edit-${c!.id}"]`)).not.toBeNull()
-    cleanup()
-    c!.figure = { ...c!.figure!, text: 'a figure' }
-    ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector(`[data-need="size:${c!.id}"]`)).toBeNull()
-  })
-
-  it('under a chance it is "not in the result yet": bakery\'s unchecked limit is listed once, though every option\'s row says it', () => {
-    const view = viewOf('golden/bakery')
-    const none = optionCards(view.model!).flatMap((c) => c.rows.filter((r) => r.kind === 'none').map((r) => r.text))
-    expect(none.length).toBeGreaterThan(1)
-    ready(view); render(<PortAnalysisTab />)
-    const box = screen.getByTestId('analysis-needs')
-    expect(box.dataset['needsUnder']).toBe('chart')
-    for (const t of new Set(none)) expect([...box.querySelectorAll('[data-view]')].filter((e) => e.textContent === t), t).toHaveLength(1)
-  })
+describe('Check is the single home for gaps and uncertainty shares', () => {
+  for (const name of ['golden/app-launch', 'golden/bakery'] as const) {
+    it(`${name}: Results keeps the link and reading fold, and Check keeps the gaps`, () => {
+      const view = viewOf(name)
+      ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
+      expect(within(tab()).queryByTestId('analysis-needs')).toBeNull()
+      expect(within(tab()).queryByTestId('reasoning-rests')).toBeNull()
+      expect(within(tab()).getAllByTestId('analysis-to-reasoning')).toHaveLength(1)
+      expect(document.querySelectorAll('[data-check-group="needs"]')).toHaveLength(1)
+      expect(within(tab()).queryByTestId('analysis-leaves-out')).toBeNull()
+      why()
+      expect(within(tab()).getAllByTestId('analysis-leaves-out')).toHaveLength(1)
+    })
+  }
 })
 
 describe('the Analysis link to Reasoning', () => {
-  it('app-launch opens Reasoning from the item count; bakery has no link when it shows chances', () => {
+  it('opens Check from the item count both before and after chances', () => {
     const view = viewOf('golden/app-launch')
     useUIStore.setState({ activeOutputTab: 'results' })
     ready(view); render(<PortAnalysisTab />)
     const row = screen.getByTestId('analysis-to-reasoning')
-    const items = examineOf(view.model!, view.session?.methods ?? null, (view.model_words ?? null) as Record<string, unknown> | null, new Set(view.collab.dissent.map((d) => d.id)))
+    const items = checkItemsOf(view.model!, view).flatMap((group) => group.blocks.flatMap((block) => block.items))
     expect(row.querySelector('[data-count]')?.textContent).toBe(String(items.length))
     fireEvent.click(row)
     expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
     cleanup()
     ready(viewOf('golden/bakery')); render(<PortAnalysisTab />)
-    expect([tab().dataset['analysisState'], screen.queryByTestId('analysis-to-reasoning'), screen.queryByTestId('reasoning-focus')]).toEqual(['chance', null, null])
+    expect(tab().dataset['analysisState']).toBe('chance')
+    expect(screen.queryByTestId('reasoning-focus')).toBeNull()
+    const chanceLink = screen.getByTestId('analysis-to-reasoning')
+    expect(Number(chanceLink.querySelector('[data-count]')?.textContent)).toBeGreaterThan(0)
+    fireEvent.click(chanceLink)
+    expect(useUIStore.getState().activeOutputTab).toBe('analysisNew')
   })
 })
 
@@ -726,6 +796,74 @@ describe('the tab draws only a current View of the model (ported from the delete
 })
 
 describe('why this reading: core\'s long reading, one press away', () => {
+  it.each(['chance', 'limit', 'none'] as const)('keeps one closed fold in the %s state, ordered notes and timing, most likely, comparisons', (state) => {
+    const view = viewOf('golden/bakery'), model = view.model!, run = model.run!
+    if (state !== 'chance') for (const card of optionCards(model)) {
+      card.rows = state === 'none' ? [] : card.rows.map((row) => row.kind === 'chance'
+        ? { ...row, kind: 'limit', state_text: 'Core limit state' } as never
+        : row)
+    }
+    run.notes = [{ text: 'Core note', title: 'Core note title' }] as typeof run.notes
+    run.timing = [{ quantity: 'timing-figure', text: 'Core timing' }] as typeof run.timing
+    run.compared = [{ id: 'contrast', kind: 'better', line: 'Core comparison', hover: '', olumi: null }] as never
+    run.compared_headings = { ...run.compared_headings, better: 'Core comparisons' }
+    expect(tabStateOf(model)).toBe(state)
+    ready(view); render(<PortAnalysisTab />)
+    const toggle = screen.getByTestId('analysis-why-toggle')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('analysis-why-region')).toBeNull()
+    why()
+    const region = screen.getByTestId('analysis-why-region')
+    const sections = [...region.querySelectorAll('[data-testid="analysis-leaves-out"], [data-testid="analysis-why-most-likely"], [data-testid="view-run-compared"]')]
+    expect(sections.map((section) => section.getAttribute('data-testid'))).toEqual(['analysis-leaves-out', 'analysis-why-most-likely', 'view-run-compared'])
+    expect(sections[0]).toHaveTextContent('Core note')
+    expect(sections[0]).toHaveTextContent('Core timing')
+    expect(sections[1]).toHaveTextContent(run.most_likely!.text)
+    expect(sections[2]).toHaveTextContent('Core comparison')
+    why()
+    expect(screen.queryByTestId('analysis-why-region')).toBeNull()
+  })
+
+  it('orders the moved readings after notes and most likely, with failure before comparisons', () => {
+    const view = viewOf('golden/bakery'), run = view.model!.run!
+    const lead = run.tipping.find((t) => t.kind === 'lead')!
+    run.tipping_aims = [{ aim: 'other_aim', lines: [], silent: [{ crossing: null, line: 'Core aim reason.', text: 'Core aim detail.' }] }] as never
+    run.failure = [{ id: 'F90', line: 'Core failure sentence.', hover: 'Core failure detail.' }] as never
+    view.session = { ...view.session, pre_mortem: { ...view.session.pre_mortem, state: 'wrote' } } as never
+    ready(view); render(<PortAnalysisTab />)
+    const ids = ['analysis-leaves-out', 'analysis-why-most-likely', 'analysis-tipping', 'view-run-worth',
+      'analysis-aim-reading', 'analysis-failure', 'view-run-compared']
+    for (const id of ids) expect(screen.queryByTestId(id)).toBeNull()
+    expect(tab().textContent).not.toContain(lead.line)
+    why()
+    const blocks = ids.map((id) => reading().getByTestId(id))
+    for (let i = 1; i < blocks.length; i++) {
+      expect(blocks[i - 1]!.compareDocumentPosition(blocks[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(reading().getByTestId('analysis-failure').querySelector('[data-view="run.failure_heading"]')?.textContent).toBe(run.failure_heading)
+    expect(reading().getByTestId('analysis-aim-silent')).toHaveTextContent('Core aim reason.')
+  })
+
+  it('opens for an undrawable lead crossing even when it is the only reading', () => {
+    const view = viewOf('golden/bakery'), run = view.model!.run!
+    const lead = run.tipping.find((t) => t.kind === 'lead')!
+    Object.assign(run, { notes: [], timing: [], most_likely: null, tipping: [{ ...lead, high: lead.low }], tipping_aims: [], science: [], compared: [], sensitivity: null })
+    ready(view); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('tip-point')).toBeNull()
+    expect(tab().querySelector('[data-view="run.tipping.0.line"]')).toBeNull()
+    why()
+    const slot = reading().getByTestId('analysis-lead-change')
+    expect(slot.querySelector('[data-view="run.tipping.0.line"]')?.textContent).toBe(lead.line)
+    expect(within(slot).getByTestId(`analysis-lead-edit-${lead.figure.id}`)).toBeInTheDocument()
+  })
+
+  it('omits the fold when Core has no visible reading', () => {
+    const view = viewOf('golden/bakery')
+    Object.assign(view.model!.run!, { notes: [], timing: [], most_likely: null, tipping: [], tipping_aims: [], science: [], compared: [], sensitivity: null })
+    ready(view); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-why-toggle')).toBeNull()
+  })
+
   it('bakery: the most-likely paragraph is not drawn at rest; opened, it is drawn once at its path with its ✎', () => {
     const view = viewOf('golden/bakery'), ml = view.model!.run!.most_likely!
     ready(view); render(<PortAnalysisTab />)
@@ -742,17 +880,27 @@ describe('why this reading: core\'s long reading, one press away', () => {
 })
 
 describe('what would have to be true, what could go wrong, what rests on Olumi\'s guesses: core\'s words, on the tab', () => {
-  it('bakery: the per-option crossing is drawn verbatim with its hover as the one Tip, and the lead crossing is drawn once (WhatMovesIt\'s), not twice', async () => {
+  it('bakery: the option crossing keeps its own Tip, and the lead sentence is available on the picture and once in the fold', async () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
     const opt = run.tipping.find((t) => t.kind !== 'lead')!, lead = run.tipping.find((t) => t.kind === 'lead')!
     ready(view); render(<PortAnalysisTab />)
-    const box = screen.getByTestId('analysis-tipping')
+    why()
+    const box = reading().getByTestId('analysis-tipping')
     const p = box.querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
     expect(p.querySelector('[data-view^="run.tipping."]')!.textContent).toBe(opt.line)
     expect([p.getAttribute('title'), await tipOf(p.querySelector<HTMLElement>('[data-view^="run.tipping."]')!)]).toEqual([null, opt.hover])
     expect(box.querySelector(`[data-view-fact="${lead.id}"]`)).toBeNull()
-    expect([...document.querySelectorAll('span')].filter((e) => e.textContent === lead.line)).toHaveLength(1)
-    // Seen at rest (DL 14:0xZ): core's heading is a section heading, not a quiet caption; the figure press is named, never a bare card heading.
+    const picture = screen.getByTestId('analysis-lead-picture')
+    expect(picture.textContent).not.toContain(lead.line)
+    expect(laneTipOf(picture)).toBe(lead.line)
+    const leadIndex = run.tipping.indexOf(lead)
+    const aim = reading().getByTestId('analysis-aim-reading')
+    const sentences = tab().querySelectorAll(`[data-view="run.tipping.${leadIndex}.line"]`)
+    expect(sentences).toHaveLength(1)
+    expect(aim).toContainElement(sentences[0] as HTMLElement)
+    expect(sentences[0]?.textContent).toBe(lead.line)
+    expect(aim.querySelector(`[data-view="run.tipping.${leadIndex}.hover"]`)?.textContent).toBe(lead.hover)
+    // In the open reading: core's heading is a section heading, not a quiet caption; the figure press is named, never a bare card heading.
     const fig = box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!
     expect([box.querySelector('[data-view="run.tipping_heading"]')!.tagName, (fig.getAttribute('aria-label') ?? '').startsWith(`${TIPPING_FIGURE}: `), fig.hasAttribute('title'), fig.querySelectorAll('svg').length]).toEqual(['H3', true, false, 1])
     fireEvent.click(box.querySelector<HTMLElement>(`[data-tipping-figure="${opt.figure!.id}"]`)!)
@@ -762,7 +910,8 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
   it('the figure pencil ends its row\'s own line: inside the same row element as the words, after an inline (never block) figure press', () => {
     const view = viewOf('golden/bakery'), opt = view.model!.run!.tipping.find((t) => t.kind !== 'lead')!
     ready(view); render(<PortAnalysisTab />)
-    const row = screen.getByTestId('analysis-tipping').querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
+    why()
+    const row = reading().getByTestId('analysis-tipping').querySelector<HTMLElement>(`[data-view-fact="${opt.id}"]`)!
     const words = row.querySelector<HTMLElement>('[data-view^="run.tipping."]')!, fig = row.querySelector<HTMLElement>('[data-tipping-figure]')!
     const pencil = row.querySelector<HTMLElement>('[data-testid^="analysis-tip-give-"]')!
     expect(pencil, 'the pencil is drawn for this figure').not.toBeNull()
@@ -778,16 +927,19 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     const view = structuredClone(viewOf('golden/bakery'))
     view.model!.run!.failure = [{ id: 'F90', line: 'Core\'s failure sentence.', hover: 'Core\'s failure hover.' }] as never
     const gated = (state: 'closed' | 'chose' | 'wrote') => { const v = structuredClone(view); v.session = { ...v.session, pre_mortem: { ...(v.session.pre_mortem ?? {}), state } } as never; return v }
-    for (const s of ['closed', 'chose'] as const) { ready(gated(s)); render(<PortAnalysisTab />); expect(screen.queryByTestId('analysis-failure'), s).toBeNull(); cleanup() }
+    for (const s of ['closed', 'chose'] as const) { ready(gated(s)); render(<PortAnalysisTab />); why(); expect(reading().queryByTestId('analysis-failure'), s).toBeNull(); cleanup() }
     ready(gated('wrote')); render(<PortAnalysisTab />)
-    const p = screen.getByTestId('analysis-failure').querySelector<HTMLElement>('[data-view-fact="F90"]')!
-    // Core's hover carries the count and the limit ("an association only…"): drawn at rest, whole, never hover-only (science lead, 18 Nov).
+    expect(screen.queryByTestId('analysis-failure')).toBeNull()
+    why()
+    const p = reading().getByTestId('analysis-failure').querySelector<HTMLElement>('[data-view-fact="F90"]')!
+    // Core's hover carries the count and the limit ("an association only…"): drawn in the fold, whole, never hover-only (science lead, 18 Nov).
     expect([p.textContent, p.getAttribute('title'), p.querySelector('[data-view="run.failure.0.hover"]') !== null]).toEqual(['Core\'s failure hover.', null, true])
     // CONTRAST: a line core sends no hover for keeps its line.
     cleanup()
     const bare = gated('wrote'); bare.model!.run!.failure = [{ id: 'F90', line: 'Core\'s failure sentence.', hover: '' }] as never
     ready(bare); render(<PortAnalysisTab />)
-    expect(screen.getByTestId('analysis-failure').querySelector('[data-view="run.failure.0.line"]')!.textContent).toBe('Core\'s failure sentence.')
+    why()
+    expect(reading().getByTestId('analysis-failure').querySelector('[data-view="run.failure.0.line"]')!.textContent).toBe('Core\'s failure sentence.')
   })
 
   it('silent reasons: core\'s reason about an aim stands where a lead crossing would; its reason about one option stands under the tipping heading, with core\'s nearest group', () => {
@@ -800,10 +952,11 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
       { crossing: null, reason: 'unclear', text: 't', line: 'A second aim reason, not drawn: one per aim.' },
     ] }] as never
     ready(view); render(<PortAnalysisTab />)
-    const aim = screen.getAllByTestId('analysis-aim-silent')
+    why()
+    const aim = reading().getAllByTestId('analysis-aim-silent')
     expect(aim.map((e) => [e.dataset['silentAim'], e.textContent, e.querySelector('[data-view="run.tipping_aims.0.silent.1.line"]') !== null])).toEqual([['aim_x', AIM, true]])
     // No crossing lines at all, and the option's reason is still drawn, under core's heading, verbatim, with no figure press.
-    const box = screen.getByTestId('analysis-tipping'), row = box.querySelector<HTMLElement>('[data-tipping-silent="opt_x"]')!
+    const box = reading().getByTestId('analysis-tipping'), row = box.querySelector<HTMLElement>('[data-tipping-silent="opt_x"]')!
     expect(box.querySelector('[data-view="run.tipping_heading"]')!.textContent).toBe(run.tipping_heading)
     expect([row.querySelector('[data-view="run.tipping_aims.0.silent.0.line"]')!.textContent, row.querySelector('[data-view="run.tipping_aims.0.silent.0.best_group.line"]')!.textContent, row.querySelectorAll('button').length]).toEqual([OPT, BEST, 0])
     expect(document.body.textContent).not.toContain('A second aim reason')
@@ -811,7 +964,8 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
     cleanup()
     const none = structuredClone(view); none.model!.run!.tipping_aims = [{ aim: 'aim_x', lines: [], silent: [] }] as never
     ready(none); render(<PortAnalysisTab />)
-    expect([screen.queryAllByTestId('analysis-aim-silent').length, screen.queryByTestId('analysis-tipping')]).toEqual([0, null])
+    why()
+    expect([reading().queryAllByTestId('analysis-aim-silent').length, reading().queryByTestId('analysis-tipping')]).toEqual([0, null])
   })
 
   it('silent reasons, the pairs core can send for one aim: a lead reason is drawn once; the leader\'s own chance reason (no option named) is a row; an aim whose lead crossing is drawn gets no aim reason', () => {
@@ -825,7 +979,9 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
       { crossing: 'lead', reason: 'holds', text: 't', line: 'A lead reason that names an option is not an option\'s row.', option: 'opt_z' },
     ] }] as never
     ready(one); render(<PortAnalysisTab />)
-    const slot = screen.getByTestId('analysis-lead-change')
+    expect(screen.queryByTestId('analysis-lead-change')).toBeNull()
+    why()
+    const slot = reading().getByTestId('analysis-lead-change')
     expect([slot.dataset['leadChange'], slot.querySelector('[data-view="run.tipping_aims.0.silent.0.line"]')!.textContent, screen.queryAllByTestId('analysis-aim-silent').length]).toEqual(['silent', LEAD, 0])
     expect([...document.querySelectorAll('span')].filter((e) => e.textContent === LEAD)).toHaveLength(1)
     const rows = [...screen.getByTestId('analysis-tipping').querySelectorAll<HTMLElement>('[data-tipping-silent]')]
@@ -839,19 +995,23 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
       { crossing: null, reason: 'unclear', text: 't', line: 'An aim reason beside a drawn lead crossing.' },
     ] }] as never
     ready(two); render(<PortAnalysisTab />)
-    const box = screen.getByTestId('analysis-tipping')
+    why()
+    const box = reading().getByTestId('analysis-tipping')
     expect([box.querySelector(`[data-view-fact="${opt.id}"]`) !== null, box.querySelector('[data-tipping-silent="opt_y"]')!.textContent]).toEqual([true, BARE])
     expect([screen.getByTestId('analysis-lead-change').dataset['leadChange'], screen.queryAllByTestId('analysis-aim-silent').length]).toEqual(['tipping', 0])
     cleanup()
     // CONTRAST for (2): the same aim reason on ANOTHER aim is drawn.
     const three = structuredClone(two); three.model!.run!.tipping_aims[0]!.aim = 'another_aim'
     ready(three); render(<PortAnalysisTab />)
-    expect(screen.getAllByTestId('analysis-aim-silent').map((e) => e.dataset['silentAim'])).toEqual(['another_aim'])
+    why()
+    expect(reading().getAllByTestId('analysis-aim-silent').map((e) => e.dataset['silentAim'])).toEqual(['another_aim'])
   })
 
   it('rests: core\'s full sentence is visible text on the tab, once per group, not only a hover', () => {
     const view = viewOf('golden/bakery'), r = view.model!.run!.rests[0]!
-    ready(view); render(<PortAnalysisTab />)
+    ready(view); render(<ViewReasoningBlock />)
+    expect(screen.queryByTestId('reasoning-rests')).toBeNull()
+    fireEvent.click(screen.getByTestId('view-reasoning-rests-toggle'))
     const box = screen.getByTestId('reasoning-rests')
     // Core's hover is its line plus what the people's ranges carry and the limit ("not a prediction"): it is the visible sentence, whole.
     expect(r.hover.startsWith(r.line) && r.hover.length > r.line.length, 'fixture: the hover says more than the line').toBe(true)
@@ -861,53 +1021,69 @@ describe('what would have to be true, what could go wrong, what rests on Olumi\'
 })
 
 describe('data core sends that the tab drew only as a title or in a fold (A2, A3)', () => {
-  it('A3 bakery: each ranking draws core\'s qualification sentence verbatim at its path, at rest, and none of the bare scope lists (core sends no word for which list is which); each figure\'s estimate size is in its row, not only a title', () => {
-    const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!, aims = run.find_out!.filter((a) => a.figures.length > 0)
+  it('Check keeps each ranking’s scope and figure words at their paths, without the unlabelled scope lists', () => {
+    const view = viewOf('golden/bakery'), run = view.model!.run!, aims = run.find_out!.filter((a) => a.figures.length > 0)
     expect(aims.length).toBeGreaterThan(0)
     aims.forEach((aim, n) => { aim.line = `Core's qualification ${n}.`; aim.not_compared = [{ id: 'x1', label: 'Opening a second shop' }]; aim.within = [{ id: 'l1', label: 'Rent limit' }] })
-    ready(view); render(<PortAnalysisTab />)
+    ready(view); render(<><PortAnalysisTab /><ViewReasoningBlock /></>)
+    why()
+    expect(tab().querySelector('[data-view^="run.find_out"]')).toBeNull()
+    const find = document.querySelector<HTMLElement>('[data-check-group="find"]')!
+    expect(find.querySelector('[data-view="run.find_out_heading"]')?.textContent).toBe(run.find_out_heading)
+    fireEvent.click(find.querySelector('[data-check-more="find"]')!)
     for (const aim of aims) {
       const i = run.find_out!.indexOf(aim)
-      const box = document.querySelector(`[data-find-out-aim="${aim.aim}"]`)!
-      const scope = box.querySelector('[data-testid="find-out-scope"]')!
-      expect([scope.textContent, scope.getAttribute('data-view')]).toEqual([aim.line, `run.find_out.${i}.line`])
-      expect(box.querySelector('[data-find-out-scope]'), 'no scope list is drawn: no invented word says which list it is').toBeNull()
-      expect(box.textContent!.includes('Opening a second shop') || box.textContent!.includes('Rent limit')).toBe(false)
-      for (const f of aim.figures) expect(box.querySelector(`[data-find-out-figure="${f.id}"]`)!.textContent).toContain(f.estimate_text)
+      expect(find.querySelector(`[data-view="run.find_out.${i}.line"]`)?.textContent).toBe(aim.line)
+      for (const [j, f] of aim.figures.entries()) {
+        const item = find.querySelector<HTMLElement>(`[data-check-item="f:${i}:${f.id}"]`)!
+        const path = `run.find_out.${i}.figures.${j}`
+        expect(item.querySelector(`[data-view="${path}.estimate_text"]`)?.textContent).toBe(f.estimate_text)
+        fireEvent.click(item)
+        expect(find.querySelector(`[data-view="${path}.line"]`)?.textContent).toBe(f.line)
+      }
     }
-  })
-  it('A3 the registry holds no scope icon and the tab names none: "Compared", "Not compared" and "Held within" are not words of the UI', () => {
-    const view = viewOf('golden/bakery')
-    ready(view); render(<PortAnalysisTab />)
+    for (const word of ['Opening a second shop', 'Rent limit', 'Not compared', 'Held within']) expect(find.textContent).not.toContain(word)
     expect(Object.keys(ICONS).filter((k) => k.startsWith('scope-'))).toEqual([])
-    const said = tab().textContent ?? ''
-    for (const w of ['Not compared', 'Held within']) expect(said.includes(w), w).toBe(false)
   })
-  it('A3 CONTRAST: a ranking with no qualification draws no scope line at all', () => {
-    const view = structuredClone(viewOf('golden/bakery')), aim = view.model!.run!.find_out!.find((a) => a.figures.length > 0)!
+
+  it('Check omits the scope line when the ranking has no qualification', () => {
+    const view = viewOf('golden/bakery'), ranking = view.model!.run!.find_out!, aim = ranking[0]!
     aim.compared = []; aim.not_compared = []; aim.within = []; aim.line = ''
-    ready(view); render(<PortAnalysisTab />)
-    expect(document.querySelector(`[data-find-out-aim="${aim.aim}"] [data-testid="find-out-scope"]`)).toBeNull()
+    ranking.push({ ...aim, aim: 'other_aim', figures: [], line: 'Qualification for another aim.' })
+    ready(view); render(<ViewReasoningBlock />)
+    const find = document.querySelector('[data-check-group="find"]')!
+    fireEvent.click(find.querySelector('[data-check-more="find"]')!)
+    expect(find.querySelector('[data-check-item^="f:0:"]')).not.toBeNull()
+    expect(find.querySelector('[data-view="run.find_out.1.line"]')?.textContent).toBe(ranking[1]!.line)
+    expect(find.querySelector('[data-view="run.find_out.0.line"]')).toBeNull()
   })
-  it('A3 science: a worth line\'s estimate size (`science[].hover`) is drawn whole in its row, bound to its path, and no native title carries it', () => {
-    const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
-    const worth = (run.science ?? []).findIndex((l) => (l.hover ?? '') !== '')
-    expect(worth, 'fixture: a science line with a hover').toBeGreaterThanOrEqual(0)
-    run.find_out = []                       // so the ranking does not already name it
+
+  it('draws the worth line, its pencil and the whole estimate detail together inside the reading fold', () => {
+    const view = viewOf('golden/bakery'), run = view.model!.run!
+    const i = run.science!.findIndex((l) => l.kind === 'worth' && l.hover !== '')
+    expect(i).toBeGreaterThanOrEqual(0)
+    const worth = run.science![i]!
     ready(view); render(<PortAnalysisTab />)
-    const el = document.querySelector(`[data-view="run.science.${worth}.hover"]`)
-    expect(el?.textContent).toBe(run.science![worth]!.hover)
-    expect(el!.closest('li')!.getAttribute('title')).toBeNull()
+    expect(screen.queryByTestId('view-run-worth')).toBeNull()
+    why()
+    const box = reading().getByTestId('view-run-worth')
+    const line = box.querySelector<HTMLElement>(`[data-view="run.science.${i}.line"]`)!
+    expect(line.textContent).toBe(worth.line)
+    expect(line.closest('li')!.getAttribute('title')).toBeNull()
+    expect(within(box).getByTestId(`worth-edit-${worth.figure!.id}`)).toBeInTheDocument()
+    expect(line.closest('li')!.querySelector(`[data-view="run.science.${i}.hover"]`)?.textContent).toBe(worth.hover)
   })
-  it('A2 bakery (a chance; the none state is pinned in the no-chance test above): core\'s notes are one quiet list at rest, each verbatim at its path; under the chart when there is one', () => {
+
+  it('A2 bakery (a chance; the none state is pinned in the no-chance test above): core\'s notes are one quiet list in the fold, each verbatim at its path; under the chart when there is one', () => {
     const view = viewOf('golden/bakery'), notes = (view.model!.run!.notes ?? []).filter((n) => n.text !== '')
     expect(notes.length).toBeGreaterThan(0)
     ready(view); render(<PortAnalysisTab />)
+    expect(screen.queryByTestId('analysis-leaves-out')).toBeNull()
+    why()
     const list = screen.getByTestId('analysis-leaves-out')
     expect([...list.querySelectorAll('li')].map((e) => e.textContent)).toEqual(notes.map((n) => n.text))
     expect(screen.getByTestId('analysis-chance-chart').compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING, 'under the chart').toBeTruthy()
-    fireEvent.click(screen.getByTestId('analysis-why-toggle'))
-    expect(document.querySelectorAll('[data-view^="run.notes."]'), 'never twice: the fold no longer holds them').toHaveLength(notes.length)
+    expect(document.querySelectorAll('[data-view^="run.notes."]'), 'notes are drawn once').toHaveLength(notes.length)
   })
   it('A2 a note\'s longer words (its title) reach the one Tip by REAL keyboard focus, never a native title; a note whose title is its text is not a focus stop; no heading is written here', () => {
     vi.useFakeTimers()
@@ -915,6 +1091,7 @@ describe('data core sends that the tab drew only as a title or in a fold (A2, A3
       const view = structuredClone(viewOf('golden/bakery')), run = view.model!.run!
       run.notes = [{ text: 'It leaves out rent.', title: 'It leaves out rent, which core could not size.' }, { text: 'It assumes a steady summer.', title: 'It assumes a steady summer.' }] as typeof run.notes
       ready(view); render(<PortAnalysisTab />)
+      why()
       const [first, second] = [...screen.getByTestId('analysis-leaves-out').querySelectorAll<HTMLElement>('li')] as [HTMLElement, HTMLElement]
       expect([first.getAttribute('title'), second.getAttribute('title'), first.tabIndex, second.hasAttribute('tabindex')]).toEqual([null, null, 0, false])
       act(() => { first.focus() })

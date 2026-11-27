@@ -5,7 +5,7 @@ import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMe } from '../../../../olumiCore/me'
 import type { View, ViewCard, ViewModel, ViewRow, ViewRun } from '../../../client'
-import { TippingPerOption } from '../../../port/AnalysisReaders'
+import { optionTippingOf, TippingPerOption } from '../../../port/AnalysisReaders'
 import { CoreCard } from '../../../previous/CoreCard'
 import { useViewStore } from '../../../store'
 import { Tipping } from '../../../ViewChances'
@@ -111,7 +111,7 @@ describe.each(['simple', 'working'] as const)('%s option face', (level) => {
 
 it('keeps Core’s tipping sentence verbatim in the Analysis readers', () => {
   const { model, run, crossing } = pricing()
-  const { getByTestId } = render(<><Tipping run={run} /><TippingPerOption model={model} /></>)
+  const { getByTestId } = render(<><Tipping run={run} /><TippingPerOption model={model} reading={optionTippingOf(run)} /></>)
   for (const id of ['view-run-tipping', 'analysis-tipping']) {
     expect(getByTestId(id).textContent).toContain(crossing.line)
   }

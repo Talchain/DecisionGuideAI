@@ -22,8 +22,9 @@ import { EdgeLabelLayer } from './edgeLabelLayer'
 import { HeldProposalLine } from '../ViewChances'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
 import { REASONING_LABELS } from '../ViewReasoning'
-import { COMMITMENT_WORDS, displayedDissent } from '../reasoning/TowardsCommitment'
-import { actionable, examineOf } from '../reasoning/examine'
+import { COMMITMENT_WORDS } from '../reasoning/TowardsCommitment'
+import { displayedDissent } from '../reasoning/dissent'
+import { checkItemsOf } from '../check/items'
 import { COMPARE_HELD, COMPARE_NONE, CoreCompareTab } from '../../olumiCore/compare'
 import type { NodeProps } from '@xyflow/react'
 import { CoreCard, leadLineOf } from '../previous/CoreCard'
@@ -92,31 +93,30 @@ describe('the panel on a pending first model', () => {
     expect(p.textContent).toBe(`${EU.proposal!.heading} · ${EU.proposal!.on}`)
   })
 
-  it('PB4 (P3, redesign 18 Nov): on the pending first model no option has a chance, so the Analysis tab draws no chart and no lead, and says what a result needs; CONTRAST: with nothing to say it draws no empty section', () => {
+  it('PB4 (P3, redesign 18 Nov): on the pending first model no option has a chance, so the Analysis tab draws no chart and no lead, and links to Check; with no reading, it draws no empty section', () => {
     ready(EU)
     const withNeeds = render(<PortAnalysisTab />).container
     expect(withNeeds.querySelector('[data-testid="port-analysis-tab"]')!.getAttribute('data-analysis-state')).toBe('none')
     expect(withNeeds.querySelector('[data-testid="analysis-chance-chart"]')).toBeNull()
     expect(withNeeds.querySelector('[data-view="run.lead"]')).toBeNull()
-    expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).not.toBeNull()
+    expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).toBeNull()
+    expect(withNeeds.querySelector('[data-testid="analysis-to-reasoning"] [data-count]')).toHaveTextContent(/^[1-9]/)
     cleanup()
     const bare = structuredClone(EU)
-    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], compared: [] })
+    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], timing: [], compared: [] })
     for (const c of bare.model!.cards) { if (c.family === 'option') Object.assign(c, { rows: [], headline: null }); if (c.figure != null) Object.assign(c, { figure: { ...c.figure, edit: null } }) }
     ready(bare)
     const empty = render(<PortAnalysisTab />).container
     expect(empty.querySelector('[data-testid="analysis-needs"]')).toBeNull()
     expect(empty.querySelectorAll('section')).toHaveLength(0)
     const dissent = bare.collab.dissent ?? []
-    const items = examineOf(bare.model!, bare.session?.methods ?? null, (bare.model_words ?? null) as Record<string, unknown> | null, new Set(dissent.map((d) => d.id)))
-    const examine = items.some(actionable)
+    const items = checkItemsOf(bare.model!, bare).flatMap((group) => group.blocks.flatMap((block) => block.items))
     const rows = empty.querySelectorAll<HTMLButtonElement>('button[data-testid="analysis-to-reasoning"]')
-    expect(rows).toHaveLength(examine || dissent.some(displayedDissent) ? 1 : 0)
-    if (rows.length > 0) {
-      expect(rows[0]!).toHaveTextContent(examine ? REASONING_LABELS.examine : COMMITMENT_WORDS.heading)
-      expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(examine ? String(items.length) : null)
-      expect(rows[0]!.querySelector('[data-view], [data-view-words]')).toBeNull()
-    }
+    const commitment = items.length === 0 && dissent.some(displayedDissent)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!).toHaveTextContent(commitment ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine)
+    expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(commitment ? null : String(items.length))
+    expect(rows[0]!.querySelector('[data-view], [data-view-words]')).toBeNull()
   })
 
   it('PB5 (P2): Compare on a first model held as Olumi\'s proposal says so, not "start a model"; CONTRAST: with no scenario it says start one', () => {

@@ -58,7 +58,7 @@ export function SectionRow({ title, Icon, count, defaultOpen = false, testId, ch
 }
 
 /** The crafted "Assumptions and evidence" door (`ReasoningSignals`, closed at rest): a quiet disclose act, its region under it. */
-export function Door({ label, count, testId, children }: { label: string; count: number; testId: string; children: ReactNode }) {
+export function Door({ label, labelAt, count, testId, children }: { label: string; labelAt?: string; count: number; testId: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const region = useId()
   return (
@@ -66,7 +66,7 @@ export function Door({ label, count, testId, children }: { label: string; count:
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
         className={`${TYPE.body} ${action('disclose')}`}>
         <FoldChevron open={open} className="text-text-light" />
-        <span>{label}</span>
+        <span data-view={labelAt}>{label}</span>
         <Count n={count} />
       </button>
       {open ? <div id={region} className="mt-1" data-testid={`view-reasoning-${testId}-region`}>{children}</div> : null}

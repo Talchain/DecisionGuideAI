@@ -220,6 +220,7 @@ import { awaitsBriefOf } from '../../olumiView/ViewWelcome'
 import { CoreCompareTab } from '../../olumiCore/compare'
 import { StressTestTab } from '../../olumiView/v12/tools/StressTest' // lane C (S4, 27 Nov)
 import { shownModel, useViewStore } from '../../olumiView/store'
+import { TAB_COUNT_CLASS, useLaneTabCount } from '../../olumiView/shell/tabCounts'
 import { useViewFollows } from '../../olumiView/follow'
 import { useViewCanvas } from '../../olumiView/canvas'
 import { useViewPoll } from '../../olumiView/poll'
@@ -525,7 +526,7 @@ export function getOutputTabsForParity(): WorkspaceSurfaceDescriptor[] {
     if (surface.id === 'olumi') return isAiPanelV2Enabled()
     if (surface.id === 'compare') return isCompareTabEnabled()
     return true
-  })
+  }).map(surface => isOlumiCoreLane() ? { ...surface, label: surface.laneLabel ?? surface.label } : surface)
 }
 
 /**
@@ -823,6 +824,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
   // The olumi-core lane's View (olumi.view/2): read for this scenario (src/olumiView/follow.ts); the canvas, the chat and the Team tab
   // are all drawn from it (src/olumiView/canvas.ts), so the canvas never re-triggers the read.
   const coreView = useViewStore(shownModel)
+  const checkCount = useLaneTabCount('analysisNew')
+  const teamCount = useLaneTabCount('team')
   useViewFollows(isOlumiCoreLane(), currentScenarioIdForRun ?? null)
   useViewCanvas(isOlumiCoreLane())
   // J1 step 4: on a scenario's first look the dock is the brief's account, not the tabs (olumiView/BriefPanel).
@@ -3404,7 +3407,8 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
       {!effectiveIsOpen && (
         <nav aria-label={DOCK_TABLIST_LABEL}>
         <div
-          className="flex flex-col items-center gap-2 py-3"
+          // Leave room for the corner badges inside the clipped rail.
+          className={`flex flex-col items-center gap-2 py-3${isOlumiCoreLane() ? ' pr-2' : ''}`}
           role="tablist"
           aria-orientation="vertical"
           aria-label={DOCK_TABLIST_LABEL}
@@ -3412,6 +3416,7 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
         >
           {OUTPUT_TABS.map(tab => {
             const lane = isOlumiCoreLane()
+            const count = tab.id === 'analysisNew' ? checkCount : tab.id === 'team' ? teamCount : null
             return (
               <HoverButton
                 words={lane ? tab.label : undefined}
@@ -3446,16 +3451,17 @@ function OutputsDockBody({ sendMessage, dispatchAction }: OutputsDockBodyProps) 
                 // icon in the natural tab order, exactly as at `463fc931`.
                 data-testid={`outputs-dock-rail-tab-${tab.id}`}
                 onClick={() => handleTabClick(tab.id)}
-                className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                className={`${count ? 'relative ' : ''}flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   effectiveActiveTab === tab.id
                     ? 'text-info border-info'
                     : 'text-text-header bg-panel border-panel-border hover:bg-panel'
                 }`}
                 style={effectiveActiveTab === tab.id ? { backgroundColor: 'color-mix(in srgb, var(--info) 15%, transparent)' } : undefined}
-                aria-label={tab.label}
+                aria-label={count ? `${tab.label} ${count}` : tab.label}
                 title={lane ? undefined : tab.label}
               >
                 <OkIcon id={LANE_TAB_ICON[tab.id]} size={lane ? 14 : undefined} decorative inherit={tab.id !== 'olumi'} />
+                {count ? <span aria-hidden="true" className={`${TAB_COUNT_CLASS} absolute right-0 top-0 translate-x-1/2 -translate-y-1/2 w-max`} data-tab-count>{count}</span> : null}
               </HoverButton>
             )
           })}

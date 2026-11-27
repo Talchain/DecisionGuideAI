@@ -25,6 +25,12 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const drawn = (path: string) => document.querySelectorAll(`[data-view="${path}"]`).length
+const showNeeds = () => {
+  render(<ViewReasoningBlock />)
+  const more = document.querySelector('[data-check-more="needs"]')
+  if (more !== null) fireEvent.click(more)
+  return document.querySelector('[data-check-group="needs"]')!
+}
 const closed = () => [...document.querySelectorAll<HTMLElement>('button[aria-expanded="false"]')]
 
 describe('SC-02: each tab says each thing once', () => {
@@ -47,32 +53,27 @@ describe('SC-02: each tab says each thing once', () => {
   })
 
   for (const n of ['capacity', 'hosting'] as const) {
-    it(`Analysis (${n}): each thing the chances wait on is drawn at most once, as a row of "what a result needs" with all rows shown`, () => {
+    it(`Check (${n}): each thing the chances wait on is drawn at most once, as a row of "what a result needs" with all rows shown`, () => {
       const view = real(n), w = view.model!.run!.waits_on!
       ready(view)
-      render(<PortAnalysisTab />)
-      const more = screen.queryByTestId('analysis-needs-more')
-      if (more !== null) fireEvent.click(more)
+      const needs = showNeeds()
       const items = w.items.flatMap((it, i) => (it.text === '' ? [] : [`run.waits_on.items.${i}.text`]))
       expect(items.length).toBeGreaterThan(0)
       expect(items.filter((p) => drawn(p) > 1)).toEqual([])
-      // Contrast: an item is either drawn (once) or its card is already listed above it (a blocker about the same card).
-      const listed = new Set([...document.querySelectorAll<HTMLElement>('[data-need]')].map((e) => e.dataset['need']!))
-      for (const it of w.items) if (it.text !== '' && !listed.has(`waits:${it.id}`)) expect([...listed].some((k) => k.startsWith('blocks:') || k.startsWith('none:')), it.id).toBe(true)
+      const listed = new Set([...needs.querySelectorAll('[data-check-item]')].map((e) => e.getAttribute('data-check-item')))
+      for (const it of w.items) if (it.text !== '') expect(listed.has(`waits:${it.id}`), it.id).toBe(true)
     })
   }
 
-  it('Analysis (strategy, every chance waits): each figure is drawn at most once, and the clause core adds for a figure no one can size is never run together in a head', () => {
+  it('Check (strategy, every chance waits): each figure is drawn at most once, and the clause core adds for a figure no one can size is never run together in a head', () => {
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8')) as View, w = view.model!.run!.waits_on!
     expect(view.model!.run!.all_withheld).toBe(true)
     ready(view)
-    render(<PortAnalysisTab />)
-    const more = screen.queryByTestId('analysis-needs-more')
-    if (more !== null) fireEvent.click(more)
+    const needs = showNeeds()
     expect(w.items.map((_, i) => drawn(`run.waits_on.items.${i}.text`)).filter((n) => n > 1)).toEqual([])
     expect(document.querySelectorAll('[data-view="run.waits_on.text"], [data-view="run.waits_on.head"]')).toHaveLength(0)
-    const tab = document.querySelector('[data-testid="port-analysis-tab"]')!.textContent!
-    expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(w.items.filter((it) => it.unknown !== null).length)
+    const words = needs.textContent!
+    expect(words.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(w.items.filter((it) => it.unknown !== null).length)
   })
 
   it('Model: the question is said once, above the outline; the Goal group, opened, keeps the aim it is measured by', () => {

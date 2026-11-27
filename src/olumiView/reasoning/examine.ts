@@ -11,7 +11,7 @@
  * commitment instead, once.
  */
 import type { ViewCard, ViewModel } from '../client'
-import { challengedCards } from '../layout'
+import { challengedCards } from '../model/selectors'
 import { questionsOf, type Question } from './answer'
 
 export type Sharpen = NonNullable<ViewModel['sharpen']>[number]

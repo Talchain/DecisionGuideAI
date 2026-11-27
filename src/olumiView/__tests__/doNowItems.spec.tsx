@@ -7,7 +7,7 @@
  */
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
@@ -19,7 +19,7 @@ import { useViewLens } from '../lens'
 import { restsOnOf } from '../layout'
 import { useCanvasStore } from '../../canvas/store'
 import { CoreCard } from '../previous/CoreCard'
-import { PortAnalysisTab } from '../port/PortAnalysisTab'
+import { ViewReasoningBlock } from '../ViewReasoning'
 import { viewOf } from '../port/__tests__/viewAt'
 
 const ready = (view: View) => {
@@ -32,15 +32,20 @@ afterEach(() => {
 })
 
 describe('S1: no stop of the UI\'s after the ✎', () => {
-  it('each figure a share rests on says core\'s give words and then the ✎, and nothing after it (bakery golden)', () => {
+  it('each ranked figure in Check says Core’s give words and then the pencil (bakery golden)', () => {
     const view = viewOf('golden/bakery'), aims = view.model!.run!.find_out!
-    ready(view); render(<PortAnalysisTab />)
-    const figs = aims.flatMap((a) => a.figures).filter((f) => f.give !== null)
-    expect(figs.length, 'precondition: core offers a give').toBeGreaterThan(0)
-    for (const f of figs) {
-      const give = document.querySelector<HTMLElement>(`[data-find-out-give="${f.id}"] [data-testid="worth-give-${f.id}"]`)!
+    ready(view); render(<ViewReasoningBlock />)
+    const find = document.querySelector<HTMLElement>('[data-check-group="find"]')!
+    const toggle = find.querySelector('[data-check-more="find"]')
+    if (toggle !== null) fireEvent.click(toggle)
+    const figs = aims.flatMap((aim, a) => aim.figures.map((figure) => ({ figure, a }))).filter(({ figure }) => figure.give !== null)
+    expect(figs.length, 'precondition: Core offers a give').toBeGreaterThan(0)
+    for (const { figure: f, a } of figs) {
+      fireEvent.click(find.querySelector(`[data-check-item="f:${a}:${f.id}"]`)!)
+      const give = within(find).getByTestId(`check-give-${f.id}`)
       expect(give.textContent, f.id).toBe(`${f.give!.text} `)
       expect(give.querySelector('[data-icon="edit"]'), f.id).not.toBeNull()
+      expect(give.lastElementChild, f.id).toBe(within(give).getByTestId(`check-edit-${f.id}`))
     }
   })
 })

@@ -32,6 +32,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { Hover, HoverButton } from '../../../olumiView/look/Hover'
 import { OkIcon, type IconId } from '../../../olumiView/look/icons'
+import { TAB_COUNT_CLASS, useLaneTabCount } from '../../../olumiView/shell/tabCounts'
 import type { OutputTab } from '../../../stores/uiStore'
 import { typography } from '../../../styles/typography'
 import { VersionsTrigger } from '../../versions/VersionsTrigger'
@@ -349,6 +350,8 @@ export function WorkspaceShellTabStrip({
   // V11 rehearsal (DL 9 Nov): the olumi-core lane's dock is a 300 px card (the J1 gate's boards fit beside it), where the five labels need
   // 341 px: there a label is never cut, so the tabs take a second row instead. The compact one-row rule stays for every other dock.
   const coreLane = isOlumiCoreLane()
+  const checkCount = useLaneTabCount('analysisNew')
+  const teamCount = useLaneTabCount('team')
   // UI restore, 11 Nov: the canvas no longer has Model · Explore · Team buttons (Paul withdrew them), so Model and Team are tabs again on
   // the olumi-core lane, as shellContract.ts defines them: every surface is a tab, one entry point each.
   const shown = surfaces
@@ -493,6 +496,7 @@ export function WorkspaceShellTabStrip({
       >
         {shown.map(surface => {
           const isActive = activeTab === surface.id
+          const count = surface.id === 'analysisNew' ? checkCount : surface.id === 'team' ? teamCount : null
           const verifyWords = surface.id === 'diagnostics' && factorsToVerify > 0
             ? `${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify` : undefined
           return (
@@ -530,7 +534,7 @@ export function WorkspaceShellTabStrip({
               // PROPORTIONALLY only when the content genuinely does not fit.
               title={coreLane ? undefined : surface.label}
               // Vision spec §3 (23 Oct): the Olumi tab is the brand mark alone, so its name is the label.
-              aria-label={surface.id === 'olumi' || coreLane ? surface.label : undefined}
+              aria-label={count ? `${surface.label} ${count}` : surface.id === 'olumi' || coreLane ? surface.label : undefined}
               data-testid={`outputs-dock-tab-${surface.id}`}
               // ⚠ `px-2` (8px, the contract's `padding:10px 8px` horizontal),
               // and it must stay ON THE DESIGN-SYSTEM SPACING SCALE
@@ -598,6 +602,7 @@ export function WorkspaceShellTabStrip({
                 ) : coreLane ? (
                   <>
                     <OkIcon id={LANE_TAB_ICON[surface.id]} size={14} decorative inherit testid={`outputs-dock-tab-icon-${surface.id}`} />
+                    {count ? <span aria-hidden="true" className={TAB_COUNT_CLASS} data-tab-count>{count}</span> : null}
                     {isActive ? <span className="min-w-0 truncate">{surface.label}</span> : null}
                   </>
                 ) : (
