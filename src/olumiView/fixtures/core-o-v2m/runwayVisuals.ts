@@ -29,3 +29,6 @@ export const proposalVisual = {
   ],
   proposal: 9,
 } satisfies VisualV3
+
+// A pinned saved model carries both ids (olumi-core wip/o-v2m:src/view/session.ts:122–124).
+export const savedVisual = { ...proposalVisual, version: 7 } satisfies VisualV3

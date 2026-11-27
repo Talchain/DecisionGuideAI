@@ -220,7 +220,7 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
       const el = sec.querySelector(`[data-outcome-option="${card.id}"]`)!, p = outcomePlace(m, lead!, row.outcome!)
       expect(el.querySelector(`[data-view="${card.id}.rows.${i}.outcome.text"]`)!.textContent).toBe(row.outcome!.text)
       expect([el.querySelector('button')!.getAttribute('title'), await tipOf(el.querySelector('button')!)], card.id).toEqual([null, row.outcome!.title])
-      if (p.width < 0.5) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
+      if (row.outcome!.low === row.outcome!.high) expect(el.querySelector('[data-outcome-point]'), card.id).not.toBeNull()
       else expect(el.querySelector('[data-outcome-band]')!.getAttribute('data-outcome-band'), card.id).toBe(`${p.left}:${p.left + p.width}`)
     }
     // carry_on's one value is a point; the two ranged options are bands with a middle tick.
@@ -232,19 +232,31 @@ describe('what is likely to happen (core\'s outcome lens, rows[].outcome)', () =
     expect(expectAllBound(view, sec, expect)).toBeGreaterThan(rows.length)
   })
 
-  it('the likely-outcome axis starts at zero where no outcome is below it: 80 is not at 0% (audit analysis-likely-outcome-axis-unlabelled)', () => {
+  it('distinguishes a narrow likely-outcome range from a single value on a 0–100 axis', () => {
     const view = structuredClone(viewOf('golden/bakery')), m = view.model!, lead = leadAimOf(m)!
     const set = (id: string, low: number, median: number, high: number) => {
       const row = m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: { low: number; median: number; high: number } }
       Object.assign(row.outcome, { low, median, high })
     }
-    set('carry_on', 80, 80, 80); set('second_oven', 94.8, 100, 105); set('longer_hours', 85, 90, 95)
+    set('carry_on', 80, 80, 80)
+    set('second_oven', 80, 80.1, 80.2)
+    set('longer_hours', 85, 90, 100)
     const at = (id: string) => outcomePlace(m, lead, (m.cards.find((c) => c.id === id)!.rows.find((r) => r.kind === 'chance' && r.aim_id === lead) as { outcome: Parameters<typeof outcomePlace>[2] }).outcome)
-    expect(at('carry_on').left, '80 is not at 0%').toBeCloseTo((80 / 105) * 100, 6)
-    expect([at('second_oven').left + at('second_oven').width]).toEqual([100]) // the axis ends at the greatest high
-    expect(at('second_oven').mid).toBeCloseTo((100 / 105) * 100, 6) // the middle tick is kept
+    expect(at('carry_on').left).toBe(80)
+    expect(at('longer_hours').left + at('longer_hours').width).toBe(100)
     ready(view); render(<PortAnalysisTab />)
-    expect(Number(document.querySelector('[data-outcome-option="carry_on"] [data-outcome-point]')!.getAttribute('data-outcome-point'))).toBeCloseTo((80 / 105) * 100, 6)
+    const flat = document.querySelector('[data-outcome-option="carry_on"]')!
+    expect(flat.querySelector('[data-outcome-point]')).toHaveAttribute('cx', '80%')
+    expect(flat.querySelector('[data-outcome-point]')).toHaveClass('fill-option')
+    expect(flat.querySelector('[data-outcome-band], [data-outcome-mid]')).toBeNull()
+    const narrow = document.querySelector('[data-outcome-option="second_oven"]')!
+    const band = narrow.querySelector<SVGRectElement>('[data-outcome-band]')!
+    expect(band).toHaveAttribute('data-outcome-band', '80:80.2')
+    expect(band).toHaveClass('stroke-option') // too narrow to see: a 2 px option-colour outline keeps it a band, with no inline style
+    expect(band).toHaveAttribute('stroke-width', '2')
+    expect(band.getAttribute('style')).toBeNull()
+    expect(narrow.querySelector('[data-outcome-mid]')).toHaveAttribute('x1', '80.1%')
+    expect(narrow.querySelector('[data-outcome-point]')).toBeNull()
     // CONTRAST: an outcome that goes below zero keeps the axis from the least low (the old rule).
     set('carry_on', -10, 0, 10)
     expect(at('carry_on').left).toBe(0)

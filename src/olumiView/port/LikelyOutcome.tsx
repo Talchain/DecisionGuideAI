@@ -7,7 +7,7 @@
  * - per aim with an outcome, every option in core's card order: its heading, a bar from its low to its high on that aim's one axis with a
  *   tick at the middle (`outcomePlace`), and Core’s own value above it (`outcome.text`, its `title` on hover). The numbers only place marks;
  * - a press on an option selects and centres its card, as the chance chart does.
- * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
+ * Geometry is relative to the track, with a two-pixel minimum for ranges.
  */
 import type { ViewModel } from '../client'
 import { outcomePlace } from '../layout'
@@ -47,7 +47,7 @@ export function LikelyOutcome({ model, group }: { model: ViewModel; group: Chart
                   picture={{
                     label: <span className={`${TYPE.body} text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>,
                     value: <span className={`${TYPE.meta} tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>,
-                    track: <OptionBand {...place} />,
+                    track: <OptionBand {...place} point={o.low === o.high} />,
                   }} />
               </li>
             )

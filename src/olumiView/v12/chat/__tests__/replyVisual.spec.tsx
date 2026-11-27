@@ -1,11 +1,12 @@
 import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useMe } from '../../../../olumiCore/me'
 import { useUIStore } from '../../../../stores/uiStore'
 import type { View } from '../../../client'
-import { proposalVisual, versionVisual } from '../../../fixtures/core-o-v2m/runwayVisuals'
+import { proposalVisual, savedVisual, versionVisual } from '../../../fixtures/core-o-v2m/runwayVisuals'
+import * as tabRing from '../../../reasoning/tabRing'
 import { useViewStore } from '../../../store'
 import { ViewChat } from '../../../ViewChat'
 
@@ -42,12 +43,14 @@ afterEach(() => {
   expect(call).not.toHaveBeenCalled()
   expect(fetchStub).not.toHaveBeenCalled()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
 })
 
 describe('Core’s reply visual in chat', () => {
   it.each([
     { binding: 'version', visual: versionVisual },
     { binding: 'proposal', visual: proposalVisual },
+    { binding: 'saved version with its proposal', visual: savedVisual },
   ])('draws the $binding payload in Core’s order with its heading, labels and text', ({ visual }) => {
     ready(visual)
     const { container } = render(<ViewChat />)
@@ -65,14 +68,56 @@ describe('Core’s reply visual in chat', () => {
     expect(chart.querySelector('[data-outcome-band]')).toHaveAttribute('x', '50%')
     expect(chart.querySelector('[data-outcome-band]')).toHaveAttribute('width', '50%')
     expect(chart.querySelector('[data-outcome-mid]')).toHaveAttribute('x1', '75%')
-    if ('version' in visual) {
+    if (!visual.options.some((lane) => 'withheld' in lane)) {
       expect(chart.querySelector('[data-outcome-point]')).toHaveAttribute('cx', '60%')
+      expect(chart.querySelector('[data-outcome-point]')).toHaveClass('fill-option')
       expect(chart.querySelector('[data-band-withheld-track]')).toBeNull()
     } else {
       const withheld = rows[1]!
       expect(withheld.querySelector('[data-band-withheld-track]')).toHaveClass('ok-scale-withheld')
       expect(withheld.querySelector('[data-outcome-band], [data-outcome-mid], [data-outcome-point]')).toBeNull()
     }
+  })
+
+  it('distinguishes a narrow range from a single value on a 0–100 axis', () => {
+    ready({
+      ...savedVisual,
+      options: [
+        { option: 'narrow', letter: 'A', label: 'Narrow range', text: '80–80.2 months, around 80.1', p10: 80, p50: 80.1, p90: 80.2 },
+        { option: 'flat', letter: 'B', label: 'Single value', text: '80 months', p10: 80, p50: 80, p90: 80 },
+        { option: 'anchor', letter: 'C', label: 'Upper anchor', text: '100 months', p10: 100, p50: 100, p90: 100 },
+      ],
+    })
+    const { container } = render(<ViewChat />)
+    const narrow = container.querySelector('[data-band-option="narrow"]')!
+    const band = narrow.querySelector<SVGRectElement>('[data-outcome-band]')!
+    expect(band).toHaveAttribute('data-outcome-band', '80:80.2')
+    expect(band).toHaveClass('stroke-option') // too narrow to see: a 2 px option-colour outline keeps it a band, with no inline style
+    expect(band).toHaveAttribute('stroke-width', '2')
+    expect(band.getAttribute('style')).toBeNull()
+    expect(narrow.querySelector('[data-outcome-mid]')).toHaveAttribute('x1', '80.1%')
+    expect(narrow.querySelector('[data-outcome-point]')).toBeNull()
+    const flat = container.querySelector('[data-band-option="flat"]')!
+    expect(flat.querySelector('[data-outcome-point]')).toHaveAttribute('cx', '80%')
+    expect(flat.querySelector('[data-outcome-band], [data-outcome-mid]')).toBeNull()
+  })
+
+  it('draws plain reply rows that leave the canvas alone', () => {
+    const ring = vi.spyOn(tabRing, 'ringFrom')
+    const press = vi.spyOn(tabRing, 'pressCard')
+    ready(savedVisual)
+    const { container, unmount } = render(<ViewChat />)
+    const chart = container.querySelector(chartSelector)!
+    expect(chart.querySelector('button, [role="button"], [tabindex]')).toBeNull()
+    const label = chart.querySelector('[data-band-label]')!
+    fireEvent.mouseEnter(label)
+    fireEvent.focus(label)
+    fireEvent.click(label)
+    fireEvent.mouseLeave(label)
+    unmount()
+    expect(ring).not.toHaveBeenCalled()
+    expect(press).not.toHaveBeenCalled()
+    expect(label.parentElement?.querySelector('[data-band-letter]')).toHaveClass('text-text-light')
   })
 
   it.each([
