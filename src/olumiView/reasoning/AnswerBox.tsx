@@ -13,7 +13,6 @@ import { OkIcon } from '../look/icons'
 import { pressCard } from './tabRing'
 import { answerQuestion, examinedOf, type Examination, type Question } from './answer'
 import { TYPE } from '../port/type'
-import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
 import { Door } from './parts'
 
