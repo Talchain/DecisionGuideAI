@@ -75,8 +75,8 @@ let causal: { key: string; places: Map<string, Placed> } | null = null
 let laying = 0
 /** True while the causal layout is being worked out: the camera waits for it before it frames the board. */
 export const viewLaying = (): boolean => laying > 0
-const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } }) =>
-  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => e.id), opts.direction, opts.spacing, opts.row])
+const causalKey = (model: ViewModel, nodes: readonly { id: string; measured?: { height?: number } }[], railed: ReadonlySet<string>, extras: readonly BandExtra[], opts: { direction: string; spacing: number; row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; groupLinks: readonly GroupLink[] }) =>
+  JSON.stringify([model.cards.map((c) => [c.id, c.family, c.h, opts.row.simple === true ? bandOf(c, model) : drawKindOf(c, model)]), model.links.map((l) => [l.from, l.to, l.kind]), drawnHeightsKey(nodes), [...railed], extras.map((e) => [e.id, e.band, e.h]), opts.direction, opts.spacing, opts.row, opts.groupLinks.map((l) => [l.from, l.to])])
 /** DL-538: the card width and row gap the stage gives this model (layout.ts stageRow), set when the board is laid out and drawn with it. */
 // Set lazily: layout.ts and this module import each other, so CARD_WIDTH is not initialised when this module is first evaluated.
 let row: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number } = { cardW: 0, gapX: 0 }
@@ -108,20 +108,20 @@ const railedCards = (): ReadonlySet<string> => railedOf(useViewStore.getState().
  *  model, set of heights and layout setting. The layout has no viewport input (the previous product's rule): the same model is the same board. */
 /** What the canvas hands the causal layout for this model now: each card's size and the layout options (the store's direction and spacing, the
  *  stage row for the level and the room). One place for the inputs, so a check of "where the causal layout places it" uses the canvas's own. */
-export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []) {
+export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = []) {
   const nodes = useCanvasStore.getState().nodes, railed = railedCards()
   // V12: Simple has its own, wider bands (layout.ts simpleStageRow); Detailed keeps the stage row.
   const stage = levelOf(useViewStore.getState().sid) === 'simple' ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const { direction, nodeSpacing } = useLayoutStore.getState()
   // A card with a chip rail under it (the team's revealed marks) is laid out with the rail's room.
   const size = new Map([...drawnHeights(nodes)].map(([id, height]) => [id, { width: id === QUESTION ? questionBarWidth(model, stage) : stage.cardW, height: height + (railed.has(id) ? TREE_RAIL_Y : 0) }]))
-  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
+  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras, groupLinks } }
 }
 
-async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, Placed>> {
-  const { nodes, railed, size, opts } = causalInputs(model, extras)
+async function causalFor(model: ViewModel, extras: readonly BandExtra[] = [], groupLinks: readonly GroupLink[] = []): Promise<Map<string, Placed>> {
+  const { nodes, railed, size, opts } = causalInputs(model, extras, groupLinks)
   row = opts.row
-  const key = causalKey(model, nodes, railed, extras, { direction: opts.direction, spacing: opts.spacing, row })
+  const key = causalKey(model, nodes, railed, extras, opts)
   if (causal?.key === key) return causal.places
   laying += 1
   try {
@@ -204,7 +204,7 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
 export async function layViewCanvas(core: ViewModel): Promise<boolean> {
   const { model, extras, links } = boardOf(core)
-  return drawViewCanvas(model, await causalFor(model, extras), extras, links)
+  return drawViewCanvas(model, await causalFor(model, extras, links), extras, links)
 }
 
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
@@ -339,7 +339,7 @@ export function useViewCanvas(on: boolean): void {
     if (had === null) firstDraw('laying')
     let live = true
     // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
-    void causalFor(model, board?.extras ?? []).then((places) => {
+    void causalFor(model, board?.extras, board?.links).then((places) => {
       if (!live) return
       const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
       drew = { sid, n, model }

@@ -17,7 +17,7 @@ export async function boardCrossings(view: View, roomW: number): Promise<BoardCo
   showSimple(view.id)
   useViewStore.setState({ sid: view.id, view })
   const { model, extras, links: groupLinks } = boardOf(view.model!, {})
-  const places = await causalPlaces(model, new Map(), { row: simpleStageRow(roomW), extras })
+  const places = await causalPlaces(model, new Map(), { row: simpleStageRow(roomW), extras, groupLinks })
   const heights = new Map<string, number>([...model.cards, ...extras].map((card) => [card.id, card.h ?? 90]))
   const boxes = [...places].map(([id, p]) => ({ id, x: p.x, y: p.y, w: p.w!, h: id === QUESTION ? 85 : heights.get(id) ?? 90 }))
   const links = [...cardLinks(model).map(({ link }) => ({ from: link.from, to: link.to })), ...groupLinks.map((l) => ({ from: l.from, to: l.to }))]

@@ -14,11 +14,11 @@ const WIDTHS = [700, 1232, 2000] as const
 /** [curved crossings, links through a non-end card], measured at 8693c5a8 (S4 lane E, 27 Nov) with the renderer's beziers, card links plus
  *  grouped-card connectors, fixture heights. A layout change may lower a count, never raise one; lower the table when it does. */
 const BASE: Record<keyof typeof fixtures, Record<(typeof WIDTHS)[number], readonly [crossings: number, cardHits: number]>> = {
-  'european-22cards': { 700: [23, 44], 1232: [43, 43], 2000: [43, 43] },
-  hiring: { 700: [19, 33], 1232: [24, 29], 2000: [24, 29] },
-  capacity: { 700: [15, 20], 1232: [13, 13], 2000: [13, 13] },
-  'bakery-r5': { 700: [9, 15], 1232: [7, 16], 2000: [7, 16] },
-  together: { 700: [1, 5], 1232: [0, 1], 2000: [0, 1] },
+  'european-22cards': { 700: [17, 44], 1232: [9, 31], 2000: [9, 31] },
+  hiring: { 700: [10, 29], 1232: [7, 25], 2000: [7, 25] },
+  capacity: { 700: [11, 19], 1232: [7, 12], 2000: [7, 12] },
+  'bakery-r5': { 700: [4, 12], 1232: [4, 9], 2000: [4, 9] },
+  together: { 700: [0, 3], 1232: [0, 1], 2000: [0, 1] },
   'PA-like': { 700: [2, 10], 1232: [2, 10], 2000: [2, 10] },
 }
 

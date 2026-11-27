@@ -18,6 +18,7 @@ import { LAYOUT_LAYER_GAP, LAYOUT_NODE_GAP, LAYOUT_PADDING_X, MAX_CARDS_PER_ROW,
 import { basisIdsOf } from './standin'
 import type { WhatIfVariant } from './whatif'
 import { BAND_ORDER, bandOf, type BandId } from './v12/bands/bands'
+import { orderSimpleBands, type SimpleLink } from './simpleOrdering'
 import { isOlumiCoreLane } from '../olumiCore/lane'
 import { cardDsKindOf, cardKind, declaredCardKind, type FieldCard } from './v12/fields/fields'
 
@@ -179,9 +180,9 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * overrides of 4 to 8 Nov are gone). `size` is each card as the canvas measured it (else core's height). Positions only: no word of
  * core's is read or written here.
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[] } = {}): Promise<Map<string, SimplePlace>> {
-  // Simple uses model bands and card order. Only Detailed needs layoutGraph's positions.
-  if (options.row?.simple === true) return simplePlaces(model, size, options.row, options.extras)
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[]; groupLinks?: readonly SimpleLink[] } = {}): Promise<Map<string, SimplePlace>> {
+  // Simple uses model bands. Only Detailed needs layoutGraph's positions.
+  if (options.row?.simple === true) return simplePlaces(model, size, options.row, options.extras, options.groupLinks)
   const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
@@ -253,42 +254,54 @@ export const simpleScaleOf = (boardW: number, roomW: number | undefined): number
   labelCounterScale(roomW === undefined || roomW <= 0 ? 1 : Math.min(1, roomW / Math.max(1, boardW)))
 /**
  * V12 Simple places: each band starts in core's card order, followed by any extras in their given order. Options keep that order.
- * Other bands use the mean ordinal of each card's parents in the bands above. A card with no parent above uses its starting ordinal,
- * and the starting order breaks ties. Wrapping, centring and measured heights determine the pixel positions after ordering.
+ * The parent-ordinal order in other bands is the fallback. Wrapped-row sweeps can replace it when they reduce crossings
+ * without sending more links through cards.
  */
-function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: SimpleRow, extras: readonly SimpleExtra[] = []): Map<string, SimplePlace> {
+function simplePlaces(model: ViewModel, size: ReadonlyMap<string, Size>, row: SimpleRow, extras: readonly SimpleExtra[] = [], groupLinks: readonly SimpleLink[] = []): Map<string, SimplePlace> {
   // Map iteration keeps core's card order (including option letters), followed by extras.
   const bandOfId = new Map<string, BandId>([...model.cards.map((c) => [c.id, bandOf(c, model)] as const), ...extras.map((e) => [e.id, e.band] as const)])
   const bands = BAND_ORDER.map((band) => ({ band, ids: [...bandOfId].filter(([, k]) => k === band).map(([id]) => id) }))
     .filter(({ ids }) => ids.length > 0)
   const shapes = bands.map(({ ids }) => simpleBand(row, ids.length))
-  const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), simpleQuestionW(model, row))
-  const scale = simpleScaleOf(boardW, row.roomW)
-  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : extras.find((e) => e.id === id)?.h ?? model.cards.find((c) => c.id === id)?.h ?? 90)
-  const parents = new Map<string, string[]>()
-  for (const { link } of cardLinks(model)) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
-  const out = new Map<string, SimplePlace>()
-  const ordinal = new Map<string, number>()
   const qW = simpleQuestionW(model, row)
-  out.set(QUESTION, { x: (boardW - qW) / 2, y: 0, w: qW, s: scale })
-  let y = heightOf(QUESTION) + SIMPLE_GAP_Y
-  bands.forEach(({ band, ids }, bi) => {
-    const { sizes, w } = shapes[bi]!
+  const boardW = Math.max(1, ...shapes.map((sh) => rowWidth(Math.max(...sh.sizes), sh.w)), qW)
+  const scale = simpleScaleOf(boardW, row.roomW)
+  const heights = new Map([...model.cards, ...extras].map(({ id, h }) => [id, h]))
+  const heightOf = (id: string) => size.get(id)?.height ?? (id === QUESTION ? 85 : heights.get(id) ?? 90)
+  const links = cardLinks(model).map(({ link }) => link)
+  const parents = new Map<string, string[]>()
+  for (const link of links) parents.set(link.to, [...(parents.get(link.to) ?? []), link.from])
+  const ordinal = new Map<string, number>()
+  const rowStarts = (sizes: readonly number[], w: number) => sizes.map((k) =>
+    Array.from({ length: k }, (_, j) => (boardW - rowWidth(k, w)) / 2 + j * (w + SIMPLE_GAP_X)),
+  )
+  const base = [{ ids: [QUESTION], fixed: true, w: qW, starts: rowStarts([1], qW) }, ...bands.map(({ band, ids }, bi) => {
     const ordered = band === 'options' ? ids : ids.map((id, index) => {
       const positions = (parents.get(id) ?? []).flatMap((p) => ordinal.has(p) ? [ordinal.get(p)!] : [])
       const order = positions.length === 0 ? index : positions.reduce((a, b) => a + b, 0) / positions.length
       return { id, index, order }
     }).sort((a, b) => a.order - b.order || a.index - b.index).map(({ id }) => id)
     ordered.forEach((id, index) => ordinal.set(id, index))
-    let i = 0
-    for (const k of sizes) {
-      const rowIds = ordered.slice(i, i + k), left = (boardW - rowWidth(rowIds.length, w)) / 2
-      rowIds.forEach((id, j) => { out.set(id, { x: left + j * (w + SIMPLE_GAP_X), y, w, s: scale }) })
-      i += k
-      y += Math.max(...rowIds.map(heightOf)) + SIMPLE_GAP_Y
-    }
-  })
-  return out
+    const { sizes, w } = shapes[bi]!
+    return { ids: ordered, fixed: band === 'options', w, starts: rowStarts(sizes, w) }
+  })]
+  const place = (order: readonly (readonly string[])[]) => {
+    const out = new Map<string, SimplePlace & { w: number }>()
+    let y = 0
+    order.forEach((ids, bi) => {
+      const { w, starts } = base[bi]!
+      let i = 0
+      for (const xs of starts) {
+        const rowIds = ids.slice(i, i + xs.length)
+        rowIds.forEach((id, j) => { out.set(id, { x: xs[j]!, y, w, s: scale }) })
+        i += xs.length
+        y += Math.max(...rowIds.map(heightOf)) + SIMPLE_GAP_Y
+      }
+    })
+    return out
+  }
+  const orderingBands = base.map(({ ids, fixed, w, starts }) => ({ ids, fixed, rows: starts.map((xs) => xs.map((x) => x + w / 2)) }))
+  return orderSimpleBands(orderingBands, [...links, ...groupLinks], [QUESTION, ...bandOfId.keys()], place, heightOf)
 }
 /** The question bar's width in Simple uses the card width and gap drawn in the options' first row. */
 export function simpleQuestionW(model: ViewModel, row: SimpleRow): number {
