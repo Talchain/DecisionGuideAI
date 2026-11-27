@@ -327,7 +327,7 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
 
   if (groups.every(({ group, items }) => items.length === 0 && group.blocks.every((block) => block.line === undefined))) return null
   return (
-    <section ref={root} className="space-y-2" aria-label={CHECK_WORDS.title} data-testid="check-list" onKeyDown={moveFocus}>
+    <section ref={root} className="space-y-5" aria-label={CHECK_WORDS.title} data-testid="check-list" onKeyDown={moveFocus}>
       {groups.map(({ group, atRest, shown, tiles }) => {
         const all = expanded[group.kind] ?? false
         return <CheckSection key={group.kind} group={group} all={all} shown={shown} tiles={tiles} restCount={atRest.length}

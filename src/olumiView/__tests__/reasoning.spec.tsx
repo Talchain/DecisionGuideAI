@@ -274,6 +274,7 @@ describe('challenge your thinking', () => {
 
 describe('towards commitment: where views differ, what is still disputed, what is recorded in full, and one press into the ONE form', () => {
   type Collab = View['collab']
+  const recordsToggle = () => screen.getByTestId('view-reasoning-commitment-records-toggle')
   const withRecords = (): View => {
     const view = structuredClone(read('app-launch.view.json'))
     const c = view.collab as Collab
@@ -287,12 +288,20 @@ describe('towards commitment: where views differ, what is still disputed, what i
     ready(view)
     render(<ViewReasoningBlock />)
     const box = screen.getByTestId('reasoning-commitment')
+    const door = recordsToggle()
+    const action = screen.getByRole('button', { name: 'Record what you will do' })
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    expect(door.querySelector('[data-count]')).toHaveTextContent('2')
+    expect(box.querySelector('[data-dissent], [data-commitment]')).toBeNull()
+    expect(action).toBeVisible()
+    fireEvent.click(action)
+    expect(commit.open.mock.calls).toEqual([[view.id, view]])
+    expect(door).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(door)
     expect(box.querySelector('[data-dissent="dissent_t1"]')!.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
     expect(box.querySelector('[data-commitment="7"]')!.textContent).toContain('Run a two-week split test')
     expect(['owner', 'expect', 'reconsider', 'keep', 'review'].map((f) => screen.getByTestId(f === 'keep' ? 'reasoning-commitment-keep-7-0' : `reasoning-commitment-${f}-7`).textContent)).toEqual([
       'Owner: Ada', 'What we expect: Conversion holds at 6%', 'What would make us reconsider: Paid conversion falls under 5%', 'Keeps open: Tobias: Keep the long version: finishers pay more.', 'Review on: 2026-12-02'])
-    fireEvent.click(screen.getByTestId('reasoning-commit-open'))
-    expect(commit.open.mock.calls).toEqual([[view.id, view]])
     expect(chat.prefill).not.toHaveBeenCalled()
   })
   it('a commitment\'s trigger sentence and its latest outcome are drawn by its id; without them, neither line is drawn', () => {
@@ -303,11 +312,13 @@ describe('towards commitment: where views differ, what is still disputed, what i
     k.outcomes = [{ ...({} as (typeof k.outcomes)[number]), id: 2, happened: 'Conversion fell to 5.8%.' }, { ...({} as (typeof k.outcomes)[number]), id: 1, happened: 'Conversion held at 6.2%.' }]
     ready(view)
     render(<ViewReasoningBlock />)
+    fireEvent.click(recordsToggle())
     expect([screen.getByTestId('reasoning-commitment-trigger-7').textContent, screen.getByTestId('reasoning-commitment-happened-7').textContent])
       .toEqual(['If paid conversion with three screens falls below 5%, the lead changes.', 'What happened: Conversion fell to 5.8%.'])
     cleanup()
     ready(withRecords())
     render(<ViewReasoningBlock />)
+    fireEvent.click(recordsToggle())
     expect([screen.queryByTestId('reasoning-commitment-trigger-7'), screen.queryByTestId('reasoning-commitment-happened-7')]).toEqual([null, null])
   })
   it('a challenged card that is a recorded disagreement is said once: in full under Towards commitment, not in the list above', () => {
@@ -318,6 +329,7 @@ describe('towards commitment: where views differ, what is still disputed, what i
     ready(view)
     render(<ViewReasoningBlock />)
     openAll()
+    fireEvent.click(recordsToggle())
     expect(document.querySelectorAll(`[data-check-item="c:${card.id}"]`)).toHaveLength(0)
     const row = screen.getByTestId('reasoning-commitment').querySelector<HTMLElement>(`[data-dissent="${card.id}"]`)!
     expect(row.textContent).toBe('Tobias: Keep the long version: finishers pay more.')
@@ -359,6 +371,7 @@ describe('towards commitment: where views differ, what is still disputed, what i
     ;(view.collab as Collab).commitments[0]!.option = { id: option.id, heading: option.heading }
     ready(view)
     render(<ViewReasoningBlock />)
+    fireEvent.click(recordsToggle())
     const box = screen.getByTestId('reasoning-commitment')
     expect(box.querySelectorAll('[data-commitment]')).toHaveLength(1)
     expect(box.querySelector('[data-commitment-option="7"]')!.textContent).toBe(option.heading)
@@ -368,6 +381,7 @@ describe('towards commitment: where views differ, what is still disputed, what i
     const view = withRecords()
     ready(view, { at: 3 })
     render(<ViewReasoningBlock />)
+    fireEvent.click(recordsToggle())
     expect(screen.getByTestId('reasoning-commitment').querySelector('[data-commitment="7"]')).not.toBeNull()
     expect(screen.queryByTestId('reasoning-commit-open')).toBeNull()
     cleanup()

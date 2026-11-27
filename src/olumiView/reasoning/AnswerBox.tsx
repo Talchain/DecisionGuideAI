@@ -15,6 +15,7 @@ import { answerQuestion, examinedOf, type Examination, type Question } from './a
 import { TYPE } from '../port/type'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
+import { Door } from './parts'
 
 export const ANSWER_WORDS = {
   placeholder: 'Your answer',
@@ -109,9 +110,8 @@ export function AnsweredList({ view, model }: { view: View | null; model: ViewMo
   const items = examinedOf(view)
   if (items.length === 0) return null
   return (
-    <section className="space-y-1" data-testid="reasoning-answered" aria-label={ANSWER_WORDS.answered}>
-      <h3 className={`${typography.viewPanelHeading} m-0 text-text-header`}>{ANSWER_WORDS.answered}</h3>
+    <Door label={ANSWER_WORDS.answered} count={items.length} testId="answered">
       <ul className="m-0 list-none divide-y divide-panel-border p-0">{items.map((x) => <Examined key={x.id} x={x} model={model} view={view} />)}</ul>
-    </section>
+    </Door>
   )
 }

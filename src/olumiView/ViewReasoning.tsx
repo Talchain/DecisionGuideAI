@@ -165,13 +165,13 @@ export function ViewReasoning({ model, stated = false }: { model: ViewModel; bri
     target.scrollIntoView?.({ block: 'nearest' })
   })
   return (
-    <div ref={panel} className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-4 p-3`} data-testid="view-reasoning">
+    <div ref={panel} className={`${TYPE.body} flex-1 min-h-0 olumi-scrollbar overflow-y-auto space-y-5 p-3`} data-testid="view-reasoning">
       <WhatIfShown model={model} labelled={!stated} />
       <CheckList model={model} view={view} sid={sid} />
       {rests === 0 ? null : <Door key={sid} label={run?.rests_heading || REASONING_LABELS.rests} labelAt={run?.rests_heading ? 'run.rests_heading' : undefined} count={rests} testId="rests">
         <RestsOn model={model} run={run} headed={false} />
       </Door>}
-      <AnsweredList view={view} model={model} />
+      <AnsweredList key={sid} view={view} model={model} />
       {view === null ? null : <TowardsCommitment view={view} />}
       <Premises model={model} />
     </div>

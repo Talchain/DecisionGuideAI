@@ -4,7 +4,7 @@
  * keeps its legacy body.
  */
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -28,6 +28,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { RESTS_AT_REST } from '../../../olumiView/ViewReasoning'
 import { useViewStore } from '../../../olumiView/store'
+import { checkItemsOf } from '../../../olumiView/check/items'
 import { setTeamFetch } from '../../../olumiCore/team/api'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
@@ -60,7 +61,7 @@ describe('the Reasoning tab on the olumi-core lane', () => {
   it('is offered, and pressed it draws core\'s Run from the View: no legacy body, no run cover, no Run control', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     await dockOn('analysisNew')
-    const tab = screen.getByRole('tab', { name: 'Check' })
+    const tab = screen.getByRole('tab', { name: /^Check(?: \d+)?$/ })
     expect(tab).toHaveAttribute('data-testid', 'outputs-dock-tab-analysisNew')
     fireEvent.click(tab)
     const body = screen.getByTestId('view-reasoning')
@@ -79,6 +80,25 @@ describe('the Reasoning tab on the olumi-core lane', () => {
     expect(body.querySelectorAll('[data-view$=".driver.text"], [data-view-label$=".driver.text"]').length).toBe(0)
     expect(screen.queryByTestId('stub-legacy-reasoning')).toBeNull()
     expect(document.querySelectorAll('[data-testid="stub-reanalyse-bar"], [data-testid="stub-readiness-bar"]').length).toBe(0)
+  })
+
+  it('shows the Check count on the strip and rail and omits the badge for zero Team dissent', async () => {
+    vi.stubEnv('VITE_OLUMI_CORE', '1')
+    await dockOn('analysisNew')
+    const count = checkItemsOf(view.model, view).flatMap((group) => group.blocks.flatMap((block) => block.items)).length
+    expect(count).toBeGreaterThan(0)
+    const strip = within(screen.getByTestId('outputs-dock-tablist'))
+    const check = strip.getByRole('tab', { name: `Check ${count}` })
+    expect(check.querySelector('[data-tab-count]')).toHaveTextContent(String(count))
+    expect(within(check).getByText('Check')).toBeVisible()
+    expect(strip.getByRole('tab', { name: 'Team' }).querySelector('[data-tab-count]')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('dock-collapse-control'))
+    const rail = within(await screen.findByTestId('outputs-dock-rail-tablist'))
+    const corner = rail.getByRole('tab', { name: `Check ${count}` }).querySelector('[data-tab-count]')
+    expect(corner).toHaveTextContent(String(count))
+    expect(corner).toHaveClass('absolute')
+    expect(rail.getByRole('tab', { name: 'Team' }).querySelector('[data-tab-count]')).toBeNull()
   })
 
   it('off the lane the tab keeps its legacy body', async () => {

@@ -27,6 +27,8 @@ const ROW = [
   'h3', '[data-check-aim-heading]', '[data-check-aim-line]', '[data-check-item]:not([data-check-tile])',
   '[data-check-more]:not([data-check-heading-toggle])', // The heading already counts a toggle in the same row.
   '[data-testid="view-reasoning-rests-toggle"]', '[data-rest] > p', '[data-rest-figure]',
+  '[data-testid="view-reasoning-answered-toggle"]', '[data-testid="view-reasoning-commitment-records-toggle"]',
+  '[data-examined]',
   '[data-testid="view-reasoning-premises-toggle"]', '[data-testid="reasoning-commit-open"]',
   '[data-testid="reasoning-commitment"] li', '[data-testid="reasoning-rests-key"]',
 ].join(', ')
@@ -36,9 +38,6 @@ const rows = () => {
   return visible(ROW) + Math.ceil(visible('[data-check-tile]') / 2)
 }
 const CAPACITY_ROWS = 12
-// Golden rows at rest, including the commitment action and premises door where drawn:
-// app-launch 10, bakery 12, capacity-v3 3, european 12, pricing-unmoved-unresolved 8,
-// pricing 6, proposal 6, s_ce285b3617bb 6, studio 9, whatif 6.
 const goldens = readdirSync(path.resolve('src/olumiView/golden')).filter((n) => n.endsWith('.view.json')).sort()
 const restsToggle = () => screen.getByTestId('view-reasoning-rests-toggle')
 
