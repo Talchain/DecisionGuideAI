@@ -734,7 +734,8 @@ button.ok-icon-btn-primary[aria-disabled='true'] { background-color: var(--borde
 /* Doubt is the dash, and it wins over the dots when a reason link is doubted. */
 .ok-link-halo-proposed.ok-link-doubt,
 .olumi-look .react-flow__edge .react-flow__edge-path.ok-link-doubt { stroke-dasharray: 5 4; stroke-linecap: butt; }
-.olumi-look .ok-link-end { fill: var(--link-tone); }
+.olumi-look .ok-link-end,
+.ok-key-sample .ok-link-end { fill: var(--link-tone); }
 .olumi-look .ok-link-leader { fill: none; stroke: var(--link-tone); stroke-width: 2px; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
 .olumi-look .ok-link-size-label { fill: var(--text-light); paint-order: stroke; stroke: var(--bg-canvas); stroke-width: 3px; }
 /* Highlight the lit path in its existing colours; off-path cards and links keep their normal look. */

@@ -78,6 +78,8 @@ Build order, from the chart system:
 
 Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. Precedence: `src/canvas/edges/ViewLinkEdge.tsx`.
 
+The key shows each committed link's resting look. Interaction states are outside its scope, including driver lens ink, lit or focused path widths, and hover.
+
 | ID | Line | Code |
 |---|---|---|
 | LN-effect | effect: neutral until signed, arrow end | `LINK_STYLES.effect` |

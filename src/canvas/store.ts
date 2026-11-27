@@ -596,6 +596,8 @@ interface ReconnectState {
 }
 
 interface CanvasState {
+  /** The scenario and View object the View canvas last committed (olumiView/canvas drawViewCanvas); the key compares by identity. Kept structural so the store imports nothing from the View lane. */
+  viewCanvasOwner: { sid: string | null; view: unknown } | null
   nodes: Node[]
   edges: Edge<EdgeData>[]
   /** Graph Editing Experience Task 8: history entries now carry optional labels for undo toast */
@@ -3463,6 +3465,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   return {
   nodes: initialNodes,
   edges: initialEdges,
+  viewCanvasOwner: null,
   history: { past: [], future: [] },
   scenarioEpoch: 0,
   unboundModelBinding: null,
@@ -5484,6 +5487,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({
       nodes: initialNodes,
       edges: initialEdges,
+      viewCanvasOwner: null,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       nextNodeId: 1,

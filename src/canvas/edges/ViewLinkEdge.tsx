@@ -50,8 +50,8 @@ export const sameBoxes = (a: CardBox[], b: CardBox[]) =>
  * So the V12 rules below (R5 ladder and neutral lines, the lit path, the first draft) need no second look beside them.
  */
 export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, selected = false }: EdgeProps) {
-  const { link, i, owner } = data as ViewLinkData
-  const view = useViewStore((s) => owner ? owner.view : s.view)
+  const { link, i } = data as ViewLinkData
+  const view = useViewStore((s) => s.view)
   const model = view?.model ?? null
   const causal = link.causal ?? null
   const firstDraft = view !== null && firstDraftOf(view).firstDraft === true

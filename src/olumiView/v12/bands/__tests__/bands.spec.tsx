@@ -232,11 +232,11 @@ describe('bands: the key pill', () => {
     ])
     useViewStore.setState({ sid: view.id, view: { ...view, model: m }, status: 'ready' } as never); commitBoard()
     const { container } = render(<KeyLines />)
-    const stroke = (id: string) => (container.querySelector(`[data-key-polarity="${id}"] path`) as SVGPathElement).getAttribute('stroke')
-    expect(stroke('increases')).toBe(EFFECT_STROKES.increases)
-    expect(stroke('decreases')).toBe(EFFECT_STROKES.decreases)
-    expect(container.querySelector('[data-key-polarity="decreases"]')).toHaveTextContent('decreases')
-    expect(stroke('decreases')).not.toBe(INK)
+    const stroke = (mark: string) => container.querySelector(`[data-key-direction="${mark}"]`)!.closest('[data-key-look]')!.querySelector('path[stroke]')!.getAttribute('stroke')
+    expect(stroke('raises')).toBe(EFFECT_STROKES.increases)
+    expect(stroke('lowers')).toBe(EFFECT_STROKES.decreases)
+    expect(container.querySelector('[data-key-item="effect"]')?.textContent).toBe('core says effect')
+    expect(stroke('lowers')).not.toBe(INK)
     expect(screen.getByTestId('view-key-lines').className).not.toMatch(/text-\[(9|10|11)px\]/)
     expect(screen.getByTestId('view-key-lines').className).toContain('text-[12px]')
     expect(container.querySelector('[data-key-sample="unsettled"]')!.getAttribute('class')).toContain('text-[12px]') // an SVG's className is not a string
@@ -249,10 +249,11 @@ describe('bands: the key pill', () => {
     const { container } = render(<KeyLines />)
     const item = container.querySelector('[data-key-item="doubted"]')!
     expect(item).toHaveTextContent('core says doubted')
-    const paths = (id: string) => [...item.querySelectorAll(`[data-key-polarity="${id}"] path`)] as SVGPathElement[]
-    expect(paths('increases').map((x) => x.getAttribute('stroke'))).toEqual([EFFECT_STROKES.increases, EFFECT_STROKES.increases])
-    expect(paths('decreases')[0]!.getAttribute('stroke')).toBe(EFFECT_STROKES.decreases)
-    expect(paths('increases')[0]!.getAttribute('stroke-dasharray')).toBe('5 4')
+    const line = (mark: string) => item.querySelector(`[data-key-direction="${mark}"]`)!.closest('[data-key-look]')!.querySelector('path[stroke]')!
+    expect(line('raises').getAttribute('stroke')).toBe(EFFECT_STROKES.increases)
+    expect(line('lowers').getAttribute('stroke')).toBe(EFFECT_STROKES.decreases)
+    expect(line('raises').getAttribute('stroke-dasharray')).toBe('5 4')
+    expect(line('raises').getAttribute('marker-end')).toMatch(/^url\(#.+\)$/)
   })
   it('K7 the six midpoint marks, the dotted reason line and the two halos stand only where the board draws them, in registry words', () => {
     const l0 = model.links[0]!, l1 = model.links[1]!

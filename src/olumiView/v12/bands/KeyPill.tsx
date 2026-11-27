@@ -1,5 +1,8 @@
-/** The committed canvas link appearances, labelled with the current View's key words. */
-import { useEffect, useMemo, useState } from 'react'
+/**
+ * The key shows each committed link's resting look. Interaction states are outside its scope,
+ * including driver lens ink, lit or focused path widths, and hover.
+ */
+import { useEffect, useId, useMemo, useState } from 'react'
 import { ICONS, OkIcon } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { View, ViewModel } from '../../client'
@@ -9,6 +12,7 @@ import { VIEW_LINK, type ViewLinkData } from '../../canvas'
 import { useCanvasStore } from '../../../canvas/store'
 import { firstDraft as firstDraftOf, linkKey } from '../fields/fields'
 import { LINK_MARK_IDS, linkLookOf } from '../links/linkLook'
+import { EndMarker } from '../links/LinkEnds'
 import { typography } from '../../../styles/typography'
 import { OlumiMark } from '../cards/marks'
 
@@ -59,27 +63,24 @@ export function keyLinesOf(model: ViewModel): { id: KeyLineId; text: string }[] 
   return (model.key ?? []).flatMap((k) => present.has(k.id as KeyLineId) ? [{ id: k.id as KeyLineId, text: k.text }] : [])
 }
 
-const SAMPLE_IDS: Readonly<Record<string, string>> = { reason: 'dotted', alert: 'halo-alert', olumi: 'halo-proposed' }
+const SAMPLE_IDS = new Map([['reason', 'dotted'], ['alert', 'halo-alert'], ['olumi', 'halo-proposed']])
 const markWord = (mark: Look['mark']) => mark === null ? undefined : ICONS[LINK_MARK_IDS[mark]].hover
 const item = 'flex items-center gap-1.5'
 
 function LineSample({ id, look }: { id: string; look: Look }) {
-  const { stroke, dash, end, endStroke, width, mark, dotted, doubt, haloAlert, haloProposed } = look
-  const polarity = mark === 'raises' ? 'increases' : mark === 'lowers' ? 'decreases' : undefined
-  const d = end === 'arrow' ? 'M6 1V12' : end === 'dot' ? 'M6 1V11' : 'M6 1V15'
+  const { stroke, dash, end, tone, width, mark, dotted, doubt, haloAlert, haloProposed } = look
+  const markerId = useId()
+  const d = end === 'arrow' ? 'M6 1V14' : end === 'dot' ? 'M6 1V13' : 'M6 1V15'
   const proposed = `ok-link-halo ok-link-halo-proposed${haloAlert ? ' ok-link-halo-inner' : ''}${dotted ? ' ok-link-dotted' : ''}${doubt ? ' ok-link-doubt' : ''}`
   return (
     <span className={item} data-key-look="">
-      <span className={item} data-key-polarity={polarity}>
-        <svg width="12" height="16" aria-hidden="true" data-key-sample={id} className={`${id === 'unsettled' ? typography.viewPanelMeta : ''}${haloAlert || haloProposed ? ' ok-key-underlay' : ''}`}>
-          {haloAlert && <path d={d} className="ok-link-halo ok-link-halo-alert" />}
-          {haloProposed && <path d={d} className={proposed} />}
-          <path d={d} stroke={stroke} strokeWidth={width} strokeDasharray={dash ?? undefined} strokeLinecap={dotted && !doubt ? 'round' : undefined} fill="none" />
-          {end === 'arrow' && <path d="M2 9 6 14 10 9" stroke={endStroke} strokeWidth={width} fill="none" />}
-          {end === 'dot' && <circle cx="6" cy="13" r="2.5" fill={endStroke} />}
-        </svg>
-        {id === 'effect' && polarity}
-      </span>
+      <svg width="12" height="16" aria-hidden="true" data-key-sample={id} className={`ok-key-sample ok-link-tone-${tone} ${id === 'unsettled' ? typography.viewPanelMeta : ''}${haloAlert || haloProposed ? ' ok-key-underlay' : ''}`}>
+        {haloAlert && <path d={d} className="ok-link-halo ok-link-halo-alert" />}
+        {haloProposed && <path d={d} className={proposed} />}
+        <path d={d} stroke={stroke} strokeWidth={width} strokeDasharray={dash ?? undefined} strokeLinecap={dotted && !doubt ? 'round' : undefined}
+          fill="none" markerEnd={end === 'none' ? undefined : `url(#${markerId})`} />
+        <defs><EndMarker id={markerId} end={end} /></defs>
+      </svg>
       {mark !== null && <span data-key-direction={mark} className="inline-flex ok-key-unsettled"><OkIcon id={LINK_MARK_IDS[mark]} size={14} decorative inherit /></span>}
     </span>
   )
@@ -87,40 +88,32 @@ function LineSample({ id, look }: { id: string; look: Look }) {
 
 type KeyRow = { id: string; text?: string; looks: Map<string, Look> }
 
-function committedRows(view: View, sid: string | null, edges: ReturnType<typeof useCanvasStore.getState>['edges']): KeyRow[] {
+function committedRows(view: View, sid: string | null, owner: { sid: string | null; view: unknown } | null, edges: ReturnType<typeof useCanvasStore.getState>['edges']): KeyRow[] {
   const model = view.model
   if (model == null) return []
   const words = model.key ?? []
-  const core = new Map(words.filter((w) => typeof w.id === 'string').map((w) => [w.id, { id: SAMPLE_IDS[w.id] ?? w.id, text: w.text, looks: new Map<string, Look>() }]))
+  const core = new Map(words.map((w) => [w.id, w]))
   const links = edges.flatMap((e) => e.type === VIEW_LINK ? [e.data as unknown as ViewLinkData] : [])
-  const owned = links.length > 0 && links.every((e) => e.owner?.sid === sid && e.owner.view === view)
-  if (!owned) return [...core].filter(([id]) => (KEY_LINE_IDS as readonly string[]).includes(id) || SAMPLE_IDS[id] !== undefined).map(([, row]) => row)
+  const owned = owner?.sid === sid && owner.view === view && links.every((e) => e.owner?.sid === sid && e.owner.view === view)
+  if (!owned) return words.flatMap(({ id, text }) => (KEY_LINE_IDS as readonly string[]).includes(id) || SAMPLE_IDS.has(id)
+    ? [{ id: SAMPLE_IDS.get(id) ?? id, text, looks: new Map<string, Look>() }] : [])
 
   const first = firstDraftOf(view).firstDraft === true
-  const fallback = new Map<string, KeyRow>()
-  const present = new Set<string>()
-  const seen = new Set<string>()
-  for (const { link } of links) {
-    const look = linkLookOf(link, model, first)
-    const ids = lookIds(look)
-    for (const id of ids) if (id !== null) present.add(id)
+  const rows = new Map<string, KeyRow>()
+  for (const { link, owner } of links) {
+    const look = linkLookOf(link, owner.view?.model ?? null, first)
+    const category = lookIds(look).find((id) => id !== null && core.has(id))
+    const word = linkKey(link, words).item ?? (category == null ? undefined : core.get(category))
     const { stroke, dash, end, endStroke, width, mark, haloAlert, haloProposed } = look
     const trace = JSON.stringify([stroke, dash, end, end === 'none' ? null : endStroke, width, mark, haloAlert, haloProposed])
-    if (seen.has(trace)) continue
-    seen.add(trace)
-    const labelled = ids.find((id) => id !== null && core.has(id))
-    if (labelled != null) {
-      core.get(labelled)!.looks.set(trace, look)
-    } else {
-      const word = linkKey(link, words).item?.text ?? markWord(mark)
-      const key = word ?? ''
-      const row = fallback.get(key) ?? { id: mark === null ? 'link' : 'direction', text: word, looks: new Map<string, Look>() }
-      row.looks.set(trace, look)
-      fallback.set(key, row)
-    }
+    const id = SAMPLE_IDS.get(word?.id ?? '') ?? word?.id ?? (mark === null ? 'link' : 'direction')
+    const text = word?.text ?? markWord(mark)
+    const key = JSON.stringify([id, text])
+    const row = rows.get(key) ?? { id, text, looks: new Map<string, Look>() }
+    row.looks.set(trace, look)
+    rows.set(key, row)
   }
-  const labelled = [...core].flatMap(([id, row]) => present.has(id) || SAMPLE_IDS[id] !== undefined ? [row] : [])
-  return [...labelled, ...fallback.values()]
+  return [...rows.values()]
 }
 
 /** The dock's inset from the window's right edge, kept current (the dock opens, closes and resizes without the window moving). */
@@ -140,7 +133,8 @@ export function KeyLines() {
   const view = useViewStore((s) => s.view)
   const sid = useViewStore((s) => s.sid)
   const edges = useCanvasStore((s) => s.edges)
-  const rows = useMemo(() => view === null ? [] : committedRows(view, sid, edges), [view, sid, edges])
+  const owner = useCanvasStore((s) => s.viewCanvasOwner)
+  const rows = useMemo(() => view === null ? [] : committedRows(view, sid, owner, edges), [view, sid, owner, edges])
   if (view?.model == null) return null
   const lineRows = rows.filter((row) => (KEY_LINE_IDS as readonly string[]).includes(row.id))
   const otherRows = rows.filter((row) => !(KEY_LINE_IDS as readonly string[]).includes(row.id))

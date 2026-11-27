@@ -34,7 +34,7 @@ export const GROUP_LINK = 'groupLink'
  *  which could only say it has no editor (4 Nov drive). Its own controls (✎, the Olumi icon) are on the card. */
 export const isViewNode = (node: { type?: string } | null | undefined): boolean => node?.type === VIEW_CARD || node?.type === VIEW_QUESTION || node?.type === VIEW_IDEA || node?.type === VIEW_FOLD
 
-type ViewLinkOwner = { sid: string | null; view: View | null }
+export type ViewLinkOwner = { sid: string | null; view: View | null }
 export type ViewLinkData = { link: ViewLink; i: number; owner: ViewLinkOwner }
 const viewLinkOwner = (): ViewLinkOwner => {
   const { sid, view } = useViewStore.getState()
@@ -212,14 +212,15 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
       if (data.owner?.sid === owner.sid && data.owner?.view === owner.view) return edge
       return { ...edge, data: { ...data, owner } }
     })
-    if (restamped.every((edge, i) => edge === store.edges[i])) return false
-    useCanvasStore.setState({ edges: restamped as typeof store.edges })
+    const edgesChanged = restamped.some((edge, i) => edge !== store.edges[i])
+    if (!edgesChanged && store.viewCanvasOwner?.sid === owner.sid && store.viewCanvasOwner.view === owner.view) return false
+    useCanvasStore.setState({ viewCanvasOwner: owner, edges: edgesChanged ? restamped as typeof store.edges : store.edges })
     return true
   }
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     // Every card is placed already: a layout begun on the canvas this replaces is stale, and none is asked for.
-    useCanvasStore.setState({ nodes: nodes as never, edges: nextEdges as never, pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
+    useCanvasStore.setState({ nodes: nodes as never, edges: nextEdges as never, viewCanvasOwner: owner, pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }
@@ -229,10 +230,12 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
 export async function layViewCanvas(core: ViewModel): Promise<boolean> {
   const owner = viewLinkOwner()
-  const { model, extras, links } = boardOf(core)
+  const open = useInputsOpen.getState().open, level = levelOf(owner.sid)
+  const { model, extras, links } = boardOf(core, open)
   const places = await causalFor(model, extras)
   const now = viewLinkOwner()
   if (now.view !== owner.view || now.sid !== owner.sid) return false
+  if (useInputsOpen.getState().open !== open || levelOf(now.sid) !== level) return false
   return drawViewCanvas(model, places, extras, links, owner)
 }
 
@@ -271,7 +274,7 @@ export function drawIdeasOnly(extras: readonly BandExtra[], places: ReadonlyMap<
   if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && store.edges.length === 0) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
-    useCanvasStore.setState({ nodes: nodes as never, edges: [], pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
+    useCanvasStore.setState({ nodes: nodes as never, edges: [], viewCanvasOwner: null, pendingLayout: false, layoutRequestId: store.layoutRequestId + 1 })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }
@@ -291,7 +294,7 @@ export function withdrawViewCanvas(): boolean {
   if (!holdsViewNodes(store.nodes, [VIEW_CARD, VIEW_QUESTION, VIEW_IDEA, VIEW_FOLD])) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
-    useCanvasStore.setState({ nodes: [], edges: [] })
+    useCanvasStore.setState({ nodes: [], edges: [], viewCanvasOwner: null })
   } finally {
     useCanvasStore.getState().endExternalGraphMutation?.()
   }
