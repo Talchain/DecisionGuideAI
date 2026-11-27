@@ -23,6 +23,10 @@ import { COMMIT_WORDS, openCommitDraft } from '../v12/team/CommitForm'
 import { TYPE } from '../port/type'
 import { typography } from '../../styles/typography'
 import { controls } from '../../styles/controls'
+import { Door } from './parts'
+import { displayedDissent } from './dissent'
+
+export { displayedDissent } from './dissent'
 
 /** The section's chrome (the record labels are the Team tab's own, SavedActions). */
 export const COMMITMENT_WORDS = {
@@ -78,8 +82,6 @@ function Recorded({ k, view }: { k: Commitment; view: View }) {
   )
 }
 
-export const displayedDissent = (d: View['collab']['dissent'][number]) => (d.confirmed?.words ?? d.position) !== ''
-
 export function TowardsCommitment({ view }: { view: View }) {
   const sid = useViewStore((s) => s.sid), at = useViewStore((s) => s.at), me = useMe((s) => s.me)
   const differences = useRevealedDifferences()
@@ -87,6 +89,7 @@ export function TowardsCommitment({ view }: { view: View }) {
   // The form is offered only where it may be written: this page's own View, the latest version, for the person it is for.
   const reach = sid && at === null && isForThisPage(view, me) ? sid : null
   const dissent = (c.dissent ?? []).filter(displayedDissent)
+  const records = dissent.length + commitments.length
   // Figure differences: one row per card (core may run one per aim; Team's WhereYouDiffer says every aim of that card). Others: core's sentence.
   const differ: { key: string; card: { id: string; heading: string } | null; d: Difference | null }[] = []
   for (const d of differences?.differences ?? []) {
@@ -95,7 +98,7 @@ export function TowardsCommitment({ view }: { view: View }) {
     if (card !== null) { if (!differ.some((x) => x.card?.id === card.id)) differ.push({ key: card.id, card, d: null }) }
     else differ.push({ key: `${d.record}|${d.goal}`, card: null, d })
   }
-  if (reach === null && dissent.length + commitments.length + differ.length === 0) return null
+  if (reach === null && records + differ.length === 0) return null
   return (
     <section className="space-y-4" data-testid="reasoning-commitment" aria-label={COMMITMENT_WORDS.heading}>
       <h3 className={H}>{COMMITMENT_WORDS.heading}</h3>
@@ -122,10 +125,9 @@ export function TowardsCommitment({ view }: { view: View }) {
           </ul>
         </div>
       )}
-      {dissent.length === 0 ? null : (
-        <div className="space-y-2" data-testid="reasoning-commitment-dissent">
-          <p className={SUB}>{COMMITMENT_WORDS.open}</p>
-          <ul className="m-0 list-none divide-y divide-panel-border p-0">
+      {records === 0 ? null : (
+        <Door key={sid} label={COMMITMENT_WORDS.open} count={records} testId="commitment-records">
+          {dissent.length === 0 ? null : <ul className="m-0 list-none divide-y divide-panel-border p-0" data-testid="reasoning-commitment-dissent">
             {dissent.map((d) => (
               <li key={d.id} data-dissent={d.id}>
                 <button type="button" className={`${PRESS} ${TYPE.body} text-text-body`} onClick={() => pressCard(d.id)}>
@@ -134,14 +136,14 @@ export function TowardsCommitment({ view }: { view: View }) {
                 </button>
               </li>
             ))}
-          </ul>
-        </div>
-      )}
-      {commitments.length === 0 ? null : (
-        <div className="space-y-2" data-testid="reasoning-commitment-recorded">
-          <p className={SUB}>{COMMITMENT_WORDS.recorded}</p>
-          <ul className="m-0 list-none space-y-3 p-0">{commitments.map((k) => <Recorded key={k.id} k={k} view={view} />)}</ul>
-        </div>
+          </ul>}
+          {commitments.length === 0 ? null : (
+            <div className="space-y-2" data-testid="reasoning-commitment-recorded">
+              <p className={SUB}>{COMMITMENT_WORDS.recorded}</p>
+              <ul className="m-0 list-none space-y-3 p-0">{commitments.map((k) => <Recorded key={k.id} k={k} view={view} />)}</ul>
+            </div>
+          )}
+        </Door>
       )}
       {reach === null ? null : (
         <button type="button" className={BUTTON} onClick={() => openCommitDraft(reach, view)} data-testid="reasoning-commit-open">

@@ -5,7 +5,7 @@
  * Fixture: the real-AI hiring board (fixtures/real), two aims per option.
  */
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
@@ -29,7 +29,7 @@ import { useUIStore } from '../../../stores/uiStore'
 import { ConversationProvider } from '../../conversation/ConversationContext'
 import { useViewStore } from '../../../olumiView/store'
 import { setTeamFetch } from '../../../olumiCore/team/api'
-import { chartGroupsOf, chartRowsOf } from '../../../olumiView/port/pick'
+import { chartGroupsOf } from '../../../olumiView/port/pick'
 
 const UUID = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
 const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/real/hiring.view3.json'), 'utf8'))
@@ -56,26 +56,41 @@ const dockOn = async (tab: string) => {
 }
 
 describe('the Analysis tab on the olumi-core lane draws what the model implies (redesign, 18 Nov)', () => {
-  it('mounts the chance chart in the dock: core\'s lead, one bar per option with a chance for the lead aim, core\'s likely mark; not the earlier plain block', async () => {
+  it('shows the lead aim in the dock and switches the chart and its heading to the other aim', async () => {
     vi.stubEnv('VITE_OLUMI_CORE', '1')
     await dockOn('results')
     fireEvent.click(screen.getByTestId('outputs-dock-tab-results'))
     const slot = screen.getByTestId('outputs-pre-run-view-only')
-    expect(slot.querySelector('[data-testid="port-analysis-tab"]')!.getAttribute('data-analysis-state')).toBe('chance')
-    const chart = slot.querySelector('[data-testid="analysis-chance-chart"]')!
-    expect(chart).not.toBeNull()
-    expect(chart.querySelector('[data-view="run.lead"]')!.textContent).toBe(view.model.run.lead)
-    // Both of hiring's aims keep a chart (the lead aim first), as the earlier hero kept both aims' groups.
-    expect([...chart.querySelectorAll<HTMLElement>('[data-chart-aim]')].map((g) => g.dataset['chartAim'])).toEqual(['boost_productivity', 'meet_launch_deadline'])
-    expect(chartGroupsOf(view.model).map((g) => g.aimId)).toEqual(['boost_productivity', 'meet_launch_deadline'])
-    const rows = chartRowsOf(view.model)
-    expect(rows.length).toBeGreaterThan(1)
-    expect([...chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll<HTMLElement>('[data-chart-option]')].map((e) => e.dataset['chartOption'])).toEqual(rows.map((r) => r.card.id))
-    for (const { card, row, i } of rows) expect(chart.querySelector(`[data-view="${card.id}.rows.${i}.value"]`)!.textContent).toBe(row.value)
-    // Core's most-likely mark, only on the rows core gives it (identity: the row's own path).
-    const likely = rows.filter((r) => r.row.likely != null)
-    expect(likely.length).toBeGreaterThan(0)
-    expect(chart.querySelector('[data-chart-aim="boost_productivity"]')!.querySelectorAll('[data-view$=".likely.glyph"]').length).toBe(likely.length)
+    expect(slot.querySelector('[data-testid="port-analysis-tab"]')).toHaveAttribute('data-analysis-state', 'chance')
+    const lead = slot.querySelector('[data-view="run.lead"]')
+    expect(lead?.textContent).toBe(view.model.run.lead)
+    const control = within(slot).getByRole('group', { name: 'Aim' })
+    const groups = chartGroupsOf(view.model)
+    expect(groups.map((g) => g.aimId)).toEqual(['boost_productivity', 'meet_launch_deadline'])
+    const [first, second] = groups
+    const showOnly = (group: (typeof groups)[number]) => {
+      const chart = within(slot).getByTestId('analysis-chance-chart')
+      expect(chart).toHaveAccessibleName(group.aim.text)
+      expect([...chart.querySelectorAll('[data-chart-aim]')].map((el) => el.getAttribute('data-chart-aim'))).toEqual([group.aimId])
+      expect([...chart.querySelectorAll('[data-chart-option]')].map((el) => el.getAttribute('data-chart-option'))).toEqual(group.rows.map(({ card }) => card.id))
+      for (const { card, row, i } of group.rows) {
+        const path = `${card.id}.rows.${i}`
+        expect(chart.querySelector(`[data-view="${path}.value"]`)?.textContent).toBe(row.value)
+        expect(chart.querySelector(`[data-view="${path}.likely.glyph"]`)?.textContent).toBe(row.likely?.glyph)
+      }
+      return chart
+    }
+    expect(first!.rows.length).toBeGreaterThan(1)
+    expect(first!.rows.some(({ row }) => row.likely != null)).toBe(true)
+    expect(within(control).getByRole('button', { name: first!.aim.text })).toHaveAttribute('aria-pressed', 'true')
+    expect(showOnly(first!).querySelector('[data-view="run.lead"]')).toBeNull()
+    const other = within(control).getByRole('button', { name: second!.aim.text })
+    fireEvent.click(other)
+    expect(other).toHaveAttribute('aria-pressed', 'true')
+    const chart = showOnly(second!)
+    expect(within(chart).getByRole('heading', { name: second!.aim.text })).toHaveAttribute('data-view', second!.aim.at)
+    expect(lead?.textContent).toBe(view.model.run.lead)
+    expect(lead!.compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(slot.querySelector('[data-testid="view-chances"]')).toBeNull()
     // The old hero and its repeats are gone.
     expect(slot.querySelector('[data-testid="port-analysis-hero"]')).toBeNull()

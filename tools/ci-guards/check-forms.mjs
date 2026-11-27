@@ -92,15 +92,20 @@ function componentRoots(source, file) {
   ].includes(root.kind) && !(ts.isIdentifier(root) && root.text === 'undefined'))
 }
 
-function scaleImport(file, specifier, directory) {
+function scalePrimitiveImport(file, specifier, directory, renderers) {
   let target = specifier
   if (specifier.startsWith('.')) target = path.posix.join(path.posix.dirname(file), specifier)
   if (specifier.startsWith('@/')) target = 'src/' + specifier.slice(2)
   if (specifier.startsWith('/src/')) target = specifier.slice(1)
-  return under(target, directory)
+  if (!under(target, directory)) return false
+  if (renderers.has(target)) return false
+  const extension = path.posix.extname(target)
+  if (extension !== '' && extension !== '.js' && extension !== '.jsx') return true
+  const stem = extension === '' ? target : target.slice(0, -extension.length)
+  return !['.tsx', '.ts', '.jsx', '.js'].some((ext) => renderers.has(stem + ext))
 }
 
-function scanScript(file, code, registry, chart, report, checkDash) {
+function scanScript(file, code, registry, renderers, chart, report, checkDash) {
   const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true)
   const lineAt = (offset) => source.getLineAndCharacterOfPosition(offset).line + 1
   const lineOf = (node) => lineAt(node.getStart(source))
@@ -131,7 +136,7 @@ function scanScript(file, code, registry, chart, report, checkDash) {
       || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
       specifier = literalText(node.arguments[0])
     }
-    if (specifier !== undefined && scaleImport(file, specifier, primitives.import_path)) primitive ??= lineOf(node)
+    if (specifier !== undefined && scalePrimitiveImport(file, specifier, primitives.import_path, renderers)) primitive ??= lineOf(node)
 
     if (ts.isJsxAttribute(node)) {
       const attribute = node.name.getText()
@@ -230,7 +235,7 @@ async function scan(root, list) {
       }
       let primitive
       if (isScript(file)) {
-        primitive = scanScript(file, code, registry, charts.get(file), report, checkDash)
+        primitive = scanScript(file, code, registry, renderers, charts.get(file), report, checkDash)
       } else {
         const stylesheet = postcss.parse(code, { from: file })
         stylesheet.walkRules((rule) => {

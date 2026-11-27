@@ -135,7 +135,7 @@ export async function setFigure(sid: string, base: number, id: string, typed: st
 /** Said in an open editor once the model has a newer version than the one it opened on, and the press that moves the edit onto it. */
 export const MOVED_ON = 'The model has changed since you opened this.', USE_LATEST = 'Use the latest version'
 
-function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab = 'results', primary = 'set', opener, solid = false }: { solid?: boolean; id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
+function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, leadAt, tab = 'results', primary = 'set', opener, solid = false }: { solid?: boolean; id: string; edit: CoreEdit; label?: string; place?: string; quiet?: boolean; glyph?: boolean; words?: boolean; lead?: string; leadAt?: string; tab?: OutputTab; primary?: 'set' | 'try'; opener?: JSX.Element }): JSX.Element | null {
   const lane = isOlumiCoreLane()
   const actionInk = lane ? 'text-text-header' : 'text-info'
   const primaryClass = lane ? VIEW_CHIP_PRIMARY_CLASS : OLDER_VIEW_CHIP_PRIMARY_CLASS
@@ -219,7 +219,7 @@ function FigureEditInPlace({ id, edit, label = 'Change figure', place = 'view-fi
       glyph === undefined
         ? <button type="button" data-testid={`${place}-edit-${id}`} onClick={openNow}
           className={solid ? `nodrag ${primaryClass}` : String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 items-center cursor-pointer ${actionInk} underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>
-        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
+        : <span data-testid={`${place}-give-${id}`}>{lead === undefined ? null : <><span data-view={leadAt}>{lead}</span>{' '}</>}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={() => { tip.dismiss(); openNow() }} aria-label={label} {...tip.handlers} aria-describedby={tip.describedBy}
           className={String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}>
           <EditIcon testid={`${place}-glyph-${id}`} />
           {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}
@@ -279,7 +279,7 @@ export function canOfferFigureEdit(view: View | null, sid: string | null, me: Me
  * is then only the way there: the pencil (or the aim's own words) opens the details of the card it names with that row's field focused. The editor that stood
  * under the card, and the ones in the panel and the chat, are the older look's: where the lane is off, `FigureEditInPlace` is this control exactly as it was.
  */
-function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, tab, primary, opener, solid = false }: FigureEditProps): JSX.Element | null {
+function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure', quiet = false, glyph, words = true, lead, leadAt, tab, primary, opener, solid = false }: FigureEditProps): JSX.Element | null {
   useViewStore((s) => s.at) // redrawn when the version on screen changes, so the pencil's title never goes stale
   const sid = useViewStore((s) => s.sid)
   const view = useViewStore((s) => s.view)
@@ -305,7 +305,7 @@ function FigureOpener({ id, edit, label = 'Change figure', place = 'view-figure'
   return glyph === undefined
     ? <><button type="button" data-testid={`${place}-edit-${id}`} onClick={press} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
       className={solid ? `nodrag ${VIEW_CHIP_PRIMARY_CLASS}` : String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 items-center cursor-pointer text-text-header underline underline-offset-2 ${quiet ? QUIET : ''}`}>{label}</button>{tip.tip}</>
-    : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : `${lead} `}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
+    : <span data-testid={`${place}-give-${id}`} {...(size ? { 'data-card-action': '' } : {})}>{lead === undefined ? null : <><span data-view={leadAt}>{lead}</span>{' '}</>}<button type="button" data-testid={`${place}-edit-${id}`} data-card-action="" onClick={press} aria-label={label} aria-disabled={off || undefined} {...tip.handlers} aria-describedby={tip.describedBy}
       className={String.raw`nodrag ${typography.viewLabel} inline-flex min-h-7 [.react-flow\_\_node_&]:min-h-6 min-w-7 [.react-flow\_\_node_&]:min-w-6 items-center cursor-pointer text-text-light hover:text-text-body`}>
       <EditIcon testid={`${place}-glyph-${id}`} />
       {words ? <>{' '}<span aria-hidden="true" data-testid={`${place}-words-${id}`} className={`underline underline-offset-2 ${quiet ? QUIET_WORDS : ''}`}>{label}</span></> : null}

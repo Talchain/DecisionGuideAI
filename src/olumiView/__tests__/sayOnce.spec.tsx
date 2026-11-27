@@ -25,6 +25,12 @@ const ready = (view: View) => {
 }
 afterEach(() => { cleanup(); useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' }) })
 const drawn = (path: string) => document.querySelectorAll(`[data-view="${path}"]`).length
+const showNeeds = () => {
+  render(<ViewReasoningBlock />)
+  const more = document.querySelector('[data-check-more="needs"]')
+  if (more !== null) fireEvent.click(more)
+  return document.querySelector('[data-check-group="needs"]')!
+}
 const closed = () => [...document.querySelectorAll<HTMLElement>('button[aria-expanded="false"]')]
 
 describe('SC-02: each tab says each thing once', () => {
@@ -47,32 +53,27 @@ describe('SC-02: each tab says each thing once', () => {
   })
 
   for (const n of ['capacity', 'hosting'] as const) {
-    it(`Analysis (${n}): each thing the chances wait on is drawn at most once, as a row of "what a result needs" with all rows shown`, () => {
+    it(`Check (${n}): each thing the chances wait on is drawn at most once, as a row of "what a result needs" with all rows shown`, () => {
       const view = real(n), w = view.model!.run!.waits_on!
       ready(view)
-      render(<PortAnalysisTab />)
-      const more = screen.queryByTestId('analysis-needs-more')
-      if (more !== null) fireEvent.click(more)
+      const needs = showNeeds()
       const items = w.items.flatMap((it, i) => (it.text === '' ? [] : [`run.waits_on.items.${i}.text`]))
       expect(items.length).toBeGreaterThan(0)
       expect(items.filter((p) => drawn(p) > 1)).toEqual([])
-      // Contrast: an item is either drawn (once) or its card is already listed above it (a blocker about the same card).
-      const listed = new Set([...document.querySelectorAll<HTMLElement>('[data-need]')].map((e) => e.dataset['need']!))
-      for (const it of w.items) if (it.text !== '' && !listed.has(`waits:${it.id}`)) expect([...listed].some((k) => k.startsWith('blocks:') || k.startsWith('none:')), it.id).toBe(true)
+      const listed = new Set([...needs.querySelectorAll('[data-check-item]')].map((e) => e.getAttribute('data-check-item')))
+      for (const it of w.items) if (it.text !== '') expect(listed.has(`waits:${it.id}`), it.id).toBe(true)
     })
   }
 
-  it('Analysis (strategy, every chance waits): each figure is drawn at most once, and the clause core adds for a figure no one can size is never run together in a head', () => {
+  it('Check (strategy, every chance waits): each figure is drawn at most once, and the clause core adds for a figure no one can size is never run together in a head', () => {
     const view = JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures/strategy', 'growth-reveal-n1.view3.json'), 'utf8')) as View, w = view.model!.run!.waits_on!
     expect(view.model!.run!.all_withheld).toBe(true)
     ready(view)
-    render(<PortAnalysisTab />)
-    const more = screen.queryByTestId('analysis-needs-more')
-    if (more !== null) fireEvent.click(more)
+    const needs = showNeeds()
     expect(w.items.map((_, i) => drawn(`run.waits_on.items.${i}.text`)).filter((n) => n > 1)).toEqual([])
     expect(document.querySelectorAll('[data-view="run.waits_on.text"], [data-view="run.waits_on.head"]')).toHaveLength(0)
-    const tab = document.querySelector('[data-testid="port-analysis-tab"]')!.textContent!
-    expect(tab.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(w.items.filter((it) => it.unknown !== null).length)
+    const words = needs.textContent!
+    expect(words.split(', which no one can size yet').length - 1).toBeLessThanOrEqual(w.items.filter((it) => it.unknown !== null).length)
   })
 
   it('Model: the question is said once, above the outline; the Goal group, opened, keeps the aim it is measured by', () => {
@@ -89,16 +90,63 @@ describe('SC-02: each tab says each thing once', () => {
     expect(document.querySelector('[data-view="model.aim.text"]')?.textContent).toBe(m.aim!.text)
   })
 
-  it('Reasoning: a challenge\'s reason is said once, as the challenge; the door does not repeat it as a premise in the same words', () => {
+  it('Reasoning: a challenge’s reason is said once for its record, while a premise without that id keeps its words', () => {
     const view = real('capacity'), m = view.model!
-    const c = m.cards.find((k) => k.challenged === true && k.reason !== null && m.cards.some((o) => (o.premises ?? []).some((p) => p.text === k.reason)))!
-    expect(c).toBeDefined()
+    const c = m.cards.find((card) => card.id === 'test_net_contribution')!
+    const add = m.cards.find((card) => card.id === 'add_specialist')!
+    const share = m.cards.find((card) => card.id === 'share_specialist')!
+    expect(c.reason).toBeTruthy()
+    expect(add.premises[1]!.text).toBe(c.reason)
+    expect(share.premises[2]!.text).toBe(c.reason)
+    // Exercise the reason fallback and give just one of the embedded premises a record id.
+    c.detail = ''
+    add.premises[1] = { ...add.premises[1]!, id: c.id }
     ready(view)
     render(<ViewReasoningBlock />)
-    // The door opens where it has rows.
-    const door = screen.queryByTestId('view-reasoning-premises-toggle')
-    if (door !== null) fireEvent.click(door)
-    const said = [...document.querySelectorAll('[data-view]')].filter((e) => e.textContent === c.reason)
-    expect(said.map((e) => e.getAttribute('data-view'))).toEqual([`${c.id}.reason`])
+    const selector = `[data-check-item="c:${c.id}"]`
+    if (document.querySelector(selector) === null) {
+      fireEvent.click(document.querySelector('[data-check-more="examine"]')!)
+    }
+    const row = document.querySelector(selector)!
+    fireEvent.click(row)
+    fireEvent.click(screen.getByTestId('view-reasoning-premises-toggle'))
+    const panel = document.getElementById(row.getAttribute('aria-controls')!)!
+    expect(drawn(`${c.id}.reason`)).toBe(1)
+    expect(drawn(`${c.id}.detail`)).toBe(0)
+    expect(panel.querySelector(`[data-view="${c.id}.reason"]`)?.textContent).toBe(c.reason)
+    const premises = screen.getByTestId('view-reasoning-premises-region')
+    expect(premises.querySelector(`[data-view="${add.id}.premises.1.text"]`)).toBeNull()
+    expect(premises.querySelector(`[data-view="${share.id}.premises.2.text"]`)?.textContent).toBe(share.premises[2]!.text)
+  })
+
+  it('Reasoning (app-launch): each record is drawn once and a same-word premise without an id is kept', () => {
+    const view: View = JSON.parse(readFileSync(path.resolve('src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-app-launch.view3.json'), 'utf8'))
+    const cards = view.model!.cards
+    const discussion = cards.find((card) => card.id === 'boss_discussion')!
+    const delay = cards.find((card) => card.id === 'option_delay')!
+    const isolate = cards.find((card) => card.id === 'option_isolate')!
+    const prerequisite = cards.find((card) => card.id === 'isolation_prerequisite')!
+    const position = discussion.premises[0]!
+    expect([position.id, delay.premises[2]!.id]).toEqual(['initial_position', 'initial_position'])
+    expect(isolate.premises[0]!.id).toBe(prerequisite.id)
+    expect(prerequisite.reason).toBeTruthy()
+
+    const unlinkedIndex = discussion.premises.length
+    discussion.premises.push({ ...position, id: null })
+    ready(view)
+    render(<ViewReasoningBlock />)
+    fireEvent.click(screen.getByTestId('view-reasoning-premises-toggle'))
+    const premises = screen.getByTestId('view-reasoning-premises-region')
+
+    for (const [paths, text] of [
+      [['boss_discussion.premises.0.text', 'option_delay.premises.2.text'], position.text],
+      [['option_isolate.premises.0.text', 'isolation_prerequisite.reason'], isolate.premises[0]!.text],
+    ] as const) {
+      const drawn = premises.querySelectorAll(paths.map((p) => `[data-view="${p}"]`).join(', '))
+      expect(drawn).toHaveLength(1)
+      expect(drawn[0]).toHaveAttribute('data-view', paths[0])
+      expect(drawn[0]!.textContent).toBe(text)
+    }
+    expect(premises.querySelector(`[data-view="boss_discussion.premises.${unlinkedIndex}.text"]`)?.textContent).toBe(position.text)
   })
 })

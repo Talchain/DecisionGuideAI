@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { tipOf } from './tipHelpers'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
@@ -80,7 +80,10 @@ const analysisOf = (model: ViewModel): HTMLElement => {
   const view = { ...EUROPEAN, model } as View
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
-  return render(<PortAnalysisTab />).container
+  const { container, getByTestId } = render(<PortAnalysisTab />)
+  expect(container.querySelector('[data-testid="analysis-leaves-out"]')).toBeNull()
+  fireEvent.click(getByTestId('analysis-why-toggle'))
+  return container
 }
 const listed = (c: ParentNode) => [...c.querySelectorAll('[data-testid="analysis-leaves-out"] li')].map((li) => li.textContent)
 
