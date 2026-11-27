@@ -7,9 +7,16 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId: null, accessToken: null }), supabase: {} }))
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
+const pressCard = vi.hoisted(() => vi.fn())
+vi.mock('../reasoning/tabRing', async (original) => ({ ...(await original<typeof import('../reasoning/tabRing')>()), pressCard }))
+vi.mock('../v12/showInWorkspace/show', async (original) => ({
+  ...(await original<typeof import('../v12/showInWorkspace/show')>()),
+  recordReach: vi.fn(),
+  showRecord: vi.fn(),
+}))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import type { View } from '../client'
 import { CoreCard } from '../previous/CoreCard'
@@ -22,6 +29,7 @@ import { useUIStore } from '../../stores/uiStore'
 import { useMe } from '../../olumiCore/me'
 import { setDefaultLevel } from '../v12/simpleStore'
 import { findingSurfaceOf, useDockFrontsOlumi, type FindingSurface } from '../findingSurface'
+import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 
 const DIR = path.resolve('src/olumiView')
 const read = (rel: string): View => structuredClone(JSON.parse(readFileSync(path.join(DIR, rel), 'utf8'))) as View
@@ -35,26 +43,75 @@ const withLead = (v: View): View => {
 }
 const noResult = (v: View): View => { for (const c of v.model!.cards) if (c.family === 'option' && c.headline != null) (c.headline as { state: string }).state = 'none'; return v }
 const base = (): View => withFinding(withChat(read('golden/bakery.view.json')))
+const withFigure = (view: View): View => withFinding(view, { ...FINDING, figure: view.model!.cards[1]!.id })
 
 type Screen = { fronted: boolean; frame: boolean }
-/** The three surfaces mounted together; the surfaces that draw any of the finding, by their own `data-finding`. */
-const drawnAt = (view: View, s: Screen): string[] => {
+/** The three surfaces mounted together. */
+const mountSurfaces = (view: View, s: Screen) => {
   setDefaultLevel('simple')
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-000000000001', sid: view.id, view, status: 'ready', error: null, stale: false, at: null } as never)
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' })
   useDockFrontsOlumi.getState().set(s.fronted)
   useFrameStage.setState({ open: s.frame, armedFor: view.id })
-  const { container } = render(<ReactFlowProvider>
+  return render(<ReactFlowProvider>
     <CoreCard {...({ id: QUESTION, type: 'viewQuestion', data: { question: view.model!.question }, selected: false, dragging: false, zIndex: 0, isConnectable: false, positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false } as unknown as NodeProps)} />
     <FrameStage /><ViewChat /></ReactFlowProvider>)
-  return [...container.querySelectorAll('[data-finding]')].map((e) => e.getAttribute('data-finding')!)
 }
+const drawnAt = (view: View, s: Screen): string[] => [...mountSurfaces(view, s).container.querySelectorAll('[data-finding]')]
+  .map((e) => e.getAttribute('data-finding')!)
 const ON = { fronted: true, frame: false }
 
 beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never) })
 afterEach(() => {
   cleanup(); useDockFrontsOlumi.getState().set(false); useFrameStage.setState({ open: false, armedFor: null }); setDefaultLevel('simple')
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' })
+})
+
+describe('the figure routes to its record', () => {
+  beforeEach(() => {
+    pressCard.mockClear()
+    vi.mocked(recordReach).mockReset().mockReturnValue('card')
+    vi.mocked(showRecord).mockReset().mockResolvedValue(undefined)
+  })
+
+  it.each([
+    { surface: 'frame', fronted: false, frame: true },
+    { surface: 'panel with Frame open', fronted: true, frame: true },
+    { surface: 'panel with Frame closed', fronted: true, frame: false },
+  ])('shows a directly drawn card from the $surface with the Frame closed', ({ fronted, frame }) => {
+    const view = withFigure(base())
+    const { container } = mountSurfaces(view, { fronted, frame })
+    const surface = fronted ? 'panel' : 'frame'
+    const button = container.querySelector<HTMLButtonElement>(`[data-finding="${surface}"] [data-finding-figure]`)!
+    expect(screen.queryByTestId('frame-stage') !== null).toBe(frame)
+    vi.mocked(showRecord).mockImplementation(async () => {
+      expect(screen.queryByTestId('frame-stage')).toBeNull()
+    })
+    fireEvent.click(button)
+    expect(vi.mocked(showRecord).mock.calls).toEqual([[view.model!.cards[1]!.id]])
+    expect(pressCard).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('frame-stage')).toBeNull()
+  })
+
+  it.each(['frame', 'panel'])('leaves the Frame open when the %s figure cannot be placed', (surface) => {
+    vi.mocked(recordReach).mockReturnValue(null)
+    const view = withFigure(base())
+    const { container } = mountSurfaces(view, { fronted: surface === 'panel', frame: true })
+    const button = container.querySelector<HTMLButtonElement>(`[data-finding="${surface}"] [data-finding-figure]`)!
+    const frame = screen.getByTestId('frame-stage')
+    fireEvent.click(button)
+    expect(vi.mocked(recordReach).mock.calls).toEqual([[view.model!.cards[1]!.id]])
+    expect(screen.getByTestId('frame-stage')).toBe(frame)
+    expect(showRecord).not.toHaveBeenCalled()
+    expect(pressCard).not.toHaveBeenCalled()
+  })
+
+  it('draws no figure button on the Frame when the finding names no figure', () => {
+    const { container } = mountSurfaces(base(), { fronted: false, frame: true })
+    const finding = container.querySelector('[data-finding="frame"]')
+    expect(finding).toHaveTextContent(FINDING.text)
+    expect(finding?.querySelector('[data-finding-figure]')).toBeNull()
+  })
 })
 
 describe('the finding is drawn in exactly one surface that is on screen', () => {

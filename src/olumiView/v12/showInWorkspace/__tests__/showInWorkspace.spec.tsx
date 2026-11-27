@@ -36,7 +36,7 @@ import { FOOT_GUTTER, QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, 
 import { setLevel, showSimple, showWholeModel } from '../../simpleStore'
 import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
-import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore, useShown } from '../show'
+import { COULD_NOT_SHOW, MOVE_MS, SETTLE_MS, resetShow, returnToBefore, showRecord, useShown } from '../show'
 import { RETURN_TO_BEFORE, SHOW_IN_WORKSPACE, ShowInWorkspace } from '../ShowInWorkspace'
 import { ResultNeeds } from '../../../port/ResultNeeds'
 import { cameraFor, layerFor, lensSetsBack, planShow, selectionSetsBack, type Next } from '../targets'
@@ -747,6 +747,32 @@ describe('S8 the camera race', () => {
     expect(showHolds()).toBe(false)
     expect(rf.vp).toStrictEqual(V0)
     expect(c.button()!.textContent).toBe(SHOW_IN_WORKSPACE)
+  })
+  it('a record show supersedes a reply waiting on a badge and keeps its Return control usable', async () => {
+    install(closed); lay()
+    const before = { ...rf.vp }
+    const reply = mount(4, nextOf(closed, 4)), button = reply.button()!
+    await press(button); await run(50)
+    expect(reads).toHaveLength(1)
+    expect(button).toHaveAttribute('aria-busy', 'true')
+
+    await act(async () => { void showRecord('rival_sales') })
+    await run(MOVE_MS + 100)
+    expect(rf.vp).not.toStrictEqual(before)
+    expect(button).not.toHaveAttribute('aria-busy')
+    expect(button).toHaveTextContent(RETURN_TO_BEFORE)
+
+    await press(button); await run(50)
+    expect(reads).toHaveLength(2)
+    expect(reads[1]!.open).toBeNull()
+    await answer(reads[1]!, ok(closed))
+    lay(); await run(100)
+    await answer(reads[0]!, ok(opened))
+    await run(100)
+    expect(openedNow()).toStrictEqual({ open: [], all: false })
+    expect(rf.vp).toStrictEqual(before)
+    expect(button).toHaveTextContent(SHOW_IN_WORKSPACE)
+    expect(button).not.toHaveAttribute('aria-busy')
   })
   it('(c) the board never lays out the opened badge: after SETTLE_MS the show says so, and `opened` is put back by a read', async () => {
     install(closed); lay()

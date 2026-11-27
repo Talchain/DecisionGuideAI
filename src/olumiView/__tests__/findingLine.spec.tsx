@@ -9,6 +9,11 @@ vi.mock('../../lib/supabase', () => ({ getSessionIdentity: async () => ({ userId
 vi.mock('@xyflow/react', async () => ({ ...(await vi.importActual<object>('@xyflow/react')), Handle: () => null }))
 const press = vi.hoisted(() => vi.fn())
 vi.mock('../reasoning/tabRing', async () => ({ ...(await vi.importActual<object>('../reasoning/tabRing')), pressCard: press }))
+vi.mock('../v12/showInWorkspace/show', async (original) => ({
+  ...await original<typeof import('../v12/showInWorkspace/show')>(),
+  recordReach: vi.fn(),
+  showRecord: vi.fn(),
+}))
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { cleanup, fireEvent, render } from '@testing-library/react'
@@ -25,6 +30,7 @@ import { setDefaultLevel, useSimpleLevel, type Level } from '../v12/simpleStore'
 import { findingOf, hasAnyResult } from '../v12/contract'
 import { findingSurfaceOf, useDockFrontsOlumi } from '../findingSurface'
 import { FINDING_FIGURE } from '../FindingLine'
+import { recordReach, showRecord } from '../v12/showInWorkspace/show'
 
 const served = structuredClone(JSON.parse(readFileSync(path.resolve('src/olumiView/golden/bakery.view.json'), 'utf8'))) as View
 const CARD = served.model!.cards[1]!
@@ -49,7 +55,12 @@ const panel = (view: View): HTMLElement => { load(view, 'simple'); useDockFronts
 const FRONTED = { olumiFronted: true, frameShown: false }
 const lines = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>('[data-view="run.finding"]')]
 
-beforeEach(() => { useUIStore.setState({ activeOutputTab: 'olumi' } as never); press.mockClear() })
+beforeEach(() => {
+  useUIStore.setState({ activeOutputTab: 'olumi' } as never)
+  press.mockClear()
+  vi.mocked(recordReach).mockReset().mockReturnValue('card')
+  vi.mocked(showRecord).mockReset().mockResolvedValue(undefined)
+})
 afterEach(() => {
   cleanup(); useDockFrontsOlumi.getState().set(false); setDefaultLevel('simple'); useSimpleLevel.setState({ levels: {} })
   useViewStore.setState({ uuid: null, sid: null, view: null, status: 'none' } as never); useMe.setState({ me: null, status: 'none' })
@@ -125,7 +136,7 @@ describe('the one finding line', () => {
     const fixed = states(withFinding(STATUS), (i) => (i === 0 ? 'fixed' : 'none'))
     expect([hasAnyResult(fixed.model), panel(fixed).querySelector('[data-testid="view-chat-finding"]') !== null]).toEqual([true, true])
   })
-  it('FL3 the figure\'s heading presses to that card, on the question card (where the panel draws no finding) and in the panel', async () => {
+  it('FL3 the question card still presses a drawn figure and shows a folded figure', async () => {
     const q = question(noResult(withFinding(F)), 'simple')
     const b = q.querySelector<HTMLElement>(`[data-finding-figure="${CARD.id}"]`)!
     // The figure is named (mark + hover and accessible name), never a bare card heading.
@@ -133,9 +144,22 @@ describe('the one finding line', () => {
     expect(b.textContent).toBe(CARD.heading)
     fireEvent.click(b)
     expect(press).toHaveBeenCalledWith(CARD.id)
-    cleanup(); press.mockClear()
-    fireEvent.click(panel(withFinding(F)).querySelector<HTMLElement>(`[data-finding-figure="${CARD.id}"]`)!)
-    expect(press).toHaveBeenCalledWith(CARD.id)
+    expect(showRecord).not.toHaveBeenCalled()
+    press.mockClear()
+    vi.mocked(recordReach).mockReturnValue('show')
+    fireEvent.click(b)
+    expect(showRecord).toHaveBeenCalledWith(CARD.id)
+    expect(press).not.toHaveBeenCalled()
+  })
+  it.each(['card', 'show', null] as const)('the panel routes through show for a reach of %s when placeable', async (reach) => {
+    vi.mocked(recordReach).mockReturnValue(reach)
+    const b = panel(withFinding(F)).querySelector<HTMLButtonElement>(`[data-finding-figure="${CARD.id}"]`)!
+    expect(b.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(2)
+    expect(b.lastElementChild?.querySelector('svg')).toHaveAttribute('width', '14')
+    expect(await tipOf(b)).toBe(`${FINDING_FIGURE}: ${CARD.heading}`)
+    fireEvent.click(b, { detail: 1 })
+    expect(vi.mocked(showRecord).mock.calls).toEqual(reach === null ? [] : [[CARD.id]])
+    expect(press).not.toHaveBeenCalled()
   })
   it('FL4 needs is drawn only when not null; a figure that is no card draws no button', () => {
     const on = (v: View) => [question(noResult(v), 'simple').querySelectorAll('[data-view="run.finding.needs"]').length, document.querySelectorAll('[data-finding-figure]').length]
@@ -144,6 +168,10 @@ describe('the one finding line', () => {
     expect(on(withFinding({ ...F, needs: null, figure: null }))).toEqual([0, 0])
     cleanup()
     expect(on(withFinding({ ...F, figure: 'no_such_card' }))).toEqual([1, 0])
+    cleanup()
+    const p = panel(withFinding({ ...F, figure: null }))
+    expect(lines(p)).toHaveLength(1)
+    expect(p.querySelector('[data-finding-figure]')).toBeNull()
   })
   it('FL5 CONTRAST: no field (absent, null or empty text) draws nothing in either place, and the question card is as it was', () => {
     const before = question(served, 'simple').innerHTML
