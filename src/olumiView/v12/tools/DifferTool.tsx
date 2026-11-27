@@ -79,7 +79,7 @@ function RevealedTool({ sid, view, heading, differences }: { sid: string; view: 
                 onClick={() => useDifferSelection.getState().choose(sid, id)}
                 className={`${typography.viewPanelBody} ${FOCUS} flex w-full items-start gap-1.5 rounded-sm border border-transparent px-2 py-1 text-left text-text-header hover:bg-panel-hover aria-pressed:border-panel-border aria-pressed:bg-panel-hover`}>
                 <DifferenceMark model={view.model} difference={d} />
-                <span className="grid min-w-0 gap-0.5 break-words">
+                <span className="grid min-w-0 gap-1 break-words">
                   <span>{d.label}</span>
                   {d.goal_label && <span className={`${typography.viewPanelMeta} text-text-light`}>{d.goal_label}</span>}
                   {showHolders && <span id={holdersId} className={`${typography.viewPanelMeta} flex flex-wrap gap-1 text-text-light`}>
