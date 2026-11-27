@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { View } from '../client'
 import { causalPlaces, CARD_WIDTH, QUESTION, questionPlace } from '../layout'
-import { CORE_LANE_FIT_FLOOR, productFitFloor, READABLE_WHOLE_ZOOM, readableFirstViewport, WHOLE_FIT_ZOOM } from '../camera'
+import { CORE_LANE_FIT_FLOOR, fitStep, productFitFloor, READABLE_WHOLE_ZOOM, readableFirstViewport, wholeAtTopViewport, WHOLE_FIT_ZOOM } from '../camera'
 import { paddingToInsets, topAnchoredViewportWhenClamped } from '../../canvas/utils/cameraComfort'
 import { viewportCentredInFreePane } from '../../canvas/utils/fitIntoFreePane'
 import { LABEL_LEGIBLE_ZOOM } from '../../canvas/utils/zoomLegibility'
@@ -133,5 +133,42 @@ describe('J1 step 2: a board that fits whole is framed from the top of the free 
     expect(v.zoom).toBeCloseTo((704 - 68 - 26) / 800)
     expect(v.y).toBe(68)
     expect(wholeAtTopViewport({ ...bookshop, width: 100, height: 100 }, pane, insets).zoom).toBe(1)
+  })
+})
+describe('the Fit zoom step', () => {
+  const pane = { width: 980, height: 900 }
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 }
+  const frameZoom = (height: number) => wholeAtTopViewport({ x: 0, y: 0, width: 1000, height }, pane, insets).zoom
+
+  it('keeps the 985px landing boxes inside when the next candidate would zoom back in', () => {
+    const first = fitStep(frameZoom(980), 1, 0)
+    expect(first.zoom).toBeCloseTo(0.9184)
+    expect(first.zoom).toBeGreaterThan(READABLE_WHOLE_ZOOM)
+    expect(frameZoom(985)).toBeLessThan(READABLE_WHOLE_ZOOM)
+    // The old readable fallback (width alone) would return to 0.98 here.
+    expect(frameZoom(900)).toBe(0.98)
+    const second = fitStep(frameZoom(985), first.zoom, 1)
+    expect(second.done).toBe(false)
+    expect(second.zoom).toBeLessThan(first.zoom)
+    expect(fitStep(frameZoom(985), second.zoom, 2)).toEqual({ zoom: second.zoom, done: true })
+    expect(fitStep(frameZoom(980), second.zoom, 2)).toEqual({ zoom: second.zoom, done: true })
+    expect(985 * second.zoom).toBeLessThanOrEqual(pane.height)
+  })
+
+  it('moves once when the measured height is unchanged', () => {
+    const zoom = frameZoom(980)
+    expect(fitStep(zoom, 1, 0)).toEqual({ zoom, done: false })
+    expect(fitStep(zoom, zoom, 1)).toEqual({ zoom, done: true })
+  })
+
+  it('holds the fourth landing even if another smaller zoom is proposed', () => {
+    let landed = 1
+    for (let moves = 0; moves < 4; moves++) {
+      const step = fitStep(landed - 0.1, landed, moves)
+      expect(step.done).toBe(false)
+      expect(step.zoom).toBeLessThan(landed)
+      landed = step.zoom
+    }
+    expect(fitStep(landed - 0.1, landed, 4)).toEqual({ zoom: landed, done: true })
   })
 })

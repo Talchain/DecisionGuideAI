@@ -355,6 +355,72 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     expect(harness.moves).toEqual([expected])
   })
 
+  it.each(['cold open', 'unsettled direct Fit', 'settled direct Fit', 'zoom out then Fit'])(
+    'uses settled landing boxes when Detailed cards grow after %s', async (entry) => {
+      setLevel('working')
+      // Give this synthetic board its own causal cache key.
+      act(() => useLayoutStore.setState({ nodeSpacing: spacing + 2 }))
+      const firstZoom = 0.92
+      const oldHeight = 100, landingHeight = 116
+      const foot = () => {
+        const insets = paddingToInsets(computeFitPadding())
+        return (pane.height - frameTop(insets.top) - Math.max(insets.bottom, FOOT_GUTTER)) / firstZoom - oldHeight
+      }
+      heightOf = (node) => node.dataset.id === aim && harness.viewportZoom < 0.99 ? landingHeight : oldHeight
+      let releaseOpening!: () => void
+      const openingReady = new Promise<void>((resolve) => { releaseOpening = resolve })
+      harness.layout = async () => { await openingReady; return positions(foot()) }
+      mount(foot(), entry === 'unsettled direct Fit' ? oldHeight - 10 : oldHeight)
+      await act(async () => releaseOpening())
+      if (entry === 'unsettled direct Fit') {
+        fireEvent.click(fitButton())
+        await tick(5)
+        expect(harness.moves).toEqual([])
+        act(() => ids.forEach(report))
+      } else if (entry !== 'cold open') {
+        // Take control before automatic framing so direct Fit starts on a settled full face.
+        fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+        await tick(12)
+        expect(harness.settled!.read()).not.toBeNull()
+        if (entry === 'zoom out then Fit') {
+          const zoomOut = screen.getByRole('button', { name: 'Zoom out' })
+          fireEvent.click(zoomOut)
+          fireEvent.click(zoomOut)
+          await tick(8)
+          act(() => ids.forEach(report))
+          await tick(8)
+          expect(harness.viewportZoom).toBeLessThan(READABLE_WHOLE_ZOOM)
+        }
+        fireEvent.click(fitButton())
+        if (entry === 'zoom out then Fit') {
+          await tick(8)
+          expect(harness.moves.map((move) => move.zoom)).toEqual([1])
+          act(() => ids.forEach(report))
+        }
+      }
+
+      await tick(12)
+      expect(harness.moves.at(-1)?.zoom).toBeCloseTo(firstZoom)
+      expect(harness.settled!.read()).toBeNull()
+      act(() => ids.forEach(report))
+      await tick(12)
+      expect(harness.moves.at(-1)!.zoom).toBeLessThan(READABLE_WHOLE_ZOOM)
+      act(() => ids.forEach(report))
+      await tick(12)
+
+      const landed = harness.moves.at(-1)!
+      const snapshot = harness.settled!.read()!
+      const finalAim = snapshot.nodes.find((node) => node.id === aim)!
+      expect(finalAim.measured?.height).toBe(landingHeight)
+      const expectedZoom = (pane.height - snapshot.insets.top - snapshot.insets.bottom) / (finalAim.position.y + landingHeight)
+      expect(landed.zoom).toBeCloseTo(expectedZoom, 8)
+      expect(landed.y + (finalAim.position.y + landingHeight) * landed.zoom).toBeCloseTo(pane.height - snapshot.insets.bottom, 8)
+      const zooms = [...new Set(harness.moves.map((move) => move.zoom))]
+      expect(zooms).toHaveLength(entry === 'zoom out then Fit' ? 3 : 2)
+      expect(zooms).toEqual([...zooms].sort((a, b) => b - a))
+    },
+  )
+
   it('fits a narrow rightmost Detailed card to its measured width', async () => {
     setLevel('working')
     act(() => useLayoutStore.setState({ nodeSpacing: spacing + 1 }))
@@ -516,7 +582,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     fireEvent.click(fitButton())
     await tick(12)
     expect(failedLayout).toHaveBeenCalledTimes(2)
-    expect(wait).toHaveBeenCalledTimes(1)
+    expect(wait).toHaveBeenCalledTimes(succeeds ? 2 : 1)
     if (succeeds) {
       expect(resolved).toHaveBeenCalledWith(expect.objectContaining({ nodes: expect.any(Array) }))
       expect(harness.moves).toHaveLength(1)

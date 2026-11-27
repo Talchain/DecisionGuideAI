@@ -515,6 +515,7 @@ export function useViewCanvas(on: boolean, reduced = false, restoreRetry = 0): v
 
 export type LayoutSettled = Readonly<{
   version: number
+  zoom: number
   far: boolean
   nodes: readonly Node[]
   pane: Readonly<{ width: number; height: number }>
@@ -597,16 +598,16 @@ export function useLayoutSettled(on: boolean) {
         } else if (visible) return null
         const measuredWidth = measuredOnFace(node, job.inputs[7])?.width
         const boxWidth = job.inputs[7].startsWith('detailed') && measuredWidth ? Math.min(measuredWidth, size.width) : size.width
-        boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { width: boxWidth, height: size.height } })
+        boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { width: boxWidth, height: domHeight || size.height } })
       }
-      const key = JSON.stringify([far, width, height, insets, boxes.map((n) => [n.id, n.position, n.measured])])
+      const key = JSON.stringify([zoom, far, width, height, insets, boxes.map((n) => [n.id, n.position, n.measured])])
       if (job !== certified || key !== geometry) {
         certified = job
         geometry = key
         version += 1
         settled = null
       }
-      return settled ??= { version, far, nodes: boxes, pane: { width, height }, insets }
+      return settled ??= { version, zoom, far, nodes: boxes, pane: { width, height }, insets }
     }
 
     const wait = (signal: AbortSignal): Promise<LayoutSettled | null> => new Promise((resolve) => {

@@ -35,6 +35,15 @@ export const WHOLE_FIT_ZOOM = READABLE_WHOLE_ZOOM
 
 type Rect = { x: number; y: number; width: number; height: number }
 type Insets = { top: number; right: number; bottom: number; left: number }
+
+const MAX_FIT_MOVES = 4
+const FIT_ZOOM_EPSILON = 0.00001
+
+/** After the first move, each settled measurement can only lower the zoom. */
+export function fitStep(candidate: number, landed: number, moves: number): { zoom: number; done: boolean } {
+  const done = moves >= MAX_FIT_MOVES || (moves > 0 && candidate >= landed - FIT_ZOOM_EPSILON)
+  return { zoom: done ? landed : candidate, done }
+}
 /** Zoom and translation come from a single face's settled bounds. Null requests the far face. */
 export function simpleFrameFor(bounds: Rect, pane: { width: number; height: number }, insets: Insets, far: boolean) {
   // Inside the restore boundary, a seeded far face keeps its short boxes.

@@ -33,7 +33,7 @@ import { paddingToInsets } from '../canvas/utils/cameraComfort'
 import { focusedCardOf, focusedLinkOf, placeViewCards, useViewFocusCard, useViewFocusLink, useViewHover, GROUP_LINK, ROOT_LINK, VIEW_CARD, VIEW_LINK, VIEW_QUESTION, useLayoutSettled, viewLaying } from './canvas'
 import { GroupLinkEdge } from './v12/bands/GroupLinkEdge'
 import { drawKindOf, drawnModelOf } from './layout'
-import { boardKeyOf, CORE_LANE_FIT_FLOOR, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, MIN_CARD_TEXT_PX, reducedFaceSize, simpleFrameFor, wholeAtTopViewport } from './camera'
+import { boardKeyOf, CORE_LANE_FIT_FLOOR, fitStep, SIMPLE_FIT_FLOOR, openBadgesKeyOf, NOTICE_CLEAR_BOTTOM, READABLE_WHOLE_ZOOM, MIN_CARD_TEXT_PX, reducedFaceSize, simpleFrameFor, wholeAtTopViewport } from './camera'
 import { farTitleScale, LOD_BODY_HIDDEN_ZOOM, LOD_BODY_RESTORED_ZOOM, resolveLodRung } from '../canvas/utils/zoomLegibility'
 import { QUESTION, viewDrawnNodes } from './layout'
 import { useViewStore } from './store'
@@ -278,6 +278,8 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
     const initialZoom = initialViewport.zoom
     let restoreDetailedLayout: (() => void) | undefined
     let far = false
+    let fitMoves = 0
+    let detailedWhole: boolean | undefined
     // Hold the transform while Simple lays out each face at the current row widths.
     const probe = () => {
       lod.current.probe = far ? 'line' : initialRung === 'quiet' ? 'quiet' : 'full'
@@ -304,39 +306,58 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
           return
         }
         if (showHolds()) { releaseProbe(); far = false; continue }
-        if (simple && snapshot.far !== far) {
+        if (simple && fitMoves === 0 && snapshot.far !== far) {
           if (lod.current.probe === null) probe()
           continue
         }
+        const { zoom, pane, insets } = snapshot
+        if (lod.current.probe === null && snapshot.far !== (resolveLodRung(zoom, lod.current.previous) === 'line')) continue
         const nodes = frameNodesOf(snapshot.nodes, ideasOnly)
-        const zoom = getViewport().zoom
+        const bounds = getNodesBounds(nodes)
         const face = faceRegimeOf(zoom)
-        if (!simple && face === 'full' && snapshot.far) continue
-        const vp = simple
-          ? simpleFrameFor(getNodesBounds(nodes), snapshot.pane, snapshot.insets, far)
-          : cameraFrame({ [face]: { zoom, nodes } }, snapshot.pane, snapshot.insets, anchor)
+        const whole = frameFor(nodes, pane, insets)
+        if (whole === null) return
+        if (!simple && face === 'full') detailedWhole ??= whole.zoom >= READABLE_WHOLE_ZOOM
+        // Once a whole Detailed frame has begun, keep fitting the whole board if
+        // its landing boxes grow across the readable threshold.
+        const candidate = simple
+          ? simpleFrameFor(bounds, pane, insets, snapshot.far) ?? (fitMoves > 0 ? whole : null)
+          : detailedWhole
+            ? restClearOfFoot(whole, nodes, pane.height, insets.top, anchor)
+            : cameraFrame({ [face]: { zoom, nodes } }, pane, insets, anchor)
         if (layout.read()?.version !== snapshot.version) continue
-        if (vp === null) {
-          if (!simple || far) return
+        if (candidate === null) {
           far = true
           probe()
           continue
         }
-        // A face change snaps so the seeded face never traverses a zoom band on the way to its landing.
-        const changesFace = far !== (initialRung === 'line')
-        const crossesBand = far !== (resolveLodRung(initialZoom, far ? 'line' : 'quiet') === 'line')
-        const duration = !framedRef.current || (simple && (changesFace || crossesBand)) ? 0 : DURATION
-        if (simple) {
-          const rung = resolveLodRung(vp.zoom, far ? 'line' : lod.current.probe ?? initialRung)
+        const { zoom: target, done } = fitStep(candidate.zoom, zoom, fitMoves)
+        const placed = target === candidate.zoom ? candidate : simple
+          ? wholeAtTopViewport(bounds, pane, insets, target, target)
+          : atZoom(nodes, pane, insets, target)
+        if (placed === null) return
+        const vp = !simple && placed !== candidate
+          ? restClearOfFoot(placed, nodes, pane.height, insets.top, anchor)
+          : placed
+        const currentViewport = getViewport()
+        if (done) {
+          // A settled layout can change placement even when its zoom already fits.
+          if (vp.x !== currentViewport.x || vp.y !== currentViewport.y) await setViewport(vp, { duration: 0 })
+          reveal()
+          return
+        }
+        // A face change snaps so an animated move does not lay out intermediate faces.
+        const rung = resolveLodRung(target, lod.current.probe ?? lod.current.previous)
+        const changesFace = face !== faceRegimeOf(target) || (rung === 'line') !== snapshot.far
+        const duration = fitMoves === 0 && framedRef.current && !changesFace && lod.current.probe === null ? DURATION : 0
+        if (lod.current.probe !== null) {
           lod.current = { previous: rung, probe: null }
           useCanvasStore.getState().setLodRung(rung)
         }
-        const probing = !simple && face !== 'full'
-        if (probing) restoreDetailedLayout ??= layout.prepareRestore(initialZoom)
-        const moving = setViewport(vp, { duration: probing ? 0 : duration })
-        reveal()
-        if (!probing) return
-        await moving
+        if (!simple && detailedWhole === undefined) restoreDetailedLayout ??= layout.prepareRestore(initialZoom)
+        else restoreDetailedLayout = undefined
+        fitMoves += 1
+        await setViewport(vp, { duration })
       }
     } finally {
       signal.removeEventListener('abort', releaseProbe)
