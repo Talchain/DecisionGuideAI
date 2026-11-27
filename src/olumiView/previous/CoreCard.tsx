@@ -31,7 +31,9 @@ import { WHAT_IF_COPY } from '../../canvas/artefacts/whatIfCopy'
 import { ViewDriverBadge } from '../v10'
 import { CardEvidenceMarks, CardViewChips, CardViewInitials, OptionMarkLine } from '../RevealMarks'
 import { AimResults, AimRows, BadgeCount, DecideBy, hasSpread, RowBelow, SaidOnce, useWithheldRing, WithheldLead } from '../v12/detailed/marks'
-import { Rail, Strips } from '../v12/detailed/charts'
+import { Rail } from '../v12/detailed/charts'
+import { BandsChart } from '../v12/scale/OptionBand'
+import { visualOfCard, type VisualV3 } from '../visual'
 import { saidOnceOf, saysNoChanceOnce, sharedRowStates } from '../v12/detailed/said'
 import { StrategyChips } from '../strategy/StrategyChips'
 import { FigureEdit, HeldEditOffer, canOfferFigureEdit, heldEditProposal, useOpenFigureEdits } from '../FigureEdit'
@@ -253,11 +255,12 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
     return next !== null && next.at === id ? next.note.title ?? '' : null
   })
   // The card is the one the node carries (canvas.ts drawViewCanvas: core's own card, never a copy), else the View's: one snapshot with the node.
-  const carried = (props.data as { card?: ViewCard }).card
+  const { card: carried, bandVisual } = props.data as { card?: ViewCard; bandVisual?: VisualV3 }
   const card = id === QUESTION ? null : carried ?? model?.cards.find((c) => c.id === id) ?? null
   // Hosted nodes carry Core's record, so the layout can supply the same kind to every face.
   const hosted = (props.data as { kind?: string }).kind === undefined
   const viewNow = useViewStore((s) => s.view)
+  const bands = carried === undefined && card !== null ? visualOfCard(model, card, viewNow) : bandVisual ?? null
   // The face uses the card's kind and calculation state to decide which details to show.
   const shape = useMemo(() => (card === null ? null : cardKindOf(card, model, viewNow)), [card, model, viewNow])
   // The lane uses its layout kind for BaseNode's behaviour, the connector glyph at every zoom and the frame hue.
@@ -394,7 +397,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
   //    it unless every option says the same one, which the question's rail says once), a fixed result said as fixed, or no chance yet (core's line only, no empty track: R6's line, said once where every option says it);
   //    its other aims are compact marker rows (v12/detailed/marks.tsx AimRows);
   //  - a figure: Olumi's estimate underlined in Olumi's blue with Olumi's mark, the person's solid, ✎ on its line; the options' values as
-  //    letter strips (v12/detailed/charts.tsx Strips);
+  //    option bands (BandsChart);
   //  - an aim or limit: its target with Olumi's mark where Olumi proposed it;
   //  - anything else: core's line, whole.
   const said = useMemo(() => saidOnceOf(model), [model])
@@ -558,7 +561,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           {restsOn === null ? null : <Hover focusable={false} words={restsOn.olumi && card.olumi ? card.olumi.title : lensWords?.hint.rests_on || undefined} className={`inline-flex h-[18px] min-w-[18px] items-center justify-center self-start whitespace-nowrap rounded-full border bg-panel ${olumiLook ? 'ok-card-badge-inset' : 'px-1'} tabular-nums ${typography.viewLabel} ${restsInk}`} data-rests-on={restsOn.n} data-view-words={lensWords === null ? undefined : 'lens_words.label.rests_on'}>{lensWords === null ? restsOn.n : `${lensWords.label.rests_on} ${restsOn.n}`}</Hover>}
           {/* What would change's label: the face's first line, as Rests on's number is (the lenses are exclusive), read whole (lead's 1232 look at 38ebeed7). */}
           {driverMark}
-          {simple ? <SimpleFace card={card} model={model} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} extra={simpleFootExtra} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
+          {simple ? <SimpleFace card={card} model={model} bands={bands} olumiLook={olumiLook} noted={notedLabel !== null} notedWords={notedLabel} kind={shape ?? undefined} extra={simpleFootExtra} below={notesOpenOn(model) || people.length > 1 ? <>{notesOpenOn(model) ? <RestsOn card={card} open /> : null}<CardSplit card={card} people={people} /></> : null}
             trying={tryOn?.kind !== 'tried' ? undefined : (
               // What if, in Simple: the figure tried, as typed, and the saved figure named beside it (Codex 006); nothing is saved.
               <div className={`nodrag grid min-w-0 flex-1 ${stack}`} data-card-try={id} data-simple-try={id}>
@@ -583,9 +586,7 @@ function CoreCardImpl(props: NodeProps): JSX.Element {
           <SaidOnce lines={said.aims.get(id) ?? []} at={id} />
           {reading === null ? null : <Hover as="p" focusable={false} className={`ok-qual ${reading.source === 'proposal' ? 'ok-by-olumi' : ''}`} words={reading.text} data-reading={reading.source} data-view={`${id}.reading`}>{reading.text}</Hover>}
           {(card.values?.length ?? 0) > 1 ? <StatedFigure id={id} card={card} /> : null}
-          {/* Each option's worked-out value, by its letter on one shared axis (v12/detailed/charts.tsx); an option core could not calculate is its
-              letter, an outlined lane and core's real reason. Not while the figure waits: its face says so once. */}
-          {card.family === 'option' || card.figure?.state === 'waits' ? null : <Strips card={card} model={model} />}
+          {bands === null ? null : <BandsChart payload={bands} tier="full" />}
           {tryOn?.kind !== 'tried' ? null : (
             // TM-27: the figure tried, as the person typed it, in place on its card (core's words for the edit on hover); core's own sentence
             // when the copy could not run; and the way back, which drops the try (nothing was saved). The person's act: ink, never Olumi's blue.

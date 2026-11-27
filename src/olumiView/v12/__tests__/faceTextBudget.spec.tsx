@@ -3,6 +3,13 @@ import { readFileSync } from 'node:fs'
 import { ReactFlowProvider, type NodeProps } from '@xyflow/react'
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+
+vi.mock('../../../olumiCore/team/api', async (original) => ({
+  ...await original<typeof import('../../../olumiCore/team/api')>(),
+  call: vi.fn(async () => { throw new Error('Unexpected Core call') }),
+}))
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('Unexpected fetch') })) })
+afterEach(() => { vi.unstubAllGlobals() })
 import { useCanvasStore } from '../../../canvas/store'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { barsOf, QUESTION } from '../../layout'
@@ -10,7 +17,7 @@ import { CoreCard } from '../../previous/CoreCard'
 import { useViewStore } from '../../store'
 import { sharedNoChanceOf } from '../cards/words'
 import { figureRange } from '../contract'
-import { bandRowsOf } from '../SimpleFace'
+import { visualOfCard } from '../../visual'
 import { levelOf, setDefaultLevel } from '../simpleStore'
 import budget from './faceTextBudget.json'
 
@@ -82,7 +89,7 @@ function faceOf(card: ViewCard, model: ViewModel): Face | null {
     if (card.bound != null) return { family: 'aim', row: card.bound.measured ? 'bound' : 'notcounted' }
   }
   if (card.family === 'quantity') {
-    if (bandRowsOf(card, model).length > 0) return { family: 'quantity', row: 'bands' }
+    if (visualOfCard(model, card, null) !== null) return { family: 'quantity', row: 'bands' }
     const figure = card.figure
     if (figure == null) return null
     if (figure.state === 'waits') return { family: 'quantity', row: 'waits' }
@@ -134,7 +141,7 @@ function variantCases(): CardCase[] {
 function drawCard({ view, id, card }: CardCase) {
   useViewStore.setState({ view })
   const props = {
-    id, type: card === undefined ? 'viewQuestion' : 'viewCard', data: card === undefined ? {} : { card },
+    id, type: card === undefined ? 'viewQuestion' : 'viewCard', data: card === undefined ? {} : { card, bandVisual: visualOfCard(view.model, card, view) },
     selected: false, dragging: false, zIndex: 0, isConnectable: false,
     positionAbsoluteX: 0, positionAbsoluteY: 0, selectable: true, deletable: false, draggable: false,
   } as NodeProps
@@ -211,7 +218,7 @@ const witnesses: Record<Face['row'], string> = {
   shared: '[data-simple-no-chance-once] [data-face-mark="chance"]',
   value: '[data-simple-face="figure"]',
   range: '[data-testid="range-bar"] [data-testid="range-point"]',
-  bands: '[data-simple-band]',
+  bands: '[data-form="CH-bands"]',
   unsized: '[data-unsized] [data-face-mark="track"]',
   waits: '[data-simple-pending] [data-face-mark="track"]',
   bound: '.ok-bound',
