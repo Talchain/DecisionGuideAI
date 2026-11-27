@@ -1,26 +1,12 @@
-/**
- * THE DETAILED FACE'S TWO CHARTS, each a fact said once with the options named by their letters (the option's name is said on its own card):
- *  - Rail (the question card): every option's chance on ONE 0..100% scale, a dot at core's served chance and core's range as a whisker, core's
- *    chance words at the right, WHOLE: the number and, after it, the row's own condition ("60% chance, if capacity is available"). Only where every
- *    option with a result is a chance carrying the same condition (said.ts sharedQualifier) is it drawn once under the rail, the rows keeping the number alone.
- *    An option with no chance yet is its letter and core's words, with no lane (no empty track at rest): never a zero, never a run-on of names.
- *    No option with a chance: no rail (nothing to compare).
- *  - Strips (a figure worked out per option): each option's middle band on one true axis shared by the rows (SimpleFace bandRowsOf, the same
- *    numbers Simple draws), its median tick, core's value words at the right; an option core could not calculate is its letter and core's
- *    reason, with no lane; the aim's own value a gold tick where this card is what the aim measures.
- * Read only from the View (railRows.ts, SimpleFace.tsx, contract.ts); nothing is worked out, rounded or reworded here. Look: `.ok-dt-*`.
- */
+/** The question card’s chance rail, with Core’s results and withheld reasons. */
 import type { CSSProperties } from 'react'
 import { useMemo } from 'react'
-import type { ViewCard, ViewModel } from '../../client'
 import { useViewStore } from '../../store'
 import { Hover, HoverButton } from '../../look/Hover'
 import { chanceRailOf, type RailChallenge } from '../../railRows'
 import { toggleBadge } from '../../Badge'
 import { optionLetters } from '../cards/letters'
 import { chanceParts, fixedParts } from '../cards/words'
-import { bandAxisOf, bandRowsOf } from '../SimpleFace'
-import { withheldValues } from '../contract'
 
 /** The longest result words the rail's narrow words column holds on one line ('about 23% chance'); longer words widen the column. */
 const RAIL_WORDS_NARROW = 20
@@ -74,38 +60,6 @@ export function Rail({ qualifier }: { qualifier: string | null }): JSX.Element |
         )
       })}
       {qualifier === null ? null : <Hover as="p" className="ok-dt-said-line" data-shared-qualifier="" words={qualifier}>{qualifier}</Hover>}
-    </div>
-  )
-}
-
-export function Strips({ card, model }: { card: ViewCard; model: ViewModel | null }): JSX.Element | null {
-  const rows = bandRowsOf(card, model), axis = bandAxisOf(card, model), held = withheldValues(card)
-  if (rows.length === 0 && held.length === 0) return null
-  const letters = optionLetters(model)
-  const headingOf = (id: string) => model?.cards.find((c) => c.id === id)?.heading ?? ''
-  return (
-    <div className="ok-dt-strips" data-detailed-strips={card.id}>
-      {rows.map((b) => (
-        <Hover as="div" key={b.option} className="ok-dt-strip" words={`${b.heading} · ${b.text}`} data-strip={b.option} data-core-value={`${card.id}.${b.option}`}>
-          <span className="ok-letter">{b.letter}</span>
-          <span className="ok-dt-strip-lane">
-            {b.hi > b.lo ? <i className={`ok-dt-strip-band ${b.olumi ? 'ok-dt-olumi-band' : ''}`} style={{ '--chart-x': `${b.lo}%`, '--chart-width': `${b.hi - b.lo}%` } as CSSProperties} data-band-from={b.lo.toFixed(1)} data-band-to={b.hi.toFixed(1)} /> : null}
-            {b.mid === null ? null : <i className="ok-dt-strip-mid" style={{ '--chart-x': `${b.mid}%` } as CSSProperties} />}
-            {axis?.goalAt == null ? null : <i className="ok-dt-goal-tick" style={{ '--chart-x': `${axis.goalAt}%` } as CSSProperties} data-at={axis.goal ?? undefined} />}
-          </span>
-          <span className="ok-dt-strip-val">{b.text}{(() => {
-            // Core's mark on a value a held proposal would change (its glyph, its words the name), by the value's own place in `values`.
-            const i = (card.values ?? []).findIndex((v) => v.option === b.option), ia = i < 0 ? null : card.values![i]!.if_approved
-            return ia == null ? null : <Hover className="ok-dt-olumi ok-dt-ia" role="img" aria-label={ia.title} words={ia.title} data-view={`${card.id}.values.${i}.if_approved.glyph`}>{ia.glyph}</Hover>
-          })()}</span>
-        </Hover>
-      ))}
-      {held.map((w) => (
-        <Hover as="div" key={w.option} className="ok-dt-strip" words={[headingOf(w.option), w.text].filter((x) => x !== '').join(' · ')} data-strip-withheld={w.option}>
-          <span className="ok-letter">{letterOf(letters, w.option)}</span>
-          <span className="ok-dt-strip-val ok-dt-strip-none ok-dt-quiet">{w.text}</span>
-        </Hover>
-      ))}
     </div>
   )
 }

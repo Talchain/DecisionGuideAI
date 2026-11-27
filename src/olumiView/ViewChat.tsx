@@ -63,6 +63,8 @@ import { EXPECTATION_WORDS } from './v12/learning/ExpectationEntry'
 import { answerQuestion } from './reasoning/answer'
 import { approachOf, approachesOf, floorEntryOf, ideaTextOf, keptIdeasOf, isCoachedReply } from './v12/ideas'
 import { aboutCardsOf } from './v12/chat/AboutChip'
+import { visualOfAnswer } from './visual'
+import { BandsChart } from './v12/scale/OptionBand'
 import { ReplyFacts } from './v12/chat/ReplyFacts'
 import { NotHeldItems, NotHeldLine, notHeldOf } from './v12/chat/NotHeld'
 import { Hover, HoverButton } from './look/Hover'
@@ -342,6 +344,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
   // The reply's short lead (core `answer.lead`, Paul 11:02Z): drawn first, and the whole answer as today (on a first draft, the kept first answer,
   // Olumi's initial reply and the check) folded under ONE "Full answer". No lead, or one that says all of it: drawn exactly as before.
   const lead = drawnLeadOf(t, floor)
+  const visual = visualOfAnswer(t.answer)
   const history = t.answer?.history ?? null
   // V12 Create: an Olumi method reply (the person's turn is one of core's menu questions) can be kept as an idea, in Olumi's own words.
   // J1 (Codex 008/009a): any Olumi reply whose own list lines separate its routes offers each route to keep, before or after a model is approved;
@@ -414,6 +417,7 @@ function Turn({ t, at, latest = false, moves = false, primary = false, me, floor
         // Codex UI reviewer P1 (shared note 15:35:01Z, DL): a reply with no lead is drawn whole, never folded; only a valid lead's "Full answer" folds.
         ? <div className="space-y-3" data-reply-lead={at}><Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} /></div>
         : <Blocks parts={t.answer.answer} at={`${at}.answer.answer`} item={keepEach} lines={firstAnswerOf(t.answer)} lead={latest} />}
+      {visual === null ? null : <BandsChart payload={visual} />}
       {/* v10: the cards this next step is about (core's `next.about`) are lit while it is pointed at; nothing else changes. */}
       {/* P2 (system spec): the reply's own next step is drawn ONCE, here, at the end of the reply; there is no second copy at the top of the panel. */}
       <p tabIndex={about.length ? 0 : undefined} data-testid="view-chat-next" onMouseEnter={() => ring(true)}

@@ -103,7 +103,6 @@ body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) 
 }
 .olumi-look .ok-card-gap-stack { gap: var(--ok-gap-stack); }
 .olumi-look .ok-card-gap-chance { column-gap: var(--ok-gap-stack); row-gap: var(--ok-gap-tight); }
-.olumi-look .ok-card-band-gap { gap: calc(var(--ok-gap-tight) / 4); }
 .olumi-look .ok-card-mark-after { margin-left: var(--ok-gap-tight); }
 .olumi-look .ok-card-saved-icon { margin-right: calc(var(--ok-gap-tight) * 1.5); }
 .olumi-look .ok-card-badge-inset { padding-inline: var(--ok-gap-tight); }
@@ -471,8 +470,6 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
   text-wrap: balance;
 }
 .olumi-look .ok-withheld { display: flex; flex-direction: column; gap: var(--ok-gap-tight); min-width: 0; }
-/* The row is where "Why not" opens from (its reason drops under the whole row, from the card's left, not from the press at its right end). */
-.olumi-look .ok-withheld-row { position: relative; display: flex; align-items: center; gap: var(--ok-gap-stack); min-width: 0; }
 /* Core's words for a gap, whole and wrapped (R6: no word is cut); the long reason is the card's hover. */
 .olumi-look .ok-quiet { margin: 0; color: var(--text-light); overflow-wrap: break-word; }
 .olumi-look .ok-not-held-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ok-gap-tight); }
@@ -495,10 +492,6 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-more:hover, .olumi-look .ok-more:focus-visible, .olumi-look .ok-more[aria-expanded='true'] { color: var(--text-header); }
 /* "Olumi has a question about this": Olumi's mark, Olumi's blue. The ring is the mark's own (OlumiAiIcon draws it): the wrapper adds no second border. */
 .olumi-look .ok-asks { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; width: 18px; height: 18px; color: var(--info); }
-/* Simple's figure colours by whose it is (Olumi's blue, the quiet ink) and an aim's bound in the goal's colour: classes from tokens, never an inline style. */
-.ok-simple-goal-tick { left: var(--chart-x); border-color: var(--goal); }
-.ok-simple-band { left: var(--chart-x); width: var(--chart-width); background: color-mix(in srgb, var(--text-header) 75%, transparent); }
-.ok-simple-band-olumi { background: color-mix(in srgb, var(--semantic-info) 75%, transparent); }
 .ok-face-mark {
   display: block;
   box-sizing: border-box;
@@ -524,8 +517,6 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
   border-width: var(--ok-pill-border-width);
   border-radius: var(--radius-pill);
 }
-.ok-simple-track { background: var(--border-default); }
-.ok-simple-mid { left: var(--chart-x); }
 .olumi-look .ok-tone-info { color: var(--semantic-info); }
 .olumi-look .ok-tone-ink { color: var(--text-header); }
 .olumi-look .ok-tone-goal { color: var(--edge-positive); }
@@ -609,7 +600,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
   display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(0, 1fr) calc(120px * var(--o-s)); align-items: center;
   column-gap: var(--ok-gap-stack); font-size: calc(12px * var(--o-s)); line-height: 1.4;
 }
-.olumi-look .ok-dt-rail .ok-letter, .olumi-look .ok-dt-strips .ok-letter, .olumi-look .ok-dt-aims .ok-letter { margin-right: 0; }
+.olumi-look .ok-dt-rail .ok-letter, .olumi-look .ok-dt-aims .ok-letter { margin-right: 0; }
 .olumi-look .ok-dt-rail-axis { position: absolute; top: 0; bottom: 0; left: calc(20px * var(--o-s)); right: calc(128px * var(--o-s)); pointer-events: none; }
 .olumi-look .ok-dt-rail-axis > i { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--border-default); }
 .olumi-look .ok-dt-rail-axis > i:nth-child(1) { left: 0; }
@@ -630,22 +621,8 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-dt-rail-stack .ok-dt-rail-val { grid-column: 2 / -1; grid-row: 2; }
 /* Core's words on a rail row are never cut: they wrap inside their column (no nowrap, no ellipsis, no clipping box; lookRecipes.spec). */
 .olumi-look .ok-dt-rail-val { min-width: 0; font-weight: 500; color: var(--text-header); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
-/* A figure worked out per option: each option's band by letter on one axis, its median tick, core's words at the right. */
-.olumi-look .ok-dt-strips { display: grid; gap: var(--ok-gap-stack); margin-top: var(--ok-gap-tight); }
-.olumi-look .ok-dt-strip {
-  display: grid; grid-template-columns: calc(12px * var(--o-s)) minmax(calc(64px * var(--o-s)), 1fr) minmax(0, 55%); align-items: center;
-  column-gap: var(--ok-gap-stack); font-size: calc(12px * var(--o-s)); line-height: 1.4;
-}
-.olumi-look .ok-dt-strip-lane { position: relative; display: block; height: calc(8px * var(--o-s)); border-radius: 999px; background: var(--border-default); }
-.olumi-look .ok-dt-strip-band { position: absolute; left: var(--chart-x); width: var(--chart-width); top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--text-header) 45%, transparent); }
-.olumi-look .ok-dt-olumi-band { background: color-mix(in srgb, var(--info) 60%, transparent); }
-.olumi-look .ok-dt-strip-mid { position: absolute; left: var(--chart-x); top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--text-header); }
-.olumi-look .ok-dt-goal-tick { position: absolute; left: var(--chart-x); top: -3px; bottom: -3px; width: 0; border-left: 2px solid var(--goal); }
-.olumi-look .ok-dt-strip-val { min-width: 0; color: var(--text-body); font-variant-numeric: tabular-nums; overflow-wrap: break-word; }
 .olumi-look .ok-dt-rail-val.ok-dt-rail-none { grid-column: 2 / -1; font-weight: 400; color: var(--text-light); white-space: normal; }
-.olumi-look .ok-dt-strip-none { grid-column: 2 / -1; }
 .olumi-look .ok-dt-quiet { color: var(--text-light); white-space: normal; }
-.olumi-look .ok-dt-ia { margin-left: var(--ok-gap-tight); }
 .olumi-look .ok-dt-rail-val .ok-rail-challenge { margin-left: var(--ok-gap-tight); }
 /* A row's own condition after its number (core's words, whole): the quiet ink at the body weight, so the number still leads. */
 .olumi-look .ok-dt-rail-val .ok-dt-quiet { font-weight: 400; }
@@ -774,7 +751,7 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }
 .ok-check-figure-mark { color: var(--info); }
 .ok-scale-range { margin: var(--space-1) 0; }
-.ok-scale-share-olumi { fill: var(--info); }
+.ok-scale-share-olumi, .ok-scale-olumi-fill { fill: var(--info); }
 .olumi-look .ok-card-frame .ok-scale-range { margin-block: var(--ok-gap-tight); }
 .ok-scale-track { position: relative; height: 16px; background: var(--border-default); border-radius: calc(var(--radius-control) / 2); }
 .ok-scale-range-band, .ok-scale-conditional-span, .ok-scale-outcome-band, .ok-scale-untested {

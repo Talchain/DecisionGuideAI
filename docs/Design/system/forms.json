@@ -28,7 +28,8 @@
     {
       "id": "CH-bands",
       "component": "src/olumiView/v12/scale/OptionBand.tsx",
-      "status": "card-face bands still inline, to converge"
+      "renderer": "BandsChart",
+      "status": "built"
     },
     {
       "id": "CH-rests",
@@ -140,7 +141,6 @@
     {"file": "src/olumiCore/team/CardDispute.tsx", "replaced_by": "CH-differ"},
     {"file": "src/olumiView/look/olumiLook.css", "replaced_by": null},
     {"file": "src/olumiView/previous/CoreCard.tsx", "replaced_by": null},
-    {"file": "src/olumiView/v12/SimpleFace.tsx", "replaced_by": "CH-bands"},
     {"file": "src/olumiView/v12/bands/BandLayer.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/bands/KeyPill.tsx", "replaced_by": null},
     {"file": "src/olumiView/v12/detailed/marks.tsx", "replaced_by": "CH-chance"},
