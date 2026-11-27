@@ -58,7 +58,7 @@ const shared: View = {
 const unsized: ViewCard = { ...quantity, figure: { ...quantity.figure!, text: '', title: 'The studio has not set a class fee.' } }
 const rangeWithoutText: ViewCard = {
   ...quantity,
-  figure: { ...quantity.figure!, text: '', range: { low: 10, likely: 12, high: 14, unit: 'GBP/class' } },
+  figure: { ...quantity.figure!, text: '', range: { low: 12, likely: null, high: 12, unit: 'GBP/class' } },
 }
 const waits: ViewCard = { ...quantity, figure: { ...quantity.figure!, state: 'waits', text: 'Waits on attendance.', title: 'The fee depends on attendance.' } }
 const notcounted: ViewCard = { ...aim, bound: { ...aim.bound!, measured: false, text: 'The target is not counted yet.' } }
@@ -116,7 +116,7 @@ const variants: { fixture: string; view: View; card: ViewCard; expectedRow: Face
   { fixture: 'studio withheld', view: withCards(studio, withheld), card: withheld, expectedRow: 'noresult' },
   { fixture: 'studio shared blocker', view: shared, card: aim, expectedRow: 'shared' },
   { fixture: 'studio unsized fee', view: withCards(studio, unsized), card: unsized, expectedRow: 'unsized' },
-  { fixture: 'studio fee range without text', view: withCards(studio, rangeWithoutText), card: rangeWithoutText, expectedRow: 'range' },
+  { fixture: 'studio flat fee range without text', view: withCards(studio, rangeWithoutText), card: rangeWithoutText, expectedRow: 'range' },
   { fixture: 'studio fee waits', view: withCards(studio, waits), card: waits, expectedRow: 'waits' },
   { fixture: 'studio unmeasured bound', view: withCards(studio, notcounted), card: notcounted, expectedRow: 'notcounted' },
 ]
@@ -210,7 +210,7 @@ const witnesses: Record<Face['row'], string> = {
   noresult: '[data-simple-state] [data-face-mark="chance"]',
   shared: '[data-simple-no-chance-once] [data-face-mark="chance"]',
   value: '[data-simple-face="figure"]',
-  range: '[data-testid="range-bar"]',
+  range: '[data-testid="range-bar"] [data-testid="range-point"]',
   bands: '[data-simple-band]',
   unsized: '[data-unsized] [data-face-mark="track"]',
   waits: '[data-simple-pending] [data-face-mark="track"]',
@@ -225,7 +225,7 @@ const witnessCases: Record<Face['row'], string> = {
   noresult: 'studio withheld',
   shared: 'studio shared blocker',
   value: 'cardface studio',
-  range: 'studio fee range without text',
+  range: 'studio flat fee range without text',
   bands: 'cardface studio',
   unsized: 'studio unsized fee',
   waits: 'studio fee waits',

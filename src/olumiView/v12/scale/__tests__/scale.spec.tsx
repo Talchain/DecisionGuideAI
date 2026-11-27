@@ -27,13 +27,17 @@ describe('RangeBar', () => {
     a.unmount(); r = withRange('person'); render(<RangeBar card={r.c} view={r.mm} />)
     expect(screen.getByTestId('range-band').getAttribute('data-style')).toBe('solid')
   })
-  it('R4 (v10 review item 4) a single value draws nothing unless a deadline or tried mark needs the track; the person\'s band is a softened mid ink, solid', () => {
+  it('R4 draws one point for a flat range and preserves the older Simple look', () => {
     const { mm, c } = withRange('person')
     ;(c.figure as { range: unknown }).range = { low: 2, likely: null, high: 2, unit: 'months' }
-    const a = render(<RangeBar card={c} view={mm} />)
-    expect(a.container.firstChild, 'low equals high, no mark').toBeNull()
+    const a = render(<RangeBar card={c} view={mm} showFlat />)
+    expect(screen.getByTestId('range-bar')).toContainElement(screen.getByTestId('range-point'))
+    expect(screen.queryByTestId('range-band')).toBeNull()
+    expect(screen.queryByTestId('range-likely')).toBeNull()
+    a.rerender(<RangeBar card={c} view={mm} showFlat={false} />)
+    expect(a.container.firstChild).toBeNull()
     a.unmount()
-    render(<RangeBar card={c} view={mm} tried={3} />)
+    render(<RangeBar card={c} view={mm} tried={3} showFlat={false} />)
     expect(screen.getByTestId('range-tried'), 'CONTRAST: a tried mark keeps the track').toBeTruthy()
     cleanup()
     const w = withRange('person'), band = render(<RangeBar card={w.c} view={w.mm} />).getByTestId('range-band')

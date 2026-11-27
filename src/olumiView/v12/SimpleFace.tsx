@@ -6,6 +6,7 @@ import type { ViewCard, ViewModel, ViewRow } from '../client'
 import { typography } from '../../styles/typography'
 import { chanceForDots } from '../resultRange'
 import { ChanceDots } from './scale/ChanceDots'
+import { RangeBar } from './scale/RangeBar'
 import { FigureEdit } from '../FigureEdit'
 import { targetCardOf } from '../model/targets'
 import { barCardOf } from '../layout'
@@ -90,9 +91,6 @@ export type SimpleFaceProps = {
   readonly kind?: CardKind
   /** The card's count and disagreement marks, plus the edit control in the older look. */
   readonly extra?: ReactNode
-  /** The figure's range bar (v12/scale RangeBar), on a full-width row of its own above the foot: squeezed into the foot it was only as wide as
-   *  its labels, which then ran together ("0 months5 months", Paul's 15:00Z test). */
-  readonly scale?: ReactNode
   /** The figure tried on a copy (What if), drawn in place of the saved figure with the saved one named beside it (CoreCard). */
   readonly trying?: ReactNode
   /** A full-width row under the foot (what the card rests on, v12/cards/RestsOn): its lines wrap within the card, never run out of it. */
@@ -123,7 +121,7 @@ export function sharedResultWords(headline: NonNullable<ViewCard['headline']>): 
 
 type StateLine = { readonly text?: string; readonly title: string; readonly marks: Readonly<Record<string, string>>; readonly shape?: FaceMarkKind; readonly isValue?: true }
 
-export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, scale, trying, below }: SimpleFaceProps): JSX.Element {
+export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, kind = cardKindOf(card, model), extra, trying, below }: SimpleFaceProps): JSX.Element {
   const id = card.id
   const words = chanceWordsOf(card), h = card.family === 'option' ? card.headline ?? null : null
   const limit = card.family === 'option' ? limitLeadOf(card) : null
@@ -251,14 +249,14 @@ export function SimpleFace({ card, model, noted, notedWords, olumiLook = false, 
     }
   } else if (card.figure?.state === 'waits') {
     state = { shape: 'track', title: waitingFigureWords(card), marks: { 'data-simple-face': 'pending', 'data-simple-pending': id } }
-  } else if (figureRange(card) !== null && scale != null) {
+  } else if (figureRange(card) !== null) {
     // A figure with a range: core's own words for the figure first, at rest (UI reviewer #27, 17 Nov: testers read the axis end "50,000 GBP" as a £30,000
     // limit), coloured by whose it is as the plain figure line is; the range bar under it, its end labels the axis only. Nothing is worked out here.
     const estimate = card.olumi !== null && card.author?.by !== 'olumi', words = card.figure?.text ?? ''
     visual = (
       <Hover focusable={false} words={card.figure?.title || words || undefined} className={`flex min-w-0 basis-full flex-col ${tight}`} data-simple-scale={id}>
         {words === '' ? null : <p className={`${FIGURE} ${card.author?.by === 'olumi' || estimate ? 'ok-tone-info' : 'ok-tone-ink'} min-w-0 break-words`} data-simple-figure-text={id}>{words}</p>}
-        {scale}
+        <RangeBar card={card} view={{ model }} showFlat={olumiLook} />
       </Hover>
     )
   } else if (hasFigure) {

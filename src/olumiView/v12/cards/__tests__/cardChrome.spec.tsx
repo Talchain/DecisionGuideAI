@@ -18,7 +18,6 @@ const studio = JSON.parse(readFileSync('src/olumiView/fixtures/cardface/studio.v
 const look = readFileSync('src/olumiView/look/olumiLook.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 const chromeRules = [...look.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
   .filter(([, selector]) => selector!.trim().endsWith('.ok-card-chrome'))
-const titleReservationSelector = look.match(/([^{}]+)\{\s*padding-inline-end: calc\(var\(--ok-chrome-width\)/)![1]!.trim()
 
 const setupFixture = () => {
   const { sid, view, at } = useViewStore.getState()
@@ -66,13 +65,14 @@ function draw(id: string) {
   return { ...rendered, select: (selected: boolean) => rendered.rerender(node(selected)) }
 }
 
-it('puts the class fee pencil and person mark in the corner and omits the empty foot', () => {
+it('puts the class fee pencil and person mark in the corner without reserving title width', () => {
   const { container, getByTestId } = draw('class_fee')
-  const chrome = container.querySelector('.ok-card-chrome')!
+  const chrome = container.querySelector<HTMLElement>('.ok-card-chrome')!
   expect(chrome).toContainElement(getByTestId('view-figure-edit-class_fee'))
   expect(chrome.querySelector('[data-author-mark="person"] [data-person-mark]')).not.toBeNull()
   expect(container.querySelector('[data-simple-foot]')).toBeNull()
-  expect(getByTestId('node-header-row').firstElementChild).toBe(container.querySelector(titleReservationSelector))
+  expect(getByTestId('node-header-row')).not.toContainElement(chrome)
+  expect(look).not.toMatch(/\.ok-card-frame:has\(>\s*\.ok-card-chrome\)[^{]*\.ok-card-header-row/)
 })
 
 it('keeps Olumi authorship in the foot and puts the unsized figure pencil in the corner', () => {
@@ -84,7 +84,7 @@ it('keeps Olumi authorship in the foot and puts the unsized figure pencil in the
   expect(container.querySelector('.ok-card-chrome [data-author-mark]')).toBeNull()
 })
 
-it('gives the title the full width when an Olumi-authored card has no edit or pending proposal', () => {
+it('omits the corner slot when an Olumi-authored card has no edit or pending proposal', () => {
   const model = studio.model!
   const cards = model.cards.map((card) => card.id === 'member_mood'
     ? { ...card, figure: { ...card.figure!, edit: null } }
@@ -94,7 +94,6 @@ it('gives the title the full width when an Olumi-authored card has no edit or pe
   const { container } = draw('member_mood')
   expect(container.querySelector('[data-simple-foot] [data-author-mark="olumi"]')).not.toBeNull()
   expect(container.querySelector('.ok-card-chrome')).toBeNull()
-  expect(container.querySelector(titleReservationSelector)).toBeNull()
 })
 
 it('keeps the resting pencil in the tab order and reveals the slot on hover, focus within or selection', async () => {
@@ -114,6 +113,9 @@ it('keeps the resting pencil in the tab order and reveals the slot on hover, foc
 
   expect(appearance()).toEqual(['0', 'none'])
   expect(getComputedStyle(chrome).position).toBe('absolute')
+  const overlay = chromeRules.find(([, selector]) => selector!.trim() === '.olumi-look .ok-card-chrome')![2]
+  expect(overlay).toContain('background: var(--bg-panel);')
+  expect(overlay).toContain('padding: var(--ok-gap-tight);')
   // jsdom does not evaluate :focus-within on an ancestor. Bind its reveal
   // rule here and verify that real Tab navigation puts focus inside the node.
   const shown = chromeRules.find(([, , declarations]) => declarations!.includes('opacity: 1;'))!

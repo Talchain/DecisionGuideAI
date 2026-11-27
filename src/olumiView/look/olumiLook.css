@@ -43,25 +43,18 @@
 /* One surface at a time (Paul, 19 Nov): while a card's pop-over is pinned (LaneInspector, `data-state='pinned'`), the selected card's own action rows (the figure's pen and the hover rail of ask / more / Olumi) are not drawn beside it. */
 body:has([data-testid='lane-inspector'][data-state='pinned'][data-kind='card']) .olumi-look .react-flow__node.selected :is([data-card-action], [data-testid^='node-card-rail-']) { visibility: hidden; }
 
-.olumi-look .ok-card-frame:has(> .ok-card-chrome) {
+.olumi-look .ok-card-chrome {
   --ok-chrome-control-size: calc(24px * var(--o-s));
   --ok-chrome-mark-size: calc(12px * var(--o-s));
-  --ok-chrome-width: calc(var(--ok-chrome-control-size) + var(--ok-gap-tight) + var(--ok-chrome-mark-size));
-}
-.olumi-look .ok-card-frame:has(> .ok-card-chrome) > .ok-card-header-row > :first-child {
-  padding-inline-end: calc(var(--ok-chrome-width) + var(--ok-gap-tight));
-}
-.olumi-look .ok-card-chrome {
   position: absolute;
-  inset-block-start: var(--ok-gap-inset);
-  inset-inline-end: var(--ok-gap-inset);
+  inset-block-start: var(--ok-gap-tight);
+  inset-inline-end: var(--ok-gap-tight);
   z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--ok-gap-tight);
-  inline-size: var(--ok-chrome-width);
-  min-block-size: var(--ok-chrome-control-size);
+  padding: var(--ok-gap-tight);
+  background: var(--bg-panel);
   opacity: 0;
   pointer-events: none;
 }

@@ -16,7 +16,6 @@ import { levelOf, setDefaultLevel, showSimple, showWholeModel, useSimpleLevel } 
 import { bandAxisOf, bandRowsOf, chanceWordsOf, SimpleFace } from '../SimpleFace'
 import { LensesMenu } from '../lenses/LensesMenu'
 import { figureRange } from '../contract'
-import { RangeBar } from '../scale/RangeBar'
 import { axisOf, pctOf } from '../scale/axis'
 import { tipOf } from '../../__tests__/tipHelpers'
 
@@ -147,7 +146,7 @@ describe('V12 Simple faces', () => {
     const base = model.cards.find((c) => c.family === 'quantity' && c.figure != null)!
     const r = { ...base, author: { by: 'person', text: 't', title: 't' }, figure: { ...base.figure!, text: 'at most 30,000 GBP', range: { low: 0, likely: null, high: 30000, unit: 'GBP' } } } as typeof base
     expect(figureRange(r), 'precondition: a range the bar draws').not.toBeNull()
-    const { container } = render(<SimpleFace card={r!} model={model} noted={false} scale={<RangeBar card={r!} view={model} />} />)
+    const { container } = render(<SimpleFace card={r!} model={model} olumiLook noted={false} />)
     const words = container.querySelector(`[data-simple-figure-text="${r!.id}"]`)
     expect(words?.textContent).toBe(r!.figure!.text)
     const bar = container.querySelector('[data-testid="range-bar"]')
