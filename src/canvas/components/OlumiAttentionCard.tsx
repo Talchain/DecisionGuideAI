@@ -340,7 +340,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
   // A `held` note owns its own dismissal; Escape releases the assistant's slot only.
   const isHeld = held === undefined && attention != null
   const lane = isOlumiCoreLane()
-  useEscapeLayer(lane && isHeld, clearOlumiAttention)
+  useEscapeLayer(lane && isHeld, clearOlumiAttention, attention)
   useEffect(() => {
     if (lane || !isHeld) return
     const onKeyDown = (e: KeyboardEvent) => {

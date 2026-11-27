@@ -181,10 +181,15 @@ const engineNodes = (model: ViewModel, at: (id: string, w: number, h: number) =>
  * layout store holds. The engine establishes row membership and order before the Olumi board packs the rows to s8 spacing.
  * `size` is each card as the canvas measured it (else its slot width and core's height).
  */
-export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[] } = {}): Promise<Map<string, SimplePlace>> {
+export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, Size>, options: { direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'; spacing?: number; row?: { cardW: number; gapX: number; perRow?: number; simple?: boolean; budget?: number; roomW?: number }; extras?: readonly SimpleExtra[]; railed?: ReadonlySet<string> } = {}): Promise<Map<string, SimplePlace>> {
   // Simple uses model bands and card order. Only Detailed needs layoutGraph's positions.
   if (options.row?.simple === true) return simplePlaces(model, size, options.row, options.extras)
-  const nodes = engineNodes(model, (id, w, h) => size.get(id) ?? { width: w, height: h })
+  const nodes = engineNodes(model, (id, w, h) => {
+    const face = size.get(id)
+    if (face === undefined) return { width: w, height: h }
+    // The crossing-aware layout includes the chip rail in a measured card's box.
+    return options.railed?.has(id) ? { ...face, height: face.height + TREE_RAIL_Y } : face
+  })
   const edges: Edge[] = cardLinks(model).map(({ link, i }) => ({ id: `l${i}`, source: link.from, target: link.to }))
   const direction = options.direction ?? 'DOWN'
   // DL-538: the options stand in one row (the row is sized to the stage, stageRow); a tier wraps only past the wider of that row and the
@@ -206,7 +211,7 @@ export async function causalPlaces(model: ViewModel, size: ReadonlyMap<string, S
   for (const [id, p] of packed) rows.set(p.y, [...(rows.get(p.y) ?? []), id])
   // Use the final rows and drawn heights. ELK includes box padding and prompt space,
   // and moving an aim beside its measure can change the last row's tallest card.
-  const heights = new Map(nodes.map((n) => [n.id, n.measured!.height!]))
+  const heights = new Map(nodes.map((n) => [n.id, size.get(n.id)?.height ?? n.measured!.height!]))
   const ys = ascending([...rows.keys()])
   let y = ys[0] ?? 0
   for (const top of ys) {

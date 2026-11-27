@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, TREE_RAIL_Y, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -116,15 +116,13 @@ export function causalInputs(model: ViewModel, extras: readonly BandExtra[] = []
   const simple = levelOf(useViewStore.getState().sid) === 'simple'
   const stage = simple ? simpleStageRow(roomOf().w) : stageRow(model, roomOf().w)
   const { direction, nodeSpacing } = useLayoutStore.getState()
-  // The top-down spacing already clears the chip rail underneath a card.
   const size = new Map(nodes.flatMap(({ id, measured }) => {
     if (measured?.height === undefined) return []
     const slot = id === QUESTION ? questionBarWidth(model, stage) : stage.cardW
     const width = !simple && measured.width ? measured.width : slot
-    const rail = !simple && direction !== 'DOWN' && railed.has(id) ? TREE_RAIL_Y : 0
-    return [[id, { width, height: measured.height + rail }] as const]
+    return [[id, { width, height: measured.height }] as const]
   }))
-  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras } }
+  return { nodes, railed, size, opts: { direction, spacing: nodeSpacing, row: stage, extras, railed } }
 }
 
 async function causalFor(model: ViewModel, extras: readonly BandExtra[] = []): Promise<Map<string, Placed>> {

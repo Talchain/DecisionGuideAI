@@ -32,14 +32,19 @@ export function ViewLegend({ open, onOpenChange }: Props) {
     return banded ? m?.run?.sensitivity ?? null : null
   })
   const wrap = useRef<HTMLDivElement>(null)
-  useEscapeLayer(open, () => onOpenChange(false))
+  const hasKey = key !== null && key.length > 0
+  useEscapeLayer(open && hasKey, () => onOpenChange(false))
   useEffect(() => {
     if (!open) return
+    if (!hasKey) {
+      onOpenChange(false)
+      return
+    }
     const onPointer = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) onOpenChange(false) }
     document.addEventListener('mousedown', onPointer)
     return () => document.removeEventListener('mousedown', onPointer)
-  }, [open, onOpenChange])
-  if (!open || key === null || key.length === 0) return null
+  }, [open, hasKey, onOpenChange])
+  if (!open || !hasKey) return null
   return (
     <div ref={wrap} className="relative w-full">
       <div role="dialog" aria-label="How to read this" data-testid="view-legend"

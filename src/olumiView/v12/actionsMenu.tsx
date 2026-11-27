@@ -34,6 +34,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
 }) {
   const previousVersion = useViewStore((state) => state.at !== null)
   const heldReason = previousVersion ? 'Return to the current version to use this action' : 'Wait for Olumi to finish'
+  const heldTip = (description: string | null) => description ? `${heldReason}\n${description}` : heldReason
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const conversation = () => trigger.current?.closest(CONVERSATION)
@@ -69,7 +70,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
           {build && (
             <div data-testid="view-build-model-row">
               <MenuItem id="build" label={build.label} content={<span className="font-medium text-text-header" data-testid="view-build-model-label">{build.label}</span>}
-                tip={build.title} disabled={held} disabledReason={heldReason}
+                tip={build.title} disabled={held} disabledReason={heldTip(build.title)}
                 onSelect={build.onPress} meta={{ 'data-testid': 'view-build-model' }} />
               <MenuSeparator />
             </div>
@@ -93,7 +94,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
                 <Fragment key={method.id}>
                   {hasFirstRun && index === 0 && <MenuLabel as="p">{FIRST_FOR_YOUR_GOAL}</MenuLabel>}
                   {hasFirstRun && index === firstMore && <><MenuSeparator /><MenuLabel as="p">More questions</MenuLabel></>}
-                  <MenuItem id={`method-${method.id}`} label={method.text} disabled={held} disabledReason={heldReason}
+                  <MenuItem id={`method-${method.id}`} label={method.text} disabled={held} disabledReason={heldTip(method.prerequisite)}
                     icon={<OkIcon id={icon} size={14} decorative testid={icon} />}
                     content={<>
                       <span data-view={`session.methods.${method.i}.text`}>{method.text}</span>
@@ -101,7 +102,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
                     </>}
                     tip={method.prerequisite ?? undefined}
                     trailing={method.prerequisite === null ? undefined : (
-                      <OkIcon id="needs-analysis" size={14} words={method.prerequisite} decorative={onceWords === null} focusable={false}
+                      <OkIcon id="needs-analysis" size={14} words={method.prerequisite} decorative={held || onceWords === null} focusable={false}
                         testid="view-method-prerequisite" className="text-text-light" />
                     )}
                     meta={{ 'data-method': method.id, 'data-first': method.first ? '' : undefined, 'data-testid': 'view-session-method' }}
