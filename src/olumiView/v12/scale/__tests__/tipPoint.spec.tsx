@@ -2,12 +2,11 @@ import { readFileSync } from 'node:fs'
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { View, ViewCard, ViewModel } from '../../../client'
-import { optionTippingOf, TippingPerOption } from '../../../port/AnalysisReaders'
+import { TippingPerOption } from '../../../port/AnalysisReaders'
 import { cardOf } from '../../../port/pick'
-import { leadReadingOf, WhatMovesIt } from '../../../port/WhatMovesIt'
+import { WhatMovesIt } from '../../../port/WhatMovesIt'
 import { TipPoint } from '..'
 import { spanAxisOf } from '../axis'
-import { laneTipOf } from '../../../__tests__/tipHelpers'
 
 const model = (JSON.parse(readFileSync('src/olumiView/fixtures/cardface/studio.view3.json', 'utf8')) as View).model!
 const tipping = model.run!.tipping[0]!
@@ -144,7 +143,7 @@ describe('TipPoint', () => {
   })
 
   it('puts the picture below Core’s verbatim per-option line in the studio run', () => {
-    render(<TippingPerOption model={model} reading={optionTippingOf(model.run ?? null)} />)
+    render(<TippingPerOption model={model} />)
     const line = screen.getByText(tipping.line)
     expect(line).toHaveAttribute('data-view', 'run.tipping.0.line')
     const picture = screen.getByTestId('tip-point')
@@ -152,14 +151,11 @@ describe('TipPoint', () => {
     expect(within(picture).getByText('19.7')).toBeVisible()
   })
 
-  it('puts the lead crossing sentence on the one picture’s hover', () => {
+  it('puts the picture below the lead line once when Core marks the row as a lead crossing', () => {
     const leadModel: ViewModel = { ...model, run: { ...model.run!, tipping: [{ ...tipping, kind: 'lead' }] } }
-    const lead = leadReadingOf(leadModel)
-    render(<><WhatMovesIt lead={lead} /><TippingPerOption model={leadModel} reading={optionTippingOf(leadModel.run!, lead?.at)} /></>)
-    const row = screen.getByTestId('analysis-lead-picture')
-    expect(screen.queryByText(tipping.line)).toBeNull()
-    expect(screen.getAllByTestId('tip-point')).toHaveLength(1)
-    expect(row.contains(screen.getByTestId('tip-point'))).toBe(true)
-    expect(laneTipOf(row)).toContain(tipping.line)
+    render(<><WhatMovesIt model={leadModel} /><TippingPerOption model={leadModel} /></>)
+    const line = screen.getByTestId('analysis-lead-change')
+    expect(within(line).getByText(tipping.line)).toBeVisible()
+    expect(line.nextElementSibling).toBe(screen.getByTestId('tip-point'))
   })
 })

@@ -30,7 +30,8 @@ const withCompared = (compared: unknown[], headings: unknown): ViewModel => {
   return { ...v.model!, run: { ...v.model!.run!, compared, compared_headings: headings } as never }
 }
 
-// Results holds both comparison and worth lines behind its closed reading fold.
+// Redesign, 18 Nov: the Analysis tab holds core's compared lines behind its closed "Why this reading" fold (port/PortAnalysisTab.tsx), and
+// core's worth lines under "What would change" at rest. They are in the DOM once the fold is opened, as a reader opens it.
 const show = (model: ViewModel) => {
   const r = render(<PortAnalysis model={model} />)
   const toggle = screen.queryByTestId('analysis-why-toggle')
@@ -72,16 +73,13 @@ describe('core\'s comparisons, each under core\'s own heading for it', () => {
     show(withCompared(COMPARED, undefined))
     expect(screen.queryByTestId('view-run-compared')).toBeNull()
   })
-  it('comparisons leave the worth lines intact and Results leaves the ranking to Check', () => {
-    const plain = show((golden as unknown as View).model!)
-    const before = screen.getByTestId('view-run-worth').textContent
-    expect(screen.queryByTestId('port-find-out')).toBeNull()
+  it('the worth and find-out lines are unaffected: "What would change" holds core\'s science lines alone, never a compared one', () => {
+    const plain = render(<PortAnalysis model={(golden as unknown as View).model!} />)
+    const before = screen.getByTestId('analysis-what-moves').textContent
+    expect(screen.getByTestId('port-find-out')).toBeTruthy()
     plain.unmount()
     show(withCompared(COMPARED, HEADINGS))
-    const worth = screen.getByTestId('view-run-worth')
-    expect(worth.textContent).toBe(before)
-    expect(screen.getByTestId('analysis-why-region').contains(worth)).toBe(true)
-    expect(screen.queryByTestId('port-find-out')).toBeNull()
-    for (const c of COMPARED) expect(worth.textContent).not.toContain(c.line)
+    expect(screen.getByTestId('analysis-what-moves').textContent).toBe(before)
+    for (const c of COMPARED) expect(screen.getByTestId('analysis-what-moves').textContent).not.toContain(c.line)
   })
 })

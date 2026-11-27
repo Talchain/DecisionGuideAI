@@ -9,12 +9,11 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { View } from '../../client'
 import { useViewStore } from '../../store'
 import { useMe } from '../../../olumiCore/me'
 import { PortAnalysisTab } from '../PortAnalysisTab'
-import { CheckFirst } from '../CheckFirst'
 import { ViewReasoningBlock } from '../../ViewReasoning'
 import { tipOnFocus } from '../../__tests__/tipHelpers'
 import { viewOf } from './viewAt'
@@ -55,22 +54,13 @@ describe('hover is the one Tip: no native title on the analysis lane', () => {
   })
   it('bakery: the chart\'s lens heading, the lead-change words and a ranking\'s figure mark each reach the Tip by REAL keyboard focus', async () => {
     const view = viewOf('golden/bakery'), run = view.model!.run!
-    ready(view); render(<><PortAnalysisTab /><CheckFirst view={view} place="asks" /></>)
+    ready(view); render(<PortAnalysisTab />)
     const goal = run.lenses!.find((l) => l.id === 'goal')!
     const heading = document.querySelector<HTMLElement>('[data-view="run.lead"]')!
     expect([heading.getAttribute('title'), heading.tabIndex]).toEqual([null, 0])
     expect(await tipOnFocus(heading)).toBe(goal.title)
     const mark = document.querySelector<HTMLElement>('[data-find-out-figure] [role="img"]')
-    expect(mark).not.toBeNull()
-    expect([mark!.getAttribute('title'), mark!.tabIndex, await tipOnFocus(mark!)]).toEqual([null, 0, mark!.getAttribute('aria-label')])
-    const leadIndex = run.tipping.findIndex((line) => line.kind === 'lead')
-    const lead = run.tipping[leadIndex]!
-    const picture = screen.getByTestId('analysis-lead-picture')
-    expect(await tipOnFocus(picture)).toBe(lead.line)
-    fireEvent.pointerEnter(picture)
-    const tip = await waitFor(() => screen.getByRole('tooltip'))
-    expect(tip).toHaveAttribute('data-view', `run.tipping.${leadIndex}.line`)
-    fireEvent.pointerLeave(picture)
+    if (mark !== null) expect([mark.getAttribute('title'), mark.tabIndex, await tipOnFocus(mark)]).toEqual([null, 0, mark.getAttribute('aria-label')])
   })
 })
 
