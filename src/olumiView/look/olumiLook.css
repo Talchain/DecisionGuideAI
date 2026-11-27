@@ -685,11 +685,12 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .ok-scale { font-size: calc(12px * var(--o-s, 1)); color: var(--text-light); }
 .ok-scale-range { margin: var(--space-1) 0; }
 .ok-scale-track { position: relative; height: 16px; background: var(--border-default); border-radius: calc(var(--radius-control) / 2); }
-.ok-scale-range-band, .ok-scale-conditional-span, .ok-scale-outcome-band {
+.ok-scale-range-band, .ok-scale-conditional-span, .ok-scale-outcome-band, .ok-scale-untested {
   position: absolute; left: var(--scale-x); width: var(--scale-width);
 }
 .ok-scale-range-band { top: 5px; height: 6px; border-radius: calc(var(--space-1) / 2); background: color-mix(in srgb, var(--text-body) 55%, transparent); }
 .ok-scale[data-by='olumi'] .ok-scale-range-band { top: 4px; height: 8px; border: 2px dotted var(--semantic-info); background: transparent; }
+.ok-scale-untested { inset-block: var(--space-1); border-block: 1px dashed var(--text-light); }
 .ok-scale-dot { position: absolute; top: 3px; left: calc(var(--scale-x) - 5px); width: 10px; height: 10px; border-radius: 50%; }
 .ok-scale-likely { background: var(--text-header); border: 2px solid var(--bg-panel); }
 .ok-scale[data-by='olumi'] .ok-scale-likely { background: var(--semantic-info); }
@@ -704,6 +705,7 @@ button.ok-team-quiet[aria-disabled='true'] { cursor: not-allowed; text-decoratio
 .ok-scale-tip-region { position: absolute; top: 0; bottom: 0; left: var(--scale-x); width: var(--scale-width); box-sizing: border-box; border: 1px solid var(--option); background: transparent; }
 .ok-scale-tip .ok-scale-range-band { min-width: 1px; }
 .ok-scale-tip-marker { position: absolute; top: calc(-1 * var(--space-1)); bottom: 0; left: calc(var(--scale-x) - 1px); border-left: 2px solid var(--text-header); }
+.ok-scale-figure-tip { border-left-color: var(--olumi-mark-orange); }
 .ok-scale-tip-value { position: relative; min-height: var(--space-4); color: var(--text-header); }
 .ok-scale-tip-value > span { position: absolute; left: var(--scale-x); transform: translateX(calc(0% - var(--scale-x))); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ok-scale-tip-ends { display: flex; justify-content: space-between; gap: var(--space-2); }

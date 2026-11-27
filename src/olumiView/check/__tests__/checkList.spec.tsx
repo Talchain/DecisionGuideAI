@@ -128,15 +128,15 @@ describe('What to check', () => {
     expect(document.querySelector('[data-view="run.find_out.0.line"]')).toHaveTextContent(model.run!.find_out![0]!.line)
   })
 
-  it('shows four card tiles at rest, then the remaining tiles and card-less rows when expanded', async () => {
+  it('shows four readiness tiles and the observation at rest, then the remaining tiles and card-less rows', async () => {
     const user = userEvent.setup()
     const { view, model, other } = fixture()
     model.run!.shared_blockers!.push({ aim_id: 'unshown-aim', options: [], text: 'Core card-less need' })
     show(view)
     const needs = document.querySelector('[data-check-group="needs"]')!
     const keys = () => [...needs.querySelectorAll<HTMLButtonElement>('[data-check-item]')].map((button) => button.dataset.checkItem)
-    expect(keys()).toEqual(['blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1'])
-    expect(toggle('needs')).toHaveTextContent(CHECK_WORDS.more(4))
+    expect(keys()).toEqual(['blocks:0', 'blocks:1', 'none:second_oven.0', 'held:second_oven.1', `worth:${other.id}.0`])
+    expect(toggle('needs')).toHaveTextContent(CHECK_WORDS.more(3))
     const held = row('held:second_oven.1')
     expect(held.closest('ul')).toHaveClass('grid-cols-2')
     expect(held.querySelector('[data-node-shape="option"]')).toHaveAttribute('width', '14')
@@ -507,22 +507,24 @@ describe('readiness in Check', () => {
     expect(items.filter((item) => item.key.startsWith('none:') && item.short === none[0]!.text)).toHaveLength(0)
   })
 
-  it('folds overflow while keeping Olumi’s observation reachable with its actionable words', () => {
+  it('keeps Olumi’s observation visible at rest when blockers overflow', () => {
     const view = viewOf('golden/app-launch'), model = view.model!, card = model.cards.find((c) => c.family !== 'option')!
     card.worth_checking = [{ code: 'assumption_without_test', olumi: true, title: 'Core observation title', text: 'Core actionable detail', rests_on: [] }]
     model.run!.shared_blockers = Array.from({ length: 6 }, (_, i) => ({ text: `Blocker ${i}`, aim_id: card.id, options: [] }))
     const items = checkNeedsOf(model)
     show(view)
     const group = document.querySelector('[data-check-group="needs"]')!
-    expect(group.querySelectorAll('[data-check-item]')).toHaveLength(4)
+    expect(group.querySelectorAll('[data-check-item]')).toHaveLength(5)
     expect(row('blocks:5')).toBeNull()
     const more = toggle('needs')
-    expect(more).toHaveTextContent(`Show ${items.length - 4} more`)
-    fireEvent.click(more)
-    expect(group.querySelectorAll('[data-check-item]')).toHaveLength(items.length)
-    expect(more).toHaveAttribute('aria-expanded', 'true')
+    expect(more).toHaveTextContent(CHECK_WORDS.more(items.length - 5))
+    expect(more).toHaveAttribute('aria-expanded', 'false')
     const observation = row(`worth:${card.id}.0`)
+    expect(observation).toBeVisible()
+    expect(observation).toHaveAttribute('data-check-tile', card.id)
+    expect(observation).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(observation)
+    expect(more).toHaveAttribute('aria-expanded', 'false')
     expect(details(observation).querySelector(`[data-view="${card.id}.worth_checking.0.title"]`)).toHaveTextContent('Core observation title')
     expect(details(observation).querySelector(`[data-view="${card.id}.worth_checking.0.text"]`)).toHaveTextContent('Core actionable detail')
   })

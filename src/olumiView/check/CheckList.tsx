@@ -222,7 +222,9 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   const sections = useMemo(() => checkItemsOf(model, view).map((group) => {
     const items = group.blocks.flatMap((block) => block.items)
     const tiles = group.kind === 'needs' ? items.filter((item) => cards.has(item.cards[0]!)) : []
-    const atRest = (group.kind === 'needs' ? tiles : items).slice(0, AT_REST[group.kind])
+    const atRest = group.kind === 'needs'
+      ? [...tiles.filter((item) => item.kind !== 'worth').slice(0, AT_REST.needs), ...items.filter((item) => item.kind === 'worth')]
+      : items.slice(0, AT_REST[group.kind])
     return { group, items, tiles, atRest }
   }), [cards, model, view])
   // A new canvas subject uses the latest rows. A refresh alone does not reopen a dismissed row.
@@ -230,8 +232,12 @@ function ScenarioCheckList({ model, view, sid }: CheckListProps) {
   useLayoutEffect(() => { currentSections.current = sections }, [sections])
   const groups = sections.map((section) => {
     const { group, items, tiles, atRest } = section
-    if (!expanded[group.kind]) return { ...section, shown: atRest, tiles: group.kind === 'needs' ? atRest : [] }
     const tiled = new Set(tiles)
+    if (!expanded[group.kind]) {
+      const restTiles = atRest.filter((item) => tiled.has(item))
+      const restRows = atRest.filter((item) => !tiled.has(item))
+      return { ...section, shown: [...restTiles, ...restRows], tiles: restTiles }
+    }
     return { ...section, shown: [...tiles, ...items.filter((item) => !tiled.has(item))] }
   })
   const shown = groups.flatMap((section) => section.shown)

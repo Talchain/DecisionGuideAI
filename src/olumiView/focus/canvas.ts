@@ -16,13 +16,17 @@ export function installCanvasFocus(): () => void {
   })
   const unsubscribeCanvas = useCanvasStore.subscribe((next, prev) => {
     const { nodeIds } = next.selection
+    const { subject } = useStoredFocusSubject.getState()
+    if (nodeIds.size === 0 && prev.selection.nodeIds.size > 0 && subject?.source === 'canvas') {
+      setFocusSubject(null)
+      return
+    }
     if (nodeIds.size !== 1) return
     const [id] = nodeIds
     if (id === undefined || (prev.selection.nodeIds.size === 1 && prev.selection.nodeIds.has(id))) return
     const state = useViewStore.getState()
     const model = shownModel(state)
     if (model === null || !model.cards.some((card) => card.id === id)) return
-    const { subject } = useStoredFocusSubject.getState()
     if (subject?.source === 'panel' && subject.sid === state.sid && subject.cards.includes(id)) return
     const kind = allOptionCards(model).some((card) => card.id === id) ? 'option' : 'card'
     setFocusSubject({ kind, id, cards: [id], source: 'canvas' })

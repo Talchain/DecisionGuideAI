@@ -45,9 +45,9 @@ export function LikelyOutcome({ model, group }: { model: ViewModel; group: Chart
               <li key={r.card.id} data-outcome-option={r.card.id}>
                 <OptionRow id={r.card.id} ring={RING} words={o.title} wordsAt={`${r.card.id}.rows.${r.i}.outcome.title`}
                   className={`${RESULT_ROW_GRID} items-center`}>
-                  <span className={`${TYPE.body} block min-w-0 text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>
+                  <span className={`${TYPE.body} block min-w-0 break-words text-text-header`} data-view={`${r.card.id}.heading`}>{r.card.heading}</span>
                   <span className="min-w-0"><OptionBand {...place} /></span>
-                  <span className={`${TYPE.meta} mt-0.5 block tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>
+                  <span className={`${TYPE.meta} mt-0.5 block min-w-0 break-words tabular-nums text-text-body`} data-view={`${r.card.id}.rows.${r.i}.outcome.text`}>{o.text}</span>
                 </OptionRow>
               </li>
             )

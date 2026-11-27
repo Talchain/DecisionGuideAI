@@ -37,7 +37,7 @@ export function FigureTrack({ min, max, bands = [], ticks = [], tip, untested = 
     <div data-form="CH-range" data-testid="range-bar" data-card={card} data-by={by} className="ok-scale ok-scale-range">
       <div className={untested.length === 0 ? 'ok-scale-track' : 'ok-scale-track ok-scale-tip-track'}>
         {untested.map((gap, i) => (
-          <span key={i} data-testid="range-untested" className="ok-scale-outcome-band ok-scale-withheld" style={span(gap)} />
+          <span key={i} data-testid="range-untested" className="ok-scale-untested" style={span(gap)} />
         ))}
         {bands.map((band, i) => (
           <span key={band.id ?? i} className="ok-scale" data-by={band.style}>
@@ -49,7 +49,7 @@ export function FigureTrack({ min, max, bands = [], ticks = [], tip, untested = 
           <span key={`${kind}:${i}`} data-testid={`range-${kind}`} data-at={kind === 'tried' ? at : undefined}
             className={TICK_CLASS[kind]} style={position(at)} />
         ))}
-        {tip == null ? null : <span data-testid="tip-marker" className="ok-scale-tip-marker" style={position(tip)} />}
+        {tip == null ? null : <span data-testid="tip-marker" className="ok-scale-tip-marker ok-scale-figure-tip" style={position(tip)} />}
       </div>
     </div>
   )

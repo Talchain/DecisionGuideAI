@@ -8,6 +8,7 @@ import { GlyphMark, Hover } from '../look/Hover'
 import type { ViewCard } from '../client'
 import { FigureEdit } from '../FigureEdit'
 import { findOutOf, rangeOf, type ChartGroup, type ChartRow } from './pick'
+import { typography } from '../../styles/typography'
 import { TYPE } from './type'
 import { ChanceKeyMark, ChanceTrack } from '../v12/scale/ChanceTrack'
 import { ChanceDots } from '../v12/scale/ChanceDots'
@@ -70,7 +71,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
       <OptionRow id={card.id} ring={RING} words={row.title} wordsAt={`${card.id}.rows.${i}.title`}
         className={`${RESULT_ROW_GRID} items-end`}>
         <span className="flex min-w-0 flex-wrap items-baseline gap-1">
-          <span className={`${TYPE.body} min-w-0 text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
+          <span className={`${TYPE.body} min-w-0 break-words text-text-header`} data-view={`${card.id}.heading`}>{card.heading}</span>
           <span className={`${TYPE.meta} flex shrink-0 gap-1 text-text-light`}>
             {row.likely == null ? null : <GlyphMark mark={row.likely} tip={false} className="text-text-header" view={`${card.id}.rows.${i}.likely.glyph`} />}
             {row.olumi == null ? null : <GlyphMark mark={row.olumi} tip={false} className="text-info" view={`${card.id}.rows.${i}.olumi.glyph`} />}
@@ -80,7 +81,7 @@ function Bar({ card, row, i, figure, given, axis = false }: ChartRow & { figure:
           {fixedMiss ? null : <>{axis ? <Axis /> : null}<ChanceTrack chance={row.chance!} range={range} /></>}
         </span>
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 [&_[data-chance-dots]]:max-w-full [&_[data-chance-dots]]:flex-wrap">
-          <span className={`${TYPE.meta} text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
+          <span className={`${TYPE.meta} min-w-0 break-words text-text-body`} data-view={`${card.id}.rows.${i}.value`}>{row.value}</span>
           <ChanceDots chance={fixedMiss || withheld ? null : chanceForDots(row)} />
         </span>
         {/* Which figure the whisker is for, at rest (Codex 01:56Z: a range with no identity reads as a confidence bound, which it is not). The
@@ -109,6 +110,7 @@ export function ChanceChart({ model, group }: { model: ViewModel; group: ChartGr
   const [openAim, setOpenAim] = useState<string | null>(null)
   const open = openAim === group.aimId
   const foldId = useId()
+  const headingId = useId()
   const run = model.run ?? null
   if (run === null) return null
   const ranged = group.rows.some(({ row }) => rangeOf(row) !== null)
@@ -122,8 +124,10 @@ export function ChanceChart({ model, group }: { model: ViewModel; group: ChartGr
   const showTailNote = tailNote !== null && tailNote.aims.includes(group.aimId) && group.rows.some(({ row }) => tailOf(row) !== null)
   const axisAt = group.rows.findIndex(({ card, row }) => !neverMet(card, row))
   return (
-    <section className="space-y-3" data-testid="analysis-chance-chart" aria-label={group.aim.text} onMouseLeave={() => ringFrom(RING, [])}>
+    <section className="space-y-3" data-testid="analysis-chance-chart"
+      aria-label={group.lead ? group.aim.text : undefined} aria-labelledby={group.lead ? undefined : headingId} onMouseLeave={() => ringFrom(RING, [])}>
       <div className="space-y-1" data-chart-aim={group.aimId}>
+        {group.lead ? null : <h3 id={headingId} className={`${typography.viewPanelHeading} m-0 text-text-header`} data-view={group.aim.at}>{group.aim.text}</h3>}
         {showTailNote ? <p className={`${TYPE.meta} m-0 px-1 text-text-light`} data-view="run.tail_note.text">{tailNote.text}</p> : null}
         <ul className="m-0 list-none space-y-1 p-0">{group.rows.map((r, k) => <Bar key={r.card.id} {...r} figure={shared === null ? figureOf(r) : null} given={given} axis={k === axisAt} />)}</ul>
       </div>

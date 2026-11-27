@@ -3,7 +3,7 @@ import { setFocusSubject, useFocusSubject } from '../focus/subject'
 import { Hover } from '../look/Hover'
 import { pressCard, ringFrom } from '../reasoning/tabRing'
 
-export const RESULT_ROW_GRID = '-mx-1 grid w-[calc(100%+0.5rem)] grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,10rem)] gap-x-2 px-1 py-1'
+export const RESULT_ROW_GRID = '-mx-1 grid w-[calc(100%+0.5rem)] grid-cols-[minmax(0,3fr)_minmax(0,8fr)_minmax(0,3fr)] gap-x-2 px-1 py-1'
 
 type Props = Omit<ComponentProps<typeof Hover>, 'as' | 'type' | 'onClick'> & { id: string; ring: string }
 

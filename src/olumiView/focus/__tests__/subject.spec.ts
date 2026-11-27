@@ -28,7 +28,7 @@ afterEach(() => {
 })
 
 describe('the shared focus subject', () => {
-  it('takes a single model card from the canvas and ignores empty, multi-card, and unknown selections', () => {
+  it('takes a single model card, clears it on deselection, and preserves it for multi-card and unknown selections', () => {
     const view = ready()
     unsubscribe = installCanvasFocus()
     const { result } = renderHook(useFocusSubject)
@@ -41,12 +41,18 @@ describe('the shared focus subject', () => {
     expect(vi.mocked(ringFrom).mock.calls).toEqual([['focus-subject', []]])
     select(['oven_price'])
     select(['oven_price', 'second_oven'])
-    select([])
+    expect(result.current).toBe(card)
     select(['outside-the-model'])
     expect(result.current).toBe(card)
+    select([])
+    expect(result.current).toBeNull()
+    expect(ringFrom).toHaveBeenCalledTimes(2)
+    expect(ringFrom).toHaveBeenLastCalledWith('focus-subject', [])
 
     select(['second_oven'])
     expect(result.current).toEqual({ kind: 'option', id: 'second_oven', cards: ['second_oven'], source: 'canvas', sid: view.id })
+    act(() => useCanvasStore.getState().clearSelection())
+    expect(result.current).toBeNull()
   })
 
   it('preserves a panel subject when its navigation selects one of its own cards', () => {
@@ -57,6 +63,8 @@ describe('the shared focus subject', () => {
     act(() => setFocusSubject(gap))
     vi.mocked(ringFrom).mockClear()
     act(() => useCanvasStore.getState().selectNodes(['oven_price']))
+    expect(result.current).toEqual({ ...gap, sid: view.id })
+    act(() => useCanvasStore.getState().clearSelection())
     expect(result.current).toEqual({ ...gap, sid: view.id })
     expect(ringFrom).not.toHaveBeenCalled()
     act(() => useCanvasStore.getState().selectNodes(['second_oven']))
