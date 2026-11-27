@@ -10,6 +10,7 @@ import { optionCards, worthLinesOf } from '../layout'
 import { cardKindOf } from '../v12/cards/kind'
 import { worthCheckingOf } from '../v12/cards/marks'
 import { linkRole } from '../v12/contract'
+import { cardOfRecord } from '../v12/lenses/layers'
 
 /** A fraction of a track as a percent, held to the track. Layout only: never drawn as a number. */
 export const trackPct = (fraction: number): number => Math.max(0, Math.min(100, fraction * 100))
@@ -162,9 +163,23 @@ type CoreEdit = { prompt: string; ask: string }
  */
 export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null; /** Core's own finding under the title (worth only; Codex 10:39Z: core's actionable text read at rest, not on hover). */ detail?: string }
 
-/** The cards Results names and the figures Core links into a calculation or aim. */
+/** Figures Core names in result bases or needs, or links into a calculation or aim. */
 export function resultFigureCardsOf(model: ViewModel, view: View): ViewCard[] {
-  const needs = new Set(needsOf(model).map(({ card }) => card))
+  const named = new Set(needsOf(model).map(({ card }) => card))
+  const addRecord = (id: string) => {
+    const card = cardOfRecord(model, id)
+    if (card !== undefined) named.add(card.id)
+  }
+  for (const card of model.cards) {
+    for (const row of card.rows) {
+      if (row.kind !== 'chance' || row.rests_on == null) continue
+      const { estimates, approx, what_ifs } = row.rests_on
+      for (const id of [...estimates, ...approx, ...what_ifs]) addRecord(id)
+    }
+  }
+  for (const rest of model.run?.rests ?? []) {
+    for (const figure of rest.figures ?? []) addRecord(figure.id)
+  }
   const inputs = new Set<string>()
   for (const link of model.links) {
     const role = linkRole(link)
@@ -176,7 +191,7 @@ export function resultFigureCardsOf(model: ViewModel, view: View): ViewCard[] {
     }
   }
   return model.cards.filter((card) =>
-    (needs.has(card.id) || (card.family === 'quantity' && inputs.has(card.id))) &&
+    (named.has(card.id) || (card.family === 'quantity' && inputs.has(card.id))) &&
     cardKindOf(card, model, view).shape !== 'calculated')
 }
 

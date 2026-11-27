@@ -43,6 +43,8 @@ const withRows = (rows: Partial<Record<string, ViewRow[]>>): ViewModel => ({
   cards: model.cards.map((card) => rows[card.id] === undefined ? card : { ...card, rows: rows[card.id]! }),
 })
 
+beforeEach(() => { vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request'))) })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -163,6 +165,21 @@ describe('Compare options', () => {
           expect(within(value as HTMLElement).getByText(values[index]!).textContent).toBe(values[index])
         }
       })
+    }
+  })
+
+  it('reserves the Results value width while letting the label give up space', () => {
+    const styles = document.createElement('style')
+    styles.textContent = readFileSync('src/olumiView/v12/tools/compareOptions.css', 'utf8')
+    document.head.append(styles)
+    try {
+      render(<CompareOptions model={model} />)
+      for (const aim of [takings.aim_id, membersAim.id]) {
+        expect(getComputedStyle(aimBlock(aim)).gridTemplateColumns)
+          .toBe('minmax(0, 1fr) max-content minmax(calc(4 * var(--space-5)), max-content)')
+      }
+    } finally {
+      styles.remove()
     }
   })
 

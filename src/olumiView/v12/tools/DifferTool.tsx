@@ -15,6 +15,7 @@ import { DifferAxis } from '../scale/DifferAxis'
 import { useRevealedDifferences } from '../views/SimpleSummary'
 import { COMPARE_WORDS } from '../views/WhereWeDiffer'
 import { useDifferSelection } from './differSelection'
+import { useFocusSubject } from './focusAdapter'
 
 export const DIFFER_TOOL_WORDS = { all: 'All differences', more: 'More on this difference' } as const
 
@@ -77,9 +78,14 @@ function CurrentDifferTool({ sid, view }: DifferToolProps): JSX.Element | null {
 
 function RevealedTool({ sid, view, heading, differences }: { sid: string; view: View; heading: string; differences: readonly Difference[] }): JSX.Element {
   const choice = useDifferSelection((s) => s.bySid[sid])
+  const subject = useFocusSubject()
+  const model = view.model
+  const subjectId = subject?.source === 'canvas' && subject.sid === sid &&
+    model?.cards.some((card) => card.id === subject.id) ? subject.id : undefined
   const [expanded, setExpanded] = useState(false)
   const pickerId = useId()
   const picker = useRef<HTMLButtonElement>(null)
+  const tool = useRef<HTMLElement>(null)
   const chosen = differences.find((d) => differenceId(d) === choice) ?? differences[0]!
   const chosenId = differenceId(chosen)
   const cards = cardsFor(view.model, chosen)
@@ -87,12 +93,24 @@ function RevealedTool({ sid, view, heading, differences }: { sid: string; view: 
   const focusDescriptionId = firstCard === undefined ? undefined : `${pickerId}-canvas`
 
   useEffect(() => {
+    if (subjectId === undefined || model == null) return
+    const matches = differences.filter((d) =>
+      d.cards?.includes(subjectId) || cardOfRecord(model, d.record)?.id === subjectId)
+    if (matches.length !== 1) return
+    const id = differenceId(matches[0]!)
+    const selection = useDifferSelection.getState()
+    if (selection.bySid[sid] !== id) selection.choose(sid, id)
+    const active = document.activeElement
+    if (!tool.current?.contains(active) || active?.closest('[data-difference-side]')) picker.current?.focus()
+  }, [differences, model, sid, subjectId])
+
+  useEffect(() => {
     ringFrom(RING_SOURCE, cards)
     return () => ringFrom(RING_SOURCE, [])
   }, [cards])
 
   return (
-    <section data-form="TT-differ" data-testid="tool-differ" aria-label={heading} className="grid gap-3">
+    <section ref={tool} data-form="TT-differ" data-testid="tool-differ" aria-label={heading} className="grid gap-3">
       <h2 className={`${typography.viewPanelHeading} text-text-header`}>{heading}</h2>
       <div className="grid gap-1">
         <button ref={picker} type="button" aria-expanded={expanded} aria-controls={pickerId}
