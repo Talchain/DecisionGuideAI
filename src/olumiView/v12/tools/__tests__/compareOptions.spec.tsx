@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useCanvasStore } from '../../../../canvas/store'
 import { CoreCompareTab } from '../../../../olumiCore/compare'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { laneTipOf } from '../../../__tests__/tipHelpers'
@@ -23,8 +24,13 @@ const takings = evening!.rows.find((row) => row.kind === 'chance') as Extract<Vi
 const miss = weekend!.rows.find((row) => row.kind === 'chance') as typeof takings
 const members = evening!.rows.find((row) => row.kind === 'none') as Extract<ViewRow, { kind: 'none' }>
 const membersAim = model.cards.find((card) => card.id === members.aim_id)!
-const first = () => screen.getByRole('combobox', { name: CHROME.first })
-const second = () => screen.getByRole('combobox', { name: CHROME.second })
+const picker = () => screen.getByRole('group', { name: CHROME.picker })
+const chip = (card: { id: string; heading: string }) => within(picker()).getByRole('button', {
+  name: `${optionLetters(model).get(card.id)} ${card.heading}`,
+})
+const press = (card: { id: string; heading: string }) => fireEvent.click(chip(card))
+const pressed = () => within(picker()).getAllByRole('button', { pressed: true })
+const headings = (id: string) => rowsOf(id).map((row) => rowButton(row).textContent)
 const tool = () => screen.getByRole('region', { name: CHROME.title })
 const aimBlock = (id: string) => tool().querySelector<HTMLElement>(`[data-compare-aim="${id}"]`)!
 const rowsOf = (id: string) => [...aimBlock(id).querySelectorAll<HTMLElement>('[data-compare-row]')]
@@ -32,7 +38,6 @@ const rowButton = (row: HTMLElement) => within(row).getByRole('button')
 const resultLine = (row: HTMLElement) => row.querySelector<HTMLElement>('[data-compare-result]')!
 const dots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot]')
 const filledDots = (row: HTMLElement) => row.querySelectorAll('[data-chance-dot="filled"]').length
-const change = (select: HTMLElement, id: string) => fireEvent.change(select, { target: { value: id } })
 const withRows = (rows: Partial<Record<string, ViewRow[]>>): ViewModel => ({
   ...model,
   cards: model.cards.map((card) => rows[card.id] === undefined ? card : { ...card, rows: rows[card.id]! }),
@@ -48,38 +53,54 @@ afterEach(() => {
 })
 
 describe('Compare options', () => {
-  it('shows two distinct options in canvas order and swaps the sides when a choice is already on the other side', () => {
+  it('uses one picker in canvas order and swaps the pair when its first chip is pressed', () => {
     render(<CompareOptions model={model} />)
-    const labels = optionCards(model).map((card) => `${optionLetters(model).get(card.id)} ${card.heading}`)
-    for (const select of [first(), second()]) {
-      expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(labels)
+    const buttons = within(picker()).getAllByRole('button')
+    expect(buttons).toEqual(optionCards(model).map(chip))
+    for (const button of buttons) expect(button.querySelector('[data-node-shape="option"]')).toBeInTheDocument()
+    expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
+    expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `B${weekend!.heading}`])
+
+    press(carryOn!)
+    expect(pressed()).toEqual([chip(evening!), chip(carryOn!)])
+    expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `C${carryOn!.heading}`])
+    press(carryOn!)
+    expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `C${carryOn!.heading}`])
+    press(evening!)
+    expect(headings(takings.aim_id)).toEqual([`C${carryOn!.heading}`, `A${evening!.heading}`])
+  })
+
+  it('retargets the second row from an outside canvas option and leaves focus in the tool', () => {
+    const previous = useCanvasStore.getState().selection
+    try {
+      render(<><button type="button">Canvas</button><CompareOptions model={model} /></>)
+      const canvas = screen.getByRole('button', { name: 'Canvas' })
+      const select = (id: string) => act(() => useCanvasStore.setState({ selection: { ...previous, nodeIds: new Set([id]) } }))
+      canvas.focus()
+      select(carryOn!.id)
+      expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `C${carryOn!.heading}`])
+      expect(chip(carryOn!)).toHaveFocus()
+      expect(pressCard).not.toHaveBeenCalled()
+
+      chip(evening!).focus()
+      select(weekend!.id)
+      expect(headings(takings.aim_id)).toEqual([`A${evening!.heading}`, `B${weekend!.heading}`])
+      expect(chip(evening!)).toHaveFocus()
+      select(membersAim.id)
+      expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
+    } finally {
+      cleanup()
+      useCanvasStore.setState({ selection: previous })
     }
-    expect(first()).toHaveValue(evening!.id)
-    expect(second()).toHaveValue(weekend!.id)
-    expect(rowsOf(takings.aim_id)[0]).toHaveTextContent(evening!.heading)
-    expect(rowsOf(takings.aim_id)[1]).toHaveTextContent(weekend!.heading)
-
-    change(first(), carryOn!.id)
-    expect(rowsOf(takings.aim_id)[0]).toHaveTextContent(carryOn!.heading)
-    change(second(), evening!.id)
-    expect(rowsOf(takings.aim_id)[1]).toHaveTextContent(evening!.heading)
-
-    change(first(), evening!.id)
-    expect(first()).toHaveValue(evening!.id)
-    expect(second()).toHaveValue(carryOn!.id)
-    change(second(), evening!.id)
-    expect(first()).toHaveValue(carryOn!.id)
-    expect(second()).toHaveValue(evening!.id)
   })
 
   it('returns to the default pair when a chosen option goes away and stays there if the option returns', () => {
     const { rerender } = render(<CompareOptions model={model} />)
-    change(first(), carryOn!.id)
+    press(carryOn!)
     rerender(<CompareOptions model={{ ...model, cards: model.cards.filter((card) => card.id !== carryOn!.id) }} />)
-    expect(first()).toHaveValue(evening!.id)
-    expect(second()).toHaveValue(weekend!.id)
+    expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
     rerender(<CompareOptions model={model} />)
-    expect(first()).toHaveValue(evening!.id)
+    expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
   })
 
   it('shows served chance words and provenance and keeps the none explanation behind the gap mark', () => {
@@ -122,11 +143,11 @@ describe('Compare options', () => {
     expect(expected[0]).not.toBe(expected[1])
     expect(rowsOf(takings.aim_id).map((row) => dots(row).length)).toEqual([10, 10])
     expect(rowsOf(takings.aim_id).map(filledDots)).toEqual(expected)
-    change(first(), weekend!.id)
+    press(evening!)
     expect(rowsOf(takings.aim_id).map(filledDots)).toEqual([...expected].reverse())
   })
 
-  it('orders by the chart aims, joins the selected raw rows only, and leaves an absent row without a track', () => {
+  it('orders by the chart aims, joins the selected raw rows only, and draws an absent row as an empty track', () => {
     const unselectedOnly = { ...takings, aim_id: 'unselected' }
     const limit: ViewRow = { kind: 'limit', aim_id: 'limit', aim: 'Keep costs in range', value: 'Within the limit', title: 'Limit details', olumi: null, estimate: null }
     const unresolved = { ...members, aim_id: 'unresolved' }
@@ -145,11 +166,13 @@ describe('Compare options', () => {
     expect(dots(limitRow!)).toHaveLength(0)
     expect(laneTipOf(resultLine(limitRow!))).toBe(limit.title)
     expect(absent.textContent).toBe(`B${weekend!.heading}`)
-    expect(absent.querySelector('.ok-face-mark-track, .ok-face-mark-chance, [data-chance-dots]')).toBeNull()
+    expect(absent.querySelector('.ok-face-mark-track')).toBeInTheDocument()
+    expect(dots(absent)).toHaveLength(0)
+    expect(laneTipOf(resultLine(absent))).toBeNull()
     expect(laneTipOf(rowButton(absent))).toBeNull()
     expect(within(aimBlock(limit.aim_id)).queryByText(CHROME.more)).toBeNull()
     expect(within(aimBlock(unresolved.aim_id)).queryByRole('heading')).toBeNull()
-    change(second(), carryOn!.id)
+    press(carryOn!)
     expect(aimBlock(unselectedOnly.aim_id)).toBeInTheDocument()
   })
 
@@ -190,12 +213,11 @@ describe('Compare options', () => {
     expect(within(details).getByText(miss.outcome!.text)).toBeVisible()
   })
 
-  it('renders exactly the served strings, option letters, and exported chrome after changing both sides and opening all folds', () => {
+  it('renders exactly the served strings, option letters, and exported chrome after changing the pair and opening all folds', () => {
     render(<CompareOptions model={model} />)
-    change(first(), carryOn!.id)
-    change(second(), evening!.id)
-    expect(first()).toHaveValue(carryOn!.id)
-    expect(second()).toHaveValue(evening!.id)
+    press(carryOn!)
+    press(evening!)
+    expect(pressed()).toEqual([chip(evening!), chip(carryOn!)])
     for (const summary of within(tool()).getAllByText(CHROME.more)) {
       fireEvent.click(summary)
       expect(summary.closest('details')?.open).toBe(true)
@@ -203,7 +225,7 @@ describe('Compare options', () => {
 
     const carryChance = carryOn!.rows.find((row) => row.kind === 'chance')!
     const carryGap = carryOn!.rows.find((row) => row.kind === 'none')!
-    const picks = optionCards(model).map((card) => `${optionLetters(model).get(card.id)} ${card.heading}`).join('')
+    const picks = optionCards(model).map((card) => `${optionLetters(model).get(card.id)}${card.heading}`).join('')
     const chanceRows = [`C${carryOn!.heading}${carryChance.value}`, `A${evening!.heading}${takings.likely!.glyph} ${takings.value}`]
     const gapRows = [`C${carryOn!.heading}`, `A${evening!.heading}`]
     expect(rowsOf(takings.aim_id).map((row) => row.textContent)).toEqual(chanceRows)
@@ -211,7 +233,7 @@ describe('Compare options', () => {
     const chanceFold = `${CHROME.more}C${carryChance.outcome!.text}A${takings.outcome!.text}`
     const gapFold = `${CHROME.more}C${carryGap.title}A${members.title}`
     expect(tool().textContent).toBe([
-      picks, picks, takings.aim, ...chanceRows, chanceFold, membersAim.heading, ...gapRows, gapFold,
+      picks, takings.aim, ...chanceRows, chanceFold, membersAim.heading, ...gapRows, gapFold,
     ].join(''))
     expect(tool()).toHaveAttribute('data-paired', 'false')
   })
@@ -220,7 +242,7 @@ describe('Compare options', () => {
     const { unmount } = render(<CompareOptions model={model} />)
     const path = (id: string) => [...optionPathOf(model, id).cards]
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [...path(evening!.id), ...path(weekend!.id)])
-    change(second(), carryOn!.id)
+    press(carryOn!)
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [...path(evening!.id), ...path(carryOn!.id)])
     fireEvent.click(rowButton(rowsOf(takings.aim_id)[1]!))
     expect(pressCard).toHaveBeenCalledWith(carryOn!.id)
@@ -228,10 +250,18 @@ describe('Compare options', () => {
     expect(ringFrom).toHaveBeenLastCalledWith('tool-compare-options', [])
   })
 
-  it('renders nothing with one option', () => {
-    const { container } = render(<CompareOptions model={{ ...model, cards: model.cards.filter((card) => card.family !== 'option' || card.id === evening!.id) }} />)
-    expect(container).toBeEmptyDOMElement()
-    expect(ringFrom).not.toHaveBeenCalled()
+  it('shows one option chip and its gaps without a comparison', () => {
+    render(<CompareOptions model={{ ...model, cards: model.cards.filter((card) => card.family !== 'option' || card.id === evening!.id) }} />)
+    expect(within(picker()).getAllByRole('button')).toEqual([chip(evening!)])
+    expect(chip(evening!)).toHaveAttribute('aria-pressed', 'true')
+    press(evening!)
+    expect(aimBlock(takings.aim_id)).toBeNull()
+    const rows = rowsOf(membersAim.id)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveAttribute('data-compare-row', 'none')
+    expect(rows[0]!.querySelector('.ok-face-mark-track')).toBeInTheDocument()
+    expect(rows[0]).not.toHaveTextContent(members.text)
+    expect(laneTipOf(resultLine(rows[0]!))).toBe(members.text)
   })
 })
 
@@ -265,7 +295,8 @@ describe('Compare tab integration', () => {
     render(<CoreCompareTab />)
     const legacy = screen.getByTestId('core-compare-none')
     expect(tool().compareDocumentPosition(legacy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(first()).toHaveValue(optionCards(held.model!)[0]!.id)
+    expect(pressed().map((button) => button.getAttribute('data-compare-option')))
+      .toEqual(optionCards(held.model!).slice(0, 2).map((card) => card.id))
   })
 
   it('restores both choices when the same scenario refreshes and the options are still present', () => {
@@ -273,15 +304,14 @@ describe('Compare tab integration', () => {
     const view = { ...studio, version: null }
     useViewStore.setState({ sid: studio.id, view, at: null })
     render(<CoreCompareTab />)
-    change(first(), carryOn!.id)
-    change(second(), evening!.id)
+    press(carryOn!)
+    press(evening!)
 
     act(() => useViewStore.setState({ stale: true }))
     expect(screen.queryByTestId('tool-compare-options')).not.toBeInTheDocument()
     act(() => useViewStore.setState({ stale: false, view: { ...view, model: { ...model } } }))
 
-    expect(first()).toHaveValue(carryOn!.id)
-    expect(second()).toHaveValue(evening!.id)
+    expect(pressed()).toEqual([chip(evening!), chip(carryOn!)])
     expect(rowsOf(takings.aim_id)[0]).toHaveTextContent(carryOn!.heading)
     expect(rowsOf(takings.aim_id)[1]).toHaveTextContent(evening!.heading)
   })
@@ -310,14 +340,13 @@ describe('Compare tab integration', () => {
     useViewStore.setState({ sid: studio.id, view: studio, at: 1 })
     render(<CoreCompareTab />)
     expect(screen.getByTestId('core-compare-loading')).toHaveTextContent('Reading the versions…')
-    expect(first()).toHaveValue(evening!.id)
-    change(first(), carryOn!.id)
-    expect(first()).toHaveValue(carryOn!.id)
+    expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
+    press(carryOn!)
+    expect(pressed()).toEqual([chip(evening!), chip(carryOn!)])
     await screen.findByTestId('core-compare-none')
 
     const next = 's_000000000003'
     act(() => useViewStore.setState({ sid: next, view: { ...studio, id: next, version: null }, at: null }))
-    expect(first()).toHaveValue(evening!.id)
-    expect(second()).toHaveValue(weekend!.id)
+    expect(pressed()).toEqual([chip(evening!), chip(weekend!)])
   })
 })
