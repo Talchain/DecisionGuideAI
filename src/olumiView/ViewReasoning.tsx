@@ -48,9 +48,10 @@ export const REASONING_LABELS = {
 } as const
 const RING = 'reasoning-tab'
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
-const GREEN = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
-const QUIET = `${TYPE.meta} inline-flex min-h-7 items-center gap-1 rounded-sm border border-panel-border px-2 text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
-const MORE = `${TYPE.meta} min-h-6 px-1 text-text-light underline underline-offset-2 hover:text-text-header`
+const GREEN = `${controls.chipText} font-medium inline-flex items-center gap-1.5 ${controls.act}`
+const QUIET = `${controls.chipText} inline-flex items-center gap-1 border border-panel-border text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const QUIET_ICON = `${controls.chipIcon} inline-flex items-center justify-center border border-panel-border text-text-header hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`
+const MORE = `${controls.chipText} text-text-light underline underline-offset-2 hover:text-text-header`
 /** Figures drawn per group at rest (every group is drawn): core orders them by share, so the first is the one that carries most of that group's uncertainty. */
 const REST_FIGURES = 1
 /** At most this many rest groups at rest, in core's order (Paul's progressive-disclosure rule); the others sit behind the one existing "Show n more" press. */
@@ -195,7 +196,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}{e.typed === null ? null : <AnswerBox key={e.typed.id} q={e.typed} />}</span>
-      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={14} decorative /></Hover>
+      <Hover as="button" type="button" className={QUIET_ICON} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.q)} data-testid="reasoning-question"><OkIcon id="fill-box" size={14} decorative /></Hover>
     </li>
   )
   // Likewise a widening ask: core's label is the row; filling the box with core's draft is the quiet secondary press.
@@ -203,7 +204,7 @@ function Row({ e }: { e: Examine }) {
     <li className="flex items-start gap-2 px-1 py-2.5" {...rowData(e)}>
       {mark}
       <span className="min-w-0 flex-1">{words}</span>
-      <Hover as="button" type="button" className={`${QUIET} shrink-0`} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={14} decorative /></Hover>
+      <Hover as="button" type="button" className={QUIET_ICON} words={REASONING_LABELS.fill} aria-label={REASONING_LABELS.fill} onClick={() => prefillComposer(e.w.draft)} data-testid={`reasoning-widen-${e.w.k}`}><OkIcon id="fill-box" size={14} decorative /></Hover>
     </li>
   )
   return (

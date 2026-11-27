@@ -3,6 +3,7 @@
  * each band's first row, the unlinked mark (a quiet icon, its words on hover) on a figure no link touches (in the row gap over the card's top right corner, clear of its frame and its kind marker), and the fold control for 15 or more inputs. Positions are read from the
  * nodes as placed; no word here is core's: they are the boards' fixed notation chrome.
  */
+import { controls } from '../../../styles/controls'
 import { useMemo, type CSSProperties } from 'react'
 import { NodeShapeIndicator } from '../../../canvas/nodes/NodeShapeIndicator'
 import { typography } from '../../../styles/typography'
@@ -87,7 +88,7 @@ export function BandLayer() {
               {band === 'ideas' ? <IdeaMark /> : bandKindsOf(band, model).map((kind) => <NodeShapeIndicator key={kind} nodeKind={kind} size={14} />)}
             </span>
             {bandLabelOf(band, model)}
-            {band === 'inputs' && expanded ? <HoverButton type="button" data-testid="view-inputs-unfold" className="pointer-events-auto ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-panel-border"
+            {band === 'inputs' && expanded ? <HoverButton type="button" data-testid="view-inputs-unfold" className={`${controls.chipIcon} pointer-events-auto ml-1 inline-flex items-center justify-center border border-panel-border`}
               words="Fold these inputs into one group" aria-label="Fold these inputs into one group" onClick={() => { if (sid !== null) setInputsOpen(sid, false) }}><OkIcon id="fold-group" variant="alt" size={14} decorative inherit /></HoverButton> : null}
           </div>
         ))}

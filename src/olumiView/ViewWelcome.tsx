@@ -4,6 +4,7 @@
  * brief route exactly as it did from the dock. No attach and no "Structure it": core has no route for either on a first brief. It leaves
  * the moment the brief is sent (the board then says the draft is running, DraftingBoard) or a model or proposal exists.
  */
+import { controls } from '../styles/controls'
 import { useLayoutEffect, useState, type CSSProperties } from 'react'
 import { create } from 'zustand'
 import { measureDockInset } from '../canvas/components/FloatingOlumiPanel'
@@ -59,7 +60,7 @@ export function ViewWelcome(): JSX.Element | null {
       <div role={reading === 'error' ? 'alert' : 'status'} aria-live="polite" className={`${typography.viewPanelBody} pointer-events-auto max-w-[420px] space-y-3 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center text-text-body shadow-sm`}>
         <p data-testid="view-reading-words">{reading === 'error' ? error ?? READ_FAILED_WORDS : READING_WORDS}</p>
         {reading === 'error' ? (
-          <button type="button" disabled={again} data-testid="view-reading-again" className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:cursor-not-allowed"
+          <button type="button" disabled={again} data-testid="view-reading-again" className={`${controls.chipText} border border-panel-border text-text-header hover:bg-panel-hover disabled:cursor-not-allowed`}
             onClick={() => { setAgain(true); void useViewStore.getState().refresh().finally(() => setAgain(false)) }}>Try again</button>
         ) : null}
       </div>

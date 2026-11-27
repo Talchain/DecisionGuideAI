@@ -51,6 +51,15 @@ const PRODUCT_NAMES = new Set(['Olumi', "Olumi's", 'Olumi’s'])
 const SPACING_UTILITY = /(?:^|:)!?-?(?:[pm][xytrblse]?|gap(?:-[xy])?|space-[xy])-(\[.*\]|0\.5|px|3\.5|7|9|11|14)!?$/
 const CLASS_RECIPE_NAME = /(?:^|_)CLASS(?:ES)?(?:_|$)|^class(?:Names?|es)?$|Class(?:Names?|es|Recipes)?$/
 const CLASS_HELPERS = new Set(['clsx', 'cn', 'classNames', 'classnames', 'twMerge'])
+const BUTTON_WRAPPER = /^(?:button|Button|HoverButton|OkIconButton|MenuItem|SubMenu|MenuRow|CanvasToolButton|ViewSummaryTrigger|VersionsTrigger|SizeEditButton|LaneLinkRemoveButton|AskButton|RecordStepButton|UseAsActionButton|CommitToThisButton)$/
+const BUTTON_HEIGHT = /(?:^|:)!?(?:(?:h|min-h|size)-.+|\[(?:height|min-height):.+\])!?$/
+
+function isButtonSite(tag, attribute) {
+  return BUTTON_WRAPPER.test(tag) ||
+    (tag === 'Hover' && attribute('as') === 'button') ||
+    (tag === 'input' && /^(?:button|submit|reset)$/.test(attribute('type') ?? '')) ||
+    /^(?:button|tab|menuitem(?:radio|checkbox)?)$/.test(attribute('role') ?? '')
+}
 const SPACE_VAR = /\bvar\(\s*--space-[\w-]+(?=\s*[,)]|_)/
 const STYLE_SPACING = /^(?:(?:padding|margin)(?:[A-Z]\w*)?|gap|rowGap|columnGap)$/
 const CSS_SPACING = /^(?:(?:padding|margin)(?:-[a-z-]+)?|gap|row-gap|column-gap)$/i
@@ -197,8 +206,8 @@ function isStringSegment(node) {
   return ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
 }
 
-function readClassStrings(node, read, helperArgument = false) {
-  const visit = (value) => readClassStrings(value, read, helperArgument)
+function readClassStrings(node, read, helperArgument = false, resolve) {
+  const visit = (value) => readClassStrings(value, read, helperArgument, resolve)
   if (!node) return
   if (isStringSegment(node)) return read(node)
   if (ts.isJsxExpression(node) || ts.isParenthesizedExpression(node) ||
@@ -232,6 +241,10 @@ function readClassStrings(node, read, helperArgument = false) {
     }
   } else if (ts.isCallExpression(node) && node.expression.getText() === 'Object.freeze') {
     visit(node.arguments[0])
+  } else if (resolve && ts.isCallExpression(node) && CLASS_HELPERS.has(node.expression.getText())) {
+    for (const argument of node.arguments) readClassStrings(argument, read, true, resolve)
+  } else if (resolve && ts.isIdentifier(node)) {
+    visit(resolve(node.text))
   }
 }
 
@@ -294,6 +307,16 @@ export function scanLaneSource(file, text) {
     occurrences.push({ line, token })
   }
   const add = (rule, node, token) => addAtLine(rule, token, source.getLineAndCharacterOfPosition(node.getStart(source)).line)
+  const localClasses = new Map()
+  function collectLocalClasses(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const name = node.name.text
+      // Skip ambiguous names such as `className` declared in several components.
+      localClasses.set(name, localClasses.has(name) ? undefined : node.initializer)
+    }
+    ts.forEachChild(node, collectLocalClasses)
+  }
+  if (file.endsWith('.tsx')) collectLocalClasses(source)
   const spacingClassStrings = new Set()
   const readSpacingClass = (node) => {
     if (spacingClassStrings.has(node)) return
@@ -354,6 +377,40 @@ export function scanLaneSource(file, text) {
       const attributes = node.attributes.properties.filter(ts.isJsxAttribute)
       const localCopy = !isViewCopy(node)
       const role = attributes.find((attribute) => attribute.name.getText(source) === 'role')?.initializer
+      const attribute = (name) => {
+        let value = attributes.find((entry) => entry.name.getText(source) === name)?.initializer
+        if (value && ts.isJsxExpression(value)) value = value.expression
+        return value && ts.isStringLiteralLike(value) ? value.text : undefined
+      }
+      if (isButtonSite(tag, attribute) || (file === 'olumiView/look/Menu.tsx' && tag === 'Row')) {
+        const size = attribute('size')
+        if (tag === 'Button' && (size === 'sm' || size === 'md')) {
+          add('v12-button-size', node, `<Button size="${size}">`)
+        }
+        const seen = new Set()
+        const read = (literal) => {
+          for (const token of literal.text.split(/\s+/)) {
+            if (!/(?:^|:)(?:before|after):/.test(token) && BUTTON_HEIGHT.test(token)) {
+              add('v12-button-size', node, token)
+            }
+          }
+        }
+        const resolve = (name) => {
+          if (seen.has(name)) return undefined
+          seen.add(name)
+          return localClasses.get(name)
+        }
+        const classes = attributes.find((entry) => /^(?:className|class)$/.test(entry.name.getText(source)))
+        readClassStrings(classes?.initializer, read, false, resolve)
+        const style = attributes.find((entry) => entry.name.getText(source) === 'style')?.initializer
+        const readHeight = (value) => {
+          if (ts.isPropertyAssignment(value) && /^(?:height|minHeight)$/.test(value.name.text ?? '')) {
+            add('v12-button-size', node, `style: ${value.name.text}`)
+          }
+          ts.forEachChild(value, readHeight)
+        }
+        if (style) readHeight(style)
+      }
       const sentenceCase = /^(?:h[1-6]|button|Button|HoverButton|OkIconButton)$/.test(tag) ||
         (role && ts.isStringLiteral(role) && /^(?:heading|button)$/.test(role.text))
       for (const attribute of attributes) {

@@ -5,9 +5,9 @@
  * A mark core sets off the line (`line: false`) is drawn on its card instead (RevealMarks), never here.
  * Selecting either chip opens the Team tab with its link picked where the person says where they stand on it (olumiCore/team/linkPick.ts, Paul's step 6).
  */
+import { controls } from '../styles/controls'
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { EdgeLabelRenderer } from '@xyflow/react'
-import { typography } from '../styles/typography'
 import { linkWordsAt } from '../canvas/edges/linkWordsPlace'
 import { useAnchoredTip } from './look/Tip'
 import { placeAt } from './v12/links/place'
@@ -57,7 +57,7 @@ export function LinkMarkChip({ i, link, path, cards, midX, midY }: { i: number; 
     <EdgeLabelRenderer>
       <button type="button" ref={attach} aria-label={mark.label} aria-describedby={hover.describedBy} {...hover.handlers} data-link-mark={`links.${i}`} data-link-mark-kind={mark.kind}
         onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
-        className={`ok-link-chip${at === null ? ' ok-link-hidden' : ''} nodrag nopan inline-flex min-h-6 max-w-[240px] cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
+        className={`${controls.chipText} ok-link-chip${at === null ? ' ok-link-hidden' : ''} nodrag nopan inline-flex max-w-[240px] cursor-pointer items-center gap-1.5 border border-panel-border bg-panel text-left text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
         <span aria-hidden="true" className="inline-flex flex-none">
           {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
         </span>
@@ -75,7 +75,7 @@ export function LinkMarkCardChip({ mark }: { mark: LinkMark }): JSX.Element {
     <>
     <button type="button" aria-label={mark.label} aria-describedby={hover.describedBy} {...hover.handlers} data-link-mark-card={mark.card ?? undefined} data-link-mark-kind={mark.kind}
       onClick={(e) => { e.stopPropagation(); openLinkStance(mark.link) }}
-      className={`pointer-events-auto inline-flex min-h-6 min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md border border-panel-border bg-panel py-0.5 pl-0.5 pr-2.5 text-left ${typography.viewLabel} text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
+      className={`${controls.chipText} pointer-events-auto inline-flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 border border-panel-border bg-panel text-left text-text-header shadow-1 transition-shadow duration-fast hover:shadow-2`}>
       <span aria-hidden="true" className="inline-flex flex-none">
         {people.map(([pid, by], k) => <span key={pid} className={`inline-grid h-[18px] w-[18px] place-items-center rounded-full border border-panel-border bg-canvas text-text-body ${k > 0 ? '-ml-1.5' : ''}`}>{initial(by)}</span>)}
       </span>

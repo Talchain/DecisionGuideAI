@@ -17,6 +17,7 @@
  * Requires ToastProvider in an ancestor (the dialogs use useToast).
  */
 
+import { controls } from '../../styles/controls'
 import { HoverButton } from '../../olumiView/look/Hover'
 import { TOOLBAR_ICON } from '../../olumiView/look/toolbar'
 import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
@@ -295,7 +296,7 @@ export function KebabMenu({
             <div className="flex items-center justify-between gap-2">
               <h2 className={`${typography.viewPanelHeadline} text-text-header`}>Canvas settings</h2>
               <HoverButton type="button" words="Close canvas settings" aria-label="Close canvas settings" onClick={closeSettings}
-                className="rounded-control p-1.5 text-text-light hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-text-header">
+                className={`${controls.chipIcon} text-text-light hover:bg-panel-hover focus-visible:ring-2 focus-visible:ring-text-header`}>
                 <OkIcon id="cancel-close" size={14} decorative inherit />
               </HoverButton>
             </div>

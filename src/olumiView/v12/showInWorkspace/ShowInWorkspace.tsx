@@ -9,6 +9,7 @@
  *
  * Both labels are this control's chrome. Focus is the page's own neutral ring (`*:focus-visible`), not one of its own.
  */
+import { controls } from '../../../styles/controls'
 import { useEffect, useMemo, useRef } from 'react'
 import { OkIcon } from '../../look/icons'
 import { useAnchoredTip } from '../../look/Tip'
@@ -46,7 +47,7 @@ export function ShowInWorkspace({ turn, next }: { turn: number; next: Next | nul
       <button ref={button} type="button" data-shown={shown || undefined} aria-busy={busy || undefined} data-testid="show-in-workspace-button"
         onClick={() => { dismiss(); void (shown ? returnToBefore() : showInWorkspace(turn, next)) }}
         {...handlers} aria-describedby={describedBy}
-        className={`${typography.viewPanelMeta} inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
+        className={`${controls.chipText} inline-flex items-center gap-1 ${shown ? 'text-text-body' : 'text-text-light'} hover:bg-panel-hover hover:text-text-body`}>
         {shown
           ? <OkIcon id="back" size={14} decorative />
           : <OkIcon id="show-in-workspace" size={14} decorative />}

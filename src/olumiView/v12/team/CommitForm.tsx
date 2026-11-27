@@ -1,5 +1,5 @@
+import { controls } from '../../../styles/controls'
 import { useEffect, useRef, useState } from 'react'
-import { typography } from '../../../styles/typography'
 import { Button } from '../../../components/ui/Button'
 import type { View } from '../../client'
 import { teamApi, TeamApiError } from '../../../olumiCore/team/api'
@@ -100,7 +100,7 @@ export function UseAsActionButton({ text }: { text: string }): JSX.Element | nul
   if (reach === null) return null
   return (
     <button type="button" data-testid="view-kept-idea-use" onClick={() => openCommitDraft(reach.sid, reach.view, text)}
-      className={`${typography.viewPanelMeta} inline-flex min-h-[24px] items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.useAsAction}</button>
+      className={`${controls.chipText} inline-flex items-center text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.useAsAction}</button>
   )
 }
 
@@ -197,7 +197,7 @@ export function CommitForm({ sid, view, onWrote, docked = false }: { sid: string
         <p className={`${META} flex flex-wrap items-center gap-1.5`} data-testid="commit-form-option" data-option={bound.id}>
           <span>{COMMIT_WORDS.about} <span className="font-medium text-text-header">{bound.heading}</span></span>
           <button type="button" data-testid="commit-form-option-clear" onClick={() => put({ option: '' })}
-            className={`${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.notAboutOption}</button>
+            className={`${controls.chipText} inline-flex cursor-pointer items-center text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.notAboutOption}</button>
         </p>
       )}
       {d.seeded && d.action.trim() !== '' && <p className={META} data-testid="commit-form-yours">{COMMIT_WORDS.yours}</p>}
@@ -206,11 +206,11 @@ export function CommitForm({ sid, view, onWrote, docked = false }: { sid: string
       <L id="commit-form-reconsider" t={COMMIT_WORDS.reconsider}>{area('commit-form-reconsider', 'reconsider')}</L>
       {status}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" data-testid="commit-form-keep" disabled={busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
+        <Button size="chip" data-testid="commit-form-keep" disabled={busy || locked} onClick={() => void save()}>{COMMIT_WORDS.keep}</Button>
         {/* A quiet grey text press, never blue (blue is Olumi's) and never a second filled button beside Keep it. */}
         {hasDraft && !busy && !locked ? (
           <button type="button" data-testid="commit-form-discard" onClick={discard}
-            className={`${typography.viewPanelMeta} inline-flex min-h-[28px] cursor-pointer items-center rounded-md px-1.5 text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.discard}</button>
+            className={`${controls.chipText} inline-flex cursor-pointer items-center text-text-light hover:bg-panel-hover hover:text-text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>{COMMIT_WORDS.discard}</button>
         ) : null}
       </div>
       {/* One quiet line under the buttons: what keeping it is for. A box left empty is marked on the box itself, not said again here. */}

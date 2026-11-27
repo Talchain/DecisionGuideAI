@@ -11,6 +11,7 @@
  * A section core sends nothing for is not drawn (absence is drawn as absence). What the previous sections showed that core has no field
  * for is listed for the engine in BUILD-LEDGER (A4 gaps), never made up here. No model word is composed, rounded or formatted.
  */
+import { controls } from '../../styles/controls'
 import type { ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
@@ -33,7 +34,7 @@ const QUIET = `${typography.viewPanelMeta} m-0 break-words text-text-light`
 function CardLink({ id, children }: { id: string; children: ReactNode }) {
   return (
     <button type="button" data-model-section-card={id} onClick={() => focusNodeById(id)}
-      className={`${typography.viewPanelBody} rounded-sm text-left text-text-header underline-offset-2 hover:underline ${ACTION_FOCUS}`}>{children}</button>
+      className={`${controls.chipText} text-left text-text-header underline-offset-2 hover:underline ${ACTION_FOCUS}`}>{children}</button>
   )
 }
 

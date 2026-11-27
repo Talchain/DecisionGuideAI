@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { Hover, HoverButton } from '../../olumiView/look/Hover'
@@ -65,7 +66,7 @@ export function TeamTab(): JSX.Element {
       {sid && view === null && status === 'error' && (
         <div className="grid gap-3" data-testid="team-error">
           <p role="alert" className={ERR}>{error}</p>
-          <Button size="sm" variant="secondary" onClick={() => void refresh()}>Try again</Button>
+          <Button size="chip" variant="secondary" onClick={() => void refresh()}>Try again</Button>
         </div>
       )}
       {view !== null && shown === null && <p role="alert" className={ERR} data-testid="team-not-for-page">{NOT_FOR_THIS_PAGE}</p>}
@@ -162,7 +163,7 @@ function Step({ id, n, state, open, summary, onToggle, compact = false, children
   if (compact) return (
     <section data-testid={`team-step-${id}`} data-step-state={state} data-step-compact="" aria-label={STEP_WORDS[id]} className="inline-flex">
       <button type="button" aria-expanded={false} aria-controls={body} data-testid={`team-step-${id}-row`} onClick={() => { tip.dismiss(); onToggle() }} {...tip.handlers} aria-describedby={tip.describedBy}
-        className={`${META} inline-flex min-h-[24px] items-center gap-1.5 rounded-sm text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+        className={`${controls.chipText} inline-flex items-center gap-1.5 text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <span aria-hidden="true" className={`${typography.viewPanelMeta} inline-grid h-[20px] w-[20px] flex-none place-items-center rounded-full border ${DISC[state]}`}>{n}</span>
         <span className="sr-only">{STATE_WORDS[state]}: </span>{STEP_WORDS[id]}
       </button>
@@ -235,7 +236,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
       {past && (
         <div className={`${CARD} flex flex-wrap items-center gap-2`} data-testid="team-past">
           <span className={BODY}>{TEAM_PAST_HELD}</span>
-          <Button size="sm" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
+          <Button size="chip" variant="secondary" data-testid="team-past-back" onClick={() => void useViewStore.getState().look(null)}>Back to the latest</Button>
         </div>
       )}
       {/* Strategy lane (7 Nov, by agreement): the strategy overview, a read-only projection of core's `strategy`; null without the key. */}
@@ -253,7 +254,7 @@ function Flow({ sid, view, past, stale }: { sid: string; view: View; past: boole
         {(foldedCount > 0 || showLater) && (
           <li className="basis-full">
             <button type="button" aria-expanded={showLater} aria-controls={laterIds.length > 0 ? laterIds.join(' ') : undefined} data-testid="team-steps-later" onClick={() => setShowLater((x) => !x)}
-              className={`${META} inline-flex items-center gap-1 rounded-sm py-2.5 text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+              className={`${controls.chipText} inline-flex items-center gap-1 text-text-body hover:text-text-header focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
               {STEP_WORDS.whereThisGoes}
             </button>
           </li>

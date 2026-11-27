@@ -8,6 +8,7 @@
  * this page's person; it reads only `collab.shared` and core's revealed differences. It closes itself the moment either stops holding.
  * Nothing is ranked, averaged or marked right; no backend change, no new data.
  */
+import { controls } from '../../../styles/controls'
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { useViewStore } from '../../store'
 import type { View } from '../../client'
@@ -103,7 +104,7 @@ export function CompareViewsStage(): JSX.Element | null {
       <div className="mx-auto grid max-w-[1440px] gap-6 px-6 pb-12 pt-16">
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" data-testid="compare-back" onClick={hide}
-            className={`${typography.viewPanelMeta} inline-flex min-h-[32px] items-center gap-1.5 rounded-full border border-panel-border bg-panel px-3 font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+            className={`${controls.chipText} inline-flex items-center gap-1.5 border border-panel-border bg-panel font-medium text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
             <OkIcon id="back" size={14} decorative inherit />{COMPARE_WORDS.back}
           </button>
           <h2 className={`${typography.viewPanelHeadline} m-0 text-text-header`} data-testid="compare-heading">{v.collab.heading}</h2>

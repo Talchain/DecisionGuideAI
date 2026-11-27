@@ -20,7 +20,7 @@ import { typo } from '../../styles/typography'
 import { controls } from '../../styles/controls'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
-export type ButtonSize = 'md' | 'sm'
+export type ButtonSize = 'md' | 'sm' | 'chip'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -35,7 +35,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   danger: 'bg-transparent text-danger-hover border border-danger/40 hover:bg-panel-hover focus-visible:ring-info/40 disabled:opacity-40',
 }
 
-const SIZE_CLASSES: Record<ButtonSize, { typo: 'button' | 'buttonSmall'; pad: string }> = {
+const SIZE_CLASSES: Record<Exclude<ButtonSize, 'chip'>, { typo: 'button' | 'buttonSmall'; pad: string }> = {
   // Extraction-first: `sm` is PanelFooter's exact geometry (buttonSmall + px-4 py-2).
   md: { typo: 'button', pad: 'px-5 py-2.5' },
   sm: { typo: 'buttonSmall', pad: 'px-4 py-2' },
@@ -45,15 +45,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   { variant = 'primary', size = 'md', className = '', type = 'button', ...rest },
   ref,
 ) {
-  const s = SIZE_CLASSES[size]
+  const base = `whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${className}`
+  const s = size === 'chip' ? null : SIZE_CLASSES[size]
   return (
     <button
       ref={ref}
       type={type}
-      className={typo(
-        s.typo,
-        `whitespace-nowrap rounded-full ${s.pad} transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${className}`,
-      )}
+      className={s === null ? `${controls.chipText} font-medium ${base}` : typo(s.typo, `rounded-full ${s.pad} ${base}`)}
       {...rest}
     />
   )

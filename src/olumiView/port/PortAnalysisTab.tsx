@@ -11,6 +11,7 @@
  * Above it all, the model's state is said once, in the Reasoning tab's own strip (`StateStrip`): a held proposal, or a what-if with its way back.
  * Every word about the person's model is core's, at its View path (`data-view`); the headings are the tab's own chrome.
  */
+import { controls } from '../../styles/controls'
 import { useId, useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
@@ -143,7 +144,7 @@ function WhyThisReading({ model }: { model: ViewModel }) {
   if (ml == null && !compared) return null
   return (
     <section data-testid="analysis-why" data-disclosure={open ? 'open' : 'closed'}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${TYPE.meta} inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? regionId : undefined} className={`${controls.chipText} inline-flex items-center gap-1 text-text-body hover:text-text-header`} data-testid="analysis-why-toggle">
         <FoldChevron open={open} />{ANALYSIS_WORDS.why}
       </button>
       {!open ? null : (
@@ -174,7 +175,7 @@ function ToReasoning({ model }: { model: ViewModel }) {
       if (sid !== null) useReasoningFocus.setState({ request: { sid, key: first?.key ?? 'commitment' } })
       useUIStore.getState().forceActivateOutputTab('analysisNew')
     }}
-      className={`${TYPE.body} flex min-h-7 w-full items-center gap-2 rounded-sm px-1 text-left text-text-body hover:bg-panel-hover`}>
+      className={`${controls.chipText} flex w-full items-center gap-2 text-left text-text-body hover:bg-panel-hover`}>
       <span className="min-w-0 flex-1">{first === undefined ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine}</span>
       {first === undefined ? null : <span className={`${TYPE.meta} tabular-nums text-text-light`} data-count>{items.length}</span>}
     </button>

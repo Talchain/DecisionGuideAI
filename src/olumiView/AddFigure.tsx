@@ -13,7 +13,7 @@ import { typography } from '../styles/typography'
 import { controls } from '../styles/controls'
 import { MENU_ROW, MENU_SHELL } from './look/menu'
 import { HoverButton } from './look/Hover'
-import { TOOLBAR_RAIL_ICON } from './look/toolbar'
+import { OLDER_TOOLBAR_RAIL_ICON, TOOLBAR_RAIL_ICON } from './look/toolbar'
 import { TeamApiError } from '../olumiCore/team/api'
 import { runWrite, useWriteSending } from '../olumiCore/team/writes'
 import { isForThisPage, useMe } from '../olumiCore/me'
@@ -126,7 +126,7 @@ export function AddFigure(): JSX.Element | null {
           <OkIcon id="add" size={14} decorative inherit />
         </HoverButton>
       ) : (
-        <HoverButton ref={reference} type="button" words="Add to model" className={TOOLBAR_RAIL_ICON}
+        <HoverButton ref={reference} type="button" words="Add to model" className={OLDER_TOOLBAR_RAIL_ICON}
           aria-label="Add to model" data-testid="canvas-add-to-model" {...getReferenceProps()}>
           <OkIcon id="add" size={14} decorative inherit />
         </HoverButton>

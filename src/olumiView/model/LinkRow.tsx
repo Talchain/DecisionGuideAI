@@ -5,6 +5,7 @@
  * two ends; its removal and its strength's editor where core offers them) and puts its first card in front on the canvas. Its row is
  * `linkRowOf` (what it joins); its View paths stay core's (`links.<i>…`).
  */
+import { controls } from '../../styles/controls'
 import { typography } from '../../styles/typography'
 import { ACTION_FOCUS } from '../../components/results/analysisNew/panelSurfaces'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
@@ -36,7 +37,7 @@ export function LinkRow({ model, link, i, row, from, to }: { model: ViewModel; l
         <span className="min-w-0 flex-1">
           <button type="button" aria-expanded={open} aria-controls={open ? `model-detail-${row}` : undefined} data-model-select={row} data-model-link-line={row}
             aria-describedby={tip.describedBy} onFocus={tip.handlers.onFocus} onBlur={tip.handlers.onBlur} onKeyDown={tip.handlers.onKeyDown}
-            onClick={(e) => { e.stopPropagation(); tip.dismiss(); select() }} className={`block min-h-[24px] w-full cursor-pointer break-words rounded-sm text-left text-text-header ${ACTION_FOCUS}`}>
+            onClick={(e) => { e.stopPropagation(); tip.dismiss(); select() }} className={`${controls.chipText} block w-full cursor-pointer break-words text-left text-text-header ${ACTION_FOCUS}`}>
             <span data-view={linkEndPath(model, link.from)}>{from}</span>
             <span role="img" aria-label={W.to} className="text-text-light"> → </span>
             <span data-view={linkEndPath(model, link.to)}>{to}</span>

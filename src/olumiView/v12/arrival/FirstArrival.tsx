@@ -1,9 +1,10 @@
+import { controls } from '../../../styles/controls'
 import { useId, useState } from 'react'
 import { OkIcon } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
 import type { View } from '../../client'
 import { ownViewPending } from '../../../olumiCore/ownViewFirst'
-import { BODY, CARD, H, LABEL } from '../../../olumiCore/team/ui'
+import { BODY, CARD, H } from '../../../olumiCore/team/ui'
 import { nonEmpty } from '../../tipping'
 import { Hover } from '../../look/Hover'
 
@@ -45,7 +46,7 @@ export function FirstArrival({ view }: { view: View }): JSX.Element | null {
       {brief.trim() !== '' && (
         <div className="grid gap-1">
           <button type="button" data-testid="first-arrival-brief-toggle" aria-expanded={open} aria-controls={briefId} onClick={() => setOpen((o) => !o)}
-            className={`${LABEL} flex min-h-[24px] w-full items-center gap-1.5 text-left`}>
+            className={`${controls.chipText} flex w-full items-center gap-1.5 text-left`}>
             <OkIcon id="brief" size={14} decorative />
             <span className="min-w-0 flex-1">{ARRIVAL_WORDS.brief}</span>
             <FoldChevron open={open} />

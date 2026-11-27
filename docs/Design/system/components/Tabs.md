@@ -7,8 +7,8 @@ The right-hand panel's tab strip: Olumi, Analysis, Reasoning, Compare, Model and
 ## Anatomy
 
 - **Strip**: 45px high. Six tabs at most; Journey is not a tab.
-- **Tab**: a 44px-high `role="tab"` button, in `viewPanelMeta`. An unselected tab is its icon alone. The icons are `olumi-mark`, `tab-analysis`, `tab-reasoning`, `tab-compare`, `tab-model` and `team`.
-- **Selected**: `SELECTED`. The tab gets an `h-8` pill, `rounded-full`, with a 1px `text-header` ring, `bg-panel-hover`, and `text-header` at 500, and it shows its label.
+- **Tab**: a `role="tab"` button using `controls.chipText` for its 28px minimum height and type. An unselected tab is its icon alone. The icons are `olumi-mark`, `tab-analysis`, `tab-reasoning`, `tab-compare`, `tab-model` and `team`.
+- **Selected**: `SELECTED`. The tab retains its chip shape and carries a 1px `text-header` ring, `bg-panel-hover`, and `text-header` at 500, and it shows its label.
 - **Focus**: a 2px ring in `text-header`.
 
 ## Code

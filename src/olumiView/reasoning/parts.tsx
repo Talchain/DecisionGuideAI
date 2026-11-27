@@ -10,9 +10,10 @@
  * open or closed region carries `data-disclosure`, so the audit reads it as disclosure. Nothing here words a model value: the labels are
  * the tab's own (`REASONING_LABELS`), the counts are how many rows are drawn, and every row's words come in from the caller.
  */
+import { controls } from '../../styles/controls'
 import { useId, useState, type ComponentType, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
-import { ACTION_FOCUS, action, icon } from '../../components/results/analysisNew/panelSurfaces'
+import { ACTION_FOCUS, icon } from '../../components/results/analysisNew/panelSurfaces'
 import { TYPE } from '../port/type'
 import { Hover } from '../look/Hover'
 import { FoldChevron } from '../look/FoldChevron'
@@ -45,7 +46,7 @@ export function SectionRow({ title, Icon, count, defaultOpen = false, testId, ch
     <section aria-label={title} data-testid={`view-reasoning-${testId}`} data-disclosure={open ? 'open' : 'closed'}>
       <h3 className="m-0">
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
-          className={`flex min-h-[24px] w-full items-center gap-3 rounded-sm py-2 text-left hover:opacity-80 ${ACTION_FOCUS}`}>
+          className={`${controls.chipText} flex w-full items-center gap-3 text-left hover:opacity-80 ${ACTION_FOCUS}`}>
           {Icon === undefined ? null : <span className="flex h-6 w-6 shrink-0 items-center justify-center"><Icon className={`${icon('row')} text-text-light`} aria-hidden={true} /></span>}
           <span className={`${typography.panelHeader} min-w-0 flex-1 text-text-header`}>{title}</span>
           <Count n={count} testId={`view-reasoning-${testId}-count`} />
@@ -64,7 +65,7 @@ export function Door({ label, count, testId, children }: { label: string; count:
   return (
     <section aria-label={label} data-testid={`view-reasoning-${testId}`} data-disclosure={open ? 'open' : 'closed'}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? region : undefined} data-testid={`view-reasoning-${testId}-toggle`}
-        className={`${TYPE.body} ${action('disclose')}`}>
+        className={`${controls.chipText} ${ACTION_FOCUS} inline-flex items-center gap-2 text-left text-text-body hover:text-text-header`}>
         <FoldChevron open={open} className="text-text-light" />
         <span>{label}</span>
         <Count n={count} />
@@ -87,7 +88,7 @@ export function Clamped({ long, labels, children, testId, lines = 2 }: { long: b
     <span className="block min-w-0" data-disclosure={open ? 'open' : 'closed'} data-testid={testId}>
       {/* `line-clamp-2` brings its own display (-webkit-box); a `block` beside it would win and undo the clamp. */}
       <span id={bodyId} className={open ? 'block' : lines === 1 ? 'line-clamp-1' : 'line-clamp-2'}>{children}</span>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={bodyId} className={`${TYPE.meta} ${action('text')}`} data-testid={`${testId}-more`}>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={bodyId} className={`${controls.chipText} ${ACTION_FOCUS} inline-flex items-center gap-1 text-text-body hover:text-text-header`} data-testid={`${testId}-more`}>
         {open ? labels.less : labels.more}
       </button>
     </span>

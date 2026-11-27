@@ -4,10 +4,11 @@
  * word with core's state pill and its holders' initials; a section with nothing shows core's own sentence for that. Under the aim, core's definitional gate in
  * words. First in the Team tab's panel list (TeamTab.tsx, by agreement with the V11 build, 7 Nov), folded until opened; null without the key.
  */
+import { controls } from '../../styles/controls'
 import { useId, useState } from 'react'
 import { FoldChevron } from '../look/FoldChevron'
 import { Hover } from '../look/Hover'
-import { AVATAR, BODY, CARD, H, META } from '../../olumiCore/team/ui'
+import { AVATAR, BODY, CARD, META } from '../../olumiCore/team/ui'
 import type { View } from '../client'
 import { strategyOf } from './strategy'
 
@@ -20,7 +21,7 @@ export function StrategyOverviewSection({ view }: { view: View | null }): JSX.El
   if (s === null) return null
   return (
     <section className={CARD} data-testid="strategy-overview" aria-label={s.overview.heading}>
-      <button type="button" aria-expanded={open} aria-controls={open ? body : undefined} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${H} flex min-h-[44px] w-full cursor-pointer items-center gap-1.5 text-left`}>
+      <button type="button" aria-expanded={open} aria-controls={open ? body : undefined} data-testid="strategy-overview-toggle" onClick={() => setOpen((o) => !o)} className={`${controls.chipText} flex w-full cursor-pointer items-center gap-1.5 text-left`}>
         <FoldChevron open={open} />
         {s.overview.heading}
       </button>

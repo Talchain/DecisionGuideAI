@@ -10,6 +10,7 @@
  * (`row.tail`) is drawn at rest under each option's bar (A1); ONE press away: the low/high key and the marks' legend.
  * Geometry is in SVG attributes (percent of the track), colour in classes: no inline style.
  */
+import { controls } from '../../styles/controls'
 import { useId, useState } from 'react'
 import { FoldChevron } from '../look/FoldChevron'
 import type { ViewModel } from '../client'
@@ -170,7 +171,7 @@ export function ChanceChart({ model }: { model: ViewModel }) {
         <div className={`${TYPE.meta} space-y-0.5 px-1 text-text-light`} data-testid={ranged ? 'analysis-chart-key' : 'analysis-chart-marks'}>
           {shared === null || !ranged ? null : <FigureLabel card={shared} given={given} />}
           {sentence === '' || !ranged ? null : <Hover as="p" words={run.sensitivity?.title} className="m-0 text-text-body" data-view="run.sensitivity.text" data-testid="analysis-chart-ends">{sentence}</Hover>}
-          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? foldId : undefined} className="-mx-1 inline-flex min-h-7 items-center gap-1 px-1 text-text-body hover:text-text-header" data-testid="analysis-chart-more">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={open ? foldId : undefined} className={`${controls.chipText} -mx-1 inline-flex items-center gap-1 text-text-body hover:text-text-header`} data-testid="analysis-chart-more">
             <FoldChevron open={open} />{CHART_WORDS.more}
           </button>
           {!open ? null : (

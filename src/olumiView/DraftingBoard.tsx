@@ -14,6 +14,7 @@
  * empty board draws it: core's label as its one press (the same write as the menu's row, ViewChat.buildModel) and core's own line for it
  * under the press. No sentence here is the page's. The press starts a draft, and the drafting state above takes the board.
  */
+import { controls } from '../styles/controls'
 import { HoverButton } from './look/Hover'
 import { useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { typography } from '../styles/typography'
@@ -75,7 +76,7 @@ export function LayingBoard(): JSX.Element | null {
           {state === 'laying' ? LAYING_WORDS.laying : LAYING_WORDS.failed}
         </p>
         {state === 'failed' ? <button type="button" data-testid="view-laying-again" onClick={retryFirstDraw}
-          className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover">{LAYING_WORDS.again}</button> : null}
+          className={`${controls.chipText} border border-panel-border text-text-header hover:bg-panel-hover`}>{LAYING_WORDS.again}</button> : null}
       </div>
     </div>
   )
@@ -90,7 +91,7 @@ function BuildOffer({ offer, secondary }: { offer: { label: string; title: strin
   return (
     <div className={secondary ? WRAP_SECONDARY : WRAP} style={{ '--board-prompt-left': secondary ? `${left}px` : undefined, '--board-dock-inset': `${right}px` } as CSSProperties} data-testid="view-build-board" data-secondary={secondary ? '' : undefined}>
       <div className={secondary ? 'pointer-events-auto grid max-w-[320px] justify-items-start gap-1 rounded-lg border border-panel-border bg-panel px-3 py-2 text-left' : 'pointer-events-auto grid max-w-[420px] justify-items-center gap-2 rounded-lg border border-panel-border bg-panel px-6 py-5 text-center shadow-sm'}>
-        <Button size="sm" disabled={busy} data-view="build_model.label" data-testid="view-build-board-go" onClick={() => void buildModel()}>{offer.label}</Button>
+        <Button size="chip" disabled={busy} data-view="build_model.label" data-testid="view-build-board-go" onClick={() => void buildModel()}>{offer.label}</Button>
         {offer.title === '' ? null : <p className={`${typography.viewPanelMeta} text-text-light`} data-view="build_model.title" data-testid="view-build-board-title">{offer.title}</p>}
       </div>
     </div>
@@ -130,7 +131,7 @@ function Drafting({ draft, secondary }: { draft: Draft; secondary: boolean }): J
             </div>
           ))
           : <button type="button" disabled={busy} data-testid="view-drafting-again" onClick={() => void tryAgain()}
-              className="min-h-[44px] rounded-md border border-panel-border px-4 text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed">Try again</button>}
+              className={`${controls.chipText} border border-panel-border text-text-header hover:bg-panel-hover disabled:text-text-light disabled:cursor-not-allowed`}>Try again</button>}
         {typeof brief !== 'string' || brief.trim() === '' ? null : <details className="text-left" data-testid="view-draft-brief"><summary className={`${typography.viewPanelMeta} cursor-pointer text-text-body`}>Your brief</summary><p className="max-h-[28vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed">{brief}</p></details>}
       </div>
     </div>

@@ -4,10 +4,10 @@
  * as the quantity, which core refuses for a risk (it is not a figure): the possible bug named on 16 Nov is REAL for a risk card. A surface that
  * draws core's `figure.edit` mounts this button when `isSizeEdit(edit)` and keeps its own editor for a plain figure edit.
  */
+import { controls } from '../../../styles/controls'
 import { EditIcon } from '../../ds/icons'
 import type { ReactNode } from 'react'
 import { HoverButton } from '../../look/Hover'
-import { typography } from '../../../styles/typography'
 import { useMe } from '../../../olumiCore/me'
 import { useViewStore } from '../../store'
 import { useShowToastSafe } from '../../../canvas/ToastContext'
@@ -24,7 +24,7 @@ export function SizeEditButton({ edit, subject, label, className, glyph, childre
   const at = (el: HTMLElement) => { const r = el.getBoundingClientRect(); return { x: (r?.right ?? 200) + 8, y: r?.top ?? 120 } }
   // The size form is one of the surfaces the one store holds (surfaces step 2): the lane's layer draws it, Escape and any other surface close it.
   return (
-      <HoverButton type="button" words={gate.ok ? edit.prompt : gate.why} aria-disabled={!gate.ok || undefined} data-testid="lane-size-edit" className={className ?? `${typography.viewPanelMeta} cursor-pointer underline underline-offset-2`}
+      <HoverButton type="button" words={gate.ok ? edit.prompt : gate.why} aria-disabled={!gate.ok || undefined} data-testid="lane-size-edit" className={className ?? `${glyph === undefined ? controls.chipText : controls.chipIcon} cursor-pointer underline underline-offset-2`}
         aria-label={glyph !== undefined || children !== undefined ? label : undefined}
         onClick={(e) => { const el = e.currentTarget; const g = editGateNow(); if (!g.ok) { showToast(g.why, 'warning'); return } { const spec: EditSpec = { kind: 'size', sid: g.sid, base: g.base, edit, subject }; useLaneInspector.getState().show({ kind: 'form', spec, anchor: at(el), busyKey: writeKeyOf(spec) }) } }}>{children ?? (glyph !== undefined ? <EditIcon /> : label)}</HoverButton>
   )

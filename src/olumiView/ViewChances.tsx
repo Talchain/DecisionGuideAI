@@ -7,6 +7,7 @@
  * Each drawn View string carries `data-view`, the path to the exact string it shows, so a test can bind every element to its own
  * value by identity (design §3).
  */
+import { controls } from '../styles/controls'
 import { earlierResultsOf } from './v12/contract'
 import { Fragment, type ReactNode } from 'react'
 import { FigureEdit } from './FigureEdit'
@@ -108,7 +109,7 @@ export function WhatIfShown({ model, labelled = true }: { model: ViewModel; labe
       {!labelled ? null : (
         <div className="flex items-baseline justify-between gap-2">
           <p className={typography.panelHeader}>What-if, not saved</p>
-          <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${typography.viewPanelMeta} inline-flex min-h-[24px] cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>Clear</button>
+          <button type="button" data-testid="view-whatif-clear" onClick={clearWhatIf} className={`${controls.chipText} inline-flex cursor-pointer items-center text-text-body underline underline-offset-2 hover:text-text-header`}>Clear</button>
         </div>
       )}
       {v.edits.map((e, i) => <p key={e.quantity} data-view={`whatif.edits.${i}.words`}>{e.words}</p>)}

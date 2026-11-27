@@ -3,6 +3,7 @@
  * sentence here is core's, passed in. The fixed UI chrome (decided 16 Nov) is the notation's own: the option letter and the name of Olumi's
  * question mark; since 20 Nov "baseline", "assumption", "limit" and "condition" are registry icons (C2, C5), core's words on their hover. Look: look/olumiLook.css (.ok-*).
  */
+import { controls } from '../../../styles/controls'
 import { useEffect, useId, useState, type ReactNode } from 'react'
 import type { ViewCard } from '../../client'
 import { ICONS, LabelledIcon, OkIcon, type IconId } from '../../look/icons'
@@ -199,7 +200,7 @@ export function CardMarks({ card, taken = 0, omit = [] }: { card: ViewCard; take
       {open && over.length > 0 ? <span id={panel} className="contents">{over.map(markOf)}</span> : null}
       {over.length === 0 ? null : (
         <>
-          <button type="button" className="ok-more nodrag nopan" aria-expanded={open} aria-controls={open ? panel : undefined} data-card-more={over.length} aria-describedby={moreTip.describedBy} {...moreTip.handlers}
+          <button type="button" className={`${controls.chipText} ok-more nodrag nopan`} aria-expanded={open} aria-controls={open ? panel : undefined} data-card-more={over.length} aria-describedby={moreTip.describedBy} {...moreTip.handlers}
             aria-label={open ? MORE_MARKS.fewer : `${MORE_MARKS.lead}: ${words.join('; ')}`}
             onClick={(e) => { e.stopPropagation(); moreTip.dismiss(); setOpen((o) => !o) }}>
             {open ? '−' : `+${over.length}`}

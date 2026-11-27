@@ -39,7 +39,7 @@ export const COMMITMENT_WORDS = {
 
 const H = `${typography.viewPanelHeading} m-0 text-text-header`
 const SUB = `${TYPE.meta} m-0 text-text-light`
-const BUTTON = `${typography.viewPanelHeading} inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 ${controls.act}`
+const BUTTON = `${controls.chipText} font-medium inline-flex items-center gap-1.5 ${controls.act}`
 const PRESS = 'flex w-full items-start gap-2 rounded-sm px-1 py-2.5 text-left hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
 
 type Commitment = View['collab']['commitments'][number]

@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import { HIT_44 } from '../../styles/hitArea'
 import { typography } from '../../styles/typography'
 
@@ -22,17 +23,19 @@ const STATE = [
   '[&:is([aria-pressed=true],[aria-checked=true],[aria-expanded=true]):active]:bg-panel-border',
   '[&:is([aria-pressed=true],[aria-checked=true],[aria-expanded=true]):focus-visible]:ring-2',
 ].join(' ')
-const GEOMETRY = `toolbar-face inline-flex h-[30px] min-w-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-sm ${TOOLBAR_FOCUS}`
+const FACE_BASE = `toolbar-face inline-flex shrink-0 items-center justify-center whitespace-nowrap ${TOOLBAR_FOCUS}`
+const GEOMETRY = `${FACE_BASE} ${controls.toolbarButton}`
 const FACE = `${GEOMETRY} ${STATE}`
 // The shared track is flush. Expand across the track, and use the face's own extent along the track.
 const BAR_HIT = HIT_44.replace('after:w-11', 'after:w-full')
 const RAIL_HIT = HIT_44.replace('after:h-11', 'after:h-full')
-const LABEL = `${typography.viewPanelBody} gap-1.5 px-2 text-text-body`
+const LABEL = `gap-1.5 text-text-body`
 
-export const TOOLBAR_ICON = `${FACE} ${BAR_HIT} w-[30px] text-text-light`
-export const TOOLBAR_COUNTED_ICON = `${FACE} ${BAR_HIT} gap-1 px-1 text-text-light`
+export const TOOLBAR_ICON = `${FACE} ${BAR_HIT} text-text-light`
+export const TOOLBAR_COUNTED_ICON = `${FACE} ${BAR_HIT} gap-1 text-text-light`
 export const TOOLBAR_LABEL = `${FACE} ${BAR_HIT} ${LABEL}`
-export const TOOLBAR_RAIL_ICON = `${FACE} ${RAIL_HIT} w-[30px] text-text-light`
-export const TOOLBAR_ACTION = `${GEOMETRY} ${BAR_HIT} ${typography.viewPanelBody} gap-1.5 px-2 aria-disabled:opacity-50`
+export const TOOLBAR_RAIL_ICON = `${FACE} ${RAIL_HIT} text-text-light`
+export const OLDER_TOOLBAR_RAIL_ICON = `${FACE_BASE} h-[30px] w-[30px] min-w-[30px] rounded-sm ${STATE} ${RAIL_HIT} text-text-light`
+export const TOOLBAR_ACTION = `${GEOMETRY} ${BAR_HIT} gap-1.5 aria-disabled:opacity-50`
 export const TOOLBAR_STATUS = `inline-flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap px-2 ${typography.viewPanelMeta} text-text-body`
 export const TOOLBAR_TITLE = `${typography.viewPanelHeadline} text-text-header`

@@ -4,6 +4,7 @@
  * then the tools folded in from the Reasoning tab. It replaces the "More ways to think about this" disclosure; the composer's four method icons
  * stay beside it. Presses are the caller's (`onMethod`, `onTool`), so this file holds no write and imports nothing from ViewChat.
  */
+import { controls } from '../../styles/controls'
 import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { typography } from '../../styles/typography'
 import { OkIcon, sessionMethodIcon } from '../look/icons'
@@ -61,7 +62,7 @@ export function ActionsMenu({ menu, held, goal, onMethod, onTool, build }: {
       <HoverButton ref={trigger} type="button" words={MORE_ACTIONS} aria-label={MORE_ACTIONS} aria-haspopup="menu"
         aria-expanded={open} data-testid="view-actions-button"
         onClick={(event) => { if (!dismissMenuFromOpener(event.currentTarget)) setOpen(true) }}
-        className="inline-flex items-center justify-center w-7 h-7 rounded-md text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+        className={`${controls.chipIcon} inline-flex items-center justify-center text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
         <OkIcon id="more" size={14} decorative inherit />
       </HoverButton>
       {open && trigger.current && (

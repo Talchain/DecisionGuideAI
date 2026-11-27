@@ -36,6 +36,7 @@
  * the note as current.
  */
 
+import { controls } from '../../styles/controls'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { isOlumiCoreLane } from '../../olumiCore/lane'
@@ -102,7 +103,7 @@ export const isQuestion = (text: string | undefined): boolean => typeof text ===
 
 const CARD_WIDTH = 268
 /** The folded note's icon, square (`h-6 w-6`). */
-const ICON = 24
+const ICON = 28
 const CARD_GAP = 14
 
 export const OLUMI_ATTENTION_CARD_TESTID = 'olumi-attention-card'
@@ -398,7 +399,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     return (
       <button ref={iconRef} type="button" data-testid={`${OLUMI_ATTENTION_CARD_TESTID}-icon`} data-anchor-id={anchorId} title={label} aria-label={label}
         onClick={() => setOpenedKey(attention.turnId ?? null)}
-        className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+        className={`${controls.chipIcon} pointer-events-auto inline-flex items-center justify-center border border-panel-border bg-panel shadow-panel focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
         style={{ position: 'absolute', left: iconLeft.current, top: Math.max(anchorBox.y - ICON / 2, iconFloor), zIndex: 95 }}>
         <OlumiMark size={14} aria-hidden="true" />
       </button>
@@ -479,7 +480,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
             type="button"
             onClick={dismiss}
             aria-label="Dismiss"
-            className="shrink-0 rounded p-0.5 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            className={`${lane ? controls.chipIcon : 'rounded p-0.5'} shrink-0 text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
           >
             <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
@@ -526,7 +527,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
               disabled={answer.trim() === ''}
               aria-label={ATTENTION_CARD_COPY.send}
               title={ATTENTION_CARD_COPY.send}
-              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light"
+              className={`inline-flex flex-none items-center justify-center ${lane ? controls.chipIcon : 'h-6 w-6 rounded-full'} bg-primary text-text-on-color hover:bg-primary-hover disabled:bg-panel-hover disabled:text-text-light`}
             >
               <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
@@ -592,7 +593,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
                     source: 'canvas_attention',
                   })
                 }}
-                className={`${typography.panelBody} rounded-md bg-info/10 px-2 py-1 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+                className={`${lane ? controls.chipText : `${typography.panelBody} rounded-md px-2 py-1`} bg-info/10 text-info hover:bg-info/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               >
                 {a.label}
               </button>

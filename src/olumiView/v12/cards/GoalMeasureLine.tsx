@@ -1,3 +1,4 @@
+import { controls } from '../../../styles/controls'
 import type { ViewCard, ViewModel } from '../../client'
 import { HoverButton } from '../../look/Hover'
 import { measureQuestionOf, type Question } from '../../reasoning/answer'
@@ -13,7 +14,7 @@ export function waitingMeasureQuestion(card: ViewCard, model: ViewModel | null):
 
 export function GoalMeasureLine({ question, className }: { question: Question; className: string }): JSX.Element {
   return (
-    <HoverButton type="button" className={`${className} nodrag nopan cursor-pointer text-left`} words={question.text}
+    <HoverButton type="button" className={`${controls.chipText} ${className} nodrag nopan cursor-pointer text-left`} words={question.text}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }}
       onClick={(e) => {

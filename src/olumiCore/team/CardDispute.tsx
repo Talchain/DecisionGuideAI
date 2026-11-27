@@ -11,6 +11,7 @@
  * A difference core has not run (`not_run`, `pending`) says core's sentence alone: no figure and no chance is drawn for it.
  * Links and factors are CardDiffers' chips; the Team tab is unchanged. Nothing is composed here beyond naming whose chance a line is.
  */
+import { controls } from '../../styles/controls'
 import { useEffect, useMemo, useRef } from 'react'
 import { ICONS, OkIcon } from '../../olumiView/look/icons'
 import { Hover, HoverButton } from '../../olumiView/look/Hover'
@@ -118,7 +119,7 @@ export function CardDisputeMark({ card }: { card: string }): JSX.Element | null 
   return (
     <HoverButton words={words} type="button" aria-label={words} data-differ-mark={card}
       onClick={(e) => { e.stopPropagation(); useLaneInspector.getState().show({ kind: 'details', target: { kind: 'card', id: card }, section: 'differ' }) }}
-      className="nodrag pointer-events-auto inline-grid h-6 w-6 cursor-pointer place-items-center rounded-full border border-panel-border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header">
+      className={`${controls.chipIcon} nodrag pointer-events-auto inline-grid cursor-pointer place-items-center border border-panel-border bg-canvas text-text-body transition-colors duration-fast hover:border-text-header`}>
       <OkIcon id="revealed-difference" size={12} decorative />
     </HoverButton>
   )

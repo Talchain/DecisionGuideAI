@@ -116,7 +116,7 @@ function PreMortemEntry({ gate }: { gate: ViewPreMortem }): JSX.Element {
           onChange={(e) => usePreMortemGate.setState({ text: e.target.value, said: null })}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !busy && !empty) { e.preventDefault(); void giveReasons() } }} />
         <HoverButton type="submit" disabled={busy || empty} aria-label="Send" words={busy ? 'Sending your reasons' : empty ? 'Write your reasons first' : 'Send'} data-testid="view-premortem-send"
-          className={`inline-flex h-7 w-7 flex-none items-center justify-center rounded-full ${controls.actColours} focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
+          className={`${controls.chipIcon} inline-flex flex-none items-center justify-center ${controls.actColours} focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
           <OkIcon id="send" size={14} decorative inherit />
         </HoverButton>
       </form>

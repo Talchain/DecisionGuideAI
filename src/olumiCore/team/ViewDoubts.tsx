@@ -102,7 +102,7 @@ function Failure({ sid, view, p, onWrote }: { sid: string; view: number; p: Pend
   return (
     <div className="grid gap-1.5" data-testid="team-view-doubts-failure" data-view={view}>
       <p role="alert" className={ERR} data-testid="team-view-doubts-error">{p.error}</p>
-      {p.uncertain ? null : <div><Button size="sm" variant="secondary" data-testid="team-view-doubts-retry" disabled={sending}
+      {p.uncertain ? null : <div><Button size="chip" variant="secondary" data-testid="team-view-doubts-retry" disabled={sending}
         onClick={() => { void retryDoubts(sid, view, onWrote) }}>{DOUBTS_RETRY}</Button></div>}
     </div>
   )

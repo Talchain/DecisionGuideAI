@@ -3,6 +3,7 @@
  * layer on. Production's lens list for power users, drawn from core's View only (`layers.ts`). Chrome words are the layers' names and the table's column
  * heads; everything about the scenario is the View's, verbatim. Olumi's own contributions stay Olumi's: a figure's author line is core's words.
  */
+import { controls } from '../../../styles/controls'
 import { Fragment, useRef, useState, type ReactNode } from 'react'
 import { OkIcon } from '../../look/icons'
 import { Hover, HoverButton } from '../../look/Hover'
@@ -95,7 +96,7 @@ function Head({ title, tag = null, count = null, onClose }: { title: string; tag
       <h2 className={`${typography.viewPanelBody} min-w-0 flex-1 font-medium text-text-header`}>{title}</h2>
       {tag === null ? null : <span data-testid={`${LENSES_TESTID}-tag`} className={`${typography.viewPanelMeta} rounded-full border border-panel-border px-1.5 text-text-light`}>{tag}</span>}
       {count === null ? null : <span data-testid={`${LENSES_TESTID}-count`} className={`${typography.viewPanelMeta} text-text-light`}>{count}</span>}
-      <HoverButton type="button" words="Close" aria-label="Close" onClick={onClose} className="inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm hover:bg-panel-hover focus-visible:outline focus-visible:outline-2">
+      <HoverButton type="button" words="Close" aria-label="Close" onClick={onClose} className={`${controls.chipIcon} inline-flex cursor-pointer items-center justify-center hover:bg-panel-hover focus-visible:outline focus-visible:outline-2`}>
         <OkIcon id="cancel-close" size={14} decorative inherit />
       </HoverButton>
     </div>

@@ -4,6 +4,7 @@
  * chances wait on, a figure no one has given, Olumi's observation on a card), core's order inside each, each row core's own words and ONE
  * press: ✎ where core offers the figure's edit, else the card on the canvas (selected and centred). Five at rest; the rest behind one press.
  */
+import { controls } from '../../styles/controls'
 import { useId, useState } from 'react'
 import type { ViewModel } from '../client'
 import { FigureEdit } from '../FigureEdit'
@@ -56,7 +57,7 @@ export function ResultNeeds({ model, under = false }: { model: ViewModel; under?
         })}
       </ul>
       {folded <= 0 ? null : (
-        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={listId} className={`${TYPE.meta} inline-flex min-h-6 items-center gap-1 px-1 pt-2 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
+        <button type="button" onClick={() => setAll((a) => !a)} aria-expanded={all} aria-controls={listId} className={`${controls.chipText} inline-flex items-center gap-1 text-text-body hover:text-text-header`} data-testid="analysis-needs-more">
           <FoldChevron open={all} />{all ? NEEDS_WORDS.fewer : NEEDS_WORDS.more(folded)}
         </button>
       )}

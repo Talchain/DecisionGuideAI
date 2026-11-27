@@ -14,6 +14,7 @@
  *   a link's kind or sign. A content switch only: no row moves.
  * Every write is the canvas editors' own (route, body, key, base rule); core's answer is the only verdict (`model/editors.tsx`).
  */
+import { controls } from '../styles/controls'
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { typography } from '../styles/typography'
 import { ACTION_FOCUS } from '../components/results/analysisNew/panelSurfaces'
@@ -59,7 +60,7 @@ function Group({ id, listId, title, count, open, onToggle, mark, note, children 
   return (
     <section aria-label={title} data-model-group={id} data-open={open}>
       <button type="button" aria-expanded={open} aria-controls={open ? listId : undefined} aria-label={`${title}, ${count} ${count === 1 ? 'element' : 'elements'}`} onClick={onToggle}
-        data-model-group-toggle={id} className={`${typography.viewPanelBody} inline-flex w-full items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}>
+        data-model-group-toggle={id} className={`${controls.chipText} inline-flex w-full items-center gap-1.5 text-left text-text-body hover:bg-panel-hover ${ACTION_FOCUS}`}>
         <FoldChevron open={open} className="text-text-light" />
         {mark}
         <span>{title}</span>
@@ -85,7 +86,7 @@ function ExpertSwitch() {
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); choose(true) }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); choose(false) }
   }
-  const arm = (on: boolean) => `${typography.viewPanelMeta} inline-flex h-7 items-center rounded-full px-2.5 transition-colors duration-fast ${ACTION_FOCUS} ${on
+  const arm = (on: boolean) => `${controls.chipText} inline-flex items-center transition-colors duration-fast ${ACTION_FOCUS} ${on
     ? 'border border-text-header bg-panel-hover text-text-header' : 'border border-transparent text-text-light hover:text-text-body'}`
   return (
     <div role="radiogroup" aria-label={W?.detail} onKeyDown={onKey} data-testid="view-model-expert"
@@ -215,7 +216,7 @@ export function ViewModelTab({ model }: { model: ViewModel | null }): JSX.Elemen
       <HeldNotice />
       <div className="flex justify-end">
         <button type="button" data-testid="view-model-toggle-all" aria-expanded={allOpen} aria-controls={openLists.join(' ') || undefined} onClick={() => setOpened(allOpen ? new Set() : new Set(ids))}
-          className={`${typography.viewPanelMeta} inline-flex min-h-7 items-center rounded-sm text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
+          className={`${controls.chipText} inline-flex items-center text-text-light underline-offset-2 hover:text-text-header hover:underline ${ACTION_FOCUS}`}>
           {allOpen ? MODEL_OUTLINE_LABELS.collapse : MODEL_OUTLINE_LABELS.expand}
         </button>
       </div>

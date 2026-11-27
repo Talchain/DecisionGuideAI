@@ -1,3 +1,4 @@
+import { controls } from '../../styles/controls'
 import type { OptionChanceCell } from '../runView/runView'
 import { useSwitchFactorNodes } from '../hooks/useSwitchFactorNodes'
 /**
@@ -2951,7 +2952,7 @@ const BaseNodeCard = memo(({ id, nodeType, icon: _icon, data, selected, children
               onClick={handleExpandToggle}
               onPointerDown={(e) => e.stopPropagation()}
               {...(isCoreCard ? { 'data-card-action': '' } : {})}
-              className={`nodrag nopan shrink-0 ${olumiLook ? 'ok-card-description-toggle' : 'p-0.5'} rounded text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors`}
+              className={`nodrag nopan shrink-0 ${isOlumiCoreLane() && olumiLook ? controls.chipIcon : olumiLook ? 'ok-card-description-toggle rounded' : 'p-0.5 rounded'} text-text-light hover:bg-info/10 hover:text-info focus:outline-none focus-visible:ring-2 focus-visible:ring-info transition-colors`}
               aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
               data-testid="node-description-toggle"
             >

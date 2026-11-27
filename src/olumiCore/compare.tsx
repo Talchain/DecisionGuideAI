@@ -1,3 +1,4 @@
+import { controls } from '../styles/controls'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/Button'
 import type { ViewRun } from '../olumiView/client'
@@ -138,7 +139,7 @@ export function CoreCompare({ sid, latest, id, auto = false }: { sid: string; la
         <select aria-label="Later version" data-testid={`${id}-to`} className={PICK} value={t} disabled={busy} onChange={(e) => setTo(Number(e.target.value))}>
           {versions.map((n) => <option key={n} value={n}>version {n}</option>)}
         </select>
-        <Button size="sm" variant="secondary" data-testid={`${id}-go`} disabled={busy} onClick={() => void go(f, t)}>Compare</Button>
+        <Button size="chip" variant="secondary" data-testid={`${id}-go`} disabled={busy} onClick={() => void go(f, t)}>Compare</Button>
       </div>
       {error && <p role="alert" className={ERR} data-testid={`${id}-error`}>{error}</p>}
       <div aria-live="polite">{shown ? <ComparedLists c={shown} id={id} /> : null}</div>
@@ -311,7 +312,7 @@ function ComparePicked({ sid, latest }: { sid: string; latest: number }): JSX.El
   // A quiet text press in the person's ink (the ghost button draws blue, which is Olumi's colour only); pressed again, the form closes.
   const whatIfPress = !canSave ? null : (
     <div className="space-y-3">
-      <button type="button" className={`${BODY} inline-flex items-center gap-1.5 rounded-md py-2.5 text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} aria-controls={saving ? formId : undefined} onClick={() => setSaving((x) => !x)}>
+      <button type="button" className={`${controls.chipText} inline-flex items-center gap-1.5 text-text-body hover:text-text-header`} data-testid="core-compare-whatif-open" aria-expanded={saving} aria-controls={saving ? formId : undefined} onClick={() => setSaving((x) => !x)}>
         <OkIcon id="what-if" size={14} decorative />{saving ? 'Close the what-if' : 'Save a what-if to compare'}
       </button>
       {saving ? <div id={formId}><WhatIfSave sid={sid} onSaved={(id) => { setSaving(false); void own.reread().then(() => setPicked(id)) }} /></div> : null}
@@ -542,7 +543,7 @@ function AskWhich(): JSX.Element {
   const ask = () => { void import('../olumiView/ViewChat').then((m) => { m.prefillComposer(ASK_WHICH.request); setPlaced(true) }) }
   return (
     <div className="grid justify-items-start gap-3" data-testid="core-compare-ask">
-      <Button size="sm" variant="primary" data-testid="core-compare-ask-go" onClick={ask}>
+      <Button size="chip" variant="primary" data-testid="core-compare-ask-go" onClick={ask}>
         <span className="inline-flex items-center gap-1.5"><OkIcon id="olumi-mark" size={14} decorative inherit />{ASK_WHICH.label}</span>
       </Button>
       <p role="status" className={META} data-testid="core-compare-ask-placed">{placed ? ASK_WHICH.placed : ''}</p>

@@ -22,7 +22,6 @@ import { controls } from '../../../styles/controls'
 import { OkIcon, OkIconButton } from '../../look/icons'
 import { FoldChevron } from '../../look/FoldChevron'
 import { HoverButton } from '../../look/Hover'
-import { HIT_44 } from '../../../styles/hitArea'
 import { useLaneInspector } from '../edit/inspectorStore'
 import { useViewStore } from '../../store'
 
@@ -35,7 +34,7 @@ export const ANSWER_PLACEHOLDER = 'Your answer'
 export const OPEN_ANSWER = 'Answer this question'
 export const CLOSE_ANSWER = 'Close the answer box'
 /** The green act: Olumi's green with an ink label (Paul, 17 Nov: no black buttons). Drawn only once there are words, so it is never seen disabled. */
-const USE_CLASS = `${typography.viewPanelHeading} inline-flex min-h-[32px] items-center rounded-full px-3 ${controls.act}`
+const USE_CLASS = `${controls.chipText} font-medium inline-flex items-center ${controls.act}`
 
 /** The identity of one question's draft: the scenario, the question's key and its exact words. */
 export const draftKeyOf = (scope: string, q: Pick<AskedQuestion, 'key' | 'text'>): string => JSON.stringify([scope, q.key, q.text])
@@ -101,7 +100,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
                 className={!open && k !== i ? undefined : 'flex items-start gap-2'} aria-current={open && n > 1 && k === i ? 'step' : undefined}>
                 {!open || n === 1 ? null : (
                   <button type="button" onClick={() => setAtKey(x.key)} aria-label={`Question ${k + 1} of ${n}`} data-testid={`view-question-pick-${k}`}
-                    className={`${typography.viewPanelMeta} ${HIT_44} mt-0.5 w-4 flex-none text-left ${k === i ? 'font-medium text-text-header' : 'text-text-light'}`}>{k + 1}</button>
+                    className={`${controls.chipIcon} mt-0.5 flex-none text-center ${k === i ? 'font-medium text-text-header' : 'text-text-light'}`}>{k + 1}</button>
                 )}
                 <div className="min-w-0 flex-1" data-testid={testid(k)} data-view={x.view} data-question-id={x.id ?? undefined}>{body(x)}</div>
               </li>
@@ -109,7 +108,7 @@ export function OlumiAsks({ questions, scope, body, held, onAnswer }: {
           </ol>
         </div>
         <HoverButton words={open ? CLOSE_ANSWER : OPEN_ANSWER} type="button" aria-expanded={open} aria-controls="view-question-open" aria-label={open ? CLOSE_ANSWER : OPEN_ANSWER} data-testid="view-question-toggle" onClick={() => setOpen((o) => !o)}
-          className="inline-flex h-7 w-7 flex-none items-center justify-center rounded-md text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header">
+          className={`${controls.chipIcon} inline-flex flex-none items-center justify-center text-text-light hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header`}>
           <FoldChevron open={open} />
         </HoverButton>
         <OkIconButton id="cancel-close" tone="ghost" testid="view-question-remove" words={REMOVE_QUESTIONS}

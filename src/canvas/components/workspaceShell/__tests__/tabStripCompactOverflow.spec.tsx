@@ -190,7 +190,7 @@ describe('gap NARROW-1: at 280px the strip stays one row, and both folded contro
 
 describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never cut', () => {
   afterEach(() => { lane.core = false })
-  it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; 44 px tabs that wrap, never cut (T3)', () => {
+  it('UI restore 11 Nov (Paul withdrew Model · Explore · Team): on the olumi-core lane Model and Team are tabs again, as on the previous product; 28 px tabs with accessible names (T3)', () => {
     lane.core = true
     draw(300)
     // T3 (DL 11 Nov) said: a label is never cut, so below the compact width the lane's tabs wrapped to a second row. DL 06:57Z (2) replaced
@@ -204,7 +204,7 @@ describe('V11 rehearsal (DL 9 Nov): on the olumi-core lane a tab label is never 
     // On one row the tabs fill it with their dividers, as at 1232, and none can shrink below its label.
     for (const tab of screen.getAllByRole('tab')) { expect(tab.className).toMatch(/\bflex-auto\b/); expect(tab.className).toMatch(/\bshrink-0\b/); expect(tab.className).toMatch(/(^|\s)before:hidden(\s|$)/) /* CHANGED BY DESIGN (v10 review item 8): no separators on the lane */ }
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])
-    for (const tab of screen.getAllByRole('tab')) expect(tab.style.height).toBe('44px')
+    for (const tab of screen.getAllByRole('tab')) expect(tab).toHaveClass('min-h-7', 'rounded-control')
     cleanup(); lane.core = false
     draw(300)
     expect(screen.getAllByRole('tab').map((t) => t.dataset['testid'])).toEqual(['outputs-dock-tab-results', 'outputs-dock-tab-diagnostics'])

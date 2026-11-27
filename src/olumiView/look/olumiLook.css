@@ -337,11 +337,11 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .ok-lead-actions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
 .ok-lead-action { display: flex; align-items: flex-start; gap: var(--space-1); min-width: 0; color: var(--text-body); }
 .ok-lead-action-link {
-  margin: 0; padding: 0; border: 0; background: none; font: inherit; text-align: left; color: var(--text-body); cursor: pointer;
+  margin: 0; border: 0; background: none; text-align: left; color: var(--text-body); cursor: pointer;
   overflow-wrap: anywhere;
 }
 .ok-lead-action-link:hover, .ok-lead-action-link:focus-visible { color: var(--text-header); text-decoration: underline; text-underline-offset: 2px; }
-.ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; border-radius: 2px; }
+.ok-lead-action-link:focus-visible { outline: 2px solid var(--text-header); outline-offset: 2px; }
 .ok-lead-action-words { min-width: 0; overflow-wrap: anywhere; }
 /* A world action's basis (core's words): its own row, under the words and in line with them past the 14 px mark. */
 .ok-lead-action:has(.ok-lead-action-basis) { flex-wrap: wrap; }
@@ -416,7 +416,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 /* The lens bar is the pill (Paul, 16 Nov, R24 9cce33fa): drawn by ViewLensBar's own classes alone, no override here. */
 
 /* Core's challenge mark on an option's lane of the question's rail (v12/detailed/charts.tsx), in the challenge orange; pressing it opens the fold. */
-.olumi-look .ok-rail-challenge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 var(--ok-gap-tight); border-radius: 8px; border: 1px solid var(--olumi-mark-orange); color: var(--olumi-mark-orange); font-weight: 500; font-size: calc(12px * var(--o-s)); line-height: 1; vertical-align: 1px; cursor: pointer; }
+.olumi-look .ok-rail-challenge { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--olumi-mark-orange); color: var(--olumi-mark-orange); font-weight: 500; vertical-align: 1px; cursor: pointer; }
 /* DL 15 Nov: what a result rests on, shown whole on press under its label, out of the card's flow (as "Why not"): the card never grows. */
 .olumi-look .ok-share-wrap { position: relative; display: block; max-width: 100%; }
 
@@ -487,10 +487,10 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
    about 7 px beside 12 px words (measured 17 Nov). Simple only: the Detailed face keeps its own sizes. */
 .olumi-look [data-simple-foot] .ok-am svg { width: calc(12px * var(--o-s)); height: calc(12px * var(--o-s)); }
 /* A card's state marks on the Simple foot (cards/marks.tsx CardMarks): each icon takes its colour from the registry; "+N" is the card's small
-   text, light at rest and ink under the pointer, with a 24 px press area that does not grow the row. */
+   text, light at rest and ink under the pointer. Its geometry comes from controls.chipText. */
 .olumi-look .ok-more {
-  flex: none; margin: calc(-1.5 * var(--ok-gap-tight)) calc(-1 * var(--ok-gap-tight)); padding: calc(var(--space-1) * 1.5 * var(--o-s)) var(--ok-gap-tight); border: 0; background: none;
-  color: var(--text-light); font-size: calc(12px * var(--o-s)); line-height: calc(12px * var(--o-s)); font-weight: 400; font-variant-numeric: tabular-nums; cursor: pointer;
+  flex: none; border: 0; background: none;
+  color: var(--text-light); font-weight: 400; font-variant-numeric: tabular-nums; cursor: pointer;
 }
 .olumi-look .ok-more:hover, .olumi-look .ok-more:focus-visible, .olumi-look .ok-more[aria-expanded='true'] { color: var(--text-header); }
 /* "Olumi has a question about this": Olumi's mark, Olumi's blue. The ring is the mark's own (OlumiAiIcon draws it): the wrapper adds no second border. */
@@ -568,7 +568,7 @@ ul[data-reply-list] > li::before { background: var(--text-light); }
 .olumi-look .ok-dt-foot .ok-author { margin-right: 0; }
 .olumi-look .ok-dt-icon, .olumi-look .ok-dt-badge, .olumi-look .ok-dt-date { display: inline-flex; align-items: center; gap: var(--ok-gap-tight); color: var(--text-light); }
 .olumi-look .ok-dt-date { color: var(--text-body); }
-.olumi-look .ok-dt-badge, .olumi-look .ok-dt-press { min-width: 24px; min-height: 24px; justify-content: center; padding: 0 var(--ok-gap-tight); border-radius: 8px; cursor: pointer; font-size: calc(12px * var(--o-s)); }
+.olumi-look .ok-dt-badge, .olumi-look .ok-dt-press { justify-content: center; cursor: pointer; }
 .olumi-look .ok-dt-badge:hover, .olumi-look .ok-dt-press:hover { color: var(--text-body); background: var(--bg-panel-hover); }
 .olumi-look .ok-dt-badge-proposed { border: 1px dashed var(--info); color: var(--info); }
 .olumi-look .ok-dt-olumi { color: var(--info); }
