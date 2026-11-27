@@ -6,9 +6,11 @@ import type { View, ViewLink, ViewRow } from '../../../client'
 import pricing from '../../../fixtures/core-d4729b77/pricing.view3.json'
 import revealed from '../../../fixtures/disagree/x2-revealed.view3.json'
 import capturedTrial from '../../../fixtures/v11/consulting-whatif-priya.json'
+import mechanic from '../../../port/__tests__/fixtures/ui9-a6-since-v3.view3.json'
 import { pressCard, ringFrom } from '../../../reasoning/tabRing'
 import { useViewStore } from '../../../store'
 import { clearWhatIf, useWhatIf, type WhatIfVariant } from '../../../whatif'
+import bakery from '../../__tests__/fixtures/issue7-e499eff6-bakery-asked.view3.json'
 import { useLaneInspector } from '../../edit/inspectorStore'
 import { StressTest, StressTestTab, STRESS_STEPS, STRESS_WORDS } from '../StressTest'
 import { useStressTrials } from '../stressTrials'
@@ -307,22 +309,20 @@ describe('Stress-test', () => {
     expectChart(optionRows(option.heading)[0], row.chance!)
   })
 
-  it('shows the revealed model’s calculation and aim figures before it has a driver', () => {
-    useViewStore.setState({ view: revealedView, sid: revealedView.id, status: 'ready' })
+  it('offers a fill action for the mechanic-time figure that Results needs', () => {
+    const fixture = mechanic as unknown as View
+    useViewStore.setState({ view: fixture, sid: fixture.id, status: 'ready' })
     render(<StressTestTab />)
     const tool = screen.getByTestId('tool-stress')
-    expect(figureHeadings(tool)).toEqual([
-      'existing capacity', 'per specialist', 'one specialist', 'total capacity', 'capacity target',
-    ])
-    expect(within(tool).getByText('80 tickets/week', { exact: true })).toBeVisible()
-    expect(dashedTrack(tool)).toBeNull()
-    expect(within(tool).queryByRole('button', { name: STRESS_WORDS.fill })).toBeNull()
-    expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
-    expect(screen.queryByRole('group', { name: STRESS_WORDS.figure })).toBeNull()
-    expect(screen.queryByRole('radio')).toBeNull()
+    const row = within(tool).getByText('Stop taking e-bike jobs: how many Average mechanic time per job taken').closest('li')!
+    expect(dashedTrack(row)).toBeEmptyDOMElement()
+    fireEvent.click(within(row).getByRole('button', { name: STRESS_WORDS.fill }))
+    expect(useLaneInspector.getState().current).toMatchObject({
+      kind: 'details', edit: 'value', target: { kind: 'card', id: 'average_mechanic_time_per_job_taken_changed_stop_taking_e_bike_j' },
+    })
   })
 
-  it('shows Core’s range and words for a sized figure and a fill action for an unsized figure', async () => {
+  it('draws a typed flat range with empty text and offers a fill action only for the unsized figure', () => {
     const model = revealedView.model!
     const ids = ['existing_capacity', 'per_specialist', 'total_capacity']
     const mixed: View = {
@@ -331,22 +331,20 @@ describe('Stress-test', () => {
         ...model,
         cards: model.cards.filter((card) => ids.includes(card.id)).map((card) => {
           if (card.id === 'existing_capacity') return { ...card, figure: { ...card.figure!, text: '' } }
-          if (card.id === 'per_specialist') return { ...card, figure: { ...card.figure!, range: { low: 10, likely: 20, high: 30, unit: 'ticket/week/specialist' } } }
+          if (card.id === 'per_specialist') return { ...card, figure: { ...card.figure!, text: '', range: { low: 20, likely: 20, high: 20, unit: 'ticket/week/specialist' } } }
           return card
         }),
-        links: model.links.filter((link) => ids.includes(link.from) && ids.includes(link.to)),
+        links: model.links.filter((link) => ids.includes(link.from) && ids.includes(link.to)).map((link) => ({ ...link, role: 'input' })),
       },
     }
     useViewStore.setState({ view: mixed, sid: mixed.id, status: 'ready' })
     render(<StressTestTab />)
-    const [unsized, sized] = within(screen.getByTestId('tool-stress')).getAllByRole('listitem')
-    const value = within(sized).getByText('10 to 30 tickets/week/specialist')
-    expect(value).toBeVisible()
-    expect(within(sized).getByTestId('range-band')).toBeVisible()
+    const tool = screen.getByTestId('tool-stress')
+    expect(figureHeadings(tool)).toEqual(['existing capacity', 'per specialist'])
+    const [unsized, sized] = within(tool).getAllByRole('listitem')
+    expect(within(sized).getByTestId('range-point')).toBeVisible()
     expect(dashedTrack(sized)).toBeNull()
     expect(within(sized).queryByRole('button')).toBeNull()
-    act(() => value.focus())
-    expect((await screen.findByRole('tooltip')).textContent).toBe('Plausible range: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist')
 
     expect(dashedTrack(unsized)).toBeEmptyDOMElement()
     expect(within(unsized).queryByTestId('range-bar')).toBeNull()
@@ -357,7 +355,23 @@ describe('Stress-test', () => {
     expect(useLaneInspector.getState().current).toMatchObject({ kind: 'details', edit: 'value', target: { kind: 'card', id: 'existing_capacity' } })
   })
 
-  it('keeps the held proposal’s linked figures visible with their edits withdrawn', () => {
+  it('excludes calculated Spend and keeps the dashed waiting state when Core declares it an input', () => {
+    const fixture = bakery as unknown as View
+    const { rerender } = draw(fixture)
+    const tool = screen.getByTestId('tool-stress')
+    expect(within(tool).queryByText('Spend', { exact: true })).toBeNull()
+    const model = {
+      ...fixture.model!,
+      cards: fixture.model!.cards.map((card) => card.id === 'spend' ? { ...card, kind: 'driver' as const } : card),
+    }
+    rerender(<StressTest view={{ ...fixture, model }} model={model} />)
+    const spend = within(tool).getByText('Spend', { exact: true }).closest('li')!
+    expect(dashedTrack(spend)).toBeEmptyDOMElement()
+    expect(within(spend).queryByText('waits on: oven price')).toBeNull()
+    expect(within(spend).queryByRole('button')).toBeNull()
+  })
+
+  it('keeps the held proposal’s linked figures visible with their edits withdrawn', async () => {
     const model = revealedView.model!
     const roles: Record<string, ViewLink['role']> = {
       existing_capacity: 'reason', per_specialist: 'input', one_specialist: 'input', total_capacity: 'measures', capacity_target: 'target',
@@ -378,17 +392,20 @@ describe('Stress-test', () => {
     useViewStore.setState({ view: held, sid: held.id, status: 'ready' })
     render(<StressTestTab />)
     const tool = screen.getByTestId('tool-stress')
-    expect(figureHeadings(tool)).toEqual(['per specialist', 'one specialist', 'total capacity', 'capacity target'])
-    const [, unsized] = within(tool).getAllByRole('listitem')
+    expect(figureHeadings(tool)).toEqual(['per specialist', 'one specialist', 'capacity target'])
+    const [sized, unsized] = within(tool).getAllByRole('listitem')
+    const value = within(sized).getByText('10 to 30 tickets/week/specialist')
+    act(() => value.focus())
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Plausible range: 10 to 30 tickets/week/specialist, most likely 20 tickets/week/specialist')
     expect(dashedTrack(unsized)).toBeEmptyDOMElement()
     expect(within(tool).queryByRole('button')).toBeNull()
     expect(tool).not.toHaveTextContent(STRESS_WORDS.empty)
   })
 
-  it('shows the empty line when no figure feeds a calculation or aim', () => {
+  it('shows the empty line when Results names no card and no figure feeds a calculation or aim', () => {
     const cards = base.model!.cards.map((card) => {
       if (card.id === raise.id) return { ...card, rows: [{ ...raiseRow, driver: { ...raiseRow.driver!, figure: 'unresolved' } }] }
-      if (card.id === cups.id) return { ...card, figure: { ...card.figure!, text: '' } }
+      if (card.id === cups.id) return { ...card, worth_checking: [] }
       return card
     })
     draw({ ...base, model: { ...base.model!, cards, links: [] } })

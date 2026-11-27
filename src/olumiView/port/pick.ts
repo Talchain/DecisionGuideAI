@@ -10,7 +10,6 @@ import { optionCards, worthLinesOf } from '../layout'
 import { cardKindOf } from '../v12/cards/kind'
 import { worthCheckingOf } from '../v12/cards/marks'
 import { linkRole } from '../v12/contract'
-import { needsOf as cardNeedsOf } from '../v12/fields/fields'
 
 /** A fraction of a track as a percent, held to the track. Layout only: never drawn as a number. */
 export const trackPct = (fraction: number): number => Math.max(0, Math.min(100, fraction * 100))
@@ -163,23 +162,22 @@ type CoreEdit = { prompt: string; ask: string }
  */
 export type Need = { key: string; cls: 'blocks' | 'waits' | 'size' | 'worth'; text: string; at: string | null; title: string; card: string | null; edit: CoreEdit | null; /** Core's own finding under the title (worth only; Codex 10:39Z: core's actionable text read at rest, not on hover). */ detail?: string }
 
-/** Figures feeding a result or aim, even when Core has given no chance or withdrawn the edit. */
+/** The cards Results names and the figures Core links into a calculation or aim. */
 export function resultFigureCardsOf(model: ViewModel, view: View): ViewCard[] {
-  const ids = new Set<string>()
+  const needs = new Set(needsOf(model).map(({ card }) => card))
+  const inputs = new Set<string>()
   for (const link of model.links) {
     const role = linkRole(link)
     if (role === 'input' || role === 'size' || role === 'measures' || role === 'target') {
-      ids.add(link.from)
-    } else if (role === 'effect' || (role === null && (link.kind === 'plain' || link.kind === 'through'))) {
-      // For older links, use the destination's existing card kind and typed result needs.
+      inputs.add(link.from)
+    } else if (role === 'effect') {
       const target = cardOf(model, link.to)
-      if (target === null) continue
-      const { shape } = cardKindOf(target, model, view)
-      const needed = role === null && target.family === 'quantity' && cardNeedsOf(target).needs.some(({ id }) => id === link.from)
-      if (shape === 'calculated' || (role === null && shape === 'aim') || needed) ids.add(link.from)
+      if (target !== null && cardKindOf(target, model, view).shape === 'calculated') inputs.add(link.from)
     }
   }
-  return model.cards.filter((card) => card.family === 'quantity' && ids.has(card.id))
+  return model.cards.filter((card) =>
+    (needs.has(card.id) || (card.family === 'quantity' && inputs.has(card.id))) &&
+    cardKindOf(card, model, view).shape !== 'calculated')
 }
 
 export function needsOf(model: ViewModel): Need[] {

@@ -11,6 +11,7 @@ import { chanceForDots } from '../../resultRange'
 import { shownModel, useViewStore } from '../../store'
 import { optionLetters } from '../cards/letters'
 import { LetterChip } from '../cards/marks'
+import { figureRange } from '../contract'
 import { cardOfRecord } from '../lenses/layers'
 import { ChanceDots } from '../scale/ChanceDots'
 import { RangeBar } from '../scale/RangeBar'
@@ -215,22 +216,20 @@ export function StressTest({ model, view }: { model: ViewModel; view: View }) {
           : <ul role="list" className="m-0 grid list-none grid-cols-3 gap-2 p-0">
             {resultFigures.map((card) => {
               const { figure } = card
+              const range = figureRange(card)
+              const unknown = figure == null || figure.state === 'waits' || (figure.text === '' && range === null)
               return (
                 <li key={card.id} className="col-span-3 grid grid-cols-subgrid items-center"
                   onMouseEnter={() => ringFrom(RING_SOURCE, [card.id])} onMouseLeave={() => ringFrom(RING_SOURCE, [])}
                   onFocus={() => ringFrom(RING_SOURCE, [card.id])} onBlur={() => ringFrom(RING_SOURCE, [])}>
                   <span className={`${typography.viewPanelHeading} break-words text-text-header`}>{card.heading}</span>
-                  {figure != null && figure.text !== '' ? (
-                    <>
-                      <RangeBar card={card} view={model} showFlat />
-                      <Hover words={figure.title} className={`${META} col-start-3 min-w-0 break-words`}>{figure.text}</Hover>
-                    </>
-                  ) : (
+                  {unknown ? (
                     <>
                       <span aria-hidden="true" className="ok-face-mark ok-face-mark-track" />
                       {figure?.edit != null && <FigureEdit id={card.id} edit={figure.edit} label={STRESS_WORDS.fill} place="tool-stress" />}
                     </>
-                  )}
+                  ) : range !== null ? <RangeBar card={card} view={model} showFlat />
+                    : <Hover words={figure.title} className={`${META} col-start-3 min-w-0 break-words`}>{figure.text}</Hover>}
                 </li>
               )
             })}
