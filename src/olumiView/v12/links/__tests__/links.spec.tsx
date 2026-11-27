@@ -2,6 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Position, ReactFlowProvider, useStoreApi } from '@xyflow/react'
@@ -283,7 +284,7 @@ describe('every link is drawn at rest (panel-visual system L1)', () => {
     expect(g(alerted)).toHaveAttribute('data-link-reason-alert', '')
     expect(g(alerted)).not.toHaveAttribute('data-link-halo')
     expect(alerted.querySelector('[data-link-halo-path="alert"]')).toBeNull()
-    expect(declared('ok-link-reason-alert', 'react-flow__edge-path').stroke).toBe('var(--olumi-mark-orange)')
+    expect(applied(line(alerted)).stroke).toBe('var(--olumi-mark-orange)')
     cleanup()
     expect(line(draw(reason({ proposed: true })))).not.toBeNull(); cleanup()
     useViewHover.setState({ id: 'z' })
@@ -583,6 +584,22 @@ describe('modifier channels (panel-visual system L4)', () => {
 
 describe('presentation is token CSS (panel-visual system, no styles in components)', () => {
   const css = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
+  it.each(['increases', 'decreases'] as const)('keyboard focus keeps the %s tone when React Flow CSS loads last', (sign) => {
+    const flowCss = readFileSync(createRequire(import.meta.url).resolve('@xyflow/react/dist/style.css'), 'utf8')
+    useViewStore.setState({ view: { ...view, proposal: null, version: { id: 'v1', n: 1 } } as unknown as View })
+    const c = draw(withCausal(sign, { proposed: true }))
+    const edge = line(c)
+    const wrapper = c.querySelector<HTMLElement>('.react-flow__edge')!
+    wrapper.classList.add('selectable')
+    expect(applied(edge, flowCss)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeWidth: '2px' })
+    act(() => wrapper.focus())
+    expect(wrapper.matches(':focus-visible')).toBe(true)
+    expect(applied(edge, flowCss)).toMatchObject({ stroke: EFFECT_STROKES[sign], strokeWidth: '3px' })
+    expect(applied(c.querySelector('.ok-link-end')!, flowCss).fill).toBe(EFFECT_STROKES[sign])
+    expect(applied(c.querySelector('.ok-link-halo-proposed')!, flowCss).strokeWidth).toBe('5px')
+    edge.classList.remove('ok-link-line')
+    expect(applied(edge, flowCss).stroke).toContain('--xy-edge-stroke-selected')
+  })
   it.each([
     { from: 'group:inputs', to: 'aim', mixedDirection: false },
     { from: 'factor', to: 'aim', mixedDirection: false },
@@ -614,12 +631,12 @@ describe('presentation is token CSS (panel-visual system, no styles in component
       .filter(([selector]) => selector !== '.olumi-look .ok-link-size-label') // SVG text outline
     const path = '.olumi-look .react-flow__edge .react-flow__edge-path.ok-link-line'
     expect(widths).toEqual([
-      [`.ok-key-underlay .ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
+      [`.ok-key-sample .ok-link-line,\n.olumi-look .react-flow__edge:focus .react-flow__edge-path.ok-link-line,\n${path}`, px(PLAIN_WIDTH)],
       ['.olumi-look .ok-link-leader', px(PLAIN_WIDTH)],
-      [`${path}.ok-link-on-path`, '3px'],
+      [`.olumi-look .react-flow__edge:focus-visible .react-flow__edge-path.ok-link-line,\n${path}.ok-link-on-path`, '3px'],
       ['.ok-link-halo-alert', '10px'],
       ['.ok-link-halo-proposed', '3px'],
-      ['.ok-link-halo-proposed.ok-link-on-path', '5px'],
+      ['.olumi-look .react-flow__edge:focus-visible .ok-link-halo-proposed,\n.ok-link-halo-proposed.ok-link-on-path', '5px'],
     ])
   })
   it('the tone classes declare the tokens the lane\'s ink table names, and every drawn line takes its stroke from its tone class (no inline stroke)', () => {
@@ -629,12 +646,11 @@ describe('presentation is token CSS (panel-visual system, no styles in component
     expect([g(c).getAttribute('data-link-tone'), g(c).classList.contains('ok-link-tone-negative'), line(c).getAttribute('style')]).toEqual(['negative', true, null])
   })
   it('the width, the dash, the dots and the screen-px rule are declared by the stylesheet\'s classes the line carries; the doubt dash outranks the dots', () => {
-    expect(declared('ok-link-line', 'react-flow__edge-path')['stroke-width']).toBe(px(PLAIN_WIDTH))
-    expect(declared('ok-link-line', 'react-flow__edge-path')['vector-effect']).toBe('non-scaling-stroke')
     expect(declared('ok-link-doubt', 'react-flow__edge-path')['stroke-dasharray']).toBe(DOUBT_DASH)
     expect(declared('ok-link-dotted', 'react-flow__edge-path')['stroke-dasharray']).toBe(DOTS)
     expect(css, 'four classes deep, so React Flow\'s selected stroke never wins').toMatch(/\.react-flow__edge \.react-flow__edge-path\.ok-link-line \{/)
     const c = draw(withCausal('increases', { doubt: true }))
+    expect(applied(line(c))).toMatchObject({ strokeWidth: px(PLAIN_WIDTH), vectorEffect: 'non-scaling-stroke' })
     expect(line(c).getAttribute('class')).toContain('ok-link-doubt')
     expect(line(c).hasAttribute('style'), 'the line carries no inline style').toBe(false)
     cleanup()

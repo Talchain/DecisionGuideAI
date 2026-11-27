@@ -27,7 +27,7 @@ import { linkRole, sizedLink } from '../../olumiView/v12/contract'
 import { firstDraft as firstDraftOf, linkKey, linkLook, type Direction } from '../../olumiView/v12/fields/fields'
 import { useAnchoredTip } from '../../olumiView/look/Tip'
 import { ICONS, OkIcon, type IconId } from '../../olumiView/look/icons'
-import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
+import { EDGE_NEUTRAL, PLAIN_WIDTH, effectStroke, linkAlertStyle, linkStyle, DOUBT_DASH, toneOf } from '../../olumiView/v12/links/styles'
 import { placeAt } from '../../olumiView/v12/links/place'
 import { useFocusPath } from '../../olumiView/v12/bands/focusPath'
 import { effectMidpoint } from '../../olumiView/v12/links/geometry'
@@ -216,8 +216,9 @@ export function ViewLinkEdge({ id, source, target, sourceX, sourceY, targetX, ta
   // proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model is Olumi's whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
   const olumiInk = (link.proposed || byOlumi) && !firstDraft
   const coloured = styled !== null || modelled
-  const reasonAlert = link.alert && link.kind === 'reason'
-  const haloAlert = link.alert && link.kind !== 'reason', haloProposed = olumiInk
+  const alertStyle = linkAlertStyle(link)
+  const reasonAlert = alertStyle === 'reason'
+  const haloAlert = alertStyle === 'halo', haloProposed = olumiInk
   const stroke = styled !== null ? styled.stroke : modelled ? effectStroke(direction === 'raises' ? 'increases' : direction === 'lowers' ? 'decreases' : null) : driver ? 'var(--text-header)' : EDGE_NEUTRAL
   // The ink is a tone class on the `<g>` (olumiLook.css `.ok-link-tone-*` sets `--link-tone` from a token); the line, its end and its leader read it. No inline style.
   const tone = toneOf(stroke)

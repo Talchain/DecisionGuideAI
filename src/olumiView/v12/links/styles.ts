@@ -7,6 +7,7 @@
  * `reason` and an unknown role are not here: they are drawn as before (`linkStyle` returns null).
  */
 import { linkRole, type LinkRole } from '../contract'
+import type { ViewLink } from '../../client'
 import { EDGE_STROKE_WIDTH_BANDS } from '../../../canvas/utils/graphDisplayCalculations'
 
 export type LineEnd = 'arrow' | 'dot' | 'none'
@@ -42,6 +43,10 @@ export const toneOf = (stroke: string): Tone => (Object.keys(TONE_TOKEN) as Tone
 export const DIRECTION_NOT_SETTLED = 'Direction not settled'
 /** The one dash: a doubted link. A reason link is never dashed for being one: it is dotted (olumiLook.css `.ok-link-dotted`), so a dash still means doubt only. */
 export const DOUBT_DASH = '5 4'
+
+/** A challenged reason changes the line's ink. Other challenged links carry an alert halo. */
+export const linkAlertStyle = ({ alert, kind }: Pick<ViewLink, 'alert' | 'kind'>): 'reason' | 'halo' | null =>
+  !alert ? null : kind === 'reason' ? 'reason' : 'halo'
 
 export const LINK_STYLES: Readonly<Record<StyledRole, LinkStyle>> = {
   effect: { stroke: EDGE_NEUTRAL, dash: null, end: 'arrow', label: null, width: PLAIN_WIDTH },
