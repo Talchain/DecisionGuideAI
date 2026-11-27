@@ -52,7 +52,7 @@ export function startCommit(sid: string, view: View, before?: () => void): void 
   requestAnimationFrame(() => requestAnimationFrame(() => document.querySelector('[data-testid="team-commitment-form"]')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })))
 }
 
-export function Differences({ sid, view, onWrote, wide = false, onFocusCard }: { sid: string; view: View; onWrote: () => Promise<boolean>; wide?: boolean; onFocusCard?: () => void }): JSX.Element | null {
+export function Differences({ sid, view, onWrote, wide = false, axis = true, onFocusCard }: { sid: string; view: View; onWrote: () => Promise<boolean>; wide?: boolean; axis?: boolean; onFocusCard?: () => void }): JSX.Element | null {
   const data = useRevealedDifferences(sid, view)
   const error = useDifferences((s) => (s.sid === sid ? s.error : null))
   const revealed = revealedForYou(view)
@@ -69,7 +69,7 @@ export function Differences({ sid, view, onWrote, wide = false, onFocusCard }: {
         <div key={g.id} className="grid gap-2" data-testid={`differ-group-${g.id}`}>
           <p className={LABEL} data-testid={`differ-group-${g.id}-heading`}>{g.heading}</p>
           <div className={rowsClass}>
-            {g.rows.map((d) => <DiffCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={shown} d={d} onFocusCard={onFocusCard}
+            {g.rows.map((d) => <DiffCard key={`${d.record}|${d.goal}`} sid={sid} view={view} data={shown} d={d} axis={axis} onFocusCard={onFocusCard}
               onWrote={async () => { await readDifferences(sid, key); return onWrote() }} />)}
           </div>
         </div>
@@ -114,7 +114,7 @@ export function readingOf(view: View, card: string): { card: string; text: strin
 }
 
 /** One difference: its name to the canvas, core's sentence and what would tell the views apart, Ask Olumi and the two steps, then drawn. */
-export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: string; view: View; data: DifferencesData; d: Difference; onWrote: () => Promise<boolean>; onFocusCard?: () => void }): JSX.Element {
+export function DiffCard({ sid, view, data, d, onWrote, axis = true, onFocusCard }: { sid: string; view: View; data: DifferencesData; d: Difference; onWrote: () => Promise<boolean>; axis?: boolean; onFocusCard?: () => void }): JSX.Element {
   const h = data.headings
   const at = `differ-row-${d.record}${d.goal ? `-${d.goal}` : ''}`
   const [busy, setBusy] = useState(false)
@@ -173,7 +173,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
       </div>
       {d.steps.length > 0 && <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-steps`}>{d.steps.map((s) => <li key={s.id} className={`${META} break-words text-text-body`} data-step={s.step}>{s.text}</li>)}</ul>}
       {/* The drawing supports the sentence: who said what (each option's chance is drawn under the sentence, above). */}
-      <div className="grid gap-2.5 border-t border-panel-border pt-2.5" data-testid={`${at}-drawn`}>
+      {(!drawn || axis) && <div className="grid gap-2.5 border-t border-panel-border pt-2.5" data-testid={`${at}-drawn`}>
         {drawn ? <FigureSides view={view} d={d} at={at} /> : (
           <ul className="m-0 grid list-none gap-1 p-0" data-testid={`${at}-sides`}>
             {d.sides.map((s) => (
@@ -186,7 +186,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
             ))}
           </ul>
         )}
-      </div>
+      </div>}
       {error && <p role="alert" className={ERR} data-testid={`${at}-error`}>{error}</p>}
     </article>
   )
@@ -197,7 +197,7 @@ export function DiffCard({ sid, view, data, d, onWrote, onFocusCard }: { sid: st
  * the count line, each of core's differences crux first, Ask Olumi to compare (sent), then the detail folded: everyone's views in words
  * (open and first where nothing is plotted), the canvas marks, the disagreements kept; and, quietly, commit to an action.
  */
-export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View; onWrote: () => Promise<boolean> }): JSX.Element {
+export function WhereWeDiffer({ sid, view, onWrote, axis = true }: { sid: string; view: View; onWrote: () => Promise<boolean>; axis?: boolean }): JSX.Element {
   const c = view.collab
   const line = useDifferLine(sid, view)
   const centred = useCompare((s) => s.open)
@@ -232,7 +232,7 @@ export function WhereWeDiffer({ sid, view, onWrote }: { sid: string; view: View;
         </div>
       ) : (
         <>
-          <Differences sid={sid} view={view} onWrote={onWrote} />
+          <Differences sid={sid} view={view} onWrote={onWrote} axis={axis} />
           <div><button type="button" className={QUIET} data-testid="differ-open-centre" onClick={() => useCompare.getState().show()}><OkIcon id="compare-views" size={14} decorative />{COMPARE_WORDS.open}</button></div>
         </>
       )}

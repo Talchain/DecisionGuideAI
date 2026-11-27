@@ -37,11 +37,12 @@ const ROW = 'col-span-full grid min-w-0 grid-cols-subgrid items-center gap-x-2 r
 const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-text-header'
 
 /** One shared track for comparable figures, with each person's own words beside their mark. */
-export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: {
+export function DifferAxis({ view, d, at: id, showWords = false, focusDescriptionId, onFocusCard }: {
   view: View
   d: Difference
   at: string
   showWords?: boolean
+  focusDescriptionId?: string
   onFocusCard?: () => void
 }): JSX.Element | null {
   const spans = sideSpans(view, d)
@@ -68,7 +69,7 @@ export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: 
           </Hover>
         ) : (
           <li key={s.holder_id} className={ROW} data-difference-side={s.holder_id}>
-            <Hover as="button" type="button" words={s.title} onClick={onFocusCard}
+            <Hover as="button" type="button" words={s.title} aria-describedby={focusDescriptionId} onClick={onFocusCard}
               className={`${ROW} ${typography.viewPanelMeta} ${FOCUS} text-left hover:bg-panel-hover`}>
               {contents}
             </Hover>
@@ -82,12 +83,12 @@ export function DifferAxis({ view, d, at: id, showWords = false, onFocusCard }: 
 function SpanTrack({ axis, span }: { axis: Span; span: Span }): JSX.Element {
   const start = at(axis, span.lo)
   const end = at(axis, span.hi)
+  const point = span.lo === span.hi
   return (
     <svg viewBox="0 0 100 8" preserveAspectRatio="none" className="block h-2 w-full overflow-visible" aria-hidden="true" data-range-lo={span.lo} data-range-hi={span.hi}>
       <rect x="0" y="3.5" width="100" height="1" className="fill-current text-panel-border" />
-      {span.lo === span.hi
-        ? <rect x={Math.max(0, start - 0.8)} y="0" width="1.6" height="8" className="fill-current text-text-header" data-range-mark="point" />
-        : <rect x={start} y="1.5" width={Math.max(1.6, end - start)} height="5" rx="1" className="fill-current text-text-header" data-range-mark="span" />}
+      <rect x={point ? start - 0.8 : start} y={point ? 0 : 1.5} width={point ? 1.6 : end - start} height={point ? 8 : 5} rx={point ? undefined : 1}
+        className="fill-current text-text-header" data-range-mark={point ? 'point' : 'span'} />
     </svg>
   )
 }
