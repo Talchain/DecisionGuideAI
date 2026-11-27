@@ -1,3 +1,9 @@
+.compare-aim-grid {
+  /* The middle column takes the fixed width of the shared chance slot. */
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+  overflow-wrap: anywhere;
+}
+
 .compare-option-row {
   transform: translateY(0);
   opacity: 1;
