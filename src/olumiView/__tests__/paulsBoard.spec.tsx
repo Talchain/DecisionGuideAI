@@ -92,16 +92,17 @@ describe('the panel on a pending first model', () => {
     expect(p.textContent).toBe(`${EU.proposal!.heading} · ${EU.proposal!.on}`)
   })
 
-  it('PB4 (P3, redesign 18 Nov): on the pending first model no option has a chance, so the Analysis tab draws no chart and no lead, and says what a result needs; CONTRAST: with nothing to say it draws no empty section', () => {
+  it('PB4 (P3, redesign 18 Nov): on the pending first model no option has a chance, so the Analysis tab draws no chart and no lead, and links to Check; with no reading, it draws no empty section', () => {
     ready(EU)
     const withNeeds = render(<PortAnalysisTab />).container
     expect(withNeeds.querySelector('[data-testid="port-analysis-tab"]')!.getAttribute('data-analysis-state')).toBe('none')
     expect(withNeeds.querySelector('[data-testid="analysis-chance-chart"]')).toBeNull()
     expect(withNeeds.querySelector('[data-view="run.lead"]')).toBeNull()
-    expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).not.toBeNull()
+    expect(withNeeds.querySelector('[data-testid="analysis-needs"]')).toBeNull()
+    expect(withNeeds.querySelector('[data-testid="analysis-to-reasoning"] [data-count]')).toHaveTextContent(/^[1-9]/)
     cleanup()
     const bare = structuredClone(EU)
-    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], compared: [] })
+    Object.assign(bare.model!.run!, { lead: null, waits_on: null, shared_blockers: null, most_likely: null, notes: [], timing: [], compared: [] })
     for (const c of bare.model!.cards) { if (c.family === 'option') Object.assign(c, { rows: [], headline: null }); if (c.figure != null) Object.assign(c, { figure: { ...c.figure, edit: null } }) }
     ready(bare)
     const empty = render(<PortAnalysisTab />).container
@@ -110,12 +111,11 @@ describe('the panel on a pending first model', () => {
     const dissent = bare.collab.dissent ?? []
     const items = checkItemsOf(bare.model!, bare).flatMap((group) => group.blocks.flatMap((block) => block.items))
     const rows = empty.querySelectorAll<HTMLButtonElement>('button[data-testid="analysis-to-reasoning"]')
-    expect(rows).toHaveLength(items.length > 0 || dissent.some(displayedDissent) ? 1 : 0)
-    if (rows.length > 0) {
-      expect(rows[0]!).toHaveTextContent(items.length === 0 ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine)
-      expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(items.length === 0 ? null : String(items.length))
-      expect(rows[0]!.querySelector('[data-view], [data-view-words]')).toBeNull()
-    }
+    const commitment = items.length === 0 && dissent.some(displayedDissent)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!).toHaveTextContent(commitment ? COMMITMENT_WORDS.heading : REASONING_LABELS.examine)
+    expect(rows[0]!.querySelector('[data-count]')?.textContent ?? null).toBe(commitment ? null : String(items.length))
+    expect(rows[0]!.querySelector('[data-view], [data-view-words]')).toBeNull()
   })
 
   it('PB5 (P2): Compare on a first model held as Olumi\'s proposal says so, not "start a model"; CONTRAST: with no scenario it says start one', () => {

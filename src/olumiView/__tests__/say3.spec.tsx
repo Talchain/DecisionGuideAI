@@ -17,6 +17,7 @@ import type { View, ViewCard } from '../client'
 import { ViewChat } from '../ViewChat'
 import { ViewReasoningBlock } from '../ViewReasoning'
 import { PortAnalysisTab } from '../port/PortAnalysisTab'
+import { chartGroupsOf } from '../port/pick'
 import { ChanceChart, CHART_WORDS } from '../port/ChanceChart'
 import { SimpleFace } from '../v12/SimpleFace'
 import { newestLeadDrawn } from '../early'
@@ -136,7 +137,7 @@ describe('3. a never-met option draws words only', () => {
       first.headline = { ...first.headline!, state: 'chance' }
       Object.assign(first.rows.find((r) => r.kind === 'chance')!, { fixed: true })
     }
-    render(<ChanceChart model={v.model!} />)
+    render(<ChanceChart model={v.model!} group={chartGroupsOf(v.model!)[0]!} />)
     const li = document.querySelector(`[data-chart-option="${first.id}"]`)!
     expect([li.querySelector('[data-chance-dots], [data-testid="analysis-chance-track"]'), li.textContent?.includes('never met in this model')]).toEqual([null, true])
     const tracks = document.querySelectorAll('[data-testid="analysis-chance-track"]')

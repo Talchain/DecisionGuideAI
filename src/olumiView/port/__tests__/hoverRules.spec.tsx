@@ -85,11 +85,10 @@ describe('every disclosure names the region it opens', () => {
   it('european: the chart\'s "more", the long reading\'s toggle, the rests\' "show more" and the examine list\'s press each carry aria-controls resolving to a drawn region once open', () => {
     const view = viewOf('golden/european')
     ready(view); render(<PortAnalysisTab />)
-    for (const id of ['analysis-chart-more', 'analysis-why-toggle', 'reasoning-rests-more']) {
+    for (const id of ['analysis-chart-more', 'analysis-why-toggle']) {
       const btn = screen.getByTestId(id)
       expect([id, btn.getAttribute('aria-expanded')]).toEqual([id, 'false'])
-      // the chart's and the long reading's region is drawn only when open, so closed they name nothing (the rests' target is always drawn)
-      if (id !== 'reasoning-rests-more') expect(btn.getAttribute('aria-controls'), `${id}: closed`).toBeNull()
+      expect(btn.getAttribute('aria-controls'), `${id}: closed`).toBeNull()
       fireEvent.click(btn)
       expect([id, btn.getAttribute('aria-expanded')]).toEqual([id, 'true'])
       const region = document.getElementById(btn.getAttribute('aria-controls') ?? '')
@@ -101,6 +100,11 @@ describe('every disclosure names the region it opens', () => {
     expect(door).toHaveAttribute('aria-expanded', 'false')
     fireEvent.click(door)
     expect(document.getElementById(door.getAttribute('aria-controls')!)).toContainElement(screen.getByTestId('reasoning-rests'))
+    const restsMore = screen.getByTestId('reasoning-rests-more')
+    expect(restsMore).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(restsMore)
+    expect(restsMore).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(restsMore.getAttribute('aria-controls')!)).toBeInTheDocument()
     const more = document.querySelector('[data-check-more="examine"]')
     if (more !== null) {
       fireEvent.click(more)

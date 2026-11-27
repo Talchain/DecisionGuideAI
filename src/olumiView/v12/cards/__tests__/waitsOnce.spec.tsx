@@ -17,7 +17,7 @@ import { useViewStore } from '../../../store'
 import { useMe } from '../../../../olumiCore/me'
 import { CoreCard } from '../../../previous/CoreCard'
 import { setDefaultLevel, useSimpleLevel, type Level } from '../../simpleStore'
-import { needsOf } from '../../../port/pick'
+import { checkNeedsOf } from '../../../check/items'
 const load = (f: string) => JSON.parse(readFileSync(path.resolve('src/olumiView/fixtures', f), 'utf8')) as View
 const CAFE = load('core-78c3afc4/cafe-waits.view3.json')
 const cardOf = (v: View, id: string): ViewCard => v.model!.cards.find((c) => c.id === id)!
@@ -37,7 +37,7 @@ describe('core 78c3afc4 café (every option waits on one Olumi figure): the UI s
   it('W1 no option card says "Still unresolved" at either level; the run lists the figure once', () => {
     expect(opts).toHaveLength(4)
     for (const level of ['simple', 'working'] as const) expect([level, unresolvedOn(CAFE, level)]).toEqual([level, [0, 0, 0, 0]])
-    const waits = (needsOf(CAFE.model!) as unknown as { cls: string; key: string }[]).filter((p) => p.cls === 'waits').map((p) => p.key)
+    const waits = checkNeedsOf(CAFE.model!).filter((p) => p.kind === 'waits').map((p) => p.key)
     expect(waits).toEqual(['waits:tip_gain'])
   })
   const withAdd = (add: (id: string) => string): View => ({ ...CAFE, model: { ...CAFE.model!, cards: CAFE.model!.cards.map((c) => (c.kind === 'option' ? { ...c, headline: { ...(c as { headline: object }).headline, add: add(c.id) } } : c)) } } as View)

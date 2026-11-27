@@ -3,11 +3,10 @@
  * figure a solid dark bar. A gold deadline tick only where the range is in the aim's unit AND core's `input` link runs from this card to the aim's
  * quantity. A what-if marker at `tried`. No range from core: nothing is drawn.
  */
-import type { CSSProperties } from 'react'
-import '../../look/olumiLook.css'
 import type { View, ViewCard, ViewModel } from '../../client'
 import { figureRange, linkRole } from '../contract'
-import { aimOf, axisOf, modelOf, pctOf } from './axis'
+import { aimOf, axisOf, modelOf } from './axis'
+import { FigureTrack } from './FigureTrack'
 
 export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?: ViewModel | null } | ViewModel | View; tried?: number | null }) {
   const range = figureRange(card)
@@ -22,17 +21,13 @@ export function RangeBar({ card, view, tried }: { card: ViewCard; view: { model?
   const axis = axisOf(Math.min(...vals), Math.max(...vals), 1)
   // v10 review item 4: a single value (low equals high) with no deadline or tried mark is a track with one dot: draw nothing.
   if (range.low === range.high && deadline === null && t === null) return null
-  const a = pctOf(axis, range.low), b = pctOf(axis, range.high)
-  // The person's band is lighter and thinner (v10 review item 4); Olumi's dotted band keeps its own geometry (a 2 px dotted border needs the 8 px).
   return (
-    <div data-testid="range-bar" data-card={card.id} data-by={olumi ? 'olumi' : 'person'} className="ok-scale ok-scale-range" data-form="CH-range">
-      <div className="ok-scale-track">
-        <span data-testid="range-band" data-style={olumi ? 'dotted' : 'solid'}
-          className="ok-scale-range-band" style={{ '--scale-x': `${a}%`, '--scale-width': `${Math.max(1, b - a)}%` } as CSSProperties} />
-        {range.likely !== null && <span data-testid="range-likely" className="ok-scale-dot ok-scale-likely" style={{ '--scale-x': `${pctOf(axis, range.likely)}%` } as CSSProperties} />}
-        {deadline !== null && <span data-testid="range-deadline" className="ok-scale-deadline" style={{ '--scale-x': `${pctOf(axis, deadline)}%` } as CSSProperties} />}
-        {t !== null && <span data-testid="range-tried" data-at={t} className="ok-scale-tried" style={{ '--scale-x': `${pctOf(axis, t)}%` } as CSSProperties} />}
-      </div>
-    </div>
+    <FigureTrack min={axis.min} max={axis.max} data-card={card.id}
+      bands={[{ low: range.low, high: range.high, style: olumi ? 'olumi' : 'person' }]}
+      ticks={[
+        ...(range.likely === null ? [] : [{ at: range.likely, kind: 'likely' as const }]),
+        ...(deadline === null ? [] : [{ at: deadline, kind: 'deadline' as const }]),
+        ...(t === null ? [] : [{ at: t, kind: 'tried' as const }]),
+      ]} />
   )
 }
