@@ -4,7 +4,7 @@ Each rule needs a check that fails when the rule is broken. This page lists the 
 
 ## Checks that run in CI
 
-`ci.yml` runs these on every push. The specs run in its `test:coverage` step.
+`ci.yml` runs these on pushes to `main` and pull requests targeting `main`. The specs run in its `test:coverage` step.
 
 | Check | What it catches | What it misses |
 |---|---|---|
@@ -20,6 +20,7 @@ Each rule needs a check that fails when the rule is broken. This page lists the 
 | `src/olumiView/look/__tests__/oneIconSystem.spec.tsx` | Direct `lucide-react` imports in 37 named lane files, and icon sizes outside 14 and 16. | The other 13 lane files that import `lucide-react`. It also allows 16px. |
 | `src/olumiView/look/__tests__/lookRecipes.spec.ts` | A blue text action in `olumiLook.css`. | Blue text actions written in a component file, such as the zoom notice. |
 | `src/olumiView/port/__tests__/hoverRules.spec.tsx` | Native `title` on the Analysis and Reasoning tabs. | Every other surface. |
+| `src/olumiView/v12/__tests__/faceTextBudget.spec.tsx` (also in `test:full` via `ci:all`) | Excess words at rest on fixture Simple cards, with a separate title allowance. Caps above the measured fixture maxima also fail. A planted figure sentence exercises the check. | Other card families and states outside the [fixture list](s7-faces-and-charts.md#conformance), including FACE-whatif and FACE-tips. |
 | Word checks in `restingRing.spec.tsx` and `viewTradeOffs.spec.tsx` | "best", "winner" and "recommend" on those two surfaces. | Every other surface. |
 
 ## Checks that are not run automatically

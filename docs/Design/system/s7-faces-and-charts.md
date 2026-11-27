@@ -115,7 +115,7 @@ The chart inventory of 23 Nov listed 22 chart-like forms. The guard's legacy lis
 
 ## Conformance
 
-Status: **built: ci:guard:forms**. The face-text spec is **planned**.
+Status: **built** for both `ci:guard:forms` and the face-text budget spec.
 
 - **`ci:guard:forms`** (`tools/ci-guards/check-forms.mjs`, with the registry in `docs/Design/system/forms.json`) is static, and so only checks what a scan can see:
   - every literal `data-form` ID is in the registry;
@@ -124,5 +124,14 @@ Status: **built: ci:guard:forms**. The face-text spec is **planned**.
   - `LINK_STYLES` roles must match the registry, and literal dash values must be registered. Marker definitions and edge precedence remain governed by the LN table.
   - Scope: `src/olumiView`, `src/olumiCore` and `src/canvas`.
 - It **cannot** see visible words, an inline HTML or CSS chart built from unregistered parts, or whether a string is Core's verbatim.
-- **A face-text spec** renders fixture Views covering each FACE row and counts the words at rest on each card family against a budget that is ratcheted down. It covers only the states its fixtures contain, and its fixture list says so.
-- `ci:guard:forms` runs in `ci:all`. Its spec exercises planted breaches and the real tree. The face-text spec will join the enforcing gate and `ci:all` once it has been shown failing on a planted breach.
+- **`faceTextBudget.spec.tsx`** renders Simple cards at rest at the full level of detail and counts runs of letters or digits in their visible DOM text. It excludes hover-only text, `aria-hidden` subtrees and screen-reader-only text. It counts the title separately from the face. The fixture title allowance and the per-family, per-row face caps live in `src/olumiView/v12/__tests__/faceTextBudget.json`. Each cap must equal the highest measured fixture count. When that count falls, lower the corresponding JSON entry.
+- With stylesheets disabled under Vitest, the DOM walker skips subtrees hidden by `visibility: hidden`, `.invisible`, or the card-action and rail selectors that mirror `olumiLook.css`. Descendants that set `visibility: visible` are still skipped.
+- The spec measures option, quantity, aim (goal and limit), and question cards in these fixture Views at rest:
+  - `src/olumiView/fixtures/cardface/studio.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-studio.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-bakery-asked.view3.json`
+  - `src/olumiView/v12/__tests__/fixtures/issue7-e499eff6-app-launch.view3.json`
+  - Typed variants of cardface Studio exercise a qualified chance, an individual withheld result, a shared blocker, an unsized fee, a fee range with empty figure text, a fee waiting on an input and an unmeasured bound.
+- The fixtures cover FACE-chance, FACE-fixed, FACE-noresult, FACE-shared, FACE-value, FACE-range, FACE-bands, FACE-unsized, FACE-waits, FACE-bound, FACE-notcounted, and the board question. **Uncovered** are FACE-whatif and FACE-tips, whose typed FACE states the current View cannot express. Coverage is limited to the resting states in these fixtures. The DOM count does not measure clipping.
+- The interim selectors are `headline.state === 'fixed'` for FACE-fixed and `sharedNoChanceOf(model, aimId, 'typed')` for FACE-shared. FACE-shared has separate caps for the aim that displays the shared blocker and the options whose individual chips are suppressed. The option letter drawn by CSS `::before` counts once toward the face budget via the rendered `data-option-letter` value.
+- A planted sentence in the class fee's typed figure text exercises the same budget check and reports the card, family, row, count and cap. The spec is included by the Vitest discovery glob used by the enforcing suite and by `test:full` in `ci:all`. `ci:guard:forms` also runs in `ci:all`. Its own spec exercises planted breaches and the real tree.
