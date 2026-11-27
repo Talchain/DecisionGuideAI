@@ -160,6 +160,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
   }
   let report: (id: string) => void
   let heightOf: (node: HTMLElement) => number
+  let widthOf: (node: HTMLElement) => number
   let nodeWidth: number
   let dockLeft: number
   let spacing: number
@@ -176,6 +177,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     spacing = useLayoutStore.getState().nodeSpacing
     heightOf = () => 100
     nodeWidth = 200
+    widthOf = () => nodeWidth
     dockLeft = pane.width
     faceChanges = []
     useCanvasStore.setState({ lodRung: 'full' })
@@ -201,7 +203,7 @@ describe('Fit uses the committed layout and the face it lands on', () => {
       observed.get(el)!()
     }
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.matches('.react-flow__node') ? nodeWidth : pane.width
+      return this.matches('.react-flow__node') ? widthOf(this) : pane.width
     })
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function (this: HTMLElement) {
       return this.matches('.react-flow__node') ? heightOf(this) : pane.height
@@ -353,6 +355,74 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     expect(harness.moves).toEqual([expected])
   })
 
+  it('fits a narrow rightmost Detailed card to its measured width', async () => {
+    setLevel('working')
+    act(() => useLayoutStore.setState({ nodeSpacing: spacing + 1 }))
+    const placed = positions(240)
+    placed.set(aim, { x: 900, y: 240 })
+    const sizes = causalInputs(view.model!).boxes
+    const widths = new Map(ids.map((id) => [id, id === aim ? 90 : sizes.get(id)!.width]))
+    widthOf = (node) => widths.get(node.dataset.id!)!
+    harness.layout = async () => placed
+    mount(240, 100)
+    act(() => ids.forEach(report))
+    await tick(12)
+
+    const nodes = useCanvasStore.getState().nodes
+    expect(nodes.find((n) => n.id === aim)).toMatchObject({ position: { x: 900, y: 240 }, measured: { width: 90 } })
+    expect(sizes.get(aim)!.width).toBeGreaterThan(90)
+    const expected = cameraFrame({ full: { zoom: 1, nodes } }, pane)
+    expect(expected).not.toBeNull()
+    harness.moves.length = 0
+    fireEvent.click(fitButton())
+    await tick(8)
+    expect(harness.moves).toEqual([expected])
+  })
+
+  it('commits Auto-arrange when a pending card resize gives way to a newer measurement', async () => {
+    setLevel('working')
+    harness.layout = async () => positions(320)
+    mount(320, 100)
+    await tick(10)
+    const aimPosition = () => useCanvasStore.getState().nodes.find((n) => n.id === aim)?.position
+    act(() => useCanvasStore.getState().onNodesChange([{ id: aim, type: 'position', position: { x: 450, y: 620 }, dragging: false }]))
+    expect(aimPosition()).toEqual({ x: 450, y: 620 })
+
+    let finishResize!: (places: ReturnType<typeof positions>) => void
+    let finishArrange!: (places: ReturnType<typeof positions>) => void
+    let finishNextResize!: (places: ReturnType<typeof positions>) => void
+    const resize = new Promise<ReturnType<typeof positions>>((resolve) => { finishResize = resolve })
+    const arrange = new Promise<ReturnType<typeof positions>>((resolve) => { finishArrange = resolve })
+    const nextResize = new Promise<ReturnType<typeof positions>>((resolve) => { finishNextResize = resolve })
+    const layout = vi.fn(() => nextResize)
+      .mockImplementationOnce(() => resize)
+      .mockImplementationOnce(() => arrange)
+    harness.layout = layout
+    heightOf = (node) => node.dataset.id === aim ? 120 : 100
+    act(() => report(aim))
+    await tick(3)
+    expect(layout).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'More view options' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Auto-arrange' }))
+    expect(layout).toHaveBeenCalledTimes(2)
+
+    const stalePositions = positions(570)
+    stalePositions.set(option, { x: 200, y: 160 })
+    await act(async () => finishResize(stalePositions))
+    expect(aimPosition()).toEqual({ x: 450, y: 620 })
+    expect(useCanvasStore.getState().nodes.find((n) => n.id === option)?.position.x).toBe(0)
+    heightOf = (node) => node.dataset.id === aim ? 140 : 100
+    act(() => report(aim))
+    await tick(3)
+    await act(async () => finishArrange(positions(350)))
+    expect(aimPosition()).toEqual({ x: 0, y: 350 })
+    expect(layout).toHaveBeenCalledTimes(3)
+    await act(async () => finishNextResize(positions(380)))
+    await tick(10)
+    expect(aimPosition()).toEqual({ x: 0, y: 380 })
+    expect(harness.settled!.read()?.nodes.find((n) => n.id === aim)?.measured?.height).toBe(140)
+  })
+
   it('discards an Auto-arrange result for A that finishes after B has been certified', async () => {
     dockLeft = 1020
     render(<aside aria-label="Outputs dock" />)
@@ -488,6 +558,42 @@ describe('Fit uses the committed layout and the face it lands on', () => {
     await tick(12)
     expect(harness.moves).toHaveLength(2)
     expect(harness.moves[harness.moves.length - 1]).toEqual(fullFrame)
+  })
+
+  it('restores the Detailed viewport after two failed full-face attempts without starting another layout', async () => {
+    setLevel('working')
+    const foot = 530
+    heightOf = () => harness.viewportZoom < READABLE_WHOLE_ZOOM ? 130 : 80
+    harness.layout = async () => positions(foot)
+    mount(foot, 80)
+    await tick(12)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    await tick(10)
+    act(() => ids.forEach(report))
+    await tick(10)
+    expect(harness.settled!.read()).not.toBeNull()
+    const originalZoom = harness.viewportZoom
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const layout = vi.fn(async () => positions(710))
+      .mockImplementationOnce(() => new Promise(() => {})) // Wait for the full-face ResizeObserver reports.
+      .mockRejectedValueOnce(new Error('full face failed'))
+      .mockRejectedValueOnce(new Error('full face retry failed'))
+    harness.layout = layout
+    harness.moves.length = 0
+    fireEvent.click(fitButton())
+    await tick(5)
+    expect(harness.moves.map((move) => move.zoom)).toEqual([1])
+    expect(layout).toHaveBeenCalledTimes(1)
+    act(() => ids.forEach(report))
+    await tick(10)
+    expect(harness.moves.map((move) => move.zoom)).toEqual([1, originalZoom])
+    act(() => ids.forEach(report))
+    await tick(14)
+
+    expect(error).toHaveBeenCalledTimes(1)
+    expect(layout).toHaveBeenCalledTimes(3) // One superseded job, then the measured job's two failed attempts.
+    expect(useCanvasStore.getState().nodes.find((n) => n.id === aim)?.position.y).toBe(foot)
+    expect(harness.settled!.read()?.nodes.find((n) => n.id === aim)?.measured?.height).toBe(130)
   })
 
 })

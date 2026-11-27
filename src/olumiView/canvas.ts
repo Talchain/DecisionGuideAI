@@ -240,7 +240,8 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
 export function layViewCanvas(core: ViewModel): Promise<boolean> {
-  const job = startJob(currentInputs(), () => {})
+  const job = makeJob(currentInputs(), () => {})
+  latestJob = job
   return runCausalJob(job, boardOf(core), false)
 }
 
@@ -315,8 +316,11 @@ export function withdrawViewCanvas(): boolean {
 
 /** Auto-arrange on the core lane (gap B5): every View card back in its causal place; the person's moves are let go. */
 export function placeViewCards(model: ViewModel): Promise<boolean> {
-  const job = startJob(currentInputs(), latestJob?.updateBudget ?? (() => {}))
-  return runCausalJob(job, boardOf(model), true)
+  const job = makeJob(currentInputs(), latestJob?.updateBudget ?? (() => {}))
+  restoring = null
+  latestJob = job
+  job.arranging = runCausalJob(job, boardOf(model), true)
+  return job.arranging
 }
 
 /**
@@ -373,48 +377,48 @@ function currentInputs(): LayoutInputs {
     useFirstDraw.getState().retry, face]
 }
 
-function inputsMatch(a: LayoutInputs, b: LayoutInputs) {
-  return a.every((input, i) => input === b[i])
+function inputsMatch(a: LayoutInputs, b: LayoutInputs, { ignoreHeights = false, ignoreFace = false } = {}) {
+  return a.every((input, i) => (ignoreHeights && i === 3) || (ignoreFace && i === 7) || input === b[i])
 }
 
 type LayoutJob = {
   inputs: LayoutInputs
   updateBudget: (key: string) => void
   state: 'pending' | 'failed' | 'cancelled' | ReadonlyMap<string, Size>
+  arranging?: Promise<boolean>
 }
 
 // The job object is the token shared by Auto-arrange, the reactive layout and the snapshot reader.
 let latestJob: LayoutJob | null = null
-function startJob(inputs: LayoutInputs, updateBudget: LayoutJob['updateBudget']): LayoutJob {
-  const job: LayoutJob = { inputs, updateBudget, state: 'pending' }
-  latestJob = job
-  return job
+let restoring: { zoom: number; job: LayoutJob } | null = null
+function makeJob(inputs: LayoutInputs, updateBudget: LayoutJob['updateBudget']): LayoutJob {
+  return { inputs, updateBudget, state: 'pending' }
 }
 
-function isCurrent(job: LayoutJob) {
+function isCurrent(job: LayoutJob, ignoreHeights = false) {
   if (job !== latestJob || job.state === 'cancelled') return false
   const inputs = currentInputs()
   if (job.inputs[5] !== inputs[5]) job.updateBudget(inputs[5])
-  return inputsMatch(job.inputs, inputs)
+  return inputsMatch(job.inputs, inputs, { ignoreHeights })
 }
 
 /** Only the current job can replace the drawing or publish its sizes. */
 async function runCausalJob(job: LayoutJob, board: ReturnType<typeof boardOf>, arrange: boolean, onDraw?: (changed: boolean) => void) {
   const hadBoard = holdsViewNodes(useCanvasStore.getState().nodes, [VIEW_CARD, VIEW_QUESTION])
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (!isCurrent(job)) return false
+    if (!isCurrent(job, arrange)) return false
     let result: NonNullable<typeof causal>
     try {
       result = await causalFor(board.model, board.extras, job.inputs[7])
     } catch (error) {
-      if (!isCurrent(job)) return false
+      if (!isCurrent(job, arrange)) return false
       if (attempt === 0 && hadBoard) continue
       job.state = 'failed'
       console.error('[olumiView] causal layout failed', error)
       if (!hadBoard) firstDraw('failed')
       return false
     }
-    if (!isCurrent(job)) return false
+    if (!isCurrent(job, arrange)) return false
     causal = result
     row = result.result.row
     if (arrange) placed.clear()
@@ -428,9 +432,9 @@ async function runCausalJob(job: LayoutJob, board: ReturnType<typeof boardOf>, a
   return false
 }
 
-export const viewLaying = (): boolean => latestJob?.state === 'pending' && isCurrent(latestJob)
+export const viewLaying = (): boolean => latestJob?.state === 'pending' && isCurrent(latestJob, latestJob.arranging !== undefined)
 
-export function useViewCanvas(on: boolean, reduced = false): void {
+export function useViewCanvas(on: boolean, reduced = false, restoreRetry = 0): void {
   const view = useViewStore((s) => s.view)
   // The board draws core's model less the relation cards that are their link (layout.ts drawnModelOf).
   const level = useSimpleLevel((s) => levelOf(useViewStore.getState().sid, s))
@@ -451,39 +455,62 @@ export function useViewCanvas(on: boolean, reduced = false): void {
   const retry = useFirstDraw((s) => s.retry)
   useLayoutEffect(() => {
     if (!on) return
-    // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
-    const job = startJob([view, sidNow, open, heights, laidAs, cols, retry, face], updateBudget)
-    const cancel = () => { job.state = 'cancelled' }
-    if (!isCurrent(job)) return cancel
-    if (view === null || board === null) {
-      firstDraw('idle')
-      if (ideasOnly.length > 0) {
-        const result = ideasLayout(ideasOnly, face)
-        row = result.row
-        drawIdeasOnly(ideasOnly, result.places)
-        job.state = result.sizes
-      } else {
-        withdrawViewCanvas()
-        job.state = new Map()
+    const inputs: LayoutInputs = [view, sidNow, open, heights, laidAs, cols, retry, face]
+    if (restoring !== null) {
+      const { zoom, job } = restoring
+      if (canvasZoom() === zoom && inputsMatch(job.inputs, inputs, { ignoreHeights: true, ignoreFace: true })) {
+        // The failed probe left the drawing in place. Reuse its job once the original face is measured again.
+        if (inputsMatch(job.inputs, inputs)) {
+          latestJob = job
+          restoring = null
+        }
+        return
       }
-      return cancel
+      restoring = null
     }
-    const before = useCanvasStore.getState().nodes
-    const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
-    // An empty canvas waiting for its first layout says so (DraftingBoard.tsx LayingBoard); a board already drawn keeps its cards meanwhile.
-    if (had === null) firstDraw('laying')
-    void runCausalJob(job, board, false, (changed) => {
-      const last = drew, sid = sidNow, n = view.version?.n ?? null
-      drew = { sid, n, model: board.model }
-      if (!changed || had === null) return
-      const arrived: string[] = []
-      for (const c of board.model.cards) if (!had.has(c.id)) arrived.push(c.id)
-      const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
-      const named = view.version?.changed
-      pulseWhenOnCanvas(advanced ? [...arrived, ...(named === undefined ? appliedSince(last.model, board.model) : [...cardsOfRecords(board.model, named), ...addedSince(last.model, board.model)])] : arrived)
-    })
+    // No View for the scenario on screen (a new scenario, or one core holds no model for): the last one's cards leave (review 00003 #1).
+    const job = makeJob(inputs, updateBudget)
+    const cancel = () => { job.state = 'cancelled' }
+    const arranging = latestJob
+    const draw = () => {
+      latestJob = job
+      if (!isCurrent(job)) return
+      if (view === null || board === null) {
+        firstDraw('idle')
+        if (ideasOnly.length > 0) {
+          const result = ideasLayout(ideasOnly, face)
+          row = result.row
+          drawIdeasOnly(ideasOnly, result.places)
+          job.state = result.sizes
+        } else {
+          withdrawViewCanvas()
+          job.state = new Map()
+        }
+        return
+      }
+      const before = useCanvasStore.getState().nodes
+      const had = holdsViewNodes(before, [VIEW_CARD, VIEW_QUESTION]) ? new Set(before.map((n) => n.id)) : null
+      // An empty canvas waiting for its first layout says so (DraftingBoard.tsx LayingBoard); a board already drawn keeps its cards meanwhile.
+      if (had === null) firstDraw('laying')
+      void runCausalJob(job, board, false, (changed) => {
+        const last = drew, sid = sidNow, n = view.version?.n ?? null
+        drew = { sid, n, model: board.model }
+        if (!changed || had === null) return
+        const arrived: string[] = []
+        for (const c of board.model.cards) if (!had.has(c.id)) arrived.push(c.id)
+        const advanced = last !== null && last.sid === sid && last.n !== null && n !== null && n > last.n
+        const named = view.version?.changed
+        pulseWhenOnCanvas(advanced ? [...arrived, ...(named === undefined ? appliedSince(last.model, board.model) : [...cardsOfRecords(board.model, named), ...addedSince(last.model, board.model)])] : arrived)
+      })
+    }
+    if (arranging?.arranging && arranging.state === 'pending' && inputsMatch(arranging.inputs, inputs, { ignoreHeights: true })) {
+      // A resize can supersede another resize while it waits for Auto-arrange to place the cards.
+      void arranging.arranging.then(() => {
+        if (job.state !== 'cancelled' && latestJob === arranging) draw()
+      })
+    } else draw()
     return cancel
-  }, [on, view, sidNow, open, board, ideasOnly, heights, laidAs, cols, retry, face])
+  }, [on, view, sidNow, open, board, ideasOnly, heights, laidAs, cols, retry, face, restoreRetry])
 }
 
 export type LayoutSettled = Readonly<{
@@ -504,6 +531,7 @@ export function useLayoutSettled(on: boolean) {
   const flow = useStoreApi()
   const reduced = useStore((s) => reducedFaceSize(s.transform[2]) > 0)
   const [, refresh] = useState(0)
+  const [restoreRetry, retryRestore] = useState(0)
   useLayoutEffect(() => {
     if (!on) return
     canvasZoom = () => flow.getState().transform[2]
@@ -517,6 +545,7 @@ export function useLayoutSettled(on: boolean) {
     return () => {
       unsubscribe()
       canvasZoom = () => 1
+      restoring = null
       if (latestJob !== null) latestJob.state = 'cancelled'
     }
   }, [on, flow])
@@ -566,7 +595,9 @@ export function useLayoutSettled(on: boolean) {
           }
           if (size.height !== domHeight) return null
         } else if (visible) return null
-        boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { ...size } })
+        const measuredWidth = measuredOnFace(node, job.inputs[7])?.width
+        const boxWidth = job.inputs[7].startsWith('detailed') && measuredWidth ? Math.min(measuredWidth, size.width) : size.width
+        boxes.push({ id: node.id, type: node.type, data: node.data, position: { ...position }, measured: { width: boxWidth, height: size.height } })
       }
       const key = JSON.stringify([far, width, height, insets, boxes.map((n) => [n.id, n.position, n.measured])])
       if (job !== certified || key !== geometry) {
@@ -596,10 +627,19 @@ export function useLayoutSettled(on: boolean) {
       frame = requestAnimationFrame(tick)
     })
 
-    return { read, wait }
+    const prepareRestore = (zoom: number) => {
+      const job = certified === null ? null : { ...certified }
+      return () => { if (job !== null) restoring = { zoom, job } }
+    }
+    const resume = () => {
+      if (restoring === null) return
+      restoring = null
+      retryRestore((n) => n + 1)
+    }
+    return { read, wait, prepareRestore, resume }
   }, [flow])
   // Select only face changes. A pan and same-face zoom leave the job in force.
-  useViewCanvas(on, reduced)
+  useViewCanvas(on, reduced, restoreRetry)
 
 
   // A floating dock can resize without changing React Flow's width.

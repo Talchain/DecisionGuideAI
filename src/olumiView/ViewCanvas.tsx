@@ -265,6 +265,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
 
   const frame = useCallback(async (automatic: boolean, anchor?: string | null) => {
     stop()
+    layout.resume()
     const request = new AbortController()
     active.current = request
     const { signal } = request
@@ -275,7 +276,7 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
     const initialRung = useCanvasStore.getState().lodRung
     const initialViewport = getViewport()
     const initialZoom = initialViewport.zoom
-    let detailedProbe = false
+    let restoreDetailedLayout: (() => void) | undefined
     let far = false
     // Hold the transform while Simple lays out each face at the current row widths.
     const probe = () => {
@@ -294,7 +295,11 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
         const snapshot = await layout.wait(signal)
         if (!current()) return
         if (snapshot === null) {
-          if (detailedProbe) void setViewport(initialViewport, { duration: 0 })
+          if (restoreDetailedLayout) {
+            restoreDetailedLayout()
+            lod.current.previous = initialRung
+            void setViewport(initialViewport, { duration: 0 })
+          }
           reveal()
           return
         }
@@ -327,10 +332,10 @@ function useViewCamera(userMoved: React.MutableRefObject<boolean>, movedAt: Reac
           useCanvasStore.getState().setLodRung(rung)
         }
         const probing = !simple && face !== 'full'
+        if (probing) restoreDetailedLayout ??= layout.prepareRestore(initialZoom)
         const moving = setViewport(vp, { duration: probing ? 0 : duration })
         reveal()
         if (!probing) return
-        detailedProbe = true
         await moving
       }
     } finally {
