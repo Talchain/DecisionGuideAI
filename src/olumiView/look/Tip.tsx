@@ -56,7 +56,7 @@ export function Tip({ id, text, anchorRect, anchor, spacing, icon }: { id?: stri
   const stacked = body !== '' && spacing !== undefined
   const lane = isOlumiCoreLane()
   const shell = lane
-    ? `ok-float${stacked ? ' flex flex-col' : ''}`
+    ? `ok-float ${stacked ? 'flex flex-col' : 'ok-tip-compact'}`
     : `rounded-sm border border-panel-border bg-panel shadow-1 ${stacked ? `flex flex-col p-3 ${spacing === 'list' ? 'gap-2' : 'gap-3'}` : 'px-2 py-1'}`
   return (
     <div ref={el} id={id} role="tooltip" data-testid="lane-tip" className={`${TIP_CLASS} ${shell}`}>

@@ -27,14 +27,14 @@ The counts are by reachable surface and shared implementation. Distinct menu cha
 
 | Kind | Before on | Before off | After on | After off | Total |
 |---|---:|---:|---:|---:|---:|
-| Tip | 0 | 4 | 2 | 2 | 4 |
-| Menu | 0 | 9 | 9 | 0 | 9 |
+| Tip | 0 | 5 | 2 | 3 | 5 |
+| Menu | 0 | 10 | 10 | 0 | 10 |
 | Sheet | 0 | 9 | 9 | 0 | 9 |
 | Dialog | 0 | 5 | 5 | 0 | 5 |
 | Float | 0 | 7 | 7 | 0 | 7 |
-| Total | 0 | 34 | 32 | 2 | 34 |
+| Total | 0 | 36 | 33 | 3 | 36 |
 
-The before counts reflect joined base `8693c5a8`. The two browser-native `title` tips are the only off-recipe entries.
+The before counts reflect joined base `8693c5a8`. The three browser-native `title` tip families are the only off-recipe entries.
 
 | Surface and source | Kind | Opens | Closes | State and Escape | Size | Recipe |
 |---|---|---|---|---|---|---|
@@ -42,6 +42,7 @@ The before counts reflect joined base `8693c5a8`. The two browser-native `title`
 | [Card peek](../../../../src/olumiView/v12/edit/LaneInspector.tsx#L215) | Tip | Rest or keyboard focus on card | Leave, blur, local Escape or pin. A canvas request or an open card Tip hides the peek. | Canvas hover state. Opening a shared menu clears the current peek. | 280px with a measured height cap | On recipe |
 | [Influence explainer Dismiss native tip](../../../../src/components/assistants/InfluenceExplainer.tsx#L93) | Tip | Browser hover over Dismiss | Browser-managed | Browser-managed | Native title | Off |
 | [Detailed Olumi note marker native tip](../../../../src/canvas/components/OlumiAttentionCard.tsx#L397) | Tip | Browser hover before the note is opened | Browser-managed | Browser-managed | Native title | Off |
+| [Detailed Olumi note inner native tips](../../../../src/canvas/components/OlumiAttentionCard.tsx#L526) | Tip | Browser hover over the Olumi mark, status badge or Send control | Browser-managed | Browser-managed | Native title | Off |
 | [More options](../../../../src/components/layout/KebabMenu.tsx#L268) | Menu | Top bar ⋯ | Opener, outside pointer press, row action, Tab or Escape. | Shared menu chain and Escape. | 232px, capped by viewport and boundary | On recipe |
 | [Account menu](../../../../src/components/layout/UserAvatarMenu.tsx#L116) | Menu | Avatar | Opener, outside pointer press, most row actions, Tab or Escape. | Shared menu chain and Escape. | 232px, capped by viewport and boundary | On recipe |
 | [More view options](../../../../src/components/layout/CanvasViewportControls.tsx#L156) | Menu | Viewport rail ⋯ | Opener, outside pointer press, row action, Tab or Escape. | Shared menu chain and Escape. | 232px, capped by viewport and boundary | On recipe |
@@ -51,11 +52,12 @@ The before counts reflect joined base `8693c5a8`. The two browser-native `title`
 | [Canvas Ask Olumi submenu](../../../../src/canvas/contextMenu/laneMenu.ts#L127) | Menu | Ask Olumi row hover or keyboard activation | Escape or Left returns to the parent. A row action or outside press can close the chain. | Part of the canvas context menu chain. | 232px, capped by viewport and boundary | On recipe |
 | [Layers and level of detail](../../../../src/olumiView/v12/lenses/LensesMenu.tsx#L63) | Menu | Layers rail button | Opener, outside pointer press, row action, Tab or Escape. | Shared menu chain and Escape. | 232px, capped by viewport and boundary | On recipe |
 | [Composer actions and Ask Olumi](../../../../src/olumiView/v12/actionsMenu.tsx#L67) | Menu | Composer ⋯ | Opener, outside pointer press, row action, Tab or Escape. | Shared menu chain and Escape. | 232px, capped by viewport and boundary | On recipe |
+| [Team tab Invite menu](../../../../src/olumiCore/team/TeamTab.tsx#L133) | Menu | Team tab Invite button or a populated invite name draft | Opener, outside pointer press, Escape, replacement or focus leaving the form for a target other than the opener. | Shared menu chain and Escape, with Team tab local state. | 232px, viewport-capped | On recipe |
 | [Pinned card or link details](../../../../src/olumiView/v12/edit/LaneInspector.tsx#L160) | Sheet | Card/link press or edit/details action | Close, pane press, Escape, target removed, scenario change or replacement. Store dismissal is guarded during a save. | Canvas inspector store and shared Escape. | 280px with a measured 60vh height cap | On recipe |
 | [Canvas settings](../../../../src/components/layout/KebabMenu.tsx#L293) | Sheet | More options → Canvas settings | Close, reopen More options, outside pointer press or Escape. | Kebab menu local state and shared Escape. | 14rem, viewport-capped | On recipe |
 | [Canvas edit form](../../../../src/olumiView/v12/edit/EditForm.tsx#L213) | Sheet | Add, rename, size, add a record or remove link | Cancel, Escape, pane press, scenario change, save or replacement. Escape preserves the draft. Store dismissal is guarded during a save. | Canvas inspector store and shared Escape. | 280px with a height cap | On recipe |
 | [Layer reading panel](../../../../src/olumiView/v12/lenses/LensesMenu.tsx#L227) | Sheet | Select a layer in Layers | Close, Escape, change to the full model or reopen Layers. | Layers local state and shared Escape. | 300px or 420px, 70vh max | On recipe |
-| [How to read this](../../../../src/olumiView/ViewLegend.tsx#L46) | Sheet | More view options → How to read this | Outside mousedown, document Escape or toggle. | Viewport controls local state and document listeners. | 18rem, viewport height cap | On recipe |
+| [How to read this](../../../../src/olumiView/ViewLegend.tsx#L46) | Sheet | More view options → How to read this | Outside mousedown or document Escape. | Viewport controls local state and document listeners. | 18rem, viewport height cap | On recipe |
 | [Kept idea](../../../../src/olumiView/v12/bands/IdeaPanel.tsx#L40) | Sheet | Select a kept idea card | Close or deselection, including when canvas selection clears. | Canvas selection. | 320px, capped to available width minus 8rem | On recipe |
 | [Detailed long answer](../../../../src/olumiView/v12/detailed/marks.tsx#L122) | Sheet | Press a long result row’s full-answer mark | Press the mark again or leave the card’s view. | Row-local toggle. | 280px at card scale 1 | On recipe |
 | [Rests on popover](../../../../src/olumiView/ResultBand.tsx#L60) | Sheet | Press the Rests on label, which also selects its lens | Press the label again or leave the card’s view. | Card-local toggle. | 280px at card scale 1 | On recipe |
@@ -69,7 +71,7 @@ The before counts reflect joined base `8693c5a8`. The two browser-native `title`
 | [What if tray](../../../../src/olumiView/ViewWhatIfKey.tsx#L77) | Float | Select What if or open from a figure | Close or change lens. | Active lens state. | 20rem, capped to foot width | On recipe |
 | [Trade-offs tray](../../../../src/olumiView/ViewTradeOffsKey.tsx#L75) | Float | Select Trade-offs | Close or change lens. | Active lens state. | 40rem max, capped to foot width | On recipe |
 | [If it failed tray](../../../../src/olumiView/ViewPreMortemKey.tsx#L58) | Float | Select If it failed | Close or change lens. | Active lens state. | 26rem, capped to foot width | On recipe |
-| [Pinned chat tray](../../../../src/olumiView/v12/chat/ChatFootRow.tsx#L70) | Float | Press a chat foot chip or focus a requested source | Chip, outside press, Escape or content removed. | One local source at a time and shared Escape. | Dock width, 62% height cap | On recipe |
+| [Pinned chat tray](../../../../src/olumiView/v12/chat/ChatFootRow.tsx#L70) | Float | Press a chat foot chip or open a requested source | Chip, outside press, Escape or content removed. | One local source at a time and shared Escape. | Dock width, 62% height cap | On recipe |
 | [Olumi chat pop-out](../../../../src/olumiView/port/ChatFloat.tsx#L184) | Float | Composer pop-out | Dock control, dock tab or capture-phase Escape from the floated chat or the page body while no menu is open. | Chat float store and local key listener. | Measured canvas width and height | On recipe |
 | [Detailed Olumi note](../../../../src/canvas/components/OlumiAttentionCard.tsx#L616) | Float | Press the note marker in Detailed view (also opens automatically for some notes) | Dismiss, release the held attention where applicable, or note removed. | Board note lifecycle or pinned tray when portalled into chat. | 268px on the board, dock width in the tray | On recipe |
 

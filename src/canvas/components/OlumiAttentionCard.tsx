@@ -613,7 +613,7 @@ export function OlumiAttentionCard({ held, onDismiss, onPress }: {
     </>
   )
   const content = body(true)
-  const shellClass = lane ? 'ok-float' : 'rounded-lg border border-panel-border bg-panel shadow-panel p-3'
+  const shellClass = lane ? 'ok-float flex flex-col [&>*]:mt-0' : 'rounded-lg border border-panel-border bg-panel shadow-panel p-3'
   const shell = (props: Record<string, unknown>, inside: JSX.Element, surfaceClass = shellClass) => (
     <div
       {...props}

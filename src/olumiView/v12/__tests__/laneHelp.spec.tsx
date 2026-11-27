@@ -26,7 +26,7 @@ describe('Help on the V12 canvas', () => {
     expect(wrap).toHaveClass('fixed')
     expect(wrap.style.top).not.toBe('')
     expect(wrap.style.getPropertyValue('--help-right')).not.toBe('')
-    expect(toast).toHaveClass('bg-panel', 'border-panel-border', 'text-text-body')
+    expect(toast).toHaveClass('ok-float', 'text-text-body')
     expect(toast.className).not.toMatch(/sky-|font-mono/)
     expect(toast.querySelector('.font-mono')).toBeNull()
     expect(toast).toHaveTextContent('Factors are the things that matter, links show what moves what')
