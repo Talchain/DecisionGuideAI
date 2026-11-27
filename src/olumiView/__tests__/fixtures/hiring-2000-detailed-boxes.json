@@ -1,0 +1,155 @@
+{
+ "source": "claude-checks/lane-a/fit-probe-0e76e293/hiring-2000.json: UI 0e76e293 dist, fixtures/real/hiring.view3.json, Detailed, 2000x1205, after Fit (zero calls); flow boxes = DOM rects back through the viewport translate(-199.5px, 190px) scale(1)",
+ "pane": {
+  "width": 2000,
+  "height": 1205
+ },
+ "free": {
+  "top": 47,
+  "right": 560,
+  "bottom": 26,
+  "left": 45
+ },
+ "boxes": [
+  {
+   "id": "page:question",
+   "x": 294,
+   "y": 24,
+   "w": 544,
+   "h": 117
+  },
+  {
+   "id": "launch_window",
+   "x": 294,
+   "y": 407,
+   "w": 248,
+   "h": 125
+  },
+  {
+   "id": "remaining_work",
+   "x": 838,
+   "y": 407,
+   "w": 248,
+   "h": 153
+  },
+  {
+   "id": "one_lead",
+   "x": 1110,
+   "y": 407,
+   "w": 248,
+   "h": 125
+  },
+  {
+   "id": "two_developers",
+   "x": 564,
+   "y": 608,
+   "w": 248,
+   "h": 125
+  },
+  {
+   "id": "no_additional_people",
+   "x": 294,
+   "y": 608,
+   "w": 245,
+   "h": 107
+  },
+  {
+   "id": "fractional_lead",
+   "x": 1108,
+   "y": 608,
+   "w": 248,
+   "h": 139
+  },
+  {
+   "id": "one_developer",
+   "x": 788,
+   "y": 795,
+   "w": 248,
+   "h": 139
+  },
+  {
+   "id": "developer_delay",
+   "x": 566,
+   "y": 407,
+   "w": 248,
+   "h": 143
+  },
+  {
+   "id": "lead_contribution",
+   "x": 1060,
+   "y": 795,
+   "w": 248,
+   "h": 172
+  },
+  {
+   "id": "weekly_delivery",
+   "x": 294,
+   "y": 1015,
+   "w": 248,
+   "h": 297
+  },
+  {
+   "id": "onboarding_disruption",
+   "x": 1382,
+   "y": 407,
+   "w": 223,
+   "h": 99
+  },
+  {
+   "id": "productivity_target",
+   "x": 836,
+   "y": 608,
+   "w": 248,
+   "h": 139
+  },
+  {
+   "id": "boost_productivity",
+   "x": 838,
+   "y": 1015,
+   "w": 226,
+   "h": 204
+  },
+  {
+   "id": "meet_launch_deadline",
+   "x": 566,
+   "y": 1015,
+   "w": 248,
+   "h": 222
+  },
+  {
+   "id": "capacity_reading",
+   "x": 294,
+   "y": 795,
+   "w": 223,
+   "h": 99
+  },
+  {
+   "id": "hire_tech_lead",
+   "x": 294,
+   "y": 189,
+   "w": 223,
+   "h": 152
+  },
+  {
+   "id": "hire_two_developers",
+   "x": 540,
+   "y": 189,
+   "w": 223,
+   "h": 152
+  },
+  {
+   "id": "fractional_lead_and_developer",
+   "x": 788,
+   "y": 189,
+   "w": 248,
+   "h": 170
+  },
+  {
+   "id": "fractional_feasibility",
+   "x": 540,
+   "y": 795,
+   "w": 223,
+   "h": 85
+  }
+ ]
+}
