@@ -1,11 +1,9 @@
-/**
- * THE LANE'S KEY (DL 4 Nov): "How to read this" on the olumi-core lane draws core's own key, `model.key` in the View (the page's KEY as
- * data: each glyph and its words, in the page's order). Nothing is written here: no glyph, no meaning, no order of DGAI's. With no key in
- * the View (no model yet) it draws nothing. Off the lane the legacy `CanvasLegendPopover` stays.
- */
+/** How to read the committed connectors and Core's key for the View. */
 import { Hover } from './look/Hover'
 import { useEffect, useRef } from 'react'
 import { typography } from '../styles/typography'
+import { useCanvasStore } from '../canvas/store'
+import { isViewEdge, viewEdgesBelongTo } from './canvas'
 import { useViewStore } from './store'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import type { NodeType } from '../canvas/domain/nodes'
@@ -32,7 +30,9 @@ export function ViewLegend({ open, onOpenChange }: Props) {
     return banded ? m?.run?.sensitivity ?? null : null
   })
   const wrap = useRef<HTMLDivElement>(null)
-  const hasKey = key !== null && key.length > 0
+  const sid = useViewStore((s) => s.sid)
+  const hasEdges = useCanvasStore((s) => viewEdgesBelongTo(sid) && s.edges.some(isViewEdge))
+  const hasKey = Boolean(key?.length) || hasEdges
   useEscapeLayer(open && hasKey, () => onOpenChange(false))
   useEffect(() => {
     if (!open) return
@@ -52,7 +52,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
         <div className={`${typography.viewPanelMeta} text-text-body font-medium shrink-0`}>How to read this</div>
         {/* The one key (Paul, 17 Nov): the link lines and marks the bottom-right pill used to show, then core's own key. */}
         <div className="shrink-0 border-b border-panel-border pb-2"><KeyLines /></div>
-        <ul className="min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-3 gap-y-1">
+        {key?.length ? <ul className="min-h-0 overflow-y-auto overscroll-contain grid grid-cols-2 gap-x-3 gap-y-1">
           {key.map((k, i) => (
             <li key={i} className={`${typography.viewPanelBody} text-text-body flex items-baseline gap-1.5`} data-view-key={i}>
               <span className="min-w-6 shrink-0 whitespace-nowrap text-center" aria-hidden="true" data-key-mark={KIND_MARK[k.id] === undefined ? undefined : KIND_MARK[k.id]!.kind}>
@@ -60,7 +60,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
               </span><span>{k.text}</span>
             </li>
           ))}
-        </ul>
+        </ul> : null}
         {sensitivity === null ? null : (
           <Hover as="p" className={`${typography.viewPanelBody} text-text-body pt-2 border-t border-panel-border flex items-baseline gap-1.5`} words={sensitivity.title} data-view="run.sensitivity.text" data-view-key-rail="">
             <span aria-hidden="true" className="relative inline-block h-2.5 w-6 shrink-0 rounded-sm border-x-[1.5px] border-[rgba(130,120,187,0.55)] bg-[rgba(130,120,187,0.18)]" />

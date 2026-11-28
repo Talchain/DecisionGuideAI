@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { Position } from '@xyflow/react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest'
-import { edgeIdOf } from '../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../v12/links/ids'
 import { useCanvasStore } from '../../canvas/store'
 import { boardOf, drawViewCanvas } from '../canvas'
 import { QUESTION } from '../layout'
@@ -88,7 +88,7 @@ it('places the hidden bar’s editor beside its aim and clear of the question at
 it('opens the selected link’s details from the rendered line and from its focused edge', () => {
   const view = approved(), model = view.model!
   const link = model.links.find((item) => item.size?.edit != null)!
-  const id = edgeIdOf(link)
+  const id = viewLinkEdgeIds(model.links)[model.links.indexOf(link)]!
   install(view)
   const cards = model.cards.filter((card) => card.id === link.from || card.id === link.to)
   drawViewCanvas({ ...model, cards, links: [link] }, new Map([

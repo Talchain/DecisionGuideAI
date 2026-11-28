@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { LaneEditingLayer } from '../LaneEditingLayer'
 import { useLaneInspector } from '../inspectorStore'
-import { edgeIdOf } from '../../../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../../links/ids'
 import { useViewStore } from '../../../store'
 import { SID, approved, install, uninstall, type Stub } from './harness'
 
@@ -32,8 +32,8 @@ describe('details panel', () => {
     expect(stub.posts()[0]!.body).toMatchObject({ record: 'slow_ramp', chance: '20%' })
   })
   it('a link: its strength is edited through /size and its removal is core\'s remove', () => {
-    const link = approved().model!.links.find((l) => l.size?.edit != null)!
-    useLaneInspector.getState().open({ kind: 'link', id: edgeIdOf(link) })
+    const links = approved().model!.links
+    useLaneInspector.getState().open({ kind: 'link', id: viewLinkEdgeIds(links)[links.findIndex((l) => l.size?.edit != null)]! })
     mount()
     expect(screen.getByTestId('lane-inspector-strength')).toHaveTextContent('no strength yet')
     expect(screen.getByTestId('inspector-figure-typed'), 'the strength is changed in the Value row').toBeInTheDocument()

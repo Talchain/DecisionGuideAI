@@ -9,7 +9,7 @@ import { create } from 'zustand'
 import { useCanvasStore } from '../canvas/store'
 import { ROW_BUDGET_W } from '../canvas/utils/nodeLayoutConstants'
 import type { View, ViewModel } from './client'
-import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, drawnModelOf, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
+import { allOptionCards, addedSince, appliedSince, cardsOfRecords, CARD_WIDTH, GAP_Y, causalPlaces, drawKindOf, stageRow, simpleStageRow, questionBarWidth, drawnModelOf, driverLinksOf, driversOf, linkByOlumi, barsOf, cardLinks, drawnHeights, holdsViewNodes, ideasOnlyPlaces, QUESTION } from './layout'
 import { useViewStore } from './store'
 import { levelOf, useSimpleLevel } from './v12/simpleStore'
 import { useLayoutStore } from '../canvas/layoutStore'
@@ -23,6 +23,11 @@ import { extrasOf, type BandExtra } from './v12/bands/extras'
 import { groupOpen, inputsFolded, useInputsOpen } from './v12/bands/foldStore'
 import { bandOf, FOLD_ID, inputIdsOf } from './v12/bands/bands'
 import { cardGroupsOf, groupLinksOf, withoutGrouped, type GroupLink } from './v12/bands/groups'
+
+import { viewLinkEdgeIds } from './v12/links/ids'
+import { firstDraft } from './v12/fields/fields'
+import { connectorMeaning } from './v12/links/connector'
+import type { ViewLinkData } from '../canvas/edges/ViewLinkEdge'
 
 export const VIEW_CARD = 'viewCard', VIEW_QUESTION = 'viewQuestion', VIEW_LINK = 'viewLink'
 /** The previous graph's line from the question to each of its options (RULING 1): core states the card is an option of this question; the
@@ -40,6 +45,28 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export const useViewHover = create<{ id: string | null }>(() => ({ id: null }))
 /** The link (its React Flow edge id) with keyboard focus, if any: it is drawn and says its words while it is (ViewLinkEdge). */
 export const useViewFocusLink = create<{ id: string | null }>(() => ({ id: null }))
+let edgeOwner: { sid: string | null; view: View | null } | undefined
+export const isViewEdge = ({ type }: { type?: string }) => type === VIEW_LINK || type === ROOT_LINK || type === GROUP_LINK
+export const viewEdgesBelongTo = (sid: string | null) => edgeOwner === undefined || edgeOwner.sid === sid
+export function canOpenViewLink(id: string): boolean {
+  const { sid, view } = useViewStore.getState()
+  return (edgeOwner?.sid === sid && edgeOwner.view === view) ||
+    !useCanvasStore.getState().edges.some((e) => e.id === id && (e.data as unknown as ViewLinkData | undefined)?.committed !== undefined)
+}
+
+useViewStore.subscribe((next, prev) => {
+  if (next.sid === prev.sid && next.view === prev.view) return
+  if (useViewFocusLink.getState().id !== null) useViewFocusLink.setState({ id: null })
+  const store = useCanvasStore.getState()
+  if (store.selection.edgeIds.size === 0) return
+  const ids = new Set(viewLinkEdgeIds(prev.view?.model?.links ?? []))
+  const edgeIds = new Set([...store.selection.edgeIds].filter((id) => !ids.has(id)))
+  if (edgeIds.size !== store.selection.edgeIds.size) useCanvasStore.setState({
+    edges: store.edges.map((e) => ids.has(e.id) && e.selected ? { ...e, selected: false } : e),
+    selection: { ...store.selection, edgeIds, anchorPosition: null },
+  })
+})
+
 /** The card (its node id) with keyboard focus on it or inside it, if any: it opens its other words as a selected card does (plan v3: full text
     on selection or keyboard focus, not hover only). */
 export const useViewFocusCard = create<{ id: string | null }>(() => ({ id: null }))
@@ -181,10 +208,21 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
     // V12 Simple: the kept ideas and the folded inputs' group (v12/bands), each in its band.
     ...extras.map((e) => ({ id: e.id, type: e.type, data: { ...e.data, width: widthOf(e.id), ...(scale === undefined ? {} : { scale }) }, position: placeOf(e.id), ...kept(e.id) })),
   ]
-  // Each link keeps its meaning (00057 #3): its kind, sign, doubt, challenge and proposal, drawn by the View link edge.
-  const edges = cardLinks(model).map(({ link, i }) => ({ id: `${link.from}->${link.to}:${link.kind}`, source: link.from, target: link.to, type: VIEW_LINK, data: { link, i }, ariaLabel: link.title,
-    // Its words describe it (React Flow's own description speaks of deleting a link, which this canvas never does).
-    domAttributes: { 'aria-describedby': linkWordsIdOf(i) } }))
+  // Snapshot line context alongside the edge so a pending View cannot change the committed key.
+  const { sid, view } = useViewStore.getState()
+  const core = view?.model ?? model
+  const edgeIds = viewLinkEdgeIds(model.links), coreIndex = new Map(core.links.map((link, i) => [link, i]))
+  const drivers = driverLinksOf(core, driversOf(core))
+  const draft = view !== null && firstDraft({ ...view, model }).firstDraft === true
+  const edges = cardLinks(model).map(({ link, i }) => {
+    const index = coreIndex.get(link)
+    const data: ViewLinkData = { link, i, committed: {
+      firstDraft: draft, byOlumi: linkByOlumi(core, link.from, link.to),
+      driver: drivers.has(index ?? i), meaning: connectorMeaning(link, model.key),
+    } }
+    return { id: edgeIds[i]!, source: link.from, target: link.to, type: VIEW_LINK, data, ariaLabel: link.title,
+      domAttributes: { 'aria-describedby': linkWordsIdOf(i) } }
+  })
   // V12 Simple (D1): the links of a row's grouped cards run to its group card, one neutral connector per pair of ends (never a link's own edge).
   const headings = new Map<string, string>([[QUESTION, model.question.text], ...model.cards.map((c) => [c.id, c.heading] as const)])
   for (const extra of extras) {
@@ -197,7 +235,9 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
   })
   // V12 Simple: the question draws no wires to the options.
   const roots = levelOf(useViewStore.getState().sid) === 'simple' ? [] : allOptionCards(model).map((c) => ({ id: `root:${c.id}`, source: QUESTION, target: c.id, type: ROOT_LINK, data: {}, focusable: false, selectable: false }))
-  if (same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.id, e.data]), [...roots, ...edges, ...grouped].map((e) => [e.id, e.data]))) return false
+  const sameScenario = viewEdgesBelongTo(sid)
+  edgeOwner = { sid, view }
+  if (sameScenario && same(store.nodes.map((n) => [n.id, n.type, n.data, n.position]), nodes.map((n) => [n.id, n.type, n.data, n.position])) && same(store.edges.map((e) => [e.type, e.id, e.data]), [...roots, ...edges, ...grouped].map((e) => [e.type, e.id, e.data]))) return false
   store.beginExternalGraphMutation?.('envelope_apply')
   try {
     // Every card is placed already: a layout begun on the canvas this replaces is stale, and none is asked for.
@@ -211,7 +251,10 @@ export function drawViewCanvas(model: ViewModel, places: ReadonlyMap<string, Pla
 /** Lay the model out as DGAI's causal graph and draw it. True when the canvas changed. */
 export async function layViewCanvas(core: ViewModel): Promise<boolean> {
   const { model, extras, links } = boardOf(core)
-  return drawViewCanvas(model, await causalFor(model, extras), extras, links)
+  const { view, sid } = useViewStore.getState()
+  const places = await causalFor(model, extras)
+  const now = useViewStore.getState()
+  return now.view === view && now.sid === sid && drawViewCanvas(model, places, extras, links)
 }
 
 /** What the board draws for core's model: its drawn model, less (on Simple) each row's grouped cards (D1, v12/bands/groups.ts: Olumi's unreviewed
@@ -347,8 +390,9 @@ export function useViewCanvas(on: boolean): void {
     let live = true
     // A newer View, or a new height, starts its own layout: this one draws nothing once it is stale.
     void causalFor(model, board?.extras ?? []).then((places) => {
-      if (!live) return
-      const last = drew, sid = useViewStore.getState().sid, n = view.version?.n ?? null
+      const now = useViewStore.getState()
+      if (!live || now.view !== view || now.sid !== sidNow) return
+      const last = drew, sid = sidNow, n = view.version?.n ?? null
       drew = { sid, n, model }
       const changed = drawViewCanvas(model, places, board?.extras ?? [], board?.links ?? [])
       firstDraw('idle')
@@ -368,5 +412,5 @@ export function useViewCanvas(on: boolean): void {
       if (had === null) firstDraw('failed')
     })
     return () => { live = false }
-  }, [on, view, model, board, ideasOnly, sizes, laidAs, cols, retry])
+  }, [on, view, model, board, ideasOnly, sizes, laidAs, cols, retry, sidNow])
 }

@@ -19,6 +19,7 @@ import { REVIEW_CHANGES, REVIEW_PROPOSAL, REVIEW_PROPOSAL_ROW, type EditGate } f
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
+import { viewLinkEdgeIds } from '../../olumiView/v12/links/ids'
 import { plainWords } from '../../olumiView/plainWords'
 import { isMenuItem, type ContextTarget, type MenuEntry, type MenuItemDef } from './types'
 
@@ -198,17 +199,18 @@ export function cardEditRows(card: ViewCard, c: LaneMenuCtx): MenuItemDef[] {
 }
 
 /** The edits core takes on one link: its strength (`/size`) and taking it off. */
-export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx): MenuItemDef[] {
+export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx, edgeId: string): MenuItemDef[] {
   const size = link?.size?.edit ?? null, remove = link?.remove ?? null, rows: MenuItemDef[] = []
-  if (isSizeEdit(size) && link !== undefined) rows.push(...figureRow(c, 'size', LANE_MENU_WORDS.setStrength, size.prompt, { kind: 'link', id: edgeIdOf(link) }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
+  if (isSizeEdit(size) && link !== undefined) rows.push(...figureRow(c, 'size', LANE_MENU_WORDS.setStrength, size.prompt, { kind: 'link', id: edgeId }, (g) => ({ kind: 'size', sid: g.sid, base: g.base, edit: size, subject: link.size!.text })))
   if (remove !== null && remove !== undefined) rows.push(...editRow(c, 'remove-link', LANE_MENU_WORDS.removeLink, 'remove-link', 'Take this link off the model', (g) => ({ kind: 'remove-link', sid: g.sid, base: g.base, remove }), { destructive: true, ...(c.act.openRemove === undefined || link === undefined ? {} : { action: () => c.act.openRemove?.(link) }) }))
   return rows
 }
-export const edgeIdOf = (l: Pick<ViewLink, 'from' | 'to' | 'kind'>): string => `${l.from}->${l.to}:${l.kind}`
 
 function edgeMenu(target: Extract<ContextTarget, { kind: 'edge' }>, c: LaneMenuCtx): MenuEntry[] {
   const link = (target.edge as unknown as { data?: { link?: ViewLink } }).data?.link
-  const rows = [...reviewRow(c), ...linkEditRows(link, c)]
+  const links = c.model?.links ?? []
+  const id = link === undefined ? target.edgeId : viewLinkEdgeIds(links)[links.indexOf(link)] ?? target.edgeId
+  const rows = [...reviewRow(c), ...linkEditRows(link, c, id)]
   return [
     ...(link === undefined ? [] : [{ id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this link', enabled: true, action: () => c.act.openDetails({ kind: 'link', id: target.edgeId }) } satisfies MenuItemDef]),
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element']]), ...(rows.length > 0 ? [DIV, ...rows] : [])]

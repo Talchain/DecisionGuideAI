@@ -355,7 +355,7 @@ describe('S2 show with a badge to open (bookshop: closed on screen, open as read
 // ── S3 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 describe('S3 Return restores exactly what the show changed', () => {
   const SID = closed.id
-  const EDGE = 'newsletter->monthly_revenue:through'
+  const EDGE = 'newsletter->monthly_revenue:through#0'
   const next = nextOf(closed, 4)
   const TARGETS = ['visits', 'spend_per_visit']
   const records = [...cardOf(closed, 'monthly_revenue').badge!.records]

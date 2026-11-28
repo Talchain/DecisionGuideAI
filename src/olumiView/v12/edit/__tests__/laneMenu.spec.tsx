@@ -9,7 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
-import { buildLaneMenu, edgeIdOf, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../../links/ids'
+import { buildLaneMenu, type LaneMenuCtx } from '../../../../canvas/contextMenu/laneMenu'
 import { isMenuItem, type ContextTarget, type MenuItemDef, type MenuEntry } from '../../../../canvas/contextMenu/types'
 import { clearLayoutUndo, chooseRedo, chooseUndo, useLayoutUndo } from '../undo'
 import { AddFigure } from '../../../AddFigure'
@@ -249,7 +250,7 @@ describe('mounted on the lane: the real route is called', () => {
     model.links[1] = link
     model.links[2] = { ...model.links[2]!, role: 'measures' }
     stub = install(view)
-    const id = edgeIdOf(link)
+    const id = viewLinkEdgeIds(model.links)[1]!
     render(<Host>{opener === 'Model relationship' ? <LinkDetail model={model} link={link} row="relationship" /> : opener === 'inline edge' ? <LaneLinkRemoveButton edge={id} link={link} /> : null}</Host>)
     if (opener === 'edge menu') {
       context({ kind: 'edge', edgeId: id, edge: { id, data: { link } } as never, isStructural: true, screenPos: { x: 10, y: 10 } })

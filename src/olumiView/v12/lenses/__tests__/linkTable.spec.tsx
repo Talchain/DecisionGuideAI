@@ -6,7 +6,7 @@ import path from 'node:path'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { View } from '../../../client'
 import { useCanvasStore } from '../../../../canvas/store'
-import { edgeIdOf } from '../../../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../../links/ids'
 import { cardLinks } from '../../../layout'
 import { LayerPanel, LENSES_TESTID, LINK_LEGEND } from '../LensesMenu'
 import { edgeTableOf } from '../layers'
@@ -27,7 +27,7 @@ describe('link table', () => {
     mount(v)
     const rows = screen.getByTestId(`${LENSES_TESTID}-edges`).querySelectorAll('tbody tr')
     expect(rows).toHaveLength(n)
-    const row = (l: typeof target) => screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${edgeIdOf(l)}"]`) as HTMLElement
+    const row = (l: typeof target) => screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${viewLinkEdgeIds(v.model!.links)[v.model!.links.indexOf(l)]}"]`) as HTMLElement
     expect(within(row(target)).getByText('n/a')).toBeInTheDocument()
     expect(row(typed).querySelector('[data-edge-na]')).toBeNull() // CONTRAST: a link with a sign says n/a nowhere
   })
@@ -40,17 +40,17 @@ describe('link table', () => {
     expect(LINK_LEGEND).toBe('? sign not settled. n/a: the View holds no sign. Dashed: doubted.')
   })
   it('pressing a row selects that link in the canvas store, and only that link', () => {
-    const v = golden(), link = v.model!.links[2]!
+    const v = golden()
     mount(v)
-    fireEvent.click(screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${edgeIdOf(link)}"]`)!)
-    expect([...useCanvasStore.getState().selection.edgeIds]).toEqual([edgeIdOf(link)])
+    fireEvent.click(screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${viewLinkEdgeIds(v.model!.links)[2]}"]`)!)
+    expect([...useCanvasStore.getState().selection.edgeIds]).toEqual([viewLinkEdgeIds(v.model!.links)[2]])
   })
   it('a link selected on the canvas marks its row, and no other (CONTRAST: nothing selected marks none)', () => {
     const v = golden(), [a, b] = [v.model!.links[0]!, v.model!.links[1]!]
     mount(v)
-    const sel = (l: typeof a) => screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${edgeIdOf(l)}"]`)!.getAttribute('aria-selected')
+    const sel = (l: typeof a) => screen.getByTestId(`${LENSES_TESTID}-edges`).querySelector(`tr[data-edge-id="${viewLinkEdgeIds(v.model!.links)[v.model!.links.indexOf(l)]}"]`)!.getAttribute('aria-selected')
     expect(sel(a)).toBe('false')
-    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set([edgeIdOf(a)]), anchorPosition: null } } as never) })
+    act(() => { useCanvasStore.setState({ selection: { nodeIds: new Set(), edgeIds: new Set([viewLinkEdgeIds(v.model!.links)[0]]), anchorPosition: null } } as never) })
     expect(sel(a)).toBe('true')
     expect(sel(b)).toBe('false')
   })

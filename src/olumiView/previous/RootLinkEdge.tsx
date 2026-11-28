@@ -3,11 +3,11 @@
  * Core states that the card is an option of this question; the line draws that and nothing else: no strength, no sign, no word, no hover.
  */
 import { memo } from 'react'
-import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react'
-import '../look/olumiLook.css'
+import { getBezierPath, type EdgeProps } from '@xyflow/react'
+import { ConnectorLine, ROOT_LOOK, lookKey } from '../v12/links/connector'
 
-function RootLinkEdgeImpl({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps): JSX.Element {
+function RootLinkEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition }: EdgeProps): JSX.Element {
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition })
-  return <BaseEdge path={path} className="ok-root-link" />
+  return <g className="ok-link-tone-neutral" data-look={lookKey(ROOT_LOOK)}><ConnectorLine id={id} path={path} look={ROOT_LOOK} /></g>
 }
 export const RootLinkEdge = memo(RootLinkEdgeImpl)

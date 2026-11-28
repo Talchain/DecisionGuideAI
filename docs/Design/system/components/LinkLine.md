@@ -2,7 +2,7 @@
 
 A link between two cards on the board. Its colour says which way the link pushes, and its end says the link's role.
 
-**Status: built.**
+**Status: built.** One connector drawer serves the board and the key, whose swatches come from committed View edges.
 
 ## Anatomy
 

@@ -19,7 +19,8 @@ import { useCanvasCardTip } from '../../look/Tip'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
 import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
-import { cardEditRows, edgeIdOf, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
+import { viewLinkByEdgeId } from '../links/ids'
+import { cardEditRows, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
 import { useShowToast } from '../../../canvas/ToastContext'
 import { useCanvasStore } from '../../../canvas/store'
@@ -137,11 +138,11 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const ctx = useLaneCtx({ showToast, onClose: NOOP, openForm: openFormHere, openRemove: openLinkRemoval })
   const model = view?.model ?? null
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
-  const link = target?.kind === 'link' ? model?.links.find((l) => edgeIdOf(l) === target.id) ?? null : null
+  const link = target?.kind === 'link' && model !== null ? viewLinkByEdgeId(model.links, target.id) ?? null : null
   // The item gone from the model: pinned details close rather than show what is not there (another scenario closes them in LaneEditingLayer).
   useEffect(() => { if (pinnedOn !== null && card === null && link === null) close() }, [pinnedOn, card, link, close])
   // The Value row is the one place a figure, a risk's size or a link's strength is changed (surfaces step 5), so no button here opens a form for them.
-  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []).filter((r) => r.id !== 'size' && r.id !== 'change-figure'), [card, link, ctx])
+  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx, target!.id) : []).filter((r) => r.id !== 'size' && r.id !== 'change-figure'), [card, link, ctx, target?.id])
   const [more, setMore] = useState(false)
   // While "What would change" is on: core's own sentence for each option this card's figure moves most (what the card's pop-up said then).
   const drives = useDriverOf(target?.kind === 'card' ? target.id : '')
@@ -308,11 +309,11 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
   const ctx = useLaneCtx({ showToast, onClose: NOOP, openForm: openFormHere })
   const model = view?.model ?? null
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
-  const link = target?.kind === 'link' ? model?.links.find((l) => edgeIdOf(l) === target.id) ?? null : null
+  const link = target?.kind === 'link' && model !== null ? viewLinkByEdgeId(model.links, target.id) ?? null : null
   useEffect(() => { if (target !== null && card === null && link === null) close() }, [target, card, link, close])
   // The "Your figure" field below carries its own "Change figure" button, so the edit row for it is not drawn as well (said once).
   const figureField = card?.figure?.edit != null && !isSizeEdit(card.figure.edit)
-  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx) : []).filter((r) => !(figureField && r.id === 'change-figure')), [card, link, ctx, figureField])
+  const rows = useMemo(() => (card !== null ? cardEditRows(card, ctx) : link !== null ? linkEditRows(link, ctx, target!.id) : []).filter((r) => !(figureField && r.id === 'change-figure')), [card, link, ctx, figureField, target?.id])
   if (target === null || (card === null && link === null)) return null
   const title = card !== null ? card.heading : link!.title
   const node = card === null ? undefined : useCanvasStore.getState().nodes.find((n) => n.id === card.id)

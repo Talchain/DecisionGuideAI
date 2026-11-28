@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
-import { edgeIdOf } from '../../../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../../links/ids'
 import type { ContextTarget } from '../../../../canvas/contextMenu/types'
 import { ViewCard } from '../../../../canvas/nodes/ViewCardNode'
 import { ViewModelTab } from '../../../ViewModelTab'
@@ -27,8 +27,9 @@ import { useLaneInspector } from '../inspectorStore'
 import { RISK_EDIT, SID, approved } from './harness'
 
 const PLAIN = 'starting_customers', OTHER = 'customer_target', RISK = 'slow_ramp'
-const LINK = approved().model!.links.find((l) => l.size?.edit != null)!
-const LINK_ID = edgeIdOf(LINK)
+const links = approved().model!.links
+const linkIndex = links.findIndex((l) => l.size?.edit != null)
+const LINK_ID = viewLinkEdgeIds(links)[linkIndex]!
 
 type Call = { method: string; path: string; body: unknown }
 let calls: Call[] = []
@@ -79,7 +80,7 @@ function expectOne(kind: Kind): void {
 const Layer = (): JSX.Element => <ToastProvider><LaneEditingLayer /></ToastProvider>
 
 const menuTarget = (kind: Kind): ContextTarget => kind === 'link'
-  ? { kind: 'edge', edgeId: 'e', isStructural: false, screenPos: { x: 1, y: 1 }, edge: { id: 'e', data: { link: LINK } } as never }
+  ? { kind: 'edge', edgeId: LINK_ID, isStructural: false, screenPos: { x: 1, y: 1 }, edge: { id: LINK_ID, data: { link: useViewStore.getState().view?.model?.links[linkIndex] } } as never }
   : { kind: 'node', nodeId: IDS[kind], nodeType: 'factor', node: { id: IDS[kind], position: { x: 0, y: 0 }, data: {} } as never, screenPos: { x: 10, y: 10 } }
 const ROW: Record<Kind, RegExp> = { plain: /Change figure/, risk: /Set chance and size/, link: /Set strength/ }
 
@@ -349,16 +350,15 @@ describe('surfaces step 5 review fixes: what the control asked for is kept, the 
     await waitFor(() => expect(posts()).toHaveLength(1))
     expect(posts()[0]!.path).toMatch(/\/edit$/)
   })
-  it('S5-14 a link\'s Value row stays while Olumi\'s change is held: the field, the typing and core\'s held words, Set disabled, nothing sent', async () => {
+  it('S5-14 a link’s Value row closes when Olumi’s held change replaces the View', async () => {
     await ROUTES[3]!.go('link')
     fireEvent.change(screen.getByTestId('inspector-figure-typed'), { target: { value: '0.4' } })
     act(() => {
       const v = useViewStore.getState().view!
-      useViewStore.setState({ view: { ...v, model: { ...v.model!, edit_base: null, links: v.model!.links.map((l) => (edgeIdOf(l) === LINK_ID ? { ...l, size: { ...l.size!, edit: null } } : l)) } } as never })
+      useViewStore.setState({ view: { ...v, model: { ...v.model!, edit_base: null, links: v.model!.links.map((l, i) => (i === linkIndex ? { ...l, size: { ...l.size!, edit: null } } : l)) } } as never })
     })
-    expect((screen.getByTestId('inspector-figure-typed') as HTMLInputElement).value).toBe('0.4')
-    expect(screen.getByTestId('inspector-figure-held')).toBeInTheDocument()
-    expect(screen.getByTestId('inspector-figure-set')).toBeDisabled()
+    expect(screen.queryByTestId('inspector-figure-typed')).toBeNull()
+    expect(useLaneInspector.getState().current).toBeNull()
     expect(posts()).toHaveLength(0)
   })
   it('S5-15 the tab a try opens is the control\'s own (Compare here), and Results when none is given', async () => {

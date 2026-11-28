@@ -16,6 +16,7 @@ import { useViewStore } from '../store'
 import { hoverWords, tipOf } from './tipHelpers'
 import { useMe } from '../../olumiCore/me'
 import * as coreLane from '../../olumiCore/lane'
+import { applied } from '../v12/links/__tests__/applied'
 import { RootLinkEdge } from '../previous/RootLinkEdge'
 import { ViewLinkEdge } from '../../canvas/edges/ViewLinkEdge'
 import { EdgeLabelLayer } from './edgeLabelLayer'
@@ -53,10 +54,10 @@ describe('the graph', () => {
   it('PB1 (G1): the question-to-option line is stroked with a colour the stylesheets define; the old token is defined nowhere', () => {
     const Edge = RootLinkEdge as unknown as (p: Record<string, unknown>) => JSX.Element
     const c = render(<ReactFlowProvider><svg><Edge id="root:o" source="q" target="o" sourceX={0} sourceY={0} targetX={0} targetY={80} sourcePosition={Position.Bottom} targetPosition={Position.Top} /></svg></ReactFlowProvider>).container
-    expect(c.querySelector('path.react-flow__edge-path')).toHaveClass('ok-root-link')
-    const look = readFileSync(path.resolve('src/olumiView/look/olumiLook.css'), 'utf8')
-    const token = /\.ok-root-link \{ stroke: var\((--edge-neutral)\); stroke-width: 1px;/.exec(look)?.[1]
-    expect(token).toBe('--edge-neutral')
+    const line = c.querySelector('path.react-flow__edge-path')!
+    expect(line).toHaveClass('ok-link-line')
+    expect(applied(line)).toMatchObject({ stroke: 'var(--edge-neutral)', strokeWidth: '2px' })
+    const token = '--edge-neutral'
     expect(new RegExp(`${token}:\\s*#[0-9a-fA-F]{6}\\b`).test(css()), `${token} is a hex colour in the stylesheets`).toBe(true)
     expect(/--border-strong\s*:/.test(css()), 'CONTRAST: the old token is defined nowhere').toBe(false)
   })

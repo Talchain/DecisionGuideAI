@@ -17,7 +17,7 @@ import { dismissMenuFromOpener } from '../../look/menuArbiter'
 import { useEscapeLayer } from '../edit/escapeLayers'
 import { useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
-import { edgeIdOf } from '../../../canvas/contextMenu/laneMenu'
+import { viewLinkEdgeIds } from '../links/ids'
 import { isBaseline } from '../contract'
 import type { View, ViewModel } from '../../client'
 import {
@@ -126,6 +126,7 @@ function LinkTableRow({ index, edgeId, role, words, on, onSelect, className, chi
  */
 function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[] }): JSX.Element {
   const selected = useCanvasStore((s) => s.selection.edgeIds)
+  const edgeIds = viewLinkEdgeIds(model.links)
   const baseline = model.cards.filter((c) => isBaseline(c) && !model.links.some((l) => l.from === c.id || l.to === c.id))
   const select = (id: string) => useCanvasStore.getState().selectEdgeWithoutHistory(id)
   return (
@@ -134,7 +135,7 @@ function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[]
         <thead><tr><th scope="col" className={th}>From</th><th scope="col" className={th}>To</th><th scope="col" className={th}>Sign</th><th scope="col" className={th}>Strength</th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const id = edgeIdOf(model.links[r.index]!), on = selected.has(id)
+            const id = edgeIds[r.index]!, on = selected.has(id)
             return (
               <LinkTableRow key={r.index} index={r.index} edgeId={id} role={r.role ?? undefined} words={r.hover} on={on} onSelect={() => select(id)}
                 className={`cursor-pointer hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${on ? 'bg-panel-hover' : ''}`}>
