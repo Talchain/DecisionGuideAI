@@ -19,7 +19,6 @@ import { REVIEW_CHANGES, REVIEW_PROPOSAL, REVIEW_PROPOSAL_ROW, type EditGate } f
 import { isSizeEdit, type EditSpec } from '../../olumiView/v12/edit/EditForm'
 import type { UndoChoice } from '../../olumiView/v12/edit/undo'
 import { canRenameCard } from '../../olumiView/v12/edit/renameCard'
-import { viewLinkEdgeIds } from '../../olumiView/v12/links/ids'
 import { plainWords } from '../../olumiView/plainWords'
 import { isMenuItem, type ContextTarget, type MenuEntry, type MenuItemDef } from './types'
 
@@ -208,9 +207,7 @@ export function linkEditRows(link: ViewLink | undefined, c: LaneMenuCtx, edgeId:
 
 function edgeMenu(target: Extract<ContextTarget, { kind: 'edge' }>, c: LaneMenuCtx): MenuEntry[] {
   const link = (target.edge as unknown as { data?: { link?: ViewLink } }).data?.link
-  const links = c.model?.links ?? []
-  const id = link === undefined ? target.edgeId : viewLinkEdgeIds(links)[links.indexOf(link)] ?? target.edgeId
-  const rows = [...reviewRow(c), ...linkEditRows(link, c, id)]
+  const rows = [...reviewRow(c), ...linkEditRows(link, c, target.edgeId)]
   return [
     ...(link === undefined ? [] : [{ id: 'open-details', label: LANE_MENU_WORDS.details, iconId: 'info-more', tooltip: 'Open the details of this link', enabled: true, action: () => c.act.openDetails({ kind: 'link', id: target.edgeId }) } satisfies MenuItemDef]),
     ask(c, target, [['ask-explain', LANE_MENU_WORDS.explain, 'explain_element']]), ...(rows.length > 0 ? [DIV, ...rows] : [])]

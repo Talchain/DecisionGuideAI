@@ -1,18 +1,26 @@
+/**
+ * The key's link lines and marks, drawn inside the ONE key, "How to read this" (ViewLegend), opened from the left foot menu (Paul, 17 Nov: "Shouldn't
+ * we just improve the key that's in the left-hand bottom menu?"; the always-on bottom-right pill is gone).
+ * The line samples follow the committed edges. The six midpoint direction marks use the registry's ids and words.
+ * The last row is Olumi's mark and a person's mark (fixed notation chrome).
+ */
 import { useEffect, useState } from 'react'
 import { ICONS, OkIcon, type IconId } from '../../look/icons'
 import { measureDockInset } from '../../../canvas/components/FloatingOlumiPanel'
 import type { ViewLinkData } from '../../../canvas/edges/ViewLinkEdge'
 import { useCanvasStore } from '../../../canvas/store'
 import { typography } from '../../../styles/typography'
-import { GROUP_LINK, ROOT_LINK, VIEW_LINK, viewEdgesBelongTo } from '../../canvas'
-import { useViewLens } from '../../lens'
+import { GROUP_LINK, ROOT_LINK, VIEW_LINK } from '../../canvas'
+import { linkByOlumi } from '../../layout'
 import { useViewStore } from '../../store'
 import { OlumiMark } from '../cards/marks'
 import { linkRole } from '../contract'
-import { ConnectorSwatch, ROOT_LOOK, connectorLookOf, directionOf, lookKey, type ConnectorLook } from '../links/connector'
+import { firstDraft as firstDraftOf } from '../fields/fields'
+import { ConnectorSwatch, ROOT_LOOK, connectorLookOf, connectorMeaning, directionOf, lookKey, type ConnectorLook } from '../links/connector'
 import { groupConnectorLook } from './GroupLinkEdge'
 import type { GroupLink } from './groups'
 
+/** The six midpoint direction marks, in the registry's ids (look/icons.tsx `link-*`), as the canvas draws them (ViewLinkEdge MARK_ID). */
 export const KEY_MARK_IDS = { raises: 'link-raises', lowers: 'link-lowers', depends: 'link-depends', disputed: 'link-disputed', unknown: 'link-unknown', none: 'link-none' } as const satisfies Record<string, IconId>
 type KeyMark = keyof typeof KEY_MARK_IDS
 
@@ -40,18 +48,17 @@ export function useDockInset(): number {
 
 export function KeyLines() {
   const edges = useCanvasStore((s) => s.edges)
-  const sid = useViewStore((s) => s.sid)
-  const lensOn = useViewLens((s) => s.lens === 'what_changes')
+  const model = useViewStore((s) => s.view?.model)
+  const firstDraft = useViewStore((s) => s.view !== null && firstDraftOf(s.view).firstDraft === true)
   const rows = new Map<string, { id?: string; text: string; looks: Map<string, ConnectorLook> }>()
   const marks = new Set<KeyMark>()
-  for (const edge of viewEdgesBelongTo(sid) ? edges : []) {
+  for (const edge of edges) {
     let look: ConnectorLook
-    let meaning: NonNullable<ViewLinkData['committed']>['meaning']
+    let meaning: ReturnType<typeof connectorMeaning>
     if (edge.type === VIEW_LINK) {
-      const { link, committed } = edge.data as unknown as ViewLinkData
-      if (committed === undefined) continue
-      look = connectorLookOf(link, { ...committed, driver: committed.driver && lensOn })
-      meaning = committed.meaning
+      const { link } = edge.data as unknown as ViewLinkData
+      look = connectorLookOf(link, { firstDraft, byOlumi: model != null && linkByOlumi(model, link.from, link.to), driver: false })
+      if (model != null) meaning = connectorMeaning(link, model.key)
       const mark = directionOf(link) ?? (link.causal?.sign === 'none' ? 'none' : null)
       if (mark !== null && linkRole(link) !== 'size') marks.add(mark)
     } else if (edge.type === GROUP_LINK) {

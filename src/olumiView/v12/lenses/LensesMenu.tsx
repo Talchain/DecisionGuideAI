@@ -17,7 +17,7 @@ import { dismissMenuFromOpener } from '../../look/menuArbiter'
 import { useEscapeLayer } from '../edit/escapeLayers'
 import { useViewStore } from '../../store'
 import { useCanvasStore } from '../../../canvas/store'
-import { viewLinkEdgeIds } from '../links/ids'
+import { viewLinkDataOf } from '../../canvas'
 import { isBaseline } from '../contract'
 import type { View, ViewModel } from '../../client'
 import {
@@ -106,11 +106,11 @@ function Head({ title, tag = null, count = null, onClose }: { title: string; tag
 export const LINK_LEGEND = '? sign not settled. n/a: the View holds no sign. Dashed: doubted.'
 
 /** One link's row: a keyboard stop that selects the link (Enter, Space, press), its words through the one Tip. It owns the hook a map cannot, and the scroll-into-view ref a Hover cannot take. */
-function LinkTableRow({ index, edgeId, role, words, on, onSelect, className, children }: { index: number; edgeId: string; role: string | undefined; words: string | undefined; on: boolean; onSelect: () => void; className: string; children: ReactNode }): JSX.Element {
+function LinkTableRow({ index, edgeId, role, words, on, onSelect, className, children }: { index: number; edgeId: string | undefined; role: string | undefined; words: string | undefined; on: boolean; onSelect: () => void; className: string; children: ReactNode }): JSX.Element {
   const { handlers, tip, describedBy, dismiss } = useAnchoredTip(words)
   return (
     <>
-      <tr data-edge={index} data-edge-id={edgeId} data-role={role} tabIndex={0} aria-selected={on} aria-describedby={describedBy}
+      <tr data-edge={index} data-edge-id={edgeId} data-role={role} tabIndex={edgeId === undefined ? undefined : 0} aria-selected={on} aria-describedby={describedBy}
         ref={(el) => { if (on) el?.scrollIntoView?.({ block: 'nearest' }) }}
         onPointerEnter={handlers.onPointerEnter} onPointerLeave={handlers.onPointerLeave} onFocus={handlers.onFocus} onBlur={handlers.onBlur}
         onClick={() => { dismiss(); onSelect() }} onKeyDown={(e) => { handlers.onKeyDown(e); if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect() } }}
@@ -122,23 +122,23 @@ function LinkTableRow({ index, edgeId, role, words, on, onSelect, className, chi
 
 /**
  * Every link as a row. A row and its link on the canvas are one selection, both ways, through the canvas's own store (`selection.edgeIds`): pressing a row
- * selects the link, and a link selected on the canvas marks its row. Core's own words (headings, author, strength) are as the View sends them.
+ * selects the link when it is drawn, and a link selected on the canvas marks its row. Core's own words (headings, author, strength) are as the View sends them.
  */
 function LinkTable({ model, rows }: { model: ViewModel; rows: readonly EdgeRow[] }): JSX.Element {
   const selected = useCanvasStore((s) => s.selection.edgeIds)
-  const edgeIds = viewLinkEdgeIds(model.links)
+  const edges = useCanvasStore((s) => s.edges)
+  const edgeIds = new Map(edges.map((e) => [viewLinkDataOf(e)?.link, e.id]))
   const baseline = model.cards.filter((c) => isBaseline(c) && !model.links.some((l) => l.from === c.id || l.to === c.id))
-  const select = (id: string) => useCanvasStore.getState().selectEdgeWithoutHistory(id)
   return (
     <div className="max-h-[50vh] overflow-auto">
       <table className="w-full border-collapse" data-testid={`${LENSES_TESTID}-edges`}>
         <thead><tr><th scope="col" className={th}>From</th><th scope="col" className={th}>To</th><th scope="col" className={th}>Sign</th><th scope="col" className={th}>Strength</th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const id = edgeIds[r.index]!, on = selected.has(id)
+            const id = edgeIds.get(model.links[r.index]), on = id !== undefined && selected.has(id)
             return (
-              <LinkTableRow key={r.index} index={r.index} edgeId={id} role={r.role ?? undefined} words={r.hover} on={on} onSelect={() => select(id)}
-                className={`cursor-pointer hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${on ? 'bg-panel-hover' : ''}`}>
+              <LinkTableRow key={r.index} index={r.index} edgeId={id} role={r.role ?? undefined} words={r.hover} on={on} onSelect={() => { if (id !== undefined) useCanvasStore.getState().selectEdgeWithoutHistory(id) }}
+                className={id === undefined ? '' : `cursor-pointer hover:bg-panel-hover focus-visible:outline focus-visible:outline-2 ${on ? 'bg-panel-hover' : ''}`}>
                 <td className={td}>{r.from}</td><td className={td}>{r.to}</td>
                 <td className={td}>{r.sign === null ? <span data-edge-na>n/a</span> : <><span aria-hidden="true">{SIGN_GLYPH[r.sign]}</span> <span className={r.sign === 'unknown' ? '' : 'sr-only'}>{SIGN_WORDS[r.sign]}</span></>}{r.by !== null ? <span className={`${typography.viewPanelMeta} block`} data-edge-author>{r.by}</span> : null}{r.disputed ? <span className={`${typography.viewPanelMeta} block`}>Disputed</span> : null}</td>
                 <td className={td}>{r.strength ?? ''}</td>

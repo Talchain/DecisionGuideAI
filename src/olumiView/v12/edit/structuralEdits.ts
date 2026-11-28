@@ -1,5 +1,5 @@
-import { viewLinkEdgeIds } from '../links/ids'
-import { useViewStore } from '../../store'
+import { useCanvasStore } from '../../../canvas/store'
+import { viewLinkDataOf } from '../../canvas'
 import type { ViewLink } from '../../client'
 import { dismissMenuFromOpener } from '../../look/menuArbiter'
 import { editGateNow } from './editGate'
@@ -20,9 +20,7 @@ export function openLaneAdd(opener: HTMLElement): boolean {
 export function openLinkRemoval(link: ViewLink, opener?: HTMLElement): boolean {
   const gate = editGateNow()
   if (!gate.ok || link.remove == null) return false
-  const links = useViewStore.getState().view?.model?.links ?? []
-  const id = viewLinkEdgeIds(links)[links.indexOf(link)]
-  if (id === undefined) return false
+  const edge = useCanvasStore.getState().edges.find((e) => viewLinkDataOf(e)?.link === link)
   return openLaneForm({ ...gate, kind: 'remove-link', remove: link.remove, link }, undefined,
-    { kind: 'link', id }, opener)
+    edge === undefined ? undefined : { kind: 'link', id: edge.id }, opener)
 }

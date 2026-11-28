@@ -33,6 +33,8 @@ import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { setTeamFetch } from '../../../../olumiCore/team/api'
 import { FOOT_GUTTER, QUESTION, VIEW_CARD, boardOf, cardGroupsOf, drawnModelOf, groupOpen, inputIdsOf, inputsFolded, setGroupOpen, setInputsOpen, useCanvasStore, useInputsOpen, useLayer, useSimpleLevel, useViewLens, useViewStore, type LayerId, type Opened, type View } from '../deps'
+import { cardLinks } from '../../../layout'
+import { viewLinkEdgeIds } from '../../links/ids'
 import { setLevel, showSimple, showWholeModel } from '../../simpleStore'
 import { registerShowCameraPort, showCameraPort, showHolds, type Box, type Pane, type Viewport } from '../cameraPort'
 import { makeShowCameraPort, type CanvasSide } from '../canvasSide'
@@ -151,8 +153,8 @@ function layOut(places: Readonly<Record<string, At>> = {}, dy = 0): void {
   rf.at = new Map(ids.map((id, i) => [id, places[id] ?? placeOf(i, dy)]))
   const was = new Map(useCanvasStore.getState().nodes.map((n) => [n.id, n]))
   const nodes = ids.map((id) => ({ id, type: id === QUESTION ? 'viewQuestion' : VIEW_CARD, data: {}, position: rf.at.get(id)!, measured: { width: W, height: rf.tall.get(id) ?? H }, ...(was.get(id)?.selected === true ? { selected: true } : {}) }))
-  const drawn = new Set(ids)
-  const edges = board.links.filter((l) => drawn.has(l.from) && drawn.has(l.to)).map((l) => ({ id: `${l.from}->${l.to}:${l.kind}`, source: l.from, target: l.to, type: 'viewLink', data: {} }))
+  const edgeIds = viewLinkEdgeIds(board.links)
+  const edges = cardLinks(board).map(({ link, i }) => ({ id: edgeIds[i]!, source: link.from, target: link.to, type: 'viewLink', data: { link, i } }))
   useCanvasStore.setState({ nodes: nodes as never, edges: edges as never })
   const pane = document.querySelector('.react-flow')!
   pane.innerHTML = ids.map((id) => `<div class="react-flow__node" data-id="${id}"></div>`).join('')

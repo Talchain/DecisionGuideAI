@@ -2,12 +2,13 @@ import '@testing-library/jest-dom/vitest'
 import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { Position, ReactFlow } from '@xyflow/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { ViewLinkEdge } from '../../../../canvas/edges/ViewLinkEdge'
 import { useCanvasStore } from '../../../../canvas/store'
-import { drawViewCanvas, GROUP_LINK, ROOT_LINK, useViewFocusLink, VIEW_LINK } from '../../../canvas'
+import { drawViewCanvas, GROUP_LINK, ROOT_LINK, useViewFocusLink, VIEW_LINK, viewLinkDataOf } from '../../../canvas'
 import type { View, ViewLink } from '../../../client'
+import { useViewLens } from '../../../lens'
 import { RootLinkEdge } from '../../../previous/RootLinkEdge'
 import { useViewStore } from '../../../store'
 import { ViewLegend } from '../../../ViewLegend'
@@ -17,6 +18,7 @@ import { KeyLines } from '../../bands/KeyPill'
 import { useFocusPath } from '../../bands/focusPath'
 import { LaneInspector } from '../../edit/LaneInspector'
 import { useLaneInspector } from '../../edit/inspectorStore'
+import { LayerPanel, LENSES_TESTID } from '../../lenses/LensesMenu'
 import { showSimple, showWholeModel } from '../../simpleStore'
 import { connectorLookOf, ROOT_LOOK, type ConnectorLook } from '../connector'
 
@@ -31,6 +33,8 @@ const signed = (sign: 'increases' | 'decreases'): ViewLink => ({
     strength: { state: 'in_words', figure: null, low: null, likely: null, high: null, unit: null, per: null, share: null, relative_to: null },
   },
 })
+const relation = { ...model.cards[0]!, id: 'test-relation', family: 'relation', author: { by: 'olumi', text: 'Olumi', title: 'Olumi' } } satisfies NonNullable<View['model']>['cards'][number]
+const reasonLinks: ViewLink[] = [plain.from, plain.to].map((to) => ({ ...plain, kind: 'reason', from: relation.id, to }))
 const effect = { id: 'effect', glyph: '→', text: 'Modelled effect' }
 const parallel = [signed('increases'), { ...signed('decreases'), title: 'The second causal link' }]
 const viewWith = (links: ViewLink[], key = [effect]): View => ({ ...hiring, model: { ...model, links, key } })
@@ -57,11 +61,15 @@ const looks = (el: ParentNode) => new Set([...el.querySelectorAll('[data-look]')
 const boardLooks = (el: ParentNode) => looks(el.querySelector('.react-flow')!)
 const rows = () => [...key().querySelectorAll('[data-key-row="lines"] [data-key-item]')].map((row) => row.textContent)
 
+beforeEach(() => { vi.stubEnv('VITE_OLUMI_CORE', '1') })
+
 afterEach(() => {
   cleanup()
   useViewStore.setState({ sid: null, view: null })
   useCanvasStore.setState({ nodes: [], edges: [] })
   useFocusPath.setState({ path: null })
+  useViewLens.setState({ lens: 'full' })
+  vi.unstubAllEnvs()
 })
 
 describe('one View connector', () => {
@@ -143,10 +151,27 @@ describe('one View connector', () => {
       useViewStore.setState({ view: viewWith([...parallel].reverse()) })
     })
     expect(useLaneInspector.getState().current).toBeNull()
-    expect(useViewFocusLink.getState().id).toBeNull()
-    expect(useCanvasStore.getState().selection.edgeIds.size).toBe(0)
-    fireEvent.click(screen.getByTestId(`rf__edge-${ids[1]}`).querySelector('.react-flow__edge-interaction')!)
+    expect.soft(useViewFocusLink.getState().id).toBeNull()
+    expect.soft(useCanvasStore.getState().selection.edgeIds.size).toBe(0)
     expect(screen.queryByTestId('lane-inspector-title')).toBeNull()
+  })
+
+  it('resolves the second drawn parallel when the board omits a link from the same triple', () => {
+    const view = viewWith([{ ...plain, title: 'Omitted link' }, ...parallel])
+    useViewStore.setState({ sid: view.id, view })
+    showSimple(view.id)
+    drawViewCanvas({ ...view.model!, links: parallel }, new Map())
+    const [, edge] = useCanvasStore.getState().edges
+    expect(viewLinkDataOf(edge)).toEqual({ link: parallel[1], i: 1 })
+    render(<ToastProvider><Board /><LaneInspector /><LayerPanel view={view} layer="causal" onClose={() => {}} /></ToastProvider>)
+    fireEvent.click(screen.getByTestId(`rf__edge-${edge!.id}`).querySelector('.react-flow__edge-interaction')!)
+    expect(screen.getByTestId('lane-inspector-title')).toHaveTextContent(parallel[1]!.title)
+    const table = screen.getByTestId(`${LENSES_TESTID}-edges`)
+    expect(table.querySelector('[data-edge="0"]')).not.toHaveAttribute('data-edge-id')
+    const row = table.querySelector('[data-edge="2"]')!
+    expect(row).toHaveAttribute('data-edge-id', edge!.id)
+    fireEvent.click(row)
+    expect([...useCanvasStore.getState().selection.edgeIds]).toEqual([edge!.id])
   })
 
   it('keeps key swatches resting while the board is lit or focused', () => {
@@ -163,14 +188,42 @@ describe('one View connector', () => {
     expect(rows()).toEqual(before)
   })
 
-  it('keeps the committed rows pending redraw, including the Core wording', () => {
+  it('keeps driver ink on the board when the What would change lens is on', () => {
+    const view = viewWith([plain])
+    view.model!.cards = model.cards.map((card) => card.id === plain.to ? { ...card, driver: { ...card.driver!, figure: plain.from } } : card)
+    commit(view)
+    const { container } = render(<><Board /><KeyLines /></>)
+    const resting = looks(key())
+    act(() => { useViewLens.setState({ lens: 'what_changes' }) })
+    expect(container.querySelector('[data-driver-link]')).toHaveAttribute('data-link-tone', 'ink')
+    expect(boardLooks(container)).not.toEqual(resting)
+    expect(looks(key())).toEqual(resting)
+  })
+
+  it('uses live draft and authorship for the committed connector', () => {
+    const view = viewWith([parallel[0]!])
+    view.model!.first_draft = false
+    commit(view)
+    const { container } = render(<><Board /><KeyLines /></>)
+    const edges = useCanvasStore.getState().edges
+    const withRelation = { ...view.model!, cards: [...model.cards, relation], links: [...reasonLinks, ...parallel] }
+    act(() => { useViewStore.setState({ view: { ...view, model: withRelation } }) })
+    expect(container.querySelector('[data-view-link]')).toHaveAttribute('data-link-halo', 'proposed')
+    expect(looks(key())).toEqual(boardLooks(container))
+    act(() => { useViewStore.setState({ view: { ...view, model: { ...withRelation, first_draft: true } } }) })
+    expect(container.querySelector('[data-view-link]')).not.toHaveAttribute('data-link-halo')
+    expect(looks(key())).toEqual(boardLooks(container))
+    expect(useCanvasStore.getState().edges).toBe(edges)
+  })
+
+  it('keeps committed swatches and updates Core wording pending redraw', () => {
     commit(viewWith([parallel[0]!]))
     const { container } = render(<><Board /><KeyLines /></>)
     const before = looks(key())
     const pending = viewWith([parallel[1]!], [{ ...effect, text: 'Revised effect' }])
     act(() => { useViewStore.setState({ view: pending }) })
     expect(looks(key())).toEqual(before)
-    expect(rows()).toEqual([effect.text])
+    expect(rows()).toEqual(['Revised effect'])
     act(() => { drawViewCanvas(pending.model!, new Map()) })
     expect(looks(key())).toEqual(boardLooks(container))
     expect(looks(key())).not.toEqual(before)

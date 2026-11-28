@@ -18,8 +18,8 @@ import { isOlumiCoreLane } from '../../../olumiCore/lane'
 import { useViewStore } from '../../store'
 import { dismissMenuForSurface } from '../../look/menuArbiter'
 import type { EditSpec } from './EditForm'
-import { viewLinkByEdgeId } from '../links/ids'
-import { canOpenViewLink } from '../../canvas'
+import { useCanvasStore } from '../../../canvas/store'
+import { useViewFocusLink, VIEW_LINK, viewLinkDataOf } from '../../canvas'
 import type { OutputTab } from '../../../stores/uiStore'
 
 /** What the details panel is showing: a card (by its record id) or a link (by its canvas edge id, `from->to:kind#ordinal`). */
@@ -71,7 +71,7 @@ const detailsKeys = (sid: string, t: DetailsTarget): string[] => {
     const e = m?.cards.find((c) => c.id === t.id)?.figure?.edit as { route?: string; record?: unknown } | null | undefined // EditForm's `isSizeEdit`, which this module cannot import (it imports this one)
     return [`${sid}:edit:${t.id}`, `${sid}:rename:${t.id}`, ...(e != null && e.route === 'size' && typeof e.record === 'string' ? [`${sid}:size:${e.record}`] : [])]
   }
-  const l = m == null ? undefined : viewLinkByEdgeId(m.links, t.id)
+  const l = viewLinkDataOf(useCanvasStore.getState().edges.find((e) => e.id === t.id))?.link
   const r = (l?.size?.edit as { record?: unknown } | null | undefined)?.record
   return typeof r === 'string' ? [`${sid}:size:${r}`] : []
 }
@@ -94,8 +94,6 @@ export const useLaneInspector = create<State>()((set, get) => ({
   open: (target) => { get().show({ kind: 'details', target }) },
   openFigure: (target, how = 'value', opts = {}) => get().show({ kind: 'details', target, edit: how, ...(opts.primary !== undefined ? { primary: opts.primary } : {}), ...(opts.tab !== undefined ? { tab: opts.tab } : {}) }),
   show: (s) => {
-    if ((s.kind === 'details' && s.target.kind === 'link' && !canOpenViewLink(s.target.id)) ||
-      (s.kind === 'menu' && s.target.kind === 'edge' && !canOpenViewLink(s.target.edgeId))) return false
     const cur = get().current
     if (surfaceBusy(cur)) return false
     // The same item's details asked for again (a second press on its card): the section a mark opened stays open, never shut under the reader.
@@ -128,6 +126,10 @@ export const useLaneInspector = create<State>()((set, get) => ({
 // A drawing ID can name a different link in the next View.
 useViewStore.subscribe((next, prev) => {
   if (next.sid === prev.sid && next.view === prev.view) return
+  if (useViewFocusLink.getState().id !== null) useViewFocusLink.setState({ id: null })
+  const { edges, selection, onEdgesChange } = useCanvasStore.getState()
+  onEdgesChange(edges.filter((e) => e.type === VIEW_LINK && (e.selected || selection.edgeIds.has(e.id)))
+    .map((e) => ({ id: e.id, type: 'select', selected: false })))
   const { current, peek } = useLaneInspector.getState()
   if (peek?.kind === 'link') useLaneInspector.setState({ peek: null })
   if ((current?.kind === 'details' && current.target.kind === 'link') ||

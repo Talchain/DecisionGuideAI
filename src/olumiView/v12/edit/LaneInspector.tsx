@@ -19,7 +19,7 @@ import { useCanvasCardTip } from '../../look/Tip'
 import { FOLD_SUMMARY, FoldChevron } from '../../look/FoldChevron'
 import { typography } from '../../../styles/typography'
 import { VIEW_CHIP_CLASS } from '../../../v5/blocks/chipClass'
-import { viewLinkByEdgeId } from '../links/ids'
+import { viewLinkDataOf } from '../../canvas'
 import { cardEditRows, linkEditRows } from '../../../canvas/contextMenu/laneMenu'
 import { useLaneCtx } from '../../../canvas/contextMenu/useLaneMenu'
 import { useShowToast } from '../../../canvas/ToastContext'
@@ -138,7 +138,7 @@ function LaneBox({ range }: { range?: Range }): JSX.Element | null {
   const ctx = useLaneCtx({ showToast, onClose: NOOP, openForm: openFormHere, openRemove: openLinkRemoval })
   const model = view?.model ?? null
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
-  const link = target?.kind === 'link' && model !== null ? viewLinkByEdgeId(model.links, target.id) ?? null : null
+  const link = useCanvasStore((s) => target?.kind === 'link' ? viewLinkDataOf(s.edges.find((e) => e.id === target.id))?.link ?? null : null)
   // The item gone from the model: pinned details close rather than show what is not there (another scenario closes them in LaneEditingLayer).
   useEffect(() => { if (pinnedOn !== null && card === null && link === null) close() }, [pinnedOn, card, link, close])
   // The Value row is the one place a figure, a risk's size or a link's strength is changed (surfaces step 5), so no button here opens a form for them.
@@ -309,7 +309,7 @@ function OlderInspector({ range }: { range?: Range }): JSX.Element | null {
   const ctx = useLaneCtx({ showToast, onClose: NOOP, openForm: openFormHere })
   const model = view?.model ?? null
   const card = target?.kind === 'card' ? model?.cards.find((c) => c.id === target.id) ?? null : null
-  const link = target?.kind === 'link' && model !== null ? viewLinkByEdgeId(model.links, target.id) ?? null : null
+  const link = useCanvasStore((s) => target?.kind === 'link' ? viewLinkDataOf(s.edges.find((e) => e.id === target.id))?.link ?? null : null)
   useEffect(() => { if (target !== null && card === null && link === null) close() }, [target, card, link, close])
   // The "Your figure" field below carries its own "Change figure" button, so the edit row for it is not drawn as well (said once).
   const figureField = card?.figure?.edit != null && !isSizeEdit(card.figure.edit)

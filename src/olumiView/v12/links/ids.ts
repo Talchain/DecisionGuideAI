@@ -10,7 +10,3 @@ export function viewLinkEdgeIds(links: readonly ViewLink[]): string[] {
     return `${triple}#${ordinal}`
   })
 }
-
-export function viewLinkByEdgeId(links: readonly ViewLink[], id: string): ViewLink | undefined {
-  return links[viewLinkEdgeIds(links).indexOf(id)]
-}

@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ToastProvider } from '../../../../canvas/ToastContext'
 import { CanvasContextMenu } from '../../../../canvas/contextMenu/CanvasContextMenu'
+import { drawViewCanvas } from '../../../canvas'
 import { viewLinkEdgeIds } from '../../links/ids'
 import type { ContextTarget } from '../../../../canvas/contextMenu/types'
 import { ViewCard } from '../../../../canvas/nodes/ViewCardNode'
@@ -49,6 +50,7 @@ function install(view: View = approved()): void {
     return new Response(JSON.stringify({ version: 9, n: 3, receipt: 'x:9', record: 'x' }), { status: 201 })
   }) as unknown as typeof fetch)
   useViewStore.setState({ uuid: '00000000-0000-4000-8000-0123456789ab', sid: SID, view, status: 'ready', error: null, stale: false, at: null })
+  drawViewCanvas(view.model!, new Map())
   useMe.setState({ me: { id: view.you_id, name: view.you }, status: 'ready' } as never)
 }
 const lane = (on: boolean): void => { vi.stubEnv('VITE_OLUMI_CORE', on ? '1' : '0') }

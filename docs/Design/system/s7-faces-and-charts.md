@@ -120,7 +120,7 @@ Build order, from the chart system:
 
 ## Link lines (LN)
 
-Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. The board and the key share `v12/links/connector.tsx`, and the key takes its swatches from committed View edges.
+Anatomy: `components/LinkLine.md`. Styles: `v12/links/styles.ts` `LINK_STYLES`. Precedence: `src/canvas/edges/ViewLinkEdge.tsx`.
 
 | ID | Line | Code |
 |---|---|---|

@@ -1,9 +1,13 @@
-/** How to read the committed connectors and Core's key for the View. */
+/**
+ * THE LANE'S KEY (DL 4 Nov): "How to read this" on the olumi-core lane draws core's own key, `model.key` in the View (the page's KEY as
+ * data: each glyph and its words, in the page's order). Nothing is written here: no glyph, no meaning, no order of DGAI's.
+ * Off the lane the legacy `CanvasLegendPopover` stays.
+ */
 import { Hover } from './look/Hover'
 import { useEffect, useRef } from 'react'
 import { typography } from '../styles/typography'
 import { useCanvasStore } from '../canvas/store'
-import { isViewEdge, viewEdgesBelongTo } from './canvas'
+import { GROUP_LINK, ROOT_LINK, VIEW_LINK } from './canvas'
 import { useViewStore } from './store'
 import { NodeShapeIndicator } from '../canvas/nodes/NodeShapeIndicator'
 import type { NodeType } from '../canvas/domain/nodes'
@@ -30,8 +34,7 @@ export function ViewLegend({ open, onOpenChange }: Props) {
     return banded ? m?.run?.sensitivity ?? null : null
   })
   const wrap = useRef<HTMLDivElement>(null)
-  const sid = useViewStore((s) => s.sid)
-  const hasEdges = useCanvasStore((s) => viewEdgesBelongTo(sid) && s.edges.some(isViewEdge))
+  const hasEdges = useCanvasStore((s) => s.edges.some((e) => e.type === VIEW_LINK || e.type === ROOT_LINK || e.type === GROUP_LINK))
   const hasKey = Boolean(key?.length) || hasEdges
   useEscapeLayer(open && hasKey, () => onOpenChange(false))
   useEffect(() => {

@@ -11,12 +11,23 @@ export type ConnectorLook = { tone: Tone; dash: 'none' | 'doubt' | 'dotted'; end
 export const lookKey = ({ tone, dash, end, halo, reasonAlert }: ConnectorLook): string => `${tone}:${dash}:${end}:${halo}:${reasonAlert}`
 
 export function directionOf(link: ViewLink) {
+  // D4 (the lead, 17 Nov): a causal belief's direction is core's (`link.direction`, fields.ts linkLook); a line core sends none for keeps its typed
+  // sign (`causal.sign`), as before: a calculation line's sign is real and already derived, so adopting the field never strips a colour a line has today.
   const typed = linkLook(link)
   return typed.source === 'view' && typed.direction !== null ? typed.direction
     : link.causal?.sign === 'increases' ? 'raises' : link.causal?.sign === 'decreases' ? 'lowers' : link.causal?.sign === 'unknown' ? 'unknown' : null
 }
 
+/**
+ * How the canvas draws a link, by the SAME predicates as canvas/edges/ViewLinkEdge (R5, L2): a direction core sends (`link.direction`) else the typed sign's;
+ * a link with a typed `causal` or a direction is a modelled effect whatever its role says; only one with neither is drawn by its role.
+ */
 export function connectorLookOf(link: ViewLink, { firstDraft, byOlumi, driver }: { firstDraft: boolean; byOlumi: boolean; driver: boolean }): ConnectorLook {
+  // R5 (Paul, 16 Nov): a modelled effect (`causal`) takes its direction's colour; structural and reason links use neutral ink by default. EVERY line is one width (L3).
+  // A dash means doubt and nothing else; a reason link is DOTTED (L1, a round-dot recipe, never a dash).
+  // L4: polarity is the colour, doubt the dash, and alert and proposal each have a halo. On a reason link, alert colours the stroke instead.
+  // A driver link (the lens) is never quiet. Olumi's blue marks a link Olumi proposed or inferred inside a model already approved; on a first draft everything is
+  // proposed, so it marks nothing (R3). An Olumi-proposed link in an approved model is Olumi's whatever its kind, a reason line included (Line reviewer, 38ef5ce8).
   const direction = directionOf(link)
   const modelled = link.causal != null || direction !== null
   const role = linkRole(link), style = linkStyle(link)
@@ -51,6 +62,7 @@ export function connectorMeaning(link: ViewLink, key: ViewModel['key']) {
 export const ROOT_LOOK: ConnectorLook = { tone: 'neutral', dash: 'none', end: 'none', halo: 'none', reasonAlert: false }
 export const groupLook = (directed: boolean): ConnectorLook => directed ? { ...ROOT_LOOK, end: 'arrow' } : ROOT_LOOK
 
+/** A line under a halo or a dotted line, as the canvas draws them: the halo is the underlay, the line keeps its own direction colour and arrow. */
 export function ConnectorLine({ id, path, look, markerId, onPath }: { id?: string; path: string; look: ConnectorLook; markerId?: string; onPath?: boolean }) {
   const uid = useId()
   const marker = markerId ?? uid
@@ -66,6 +78,7 @@ export function ConnectorLine({ id, path, look, markerId, onPath }: { id?: strin
   </>
 }
 
+// The key's line samples are the canvas's own line styles (links/styles.ts), so the key can never say what the lines do not.
 export function ConnectorSwatch({ look }: { look: ConnectorLook }) {
   const path = look.end === 'dot' ? 'M6 2V12' : 'M6 2V14'
   return <svg width="12" height="16" aria-hidden="true" data-look={lookKey(look)} className={`ok-connector-swatch ok-link-tone-${look.tone}`}>
