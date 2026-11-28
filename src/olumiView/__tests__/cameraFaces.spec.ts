@@ -66,32 +66,3 @@ describe('the first frame lands on heights measured with the face it draws (ORDE
     expect(inside(F.w2000.full.nodes, v, p2, FREE_2000)).toEqual([])
   })
 })
-
-/**
- * Paul, 27 Nov: keep the readable floor and fix the three framing defects. Bound to the boxes the served UI 0e76e293 drew for the hiring model in
- * Detailed at 2000 x 1205 (fixtures/hiring-2000-detailed-boxes.json, zero-call probe). The board needs zoom 0.825 to fit whole, below the floor, so
- * it opens at the floor: no empty band above the board, and every card's label and figure line above the foot gutter.
- */
-describe('a Detailed board too large to fit whole opens at the readable floor (hiring, 2000 x 1205)', () => {
-  const H = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/hiring-2000-detailed-boxes.json'), 'utf8')) as { pane: { width: number; height: number }; free: typeof FREE_1128; boxes: Box[] }
-  const full: FaceSnap = { zoom: 1, nodes: nodesOf(H.boxes) }
-  const v = cameraFrame({ full }, H.pane, H.free)!
-  const top = Math.min(...H.boxes.map((b) => b.y))
-  const gutter = H.pane.height - 96
-  it('precondition: the whole board does not fit at the floor (its height needs a smaller zoom)', () => {
-    const height = Math.max(...H.boxes.map((b) => b.y + b.h)) - top
-    expect((H.pane.height - H.free.top - H.free.bottom) / height).toBeLessThan(FACE_RANGE.full[0])
-  })
-  it('opens at the floor, not at the width-fit (1.0 before)', () => {
-    expect(v.zoom).toBeCloseTo(FACE_RANGE.full[0], 6)
-  })
-  it('no empty band: the board\'s top sits at the free canvas\'s top (164 px lower before, pushed down by restClearOfFoot)', () => {
-    expect(top * v.zoom + v.y - H.free.top).toBeLessThan(24)
-  })
-  it('every card\'s label and figure line clears the foot gutter, or the card is wholly below the window', () => {
-    const cut = H.boxes.filter((b) => { const t = b.y * v.zoom + v.y; return t < H.pane.height - 0.5 && t + Math.min(b.h, 96) * v.zoom > gutter + 0.5 })
-    expect(cut.map((b) => b.id)).toEqual([])
-    const below = H.boxes.filter((b) => b.y * v.zoom + v.y >= H.pane.height - 0.5)
-    expect(below.map((b) => b.id), 'all 20 cards have their label in view').toEqual([])
-  })
-})

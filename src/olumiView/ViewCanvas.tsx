@@ -59,7 +59,7 @@ import { lanePlaceHost } from './look/placeReaders'
 import { LaneHelp } from './v12/LaneHelp'
 import { useLaneInspector } from './v12/edit/inspectorStore'
 import { useSettingsStore } from '../canvas/settingsStore'
-import { frameTop, useCardClearOfRegions } from './regions'
+import { frameTop, useCardClearOfRegions, footRectsOf } from './regions'
 import { DraftingBoard, LayingBoard } from './DraftingBoard'
 import { ViewWelcome } from './ViewWelcome'
 import { useOpenInView, useRevealInView, useTryInView } from './revealCamera'
@@ -189,7 +189,7 @@ export function cameraFrame(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: 
   // V12 Simple frames itself (simpleFrame): the whole board above the foot gutter where it fits at the floor or above; else from its top, as wide as the
   // room and no wider, at a zoom at which no card is cut by the foot (zoomClearOfFoot), and the cue counts what is below. restClearOfFoot is Detailed's.
   if (v === null || nodes === undefined || simple) return v
-  return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top), anchor)
+  return restClearOfFoot(v, nodes, pane.height, frameTop((free ?? paddingToInsets(computeFitPadding())).top), anchor, footRectsOf())
 }
 
 function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: number; height: number }, free?: { top: number; right: number; bottom: number; left: number }, simple = false): Viewport | null {
@@ -210,10 +210,7 @@ function frameOf(snaps: Partial<Record<FaceRegime, FaceSnap>>, pane: { width: nu
   // V12 Simple: a model that cannot fit whole opens at the readable floor (11 px text), never larger, so the most bands are in view; the top
   // bands are shown and the "N more below" cue stays. Detailed keeps the full band's own rule.
   if (simple) return atZoom(full.nodes, pane, free, lo)
-  // Paul, 27 Nov: keep the readable floor. A board too large to fit whole opens at the floor (11 px text), as Simple does, so the most rows are read at
-  // rest. Opening at the width-fit (often 1.0) left the last row exactly at the window's foot, and restClearOfFoot then pushed the whole board down
-  // under an empty band (hiring at 2000 x 1205: 164 px of empty canvas, five cards below).
-  return atZoom(full.nodes, pane, free, lo)
+  return atZoom(full.nodes, pane, free, Math.max(lo, Math.min(hi, acrossZoom(full.nodes, pane, free))))
 }
 
 function simpleFrame(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined): Viewport | null {
@@ -234,6 +231,13 @@ function simpleFrame(nodes: readonly Node[], pane: { width: number; height: numb
   const base = Math.max(SIMPLE_FIT_FLOOR, Math.min(readable, across))
   const z = zoomClearOfFoot(nodes.map((n) => ({ y: n.position.y, h: n.measured?.height ?? n.height ?? 0 })), bounds.y, top, pane.height, base, Math.max(SIMPLE_FIT_FLOOR, Math.min(base, readable)))
   return atZoom(nodes, pane, free, z)
+}
+
+/** The zoom at which the board's width fills the free canvas across (its height not considered: what is below is panned to). */
+function acrossZoom(nodes: readonly Node[], pane: { width: number; height: number }, free: { top: number; right: number; bottom: number; left: number } | undefined): number {
+  if (nodes.length === 0 || pane.width === 0) return 1
+  const bounds = getNodesBounds(nodes as Node[]), raw = free ?? paddingToInsets(computeFitPadding())
+  return Math.max(1, pane.width - raw.left - raw.right) / Math.max(1, bounds.width)
 }
 
 /** The board framed at exactly `zoom` (top under the free canvas's top, centred across), to draw a face once and measure it. */

@@ -121,3 +121,33 @@ describe('(camera, PL-1040) only the first approval brings the aim into view', (
     expect([aimAfterFirstApproval(boardSeenOf(at(1, true)), at(2, false)), aimAfterFirstApproval(null, at(1, false)), aimAfterFirstApproval(boardSeenOf(at(null, true)), at(null, true))]).toEqual([null, null, null])
   })
 })
+
+/**
+ * Paul, 28 Nov: keep the readable floor and fix the framing. Hiring at 2000 x 1205 in Detailed (fixtures/hiring-2000-detailed-boxes.json, the boxes the
+ * served UI 0e76e293 drew; foot controls measured on the same build, zero calls): with the band across the window, the last row's label crosses the
+ * band, so the whole board is pushed down under an empty band and 3 cards' labels go below the window. Judged against the real foot controls (bottom
+ * left), every card's label stays in the window and the band shrinks.
+ */
+describe('hiring 2000: labels judged against the real foot controls, not a band across the window', () => {
+  const H = JSON.parse(readFileSync(path.resolve('src/olumiView/__tests__/fixtures/hiring-2000-detailed-boxes.json'), 'utf8')) as { boxes: { id: string; x: number; y: number; w: number; h: number }[] }
+  const nodes = H.boxes.map((b) => ({ id: b.id, position: { x: b.x, y: b.y }, data: {}, measured: { width: b.w, height: b.h } })) as never
+  const PANE_H = 1205, FREE_TOP = 60, top = Math.min(...H.boxes.map((b) => b.y))
+  const start = { x: -199.5, y: FREE_TOP - top, zoom: 1 }
+  const FOOT = [{ left: 13, right: 53, top: 1026, bottom: 1165 }, { left: 66, right: 214, top: 1130, bottom: 1160 }]
+  const inWindow = (v: { y: number; zoom: number }) => H.boxes.filter((b) => b.y * v.zoom + v.y < PANE_H - 0.5).length
+  it('CONTRAST (the band, as served): the board is pushed down about 154 px and 3 labels go below the window', () => {
+    const v = restClearOfFoot(start, nodes, PANE_H, FREE_TOP)
+    expect(v.y - start.y).toBeGreaterThan(140)
+    expect(inWindow(v)).toBe(17)
+  })
+  it('the real foot controls: all 20 labels in the window, a smaller move, and no label or figure line under a control', () => {
+    const v = restClearOfFoot(start, nodes, PANE_H, FREE_TOP, null, FOOT)
+    expect(inWindow(v)).toBe(20)
+    expect(v.y - start.y).toBeLessThan(restClearOfFoot(start, nodes, PANE_H, FREE_TOP).y - start.y)
+    const under = H.boxes.filter((b) => {
+      const t = b.y + v.y, l = b.x + v.x, r = b.x + b.w + v.x, e = t + Math.min(b.h, 96)
+      return t < PANE_H && FOOT.some((f) => l < f.right + 12 && r > f.left - 12 && t < f.bottom + 12 && e > f.top - 12)
+    })
+    expect(under.map((b) => b.id)).toEqual([])
+  })
+})

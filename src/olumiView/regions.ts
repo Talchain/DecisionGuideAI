@@ -151,3 +151,19 @@ export function useCardClearOfRegions(): void {
   }, [getViewport, setViewport])
 }
 
+
+/**
+ * The foot controls' boxes for the resting frame (footClear.ts restClearOfFoot): the viewport controls and the "N more below" cue as drawn, and, where
+ * the cue is not drawn yet, its slot (BelowCue: 12 px right of the viewport controls, inside their foot), so a frame made before the cue appears
+ * never puts a card's label where it will stand. Undefined where the viewport controls are not drawn: the frame then keeps the band across the window.
+ */
+export function footRectsOf(): { left: number; right: number; top: number; bottom: number }[] | undefined {
+  if (typeof document === 'undefined') return undefined
+  const nav = document.querySelector('nav[aria-label="Viewport controls"]')?.getBoundingClientRect()
+  if (nav === undefined || nav.width === 0) return undefined
+  const drawn = rectsOf(FOOT_CONTROLS).filter((r) => r.width > 0).map((r) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom }))
+  const cue = document.querySelector('[data-testid="view-below-cue"] button')
+  return cue === null ? [...drawn, { left: nav.right + REGION_GAP, right: nav.right + REGION_GAP + CUE_SLOT_W, top: nav.bottom - CUE_SLOT_H, bottom: nav.bottom }] : drawn
+}
+/** The cue's slot where it is not drawn yet, px: wide enough for "12 more cards below" at the toolbar's type, as tall as the toolbar's bar. */
+const CUE_SLOT_W = 180, CUE_SLOT_H = 36
